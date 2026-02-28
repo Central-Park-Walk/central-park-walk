@@ -1,0 +1,23 @@
+; Engine configuration file.
+; It's best edited using the editor GUI and not directly,
+; but the manual procedure is also documented in the documentation.
+
+config_version=5
+
+[application]
+
+config/name="Central Park Walk"
+config/description="First-person Xbox controller walk with spatial reference markers"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.2", "Forward Plus")
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/stretch/mode="canvas_items"
+
+[rendering]
+
+textures/default_filters/anisotropic_filtering_level=4
+anti_aliasing/quality/msaa_3d=2

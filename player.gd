@@ -1,0 +1,77 @@
+extends CharacterBody3D
+
+# Comfortable stroll: ~5 km/h ≈ 1.4 m/s feels slow in 3D, so 4.5 m/s is a brisk-but-pleasant walk.
+const WALK_SPEED    := 4.5   # m/s
+const LOOK_SPEED    := 100.0  # degrees/second at full stick deflection
+const DEADZONE      := 0.15   # ignore stick values below this
+
+var head: Node3D    # pitch pivot at eye height
+
+
+func _ready() -> void:
+	# Capsule collider
+	var col := CollisionShape3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.35
+	cap.height = 1.7
+	col.shape   = cap
+	col.position = Vector3(0.0, 0.85, 0.0)
+	add_child(col)
+
+	# Head node – only rotates on X (pitch)
+	head = Node3D.new()
+	head.name     = "Head"
+	head.position = Vector3(0.0, 1.65, 0.0)
+	add_child(head)
+
+	# Camera attached to head
+	var cam := Camera3D.new()
+	cam.name    = "Camera"
+	cam.current = true
+	cam.fov     = 80.0
+	head.add_child(cam)
+
+	position = Vector3(0.0, 0.0, 0.0)
+
+
+func _physics_process(delta: float) -> void:
+	_handle_look(delta)
+	_handle_movement(delta)
+
+
+func _handle_look(delta: float) -> void:
+	var rx := Input.get_joy_axis(0, JOY_AXIS_RIGHT_X)
+	var ry := Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y)
+
+	if absf(rx) < DEADZONE: rx = 0.0
+	if absf(ry) < DEADZONE: ry = 0.0
+
+	# Yaw stored in rotation_degrees.y directly so main.gd can read it for compass
+	rotation_degrees.y -= rx * LOOK_SPEED * delta
+	head.rotation_degrees.x -= ry * LOOK_SPEED * delta
+	head.rotation_degrees.x = clampf(head.rotation_degrees.x, -80.0, 80.0)
+
+
+func _handle_movement(delta: float) -> void:
+	var lx := Input.get_joy_axis(0, JOY_AXIS_LEFT_X)
+	var ly := Input.get_joy_axis(0, JOY_AXIS_LEFT_Y)
+
+	if absf(lx) < DEADZONE: lx = 0.0
+	if absf(ly) < DEADZONE: ly = 0.0
+
+	# Gravity
+	if not is_on_floor():
+		velocity.y -= 9.8 * delta
+
+	# Map stick to world-space horizontal movement
+	var wish := Vector3(lx, 0.0, ly)
+	if wish.length_squared() > 1.0:
+		wish = wish.normalized()
+
+	wish = transform.basis * wish
+	wish.y = 0.0
+
+	velocity.x = wish.x * WALK_SPEED
+	velocity.z = wish.z * WALK_SPEED
+
+	move_and_slide()
