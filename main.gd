@@ -159,6 +159,7 @@ func _ready() -> void:
 	RenderingServer.global_shader_parameter_add("wind_vec", RenderingServer.GLOBAL_VAR_TYPE_VEC2, Vector2.ZERO)
 	RenderingServer.global_shader_parameter_add("snow_cover", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	RenderingServer.global_shader_parameter_add("rain_wetness", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
+	RenderingServer.global_shader_parameter_add("sky_reflect_color", RenderingServer.GLOBAL_VAR_TYPE_VEC3, Vector3(0.32, 0.38, 0.45))
 	if not _terrain_only:
 		_setup_park()
 		_apply_tunnel_depressions()
@@ -1242,6 +1243,16 @@ func _apply_time_of_day() -> void:
 		_env.adjustment_saturation *= 0.75
 		_sky_mat.set_shader_parameter("cloud_coverage", 0.92)
 		_sky_mat.set_shader_parameter("cloud_density", 0.80)
+
+	# Sky reflection color for water surfaces — tracks time-of-day sky tone
+	var sky_r: Color = _lerp_kf("fog_color", a, b, t)
+	var sun_c: Color = _lerp_kf("sun_color", a, b, t)
+	# Blend fog color (ambient sky) with sun color for water reflection
+	var reflect := sky_r.lerp(sun_c, 0.3)
+	# Boost luminance slightly for specular reflection
+	reflect = reflect * 1.2
+	RenderingServer.global_shader_parameter_set("sky_reflect_color",
+		Vector3(reflect.r, reflect.g, reflect.b))
 
 	# Morning dew — specular on grass surfaces at dawn (4:30-8:30 AM)
 	var dew := 0.0
