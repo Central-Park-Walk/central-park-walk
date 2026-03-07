@@ -1723,8 +1723,9 @@ func _build_bridge(path: Dictionary) -> void:
 	var abut_tint := Color(0.50, 0.48, 0.44)     # schist gray
 	match style:
 		BridgeStyle.CAST_IRON:
-			soffit_tint = Color(0.48, 0.46, 0.44)
-			abut_tint = Color(0.50, 0.48, 0.44)
+			soffit_tint = Color(0.46, 0.35, 0.28)  # warm reddish-brown iron paint
+			parapet_tint = Color(0.50, 0.38, 0.30)  # matching iron color
+			abut_tint = Color(0.48, 0.44, 0.40)     # stone abutments
 		BridgeStyle.BRICK:
 			soffit_tint = Color(0.60, 0.40, 0.30)
 			parapet_tint = Color(0.65, 0.42, 0.32)
@@ -2582,9 +2583,9 @@ func _build_iron_railings(pts: Array, pt_y: PackedFloat32Array,
 	if rail_verts.is_empty():
 		return
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.12, 0.12, 0.14)
-	mat.metallic = 0.6
-	mat.roughness = 0.35
+	mat.albedo_color = Color(0.42, 0.30, 0.24)  # warm reddish-brown iron paint (#6B4D3D)
+	mat.metallic = 0.45
+	mat.roughness = 0.40
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var arrays: Array = []; arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = rail_verts
@@ -2924,8 +2925,8 @@ func _build_wood_railings(pts: Array, pt_y: PackedFloat32Array,
 	if rail_verts.is_empty():
 		return
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.35, 0.25, 0.15)
-	mat.roughness = 0.85
+	mat.albedo_color = Color(0.38, 0.32, 0.25)  # weathered gray-brown (#614F3F)
+	mat.roughness = 0.88
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var arrays: Array = []; arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = rail_verts
@@ -4518,8 +4519,27 @@ uniform float hm_min_h      = 0.0;
 uniform float hm_range      = 1.0;
 uniform float hm_res        = 256.0;
 uniform float water_y_offset = 0.03;
+global uniform float rain_wetness;
 
 varying vec3 world_pos;
+
+// Raindrop ripple rings — concentric circles from random impact points
+float raindrop_ripple(vec2 p) {
+	float t = TIME;
+	float ripple = 0.0;
+	// 6 rain impact layers, offset to avoid synchronization
+	for (int i = 0; i < 6; i++) {
+		vec2 cell = floor(p * (1.5 + float(i) * 0.3)) + vec2(float(i) * 17.3, float(i) * 31.7);
+		vec2 center = cell + vec2(fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453),
+		                          fract(sin(dot(cell, vec2(269.5, 183.3))) * 43758.5453));
+		float phase = fract(sin(dot(cell, vec2(113.5, 271.9))) * 43758.5453) * 3.0;
+		float age = fract(t * 0.4 + phase);  // 0→1 lifecycle
+		float dist = length(p * (1.5 + float(i) * 0.3) - center);
+		float ring = sin((dist - age * 3.0) * 18.0) * exp(-dist * 2.5) * (1.0 - age);
+		ripple += ring * 0.15;
+	}
+	return ripple;
+}
 
 // Decode 16-bit height from RG8
 float decode_h(vec4 s) {
@@ -4640,6 +4660,20 @@ void fragment() {
 	// Subtle blend — mostly deep, shallow only at wave peaks
 	vec3 base_col = mix(deep, shallow, smoothstep(-0.3, 0.6, wave_h));
 
+	// Rain ripples — concentric ring disturbance when raining
+	if (rain_wetness > 0.01) {
+		float rr = raindrop_ripple(world_pos.xz / 6.0);
+		float e = 0.02;
+		float rr_dx = raindrop_ripple((world_pos.xz + vec2(e, 0.0)) / 6.0);
+		float rr_dz = raindrop_ripple((world_pos.xz + vec2(0.0, e)) / 6.0);
+		vec3 ripple_n = normalize(vec3(
+			-(rr_dx - rr) / e * 0.3,
+			1.0,
+			-(rr_dz - rr) / e * 0.3
+		));
+		wave_nrm = normalize(mix(wave_nrm, ripple_n, rain_wetness * 0.6));
+	}
+
 	NORMAL    = normalize((VIEW_MATRIX * vec4(wave_nrm, 0.0)).xyz);
 
 	// Fresnel — glancing angles reflect sky
@@ -4744,6 +4778,14 @@ func _build_buildings(buildings: Array) -> void:
 			style = 4  # DARK_STONE — Belvedere Castle (Manhattan schist)
 		elif bld_name.contains("bandshell") or bld_name.contains("naumburg"):
 			style = 0  # LIMESTONE — Naumburg Bandshell (concrete/limestone)
+		elif bld_name.contains("blockhouse"):
+			style = 4  # DARK_STONE — Blockhouse No. 1 (1814, Manhattan schist)
+		elif bld_name.contains("pavilion") or bld_name.contains("ladies"):
+			style = 0  # LIMESTONE — Ladies' Pavilion (ornamental cast iron, light)
+		elif bld_name.contains("arsenal"):
+			style = 2  # RED_BRICK — The Arsenal (1848, red brick Gothic Revival)
+		elif bld_name.contains("chess") or bld_name.contains("checkers"):
+			style = 4  # DARK_STONE — Chess & Checkers House (rustic stone)
 
 		# Per-building tint variation via vertex color (±15%)
 		rng.seed = int(abs(cx * 73.7 + cz * 131.1)) + 12345
@@ -4960,6 +5002,12 @@ func _build_buildings(buildings: Array) -> void:
 			roof_override = true
 		elif bld_name.contains("belvedere") or bld_name.contains("castle"):
 			roof_col = Color(0.32, 0.30, 0.28)    # schist gray cap
+			roof_override = true
+		elif bld_name.contains("blockhouse"):
+			roof_col = Color(0.30, 0.28, 0.26)    # weathered stone cap
+			roof_override = true
+		elif bld_name.contains("arsenal"):
+			roof_col = Color(0.22, 0.20, 0.18)    # dark slate
 			roof_override = true
 		if not roof_override:
 			# Random roof: dark tar (30%), light concrete (30%), brown (20%), greenish (20%)

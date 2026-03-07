@@ -91,6 +91,8 @@ var _wind_override := -1.0      # <0 = auto, 0-1 = manual strength multiplier
 
 # Snow accumulation
 var _snow_cover := 0.0          # 0-1, ramps up during snow weather
+# Rain wetness — ground darkens + specular increases
+var _rain_wetness := 0.0        # 0-1, ramps up during rain
 
 # Weather audio
 var _rain_audio_player: AudioStreamPlayer
@@ -181,6 +183,7 @@ func _ready() -> void:
 	# Register global wind uniform so all vegetation shaders can read it
 	RenderingServer.global_shader_parameter_add("wind_vec", RenderingServer.GLOBAL_VAR_TYPE_VEC2, Vector2.ZERO)
 	RenderingServer.global_shader_parameter_add("snow_cover", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
+	RenderingServer.global_shader_parameter_add("rain_wetness", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	_setup_weather_audio()
 	_apply_time_of_day()
 	_setup_weather()
@@ -405,6 +408,15 @@ func _process(delta: float) -> void:
 	if _terrain_mat:
 		_terrain_mat.set_shader_parameter("snow_cover", _snow_cover)
 	RenderingServer.global_shader_parameter_set("snow_cover", _snow_cover)
+
+	# Rain wetness — ground darkens, gets glossy
+	if _weather_mode == "rain" or _weather_mode == "thunderstorm":
+		_rain_wetness = minf(_rain_wetness + delta * 0.04, 1.0)  # ~25s to full wet
+	else:
+		_rain_wetness = maxf(_rain_wetness - delta * 0.015, 0.0)  # ~67s to dry
+	if _terrain_mat:
+		_terrain_mat.set_shader_parameter("rain_wetness", _rain_wetness)
+	RenderingServer.global_shader_parameter_set("rain_wetness", _rain_wetness)
 
 	# Particles follow player — wind deflects rain/snow
 	if _rain_particles and _player:
@@ -1636,6 +1648,8 @@ uniform sampler2D park_mask : filter_linear, repeat_disable;
 
 // Snow accumulation
 uniform float snow_cover : hint_range(0.0, 1.0) = 0.0;
+// Rain wetness — darkens surfaces, lowers roughness
+uniform float rain_wetness : hint_range(0.0, 1.0) = 0.0;
 
 // Landuse zone map: encodes zone type per pixel
 // 0=unzoned (default mowed lawn), 1=garden, 2=grass, 3=pitch, 4=playground,
@@ -1858,6 +1872,28 @@ void fragment() {
 	grass_nrm = mix(grass_nrm, m_nrm, meadow_blend);
 	grass_rgh = mix(grass_rgh, m_rgh, meadow_blend);
 
+	// --- Olmsted Landscape Modes: subtle color modulation by design intent ---
+	// Pastoral (open meadows): warm golden-green, brighter — "soothe and restore"
+	// Picturesque (Ramble, North Woods): cool blue-green, deeper shade — "sense of mystery"
+	// Formal (Mall, Bethesda, Conservatory Garden): crisp, slightly desaturated
+	if (is_woodland) {
+		// Picturesque: cooler, deeper, more mysterious
+		grass_alb.r *= 0.88;
+		grass_alb.g *= 1.04;
+		grass_alb.b *= 1.10;
+		grass_alb *= 0.88;  // deeper shade under canopy
+	} else if (zone_id == 1) {
+		// Garden zones → Formal: crisp, slightly desaturated manicured look
+		float sat = dot(grass_alb, vec3(0.299, 0.587, 0.114));
+		grass_alb = mix(vec3(sat), grass_alb, 0.85);  // 15% desaturation
+		grass_alb *= 1.05;  // slightly brighter, well-maintained
+	} else if (zone_id == 3 || zone_id == 8) {
+		// Grass/pitch → Pastoral: warm, golden Kentucky bluegrass
+		grass_alb.r *= 1.06;
+		grass_alb.g *= 1.02;
+		grass_alb.b *= 0.90;
+	}
+
 	// Dirt/mulch for playgrounds(4), dog_parks(6), tracks(9)
 	bool is_dirt = (zone_id == 4 || zone_id == 6 || zone_id == 9);
 	if (is_dirt) {
@@ -1982,6 +2018,38 @@ void fragment() {
 		grass_rgh = mix(grass_rgh, 0.78, beth_blend);
 	}
 
+	// --- Conservatory Garden: formal gravel paths, manicured lawn ---
+	// Center of entire garden complex at (1080, -1195), ~80m radius
+	float d_cg = length(world_pos.xz - vec2(1080.0, -1195.0));
+	if (d_cg < 100.0 && slope < 0.10) {
+		// Formal garden lawn: exceptionally green, uniform, desaturated slightly
+		float cg_blend = smoothstep(100.0, 70.0, d_cg);
+		float sat = dot(grass_alb, vec3(0.299, 0.587, 0.114));
+		vec3 formal_green = mix(vec3(sat), grass_alb, 0.80);  // slight desaturation
+		formal_green *= 1.08;  // bright, well-maintained
+		grass_alb = mix(grass_alb, formal_green, cg_blend);
+	}
+
+	// --- Shakespeare Garden: rustic earth tones, wilder character ---
+	// Center at (-389, 343), ~40m radius — 4-acre terraced hillside
+	float d_shk = length(world_pos.xz - vec2(-389.0, 343.0));
+	if (d_shk < 55.0) {
+		// Warmer, earthier ground — rustic cottage garden
+		float shk_blend = smoothstep(55.0, 35.0, d_shk);
+		grass_alb = mix(grass_alb, grass_alb * vec3(1.08, 0.98, 0.85), shk_blend);
+		grass_rgh = mix(grass_rgh, grass_rgh + 0.05, shk_blend);
+	}
+
+	// --- Cherry Hill: warm earth near Cherry Hill Fountain ---
+	// Cherry Hill circular plaza at (-580, 920), ~25m radius
+	float d_ch = length(world_pos.xz - vec2(-580.0, 920.0));
+	if (d_ch < 30.0 && slope < 0.12) {
+		float ch_blend = smoothstep(30.0, 18.0, d_ch);
+		vec3 bluestone = vec3(0.42, 0.46, 0.50);  // bluestone paving
+		grass_alb = mix(grass_alb, bluestone, ch_blend);
+		grass_rgh = mix(grass_rgh, 0.72, ch_blend);
+	}
+
 	if (mat_idx > 0 && path_weight > 0.5) {
 		// --- Path shading — winner-takes-all, no blending ---
 		vec4 ml = mat_lookup(mat_idx);
@@ -2010,6 +2078,18 @@ void fragment() {
 		// Rock surfaces get mica sparkle (higher specular), grass stays subtle
 		SPECULAR        = max(0.15, rock_specular);
 		METALLIC        = 0.0;
+	}
+
+	// --- Rain wetness: darken surfaces, lower roughness, increase specular ---
+	if (rain_wetness > 0.01) {
+		// Wet surfaces are darker (water absorption) and glossier
+		float wet = rain_wetness;
+		// Darken albedo — wet surfaces absorb ~30% more light
+		ALBEDO *= mix(1.0, 0.65, wet);
+		// Roughness drops dramatically on wet surfaces (puddle-like specular)
+		ROUGHNESS = mix(ROUGHNESS, max(ROUGHNESS * 0.3, 0.08), wet);
+		// Specular increases — wet surfaces are highly reflective
+		SPECULAR = mix(SPECULAR, 0.5, wet);
 	}
 
 	// --- Snow accumulation on flat surfaces ---
