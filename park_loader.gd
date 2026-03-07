@@ -4520,6 +4520,7 @@ uniform float hm_range      = 1.0;
 uniform float hm_res        = 256.0;
 uniform float water_y_offset = 0.03;
 global uniform float rain_wetness;
+global uniform vec3 sky_reflect_color;
 
 varying vec3 world_pos;
 
@@ -4676,9 +4677,9 @@ void fragment() {
 
 	NORMAL    = normalize((VIEW_MATRIX * vec4(wave_nrm, 0.0)).xyz);
 
-	// Fresnel — glancing angles reflect sky
+	// Fresnel — glancing angles reflect sky (color tracks time of day)
 	float fresnel = pow(1.0 - max(dot(NORMAL, VIEW), 0.0), 4.0);
-	vec3 sky_col = vec3(0.32, 0.38, 0.45);
+	vec3 sky_col = sky_reflect_color;
 	vec3 col = mix(base_col, sky_col, fresnel * (0.6 + extra_reflect));
 
 	// Foam — white caps at wave peaks (subtle in ponds, more on reservoir)
