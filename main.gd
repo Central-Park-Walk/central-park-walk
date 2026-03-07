@@ -2090,6 +2090,27 @@ void fragment() {
 		ROUGHNESS = mix(ROUGHNESS, max(ROUGHNESS * 0.3, 0.08), wet);
 		// Specular increases — wet surfaces are highly reflective
 		SPECULAR = mix(SPECULAR, 0.5, wet);
+
+		// Puddle pooling — standing water collects on flat surfaces
+		float flatness = terrain_n.y;
+		if (flatness > 0.95) {
+			// Procedural puddle mask: low-frequency noise determines puddle locations
+			float puddle_noise = fbm(world_pos.xz * 0.06, 3);
+			// Puddles form in noise "valleys" — threshold rises with rain intensity
+			float puddle_threshold = mix(0.6, 0.25, wet);
+			float puddle = smoothstep(puddle_threshold, puddle_threshold - 0.08, puddle_noise);
+			puddle *= flatness;  // only on truly flat ground
+			if (puddle > 0.01) {
+				// Puddle: very dark, very smooth, highly reflective
+				ALBEDO = mix(ALBEDO, ALBEDO * 0.3, puddle);
+				ROUGHNESS = mix(ROUGHNESS, 0.02, puddle);
+				SPECULAR = mix(SPECULAR, 0.8, puddle);
+				METALLIC = mix(METALLIC, 0.0, puddle);
+				// Flatten normal in puddle areas (still water)
+				vec3 puddle_n = normalize((VIEW_MATRIX * vec4(vec3(0.0, 1.0, 0.0), 0.0)).xyz);
+				NORMAL = mix(NORMAL, puddle_n, puddle * 0.9);
+			}
+		}
 	}
 
 	// --- Snow accumulation on flat surfaces ---
