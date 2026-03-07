@@ -1835,6 +1835,7 @@ void fragment() {
 	float best_cov = 0.0;
 	float best_hw  = 0.0;
 	int   best_mat = 0;
+	float nearest_path_dist = 999.0;  // distance to closest path edge
 
 	for (int gi = 0; gi < gcount; gi++) {
 		int li = gstart + gi;
@@ -1849,6 +1850,12 @@ void fragment() {
 		float d = point_segment_dist(world_pos.xz, ep.xy, ep.zw);
 		float hw = pr.x;
 		float cov = d < hw ? 1.0 : 0.0;
+
+		// Track distance to nearest path edge (for erosion/wear effects)
+		float edge_dist = d - hw;
+		if (edge_dist < nearest_path_dist) {
+			nearest_path_dist = edge_dist;
+		}
 
 		// Priority: wider path wins at intersections.
 		if (cov > 0.5 && hw > best_hw) {
@@ -2107,6 +2114,16 @@ void fragment() {
 		// Rock surfaces get mica sparkle (higher specular), grass stays subtle
 		SPECULAR        = max(0.15, rock_specular);
 		METALLIC        = 0.0;
+	}
+
+	// --- Path edge wear: muddy/worn margins near paths in woodland zones ---
+	if (nearest_path_dist > 0.0 && nearest_path_dist < 1.8 && is_woodland && mat_idx == 0) {
+		// Foot traffic wears ground near paths — exposed earth/mud at edges
+		float wear_noise = fbm(world_pos.xz * 0.4, 2) * 0.5;
+		float wear = smoothstep(1.8, 0.2, nearest_path_dist + wear_noise);
+		vec3 worn_earth = vec3(0.32, 0.26, 0.18);  // dark exposed earth
+		grass_alb = mix(grass_alb, worn_earth, wear * 0.5);
+		grass_rgh = mix(grass_rgh, 0.85, wear * 0.4);
 	}
 
 	// --- Morning dew: subtle sparkle on grass surfaces at dawn ---
