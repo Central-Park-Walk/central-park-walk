@@ -2143,8 +2143,37 @@ void fragment() {
 	float d_hm = length(world_pos.xz - vec2(350.0, -1750.0));
 	if (d_hm < 80.0 && mat_idx == 0) {
 		float hm_blend = smoothstep(80.0, 40.0, d_hm);
-		// Lush shoreline vegetation tint
 		grass_alb = mix(grass_alb, grass_alb * vec3(0.92, 1.06, 0.90), hm_blend);
+	}
+
+	// Conservatory Water: formal paving surround (flagstone/concrete)
+	float d_cw = length(world_pos.xz - vec2(-152.0, 958.0));
+	if (d_cw < 45.0 && d_cw > 20.0 && slope < 0.10 && mat_idx == 0) {
+		float cw_blend = smoothstep(45.0, 35.0, d_cw) * smoothstep(20.0, 28.0, d_cw);
+		vec3 flagstone = vec3(0.55, 0.53, 0.50);  // light gray flagstone paving
+		grass_alb = mix(grass_alb, flagstone, cw_blend * 0.6);
+		grass_rgh = mix(grass_rgh, 0.60, cw_blend * 0.5);
+	}
+
+	// Sheep Meadow: well-maintained turf, slightly warmer green
+	float d_sm = length(world_pos.xz - vec2(-750.0, 1800.0));
+	if (d_sm < 200.0 && slope < 0.06 && mat_idx == 0) {
+		float sm_blend = smoothstep(200.0, 120.0, d_sm);
+		grass_alb = mix(grass_alb, grass_alb * vec3(1.04, 1.02, 0.92), sm_blend);
+	}
+
+	// North Woods / The Ramble: deeper shade, earthy woodland floor
+	float d_ramble = length(world_pos.xz - vec2(-400.0, 600.0));
+	float d_nwoods = length(world_pos.xz - vec2(100.0, -1200.0));
+	float woodland_prox = min(
+		smoothstep(250.0, 100.0, d_ramble),
+		1.0
+	);
+	woodland_prox = max(woodland_prox, smoothstep(300.0, 100.0, d_nwoods));
+	if (woodland_prox > 0.01 && mat_idx == 0) {
+		// Deeper, cooler woodland floor per Olmsted "Picturesque" design
+		grass_alb = mix(grass_alb, grass_alb * vec3(0.90, 0.98, 0.95), woodland_prox * 0.5);
+		grass_alb *= mix(1.0, 0.88, woodland_prox);  // darker in deep woods
 	}
 
 	if (mat_idx > 0 && path_weight > 0.5) {
