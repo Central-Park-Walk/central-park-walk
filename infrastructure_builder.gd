@@ -632,12 +632,29 @@ func _build_statues(statues: Array) -> void:
 
 		# No photogrammetry scan available — skip procedural geometry,
 		# just place a label so the data gap stays visible.
+		# Material-tinted label: bronze → warm amber, granite → cool gray
+		var smat: String = str(statue.get("material", ""))
+		var mat_col := Color(0.75, 0.72, 0.68, 0.65)  # default neutral
+		if "bronze" in smat:
+			mat_col = Color(0.72, 0.58, 0.35, 0.65)  # warm bronze
+		elif "granite" in smat or "stone" in smat:
+			mat_col = Color(0.62, 0.62, 0.60, 0.65)  # cool granite
+
+		var label_text: String = sname if sname else stype.capitalize()
+		# Add inscription snippet if available (first 60 chars)
+		var inscription: String = str(statue.get("inscription", ""))
+		if not inscription.is_empty():
+			var snippet: String = inscription.substr(0, 60)
+			if inscription.length() > 60:
+				snippet += "..."
+			label_text += "\n" + snippet
+
 		var lbl := Label3D.new()
-		lbl.text = sname if sname else stype.capitalize()
+		lbl.text = label_text
 		lbl.font_size = 48
 		lbl.pixel_size = 0.02
 		lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		lbl.modulate = Color(0.75, 0.72, 0.68, 0.65)
+		lbl.modulate = mat_col
 		lbl.outline_size = 6
 		lbl.outline_modulate = Color(0.0, 0.0, 0.0, 0.50)
 		lbl.position = Vector3(sx, sy + 2.0, sz)
