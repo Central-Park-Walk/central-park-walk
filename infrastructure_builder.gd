@@ -1658,17 +1658,68 @@ func _build_gardens() -> void:
 # Playgrounds — named locations with colored ground markers and labels
 # ---------------------------------------------------------------------------
 func _build_playgrounds(playgrounds: Array) -> void:
-	if playgrounds.is_empty():
-		return
-	var count := 0
 	var gs_sh2: Shader = _loader._get_shader("ground_surface", "res://shaders/ground_surface.gdshader")
 	var pg_mat := ShaderMaterial.new()
 	pg_mat.shader = gs_sh2
 	pg_mat.set_shader_parameter("surface_color", Vector3(0.62, 0.42, 0.28))
 	pg_mat.set_shader_parameter("base_roughness", 0.95)
 
+	# Phase 1: Render playground polygons from landuse zones (real boundaries)
+	var poly_count := 0
+	var pg_verts := PackedVector3Array()
+	var pg_normals := PackedVector3Array()
+	var labeled_positions: Array = []  # avoid duplicate labels
+	for zone in _loader.landuse_zones:
+		if zone.get("type", "") != "playground":
+			continue
+		var pts: Array = zone.get("points", [])
+		if pts.size() < 3:
+			continue
+		var cx := 0.0; var cz := 0.0
+		for pt in pts:
+			cx += float(pt[0]); cz += float(pt[1])
+		cx /= pts.size(); cz /= pts.size()
+		if not _loader._in_boundary(cx, cz):
+			continue
+		var base_y: float = _loader._terrain_y(cx, cz) + 0.06
+		# Triangulate polygon → flat surface
+		var polygon := PackedVector2Array()
+		for pt in pts:
+			polygon.append(Vector2(float(pt[0]), float(pt[1])))
+		var indices := Geometry2D.triangulate_polygon(polygon)
+		for i in range(0, indices.size(), 3):
+			pg_verts.append(Vector3(polygon[indices[i    ]].x, base_y, polygon[indices[i    ]].y))
+			pg_verts.append(Vector3(polygon[indices[i + 1]].x, base_y, polygon[indices[i + 1]].y))
+			pg_verts.append(Vector3(polygon[indices[i + 2]].x, base_y, polygon[indices[i + 2]].y))
+			for _j in 3: pg_normals.append(Vector3.UP)
+		# Label
+		var name_: String = zone.get("name", "")
+		if not name_.is_empty():
+			var label := Label3D.new()
+			label.text = name_
+			label.font_size = 24
+			label.position = Vector3(cx, base_y + 3.5, cz)
+			label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			label.modulate = Color(0.85, 0.55, 0.25, 0.70)
+			label.outline_modulate = Color(0.1, 0.08, 0.05, 0.50)
+			label.outline_size = 4
+			label.no_depth_test = false
+			label.pixel_size = 0.012
+			_loader.add_child(label)
+			labeled_positions.append(Vector2(cx, cz))
+		poly_count += 1
+	if not pg_verts.is_empty():
+		var mesh: ArrayMesh = _loader._make_mesh(pg_verts, pg_normals)
+		mesh.surface_set_material(0, pg_mat)
+		var mi := MeshInstance3D.new()
+		mi.mesh = mesh
+		mi.name = "PlaygroundSurfaces"
+		_loader.add_child(mi)
+
+	# Phase 2: Point-based playgrounds (label-only, skip if polygon already covers it)
+	var pt_count := 0
 	for pg in playgrounds:
-		var name_: String = pg.get("name", "")
+		var name2: String = pg.get("name", "")
 		var pos: Array = pg.get("pos", [])
 		if pos.size() < 2:
 			continue
@@ -1676,21 +1727,18 @@ func _build_playgrounds(playgrounds: Array) -> void:
 		var z: float = float(pos[1])
 		if not _loader._in_boundary(x, z):
 			continue
-
+		# Skip if a polygon label is already nearby
+		var has_poly := false
+		for lp in labeled_positions:
+			if (lp - Vector2(x, z)).length() < 50.0:
+				has_poly = true
+				break
+		if has_poly:
+			continue
 		var ty: float = _loader._terrain_y(x, z)
-
-		# Ground disc — 12m radius play area
-		var disc: ArrayMesh = _loader._make_cylinder(12.0, 0.02, 24)
-		var mi := MeshInstance3D.new()
-		mi.mesh = disc
-		mi.material_override = pg_mat
-		mi.position = Vector3(x, ty + 0.05, z)
-		_loader.add_child(mi)
-
-		# Label
-		if not name_.is_empty():
+		if not name2.is_empty():
 			var label := Label3D.new()
-			label.text = name_
+			label.text = name2
 			label.font_size = 24
 			label.position = Vector3(x, ty + 3.5, z)
 			label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -1700,8 +1748,8 @@ func _build_playgrounds(playgrounds: Array) -> void:
 			label.no_depth_test = false
 			label.pixel_size = 0.012
 			_loader.add_child(label)
-		count += 1
-	print("  Playgrounds: %d placed" % count)
+		pt_count += 1
+	print("  Playgrounds: %d polygon + %d point" % [poly_count, pt_count])
 
 
 # ---------------------------------------------------------------------------
