@@ -83,11 +83,22 @@ void vertex() {
 	float sway = max(VERTEX.y, 0.0);
 	float wind_str = length(wind_vec);
 	float rustle = (0.3 + wind_str * 0.7) * mix(0.3, 1.0, leaf_density);
+	// Base sway: gentle continuous oscillation
 	VERTEX.x += sin(TIME * 0.7 + tree_origin.x * 0.04 + tree_origin.z * 0.06) * 0.09 * sway * rustle;
 	VERTEX.z += sin(TIME * 1.1 + tree_origin.z * 0.05) * 0.05 * sway * rustle;
+	// Wind push: constant lean in wind direction
 	VERTEX.x += wind_vec.x * sway * 0.18;
 	VERTEX.z += wind_vec.y * sway * 0.18;
+	// Wind gusts: periodic stronger push that travels across the canopy
+	float gust_phase = tree_origin.x * 0.02 + tree_origin.z * 0.03;  // spatial wave
+	float gust = sin(TIME * 0.3 + gust_phase) * 0.5 + 0.5;  // 0-1 gust intensity
+	gust = gust * gust * gust;  // sharpen peaks: brief strong gusts, long calm
+	float gust_strength = gust * wind_str * 0.25;
+	VERTEX.x += wind_vec.x * sway * gust_strength;
+	VERTEX.z += wind_vec.y * sway * gust_strength;
+	// Leaf flutter: high-frequency per-leaf vibration
 	float flutter = sin(TIME * 3.5 + VERTEX.x * 11.0 + VERTEX.z * 7.0) * 0.012 * rustle;
+	flutter += sin(TIME * 5.7 + VERTEX.z * 17.0) * 0.006 * gust_strength;  // gust flutter
 	VERTEX.y += flutter * sway;
 
 	// Winter: shrink canopy toward trunk
@@ -127,5 +138,9 @@ void fragment() {
 		SPECULAR = mix(SPECULAR, 0.35, rain_wetness);
 	}
 
-	BACKLIGHT = vec3(0.28, 0.20, 0.06) * v_leaf_density;
+	// Subsurface scattering: seasonal — green in summer, warm amber in fall, pale in spring
+	vec3 backlight_col = vec3(0.28, 0.20, 0.06);  // base warm SSS
+	// Tint backlight with leaf color: autumn leaves glow warm amber/red
+	backlight_col = mix(backlight_col, v_leaf_color * 0.5, 0.4);
+	BACKLIGHT = backlight_col * v_leaf_density;
 }
