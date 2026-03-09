@@ -143,7 +143,6 @@ def download_vegetation():
                 basename = name[5:]
                 if not basename:
                     continue
-                stem = basename.rsplit(".", 1)[0]
                 is_model = any(basename.startswith(m + ".") for m in NATURE_MEGAKIT_MODELS)
                 is_texture = basename in NATURE_MEGAKIT_TEXTURES
                 if is_model or is_texture:
