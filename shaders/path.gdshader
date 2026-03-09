@@ -13,6 +13,7 @@ uniform float hm_res        = 256.0;
 uniform float path_y_offset = 0.08;
 global uniform float rain_wetness;
 global uniform float snow_cover;
+global uniform float season_t;
 
 #include "res://shaders/include/decode_terrain.gdshaderinc"
 
@@ -41,6 +42,30 @@ void fragment() {
 	ROUGHNESS  = clamp(rough + 0.10, 0.0, 1.0);
 	METALLIC   = 0.0;
 	SPECULAR   = 0.06;  // matte paving default
+
+	// Seasonal path appearance
+	// Autumn: scattered leaf litter on paths, warmer tint
+	float autumn_t = smoothstep(2.0, 2.6, season_t) * (1.0 - smoothstep(3.3, 3.8, season_t));
+	if (autumn_t > 0.01) {
+		// Leaf debris: small brown/amber patches on pavement
+		float leaf_noise = pos_hash(floor(UV * 40.0));
+		float leaf_mask = step(0.85, leaf_noise) * autumn_t;
+		vec3 leaf_col = mix(vec3(0.45, 0.28, 0.10), vec3(0.58, 0.32, 0.12), leaf_noise);
+		ALBEDO = mix(ALBEDO, leaf_col, leaf_mask * 0.5);
+		// Overall warmer tint from tannin staining
+		ALBEDO *= mix(vec3(1.0), vec3(1.04, 0.98, 0.90), autumn_t * 0.3);
+	}
+	// Winter: paths look grayer, salt stains, slightly lighter
+	float winter_t = smoothstep(2.8, 3.5, season_t);
+	if (winter_t > 0.01) {
+		// Road salt residue: lighter streaks on pavement
+		float salt_noise = pos_hash(floor(UV * 20.0));
+		float salt_mask = step(0.8, salt_noise) * winter_t;
+		ALBEDO = mix(ALBEDO, ALBEDO * 1.25 + vec3(0.06), salt_mask * 0.3);
+		// Overall cooler, grayer
+		float path_lum = dot(ALBEDO, vec3(0.33));
+		ALBEDO = mix(ALBEDO, vec3(path_lum) * 1.05, winter_t * 0.2);
+	}
 
 	// Rain: wet pavement darkens, gets glossy
 	if (rain_wetness > 0.01) {
