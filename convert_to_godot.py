@@ -1077,6 +1077,22 @@ def main() -> None:
         bcolour = tags.get("building:colour", "")
         if bcolour:
             bld["colour"] = bcolour
+        # Floor count from OSM or estimated from height
+        levels_str = tags.get("building:levels", "")
+        if levels_str:
+            try:
+                bld["num_floors"] = int(float(levels_str))
+            except ValueError:
+                pass
+        if "num_floors" not in bld:
+            bld["num_floors"] = max(1, round(bld["height"] / 3.5))
+        # Start date for age patina
+        sd = tags.get("start_date", "")
+        if sd:
+            try:
+                bld["year_built"] = int(sd[:4])
+            except ValueError:
+                pass
         buildings_out.append(bld)
         osm_count += 1
     print(f"  OSM buildings: {osm_count} (in-park structures)")
