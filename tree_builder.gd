@@ -270,7 +270,7 @@ func _build_trees(trees: Array) -> void:
 	# --- Spatial chunking for LOD culling ---
 	# Each chunk's MMI is positioned at its spatial centre so that
 	# visibility_range works per-chunk (distance from camera to node).
-	const CHUNK := 150.0
+	const CHUNK := 80.0
 	const LOD0_END := 150.0
 
 	# Bucket transforms by spatial chunk per-species-variant
@@ -328,7 +328,7 @@ func _build_trees(trees: Array) -> void:
 	var bb_mat := ShaderMaterial.new()
 	bb_mat.shader = bb_shader
 
-	const LOD1_CHUNK := 300.0
+	const LOD1_CHUNK := 80.0
 	const LOD1_BEGIN := 120.0
 	const LOD1_END := 500.0
 	var lod1_chunks: Dictionary = {}
@@ -419,7 +419,9 @@ void vertex() {
 
 void fragment() {
 	vec4 tex = texture(albedo_tex, UV);
-	vec3 col = tex.rgb * albedo_tint;
+	// Use tint as base color, modulated by texture luminance for variation
+	float lum = dot(tex.rgb, vec3(0.3, 0.6, 0.1));
+	vec3 col = albedo_tint * (0.6 + lum * 0.8);
 	float alpha = tex.a;
 	if (alpha < alpha_scissor) discard;
 
