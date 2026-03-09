@@ -188,6 +188,83 @@ func _path_color(hw: String, surface: String) -> Color:
 
 
 # ---------------------------------------------------------------------------
+# Geometry helpers — miter normals & box posts
+# ---------------------------------------------------------------------------
+
+func _compute_miter_normals(pts: Array, n_pts: int) -> Array[Vector2]:
+	## Compute miter bisector normals for a polyline. Returns Array of Vector2.
+	var miter: Array[Vector2] = []
+	miter.resize(n_pts)
+	for mi in range(n_pts):
+		var nvp := Vector2.ZERO
+		var nvn := Vector2.ZERO
+		if mi > 0:
+			var sp := Vector2(float(pts[mi][0]) - float(pts[mi-1][0]),
+							  float(pts[mi][2]) - float(pts[mi-1][2]))
+			if sp.length_squared() > 0.0001:
+				var dp := sp.normalized()
+				nvp = Vector2(-dp.y, dp.x)
+		if mi < n_pts - 1:
+			var sn := Vector2(float(pts[mi+1][0]) - float(pts[mi][0]),
+							  float(pts[mi+1][2]) - float(pts[mi][2]))
+			if sn.length_squared() > 0.0001:
+				var dn := sn.normalized()
+				nvn = Vector2(-dn.y, dn.x)
+		if nvp.length_squared() < 0.0001:
+			miter[mi] = nvn
+		elif nvn.length_squared() < 0.0001:
+			miter[mi] = nvp
+		else:
+			var bisect := nvp + nvn
+			if bisect.length_squared() < 0.0001:
+				miter[mi] = nvn
+			else:
+				bisect = bisect.normalized()
+				var cos_half := bisect.dot(nvn)
+				if cos_half < 0.5:
+					cos_half = 0.5
+				miter[mi] = bisect / cos_half
+	return miter
+
+
+func _add_box_post(v: PackedVector3Array, n: PackedVector3Array,
+				   cx: float, cz: float, bot_y: float, top_y: float,
+				   post_w: float) -> void:
+	## Append a 4-face box post to vertex/normal arrays.
+	var hw := post_w * 0.5
+	for face in range(4):
+		var fn: Vector3
+		var c0: Vector3; var c1: Vector3; var c2: Vector3; var c3: Vector3
+		if face == 0:
+			fn = Vector3(1, 0, 0)
+			c0 = Vector3(cx + hw, bot_y, cz - hw)
+			c1 = Vector3(cx + hw, bot_y, cz + hw)
+			c2 = Vector3(cx + hw, top_y, cz + hw)
+			c3 = Vector3(cx + hw, top_y, cz - hw)
+		elif face == 1:
+			fn = Vector3(-1, 0, 0)
+			c0 = Vector3(cx - hw, bot_y, cz + hw)
+			c1 = Vector3(cx - hw, bot_y, cz - hw)
+			c2 = Vector3(cx - hw, top_y, cz - hw)
+			c3 = Vector3(cx - hw, top_y, cz + hw)
+		elif face == 2:
+			fn = Vector3(0, 0, 1)
+			c0 = Vector3(cx + hw, bot_y, cz + hw)
+			c1 = Vector3(cx - hw, bot_y, cz + hw)
+			c2 = Vector3(cx - hw, top_y, cz + hw)
+			c3 = Vector3(cx + hw, top_y, cz + hw)
+		else:
+			fn = Vector3(0, 0, -1)
+			c0 = Vector3(cx - hw, bot_y, cz - hw)
+			c1 = Vector3(cx + hw, bot_y, cz - hw)
+			c2 = Vector3(cx + hw, top_y, cz - hw)
+			c3 = Vector3(cx - hw, top_y, cz - hw)
+		v.append_array(PackedVector3Array([c0, c1, c2, c0, c2, c3]))
+		for _j in range(6):
+			n.append(fn)
+
+
+# ---------------------------------------------------------------------------
 # Texture helpers
 # ---------------------------------------------------------------------------
 func _load_tex(path: String) -> ImageTexture:
@@ -1551,37 +1628,7 @@ func _build_bridge(path: Dictionary) -> void:
 	var ramp_len := total_len * BRIDGE_RAMP_FRAC
 
 	# Precompute miter offset direction at each path point — shared by walls/curbs/parapets
-	var bridge_miter: Array[Vector2] = []
-	bridge_miter.resize(n_pts)
-	for mi in range(n_pts):
-		var nvp := Vector2.ZERO
-		var nvn := Vector2.ZERO
-		if mi > 0:
-			var sp := Vector2(float(pts[mi][0]) - float(pts[mi-1][0]),
-							  float(pts[mi][2]) - float(pts[mi-1][2]))
-			if sp.length_squared() > 0.0001:
-				var dp := sp.normalized()
-				nvp = Vector2(-dp.y, dp.x)
-		if mi < n_pts - 1:
-			var sn := Vector2(float(pts[mi+1][0]) - float(pts[mi][0]),
-							  float(pts[mi+1][2]) - float(pts[mi][2]))
-			if sn.length_squared() > 0.0001:
-				var dn := sn.normalized()
-				nvn = Vector2(-dn.y, dn.x)
-		if nvp.length_squared() < 0.0001:
-			bridge_miter[mi] = nvn
-		elif nvn.length_squared() < 0.0001:
-			bridge_miter[mi] = nvp
-		else:
-			var bisect := nvp + nvn
-			if bisect.length_squared() < 0.0001:
-				bridge_miter[mi] = nvn
-			else:
-				bisect = bisect.normalized()
-				var cos_half := bisect.dot(nvn)
-				if cos_half < 0.5:
-					cos_half = 0.5
-				bridge_miter[mi] = bisect / cos_half
+	var bridge_miter: Array[Vector2] = _compute_miter_normals(pts, n_pts)
 
 	# Determine bridge style (needs total_len for unnamed heuristics)
 	var style: int = _bridge_style(bridge_name, surf, total_len)
@@ -2323,38 +2370,9 @@ func _build_solid_parapets(pts: Array, pt_y: PackedFloat32Array,
 	var pilaster_spacing := 3.5  # metres between pilasters
 
 	# Use caller-provided miter or fall back to per-segment normals
-	var _mnv := miter_nv
+	var _mnv: Array[Vector2] = miter_nv
 	if _mnv.is_empty():
-		_mnv.resize(n_pts)
-		for mi in range(n_pts):
-			var nvp := Vector2.ZERO
-			var nvn := Vector2.ZERO
-			if mi > 0:
-				var sp := Vector2(float(pts[mi][0]) - float(pts[mi-1][0]),
-								  float(pts[mi][2]) - float(pts[mi-1][2]))
-				if sp.length_squared() > 0.0001:
-					var dp := sp.normalized()
-					nvp = Vector2(-dp.y, dp.x)
-			if mi < n_pts - 1:
-				var sn := Vector2(float(pts[mi+1][0]) - float(pts[mi][0]),
-								  float(pts[mi+1][2]) - float(pts[mi][2]))
-				if sn.length_squared() > 0.0001:
-					var dn := sn.normalized()
-					nvn = Vector2(-dn.y, dn.x)
-			if nvp.length_squared() < 0.0001:
-				_mnv[mi] = nvn
-			elif nvn.length_squared() < 0.0001:
-				_mnv[mi] = nvp
-			else:
-				var bisect := nvp + nvn
-				if bisect.length_squared() < 0.0001:
-					_mnv[mi] = nvn
-				else:
-					bisect = bisect.normalized()
-					var cos_half := bisect.dot(nvn)
-					if cos_half < 0.5:
-						cos_half = 0.5
-					_mnv[mi] = bisect / cos_half
+		_mnv = _compute_miter_normals(pts, n_pts)
 
 	for i in range(n_pts - 1):
 		if cum_len[i + 1] < ramp_start or cum_len[i] > ramp_end:
@@ -2608,39 +2626,7 @@ func _build_iron_railings(pts: Array, pt_y: PackedFloat32Array,
 			var s: float = side
 			var cx := px + nv.x * ohw * s
 			var cz := pz + nv.y * ohw * s
-			var phw := post_w * 0.5
-			for face in range(4):
-				var fn: Vector3
-				var c0: Vector3; var c1: Vector3; var c2: Vector3; var c3: Vector3
-				var base_y := py
-				var top_y := py + PARAPET_H + cap_h
-				if face == 0:
-					fn = Vector3(1, 0, 0)
-					c0 = Vector3(cx + phw, base_y, cz - phw)
-					c1 = Vector3(cx + phw, base_y, cz + phw)
-					c2 = Vector3(cx + phw, top_y,  cz + phw)
-					c3 = Vector3(cx + phw, top_y,  cz - phw)
-				elif face == 1:
-					fn = Vector3(-1, 0, 0)
-					c0 = Vector3(cx - phw, base_y, cz + phw)
-					c1 = Vector3(cx - phw, base_y, cz - phw)
-					c2 = Vector3(cx - phw, top_y,  cz - phw)
-					c3 = Vector3(cx - phw, top_y,  cz + phw)
-				elif face == 2:
-					fn = Vector3(0, 0, 1)
-					c0 = Vector3(cx + phw, base_y, cz + phw)
-					c1 = Vector3(cx - phw, base_y, cz + phw)
-					c2 = Vector3(cx - phw, top_y,  cz + phw)
-					c3 = Vector3(cx + phw, top_y,  cz + phw)
-				else:
-					fn = Vector3(0, 0, -1)
-					c0 = Vector3(cx - phw, base_y, cz - phw)
-					c1 = Vector3(cx + phw, base_y, cz - phw)
-					c2 = Vector3(cx + phw, top_y,  cz - phw)
-					c3 = Vector3(cx - phw, top_y,  cz - phw)
-				rail_verts.append_array(PackedVector3Array([c0, c1, c2, c0, c2, c3]))
-				for _j in range(6):
-					rail_normals.append(fn)
+			_add_box_post(rail_verts, rail_normals, cx, cz, py, py + PARAPET_H + cap_h, post_w)
 		d += post_spacing
 
 	if rail_verts.is_empty():
@@ -2934,39 +2920,7 @@ func _build_wood_railings(pts: Array, pt_y: PackedFloat32Array,
 			var s: float = side
 			var cx := px + nv.x * ohw * s
 			var cz := pz + nv.y * ohw * s
-			var phw := post_w * 0.5
-			for face in range(4):
-				var fn: Vector3
-				var c0: Vector3; var c1: Vector3; var c2: Vector3; var c3: Vector3
-				var base_y := py
-				var top_y := py + PARAPET_H
-				if face == 0:
-					fn = Vector3(1, 0, 0)
-					c0 = Vector3(cx + phw, base_y, cz - phw)
-					c1 = Vector3(cx + phw, base_y, cz + phw)
-					c2 = Vector3(cx + phw, top_y,  cz + phw)
-					c3 = Vector3(cx + phw, top_y,  cz - phw)
-				elif face == 1:
-					fn = Vector3(-1, 0, 0)
-					c0 = Vector3(cx - phw, base_y, cz + phw)
-					c1 = Vector3(cx - phw, base_y, cz - phw)
-					c2 = Vector3(cx - phw, top_y,  cz - phw)
-					c3 = Vector3(cx - phw, top_y,  cz + phw)
-				elif face == 2:
-					fn = Vector3(0, 0, 1)
-					c0 = Vector3(cx + phw, base_y, cz + phw)
-					c1 = Vector3(cx - phw, base_y, cz + phw)
-					c2 = Vector3(cx - phw, top_y,  cz + phw)
-					c3 = Vector3(cx + phw, top_y,  cz + phw)
-				else:
-					fn = Vector3(0, 0, -1)
-					c0 = Vector3(cx - phw, base_y, cz - phw)
-					c1 = Vector3(cx + phw, base_y, cz - phw)
-					c2 = Vector3(cx + phw, top_y,  cz - phw)
-					c3 = Vector3(cx - phw, top_y,  cz - phw)
-				rail_verts.append_array(PackedVector3Array([c0, c1, c2, c0, c2, c3]))
-				for _j in range(6):
-					rail_normals.append(fn)
+			_add_box_post(rail_verts, rail_normals, cx, cz, py, py + PARAPET_H, post_w)
 		d += post_spacing
 
 	if rail_verts.is_empty():
