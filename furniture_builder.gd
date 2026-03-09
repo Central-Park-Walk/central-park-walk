@@ -17,19 +17,23 @@ func _build_furniture(bench_data: Array, lamppost_data: Array, paths: Array) -> 
 
 	# --- Lamp meshes ---
 	# Load CP-specific lamppost (Henry Bacon Type B + Kent Bloomer luminaire)
+	# GLB contains two objects: CP_Lamppost (iron) + CP_Lamppost_Globe (glass)
 	var cp_lamp_path := ProjectSettings.globalize_path("res://models/furniture/cp_lamppost.glb")
 	var cp_lamp_meshes: Dictionary = _loader._load_glb_meshes(cp_lamp_path)
-	var lamp_meshes_standard: Array[Mesh] = []
+	var lamp_iron_mesh: Mesh = null
+	var lamp_globe_mesh: Mesh = null
 	if cp_lamp_meshes.has("CP_Lamppost"):
-		lamp_meshes_standard.append(cp_lamp_meshes["CP_Lamppost"] as Mesh)
-		print("Lamp: loaded CP lamppost model (Type B + Bloomer luminaire)")
+		lamp_iron_mesh = cp_lamp_meshes["CP_Lamppost"] as Mesh
+		if cp_lamp_meshes.has("CP_Lamppost_Globe"):
+			lamp_globe_mesh = cp_lamp_meshes["CP_Lamppost_Globe"] as Mesh
+		print("Lamp: loaded CP lamppost model (Type B + Bloomer luminaire, %d meshes)" % cp_lamp_meshes.size())
 	else:
 		# Fallback to generic furniture GLB
 		for lname in ["ParkFurn_Lamp_A", "ParkFurn_Lamp_B", "ParkFurn_Lamp_C"]:
 			if furn_meshes.has(lname):
-				lamp_meshes_standard.append(furn_meshes[lname] as Mesh)
+				lamp_iron_mesh = furn_meshes[lname] as Mesh
 				break
-	if lamp_meshes_standard.is_empty():
+	if lamp_iron_mesh == null:
 		print("WARNING: no lamp meshes found in GLB")
 		return
 	# Cast iron shader for weather-responsive lamppost posts
@@ -37,15 +41,15 @@ func _build_furniture(bench_data: Array, lamppost_data: Array, paths: Array) -> 
 	var lamp_post_mat := ShaderMaterial.new()
 	lamp_post_mat.shader = iron_shader
 	lamp_post_mat.set_shader_parameter("iron_color", Vector3(0.08, 0.08, 0.06))
-	var lamp_mat_override: Material = lamp_post_mat
-	# Emissive bulb material (main.gd modulates emission for day/night)
-	var lamp_bulb_mat := StandardMaterial3D.new()
-	lamp_bulb_mat.albedo_color = Color(1.0, 0.72, 0.32)
-	lamp_bulb_mat.roughness    = 0.3
-	lamp_bulb_mat.emission_enabled = true
-	lamp_bulb_mat.emission         = Color(0.0, 0.0, 0.0)  # start dark; main.gd modulates
-	lamp_bulb_mat.emission_energy_multiplier = 0.0
-	_loader.lamppost_material = lamp_bulb_mat
+	# Emissive globe material (main.gd modulates emission for day/night)
+	var lamp_globe_mat := StandardMaterial3D.new()
+	lamp_globe_mat.albedo_color = Color(1.0, 0.88, 0.65, 0.85)  # warm frosted glass
+	lamp_globe_mat.roughness    = 0.25
+	lamp_globe_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	lamp_globe_mat.emission_enabled = true
+	lamp_globe_mat.emission         = Color(0.0, 0.0, 0.0)  # start dark; main.gd modulates
+	lamp_globe_mat.emission_energy_multiplier = 0.0
+	_loader.lamppost_material = lamp_globe_mat
 
 	# --- Bench mesh (CP-specific model with iron + wood materials baked in) ---
 	var cp_bench_path := ProjectSettings.globalize_path("res://models/furniture/cp_bench.glb")
@@ -66,7 +70,6 @@ func _build_furniture(bench_data: Array, lamppost_data: Array, paths: Array) -> 
 
 	# --- Place lampposts: all identical Type B, heights pre-baked from LiDAR ---
 	var lamp_xf: Array = []
-	var bulb_xf: Array = []
 	for lp in lamppost_data:
 		var lx := float(lp[0])
 		var ly := float(lp[1])  # pre-baked LiDAR height from pipeline
@@ -74,7 +77,6 @@ func _build_furniture(bench_data: Array, lamppost_data: Array, paths: Array) -> 
 		if not _loader._in_boundary(lx, lz):
 			continue
 		lamp_xf.append(Transform3D(Basis.IDENTITY, Vector3(lx, ly, lz)))
-		bulb_xf.append(Transform3D(Basis.IDENTITY, Vector3(lx, ly + 3.87, lz)))
 
 	# --- Place benches: heights pre-baked from LiDAR ---
 	var bench_xf: Array = []
@@ -90,19 +92,12 @@ func _build_furniture(bench_data: Array, lamppost_data: Array, paths: Array) -> 
 
 	print("ParkLoader: lampposts = %d  benches = %d (pre-baked heights)" % [lamp_xf.size(), bench_xf.size()])
 
-	# Spawn all lampposts with single mesh (all identical Type B)
-	var lamp_mesh: Mesh = lamp_meshes_standard[0] if not lamp_meshes_standard.is_empty() else null
-	if lamp_mesh and not lamp_xf.is_empty():
-		_loader._spawn_multimesh(lamp_mesh, lamp_mat_override, lamp_xf, "Lampposts")
-
-	# Emissive globe bulbs at pre-computed positions
-	var bulb_mesh := SphereMesh.new()
-	bulb_mesh.radius = 0.10
-	bulb_mesh.height = 0.20
-	bulb_mesh.radial_segments = 8
-	bulb_mesh.rings = 4
-	if not bulb_xf.is_empty():
-		_loader._spawn_multimesh(bulb_mesh, lamp_bulb_mat, bulb_xf, "LampBulbs")
+	# Spawn lamppost iron parts (cast iron shader for weather response)
+	if not lamp_xf.is_empty():
+		_loader._spawn_multimesh(lamp_iron_mesh, lamp_post_mat, lamp_xf, "Lampposts")
+		# Spawn globe separately with emissive material (same transforms — globe is part of model)
+		if lamp_globe_mesh:
+			_loader._spawn_multimesh(lamp_globe_mesh, lamp_globe_mat, lamp_xf, "Lamppost_Globes")
 	# Spawn all benches with the CP bench model (materials baked into GLB)
 	if not bench_xf.is_empty():
 		_loader._spawn_multimesh(bench_mesh, null, bench_xf, "Benches_0")
