@@ -54,7 +54,9 @@ void fragment() {
 	float uv_offset = fract(bld_hash * 5.7) * (actual_win_w + actual_gap_x);
 
 	float cell_w = actual_win_w + actual_gap_x;
-	float cell_h = actual_win_h + gap_y;
+	// COLOR.a encodes real floor-to-floor height (COLOR.a * 6.0) when < 0.99
+	// Default (COLOR.a == 1.0) uses material gap_y parameter
+	float cell_h = COLOR.a < 0.99 ? COLOR.a * 6.0 : actual_win_h + gap_y;
 	float shifted_u = UV.x + uv_offset;
 	float lx = fract(shifted_u / cell_w);
 	float ly = fract((UV.y - ground_h) / cell_h);

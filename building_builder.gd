@@ -176,6 +176,11 @@ func _build_buildings(buildings: Array) -> void:
 			style = 4  # DARK_STONE — Chess & Checkers House (rustic stone)
 
 		var bld_tint := Color.WHITE
+		# Encode real floor-to-floor height in vertex color alpha (shader decodes as alpha * 6.0)
+		var num_floors: int = int(bld.get("num_floors", 0))
+		if num_floors >= 2 and h > 4.0:
+			var floor_h: float = h / float(num_floors)
+			bld_tint.a = clampf(floor_h / 6.0, 0.2, 0.99)  # 1.2m – 5.9m range
 		# Age patina: older buildings are slightly darker/warmer from weathering
 		if year_built > 0:
 			var age := 2026 - year_built
