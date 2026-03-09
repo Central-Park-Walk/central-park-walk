@@ -498,21 +498,6 @@ func _terrain_y(x: float, z: float) -> float:
 		return h00 + (h11 - h01) * fx + (h01 - h00) * fz
 
 
-func _lamp_zone(x: float, z: float) -> int:
-	## Returns lamp zone: 0=formal, 1=standard, 2=simple/recreational.
-	## Based on Central Park's real zone design.
-	# Formal areas: Mall/Literary Walk, Bethesda Terrace, Conservatory Garden
-	if x > -680.0 and x < -400.0 and z > 900.0 and z < 1700.0:
-		return 0  # Mall / Literary Walk / Bethesda corridor
-	if x > 300.0 and x < 700.0 and z > -700.0 and z < -400.0:
-		return 0  # Conservatory Garden area (NE)
-	# Recreational/open areas: Great Lawn, Sheep Meadow, fields
-	if x > -400.0 and x < 200.0 and z > -200.0 and z < 400.0:
-		return 2  # Great Lawn
-	if x > -800.0 and x < -300.0 and z > 1700.0 and z < 2100.0:
-		return 2  # Sheep Meadow area
-	return 1  # Default: standard
-
 
 # ---------------------------------------------------------------------------
 # CPU-side value noise / FBM — matches shader hash2/vnoise/fbm exactly

@@ -19,35 +19,19 @@ func _build_furniture(bench_data: Array, lamppost_data: Array, paths: Array) -> 
 	# Load CP-specific lamppost (Henry Bacon Type B + Kent Bloomer luminaire)
 	var cp_lamp_path := ProjectSettings.globalize_path("res://models/furniture/cp_lamppost.glb")
 	var cp_lamp_meshes: Dictionary = _loader._load_glb_meshes(cp_lamp_path)
-	var lamp_meshes_formal: Array[Mesh] = []
 	var lamp_meshes_standard: Array[Mesh] = []
-	var lamp_meshes_simple: Array[Mesh] = []
-	var _cp_lamp_loaded := false
 	if cp_lamp_meshes.has("CP_Lamppost"):
-		var cp_mesh: Mesh = cp_lamp_meshes["CP_Lamppost"] as Mesh
-		lamp_meshes_formal.append(cp_mesh)
-		lamp_meshes_standard.append(cp_mesh)
-		lamp_meshes_simple.append(cp_mesh)
-		_cp_lamp_loaded = true
+		lamp_meshes_standard.append(cp_lamp_meshes["CP_Lamppost"] as Mesh)
 		print("Lamp: loaded CP lamppost model (Type B + Bloomer luminaire)")
-	# Fallback to generic furniture GLB variants
-	if not _cp_lamp_loaded:
-		for lname in ["ParkFurn_Lamp_A", "ParkFurn_Lamp_B"]:
-			if furn_meshes.has(lname):
-				lamp_meshes_formal.append(furn_meshes[lname] as Mesh)
-		for lname in ["ParkFurn_Lamp_C"]:
+	else:
+		# Fallback to generic furniture GLB
+		for lname in ["ParkFurn_Lamp_A", "ParkFurn_Lamp_B", "ParkFurn_Lamp_C"]:
 			if furn_meshes.has(lname):
 				lamp_meshes_standard.append(furn_meshes[lname] as Mesh)
-		for lname in ["ParkFurn_Lamp_D", "ParkFurn_Lamp_E"]:
-			if furn_meshes.has(lname):
-				lamp_meshes_simple.append(furn_meshes[lname] as Mesh)
+				break
 	if lamp_meshes_standard.is_empty():
 		print("WARNING: no lamp meshes found in GLB")
 		return
-	if lamp_meshes_formal.is_empty():
-		lamp_meshes_formal = lamp_meshes_standard
-	if lamp_meshes_simple.is_empty():
-		lamp_meshes_simple = lamp_meshes_standard
 	# Cast iron shader for weather-responsive lamppost posts
 	var iron_shader: Shader = _loader._get_shader("cast_iron", "res://shaders/cast_iron.gdshader")
 	var lamp_post_mat := ShaderMaterial.new()
@@ -80,86 +64,45 @@ func _build_furniture(bench_data: Array, lamppost_data: Array, paths: Array) -> 
 		print("WARNING: no bench mesh found in GLB")
 		return
 
-	# --- Place lampposts: OSM positions ---
-	# Zone classification: formal areas get ornate lamps, naturalistic get standard,
-	# recreational get simple utilitarian lamps
-	# Formal: Mall/Literary Walk, Bethesda, Conservatory Garden
-	# Simple/recreational: Great Lawn, fields, perimeter paths
-	var lamp_xf_formal: Array = []
-	var lamp_xf_standard: Array = []
-	var lamp_xf_simple: Array = []
-	# Always place OSM lampposts first (standard style)
+	# --- Place lampposts: all identical Type B, heights pre-baked from LiDAR ---
+	var lamp_xf: Array = []
+	var bulb_xf: Array = []
 	for lp in lamppost_data:
 		var lx := float(lp[0])
+		var ly := float(lp[1])  # pre-baked LiDAR height from pipeline
 		var lz := float(lp[2])
 		if not _loader._in_boundary(lx, lz):
 			continue
-		var ly: float = _loader._terrain_y(lx, lz)
-		var tf := Transform3D(Basis.IDENTITY, Vector3(lx, ly, lz))
-		var zone: int = _loader._lamp_zone(lx, lz)
-		if zone == 0:
-			lamp_xf_formal.append(tf)
-		elif zone == 2:
-			lamp_xf_simple.append(tf)
-		else:
-			lamp_xf_standard.append(tf)
-	var osm_lamp_count := lamp_xf_formal.size() + lamp_xf_standard.size() + lamp_xf_simple.size()
-	var lamp_xf: Array = lamp_xf_formal + lamp_xf_standard + lamp_xf_simple
+		lamp_xf.append(Transform3D(Basis.IDENTITY, Vector3(lx, ly, lz)))
+		bulb_xf.append(Transform3D(Basis.IDENTITY, Vector3(lx, ly + 3.87, lz)))
 
-	# --- Place benches: OSM positions ---
+	# --- Place benches: heights pre-baked from LiDAR ---
 	var bench_xf: Array = []
-	# Always place OSM benches first
 	for b in bench_data:
 		var bx := float(b[0])
+		var by := float(b[1]) + 0.42  # pre-baked height + bench seat lift
 		var bz := float(b[2])
 		if not _loader._in_boundary(bx, bz):
 			continue
-		var by: float = _loader._terrain_y(bx, bz) + 0.42  # bench mesh origin is at center, lift to sit on terrain
 		var dir_deg := float(b[3]) if b.size() > 3 else 0.0
 		var angle := deg_to_rad(-dir_deg)
-		var basis := Basis(Vector3.UP, angle)
-		bench_xf.append(Transform3D(basis, Vector3(bx, by, bz)))
-	var osm_bench_count := bench_xf.size()
+		bench_xf.append(Transform3D(Basis(Vector3.UP, angle), Vector3(bx, by, bz)))
 
-	print("ParkLoader: lampposts = %d (OSM)  benches = %d (OSM)" % [lamp_xf.size(), bench_xf.size()])
-	print("  Lamp zones: formal=%d, standard=%d, simple=%d" % [lamp_xf_formal.size(), lamp_xf_standard.size(), lamp_xf_simple.size()])
-	# Spawn lamps per zone with appropriate mesh variants
+	print("ParkLoader: lampposts = %d  benches = %d (pre-baked heights)" % [lamp_xf.size(), bench_xf.size()])
+
+	# Spawn all lampposts with single mesh (all identical Type B)
+	var lamp_mesh: Mesh = lamp_meshes_standard[0] if not lamp_meshes_standard.is_empty() else null
+	if lamp_mesh and not lamp_xf.is_empty():
+		_loader._spawn_multimesh(lamp_mesh, lamp_mat_override, lamp_xf, "Lampposts")
+
+	# Emissive globe bulbs at pre-computed positions
 	var bulb_mesh := SphereMesh.new()
 	bulb_mesh.radius = 0.10
 	bulb_mesh.height = 0.20
 	bulb_mesh.radial_segments = 8
 	bulb_mesh.rings = 4
-	var all_bulb_xf: Array = []
-	var zone_data: Array = [
-		[lamp_xf_formal, lamp_meshes_formal, "Lampposts_Formal"],
-		[lamp_xf_standard, lamp_meshes_standard, "Lampposts_Standard"],
-		[lamp_xf_simple, lamp_meshes_simple, "Lampposts_Simple"],
-	]
-	for zd in zone_data:
-		var xf_list: Array = zd[0]
-		var meshes: Array = zd[1]
-		var label: String = zd[2]
-		if xf_list.is_empty() or meshes.is_empty():
-			continue
-		# Distribute across mesh variants
-		var n_vars := meshes.size()
-		var var_xf: Array = []
-		for _v in n_vars:
-			var_xf.append([])
-		for i in xf_list.size():
-			var_xf[i % n_vars].append(xf_list[i])
-		for vi in n_vars:
-			if not var_xf[vi].is_empty():
-				_loader._spawn_multimesh(meshes[vi], lamp_mat_override, var_xf[vi], "%s_%d" % [label, vi])
-		# Bulb positions for all lamps in this zone
-		# CP lamppost Type B globe center at (0, 3.87, 0), generic at (0.012, 2.79, 0.475)
-		var bulb_offset := Vector3(0.0, 3.87, 0.0) if _cp_lamp_loaded else Vector3(0.012, 2.79, 0.475)
-		for xf in xf_list:
-			var bxf: Transform3D = xf
-			bxf.origin += bulb_offset
-			all_bulb_xf.append(bxf)
-	if not all_bulb_xf.is_empty():
-		_loader._spawn_multimesh(bulb_mesh, lamp_bulb_mat, all_bulb_xf, "LampBulbs")
+	if not bulb_xf.is_empty():
+		_loader._spawn_multimesh(bulb_mesh, lamp_bulb_mat, bulb_xf, "LampBulbs")
 	# Spawn all benches with the CP bench model (materials baked into GLB)
 	if not bench_xf.is_empty():
 		_loader._spawn_multimesh(bench_mesh, null, bench_xf, "Benches_0")
@@ -186,19 +129,19 @@ func _build_trash_cans(trash_data: Array, paths: Array) -> void:
 		print("WARNING: no trash can mesh found, skipping")
 		return
 
-	# Place from OSM data only
+	# Place from OSM data — heights pre-baked from LiDAR
 	var xforms: Array = []
 	for tc in trash_data:
 		var tx := float(tc[0])
+		var ty := float(tc[1])  # pre-baked LiDAR height
 		var tz := float(tc[2])
 		if not _loader._in_boundary(tx, tz):
 			continue
-		var ty: float = _loader._terrain_y(tx, tz)
 		xforms.append(Transform3D(Basis.IDENTITY, Vector3(tx, ty, tz)))
 
 	if not xforms.is_empty():
 		_loader._spawn_multimesh(mesh, mat, xforms, "TrashCans")
-	print("ParkLoader: trash cans = %d (from OSM)" % xforms.size())
+	print("ParkLoader: trash cans = %d (pre-baked heights)" % xforms.size())
 
 
 func _build_flagpoles(flagpole_data: Array) -> void:
@@ -217,10 +160,10 @@ func _build_flagpoles(flagpole_data: Array) -> void:
 	var xforms: Array = []
 	for fp in flagpole_data:
 		var fx := float(fp[0])
+		var fy := float(fp[1])  # pre-baked LiDAR height
 		var fz := float(fp[2])
 		if not _loader._in_boundary(fx, fz):
 			continue
-		var fy: float = _loader._terrain_y(fx, fz)
 		xforms.append(Transform3D(Basis.IDENTITY, Vector3(fx, fy, fz)))
 	if not xforms.is_empty():
 		_loader._spawn_multimesh(pole_mesh, pole_mat, xforms, "Flagpoles")
