@@ -51,6 +51,7 @@ TERRAIN_DIR = "terrain_tiles"
 LIDAR_DEM   = "lidar_data/central_park_dsm_enhanced_8k.tif"  # Structure-enhanced DSM (HH with trees removed)
 GRID_W      = 8192         # heightmap output resolution (~0.6 m/cell)
 GRID_H      = 8192
+ATLAS_RES   = 4096         # world atlas / boundary / landuse grid (1.22 m/cell)
 WORLD_SIZE  = 5000.0       # metres – must match main.gd ground plane size
 FT_TO_M     = 0.3048006096  # US Survey Foot → metres
 
@@ -75,7 +76,7 @@ def latlon_to_tile(lat: float, lon: float, z: int) -> tuple[int, int]:
 # ---------------------------------------------------------------------------
 def build_height_grid_lidar() -> tuple[list, float, float] | tuple[None, float, float]:
     """
-    Read the clipped LiDAR DEM (WGS84, 2048×2048) and return:
+    Read the clipped LiDAR DEM (structure-enhanced 8K DSM) and return:
         (flat_grid, min_elev, origin_height)
     Elevation values are in metres (converted from US Survey Feet).
     Returns (None, 0, 0) if file missing or GDAL unavailable.
@@ -764,6 +765,32 @@ def main() -> None:
             fh.write(struct.pack(f"<{GRID_W * GRID_H}f", *flat_grid))
         hm_mb = os.path.getsize("heightmap.bin") / 1e6
         print(f"  Saved → heightmap.bin  ({hm_mb:.1f} MB)")
+
+        # Pre-bake 4K GPU texture (RG8 16-bit encoded heights)
+        # Matches park_loader.gd _build_hm_gpu_texture() encoding exactly
+        import numpy as np
+        hm_arr = np.array(flat_grid, dtype=np.float32).reshape(GRID_H, GRID_W)
+        hm_min_h = float(hm_arr.min())
+        hm_max_h = float(hm_arr.max())
+        hm_range = max(hm_max_h - hm_min_h, 0.01)
+        TEX_RES = ATLAS_RES
+        # Nearest-neighbor downsample matching GDScript: int(i * scale + 0.5)
+        sx = (GRID_W - 1) / (TEX_RES - 1)
+        sz = (GRID_H - 1) / (TEX_RES - 1)
+        xi_src = np.clip(np.round(np.arange(TEX_RES) * sx).astype(int), 0, GRID_W - 1)
+        zi_src = np.clip(np.round(np.arange(TEX_RES) * sz).astype(int), 0, GRID_H - 1)
+        arr4k = hm_arr[np.ix_(zi_src, xi_src)]
+        norm = np.clip((arr4k - hm_min_h) / hm_range, 0.0, 1.0)
+        h16 = (norm * 65535.0).astype(np.uint16)
+        rg8 = np.empty((TEX_RES, TEX_RES, 2), dtype=np.uint8)
+        rg8[:, :, 0] = (h16 >> 8).astype(np.uint8)    # R = high byte
+        rg8[:, :, 1] = (h16 & 0xFF).astype(np.uint8)  # G = low byte
+        with open("heightmap_gpu.bin", "wb") as fh:
+            fh.write(struct.pack("<II", TEX_RES, TEX_RES))
+            fh.write(struct.pack("<ff", hm_min_h, hm_max_h))
+            fh.write(rg8.tobytes())
+        gpu_kb = os.path.getsize("heightmap_gpu.bin") / 1024
+        print(f"  Saved → heightmap_gpu.bin ({TEX_RES}×{TEX_RES} RG8, {gpu_kb:.0f} KB)")
     else:
         hm_out = {}
 
@@ -2221,7 +2248,7 @@ def prebake_world_atlas(boundary_pts, paths, water, buildings, trees,
                         benches, lampposts, trash_cans, barriers, bridge_outlines,
                         terrain_func, bridge_centroids):
     """
-    Pre-bake a unified world atlas at heightmap resolution (GRID_W × GRID_H).
+    Pre-bake a unified world atlas at ATLAS_RES (4096×4096, ~1.22m/cell).
 
     Output: world_atlas.bin
     Format: 8-byte header (width, height as uint32) + width×height×2 bytes (RG8)
@@ -2254,9 +2281,9 @@ def prebake_world_atlas(boundary_pts, paths, water, buildings, trees,
     import numpy as np
     import struct
 
-    RES = GRID_W  # match heightmap: 8192×8192 at ~0.61m/cell
+    RES = ATLAS_RES  # 4096×4096 at ~1.22m/cell (matches OSM polygon precision)
     HALF = WORLD_SIZE / 2.0
-    CELL = WORLD_SIZE / RES  # ~0.61m
+    CELL = WORLD_SIZE / RES  # ~1.22m
 
     surface = np.zeros((RES, RES), dtype=np.uint8)   # R channel
     occupancy = np.zeros((RES, RES), dtype=np.uint8)  # G channel
@@ -2502,7 +2529,7 @@ def prebake_landuse_map(landuse_zones, water_bodies):
         "track": 9, "wood": 10, "forest": 11,
     }
 
-    RES = 4096
+    RES = ATLAS_RES  # 4096 — matches world atlas and boundary grids
     HALF = WORLD_SIZE / 2.0
 
     def world_to_pixel(wx, wz):
@@ -2569,14 +2596,14 @@ def prebake_landuse_map(landuse_zones, water_bodies):
 
 
 def prebake_boundary_mask(boundary_pts):
-    """Pre-bake park boundary mask at 2048×2048 → boundary_mask.png.
+    """Pre-bake park boundary mask at 4096×4096 → boundary_mask.png.
 
     White = inside park, black = outside.  Replaces runtime GDScript
     scanline rasterization (1024×1024) with higher-resolution pre-bake.
     """
     from PIL import Image, ImageDraw
 
-    RES = 2048
+    RES = ATLAS_RES  # 4096 — matches world atlas and landuse grids
     HALF = WORLD_SIZE / 2.0
 
     def world_to_pixel(wx, wz):

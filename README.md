@@ -27,7 +27,7 @@ The project is designed to expand. More places, more data sources, more contribu
 ## Screenshots
 
 ![Autumn Dusk — Central Park West Skyline](screenshots/cpw_skyline_autumn_dusk.png)
-*Autumn dusk on the Literary Walk. Per-species fall colors — maple red, oak brown, elm gold — driven by phenology data. 4,865 buildings from NYC Building Footprints.*
+*Autumn dusk on the Literary Walk. Per-species fall colors — maple red, oak brown, elm gold — driven by phenology data. 6,557 buildings from NYC Building Footprints.*
 
 ![Summer Golden Hour — Literary Walk](screenshots/literary_walk_summer_golden.png)
 *The Literary Walk at golden hour. Every tree placed from NYC Tree Census data, every path from OpenStreetMap.*
@@ -178,7 +178,7 @@ See [FUNDING.md](FUNDING.md) for details on how funds are used.
 | Layer | Technology |
 |-------|-----------|
 | Engine | Godot 4.6.1 (Forward+, GDScript) |
-| Data pipeline | Python: GDAL, numpy/scipy, Pillow — pre-bakes heightmap, GPU path textures, world atlas, landuse zones, boundary mask |
+| Data pipeline | Python: GDAL, numpy/scipy, Pillow — pre-bakes heightmap (8K source + 4K GPU texture), GPU path textures, world atlas, landuse zones, boundary mask (all spatial grids 4096×4096 except 8K heightmap source) |
 | 3D modeling | Blender 3.0.1 (headless scripts) |
 | Audio | Not yet implemented (awaiting field recordings) |
 | Rendering | 18 custom GLSL shaders (terrain, water, stream, facade, tree leaf/bark, sky, stone, path, roof, cast iron, hedge, wood, ground surface, cloud sky, IMAGINE mosaic, color grade, lens distortion), shared noise include, MultiMesh instancing, analytical GPU path rendering |
