@@ -792,7 +792,7 @@ func _build_statues(statues: Array) -> void:
 		var fig_y := sy + ped_h
 
 		if stype == "obelisk":
-			# Tall tapered column — keep procedural (unique shape)
+			# Tall tapered column — simplified geometric form
 			# Cleopatra's Needle: Aswan red granite — warm pinkish-red
 			var obelisk_mat: ShaderMaterial = stone_mat
 			if sname_lower.contains("needle") or sname_lower.contains("cleopatra"):

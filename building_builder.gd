@@ -8,20 +8,42 @@ func _init(loader) -> void:
 	_loader = loader
 
 
-func _building_style(cx: float, cz: float, h: float) -> int:
+func _building_style(cx: float, cz: float, h: float, year: int) -> int:
 	# 0=LIMESTONE, 1=GLASS, 2=RED_BRICK, 3=BUFF_BRICK, 4=DARK_STONE
+	# In-park short buildings → dark stone (schist pavilions, etc.)
+	if _loader._in_boundary(cx, cz) and h < 15.0:
+		return 4
+	# Supertalls and modern glass towers
 	if h > 80.0:
-		return 1  # supertall → glass tower
+		return 1
 	if h > 50.0 and cz > 1000.0:
-		return 1  # tall south buildings → glass
+		return 1
+	if year > 1990 and h > 40.0:
+		return 1  # modern tall → glass curtain wall
+	# East side: Fifth Avenue limestone co-ops
 	if cx > 420.0:
-		return 0  # east (Fifth Avenue) → limestone
+		if year > 0 and year < 1900:
+			return 0  # Gilded Age limestone
+		if year >= 1960:
+			return 1  # postwar glass
+		return 0  # default limestone
+	# West side: Central Park West Art Deco + buff brick
 	if cx < -420.0:
-		return 3  # west (CPW) → buff brick art deco
+		if year > 0 and year < 1900:
+			return 2  # pre-war red brick tenements
+		if year >= 1920 and year <= 1945:
+			return 3  # Art Deco buff brick (The Majestic, San Remo, etc.)
+		if year > 1960:
+			return 1  # postwar glass
+		return 3  # default buff brick
+	# North (Harlem): red brick
 	if cz < -1200.0:
-		return 2  # north (Harlem) → red brick
-	if abs(cx) < 350.0 and h < 15.0:
-		return 4  # in-park short buildings → dark stone
+		return 2
+	# South (59th St): mixed commercial/hotel
+	if cz > 1500.0:
+		if year > 1980:
+			return 1  # modern glass
+		return 3  # Art Deco hotels
 	# Mixed zone: deterministic hash
 	var hv := fmod(abs(cx * 7.3 + cz * 13.1), 10.0)
 	if hv < 3.0: return 0
@@ -48,21 +70,11 @@ func _build_buildings(buildings: Array) -> void:
 	var roof_verts   := PackedVector3Array()
 	var roof_normals := PackedVector3Array()
 	var roof_colors  := PackedColorArray()
-	# Water tower geometry (batched)
-	var wt_verts   := PackedVector3Array()
-	var wt_normals := PackedVector3Array()
 
 	var rng := RandomNumberGenerator.new()
 
 	for bld in buildings:
 		var pts:  Array = bld["points"]
-		# Skip buildings whose centroid is outside the park boundary
-		var _cx := 0.0; var _cz := 0.0
-		for _pt in pts:
-			_cx += float(_pt[0]); _cz += float(_pt[1])
-		_cx /= float(pts.size()); _cz /= float(pts.size())
-		if not _loader._in_boundary(_cx, _cz):
-			continue
 		var h:    float = float(bld["height"])
 		var base := INF
 		for pt in pts:
@@ -80,7 +92,8 @@ func _build_buildings(buildings: Array) -> void:
 			cx += float(pt[0]); cz += float(pt[1])
 		cx /= float(n); cz /= float(n)
 		var bld_name: String = str(bld.get("name", "")).to_lower()
-		var style := _building_style(cx, cz, h)
+		var year_built: int = int(bld.get("year_built", 0))
+		var style := _building_style(cx, cz, h, year_built)
 		# Named in-park buildings: override style per Wikimedia research
 		if bld_name.contains("boathouse") or bld_name.contains("kerbs"):
 			style = 2  # RED_BRICK — Kerbs Boathouse (red brick + copper roof)
@@ -339,60 +352,6 @@ func _build_buildings(buildings: Array) -> void:
 				roof_normals.append(Vector3.UP)
 				roof_colors.append(roof_col)
 
-		# --- Water tower: ~15% of buildings >15m ---
-		var wt_hash := fmod(abs(cx * 23.7 + cz * 41.3), 1.0)
-		if h > 15.0 and wt_hash < 0.15:
-			var wt_r := 1.2
-			var wt_h := 2.5
-			var leg_h := 1.5
-			var wt_base_y := top + leg_h
-			var wt_top_y := wt_base_y + wt_h
-			var wt_segs := 8
-			# Tank cylinder
-			for si in wt_segs:
-				var a0 := TAU * float(si) / float(wt_segs)
-				var a1 := TAU * float(si + 1) / float(wt_segs)
-				var c0 := cos(a0); var s0 := sin(a0)
-				var c1 := cos(a1); var s1 := sin(a1)
-				var va := Vector3(cx + c0 * wt_r, wt_base_y, cz + s0 * wt_r)
-				var vb := Vector3(cx + c1 * wt_r, wt_base_y, cz + s1 * wt_r)
-				var vc := Vector3(cx + c1 * wt_r, wt_top_y,  cz + s1 * wt_r)
-				var vd := Vector3(cx + c0 * wt_r, wt_top_y,  cz + s0 * wt_r)
-				var vn0 := Vector3(c0, 0.0, s0)
-				var vn1 := Vector3(c1, 0.0, s1)
-				wt_verts.append_array(PackedVector3Array([va, vb, vc, va, vc, vd]))
-				wt_normals.append_array(PackedVector3Array([vn0, vn1, vn1, vn0, vn1, vn0]))
-			# Tank top cap
-			for si in range(1, wt_segs - 1):
-				var a0 := 0.0
-				var a1 := TAU * float(si) / float(wt_segs)
-				var a2 := TAU * float(si + 1) / float(wt_segs)
-				wt_verts.append(Vector3(cx + cos(a0) * wt_r, wt_top_y, cz + sin(a0) * wt_r))
-				wt_verts.append(Vector3(cx + cos(a1) * wt_r, wt_top_y, cz + sin(a1) * wt_r))
-				wt_verts.append(Vector3(cx + cos(a2) * wt_r, wt_top_y, cz + sin(a2) * wt_r))
-				for _j in 3:
-					wt_normals.append(Vector3.UP)
-			# 4 legs
-			var leg_r := 0.08
-			for li in 4:
-				var la := TAU * float(li) / 4.0 + 0.4
-				var lx := cx + cos(la) * (wt_r - 0.2)
-				var lz := cz + sin(la) * (wt_r - 0.2)
-				# Simple box leg
-				for face_i in 4:
-					var fa := TAU * float(face_i) / 4.0
-					var fb := TAU * float(face_i + 1) / 4.0
-					var fc0 := cos(fa) * leg_r; var fs0 := sin(fa) * leg_r
-					var fc1 := cos(fb) * leg_r; var fs1 := sin(fb) * leg_r
-					var la_ := Vector3(lx + fc0, top, lz + fs0)
-					var lb_ := Vector3(lx + fc1, top, lz + fs1)
-					var lc_ := Vector3(lx + fc1, wt_base_y, lz + fs1)
-					var ld_ := Vector3(lx + fc0, wt_base_y, lz + fs0)
-					var ln_ := Vector3(cos(fa), 0.0, sin(fa))
-					wt_verts.append_array(PackedVector3Array([la_, lb_, lc_, la_, lc_, ld_]))
-					for _j in 6:
-						wt_normals.append(ln_)
-
 	# Build wall meshes per style
 	var style_names := ["Limestone", "Glass", "RedBrick", "BuffBrick", "DarkStone"]
 	var style_mats := [
@@ -425,16 +384,13 @@ func _build_buildings(buildings: Array) -> void:
 		r_mi.name = "BuildingRoofs"
 		_loader.add_child(r_mi)
 
-	# Water towers mesh
-	if not wt_verts.is_empty():
-		_loader._add_batch_mesh(wt_verts, wt_normals, Color(0.42, 0.32, 0.22), 0.85, "WaterTowers")
 
 
 # ---------------------------------------------------------------------------
 # Building facade materials + shaders (5 architectural styles)
 # ---------------------------------------------------------------------------
 
-# Procedural facade shader (limestone, glass tower, dark stone)
+# Facade shader (limestone, glass tower, dark stone)
 func _facade_shader(use_brick: bool) -> String:
 	# Unified facade shader — use_brick selects between procedural (facade_color/
 	# facade_normal/facade_rough) and textured brick (brick_alb/brick_nrm/brick_rgh)

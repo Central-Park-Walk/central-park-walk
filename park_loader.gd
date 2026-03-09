@@ -73,7 +73,7 @@ var landuse_zones: Array = []             # from park_data.json: type, name, poi
 var _bridge_outlines: Array = []          # bridge outline polygons for deck shapes
 var _tunnel_outlines: Array = []          # tunnel outline polygons for labels
 var _foliage_zones: Array = []            # per-area species composition
-var _perimeter_heights: Array = []        # NYC real building heights [x, z, h_m, ?name]
+
 var water_bodies: Array = []              # water body polygons for shore blending
 var _water_polygons: Array = []           # water polygon outlines for proximity baking
 var _portal_lights: Array = []            # tunnel portal OmniLight3D nodes
@@ -802,7 +802,7 @@ func _ready() -> void:
 	landuse_zones = data.get("landuse", [])
 	_bridge_outlines = data.get("bridge_outlines", [])
 	_tunnel_outlines = data.get("tunnel_outlines", [])
-	_perimeter_heights = data.get("perimeter_heights", [])
+
 	_foliage_zones = data.get("foliage_zones", [])
 	var streams: Array = data.get("streams", [])
 	var amenities: Array = data.get("amenities", [])
@@ -819,6 +819,7 @@ func _ready() -> void:
 	print("ParkLoader: building path meshes…")
 	var _t0 := Time.get_ticks_msec()
 	_building_builder._build_buildings(buildings)
+	_boundary_builder._label_boundary_buildings(buildings)
 	_build_paths(paths)
 	_water_builder._build_water(water)
 	_water_builder._build_streams(streams)
@@ -831,10 +832,8 @@ func _ready() -> void:
 	_infrastructure_builder._build_staircases(paths)
 	_infrastructure_builder._build_statues(statues)
 	_infrastructure_builder._build_amenities(amenities)
-	_furniture_builder._build_boats(water)
 	_boundary_builder._build_boundary(boundary)
 	_boundary_builder._build_perimeter_wall(boundary, paths)
-	_boundary_builder._build_boundary_facades()
 
 	_infrastructure_builder._build_field_markings()
 	_infrastructure_builder._build_rocks(trees, water)
@@ -1793,7 +1792,7 @@ func _make_cylinder(radius: float, height: float, segments: int) -> ArrayMesh:
 
 
 # ---------------------------------------------------------------------------
-# Lampposts & Benches – procedural furniture along paths
+# Lampposts & Benches – mesh generation helpers
 # ---------------------------------------------------------------------------
 func _add_cylinder_verts(v: PackedVector3Array, n: PackedVector3Array, idx: PackedInt32Array,
 		cx: float, cy: float, cz: float, r: float, h: float, segs: int,

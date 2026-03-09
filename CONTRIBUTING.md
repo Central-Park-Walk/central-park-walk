@@ -24,7 +24,7 @@ Photogrammetry scans of statues, architectural details, and rock outcrops are ex
 **Upload**: Sketchfab (CC-BY license) or open an issue with a download link.
 
 ### Field Recordings
-We need real Central Park audio to replace our procedural sounds. Useful recordings:
+The simulation has no audio yet — we need real Central Park recordings. Useful recordings:
 - Bird calls at specific locations and times of day/year
 - Water sounds (lake lapping, fountain splash, stream flow)
 - Ambient atmosphere at different park zones
@@ -89,12 +89,11 @@ cd central-park-walk
 
 ### Data-First Philosophy
 
-When contributing, prefer real data over procedural generation:
+Everything in this project comes from real data. Nothing is procedurally generated except what must be (weather, lighting, time). If data is missing, we leave a gap — gaps signal what the real world hasn't been measured yet.
+
 - If furniture positions are wrong, find the real positions (OSM, photos) rather than randomizing
 - If a material color looks off, research the real material (Wikimedia Commons) rather than guessing
 - If a tree species is wrong, check the NYC Tree Census rather than picking aesthetically
-
-Gaps are okay. A gap in the simulation is a signal that we need more data from the real world. That's valuable information.
 
 ## Creative Contributions
 

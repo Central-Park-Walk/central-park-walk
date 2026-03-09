@@ -514,56 +514,6 @@ def main() -> None:
         print("  WARNING: No boundary relation found – park walls will be skipped.")
 
     # -------------------------------------------------------------------
-    # Perimeter building heights from NYC Building Footprints
-    # -------------------------------------------------------------------
-    NYC_HEIGHTS_FILE = "lidar_data/nyc_building_heights.geojson"
-    perimeter_heights = []
-    if os.path.exists(NYC_HEIGHTS_FILE) and boundary_pts:
-        import numpy as np
-        with open(NYC_HEIGHTS_FILE) as fh:
-            nyc_bldgs = json.load(fh)
-        # Compute centroid of each NYC building in world coords
-        nyc_pts = []  # (x, z, height_m, name)
-        for feat in nyc_bldgs["features"]:
-            props = feat["properties"]
-            h_ft = props.get("height_roof")
-            if not h_ft or float(h_ft) <= 0:
-                continue
-            h_m = float(h_ft) * FT_TO_M
-            geom = feat["geometry"]
-            # Compute centroid from first ring of first polygon
-            coords = geom["coordinates"][0][0]  # MultiPolygon → first polygon → outer ring
-            clat = sum(c[1] for c in coords) / len(coords)
-            clon = sum(c[0] for c in coords) / len(coords)
-            wx, wz = project(clat, clon)
-            name = props.get("name") or ""
-            nyc_pts.append((wx, wz, round(h_m, 1), name))
-
-        # Build boundary polygon for proximity filtering
-        bnd_arr = np.array(boundary_pts)  # Nx2
-        # Expand search to 80m outside boundary
-        nyc_arr = np.array([(p[0], p[1]) for p in nyc_pts])
-        # For each NYC building, find min distance to any boundary point
-        # Use vectorized distance computation in chunks to avoid memory issues
-        CHUNK = 2000
-        keep = []
-        for i in range(0, len(nyc_pts), CHUNK):
-            chunk = nyc_arr[i:i+CHUNK]  # Mx2
-            # Broadcast: chunk[:,None,:] - bnd_arr[None,:,:] → MxNx2
-            diffs = chunk[:, None, :] - bnd_arr[None, :, :]
-            dists = np.sqrt((diffs ** 2).sum(axis=2)).min(axis=1)  # M
-            for j, d in enumerate(dists):
-                if d < 300.0:  # perimeter buildings are 100-300m from boundary
-                    wx, wz, h_m, name = nyc_pts[i + j]
-                    entry = [round(wx, 1), round(wz, 1), h_m]
-                    if name:
-                        entry.append(name)
-                    keep.append(entry)
-        perimeter_heights = keep
-        print(f"  Perimeter building heights: {len(perimeter_heights)} "
-              f"(from {len(nyc_pts)} NYC buildings)")
-
-    # -------------------------------------------------------------------
     # Water bodies  – points stay [x, z]; body gains "water_y"
     # -------------------------------------------------------------------
     water_out = []
@@ -636,9 +586,84 @@ def main() -> None:
         print(f"  Streams: {len(streams_out)}")
 
     # -------------------------------------------------------------------
-    # Buildings  – points stay [x, z]; building gains "base"
+    # Buildings — real NYC footprints (preferred) + OSM in-park fallback
     # -------------------------------------------------------------------
-    def building_height(tags: dict) -> float:
+    NYC_BUILDINGS_FILE = "nyc_buildings.geojson"
+    buildings_out = []
+    nyc_count = 0
+    osm_count = 0
+
+    # --- NYC Building Footprints (real measured data) ---
+    if os.path.exists(NYC_BUILDINGS_FILE):
+        with open(NYC_BUILDINGS_FILE) as fh:
+            nyc_data = json.load(fh)
+        for feat in nyc_data.get("features", []):
+            props = feat.get("properties", {})
+            geom = feat.get("geometry", {})
+            h_ft = props.get("height_roof")
+            if not h_ft or float(h_ft) <= 0:
+                continue
+            h_m = float(h_ft) * FT_TO_M
+            # Extract footprint polygon — GeoJSON MultiPolygon or Polygon
+            gtype = geom.get("type", "")
+            if gtype == "MultiPolygon":
+                rings = geom["coordinates"][0]  # first polygon
+            elif gtype == "Polygon":
+                rings = geom["coordinates"]
+            else:
+                continue
+            outer = rings[0]  # outer ring: [[lon, lat], ...]
+            if len(outer) < 4:
+                continue
+            # Project to world coordinates
+            pts = []
+            for coord in outer:
+                lon, lat = coord[0], coord[1]
+                pts.append(list(project(lat, lon)))
+            # Remove duplicate closing point
+            if len(pts) > 1 and pts[0] == pts[-1]:
+                pts.pop()
+            if len(pts) < 3:
+                continue
+            bld = {
+                "points": pts,
+                "height": round(h_m, 1),
+                "base":   _centroid_height(pts),
+            }
+            # Ground elevation (feet NAVD88 → metres)
+            ground_ft = props.get("ground_elevation")
+            if ground_ft and float(ground_ft) > 0:
+                bld["ground_elev"] = round(float(ground_ft) * FT_TO_M, 1)
+            # Construction year → architectural era for style assignment
+            yr = props.get("construction_year")
+            if yr and int(yr) > 0:
+                bld["year_built"] = int(yr)
+            # Number of floors from height (NYC data doesn't have floor count,
+            # but we can estimate: pre-war ~3.3m/floor, modern ~3.5m/floor)
+            if yr and int(yr) > 0 and int(yr) < 1946:
+                bld["num_floors"] = max(1, round(h_m / 3.3))
+            else:
+                bld["num_floors"] = max(1, round(h_m / 3.5))
+            # BIN for cross-referencing
+            bin_val = props.get("bin")
+            if bin_val:
+                bld["bin"] = str(bin_val)
+            buildings_out.append(bld)
+            nyc_count += 1
+        print(f"  NYC buildings: {nyc_count} (real footprints + heights)")
+    else:
+        print(f"  WARNING: {NYC_BUILDINGS_FILE} not found — run download_buildings.py")
+
+    # --- OSM buildings (fallback for in-park structures) ---
+    # Collect NYC building centroids for dedup
+    nyc_centroids = set()
+    for bld in buildings_out:
+        pts = bld["points"]
+        cx = round(sum(p[0] for p in pts) / len(pts), 0)
+        cz = round(sum(p[1] for p in pts) / len(pts), 0)
+        nyc_centroids.add((cx, cz))
+
+    def _osm_building_height(tags: dict) -> float:
         h = tags.get("height", "")
         if h:
             try:
@@ -653,7 +678,6 @@ def main() -> None:
                 pass
         return 10.0
 
-    buildings_out = []
     for wid, tags in ways_tags.items():
         if not tags.get("building"):
             continue
@@ -661,30 +685,34 @@ def main() -> None:
         if len(nids) < 4 or nids[0] != nids[-1]:
             continue
         pts = _extract_polygon(nids)
-        if len(pts) >= 3:
-            bld = {
-                "points": pts,
-                "height": round(building_height(tags), 1),
-                "base":   _centroid_height(pts),
-            }
-            # Preserve building name and type for landmark identification
-            bname = tags.get("name", "")
-            if bname:
-                bld["name"] = bname
-            btype = tags.get("building", "yes")
-            if btype != "yes":
-                bld["building_type"] = btype
-            # Material and colour for facade rendering
-            bmat = tags.get("building:material", "")
-            if bmat:
-                bld["material"] = bmat
-            bcolour = tags.get("building:colour", "")
-            if bcolour:
-                bld["colour"] = bcolour
-            roof_shape = tags.get("roof:shape", "")
-            if roof_shape and roof_shape != "flat":
-                bld["roof_shape"] = roof_shape
-            buildings_out.append(bld)
+        if len(pts) < 3:
+            continue
+        # Skip if we already have a NYC building at this location
+        cx = round(sum(p[0] for p in pts) / len(pts), 0)
+        cz = round(sum(p[1] for p in pts) / len(pts), 0)
+        if (cx, cz) in nyc_centroids:
+            continue
+        bld = {
+            "points": pts,
+            "height": round(_osm_building_height(tags), 1),
+            "base":   _centroid_height(pts),
+        }
+        bname = tags.get("name", "")
+        if bname:
+            bld["name"] = bname
+        btype = tags.get("building", "yes")
+        if btype != "yes":
+            bld["building_type"] = btype
+        bmat = tags.get("building:material", "")
+        if bmat:
+            bld["material"] = bmat
+        bcolour = tags.get("building:colour", "")
+        if bcolour:
+            bld["colour"] = bcolour
+        buildings_out.append(bld)
+        osm_count += 1
+    print(f"  OSM buildings: {osm_count} (in-park structures)")
+    print(f"  Total buildings: {len(buildings_out)}")
 
     # -------------------------------------------------------------------
     # Single-pass node extraction: trees, statues, benches, lampposts, trash
@@ -1359,7 +1387,7 @@ def main() -> None:
         "tunnel_outlines":    tunnel_outlines,
         "rocks":              rocks_out,
         "amenities":          amenities_out,
-        "perimeter_heights":  perimeter_heights,
+
         "playgrounds":        playgrounds,
         "facilities":         facilities,
         "foliage_zones":      foliage_zones,
