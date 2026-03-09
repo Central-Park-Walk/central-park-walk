@@ -1601,6 +1601,23 @@ func _add_batch_mesh(verts: PackedVector3Array, normals: PackedVector3Array,
 	add_child(mi)
 
 
+func _add_iron_mesh(verts: PackedVector3Array, normals: PackedVector3Array,
+					color: Color, node_name: String) -> void:
+	## Build a mesh using the cast iron shader (weather-responsive iron material).
+	if verts.is_empty():
+		return
+	var mesh := _make_mesh(verts, normals)
+	var iron_sh: Shader = _get_shader("cast_iron", "res://shaders/cast_iron.gdshader")
+	var mat := ShaderMaterial.new()
+	mat.shader = iron_sh
+	mat.set_shader_parameter("iron_color", Vector3(color.r, color.g, color.b))
+	mesh.surface_set_material(0, mat)
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.name = node_name
+	add_child(mi)
+
+
 
 # ---------------------------------------------------------------------------
 # GLB loading helpers — used by trees, rocks, furniture, etc.
