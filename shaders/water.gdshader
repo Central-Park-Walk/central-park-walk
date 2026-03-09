@@ -169,16 +169,35 @@ void fragment() {
 	// Fresnel — glancing angles reflect sky (color tracks time of day)
 	float fresnel = pow(1.0 - max(dot(NORMAL, VIEW), 0.0), 4.0);
 	vec3 sky_col = sky_reflect_color;
+
+	// Night city reflection: when sky is very dark, water reflects city light pollution
+	// NYC skyline reflecting in Central Park water is iconic
+	float sky_lum = dot(sky_col, vec3(0.2126, 0.7152, 0.0722));
+	float night_boost = smoothstep(0.15, 0.02, sky_lum);  // 1.0 at night
+	if (night_boost > 0.01) {
+		// Warm amber city glow reflected in water
+		vec3 city_reflect = vec3(0.12, 0.08, 0.04);
+		// Buildings on east/west edges contribute brighter reflections
+		float edge_factor = abs(world_pos.x) / 1200.0;  // brighter near park edges
+		city_reflect *= (1.0 + clamp(edge_factor, 0.0, 1.0) * 0.5);
+		sky_col += city_reflect * night_boost;
+		// Specular highlights: occasional bright "sparkle" patches (window reflections)
+		float sparkle = gnoise(world_pos.xz * 0.3 + vec2(TIME * 0.02, 0.0));
+		sparkle = smoothstep(0.6, 0.9, sparkle) * night_boost * 0.08;
+		sky_col += vec3(1.0, 0.72, 0.32) * sparkle;
+	}
+
 	vec3 col = mix(base_col, sky_col, fresnel * (0.6 + extra_reflect));
 
 	// Foam — white caps at wave peaks (subtle in ponds, more on reservoir)
 	float foam = smoothstep(0.6, 0.85, wave_h);
-	col = mix(col, vec3(0.85, 0.90, 0.92), foam * 0.7);
+	float foam_vis = night_boost > 0.5 ? 0.3 : 0.7;  // less visible foam at night
+	col = mix(col, vec3(0.85, 0.90, 0.92), foam * foam_vis);
 
 	ALBEDO    = col;
 	ROUGHNESS = mix(0.12, 0.02, fresnel);
 	METALLIC  = 0.05;
-	SPECULAR  = 0.5;
+	SPECULAR  = 0.5 + night_boost * 0.2;  // more specular at night for city light reflections
 	// Shore softening — fade alpha near edges
 	ALPHA     = smoothstep(0.0, 1.5, v_shore_dist);
 }
