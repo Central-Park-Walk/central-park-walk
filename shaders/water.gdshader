@@ -10,6 +10,7 @@ uniform float water_y_offset = 0.03;
 global uniform float rain_wetness;
 global uniform vec3 sky_reflect_color;
 global uniform float season_t;
+global uniform vec2 wind_vec;
 
 varying vec3 world_pos;
 varying float v_shore_dist;
@@ -49,12 +50,19 @@ float gnoise(vec2 p) {
 }
 
 // World-space wave normal from three overlapping noise layers
+// Wind biases wave direction and increases amplitude
 vec3 wave_normal(vec2 uv) {
 	float t  = TIME;
-	vec2 o1  = vec2( t * 0.08,  t * 0.05);   // slow drift
-	vec2 o2  = vec2(-t * 0.12,  t * 0.09);   // medium ripples
-	vec2 o3  = vec2( t * 0.18, -t * 0.14);   // fine detail
+	float wind_str = length(wind_vec);
+	// Wind pushes wave drift direction
+	vec2 wind_dir = wind_str > 0.01 ? normalize(wind_vec) : vec2(0.0);
+	vec2 wind_push = wind_dir * wind_str * 0.06;
+	vec2 o1  = vec2( t * 0.08,  t * 0.05)  + wind_push * 1.2;   // slow drift
+	vec2 o2  = vec2(-t * 0.12,  t * 0.09)  + wind_push * 0.8;   // medium ripples
+	vec2 o3  = vec2( t * 0.18, -t * 0.14)  + wind_push * 0.4;   // fine detail
 	float e  = 0.04;
+	// Wind increases wave amplitude (calm = 0.20, strong = 0.40 normal strength)
+	float amp = 0.20 + wind_str * 0.10;
 	float h   = gnoise(uv * 0.7 + o1) * 0.4
 	          + gnoise(uv * 1.8 + o2) * 0.35
 	          + gnoise(uv * 4.5 + o3) * 0.25;
@@ -64,7 +72,7 @@ vec3 wave_normal(vec2 uv) {
 	float hz  = gnoise((uv + vec2(0.0, e)) * 0.7 + o1) * 0.4
 	          + gnoise((uv + vec2(0.0, e)) * 1.8 + o2) * 0.35
 	          + gnoise((uv + vec2(0.0, e)) * 4.5 + o3) * 0.25;
-	return normalize(vec3(-(hx - h) / e * 0.20, 1.0, -(hz - h) / e * 0.20));
+	return normalize(vec3(-(hx - h) / e * amp, 1.0, -(hz - h) / e * amp));
 }
 
 void vertex() {
@@ -218,9 +226,13 @@ void fragment() {
 	vec3 col = mix(base_col, sky_col, fresnel * (0.6 + extra_reflect));
 
 	// Foam — white caps at wave peaks (subtle in ponds, more on reservoir)
-	float foam = smoothstep(0.6, 0.85, wave_h);
+	// Wind increases foam: lower threshold, more visible caps
+	float wind_str = length(wind_vec);
+	float foam_thresh = mix(0.6, 0.35, clamp(wind_str, 0.0, 2.0) * 0.5);
+	float foam = smoothstep(foam_thresh, foam_thresh + 0.25, wave_h);
 	float foam_vis = night_boost > 0.5 ? 0.3 : 0.7;  // less visible foam at night
-	col = mix(col, vec3(0.85, 0.90, 0.92), foam * foam_vis);
+	foam_vis *= (1.0 + wind_str * 0.3);  // wind makes foam more prominent
+	col = mix(col, vec3(0.85, 0.90, 0.92), foam * min(foam_vis, 1.0));
 
 	ALBEDO    = col;
 	ROUGHNESS = mix(0.12, 0.02, fresnel);
