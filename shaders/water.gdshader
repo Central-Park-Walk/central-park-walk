@@ -9,6 +9,7 @@ uniform float hm_res        = 256.0;
 uniform float water_y_offset = 0.03;
 global uniform float rain_wetness;
 global uniform vec3 sky_reflect_color;
+global uniform float season_t;
 
 varying vec3 world_pos;
 varying float v_shore_dist;
@@ -145,6 +146,33 @@ void fragment() {
 		deep    = vec3(0.018, 0.034, 0.028);   // natural dark green
 		shallow = vec3(0.045, 0.065, 0.050);
 		extra_reflect = 0.05;
+	}
+
+	// Seasonal water color shifts
+	// Spring (0): clear, slightly green from algae bloom
+	// Summer (1): base colors (tuned above)
+	// Autumn (2): brown-amber tint from leaf tannins
+	// Winter (3): lighter, grayer, less saturated
+	float autumn_t = smoothstep(1.5, 2.5, season_t) * smoothstep(3.5, 2.5, season_t);
+	float winter_t = smoothstep(2.5, 3.5, season_t);
+	float spring_t = smoothstep(1.0, 0.0, season_t) + smoothstep(3.5, 4.0, season_t);
+	spring_t = clamp(spring_t, 0.0, 1.0);
+	if (autumn_t > 0.01) {
+		// Fallen leaves leach tannins: amber-brown tint
+		deep    = mix(deep,    deep    * vec3(1.15, 0.95, 0.70), autumn_t * 0.4);
+		shallow = mix(shallow, shallow * vec3(1.20, 0.95, 0.65), autumn_t * 0.4);
+	}
+	if (winter_t > 0.01) {
+		// Cold water: desaturated, slightly lighter, gray shift
+		float d_lum = dot(deep, vec3(0.33));
+		float s_lum = dot(shallow, vec3(0.33));
+		deep    = mix(deep,    vec3(d_lum) * 1.15, winter_t * 0.3);
+		shallow = mix(shallow, vec3(s_lum) * 1.15, winter_t * 0.3);
+	}
+	if (spring_t > 0.01) {
+		// Spring algae bloom: subtle green boost
+		deep    = mix(deep,    deep    * vec3(0.90, 1.10, 0.85), spring_t * 0.25);
+		shallow = mix(shallow, shallow * vec3(0.90, 1.12, 0.85), spring_t * 0.25);
 	}
 
 	// Subtle blend — mostly deep, shallow only at wave peaks

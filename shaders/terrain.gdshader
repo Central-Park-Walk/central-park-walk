@@ -571,14 +571,16 @@ void fragment() {
 	}
 
 	if (mat_idx > 0 && path_weight > 0.5) {
-		// --- Path shading — winner-takes-all, no blending ---
+		// --- Path shading — soft edges blend into surrounding ground ---
 		vec4 ml = mat_lookup(mat_idx);
 		vec2 path_uv = world_pos.xz / path_tile_m;
 		vec3 p_alb = texture(path_alb_arr, vec3(path_uv, ml.x)).rgb * ml.yzw;
 		vec3 p_nrm = texture(path_nrm_arr, vec3(path_uv, ml.x)).rgb;
 		float p_rgh = clamp(texture(path_rgh_arr, vec3(path_uv, ml.x)).r + 0.10, 0.0, 1.0);
 
-		float soft_weight = 1.0;
+		// Soft edge: full path at 0.3m inside, fading to grass at edge
+		// nearest_path_dist is negative when inside path (distance past edge)
+		float soft_weight = smoothstep(0.0, -0.3, nearest_path_dist);
 
 		ALBEDO          = mix(grass_alb, p_alb, soft_weight);
 		vec3 _cn = mix(grass_nrm, p_nrm, soft_weight) * 2.0 - 1.0;
@@ -586,7 +588,14 @@ void fragment() {
 		vec3 _cfn = normalize(terr_T * _cn.x + terr_B * _cn.y + terrain_n * _cn.z);
 		NORMAL = normalize((VIEW_MATRIX * vec4(_cfn, 0.0)).xyz);
 		ROUGHNESS       = mix(grass_rgh, p_rgh, soft_weight);
-		SPECULAR        = 0.0;
+		// Material-specific specular: stone/brick slightly reflective, gravel/dirt matte
+		float p_spec = 0.0;
+		if (ml.x < 0.5)      p_spec = 0.05;   // asphalt: matte
+		else if (ml.x < 1.5) p_spec = 0.08;   // concrete: modest
+		else if (ml.x < 2.5) p_spec = 0.10;   // paving stones/brick: slight sheen
+		else if (ml.x < 3.5) p_spec = 0.02;   // gravel/dirt: very matte
+		else                  p_spec = 0.06;   // wood: natural
+		SPECULAR        = mix(0.15, p_spec, soft_weight);
 		METALLIC        = 0.0;
 	} else {
 		ALBEDO          = grass_alb;
@@ -600,25 +609,40 @@ void fragment() {
 		METALLIC        = 0.0;
 	}
 
-	// --- Path edge wear: muddy/worn margins near paths in woodland zones ---
-	if (nearest_path_dist > 0.0 && nearest_path_dist < 1.8 && is_woodland && mat_idx == 0) {
+	// --- Path edge wear: muddy/worn margins near paths ---
+	if (nearest_path_dist > 0.0 && nearest_path_dist < 1.8 && mat_idx == 0) {
 		// Foot traffic wears ground near paths — exposed earth/mud at edges
 		float wear_noise = fbm(world_pos.xz * 0.4, 2) * 0.5;
 		float wear = smoothstep(1.8, 0.2, nearest_path_dist + wear_noise);
+		// Stronger in woodland zones, lighter in open lawn
+		float wear_strength = is_woodland ? 0.5 : 0.25;
 		vec3 worn_earth = vec3(0.32, 0.26, 0.18);  // dark exposed earth
-		grass_alb = mix(grass_alb, worn_earth, wear * 0.5);
-		grass_rgh = mix(grass_rgh, 0.85, wear * 0.4);
+		grass_alb = mix(grass_alb, worn_earth, wear * wear_strength);
+		grass_rgh = mix(grass_rgh, 0.85, wear * wear_strength * 0.8);
 	}
 
-	// --- Morning dew: subtle sparkle on grass surfaces at dawn ---
+	// --- Morning dew / frost: subtle sparkle on grass surfaces at dawn ---
 	if (dew_amount > 0.01 && mat_idx == 0) {
+		// Winter frost: dew becomes icy white when season is cold (late autumn/winter)
+		float winter_t = smoothstep(2.5, 3.5, season_t) + smoothstep(0.5, -0.5, season_t - 4.0);
+		winter_t = clamp(winter_t, 0.0, 1.0);
+		float frost_amt = winter_t * dew_amount;
+		if (frost_amt > 0.02) {
+			// Frost: pale white rime on grass tips, very high specular
+			float frost_noise = hash2(floor(world_pos.xz * 8.0));
+			float frost_mask = step(0.4, frost_noise) * frost_amt;
+			ALBEDO = mix(ALBEDO, vec3(0.85, 0.88, 0.92), frost_mask * 0.5);
+			ROUGHNESS = mix(ROUGHNESS, 0.08, frost_mask * 0.7);
+			SPECULAR = mix(SPECULAR, 0.7, frost_mask * 0.6);
+		}
 		// Dew on grass: tiny water droplets create scattered specular highlights
+		float dew_factor = dew_amount * (1.0 - winter_t);  // less dew in frost weather
 		float dew_noise = hash2(floor(world_pos.xz * 12.0));
-		float dew_sparkle = step(0.7, dew_noise) * dew_amount;
+		float dew_sparkle = step(0.7, dew_noise) * dew_factor;
 		ROUGHNESS = mix(ROUGHNESS, 0.15, dew_sparkle * 0.6);
 		SPECULAR = mix(SPECULAR, 0.6, dew_sparkle * 0.5);
 		// Slightly brighter green from moisture
-		ALBEDO *= mix(1.0, 1.08, dew_amount * 0.5);
+		ALBEDO *= mix(1.0, 1.08, dew_factor * 0.5);
 	}
 
 	// --- Rain wetness: darken surfaces, lower roughness, increase specular ---
