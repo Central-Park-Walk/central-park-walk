@@ -926,6 +926,8 @@ func _ready() -> void:
 	var amenities: Array = data.get("amenities", [])
 	var playgrounds: Array = data.get("playgrounds", [])
 	var facilities: Array = data.get("facilities", [])
+	var viewpoints: Array = data.get("viewpoints", [])
+	var attractions: Array = data.get("attractions", [])
 
 	_water_builder = preload("res://water_builder.gd").new(self)
 	_bridge_builder = preload("res://bridge_builder.gd").new(self)
@@ -960,6 +962,8 @@ func _ready() -> void:
 	_infrastructure_builder._build_fountains(amenities)
 	_infrastructure_builder._build_playgrounds(playgrounds)
 	_infrastructure_builder._build_facilities(facilities)
+	_infrastructure_builder._build_viewpoints(viewpoints)
+	_infrastructure_builder._build_attractions(attractions)
 	print("  infrastructure: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	_boundary_builder._build_boundary(boundary)
 	_boundary_builder._build_perimeter_wall(boundary, paths)

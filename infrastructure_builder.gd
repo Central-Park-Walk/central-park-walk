@@ -1708,3 +1708,81 @@ func _build_fountains(amenities: Array) -> void:
 
 		count += 1
 	print("  Fountains: %d placed" % count)
+
+
+# ---------------------------------------------------------------------------
+# Viewpoints — scenic overlooks with eye symbol labels
+# ---------------------------------------------------------------------------
+func _build_viewpoints(viewpoints: Array) -> void:
+	if viewpoints.is_empty():
+		return
+	var count := 0
+	for vp in viewpoints:
+		var pos: Array = vp.get("position", [])
+		if pos.size() < 3:
+			continue
+		var x: float = float(pos[0])
+		var z: float = float(pos[2])
+		if not _loader._in_boundary(x, z):
+			continue
+		var ty: float = _loader._terrain_y(x, z)
+		var name_: String = vp.get("name", "")
+		var label_text: String = name_ if not name_.is_empty() else "Viewpoint"
+
+		var label := Label3D.new()
+		label.text = label_text
+		label.font_size = 22
+		label.position = Vector3(x, ty + 3.0, z)
+		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		label.modulate = Color(0.55, 0.70, 0.45, 0.60)
+		label.outline_modulate = Color(0.05, 0.05, 0.05, 0.40)
+		label.outline_size = 4
+		label.no_depth_test = false
+		label.pixel_size = 0.010
+		_loader.add_child(label)
+		count += 1
+	print("  Viewpoints: %d placed" % count)
+
+
+# ---------------------------------------------------------------------------
+# Attractions — landmarks, zoo exhibits, museums, historic features
+# ---------------------------------------------------------------------------
+func _build_attractions(attractions: Array) -> void:
+	if attractions.is_empty():
+		return
+	var subtype_colors: Dictionary = {
+		"museum":  Color(0.60, 0.45, 0.30, 0.70),  # warm museum brown
+		"fort":    Color(0.50, 0.50, 0.50, 0.70),  # gray fortification
+		"cannon":  Color(0.50, 0.50, 0.50, 0.70),
+		"castle":  Color(0.55, 0.48, 0.40, 0.70),
+	}
+	var default_col := Color(0.50, 0.60, 0.70, 0.65)  # blue-ish attraction
+	var count := 0
+	for att in attractions:
+		var pos: Array = att.get("position", [])
+		if pos.size() < 3:
+			continue
+		var x: float = float(pos[0])
+		var z: float = float(pos[2])
+		if not _loader._in_boundary(x, z):
+			continue
+		var name_: String = att.get("name", "")
+		if name_.is_empty():
+			continue  # skip unnamed attractions (zoo cages without labels, etc.)
+		var subtype: String = att.get("subtype", "")
+		var ty: float = _loader._terrain_y(x, z)
+		var col: Color = subtype_colors.get(subtype, default_col)
+
+		var label := Label3D.new()
+		label.text = name_
+		label.font_size = 26
+		label.position = Vector3(x, ty + 3.5, z)
+		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		label.modulate = col
+		label.outline_modulate = Color(0.05, 0.05, 0.05, 0.45)
+		label.outline_size = 5
+		label.no_depth_test = false
+		label.pixel_size = 0.012
+		_loader.add_child(label)
+		count += 1
+	print("  Attractions: %d placed" % count)
