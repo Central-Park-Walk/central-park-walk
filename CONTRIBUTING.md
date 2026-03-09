@@ -107,7 +107,7 @@ cd central-park-walk
 - Standard PEP 8
 - Blender scripts follow the `make_*.py` pattern: build geometry, apply materials, export GLB
 - Data pipeline scripts are idempotent: safe to re-run
-- `convert_to_godot.py` pre-bakes: park_data.json/bin, heightmap.bin, path_gpu.bin, world_atlas.bin, landuse_map.png, boundary_mask.png
+- `convert_to_godot.py` pre-bakes: park_data.json/bin, heightmap.bin, heightmap_gpu.bin, path_gpu.bin, world_atlas.bin, landuse_map.png, boundary_mask.png — all spatial grids at 4096×4096 (~1.22m/cell) except heightmap source (8K)
 
 ### Priority Areas
 
