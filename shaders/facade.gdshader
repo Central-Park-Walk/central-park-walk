@@ -119,25 +119,42 @@ void fragment() {
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 		NORMAL_MAP_DEPTH = 0.0;
 
-		// Night window emission
+		// Night window emission — NYC window light variety
 		if (night_factor > 0.01 && !in_reveal) {
-			// ~65% of windows lit, warm interior tones
+			// ~65% of windows lit (80% ground floor)
 			bool is_lit = wrand < 0.65;
 			if (gnd_win) { is_lit = wrand < 0.80; }
 			if (is_lit) {
+				float type_rand = fract(wrand * 13.7);
 				float warmth = fract(wrand * 7.3);
-				vec3 warm_light = mix(vec3(1.0, 0.68, 0.28), vec3(1.0, 0.76, 0.40), warmth);
-				if (fract(wrand * 13.7) < 0.10) {
-					warm_light = vec3(0.35, 0.42, 0.58);
+				vec3 win_light;
+				if (type_rand < 0.35) {
+					// Warm incandescent (older apartments, classic NYC)
+					win_light = mix(vec3(1.0, 0.68, 0.28), vec3(1.0, 0.76, 0.40), warmth);
+				} else if (type_rand < 0.60) {
+					// Cool white LED (modern offices, renovated apartments)
+					win_light = mix(vec3(0.90, 0.92, 1.0), vec3(0.95, 0.95, 0.98), warmth);
+				} else if (type_rand < 0.78) {
+					// Warm white LED (3000K, newer residential)
+					win_light = mix(vec3(1.0, 0.82, 0.55), vec3(1.0, 0.88, 0.62), warmth);
+				} else if (type_rand < 0.92) {
+					// TV/screen blue glow (apartments with screens on)
+					win_light = vec3(0.35, 0.42, 0.62);
+				} else {
+					// Dim amber (nightlight, hallway, bathroom)
+					win_light = vec3(0.85, 0.55, 0.18) * 0.6;
 				}
 				float em_strength = gnd_win ? 0.60 : 0.50;
 				em_strength *= (0.6 + wrand * 0.5);
+				// Some windows are dimmer (curtains, blinds partially drawn)
+				float curtain = fract(wrand * 23.1);
+				if (curtain < 0.25) em_strength *= 0.45;  // partially curtained
 				vec2 win_uv = gnd_win
 					? vec2(gnd_lx / 0.65, clamp((UV.y - 1.2) / (ground_h - 1.2), 0.0, 1.0))
 					: vec2(lx / win_frac_x, ly / win_frac_y);
 				vec3 grad = texture(win_gradient, vec2(win_uv.x, 1.0 - win_uv.y)).rgb;
-				emission = warm_light * grad * em_strength * night_factor;
-				win_col = warm_light * grad * 0.15;
+				emission = win_light * grad * em_strength * night_factor;
+				win_col = win_light * grad * 0.15;
 				ROUGHNESS = 0.9;
 				METALLIC = 0.0;
 			}

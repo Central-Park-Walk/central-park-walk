@@ -183,6 +183,10 @@ void fragment() {
 		shallow = mix(shallow, shallow * vec3(0.90, 1.12, 0.85), spring_t * 0.25);
 	}
 
+	// Depth tinting: deeper water is darker and more saturated
+	float depth_t = smoothstep(0.0, 2.5, v_water_depth);
+	deep    = mix(shallow, deep, depth_t);
+
 	// Subtle blend — mostly deep, shallow only at wave peaks
 	vec3 base_col = mix(deep, shallow, smoothstep(-0.3, 0.6, wave_h));
 

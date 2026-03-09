@@ -627,15 +627,14 @@ void fragment() {
 	}
 
 	// --- Path edge wear: muddy/worn margins near paths ---
+	// NOTE: This runs after ALBEDO is set, so modify ALBEDO/ROUGHNESS directly
 	if (nearest_path_dist > 0.0 && nearest_path_dist < 1.8 && mat_idx == 0) {
-		// Foot traffic wears ground near paths — exposed earth/mud at edges
 		float wear_noise = fbm(world_pos.xz * 0.4, 2) * 0.5;
 		float wear = smoothstep(1.8, 0.2, nearest_path_dist + wear_noise);
-		// Stronger in woodland zones, lighter in open lawn
 		float wear_strength = is_woodland ? 0.5 : 0.25;
-		vec3 worn_earth = vec3(0.32, 0.26, 0.18);  // dark exposed earth
-		grass_alb = mix(grass_alb, worn_earth, wear * wear_strength);
-		grass_rgh = mix(grass_rgh, 0.85, wear * wear_strength * 0.8);
+		vec3 worn_earth = vec3(0.32, 0.26, 0.18);
+		ALBEDO = mix(ALBEDO, worn_earth, wear * wear_strength);
+		ROUGHNESS = mix(ROUGHNESS, 0.85, wear * wear_strength * 0.8);
 	}
 
 	// --- Morning dew / frost: subtle sparkle on grass surfaces at dawn ---
