@@ -392,7 +392,8 @@ def write_park_data_bin(filename, data_dict):
             meta[key] = data_dict[key]
     for key in ("water", "streams", "statues", "landuse",
                 "bridge_outlines", "tunnel_outlines", "rocks",
-                "amenities", "playgrounds", "facilities", "foliage_zones"):
+                "amenities", "playgrounds", "facilities", "foliage_zones",
+                "viewpoints", "attractions"):
         if key in data_dict:
             meta[key] = data_dict[key]
 
@@ -1393,18 +1394,8 @@ def main() -> None:
                 return _rng.choice(archetypes)
         return _rng.choice(WOODLAND_FALLBACK)
 
-    def _point_in_poly(px, pz, poly):
-        """Point-in-polygon test (ray casting)."""
-        n = len(poly)
-        inside = False
-        j = n - 1
-        for i in range(n):
-            xi, zi = poly[i]
-            xj, zj = poly[j]
-            if ((zi > pz) != (zj > pz)) and (px < (xj - xi) * (pz - zi) / (zj - zi) + xi):
-                inside = not inside
-            j = i
-        return inside
+    # _point_in_poly reuses _pip defined in Step 1 above
+    _point_in_poly = _pip
 
     # Collect woodland polygons from OSM ways
     woodland_polys = []
@@ -1701,6 +1692,83 @@ def main() -> None:
         print(f"  Amenities: {len(amenities_out)}")
 
     # -------------------------------------------------------------------
+    # Viewpoints, attractions, and historic features from OSM tourism/historic
+    # -------------------------------------------------------------------
+    viewpoints_out = []
+    attractions_out = []
+    for e in elements:
+        if e["type"] != "node" or "lat" not in e:
+            continue
+        tags = e.get("tags", {})
+        if not tags:
+            continue
+        x, z = project(e["lat"], e["lon"])
+        h = round(terrain(x, z), 2)
+        tourism = tags.get("tourism", "")
+        if tourism == "viewpoint":
+            viewpoints_out.append({
+                "name": tags.get("name", ""),
+                "position": [x, h, z],
+            })
+        elif tourism == "attraction":
+            attractions_out.append({
+                "name": tags.get("name", ""),
+                "position": [x, h, z],
+                "subtype": tags.get("attraction", ""),
+            })
+        elif tourism == "museum":
+            attractions_out.append({
+                "name": tags.get("name", ""),
+                "position": [x, h, z],
+                "subtype": "museum",
+            })
+    # Way attractions (Cleopatra's Needle, Carousel, etc.)
+    for wid, tags in ways_tags.items():
+        tourism = tags.get("tourism", "")
+        if tourism in ("attraction", "museum"):
+            nids = ways_nodes.get(wid, [])
+            pts_2d = [project(*nodes_ll[nid]) for nid in nids if nid in nodes_ll]
+            if pts_2d:
+                cx = sum(p[0] for p in pts_2d) / len(pts_2d)
+                cz = sum(p[1] for p in pts_2d) / len(pts_2d)
+                attractions_out.append({
+                    "name": tags.get("name", ""),
+                    "position": [cx, round(terrain(cx, cz), 2), cz],
+                    "subtype": "museum" if tourism == "museum" else tags.get("attraction", ""),
+                })
+    # Historic features: forts, cannons (from nodes and ways)
+    for e in elements:
+        if e["type"] != "node" or "lat" not in e:
+            continue
+        tags = e.get("tags", {})
+        hist = tags.get("historic", "")
+        if hist in ("fort", "cannon", "castle", "citywalls"):
+            x, z = project(e["lat"], e["lon"])
+            h = round(terrain(x, z), 2)
+            attractions_out.append({
+                "name": tags.get("name", ""),
+                "position": [x, h, z],
+                "subtype": hist,
+            })
+    for wid, tags in ways_tags.items():
+        hist = tags.get("historic", "")
+        if hist in ("fort", "cannon", "castle"):
+            nids = ways_nodes.get(wid, [])
+            pts_2d = [project(*nodes_ll[nid]) for nid in nids if nid in nodes_ll]
+            if pts_2d:
+                cx = sum(p[0] for p in pts_2d) / len(pts_2d)
+                cz = sum(p[1] for p in pts_2d) / len(pts_2d)
+                attractions_out.append({
+                    "name": tags.get("name", ""),
+                    "position": [cx, round(terrain(cx, cz), 2), cz],
+                    "subtype": hist,
+                })
+    if viewpoints_out:
+        print(f"  Viewpoints: {len(viewpoints_out)}")
+    if attractions_out:
+        print(f"  Attractions: {len(attractions_out)}")
+
+    # -------------------------------------------------------------------
     # Conservancy map data — playgrounds, restrooms, dining, facilities
     # Source: Central Park Conservancy downloadable maps (2025-2026)
     # Coordinates are approximate, derived from street/side designations.
@@ -1840,6 +1908,8 @@ def main() -> None:
         "playgrounds":        playgrounds,
         "facilities":         facilities,
         "foliage_zones":      foliage_zones,
+        "viewpoints":         viewpoints_out,
+        "attractions":        attractions_out,
     }
 
     with open("park_data.json", "w") as fh:
