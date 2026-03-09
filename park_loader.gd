@@ -850,6 +850,18 @@ func _load_park_data_bin() -> Dictionary:
 				cans[i] = [buf[i * 3], buf[i * 3 + 1], buf[i * 3 + 2]]
 		data["trash_cans"] = cans
 
+	# -- FLAG section (flat float array) ----
+	if sections.has("FLAG"):
+		fa.seek(sections["FLAG"][0])
+		var count := fa.get_32()
+		var poles: Array = []
+		if count > 0:
+			var buf := fa.get_buffer(count * 12).to_float32_array()
+			poles.resize(count)
+			for i in count:
+				poles[i] = [buf[i * 3], buf[i * 3 + 1], buf[i * 3 + 2]]
+		data["flagpoles"] = poles
+
 	fa.close()
 	return data
 

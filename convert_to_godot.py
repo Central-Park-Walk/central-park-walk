@@ -391,7 +391,7 @@ def write_park_data_bin(filename, data_dict):
         if key in data_dict:
             meta[key] = data_dict[key]
     for key in ("water", "streams", "statues", "landuse",
-                "bridge_outlines", "tunnel_outlines", "rocks",
+                "bridge_outlines", "tunnel_outlines", "rocks", "shrubbery",
                 "amenities", "playgrounds", "facilities", "foliage_zones",
                 "viewpoints", "attractions"):
         if key in data_dict:
@@ -653,6 +653,17 @@ def write_park_data_bin(filename, data_dict):
             flat.extend([float(tc[0]), float(tc[1]), float(tc[2])])
         trsh_buf.write(_pack_floats(flat))
     sections.append((b"TRSH", trsh_buf.getvalue()))
+
+    # == FLAG section (flat float array) ==================================
+    flagpoles = data_dict.get("flagpoles", [])
+    flag_buf = io.BytesIO()
+    flag_buf.write(struct.pack('<I', len(flagpoles)))
+    if flagpoles:
+        flat = []
+        for fp in flagpoles:
+            flat.extend([float(fp[0]), float(fp[1]), float(fp[2])])
+        flag_buf.write(_pack_floats(flat))
+    sections.append((b"FLAG", flag_buf.getvalue()))
 
     # -- Assemble the file ------------------------------------------------
     section_count = len(sections)
