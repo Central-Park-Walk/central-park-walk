@@ -1214,13 +1214,51 @@ def main() -> None:
     tree_hash: dict = {}
 
     # --- Step 1: NYC census trees (authoritative positions & species) ---
+    # Pre-filter to boundary + 20m buffer (census includes surrounding street trees)
+    def _pip(px, pz, poly):
+        """Point-in-polygon (ray casting)."""
+        n = len(poly)
+        inside = False
+        j = n - 1
+        for i in range(n):
+            xi, zi = float(poly[i][0]), float(poly[i][1])
+            xj, zj = float(poly[j][0]), float(poly[j][1])
+            if ((zi > pz) != (zj > pz)) and (px < (xj - xi) * (pz - zi) / (zj - zi) + xi):
+                inside = not inside
+            j = i
+        return inside
+
+    def _near_boundary(px, pz, poly, dist):
+        """Check if point is within dist metres of any boundary segment."""
+        thresh_sq = dist * dist
+        n = len(poly)
+        for i in range(n):
+            ax, az = float(poly[i][0]), float(poly[i][1])
+            bx, bz = float(poly[(i+1) % n][0]), float(poly[(i+1) % n][1])
+            dx, dz = bx - ax, bz - az
+            l2 = dx * dx + dz * dz
+            if l2 < 0.001:
+                dsq = (px - ax) ** 2 + (pz - az) ** 2
+            else:
+                t = max(0.0, min(1.0, ((px - ax) * dx + (pz - az) * dz) / l2))
+                cx, cz = ax + t * dx, az + t * dz
+                dsq = (px - cx) ** 2 + (pz - cz) ** 2
+            if dsq < thresh_sq:
+                return True
+        return False
+
     NYC_TREES = "lidar_data/central_park_trees.json"
     nyc_count = 0
+    nyc_filtered = 0
     if os.path.exists(NYC_TREES):
         with open(NYC_TREES) as fh:
             nyc_trees = json.load(fh)
         for t in nyc_trees:
             x, z = project(t["lat"], t["lon"])
+            # Skip trees outside park boundary (with 20m buffer for edge trees)
+            if not _pip(x, z, boundary_pts) and not _near_boundary(x, z, boundary_pts, 20.0):
+                nyc_filtered += 1
+                continue
             h = round(terrain(x, z), 2)
             sp_raw = t.get("species", "").lower()
             genus = sp_raw.split()[0] if sp_raw else ""
@@ -1232,7 +1270,7 @@ def main() -> None:
                 tree_hash[ck] = []
             tree_hash[ck].append((x, z))
             nyc_count += 1
-        print(f"  Trees: {nyc_count} from NYC census (all included)")
+        print(f"  Trees: {nyc_count} from NYC census ({nyc_filtered} filtered outside boundary)")
 
     # --- Step 2: OSM individual tree nodes ---
     osm_added = 0
@@ -1320,10 +1358,19 @@ def main() -> None:
         "yoshino cherry (east)": "cherry", "gray birch": "birch",
         "sassafras": "deciduous", "ginkgo": "ginkgo",
     }
-    # Build z-indexed foliage zone lookup: [(z_min, z_max, [archetype, ...])]
-    foliage_zones_out = data_dict.get("foliage_zones", [])
+    # Build z-indexed foliage zone lookup from Conservancy data
+    _foliage_zone_data = [
+        {"z_range": [-1800, -1125], "species": ["American Elm", "Black Cherry", "Pin Oak", "Red Maple", "Red Oak", "Scarlet Oak", "Sweetgum"]},
+        {"z_range": [-1500, -1350], "species": ["Crabapple", "Star Magnolia", "Stewartia"]},
+        {"z_range": [-1275, -1050], "species": ["Bald Cypress", "Hickory", "Red Maple", "Sugar Maple", "Sweetgum", "Tupelo"]},
+        {"z_range": [-1200, -825], "species": ["Flowering Dogwood", "Hickory", "Sugar Maple"]},
+        {"z_range": [-750, 75], "species": ["Kwanzan Cherry (west)", "Yoshino Cherry (east)"]},
+        {"z_range": [375, 975], "species": ["Black Cherry", "Hickory", "Pin Oak", "Red Maple", "Red Oak", "Sassafras", "Sweetgum", "Tupelo"]},
+        {"z_range": [1050, 1500], "species": ["American Elm"]},
+        {"z_range": [1650, 2050], "species": ["Black Cherry", "Ginkgo", "Gray Birch", "Hickory", "Pin Oak", "Sawtooth Oak", "Tupelo"]},
+    ]
     _zone_lookup = []
-    for fz in foliage_zones_out:
+    for fz in _foliage_zone_data:
         zr = fz.get("z_range", [])
         if len(zr) != 2:
             continue
