@@ -578,9 +578,9 @@ void fragment() {
 		vec3 p_nrm = texture(path_nrm_arr, vec3(path_uv, ml.x)).rgb;
 		float p_rgh = clamp(texture(path_rgh_arr, vec3(path_uv, ml.x)).r + 0.10, 0.0, 1.0);
 
-		// Soft edge: full path at 0.3m inside, fading to grass at edge
+		// Soft edge: full path at 0.15m inside, fading to grass at edge
 		// nearest_path_dist is negative when inside path (distance past edge)
-		float soft_weight = smoothstep(0.0, -0.3, nearest_path_dist);
+		float soft_weight = smoothstep(0.0, -0.15, nearest_path_dist);
 
 		ALBEDO          = mix(grass_alb, p_alb, soft_weight);
 		vec3 _cn = mix(grass_nrm, p_nrm, soft_weight) * 2.0 - 1.0;
