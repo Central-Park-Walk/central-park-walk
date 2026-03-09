@@ -4,33 +4,63 @@ Thank you for your interest. This project grows with human attention — every p
 
 You don't need to be a developer to contribute. Some of the most valuable contributions are data: a photo of a lamppost, a recording of birdsong at the Ramble, a measurement of a bench. If you've been to Central Park, you have something to offer.
 
+## Find What's Missing
+
+**In the game:** Press **G** to toggle data gap markers. Orange markers show statues/fountains needing scans, green markers show areas needing tree surveys. Each marker displays the real-world GPS coordinates so you can navigate there with your phone.
+
+**On the map:** Open [`data_gaps.geojson`](data_gaps.geojson) on GitHub — it renders as a clickable interactive map. Each pin shows what's needed and how to contribute. Load it on your phone to navigate to the exact spot.
+
+**Machine-readable:** `data_gaps.json` has full details for every gap with IDs, coordinates, and format specs.
+
+The gap list regenerates automatically — when you fill a gap, it disappears from the map.
+
 ## Data Contributions (No coding required)
 
+### 3D Scans (66 statues + 3 fountains needed)
+
+We have scans of 3 out of 69 scannable objects. The rest show only floating labels in the simulation.
+
+**What you need:** iPhone 12 Pro+ or iPad Pro (has LiDAR), or DSLR with 50+ photos
+
+**Free apps:** Polycam, Scaniverse, 3d Scanner App
+
+**Steps:**
+1. Open `data_gaps.geojson` on your phone to find the statue
+2. Scan from all angles — walk slowly around the entire object, include the base
+3. Export as GLB in real-world scale (metres), decimated to <100K triangles
+4. Submit a PR adding your scan to `models/contributions/statue_name.glb`
+
+**License:** CC-BY 4.0 or CC-BY-SA 4.0 (state in your PR description)
+
+**High priority scans:** Balto, Cleopatra's Needle, Shakespeare, Burnett Memorial Fountain, Cherry Hill Fountain, Sophie Loeb Fountain
+
+### Tree Surveys
+
+Some areas have fewer trees in our census data than exist in reality. The Mall / Literary Walk has 44 trees in our data but ~150 American Elms in reality.
+
+**What you need:** Phone with GPS + tape measure
+
+**Steps:**
+1. Open `data_gaps.geojson` to find the flagged area
+2. For each tree, record: GPS location, species (common name), trunk diameter at chest height in cm, estimated height in metres
+3. Submit as CSV:
+
+```csv
+lat,lon,species,dbh_cm,height_m,notes
+40.7724,-73.9713,American Elm,65,22,Mall east row
+40.7725,-73.9713,American Elm,58,20,Mall east row
+```
+
+**Submit:** GitHub issue with CSV data, or PR adding to `data/tree_surveys/area_name.csv`
+
 ### Photography
-Take photos of specific landmarks, materials, and details. We use Wikimedia Commons as our visual reference library. Useful subjects:
+Reference photos help verify contributed data and guide texture work. Useful subjects:
 - Close-ups of stone textures (schist outcrops, granite curbs, sandstone walls)
 - Architectural details on bridges, arches, and tunnels
-- Furniture: lampposts, benches, trash cans, drinking fountains, signs
-- Seasonal changes: spring blossoms, summer canopy, autumn foliage, winter bare branches
-- Ground surfaces: paths, plazas, lawns at different times of year
+- Seasonal changes at specific locations
+- Ground surfaces: paths, plazas, lawns
 
-Upload to Wikimedia Commons with location metadata if possible. Then open an issue with the "Data Contribution" template.
-
-### 3D Scans
-Photogrammetry scans of statues, architectural details, and rock outcrops are extremely valuable. We currently have 3 of 106 known statues scanned.
-
-**Tools**: Meshroom (free), RealityCapture, Polycam (phone), Luma AI (phone)
-**Tips**: Capture 40-60 overlapping photos in diffuse light. Avoid harsh shadows. Include a scale reference if possible.
-**Upload**: Sketchfab (CC-BY license) or open an issue with a download link.
-
-### Field Recordings
-The simulation has no audio yet — we need real Central Park recordings. Useful recordings:
-- Bird calls at specific locations and times of day/year
-- Water sounds (lake lapping, fountain splash, stream flow)
-- Ambient atmosphere at different park zones
-- Seasonal sounds (cicadas, wind through leaves, ice)
-
-Upload to Freesound.org (CC0 preferred) or open an issue.
+Upload to Wikimedia Commons with location metadata. Then open an issue linking your uploads.
 
 ### OpenStreetMap Editing
 Only 7–11% of Central Park's furniture is mapped in OSM. If you visit the park, you can map what you see:
@@ -42,8 +72,15 @@ Only 7–11% of Central Park's furniture is mapped in OSM. If you visit the park
 
 We re-download OSM data periodically, so your edits will appear in the simulation.
 
-### Local Knowledge
-If you know Central Park well, open an "Area Detail" issue. Tell us what's wrong or missing in a specific area. Reference photos are extremely helpful.
+## Validation
+
+All contributions are reviewed before merge:
+- **Coordinates** must fall within Central Park boundary
+- **Species names** must match NYC Parks approved species list
+- **Trunk diameters** must be 5–300 cm, heights 2–50 m
+- **Tree positions** must be >1m apart (no duplicates)
+- **Scans** must be recognizable as the named object at correct scale
+- **License** must be CC-BY 4.0, CC-BY-SA 4.0, or public domain
 
 ## Technical Contributions
 

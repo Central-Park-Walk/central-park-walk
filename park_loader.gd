@@ -64,6 +64,7 @@ var _tree_builder                        # tree_builder.gd instance
 var _boundary_builder                    # boundary_builder.gd instance
 var _furniture_builder                   # furniture_builder.gd instance
 var _infrastructure_builder              # infrastructure_builder.gd instance
+var _gap_builder                         # gap_builder.gd instance
 
 
 # ---------------------------------------------------------------------------
@@ -753,6 +754,7 @@ func _ready() -> void:
 	_boundary_builder = preload("res://boundary_builder.gd").new(self)
 	_furniture_builder = preload("res://furniture_builder.gd").new(self)
 	_infrastructure_builder = preload("res://infrastructure_builder.gd").new(self)
+	_gap_builder = preload("res://gap_builder.gd").new(self)
 
 	var _t0 := Time.get_ticks_msec()
 	var _tp := _t0
@@ -779,7 +781,9 @@ func _ready() -> void:
 	_boundary_builder._build_perimeter_wall(boundary, paths)
 	print("  boundary: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	_infrastructure_builder._build_field_markings()
-	print("  fields: %d ms" % (Time.get_ticks_msec() - _tp))
+	print("  fields: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
+	_gap_builder._build_gap_markers()
+	print("  gap markers: %d ms" % (Time.get_ticks_msec() - _tp))
 	print("ParkLoader: done in %d ms total" % (Time.get_ticks_msec() - _t0))
 
 

@@ -1,0 +1,1639 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.974426,
+          40.797908
+        ]
+      },
+      "properties": {
+        "id": "scan-carrere-memorial",
+        "name": "Carrere Memorial",
+        "description": "Memorial: Carrere Memorial",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.973233,
+          40.79862
+        ]
+      },
+      "properties": {
+        "id": "scan-firemen's-memorial",
+        "name": "Firemen's Memorial",
+        "description": "Memorial: Firemen's Memorial",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.967987,
+          40.771455
+        ]
+      },
+      "properties": {
+        "id": "scan-richard-morris-hunt",
+        "name": "Richard Morris Hunt",
+        "description": "Memorial: Richard Morris Hunt",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.97648,
+          40.794111
+        ]
+      },
+      "properties": {
+        "id": "scan-joan-of-arc-memorial",
+        "name": "Joan of Arc Memorial",
+        "description": "Sculpture: Joan of Arc Memorial",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.972339,
+          40.770141
+        ]
+      },
+      "properties": {
+        "id": "scan-sir-walter-scott",
+        "name": "Sir Walter Scott",
+        "description": "Statue: Sir Walter Scott",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.972566,
+          40.770193
+        ]
+      },
+      "properties": {
+        "id": "scan-robert-burns",
+        "name": "Robert Burns",
+        "description": "Statue: Robert Burns",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.972772,
+          40.769906
+        ]
+      },
+      "properties": {
+        "id": "scan-christopher-columbus",
+        "name": "Christopher Columbus",
+        "description": "Statue: Christopher Columbus",
+        "gap_type": "photogrammetry",
+        "priority": "high",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.95195,
+          40.794264
+        ]
+      },
+      "properties": {
+        "id": "scan-three-dancing-maidens-\u2013-untermyer-founta",
+        "name": "Three Dancing Maidens \u2013 Untermyer Fountain",
+        "description": "Statue: Three Dancing Maidens \u2013 Untermyer Fountain",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.97237,
+          40.769799
+        ]
+      },
+      "properties": {
+        "id": "scan-william-shakespeare",
+        "name": "William Shakespeare",
+        "description": "Statue: William Shakespeare",
+        "gap_type": "photogrammetry",
+        "priority": "high",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.973152,
+          40.770377
+        ]
+      },
+      "properties": {
+        "id": "scan-indian-hunter",
+        "name": "Indian Hunter",
+        "description": "Statue: Indian Hunter",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.972137,
+          40.770664
+        ]
+      },
+      "properties": {
+        "id": "scan-fitz-greene-halleck",
+        "name": "Fitz-Greene Halleck",
+        "description": "Statue: Fitz-Greene Halleck",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.95276,
+          40.793158
+        ]
+      },
+      "properties": {
+        "id": "scan-burnett-memorial-fountain",
+        "name": "Burnett Memorial Fountain",
+        "description": "Memorial: Burnett Memorial Fountain",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.964572,
+          40.781033
+        ]
+      },
+      "properties": {
+        "id": "scan-alexander-hamilton",
+        "name": "Alexander Hamilton",
+        "description": "Statue: Alexander Hamilton",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.97101,
+          40.769961
+        ]
+      },
+      "properties": {
+        "id": "scan-balto",
+        "name": "Balto",
+        "description": "Memorial: Balto",
+        "gap_type": "photogrammetry",
+        "priority": "high",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.969557,
+          40.769331
+        ]
+      },
+      "properties": {
+        "id": "scan-107th-infantry-memorial",
+        "name": "107th Infantry Memorial",
+        "description": "Memorial: 107th Infantry Memorial",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.97644,
+          40.773762
+        ]
+      },
+      "properties": {
+        "id": "scan-7th-regiment-memorial",
+        "name": "7th Regiment Memorial",
+        "description": "Statue: 7th Regiment Memorial",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.973291,
+          40.779469
+        ]
+      },
+      "properties": {
+        "id": "scan-alexander-von-humboldt",
+        "name": "Alexander von Humboldt",
+        "description": "Bust: Alexander von Humboldt",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Small (~0.5-1m). iPhone LiDAR works well at this scale."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.956,
+          40.78862
+        ]
+      },
+      "properties": {
+        "id": "scan-albert-bertel-thorvaldsen",
+        "name": "Albert Bertel Thorvaldsen",
+        "description": "Statue: Albert Bertel Thorvaldsen",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.974118,
+          40.774753
+        ]
+      },
+      "properties": {
+        "id": "scan-daniel-webster",
+        "name": "Daniel Webster",
+        "description": "Statue: Daniel Webster",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.971735,
+          40.773173
+        ]
+      },
+      "properties": {
+        "id": "scan-johann-christoph-friedrich-von-schiller",
+        "name": "Johann Christoph Friedrich Von Schiller",
+        "description": "Bust: Johann Christoph Friedrich Von Schiller",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Small (~0.5-1m). iPhone LiDAR works well at this scale."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.959211,
+          40.784375
+        ]
+      },
+      "properties": {
+        "id": "scan-john-purroy-mitchel",
+        "name": "John Purroy Mitchel",
+        "description": "Statue: John Purroy Mitchel",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.976066,
+          40.766045
+        ]
+      },
+      "properties": {
+        "id": "scan-jos\u00e9-mart\u00ed",
+        "name": "Jos\u00e9 Mart\u00ed",
+        "description": "Statue: Jos\u00e9 Mart\u00ed",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.97663,
+          40.766043
+        ]
+      },
+      "properties": {
+        "id": "scan-jos\u00e9-de-san-mart\u00edn",
+        "name": "Jos\u00e9 de San Mart\u00edn",
+        "description": "Statue: Jos\u00e9 de San Mart\u00edn",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.96668,
+          40.778924
+        ]
+      },
+      "properties": {
+        "id": "scan-king-jagiello-monument",
+        "name": "King Jagiello Monument",
+        "description": "Statue: King Jagiello Monument",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.971889,
+          40.772877
+        ]
+      },
+      "properties": {
+        "id": "scan-ludwig-van-beethoven",
+        "name": "Ludwig van Beethoven",
+        "description": "Bust: Ludwig van Beethoven",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Small (~0.5-1m). iPhone LiDAR works well at this scale."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.975779,
+          40.765708
+        ]
+      },
+      "properties": {
+        "id": "scan-sim\u00f3n-bol\u00edvar",
+        "name": "Sim\u00f3n Bol\u00edvar",
+        "description": "Statue: Sim\u00f3n Bol\u00edvar",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.971003,
+          40.769991
+        ]
+      },
+      "properties": {
+        "id": "scan-sled-dogs-memorial-plaque",
+        "name": "Sled dogs memorial plaque",
+        "description": "Memorial: Sled dogs memorial plaque",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.981486,
+          40.779217
+        ]
+      },
+      "properties": {
+        "id": "scan-giuseppe-verdi-monument",
+        "name": "Giuseppe Verdi Monument",
+        "description": "Memorial: Giuseppe Verdi Monument",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.963942,
+          40.777495
+        ]
+      },
+      "properties": {
+        "id": "scan-group-of-bears",
+        "name": "Group of Bears",
+        "description": "Statue: Group of Bears",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.973245,
+          40.765928
+        ]
+      },
+      "properties": {
+        "id": "scan-thomas-moore",
+        "name": "Thomas Moore",
+        "description": "Bust: Thomas Moore",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Small (~0.5-1m). iPhone LiDAR works well at this scale."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.972286,
+          40.772728
+        ]
+      },
+      "properties": {
+        "id": "scan-victor-herbert",
+        "name": "Victor Herbert",
+        "description": "Bust: Victor Herbert",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Small (~0.5-1m). iPhone LiDAR works well at this scale."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.968439,
+          40.773144
+        ]
+      },
+      "properties": {
+        "id": "scan-the-pilgrim",
+        "name": "The Pilgrim",
+        "description": "Statue: The Pilgrim",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.954271,
+          40.795132
+        ]
+      },
+      "properties": {
+        "id": "scan-andrew-haswell-green-bench",
+        "name": "Andrew Haswell Green Bench",
+        "description": "Memorial: Andrew Haswell Green Bench",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.967435,
+          40.772483
+        ]
+      },
+      "properties": {
+        "id": "scan-samuel-f-b-morse",
+        "name": "Samuel F. B. Morse",
+        "description": "Statue: Samuel F. B. Morse",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.968721,
+          40.780475
+        ]
+      },
+      "properties": {
+        "id": "scan-romeo-and-juliet",
+        "name": "Romeo and Juliet",
+        "description": "Statue: Romeo and Juliet",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.968645,
+          40.780448
+        ]
+      },
+      "properties": {
+        "id": "scan-the-tempest",
+        "name": "The Tempest",
+        "description": "Statue: The Tempest",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.969649,
+          40.779869
+        ]
+      },
+      "properties": {
+        "id": "scan-whisper-bench",
+        "name": "Whisper Bench",
+        "description": "Memorial: Whisper Bench",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.962645,
+          40.780447
+        ]
+      },
+      "properties": {
+        "id": "scan-temple-of-dendur",
+        "name": "Temple of Dendur",
+        "description": "Monument: Temple of Dendur",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Large structure. Walk around entire perimeter. May need DSLR for best results."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.974742,
+          40.77542
+        ]
+      },
+      "properties": {
+        "id": "scan-strawberry-fields",
+        "name": "Strawberry Fields",
+        "description": "Memorial: Strawberry Fields",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.973442,
+          40.779343
+        ]
+      },
+      "properties": {
+        "id": "scan-naturalists-gate",
+        "name": "Naturalists Gate",
+        "description": "Memorial: Naturalists Gate",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.964593,
+          40.791511
+        ]
+      },
+      "properties": {
+        "id": "scan-gate-of-all-saints",
+        "name": "Gate of All Saints",
+        "description": "Memorial: Gate of All Saints",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.949347,
+          40.796904
+        ]
+      },
+      "properties": {
+        "id": "scan-duke-ellington-memorial",
+        "name": "Duke Ellington Memorial",
+        "description": "Memorial: Duke Ellington Memorial",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.968459,
+          40.784163
+        ]
+      },
+      "properties": {
+        "id": "scan-seneca-village",
+        "name": "Seneca Village",
+        "description": "Memorial: Seneca Village",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.972835,
+          40.780841
+        ]
+      },
+      "properties": {
+        "id": "scan-theodore-roosevelt-memorial",
+        "name": "Theodore Roosevelt Memorial",
+        "description": "Memorial: Theodore Roosevelt Memorial",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.952435,
+          40.798072
+        ]
+      },
+      "properties": {
+        "id": "scan-farmers-gate",
+        "name": "Farmers Gate",
+        "description": "Memorial: Farmers Gate",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.977331,
+          40.773418
+        ]
+      },
+      "properties": {
+        "id": "scan-adventure-playground",
+        "name": "Adventure Playground",
+        "description": "Memorial: Adventure Playground",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.97239,
+          40.770711
+        ]
+      },
+      "properties": {
+        "id": "scan-women's-rights-pioneers-monument",
+        "name": "Women's Rights Pioneers Monument",
+        "description": "Memorial: Women's Rights Pioneers Monument",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.973818,
+          40.774099
+        ]
+      },
+      "properties": {
+        "id": "scan-the-falconer",
+        "name": "The Falconer",
+        "description": "Statue: The Falconer",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.967192,
+          40.776833
+        ]
+      },
+      "properties": {
+        "id": "scan-still-hunt",
+        "name": "Still Hunt",
+        "description": "Statue: Still Hunt",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.978312,
+          40.772807
+        ]
+      },
+      "properties": {
+        "id": "scan-madison-lyden",
+        "name": "Madison Lyden",
+        "description": "Memorial: Madison Lyden",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.976694,
+          40.773009
+        ]
+      },
+      "properties": {
+        "id": "scan-giuseppe-mazzini",
+        "name": "Giuseppe Mazzini",
+        "description": "Bust: Giuseppe Mazzini",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Small (~0.5-1m). iPhone LiDAR works well at this scale."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.963591,
+          40.767475
+        ]
+      },
+      "properties": {
+        "id": "scan-mother-italy",
+        "name": "Mother Italy",
+        "description": "Sculpture: Mother Italy",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.974599,
+          40.782339
+        ]
+      },
+      "properties": {
+        "id": "scan-nobel-monument",
+        "name": "Nobel Monument",
+        "description": "Monument: Nobel Monument",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Large structure. Walk around entire perimeter. May need DSLR for best results."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.964091,
+          40.791214
+        ]
+      },
+      "properties": {
+        "id": "scan-dr-li-wenliang-memorial-bench",
+        "name": "Dr. Li Wenliang Memorial Bench",
+        "description": "Memorial: Dr. Li Wenliang Memorial Bench",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.97392,
+          40.77263
+        ]
+      },
+      "properties": {
+        "id": "scan-marc-haas-memorial",
+        "name": "Marc Haas Memorial",
+        "description": "Memorial: Marc Haas Memorial",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.971336,
+          40.774274
+        ]
+      },
+      "properties": {
+        "id": "scan-navy-walk-tablet",
+        "name": "Navy Walk Tablet",
+        "description": "Memorial: Navy Walk Tablet",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.978278,
+          40.795588
+        ]
+      },
+      "properties": {
+        "id": "scan-jacobo-villano-pardo",
+        "name": "Jacobo Villano Pardo",
+        "description": "Memorial: Jacobo Villano Pardo",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.97024,
+          40.764612
+        ]
+      },
+      "properties": {
+        "id": "scan-original-statue-of-liberty",
+        "name": "Original Statue of Liberty",
+        "description": "Sculpture: Original Statue of Liberty",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.970849,
+          40.771921
+        ]
+      },
+      "properties": {
+        "id": "scan-memorial-tree-world-war-1917-1918",
+        "name": "Memorial Tree World War 1917-1918",
+        "description": "Memorial: Memorial Tree World War 1917-1918",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.954086,
+          40.788174
+        ]
+      },
+      "properties": {
+        "id": "scan-saint-tikhon",
+        "name": "Saint Tikhon",
+        "description": "Memorial: Saint Tikhon",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.962687,
+          40.791004
+        ]
+      },
+      "properties": {
+        "id": "scan-liu-xiaobo-memorial-bench",
+        "name": "Liu Xiaobo Memorial Bench",
+        "description": "Memorial: Liu Xiaobo Memorial Bench",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.966559,
+          40.788466
+        ]
+      },
+      "properties": {
+        "id": "scan-dr-gao-yaojie-memorial-bench",
+        "name": "Dr. Gao Yaojie Memorial Bench",
+        "description": "Memorial: Dr. Gao Yaojie Memorial Bench",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.965403,
+          40.779645
+        ]
+      },
+      "properties": {
+        "id": "scan-cleopatra's-needle",
+        "name": "Cleopatra's Needle",
+        "description": "Monument: Cleopatra's Needle",
+        "gap_type": "photogrammetry",
+        "priority": "high",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Large structure. Walk around entire perimeter. May need DSLR for best results."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.978929,
+          40.792094
+        ]
+      },
+      "properties": {
+        "id": "scan-soldiers'-and-sailors'-monument",
+        "name": "Soldiers' and Sailors' Monument",
+        "description": "Monument: Soldiers' and Sailors' Monument",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Large structure. Walk around entire perimeter. May need DSLR for best results."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.952856,
+          40.796534
+        ]
+      },
+      "properties": {
+        "id": "scan-nutter's-battery",
+        "name": "Nutter's Battery",
+        "description": "Memorial: Nutter's Battery",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.980997,
+          40.768245
+        ]
+      },
+      "properties": {
+        "id": "scan-uss-maine-monument",
+        "name": "USS Maine Monument",
+        "description": "Monument: USS Maine Monument",
+        "gap_type": "photogrammetry",
+        "priority": "medium",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Large structure. Walk around entire perimeter. May need DSLR for best results."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.951953,
+          40.794262
+        ]
+      },
+      "properties": {
+        "id": "scan-untermyer-fountain",
+        "name": "Untermyer Fountain",
+        "description": "Fountain: Untermyer Fountain",
+        "gap_type": "photogrammetry",
+        "priority": "high",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Large fountain basin + sculpture. Full walk-around needed, include base and water features."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.965092,
+          40.775769
+        ]
+      },
+      "properties": {
+        "id": "scan-sophie-loeb-fountain",
+        "name": "Sophie Loeb Fountain",
+        "description": "Fountain: Sophie Loeb Fountain",
+        "gap_type": "photogrammetry",
+        "priority": "high",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Large fountain basin + sculpture. Full walk-around needed, include base and water features."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.972708,
+          40.774696
+        ]
+      },
+      "properties": {
+        "id": "scan-cherry-hill-fountain",
+        "name": "Cherry Hill Fountain",
+        "description": "Fountain: Cherry Hill Fountain",
+        "gap_type": "photogrammetry",
+        "priority": "high",
+        "what_to_bring": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+        "how_to_contribute": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+        "how_to_submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+        "marker-color": "#e67e22",
+        "marker-symbol": "camera",
+        "size_hint": "Large fountain basin + sculpture. Full walk-around needed, include base and water features."
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.972364,
+          40.770416
+        ]
+      },
+      "properties": {
+        "id": "literary-walk-elms",
+        "name": "The Mall / Literary Walk \u2014 American Elms",
+        "description": "Iconic double-row American Elm canopy, one of the largest surviving stands in North America. ~150 elms form a cathedral-like vault; census captured ~44.",
+        "gap_type": "trees",
+        "priority": "high",
+        "what_to_bring": "Phone with GPS + tape measure",
+        "how_to_contribute": "Walk the area with phone GPS. For each tree record: latitude, longitude, species (common name), trunk diameter at chest height (cm), estimated height (m). Use a tape measure for trunk diameter.",
+        "how_to_submit": "GitHub issue or PR: add CSV to data/tree_surveys/{area}.csv",
+        "marker-color": "#27ae60",
+        "marker-symbol": "park",
+        "current_count": 44,
+        "expected_count": "~150",
+        "species": "American Elm (Ulmus americana)"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -73.9654,
+          40.7829
+        ]
+      },
+      "properties": {
+        "id": "buildings-citymodel",
+        "name": "All 18368 buildings \u2014 facade only",
+        "description": "All 18368 buildings use procedural facades from OSM footprints + heights. Real 3D geometry from NYC CityGML LOD2 dataset would replace these.",
+        "gap_type": "building_geometry",
+        "priority": "medium",
+        "what_to_bring": "QGIS, FME, or Python with citygml4j",
+        "how_to_contribute": "Source CityGML LOD2 models from NYC DoITT 3D Building Model dataset or NYC Open Data PLUTO/MapPLUTO for footprints + heights. Convert to GLB with real-world coordinates.",
+        "how_to_submit": "GitHub issue with data source link and conversion script",
+        "marker-color": "#95a5a6",
+        "marker-symbol": "building"
+      }
+    }
+  ]
+}
