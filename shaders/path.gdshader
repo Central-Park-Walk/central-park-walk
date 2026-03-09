@@ -16,6 +16,7 @@ global uniform float rain_wetness;
 global uniform float snow_cover;
 global uniform float season_t;
 global uniform vec3 sky_reflect_color;
+global uniform vec2 wind_vec;
 
 #include "res://shaders/include/decode_terrain.gdshaderinc"
 
@@ -46,13 +47,16 @@ void fragment() {
 	SPECULAR   = 0.06;  // matte paving default
 
 	// Seasonal path appearance
-	// Autumn: scattered leaf litter on paths, warmer tint
+	// Autumn: scattered leaf litter on paths, warmer tint, wind-drifted
 	float autumn_t = smoothstep(2.0, 2.6, season_t) * (1.0 - smoothstep(3.3, 3.8, season_t));
 	if (autumn_t > 0.01) {
-		// Leaf debris: small brown/amber patches on pavement
-		float leaf_noise = hash2(floor(UV * 40.0));
-		float leaf_mask = step(0.85, leaf_noise) * autumn_t;
-		vec3 leaf_col = mix(vec3(0.45, 0.28, 0.10), vec3(0.58, 0.32, 0.12), leaf_noise);
+		// Leaf debris drifts with wind across path surface
+		vec2 leaf_drift = wind_vec * TIME * 0.02;
+		vec2 leaf_uv = world_pos.xz * 0.8 - leaf_drift;
+		float leaf_noise = hash2(floor(leaf_uv));
+		float leaf_mask = step(0.82, leaf_noise) * autumn_t;
+		float col_var = hash2(floor(leaf_uv * 1.3 + vec2(7.1, 3.3)));
+		vec3 leaf_col = mix(vec3(0.45, 0.28, 0.10), vec3(0.58, 0.32, 0.12), col_var);
 		ALBEDO = mix(ALBEDO, leaf_col, leaf_mask * 0.5);
 		// Overall warmer tint from tannin staining
 		ALBEDO *= mix(vec3(1.0), vec3(1.04, 0.98, 0.90), autumn_t * 0.3);
