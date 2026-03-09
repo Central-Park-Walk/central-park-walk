@@ -17,7 +17,7 @@ Central Park Walk is built by a small team dedicating significant time and energ
 All expenses are public through Open Collective. You can see exactly where every dollar goes.
 
 1. **Compute costs** — Claude subscription and any cloud infrastructure for builds, hosting, and asset storage.
-2. **Creator stipends** — As funding allows, Chris and Chrissie draw modest stipends reflecting their ongoing work. Sustainable open source requires sustaining its creators.
+2. **Creator stipends** — As funding allows, contributors draw modest stipends reflecting their ongoing work. Sustainable open source requires sustaining its creators.
 3. **Project infrastructure** — Domain, hosting, asset storage, build automation as the project grows.
 
 ## Funding milestones
