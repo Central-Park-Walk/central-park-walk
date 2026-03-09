@@ -260,22 +260,23 @@ def make_number_plate():
 
 
 def make_luminaire():
-    """Kent Bloomer luminaire: glass globe in metal ribs with acorn finial."""
+    """Kent Bloomer luminaire: glass globe in metal ribs with acorn finial.
+    Returns (iron_parts, globe_obj) — kept separate for independent materials."""
     objs = []
     globe_center_z = LUM_NECK_Z + 0.04 + LUM_GLOBE_H * 0.45
 
-    # --- Glass globe (slightly elongated sphere) ---
+    # --- Glass globe (slightly elongated sphere) — separate object ---
     bpy.ops.mesh.primitive_uv_sphere_add(
         radius=LUM_GLOBE_R, segments=20, ring_count=12,
         location=(0, 0, globe_center_z)
     )
     globe = bpy.context.active_object
-    globe.name = "globe"
+    globe.name = "CP_Lamppost_Globe"
     # Elongate vertically
     globe.scale = (1.0, 1.0, LUM_GLOBE_H / (LUM_GLOBE_R * 2))
     bpy.ops.object.transform_apply(scale=True)
     globe.data.materials.append(globe_mat)
-    objs.append(globe)
+    # Globe is NOT added to objs — returned separately
 
     # --- Four curved metal ribs ---
     rib_r = 0.008  # rib tube radius
@@ -377,38 +378,44 @@ def make_luminaire():
     fstem.data.materials.append(iron_mat)
     objs.append(fstem)
 
-    return objs
+    return objs, globe
 
 
 # --- Build the lamppost ---
-all_parts = []
-all_parts.extend(make_base())
-all_parts.extend(make_shaft())
-all_parts.extend(make_number_plate())
-all_parts.extend(make_luminaire())
+iron_parts = []
+iron_parts.extend(make_base())
+iron_parts.extend(make_shaft())
+iron_parts.extend(make_number_plate())
+lum_iron, globe_obj = make_luminaire()
+iron_parts.extend(lum_iron)
 
 # Apply all transforms
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 
-# Join all parts into one object
-bpy.ops.object.select_all(action='SELECT')
-bpy.context.view_layer.objects.active = all_parts[0]
+# Join all iron parts into one object
+bpy.ops.object.select_all(action='DESELECT')
+for obj in iron_parts:
+    obj.select_set(True)
+bpy.context.view_layer.objects.active = iron_parts[0]
 bpy.ops.object.join()
 
 lamp = bpy.context.active_object
 lamp.name = "CP_Lamppost"
 
-# Set origin so bottom is at Z=0
+# Set origin so bottom is at Z=0 (shift both objects together)
 bbox = [lamp.matrix_world @ Vector(corner) for corner in lamp.bound_box]
 min_z = min(v.z for v in bbox)
 lamp.location.z -= min_z
+globe_obj.location.z -= min_z
+bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.transform_apply(location=True)
 
-# Export GLB
+# Export GLB (both objects selected)
 out_dir = "/home/chris/central-park-walk/models/furniture"
 os.makedirs(out_dir, exist_ok=True)
 out_path = os.path.join(out_dir, "cp_lamppost.glb")
+bpy.ops.object.select_all(action='SELECT')
 bpy.ops.export_scene.gltf(
     filepath=out_path,
     export_format='GLB',
@@ -419,6 +426,11 @@ bpy.ops.export_scene.gltf(
 # Report
 bbox2 = [lamp.matrix_world @ Vector(corner) for corner in lamp.bound_box]
 height = max(v.z for v in bbox2) - min(v.z for v in bbox2)
+globe_bbox = [globe_obj.matrix_world @ Vector(c) for c in globe_obj.bound_box]
+globe_z = sum(v.z for v in globe_bbox) / 8.0
 print(f"Exported Central Park Type B lamppost to {out_path}")
 print(f"  Height: {height:.2f}m  ({height * 3.281:.1f} ft)")
-print(f"  Faces: {len(lamp.data.polygons)}")
+print(f"  Iron faces: {len(lamp.data.polygons)}")
+print(f"  Globe faces: {len(globe_obj.data.polygons)}")
+print(f"  Globe center Y (Godot): {globe_z:.3f}m")
+print(f"  Objects: CP_Lamppost (iron) + CP_Lamppost_Globe (glass)")
