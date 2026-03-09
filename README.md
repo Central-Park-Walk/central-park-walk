@@ -67,12 +67,13 @@ python3 scripts/generate_sounds.py
 |-------|--------|
 | WASD | Walk |
 | Mouse + RMB | Look around |
-| Scroll / +/- | Adjust speed |
+| Scroll / +/- | Adjust speed (Stroll / Walk / Jog / Bike / Drive / Fly) |
 | T | Cycle time speed (1x / 10x / 100x / Paused) |
 | [ / ] | Nudge time ±1 hour |
 | P | Cycle weather (Clear / Rain / Snow / Fog) |
 | 9 / 0 | Adjust wind |
 | H | Toggle HUD |
+| F11 | Toggle fullscreen |
 
 ### CLI Options
 
