@@ -151,14 +151,9 @@ func _ready() -> void:
 	if not _terrain_only:
 		_setup_park()
 		print("main: park_loader: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
-		_apply_tunnel_depressions()
-		print("main: tunnel depressions: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_setup_ground()
 	print("main: ground mesh: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	if not _terrain_only:
-		if _park_loader and _park_loader.splat_texture:
-			_apply_splat_map(_park_loader.splat_texture)
-		print("main: splat textures: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 		if _park_loader and _park_loader.path_segs_texture:
 			_apply_gpu_path_textures()
 		if _park_loader and _park_loader.boundary_polygon.size() > 2:
@@ -1295,106 +1290,6 @@ func _apply_time_of_day() -> void:
 
 
 
-# ---------------------------------------------------------------------------
-# Carve terrain at tunnel locations.
-# Stairwells: {x, z, dx, dz, length, hw, max_depth} — linear ramp
-# Tunnel bodies: {polyline, hw, max_depth, body:true} — distance to polyline
-# ---------------------------------------------------------------------------
-func _apply_tunnel_depressions() -> void:
-	if _hm_data.is_empty() or _park_loader == null:
-		return
-	var depressions: Array = _park_loader.tunnel_depressions
-	if depressions.is_empty():
-		return
-	var W := _hm_width
-	var H := _hm_depth
-	var half := _hm_world_size * 0.5
-	var cell := _hm_world_size / float(W - 1)
-	var margin := 2.0
-
-	for dep in depressions:
-		var is_body: bool = dep.get("body", false)
-		var hw: float = dep["hw"]
-		var max_d: float = dep["max_depth"]
-
-		if is_body:
-			# Polyline-based: depress all vertices within hw of the polyline
-			var poly: Array = dep["polyline"]
-			if poly.size() < 2:
-				continue
-			# Compute bounding box of polyline + hw
-			var pmin_x := INF; var pmax_x := -INF
-			var pmin_z := INF; var pmax_z := -INF
-			for pt in poly:
-				var px: float = pt[0]; var pz: float = pt[1]
-				pmin_x = minf(pmin_x, px); pmax_x = maxf(pmax_x, px)
-				pmin_z = minf(pmin_z, pz); pmax_z = maxf(pmax_z, pz)
-			pmin_x -= hw; pmax_x += hw; pmin_z -= hw; pmax_z += hw
-			var xi0 := maxi(0, int(floor((pmin_x + half) / cell)))
-			var xi1 := mini(W - 1, int(ceil((pmax_x + half) / cell)))
-			var zi0 := maxi(0, int(floor((pmin_z + half) / cell)))
-			var zi1 := mini(H - 1, int(ceil((pmax_z + half) / cell)))
-
-			for zi in range(zi0, zi1 + 1):
-				for xi in range(xi0, xi1 + 1):
-					var wx := -half + xi * cell
-					var wz := -half + zi * cell
-					# Find minimum distance to any segment of the polyline
-					var min_dist := INF
-					for si in range(poly.size() - 1):
-						var ax: float = poly[si][0]; var az: float = poly[si][1]
-						var bx: float = poly[si+1][0]; var bz: float = poly[si+1][1]
-						var dx := bx - ax; var dz := bz - az
-						var len_sq := dx * dx + dz * dz
-						if len_sq < 0.0001:
-							continue
-						var t := clampf(((wx - ax) * dx + (wz - az) * dz) / len_sq, 0.0, 1.0)
-						var cx := ax + t * dx; var cz := az + t * dz
-						var dist := sqrt((wx - cx) * (wx - cx) + (wz - cz) * (wz - cz))
-						if dist < min_dist:
-							min_dist = dist
-					if min_dist <= hw:
-						var idx := zi * W + xi
-						_hm_data[idx] = _hm_data[idx] - max_d
-		else:
-			# Stairwell: linear ramp depression
-			var ox: float = dep["x"]; var oz: float = dep["z"]
-			var dx: float = dep["dx"]; var dz: float = dep["dz"]
-			var seg_len: float = dep["length"]
-			var nx := -dz; var nz := dx
-			var ext := hw + margin
-			var bmin_x := minf(ox, ox + dx * seg_len) - ext
-			var bmax_x := maxf(ox, ox + dx * seg_len) + ext
-			var bmin_z := minf(oz, oz + dz * seg_len) - ext
-			var bmax_z := maxf(oz, oz + dz * seg_len) + ext
-			var xi0 := maxi(0, int(floor((bmin_x + half) / cell)))
-			var xi1 := mini(W - 1, int(ceil((bmax_x + half) / cell)))
-			var zi0 := maxi(0, int(floor((bmin_z + half) / cell)))
-			var zi1 := mini(H - 1, int(ceil((bmax_z + half) / cell)))
-
-			for zi in range(zi0, zi1 + 1):
-				for xi in range(xi0, xi1 + 1):
-					var wx := -half + xi * cell
-					var wz := -half + zi * cell
-					var rx := wx - ox; var rz := wz - oz
-					var along := rx * dx + rz * dz
-					var across := absf(rx * nx + rz * nz)
-					if along < 0.0 or along > seg_len:
-						continue
-					if across > ext:
-						continue
-					var t_along := clampf(along / seg_len, 0.0, 1.0)
-					# Deepest at tunnel entrance (t=0), surface at far end (t=1)
-					var depth := max_d * (1.0 - t_along)
-					if across > hw:
-						depth *= 1.0 - clampf((across - hw) / margin, 0.0, 1.0)
-					if depth > 0.01:
-						var idx := zi * W + xi
-						_hm_data[idx] = _hm_data[idx] - depth
-
-	print("Terrain: applied ", depressions.size(), " tunnel depressions")
-
-
 
 # ---------------------------------------------------------------------------
 # Terrain ground – height-mapped mesh + HeightMapShape3D collision
@@ -1619,8 +1514,7 @@ uniform sampler2D tile_noise : filter_linear_mipmap, repeat_enable;
 // Heightmap for per-pixel terrain normals (eliminates mesh topology artifacts)
 uniform sampler2D heightmap_tex : filter_linear, repeat_disable;
 
-// Splat map + path texture arrays
-uniform sampler2D splat_map : filter_linear, repeat_disable;
+// Path texture arrays (used by GPU analytical path rendering)
 uniform sampler2DArray path_alb_arr : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2DArray path_nrm_arr : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2DArray path_rgh_arr : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
@@ -2240,7 +2134,7 @@ void fragment() {
 # ---------------------------------------------------------------------------
 # Central Park geometry (paths + boundary walls from park_data.json)
 # ---------------------------------------------------------------------------
-var _park_loader = null  # reference for tunnel depressions + splat map data
+var _park_loader = null  # reference for splat map data
 
 func _setup_park() -> void:
 	var loader = load("res://park_loader.gd").new()
@@ -2254,54 +2148,8 @@ func _setup_park() -> void:
 		_lamp_mat = loader.lamppost_material
 
 
-func _apply_splat_map(splat_tex: ImageTexture) -> void:
-	## Load 5 CC0 path texture sets into Texture2DArrays and wire them into
-	## the terrain shader along with the splat map.
-	var prefixes: Array = [
-		"res://textures/Asphalt012_2K-JPG",       # index 0
-		"res://textures/Concrete034_2K-JPG",       # index 1
-		"res://textures/PavingStones130_2K-JPG",   # index 2
-		"res://textures/Gravel021_2K-JPG",         # index 3
-		"res://textures/WoodFloor041_2K-JPG",      # index 4
-	]
-	var suffixes: Array = ["_Color.jpg", "_NormalGL.jpg", "_Roughness.jpg"]
-	var arr_tex: Array = []  # [alb_arr, nrm_arr, rgh_arr]
-
-	for si in range(3):
-		var images: Array[Image] = []
-		for pi in range(prefixes.size()):
-			var path: String = prefixes[pi] + suffixes[si]
-			var img := Image.load_from_file(path)
-			if not img:
-				push_warning("Splat: missing texture " + path)
-				img = Image.create(64, 64, false, Image.FORMAT_RGB8)
-			# Ensure all layers have matching size and format
-			if pi == 0:
-				# First image sets the target size — use its natural size
-				pass
-			else:
-				var target_size := images[0].get_size()
-				if img.get_size() != target_size:
-					img.resize(target_size.x, target_size.y)
-			if img.get_format() != images[0].get_format() if pi > 0 else false:
-				img.convert(images[0].get_format())
-			img.generate_mipmaps()
-			images.append(img)
-		var tex2d_arr := Texture2DArray.new()
-		tex2d_arr.create_from_images(images)
-		arr_tex.append(tex2d_arr)
-
-	_terrain_mat.set_shader_parameter("splat_map",    splat_tex)
-	_terrain_mat.set_shader_parameter("path_alb_arr", arr_tex[0])
-	_terrain_mat.set_shader_parameter("path_nrm_arr", arr_tex[1])
-	_terrain_mat.set_shader_parameter("path_rgh_arr", arr_tex[2])
-	_terrain_mat.set_shader_parameter("world_size",   _hm_world_size)
-	_terrain_mat.set_shader_parameter("path_tile_m",  2.5)
-	print("Terrain: splat map + path texture arrays applied")
-
-
 func _apply_gpu_path_textures() -> void:
-	## Wire analytical GPU path textures into the terrain shader.
+	## Wire analytical GPU path textures + path material arrays into the terrain shader.
 	_terrain_mat.set_shader_parameter("path_segs", _park_loader.path_segs_texture)
 	_terrain_mat.set_shader_parameter("path_grid", _park_loader.path_grid_texture)
 	_terrain_mat.set_shader_parameter("path_list", _park_loader.path_list_texture)
@@ -2309,7 +2157,38 @@ func _apply_gpu_path_textures() -> void:
 	_terrain_mat.set_shader_parameter("grid_w", _park_loader.gpu_path_grid_w)
 	_terrain_mat.set_shader_parameter("seg_tex_w", _park_loader.gpu_path_seg_tex_w)
 	_terrain_mat.set_shader_parameter("list_tex_w", _park_loader.gpu_path_list_tex_w)
-	print("Terrain: analytical GPU path textures applied")
+	_terrain_mat.set_shader_parameter("world_size", _hm_world_size)
+	_terrain_mat.set_shader_parameter("path_tile_m", 2.5)
+	# Load path material texture arrays (albedo, normal, roughness)
+	var prefixes: Array = [
+		"res://textures/Asphalt012_2K-JPG",
+		"res://textures/Concrete034_2K-JPG",
+		"res://textures/PavingStones130_2K-JPG",
+		"res://textures/Gravel021_2K-JPG",
+		"res://textures/WoodFloor041_2K-JPG",
+	]
+	var suffixes: Array = ["_Color.jpg", "_NormalGL.jpg", "_Roughness.jpg"]
+	for si in range(3):
+		var images: Array[Image] = []
+		for pi in range(prefixes.size()):
+			var path: String = prefixes[pi] + suffixes[si]
+			var img := Image.load_from_file(path)
+			if not img:
+				push_warning("Path texture missing: " + path)
+				img = Image.create(64, 64, false, Image.FORMAT_RGB8)
+			if pi > 0:
+				var target_size := images[0].get_size()
+				if img.get_size() != target_size:
+					img.resize(target_size.x, target_size.y)
+				if img.get_format() != images[0].get_format():
+					img.convert(images[0].get_format())
+			img.generate_mipmaps()
+			images.append(img)
+		var tex2d_arr := Texture2DArray.new()
+		tex2d_arr.create_from_images(images)
+		var param_name: String = ["path_alb_arr", "path_nrm_arr", "path_rgh_arr"][si]
+		_terrain_mat.set_shader_parameter(param_name, tex2d_arr)
+	print("Terrain: GPU path textures + material arrays applied")
 
 
 func _apply_boundary_mask(poly: PackedVector2Array) -> void:

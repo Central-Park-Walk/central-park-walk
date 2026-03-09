@@ -120,17 +120,6 @@ func _build_furniture(bench_data: Array, lamppost_data: Array, paths: Array) -> 
 		bench_xf.append(Transform3D(basis, Vector3(bx, by, bz)))
 	var osm_bench_count := bench_xf.size()
 
-	# Build spatial hash of bench positions (used by undergrowth to keep clear)
-	var bench_grid_cell: float = _loader.BENCH_GRID_CELL
-	for xf in bench_xf:
-		var pos: Vector3 = xf.origin
-		var fwd: Vector3 = xf.basis.z
-		for step in 4:
-			var px := pos.x + fwd.x * float(step)
-			var pz := pos.z + fwd.z * float(step)
-			var key := Vector2i(int(floor(px / bench_grid_cell)), int(floor(pz / bench_grid_cell)))
-			_loader._bench_grid[key] = true
-
 	print("ParkLoader: lampposts = %d (OSM)  benches = %d (OSM)" % [lamp_xf.size(), bench_xf.size()])
 	print("  Lamp zones: formal=%d, standard=%d, simple=%d" % [lamp_xf_formal.size(), lamp_xf_standard.size(), lamp_xf_simple.size()])
 	# Spawn lamps per zone with appropriate mesh variants
@@ -211,23 +200,4 @@ func _build_trash_cans(trash_data: Array, paths: Array) -> void:
 	print("ParkLoader: trash cans = %d (from OSM)" % xforms.size())
 
 
-# ---------------------------------------------------------------------------
-# Water grid population -- marks cells near water bodies for exclusion
-# ---------------------------------------------------------------------------
-func _populate_water_grid(water: Array) -> void:
-	var water_grid_cell: float = _loader.WATER_GRID_CELL
-	for body in water:
-		var pts: Array = body["points"]
-		if pts.size() < 3:
-			continue
-		for pi in pts.size():
-			var sx := float(pts[pi][0])
-			var sz := float(pts[pi][1])
-			# Mark a radius of ~12m around each shore point
-			for dx in range(-3, 4):
-				for dz in range(-3, 4):
-					var key := Vector2i(
-						int(floor(sx / water_grid_cell)) + dx,
-						int(floor(sz / water_grid_cell)) + dz)
-					_loader._water_grid[key] = true
 

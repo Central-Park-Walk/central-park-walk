@@ -137,7 +137,6 @@ func _build_trees(trees: Array) -> void:
 	}
 
 	# Foliage zone data for deciduous sub-species assignment
-	var foliage_zones: Array = _loader._foliage_zones
 
 	# Collect transforms per species-variant for MultiMesh batching
 	# Key: "species_variantIdx" -> Array[Transform3D]
@@ -166,32 +165,8 @@ func _build_trees(trees: Array) -> void:
 		var ty: float = _loader._terrain_y(tx, tz)
 		rng.seed = i * 1234567891 + 987654321
 
-		# Zone-based species refinement for generic "deciduous" trees
+		# Use the species from data as-is (census or OSM archetype)
 		var effective_species := tree_species
-		if tree_species == "deciduous":
-			# Check foliage zones: if tree is in a known zone, assign dominant species
-			for fz in foliage_zones:
-				var zr: Array = fz.get("z_range", [])
-				if zr.size() >= 2 and tz >= float(zr[0]) and tz <= float(zr[1]):
-					var zone_species: Array = fz.get("species", [])
-					if not zone_species.is_empty():
-						var zname: String = fz.get("name", "")
-						if zname == "The Mall":
-							effective_species = "elm"
-						elif "Cherry" in str(zone_species[0]) or "cherry" in zname.to_lower():
-							effective_species = "maple"  # cherry → maple model
-						elif rng.randf() < 0.4 and zone_species.size() > 0:
-							# Probabilistic: 40% chance to use a zone species
-							var pick: String = str(zone_species[rng.randi() % zone_species.size()]).to_lower()
-							if "oak" in pick:
-								effective_species = "oak"
-							elif "maple" in pick:
-								effective_species = "maple"
-							elif "birch" in pick:
-								effective_species = "birch"
-							elif "pine" in pick or "conifer" in pick or "cypress" in pick:
-								effective_species = "conifer"
-					break
 
 		var species: String = glb_species_map.get(effective_species, "deciduous")
 		if not species_meshes.has(species):
