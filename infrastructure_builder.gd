@@ -783,16 +783,17 @@ func _build_field_markings() -> void:
 	if fields.is_empty():
 		return
 
-	# Materials
-	var dirt_mat := StandardMaterial3D.new()
-	dirt_mat.albedo_color = Color(0.55, 0.42, 0.30)  # baseball infield dirt
-	dirt_mat.roughness = 0.95
-	dirt_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	# Materials — weather-responsive ground surfaces
+	var gs_shader: Shader = _loader._get_shader("ground_surface", "res://shaders/ground_surface.gdshader")
+	var dirt_mat := ShaderMaterial.new()
+	dirt_mat.shader = gs_shader
+	dirt_mat.set_shader_parameter("surface_color", Vector3(0.55, 0.42, 0.30))
+	dirt_mat.set_shader_parameter("base_roughness", 0.95)
 
-	var line_mat := StandardMaterial3D.new()
-	line_mat.albedo_color = Color(0.95, 0.95, 0.90)  # white chalk lines
-	line_mat.roughness = 0.85
-	line_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var line_mat := ShaderMaterial.new()
+	line_mat.shader = gs_shader
+	line_mat.set_shader_parameter("surface_color", Vector3(0.95, 0.95, 0.90))
+	line_mat.set_shader_parameter("base_roughness", 0.85)
 
 	var count := 0
 	for zone in fields:
@@ -1285,11 +1286,12 @@ func _build_field_markings() -> void:
 		var off_long := -grid_w_total * 0.5 + court_w * 0.5
 		var off_short := -grid_h_total * 0.5 + court_l * 0.5
 
-		# Materials
-		var court_mat := StandardMaterial3D.new()
-		court_mat.albedo_color = Color(0.35, 0.55, 0.38)  # Har-Tru green clay
-		court_mat.roughness = 0.90
-		court_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		# Materials — weather-responsive ground surface
+		var gs_sh: Shader = _loader._get_shader("ground_surface", "res://shaders/ground_surface.gdshader")
+		var court_mat := ShaderMaterial.new()
+		court_mat.shader = gs_sh
+		court_mat.set_shader_parameter("surface_color", Vector3(0.35, 0.55, 0.38))
+		court_mat.set_shader_parameter("base_roughness", 0.90)
 
 		var t_verts := PackedVector3Array()
 		var t_norms := PackedVector3Array()
@@ -1542,11 +1544,11 @@ func _build_playgrounds(playgrounds: Array) -> void:
 	if playgrounds.is_empty():
 		return
 	var count := 0
-	var pg_mat := StandardMaterial3D.new()
-	pg_mat.albedo_color = Color(0.62, 0.42, 0.28, 0.6)  # mulch/rubber ground
-	pg_mat.roughness = 0.95
-	pg_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	pg_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var gs_sh2: Shader = _loader._get_shader("ground_surface", "res://shaders/ground_surface.gdshader")
+	var pg_mat := ShaderMaterial.new()
+	pg_mat.shader = gs_sh2
+	pg_mat.set_shader_parameter("surface_color", Vector3(0.62, 0.42, 0.28))
+	pg_mat.set_shader_parameter("base_roughness", 0.95)
 
 	for pg in playgrounds:
 		var name_: String = pg.get("name", "")
