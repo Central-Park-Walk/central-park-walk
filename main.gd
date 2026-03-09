@@ -58,7 +58,7 @@ var _letterbox_top: ColorRect
 var _letterbox_bot: ColorRect
 var _letterbox_on: bool = false
 var _lamp_light_timer: float = 0.0
-const LAMP_LIGHT_COUNT := 32
+const LAMP_LIGHT_COUNT := 48
 const LAMP_LIGHT_RANGE := 18.0
 const LAMP_LIGHT_UPDATE_INTERVAL := 0.5  # seconds between position updates
 
@@ -895,30 +895,31 @@ func _setup_environment() -> void:
 # ---------------------------------------------------------------------------
 func _build_keyframes() -> void:
 	# ---- 5.0  Pre-dawn ----
+	# NYC light pollution: horizon never fully dark, ambient glow from city
 	_keyframes.append({
 		"hour": 5.0,
 		"sky_top":        Color(0.03, 0.04, 0.12),
-		"sky_horizon":    Color(0.10, 0.10, 0.18),
-		"gnd_bottom":     Color(0.01, 0.01, 0.02),
-		"gnd_horizon":    Color(0.08, 0.06, 0.10),
-		"ambient_color":  Color(0.10, 0.10, 0.18),
-		"ambient_energy": 0.15,
-		"exposure":       0.65,
+		"sky_horizon":    Color(0.14, 0.12, 0.20),  # light pollution glow
+		"gnd_bottom":     Color(0.02, 0.02, 0.03),
+		"gnd_horizon":    Color(0.10, 0.08, 0.12),
+		"ambient_color":  Color(0.12, 0.12, 0.20),
+		"ambient_energy": 0.30,   # NYC ambient from light pollution
+		"exposure":       0.75,
 		"white":          6.0,
 		"glow_intensity": 0.6,
 		"glow_bloom":     0.08,
 		"glow_strength":  0.7,
-		"glow_threshold": 0.65,
+		"glow_threshold": 0.55,
 		"glow_cap":       5.0,
 		"ssao_radius":    2.0,
-		"ssao_intensity": 2.8,
-		"ssao_power":     2.0,
+		"ssao_intensity": 2.2,
+		"ssao_power":     1.8,
 		"ssil_intensity": 0.5,
-		"saturation":     0.70,
-		"contrast":       1.12,
-		"brightness":     0.78,
+		"saturation":     0.75,
+		"contrast":       1.06,
+		"brightness":     0.88,
 		"fog_color":      Color(0.12, 0.10, 0.14),
-		"fog_energy":     0.15,
+		"fog_energy":     0.20,
 		"fog_scatter":    0.05,
 		"fog_density":    0.0005,
 		"fog_aerial":     0.20,
@@ -928,7 +929,7 @@ func _build_keyframes() -> void:
 		"sun_pitch":      -10.0,
 		"sun_yaw":        -100.0,
 		"shadow_dist":    180.0,
-		"lamp_emission":  3.0,
+		"lamp_emission":  3.5,
 		"vol_fog_density":    0.0004,
 		"vol_fog_anisotropy": 0.45,
 		"cloud_coverage":     0.50,
@@ -1071,30 +1072,31 @@ func _build_keyframes() -> void:
 	})
 
 	# ---- 21.0  Night ----
+	# NYC light pollution: never truly dark, warm orange-pink skyglow on horizon
 	_keyframes.append({
 		"hour": 21.0,
-		"sky_top":        Color(0.02, 0.03, 0.08),
-		"sky_horizon":    Color(0.04, 0.05, 0.12),
-		"gnd_bottom":     Color(0.005, 0.008, 0.012),
-		"gnd_horizon":    Color(0.02, 0.03, 0.06),
-		"ambient_color":  Color(0.10, 0.10, 0.18),
-		"ambient_energy": 0.15,
-		"exposure":       0.60,
+		"sky_top":        Color(0.03, 0.04, 0.10),
+		"sky_horizon":    Color(0.10, 0.08, 0.14),  # light pollution horizon
+		"gnd_bottom":     Color(0.015, 0.015, 0.025),
+		"gnd_horizon":    Color(0.05, 0.04, 0.08),
+		"ambient_color":  Color(0.14, 0.12, 0.20),  # blue-shifted city glow
+		"ambient_energy": 0.30,   # NYC ambient — never below 0.3 at night
+		"exposure":       0.75,
 		"white":          6.0,
 		"glow_intensity": 0.6,
 		"glow_bloom":     0.08,
 		"glow_strength":  0.7,
-		"glow_threshold": 0.60,
+		"glow_threshold": 0.55,
 		"glow_cap":       5.0,
 		"ssao_radius":    2.0,
-		"ssao_intensity": 3.0,
-		"ssao_power":     2.0,
+		"ssao_intensity": 2.2,
+		"ssao_power":     1.8,
 		"ssil_intensity": 0.6,
-		"saturation":     0.70,
-		"contrast":       1.14,
-		"brightness":     0.75,
-		"fog_color":      Color(0.08, 0.08, 0.12),
-		"fog_energy":     0.15,
+		"saturation":     0.75,
+		"contrast":       1.06,   # less crush — preserves shadow detail
+		"brightness":     0.88,   # brighter — NYC is never pitch black
+		"fog_color":      Color(0.08, 0.07, 0.11),
+		"fog_energy":     0.20,
 		"fog_scatter":    0.05,
 		"fog_density":    0.0005,
 		"fog_aerial":     0.20,
@@ -1104,13 +1106,13 @@ func _build_keyframes() -> void:
 		"sun_pitch":      -65.0,
 		"sun_yaw":        40.0,
 		"shadow_dist":    200.0,
-		"lamp_emission":  3.0,
+		"lamp_emission":  3.5,
 		"vol_fog_density":    0.0004,
 		"vol_fog_anisotropy": 0.35,
 		"cloud_coverage":     0.45,
 		"cloud_density":      0.55,
-		"cloud_color_top":    Color(0.12, 0.12, 0.18),
-		"cloud_color_bottom": Color(0.05, 0.05, 0.08),
+		"cloud_color_top":    Color(0.14, 0.12, 0.18),
+		"cloud_color_bottom": Color(0.06, 0.05, 0.08),
 		"cloud_speed":        0.003,
 	})
 
@@ -1842,9 +1844,9 @@ func _setup_lamp_lights() -> void:
 		var light := SpotLight3D.new()
 		light.light_color = Color(1.0, 0.55, 0.18)  # warm sodium vapor, softened
 		light.light_energy = 0.0  # off until positioned
-		light.spot_range = 22.0
-		light.spot_angle = 75.0  # ~150° cone — wide soft pool below
-		light.spot_attenuation = 1.2  # softer falloff
+		light.spot_range = 28.0
+		light.spot_angle = 80.0  # ~160° cone — wide soft pool below
+		light.spot_attenuation = 1.0  # softer falloff
 		light.shadow_enabled = false  # too expensive for 24 lights
 		light.light_bake_mode = Light3D.BAKE_DISABLED
 		light.rotation_degrees = Vector3(-90, 0, 0)  # point straight down
@@ -1862,7 +1864,7 @@ func _update_lamp_lights() -> void:
 	var pool_size: int = _lamp_lights.size()
 	for i in _lamp_positions.size():
 		var d := player_pos.distance_squared_to(_lamp_positions[i])
-		if d < 900.0:  # within 30m
+		if d < 2500.0:  # within 50m
 			dists.append([d, i])
 	# Only sort if we have more candidates than light slots
 	if dists.size() > pool_size:
@@ -1875,7 +1877,7 @@ func _update_lamp_lights() -> void:
 		if li < dists.size() and night_energy > 0.1:
 			var idx: int = dists[li][1]
 			_lamp_lights[li].global_position = _lamp_positions[idx]
-			_lamp_lights[li].light_energy = night_energy * 5.5
+			_lamp_lights[li].light_energy = night_energy * 7.5
 		else:
 			_lamp_lights[li].light_energy = 0.0
 

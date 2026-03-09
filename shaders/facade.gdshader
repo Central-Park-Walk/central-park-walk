@@ -174,7 +174,9 @@ void fragment() {
 			NORMAL_MAP = vec3(tex_nrm.r, 0.7, tex_nrm.b);
 			NORMAL_MAP_DEPTH = 1.2;
 		}
-		emission += wall_col * 0.45;
+		// Reduce wall emission at night — window glow provides building visibility
+		float wall_em = mix(0.45, 0.12, night_factor);
+		emission += wall_col * wall_em;
 	}
 
 	EMISSION = emission;

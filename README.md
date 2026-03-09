@@ -115,12 +115,12 @@ All data is freely available. No paid APIs. No API keys.
 
 | Feature | Count | Detail |
 |---------|-------|--------|
-| Terrain | 4096×4096 | LiDAR-accurate, per-pixel normals, structure mask, clipped to park boundary |
-| Trees | 22,098 in census | 5 species models, LiDAR heights, seasonal phenology |
+| Terrain | 4096×4096 | LiDAR-accurate, per-pixel normals, structure mask, clipped to park boundary, 2048-res collision |
+| Trees | ~6,200 placed (39K census + woodland scatter) | 12 species archetypes, LiDAR heights, seasonal phenology, foliage zone biasing |
 | Paths | 2,624 | Analytical GPU rendering, 58K segments, width-correct |
 | Water | 27 bodies | Per-body color, shore alpha, depth tinting |
-| Buildings | 4,865 | Real NYC footprints + measured heights (filtered to 350m of park boundary), 5 facade styles, night emission |
-| Bridges | 55 | 5 styles, miter joints, arched soffits, Bow Bridge railings |
+| Buildings | 4,865 | Real NYC footprints + measured heights (filtered to 350m), 5 facade styles, night emission, collision |
+| Bridges | 55 | 5 styles, miter joints, arched soffits, Bow Bridge railings, parapet collision |
 | Tunnels | 15 | Barrel vault interiors, portal lighting |
 | Furniture | 1,004+ | Custom Blender models: lampposts, benches, trash cans, fountains |
 | Statues | 106 positions | 3 photogrammetry scans, labels mark unscanned locations |
@@ -128,7 +128,7 @@ All data is freely available. No paid APIs. No API keys.
 | Sports fields | 60 | Baseball (25), soccer (6), tennis (28), basketball (1) |
 | Seasons | 4 | Per-species phenology: leaf color, density, canopy shape, grass tint |
 | Weather | 4 modes | Rain, snow, fog, clear — with puddles, mist, dew |
-| Day/night | 5 keyframes | Sodium vapor lamps, lit windows, stars, dawn mist |
+| Day/night | 5 keyframes | 48-light lamp pool, lit windows, NYC light pollution, dawn mist |
 | Sound | — | Audio not yet implemented (field recordings needed) |
 
 ## How to Contribute

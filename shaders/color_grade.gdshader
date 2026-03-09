@@ -5,8 +5,8 @@ uniform sampler2D SCREEN_TEXTURE : hint_screen_texture, filter_linear;
 void fragment() {
 	vec3 c = texture(SCREEN_TEXTURE, SCREEN_UV).rgb;
 
-	// Warm dark floor — keep some shadow detail
-	c = max(c, vec3(0.012, 0.009, 0.007));
+	// Warm dark floor — keep shadow detail, NYC is never pitch black
+	c = max(c, vec3(0.018, 0.014, 0.012));
 	// Gentle shadow shaping
 	c = pow(c, vec3(1.06));
 
@@ -30,7 +30,8 @@ void fragment() {
 	c.g += red_excess * 0.05;
 
 	// Softer S-curve — luminous midtones, visible shadows
-	c = c * c / (c * c + 0.12) * 1.12;
+	// Use gentler knee for dark values to preserve night shadow detail
+	c = c * c / (c * c + 0.08) * 1.08;
 
 	// Saturate — colors glow against the dark background
 	float lum2 = dot(c, vec3(0.2126, 0.7152, 0.0722));
