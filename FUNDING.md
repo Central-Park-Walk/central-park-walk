@@ -4,9 +4,13 @@ Central Park Walk is built by a small team dedicating significant time and energ
 
 ## What the project needs
 
-**Compute time.** Claude is the engine that builds everything — interpreting data, writing code, designing shaders, generating Blender models, making artistic decisions. Development runs on Anthropic's Claude platform, and we regularly hit weekly usage limits. When compute runs out, development stops until the next cycle.
+**Compute time.** Claude is the engine that builds everything — interpreting data, writing code, designing shaders, generating Blender models, making artistic decisions. Development runs on Anthropic's Claude platform, and we regularly hit weekly usage limits. When compute runs out, development stops. We're setting up an Open Collective to receive financial support — link coming soon.
 
-**People time.** Christopher Abbey does full-time technical development with Claude. Chrissie develops contemplative experiences, handles community and storytelling, and brings professional credibility in wellness, education, and faith communities. Building and maintaining an open-source project of this scale is real labor.
+**Data.** The simulation is only as rich as what we feed it. We need people who can contribute LiDAR scans, OSM edits, geotagged photography, historical records, 3D meshes, and local knowledge about the park. If you've walked through Central Park and noticed something worth capturing — a particular tree, a hidden bench, a seasonal change — that matters here.
+
+**Skills.** We're looking for contributors with experience in 3D modeling (Blender, Houdini), GIS and spatial data processing, WebGL/Three.js or Unreal Engine, historical research, and creative writing about place and urban experience.
+
+**Community.** This project grows by getting more people to care about it. Sharing it, writing about it, and connecting us with institutions — libraries, universities, cultural organizations — who might want to collaborate all move things forward.
 
 ## How funds are allocated
 
