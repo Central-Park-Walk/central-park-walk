@@ -1,0 +1,1118 @@
+{
+  "version": 1,
+  "generated": "2026-03-09",
+  "summary": {
+    "total_gaps": 71,
+    "photogrammetry": 69,
+    "trees": 1,
+    "building_geometry": 1
+  },
+  "contribution_formats": {
+    "photogrammetry": {
+      "what": "3D photogrammetry scan (GLB format)",
+      "how": "Use iPhone/iPad LiDAR (Polycam, Scaniverse, 3d Scanner App) or DSLR + Meshroom/RealityCapture. Capture from all angles including top. Export as GLB, real-world scale in metres, decimated to <100K triangles.",
+      "tools": "iPhone 12 Pro+ / iPad Pro with LiDAR, or DSLR with 50+ overlapping photos",
+      "submit": "GitHub PR: add GLB to models/contributions/{name}.glb",
+      "license": "CC-BY 4.0 or CC-BY-SA 4.0 (include license in PR description)",
+      "validation": [
+        "Coordinates must fall within Central Park boundary",
+        "Scan must be recognizable as the named object",
+        "Scale must be within 20% of known dimensions",
+        "GLB must load without errors in Blender/Godot"
+      ]
+    },
+    "trees": {
+      "what": "Tree position survey (CSV)",
+      "how": "Walk the area with phone GPS. For each tree record: latitude, longitude, species (common name), trunk diameter at chest height (cm), estimated height (m). Use a tape measure for trunk diameter.",
+      "tools": "Phone with GPS + tape measure",
+      "submit": "GitHub issue or PR: add CSV to data/tree_surveys/{area}.csv",
+      "format": "CSV columns: lat, lon, species, dbh_cm, height_m, notes",
+      "license": "Public domain (factual data)",
+      "validation": [
+        "All coordinates must fall within Central Park boundary",
+        "Species must be from NYC Parks approved species list",
+        "DBH must be 5-300 cm (reasonable trunk range)",
+        "Heights must be 2-50 m",
+        "Positions must be >1m apart (no duplicates)"
+      ]
+    },
+    "building_geometry": {
+      "what": "Real building geometry from NYC open data",
+      "how": "Source CityGML LOD2 models from NYC DoITT 3D Building Model dataset or NYC Open Data PLUTO/MapPLUTO for footprints + heights. Convert to GLB with real-world coordinates.",
+      "tools": "QGIS, FME, or Python with citygml4j",
+      "submit": "GitHub issue with data source link and conversion script",
+      "license": "NYC Open Data (public domain)",
+      "validation": [
+        "Must come from official NYC government data sources",
+        "Building footprints must align with existing OSM footprints within 5m"
+      ]
+    }
+  },
+  "gaps": [
+    {
+      "id": "scan-carrere-memorial",
+      "type": "photogrammetry",
+      "name": "Carrere Memorial",
+      "object_type": "memorial",
+      "description": "Memorial: Carrere Memorial",
+      "pos": [
+        -760.8,
+        -1659.0
+      ],
+      "lat": 40.797908,
+      "lon": -73.974426,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-firemen's-memorial",
+      "type": "photogrammetry",
+      "name": "Firemen's Memorial",
+      "object_type": "memorial",
+      "description": "Memorial: Firemen's Memorial",
+      "pos": [
+        -660.2,
+        -1737.7
+      ],
+      "lat": 40.79862,
+      "lon": -73.973233,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-richard-morris-hunt",
+      "type": "photogrammetry",
+      "name": "Richard Morris Hunt",
+      "object_type": "memorial",
+      "description": "Memorial: Richard Morris Hunt",
+      "pos": [
+        -218.1,
+        1265.1
+      ],
+      "lat": 40.771455,
+      "lon": -73.967987,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-joan-of-arc-memorial",
+      "type": "photogrammetry",
+      "name": "Joan of Arc Memorial",
+      "object_type": "sculpture",
+      "description": "Sculpture: Joan of Arc Memorial",
+      "pos": [
+        -933.9,
+        -1239.3
+      ],
+      "lat": 40.794111,
+      "lon": -73.97648,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-sir-walter-scott",
+      "type": "photogrammetry",
+      "name": "Sir Walter Scott",
+      "object_type": "statue",
+      "description": "Statue: Sir Walter Scott",
+      "pos": [
+        -584.9,
+        1410.4
+      ],
+      "lat": 40.770141,
+      "lon": -73.972339,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-robert-burns",
+      "type": "photogrammetry",
+      "name": "Robert Burns",
+      "object_type": "statue",
+      "description": "Statue: Robert Burns",
+      "pos": [
+        -604.0,
+        1404.6
+      ],
+      "lat": 40.770193,
+      "lon": -73.972566,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-christopher-columbus",
+      "type": "photogrammetry",
+      "name": "Christopher Columbus",
+      "object_type": "statue",
+      "description": "Statue: Christopher Columbus",
+      "pos": [
+        -621.4,
+        1436.4
+      ],
+      "lat": 40.769906,
+      "lon": -73.972772,
+      "priority": "high",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-three-dancing-maidens-\u2013-untermyer-founta",
+      "type": "photogrammetry",
+      "name": "Three Dancing Maidens \u2013 Untermyer Fountain",
+      "object_type": "statue",
+      "description": "Statue: Three Dancing Maidens \u2013 Untermyer Fountain",
+      "pos": [
+        1133.7,
+        -1256.2
+      ],
+      "lat": 40.794264,
+      "lon": -73.95195,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-william-shakespeare",
+      "type": "photogrammetry",
+      "name": "William Shakespeare",
+      "object_type": "statue",
+      "description": "Statue: William Shakespeare",
+      "pos": [
+        -587.5,
+        1448.2
+      ],
+      "lat": 40.769799,
+      "lon": -73.97237,
+      "priority": "high",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-indian-hunter",
+      "type": "photogrammetry",
+      "name": "Indian Hunter",
+      "object_type": "statue",
+      "description": "Statue: Indian Hunter",
+      "pos": [
+        -653.4,
+        1384.3
+      ],
+      "lat": 40.770377,
+      "lon": -73.973152,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-fitz-greene-halleck",
+      "type": "photogrammetry",
+      "name": "Fitz-Greene Halleck",
+      "object_type": "statue",
+      "description": "Statue: Fitz-Greene Halleck",
+      "pos": [
+        -567.8,
+        1352.6
+      ],
+      "lat": 40.770664,
+      "lon": -73.972137,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-burnett-memorial-fountain",
+      "type": "photogrammetry",
+      "name": "Burnett Memorial Fountain",
+      "object_type": "memorial",
+      "description": "Memorial: Burnett Memorial Fountain",
+      "pos": [
+        1065.5,
+        -1133.9
+      ],
+      "lat": 40.793158,
+      "lon": -73.95276,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-alexander-hamilton",
+      "type": "photogrammetry",
+      "name": "Alexander Hamilton",
+      "object_type": "statue",
+      "description": "Statue: Alexander Hamilton",
+      "pos": [
+        69.8,
+        206.4
+      ],
+      "lat": 40.781033,
+      "lon": -73.964572,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-balto",
+      "type": "photogrammetry",
+      "name": "Balto",
+      "object_type": "memorial",
+      "description": "Memorial: Balto",
+      "pos": [
+        -472.9,
+        1430.3
+      ],
+      "lat": 40.769961,
+      "lon": -73.97101,
+      "priority": "high",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-107th-infantry-memorial",
+      "type": "photogrammetry",
+      "name": "107th Infantry Memorial",
+      "object_type": "memorial",
+      "description": "Memorial: 107th Infantry Memorial",
+      "pos": [
+        -350.4,
+        1500.0
+      ],
+      "lat": 40.769331,
+      "lon": -73.969557,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-7th-regiment-memorial",
+      "type": "photogrammetry",
+      "name": "7th Regiment Memorial",
+      "object_type": "statue",
+      "description": "Statue: 7th Regiment Memorial",
+      "pos": [
+        -930.6,
+        1010.1
+      ],
+      "lat": 40.773762,
+      "lon": -73.97644,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-alexander-von-humboldt",
+      "type": "photogrammetry",
+      "name": "Alexander von Humboldt",
+      "object_type": "bust",
+      "description": "Bust: Alexander von Humboldt",
+      "pos": [
+        -665.2,
+        379.2
+      ],
+      "lat": 40.779469,
+      "lon": -73.973291,
+      "priority": "medium",
+      "size_hint": "Small (~0.5-1m). iPhone LiDAR works well at this scale."
+    },
+    {
+      "id": "scan-albert-bertel-thorvaldsen",
+      "type": "photogrammetry",
+      "name": "Albert Bertel Thorvaldsen",
+      "object_type": "statue",
+      "description": "Statue: Albert Bertel Thorvaldsen",
+      "pos": [
+        792.4,
+        -632.3
+      ],
+      "lat": 40.78862,
+      "lon": -73.956,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-daniel-webster",
+      "type": "photogrammetry",
+      "name": "Daniel Webster",
+      "object_type": "statue",
+      "description": "Statue: Daniel Webster",
+      "pos": [
+        -734.8,
+        900.5
+      ],
+      "lat": 40.774753,
+      "lon": -73.974118,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-johann-christoph-friedrich-von-schiller",
+      "type": "photogrammetry",
+      "name": "Johann Christoph Friedrich Von Schiller",
+      "object_type": "bust",
+      "description": "Bust: Johann Christoph Friedrich Von Schiller",
+      "pos": [
+        -534.0,
+        1075.2
+      ],
+      "lat": 40.773173,
+      "lon": -73.971735,
+      "priority": "medium",
+      "size_hint": "Small (~0.5-1m). iPhone LiDAR works well at this scale."
+    },
+    {
+      "id": "scan-john-purroy-mitchel",
+      "type": "photogrammetry",
+      "name": "John Purroy Mitchel",
+      "object_type": "statue",
+      "description": "Statue: John Purroy Mitchel",
+      "pos": [
+        521.6,
+        -163.1
+      ],
+      "lat": 40.784375,
+      "lon": -73.959211,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-jos\u00e9-mart\u00ed",
+      "type": "photogrammetry",
+      "name": "Jos\u00e9 Mart\u00ed",
+      "object_type": "statue",
+      "description": "Statue: Jos\u00e9 Mart\u00ed",
+      "pos": [
+        -899.1,
+        1863.1
+      ],
+      "lat": 40.766045,
+      "lon": -73.976066,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-jos\u00e9-de-san-mart\u00edn",
+      "type": "photogrammetry",
+      "name": "Jos\u00e9 de San Mart\u00edn",
+      "object_type": "statue",
+      "description": "Statue: Jos\u00e9 de San Mart\u00edn",
+      "pos": [
+        -946.6,
+        1863.4
+      ],
+      "lat": 40.766043,
+      "lon": -73.97663,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-king-jagiello-monument",
+      "type": "photogrammetry",
+      "name": "King Jagiello Monument",
+      "object_type": "statue",
+      "description": "Statue: King Jagiello Monument",
+      "pos": [
+        -107.9,
+        439.5
+      ],
+      "lat": 40.778924,
+      "lon": -73.96668,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-ludwig-van-beethoven",
+      "type": "photogrammetry",
+      "name": "Ludwig van Beethoven",
+      "object_type": "bust",
+      "description": "Bust: Ludwig van Beethoven",
+      "pos": [
+        -547.0,
+        1107.9
+      ],
+      "lat": 40.772877,
+      "lon": -73.971889,
+      "priority": "medium",
+      "size_hint": "Small (~0.5-1m). iPhone LiDAR works well at this scale."
+    },
+    {
+      "id": "scan-sim\u00f3n-bol\u00edvar",
+      "type": "photogrammetry",
+      "name": "Sim\u00f3n Bol\u00edvar",
+      "object_type": "statue",
+      "description": "Statue: Sim\u00f3n Bol\u00edvar",
+      "pos": [
+        -874.9,
+        1900.3
+      ],
+      "lat": 40.765708,
+      "lon": -73.975779,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-sled-dogs-memorial-plaque",
+      "type": "photogrammetry",
+      "name": "Sled dogs memorial plaque",
+      "object_type": "memorial",
+      "description": "Memorial: Sled dogs memorial plaque",
+      "pos": [
+        -472.3,
+        1427.0
+      ],
+      "lat": 40.769991,
+      "lon": -73.971003,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-giuseppe-verdi-monument",
+      "type": "photogrammetry",
+      "name": "Giuseppe Verdi Monument",
+      "object_type": "memorial",
+      "description": "Memorial: Giuseppe Verdi Monument",
+      "pos": [
+        -1355.9,
+        407.1
+      ],
+      "lat": 40.779217,
+      "lon": -73.981486,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-group-of-bears",
+      "type": "photogrammetry",
+      "name": "Group of Bears",
+      "object_type": "statue",
+      "description": "Statue: Group of Bears",
+      "pos": [
+        122.9,
+        597.5
+      ],
+      "lat": 40.777495,
+      "lon": -73.963942,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-thomas-moore",
+      "type": "photogrammetry",
+      "name": "Thomas Moore",
+      "object_type": "bust",
+      "description": "Bust: Thomas Moore",
+      "pos": [
+        -661.3,
+        1876.1
+      ],
+      "lat": 40.765928,
+      "lon": -73.973245,
+      "priority": "medium",
+      "size_hint": "Small (~0.5-1m). iPhone LiDAR works well at this scale."
+    },
+    {
+      "id": "scan-victor-herbert",
+      "type": "photogrammetry",
+      "name": "Victor Herbert",
+      "object_type": "bust",
+      "description": "Bust: Victor Herbert",
+      "pos": [
+        -580.4,
+        1124.4
+      ],
+      "lat": 40.772728,
+      "lon": -73.972286,
+      "priority": "medium",
+      "size_hint": "Small (~0.5-1m). iPhone LiDAR works well at this scale."
+    },
+    {
+      "id": "scan-the-pilgrim",
+      "type": "photogrammetry",
+      "name": "The Pilgrim",
+      "object_type": "statue",
+      "description": "Statue: The Pilgrim",
+      "pos": [
+        -256.2,
+        1078.4
+      ],
+      "lat": 40.773144,
+      "lon": -73.968439,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-andrew-haswell-green-bench",
+      "type": "photogrammetry",
+      "name": "Andrew Haswell Green Bench",
+      "object_type": "memorial",
+      "description": "Memorial: Andrew Haswell Green Bench",
+      "pos": [
+        938.1,
+        -1352.2
+      ],
+      "lat": 40.795132,
+      "lon": -73.954271,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-samuel-f-b-morse",
+      "type": "photogrammetry",
+      "name": "Samuel F. B. Morse",
+      "object_type": "statue",
+      "description": "Statue: Samuel F. B. Morse",
+      "pos": [
+        -171.5,
+        1151.5
+      ],
+      "lat": 40.772483,
+      "lon": -73.967435,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-romeo-and-juliet",
+      "type": "photogrammetry",
+      "name": "Romeo and Juliet",
+      "object_type": "statue",
+      "description": "Statue: Romeo and Juliet",
+      "pos": [
+        -279.9,
+        268.0
+      ],
+      "lat": 40.780475,
+      "lon": -73.968721,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-the-tempest",
+      "type": "photogrammetry",
+      "name": "The Tempest",
+      "object_type": "statue",
+      "description": "Statue: The Tempest",
+      "pos": [
+        -273.5,
+        271.1
+      ],
+      "lat": 40.780448,
+      "lon": -73.968645,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-whisper-bench",
+      "type": "photogrammetry",
+      "name": "Whisper Bench",
+      "object_type": "memorial",
+      "description": "Memorial: Whisper Bench",
+      "pos": [
+        -358.1,
+        335.0
+      ],
+      "lat": 40.779869,
+      "lon": -73.969649,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-temple-of-dendur",
+      "type": "photogrammetry",
+      "name": "Temple of Dendur",
+      "object_type": "monument",
+      "description": "Monument: Temple of Dendur",
+      "pos": [
+        232.3,
+        271.1
+      ],
+      "lat": 40.780447,
+      "lon": -73.962645,
+      "priority": "medium",
+      "size_hint": "Large structure. Walk around entire perimeter. May need DSLR for best results."
+    },
+    {
+      "id": "scan-strawberry-fields",
+      "type": "photogrammetry",
+      "name": "Strawberry Fields",
+      "object_type": "memorial",
+      "description": "Memorial: Strawberry Fields",
+      "pos": [
+        -787.4,
+        826.8
+      ],
+      "lat": 40.77542,
+      "lon": -73.974742,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-naturalists-gate",
+      "type": "photogrammetry",
+      "name": "Naturalists Gate",
+      "object_type": "memorial",
+      "description": "Memorial: Naturalists Gate",
+      "pos": [
+        -677.9,
+        393.1
+      ],
+      "lat": 40.779343,
+      "lon": -73.973442,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-gate-of-all-saints",
+      "type": "photogrammetry",
+      "name": "Gate of All Saints",
+      "object_type": "memorial",
+      "description": "Memorial: Gate of All Saints",
+      "pos": [
+        68.0,
+        -951.9
+      ],
+      "lat": 40.791511,
+      "lon": -73.964593,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-duke-ellington-memorial",
+      "type": "photogrammetry",
+      "name": "Duke Ellington Memorial",
+      "object_type": "memorial",
+      "description": "Memorial: Duke Ellington Memorial",
+      "pos": [
+        1353.1,
+        -1548.0
+      ],
+      "lat": 40.796904,
+      "lon": -73.949347,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-seneca-village",
+      "type": "photogrammetry",
+      "name": "Seneca Village",
+      "object_type": "memorial",
+      "description": "Memorial: Seneca Village",
+      "pos": [
+        -257.8,
+        -139.7
+      ],
+      "lat": 40.784163,
+      "lon": -73.968459,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-theodore-roosevelt-memorial",
+      "type": "photogrammetry",
+      "name": "Theodore Roosevelt Memorial",
+      "object_type": "memorial",
+      "description": "Memorial: Theodore Roosevelt Memorial",
+      "pos": [
+        -626.7,
+        227.6
+      ],
+      "lat": 40.780841,
+      "lon": -73.972835,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-farmers-gate",
+      "type": "photogrammetry",
+      "name": "Farmers Gate",
+      "object_type": "memorial",
+      "description": "Memorial: Farmers Gate",
+      "pos": [
+        1092.8,
+        -1677.1
+      ],
+      "lat": 40.798072,
+      "lon": -73.952435,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-adventure-playground",
+      "type": "photogrammetry",
+      "name": "Adventure Playground",
+      "object_type": "memorial",
+      "description": "Memorial: Adventure Playground",
+      "pos": [
+        -1005.7,
+        1048.1
+      ],
+      "lat": 40.773418,
+      "lon": -73.977331,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-women's-rights-pioneers-monument",
+      "type": "photogrammetry",
+      "name": "Women's Rights Pioneers Monument",
+      "object_type": "memorial",
+      "description": "Memorial: Women's Rights Pioneers Monument",
+      "pos": [
+        -589.2,
+        1347.3
+      ],
+      "lat": 40.770711,
+      "lon": -73.97239,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-the-falconer",
+      "type": "photogrammetry",
+      "name": "The Falconer",
+      "object_type": "statue",
+      "description": "Statue: The Falconer",
+      "pos": [
+        -709.6,
+        972.8
+      ],
+      "lat": 40.774099,
+      "lon": -73.973818,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-still-hunt",
+      "type": "photogrammetry",
+      "name": "Still Hunt",
+      "object_type": "statue",
+      "description": "Statue: Still Hunt",
+      "pos": [
+        -151.0,
+        670.7
+      ],
+      "lat": 40.776833,
+      "lon": -73.967192,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-madison-lyden",
+      "type": "photogrammetry",
+      "name": "Madison Lyden",
+      "object_type": "memorial",
+      "description": "Memorial: Madison Lyden",
+      "pos": [
+        -1088.3,
+        1115.7
+      ],
+      "lat": 40.772807,
+      "lon": -73.978312,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-giuseppe-mazzini",
+      "type": "photogrammetry",
+      "name": "Giuseppe Mazzini",
+      "object_type": "bust",
+      "description": "Bust: Giuseppe Mazzini",
+      "pos": [
+        -952.0,
+        1093.4
+      ],
+      "lat": 40.773009,
+      "lon": -73.976694,
+      "priority": "medium",
+      "size_hint": "Small (~0.5-1m). iPhone LiDAR works well at this scale."
+    },
+    {
+      "id": "scan-mother-italy",
+      "type": "photogrammetry",
+      "name": "Mother Italy",
+      "object_type": "sculpture",
+      "description": "Sculpture: Mother Italy",
+      "pos": [
+        152.5,
+        1705.0
+      ],
+      "lat": 40.767475,
+      "lon": -73.963591,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-nobel-monument",
+      "type": "photogrammetry",
+      "name": "Nobel Monument",
+      "object_type": "monument",
+      "description": "Monument: Nobel Monument",
+      "pos": [
+        -775.4,
+        62.0
+      ],
+      "lat": 40.782339,
+      "lon": -73.974599,
+      "priority": "medium",
+      "size_hint": "Large structure. Walk around entire perimeter. May need DSLR for best results."
+    },
+    {
+      "id": "scan-dr-li-wenliang-memorial-bench",
+      "type": "photogrammetry",
+      "name": "Dr. Li Wenliang Memorial Bench",
+      "object_type": "memorial",
+      "description": "Memorial: Dr. Li Wenliang Memorial Bench",
+      "pos": [
+        110.3,
+        -919.0
+      ],
+      "lat": 40.791214,
+      "lon": -73.964091,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-marc-haas-memorial",
+      "type": "photogrammetry",
+      "name": "Marc Haas Memorial",
+      "object_type": "memorial",
+      "description": "Memorial: Marc Haas Memorial",
+      "pos": [
+        -718.1,
+        1135.2
+      ],
+      "lat": 40.77263,
+      "lon": -73.97392,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-navy-walk-tablet",
+      "type": "photogrammetry",
+      "name": "Navy Walk Tablet",
+      "object_type": "memorial",
+      "description": "Memorial: Navy Walk Tablet",
+      "pos": [
+        -500.3,
+        953.5
+      ],
+      "lat": 40.774274,
+      "lon": -73.971336,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-jacobo-villano-pardo",
+      "type": "photogrammetry",
+      "name": "Jacobo Villano Pardo",
+      "object_type": "memorial",
+      "description": "Memorial: Jacobo Villano Pardo",
+      "pos": [
+        -1085.5,
+        -1402.5
+      ],
+      "lat": 40.795588,
+      "lon": -73.978278,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-original-statue-of-liberty",
+      "type": "photogrammetry",
+      "name": "Original Statue of Liberty",
+      "object_type": "sculpture",
+      "description": "Sculpture: Original Statue of Liberty",
+      "pos": [
+        -408.0,
+        2021.5
+      ],
+      "lat": 40.764612,
+      "lon": -73.97024,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-memorial-tree-world-war-1917-1918",
+      "type": "photogrammetry",
+      "name": "Memorial Tree World War 1917-1918",
+      "object_type": "memorial",
+      "description": "Memorial: Memorial Tree World War 1917-1918",
+      "pos": [
+        -459.3,
+        1213.6
+      ],
+      "lat": 40.771921,
+      "lon": -73.970849,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-saint-tikhon",
+      "type": "photogrammetry",
+      "name": "Saint Tikhon",
+      "object_type": "memorial",
+      "description": "Memorial: Saint Tikhon",
+      "pos": [
+        953.6,
+        -583.0
+      ],
+      "lat": 40.788174,
+      "lon": -73.954086,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-liu-xiaobo-memorial-bench",
+      "type": "photogrammetry",
+      "name": "Liu Xiaobo Memorial Bench",
+      "object_type": "memorial",
+      "description": "Memorial: Liu Xiaobo Memorial Bench",
+      "pos": [
+        228.6,
+        -895.8
+      ],
+      "lat": 40.791004,
+      "lon": -73.962687,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-dr-gao-yaojie-memorial-bench",
+      "type": "photogrammetry",
+      "name": "Dr. Gao Yaojie Memorial Bench",
+      "object_type": "memorial",
+      "description": "Memorial: Dr. Gao Yaojie Memorial Bench",
+      "pos": [
+        -97.7,
+        -615.2
+      ],
+      "lat": 40.788466,
+      "lon": -73.966559,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-cleopatra's-needle",
+      "type": "photogrammetry",
+      "name": "Cleopatra's Needle",
+      "object_type": "monument",
+      "description": "Monument: Cleopatra's Needle",
+      "pos": [
+        -0.3,
+        359.8
+      ],
+      "lat": 40.779645,
+      "lon": -73.965403,
+      "priority": "high",
+      "size_hint": "Large structure. Walk around entire perimeter. May need DSLR for best results."
+    },
+    {
+      "id": "scan-soldiers'-and-sailors'-monument",
+      "type": "photogrammetry",
+      "name": "Soldiers' and Sailors' Monument",
+      "object_type": "monument",
+      "description": "Monument: Soldiers' and Sailors' Monument",
+      "pos": [
+        -1140.3,
+        -1016.3
+      ],
+      "lat": 40.792094,
+      "lon": -73.978929,
+      "priority": "medium",
+      "size_hint": "Large structure. Walk around entire perimeter. May need DSLR for best results."
+    },
+    {
+      "id": "scan-nutter's-battery",
+      "type": "photogrammetry",
+      "name": "Nutter's Battery",
+      "object_type": "memorial",
+      "description": "Memorial: Nutter's Battery",
+      "pos": [
+        1057.3,
+        -1507.1
+      ],
+      "lat": 40.796534,
+      "lon": -73.952856,
+      "priority": "medium",
+      "size_hint": "Life-size or larger statue. Walk slowly around all sides."
+    },
+    {
+      "id": "scan-uss-maine-monument",
+      "type": "photogrammetry",
+      "name": "USS Maine Monument",
+      "object_type": "monument",
+      "description": "Monument: USS Maine Monument",
+      "pos": [
+        -1314.6,
+        1620.0
+      ],
+      "lat": 40.768245,
+      "lon": -73.980997,
+      "priority": "medium",
+      "size_hint": "Large structure. Walk around entire perimeter. May need DSLR for best results."
+    },
+    {
+      "id": "scan-untermyer-fountain",
+      "type": "photogrammetry",
+      "name": "Untermyer Fountain",
+      "object_type": "fountain",
+      "description": "Fountain: Untermyer Fountain",
+      "pos": [
+        1133.5,
+        -1256.0
+      ],
+      "lat": 40.794262,
+      "lon": -73.951953,
+      "priority": "high",
+      "size_hint": "Large fountain basin + sculpture. Full walk-around needed, include base and water features."
+    },
+    {
+      "id": "scan-sophie-loeb-fountain",
+      "type": "photogrammetry",
+      "name": "Sophie Loeb Fountain",
+      "object_type": "fountain",
+      "description": "Fountain: Sophie Loeb Fountain",
+      "pos": [
+        25.9,
+        788.2
+      ],
+      "lat": 40.775769,
+      "lon": -73.965092,
+      "priority": "high",
+      "size_hint": "Large fountain basin + sculpture. Full walk-around needed, include base and water features."
+    },
+    {
+      "id": "scan-cherry-hill-fountain",
+      "type": "photogrammetry",
+      "name": "Cherry Hill Fountain",
+      "object_type": "fountain",
+      "description": "Fountain: Cherry Hill Fountain",
+      "pos": [
+        -616.0,
+        906.9
+      ],
+      "lat": 40.774696,
+      "lon": -73.972708,
+      "priority": "high",
+      "size_hint": "Large fountain basin + sculpture. Full walk-around needed, include base and water features."
+    },
+    {
+      "id": "literary-walk-elms",
+      "type": "trees",
+      "name": "The Mall / Literary Walk \u2014 American Elms",
+      "description": "Iconic double-row American Elm canopy, one of the largest surviving stands in North America. ~150 elms form a cathedral-like vault; census captured ~44.",
+      "pos": [
+        -587,
+        1380
+      ],
+      "lat": 40.770416,
+      "lon": -73.972364,
+      "priority": "high",
+      "current": 44,
+      "expected": "~150",
+      "species": "American Elm (Ulmus americana)",
+      "radius_m": 150
+    },
+    {
+      "id": "buildings-citymodel",
+      "type": "building_geometry",
+      "name": "All 18368 buildings \u2014 facade only",
+      "description": "All 18368 buildings use procedural facades from OSM footprints + heights. Real 3D geometry from NYC CityGML LOD2 dataset would replace these.",
+      "pos": [
+        0,
+        0
+      ],
+      "lat": 40.7829,
+      "lon": -73.9654,
+      "priority": "medium"
+    }
+  ]
+}

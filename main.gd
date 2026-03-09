@@ -433,8 +433,9 @@ func _process(delta: float) -> void:
 		_time_of_day -= 24.0
 	elif _time_of_day < 0.0:
 		_time_of_day += 24.0
-	# Only update sky/env/lighting when time actually changes (saves ~50 ops/frame when paused)
-
+	# Only update sky/env/lighting when time actually changes (~0.01h threshold)
+	if absf(_time_of_day - _last_applied_tod) > 0.01 or _last_applied_tod < 0.0:
+		_apply_time_of_day()
 
 	# Letterbox bar sizing (adapts to viewport resize)
 	if _letterbox_on and _letterbox_top:
@@ -601,9 +602,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		print("Time speed: ", TIME_SPEED_NAMES[_time_speed_idx])
 	elif event.keycode == KEY_BRACKETLEFT:
 		_time_of_day = fmod(_time_of_day - 1.0 + 24.0, 24.0)
+		_apply_time_of_day()
 		print("Time: %.1f h" % _time_of_day)
 	elif event.keycode == KEY_BRACKETRIGHT:
 		_time_of_day = fmod(_time_of_day + 1.0, 24.0)
+		_apply_time_of_day()
 		print("Time: %.1f h" % _time_of_day)
 	elif event.keycode == KEY_L:
 		_letterbox_on = not _letterbox_on
@@ -611,6 +614,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		print("Letterbox: ", "ON" if _letterbox_on else "OFF")
 	elif event.keycode == KEY_P:
 		_cycle_weather()
+	elif event.keycode == KEY_G:
+		if _park_loader and _park_loader._gap_builder:
+			var gb = _park_loader._gap_builder
+			var vis: bool = not (gb._root and gb._root.visible)
+			gb.set_visible(vis)
+			print("Data gaps: %s" % ("ON" if vis else "OFF"))
 	elif event.keycode == KEY_H:
 		if _hud_canvas:
 			_hud_canvas.visible = not _hud_canvas.visible
@@ -1288,7 +1297,7 @@ func _apply_time_of_day() -> void:
 			if fm is ShaderMaterial:
 				fm.set_shader_parameter("night_factor", nf)
 
-
+	_last_applied_tod = _time_of_day
 
 
 # ---------------------------------------------------------------------------
