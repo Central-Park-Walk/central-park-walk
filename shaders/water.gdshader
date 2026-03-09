@@ -8,6 +8,7 @@ uniform float hm_range      = 1.0;
 uniform float hm_res        = 256.0;
 uniform float water_y_offset = 0.03;
 global uniform float rain_wetness;
+global uniform float snow_cover;
 global uniform vec3 sky_reflect_color;
 global uniform float season_t;
 global uniform vec2 wind_vec;
@@ -241,7 +242,37 @@ void fragment() {
 	ALBEDO    = col;
 	ROUGHNESS = mix(0.12, 0.02, fresnel);
 	METALLIC  = 0.05;
-	SPECULAR  = 0.5 + night_boost * 0.2;  // more specular at night for city light reflections
+	SPECULAR  = 0.5 + night_boost * 0.2;
+
+	// Winter ice — shallow edges freeze first, center stays open longer
+	// Central Park water bodies partially freeze in deep winter
+	if (winter_t > 0.3 && snow_cover > 0.1) {
+		// Ice forms from shores inward: shallow areas freeze first
+		float freeze = smoothstep(0.3, 0.8, winter_t) * smoothstep(0.1, 0.6, snow_cover);
+		// Shallow edges freeze before deep center
+		float depth_resist = smoothstep(0.0, 1.5, v_water_depth);
+		float ice_mask = freeze * (1.0 - depth_resist * 0.6);
+		// Noise breaks up ice edge naturally
+		float ice_noise = gnoise(world_pos.xz * 0.15) * 0.3;
+		ice_mask = smoothstep(0.2, 0.6, ice_mask + ice_noise);
+		if (ice_mask > 0.01) {
+			// Ice color: pale blue-white with slight translucency
+			vec3 ice_col = mix(vec3(0.72, 0.78, 0.84), vec3(0.82, 0.86, 0.90), gnoise(world_pos.xz * 0.4) * 0.5 + 0.5);
+			// Snow dusting on top of ice
+			if (snow_cover > 0.4) {
+				float snow_noise = gnoise(world_pos.xz * 0.25 + vec2(17.3)) * 0.5 + 0.5;
+				float snow_on_ice = smoothstep(0.3, 0.7, snow_noise) * smoothstep(0.4, 0.8, snow_cover);
+				ice_col = mix(ice_col, vec3(0.90, 0.91, 0.94), snow_on_ice * 0.6);
+			}
+			ALBEDO = mix(ALBEDO, ice_col, ice_mask);
+			ROUGHNESS = mix(ROUGHNESS, 0.35, ice_mask);  // ice is somewhat smooth
+			SPECULAR = mix(SPECULAR, 0.25, ice_mask);
+			// Flatten normal on ice (no waves)
+			vec3 flat_n = normalize((VIEW_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+			NORMAL = mix(NORMAL, flat_n, ice_mask * 0.85);
+		}
+	}
+
 	// Shore softening — fade alpha near edges
 	ALPHA     = smoothstep(0.0, 1.5, v_shore_dist);
 }
