@@ -116,7 +116,7 @@ All data is freely available. No paid APIs. No API keys.
 
 | Feature | Count | Detail |
 |---------|-------|--------|
-| Terrain | 4096×4096 | LiDAR-accurate, per-pixel normals, structure mask, clipped to park boundary, 2048-res collision |
+| Terrain | 4096×4096 | LiDAR-accurate, per-pixel normals, structure mask, 4096×4096 landuse zones (14 types + shore), clipped to park boundary, 2048-res collision |
 | Trees | ~9,500 placed (20K census + woodland scatter) | 12 species archetypes, LiDAR heights, seasonal phenology, foliage zone biasing, wind gusts, subsurface scattering, bark weather response |
 | Paths | 2,624 | Analytical GPU rendering, 58K segments, width-correct, seasonal leaf litter + salt stains, rain puddles with sky reflection, snow sparkle, bridge deck weather, Reservoir cinder track |
 | Water | 27 bodies + 10 streams | Per-body color, seasonal tint, shore alpha, depth tinting, night city reflections, wind waves, winter ice formation, stream directional flow with slope turbulence + edge foam |
@@ -140,7 +140,7 @@ This project grows with human attention. Here's what we need:
 
 ### Data Contributions (No coding required)
 - **Furniture mapping**: Only 7–11% of real lampposts, benches, and trash cans are in OSM. Visit the park, map what you see.
-- **3D scans**: Photogrammetry of statues, architectural details, rock outcrops. We have 3 of 106 statues scanned.
+- **3D scans**: Photogrammetry of statues, architectural details, rock outcrops. We have 4 of 106 statues/fountains scanned.
 - **Field recordings**: Bird calls, water, ambient atmosphere at specific locations and times.
 - **Photography**: Reference photos of landmarks, materials, seasonal changes.
 - **Rock outcrop mapping**: Central Park has ~170 named outcrops. OSM has 1.
@@ -178,7 +178,7 @@ See [FUNDING.md](FUNDING.md) for details on how funds are used.
 | Layer | Technology |
 |-------|-----------|
 | Engine | Godot 4.6.1 (Forward+, GDScript) |
-| Data pipeline | Python: GDAL, numpy/scipy, Pillow |
+| Data pipeline | Python: GDAL, numpy/scipy, Pillow — pre-bakes heightmap, GPU path textures, world atlas, landuse zones, boundary mask |
 | 3D modeling | Blender 3.0.1 (headless scripts) |
 | Audio | Not yet implemented (awaiting field recordings) |
 | Rendering | 18 custom GLSL shaders (terrain, water, stream, facade, tree leaf/bark, sky, stone, path, roof, cast iron, hedge, wood, ground surface, cloud sky, IMAGINE mosaic, color grade, lens distortion), shared noise include, MultiMesh instancing, analytical GPU path rendering |
