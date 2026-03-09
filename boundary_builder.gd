@@ -65,7 +65,7 @@ func _build_perimeter_wall(boundary: Array, paths: Array) -> void:
 	var gate_positions: Array = []  # Array of Vector2
 	var gate_radius := 4.0  # gate half-width in metres
 	for path in paths:
-		if bool(path.get("bridge", false)) or bool(path.get("tunnel", false)):
+		if path.get("bridge", false) or path.get("tunnel", false):
 			continue
 		var hw: String = str(path.get("highway", "path"))
 		if hw == "steps" or hw == "track" or hw == "bridleway":

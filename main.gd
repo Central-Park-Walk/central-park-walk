@@ -93,6 +93,11 @@ const TIME_PRESETS: Dictionary = {
 	"dawn": 5.5, "morning": 8.0, "noon": 12.0,
 	"golden_hour": 17.5, "dusk": 19.5, "night": 22.0,
 }
+const LANDUSE_TYPE_TO_ID: Dictionary = {
+	"garden": 1, "grass": 2, "pitch": 3, "playground": 4,
+	"nature_reserve": 5, "dog_park": 6, "sports": 7, "pool": 8, "track": 9,
+	"wood": 10, "forest": 11,
+}
 
 var _cli_pos := Vector3.ZERO  # --pos x,z  or --pos x,z,yaw  or --pos x,z,yaw,height
 var _cli_pos_set := false
@@ -400,22 +405,26 @@ func _process(delta: float) -> void:
 	_update_wind(delta)
 
 	# Snow accumulation — ramps up during snow, melts otherwise
+	var prev_snow := _snow_cover
 	if _weather_mode == "snow":
 		_snow_cover = minf(_snow_cover + delta * 0.02, 1.0)  # ~50s to full cover
 	else:
 		_snow_cover = maxf(_snow_cover - delta * 0.05, 0.0)  # ~20s to melt
-	if _terrain_mat:
-		_terrain_mat.set_shader_parameter("snow_cover", _snow_cover)
-	RenderingServer.global_shader_parameter_set("snow_cover", _snow_cover)
+	if _snow_cover != prev_snow:
+		if _terrain_mat:
+			_terrain_mat.set_shader_parameter("snow_cover", _snow_cover)
+		RenderingServer.global_shader_parameter_set("snow_cover", _snow_cover)
 
 	# Rain wetness — ground darkens, gets glossy
+	var prev_wet := _rain_wetness
 	if _weather_mode == "rain" or _weather_mode == "thunderstorm":
 		_rain_wetness = minf(_rain_wetness + delta * 0.04, 1.0)  # ~25s to full wet
 	else:
 		_rain_wetness = maxf(_rain_wetness - delta * 0.015, 0.0)  # ~67s to dry
-	if _terrain_mat:
-		_terrain_mat.set_shader_parameter("rain_wetness", _rain_wetness)
-	RenderingServer.global_shader_parameter_set("rain_wetness", _rain_wetness)
+	if _rain_wetness != prev_wet:
+		if _terrain_mat:
+			_terrain_mat.set_shader_parameter("rain_wetness", _rain_wetness)
+		RenderingServer.global_shader_parameter_set("rain_wetness", _rain_wetness)
 
 	# Particles follow player — wind deflects rain/snow
 	if _rain_particles and _player:
@@ -2245,12 +2254,6 @@ func _apply_landuse_map(zones: Array, water: Array = []) -> void:
 	img.fill(Color(0, 0, 0))  # 0 = unzoned (meadow/woodland)
 	var half := _hm_world_size * 0.5
 
-	var type_to_id: Dictionary = {
-		"garden": 1, "grass": 2, "pitch": 3, "playground": 4,
-		"nature_reserve": 5, "dog_park": 6, "sports": 7, "pool": 8, "track": 9,
-		"wood": 10, "forest": 11,
-	}
-
 	# Helper: scanline-fill polygon into image
 	var _scanline_fill := func(pts: Array, zone_id: int) -> void:
 		var min_row := sz
@@ -2289,7 +2292,7 @@ func _apply_landuse_map(zones: Array, water: Array = []) -> void:
 	var filled := 0
 	for zone in zones:
 		var zone_type: String = zone.get("type", "")
-		var zone_id: int = type_to_id.get(zone_type, 0)
+		var zone_id: int = LANDUSE_TYPE_TO_ID.get(zone_type, 0)
 		if zone_id == 0:
 			continue
 		var pts: Array = zone.get("points", [])

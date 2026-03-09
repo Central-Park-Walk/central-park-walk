@@ -591,14 +591,6 @@ func _lamp_zone(x: float, z: float) -> int:
 	return 1  # Default: standard
 
 
-func _terrain_slope(x: float, z: float) -> float:
-	## Returns terrain slope magnitude at (x, z) by sampling a 1m cross.
-	var d := 0.5
-	var gx := (_terrain_y(x + d, z) - _terrain_y(x - d, z)) / (2.0 * d)
-	var gz := (_terrain_y(x, z + d) - _terrain_y(x, z - d)) / (2.0 * d)
-	return sqrt(gx * gx + gz * gz)
-
-
 # ---------------------------------------------------------------------------
 # CPU-side value noise / FBM — matches shader hash2/vnoise/fbm exactly
 # ---------------------------------------------------------------------------
@@ -889,8 +881,8 @@ func _build_path_gpu_textures(paths: Array, bridge_centroids: Array) -> void:
 		var hw: String = str(path.get("highway", "path"))
 		var surf: String = str(path.get("surface", ""))
 		var layer_val: int = int(path.get("layer", 0))
-		var is_bridge: bool = bool(path.get("bridge", false)) or layer_val >= 1
-		var is_tunnel: bool = bool(path.get("tunnel", false)) or layer_val <= -1
+		var is_bridge: bool = path.get("bridge", false) or layer_val >= 1
+		var is_tunnel: bool = path.get("tunnel", false) or layer_val <= -1
 		if is_bridge:
 			continue
 		if hw == "steps":
@@ -1037,8 +1029,8 @@ func _build_paths(paths: Array) -> void:
 
 	for path in paths:
 		var layer: int    = int(path.get("layer",   0))
-		var is_bridge: bool = bool(path.get("bridge", false)) or layer >= 1
-		var is_tunnel: bool = bool(path.get("tunnel", false)) or layer <= -1
+		var is_bridge: bool = path.get("bridge", false) or layer >= 1
+		var is_tunnel: bool = path.get("tunnel", false) or layer <= -1
 
 		if is_bridge:
 			bridge_paths.append(path)
