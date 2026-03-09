@@ -381,11 +381,22 @@ void fragment() {
 		r_alb = rust_tint;
 		vec3 r_nrm = textureNoTile_n(rock_normal, ruv);
 		float r_rgh = clamp(textureNoTile_r(rock_rough, ruv) * 0.15 + 0.70, 0.0, 1.0);
+		// Glacial striations on flat exposed rock (Wisconsin ice age, ~15° E of N)
+		if (terrain_n.y > 0.8) {
+			float sa = 0.259; float ca = 0.966;
+			float glacial_u = world_pos.x * ca + world_pos.z * sa;
+			float groove = sin(glacial_u * 180.0 + vnoise(world_pos.xz * 8.0) * 3.0);
+			groove = smoothstep(0.3, 0.8, groove);
+			float striation = smoothstep(0.8, 0.95, terrain_n.y) * 0.06;
+			r_alb *= (1.0 - groove * striation);
+			r_rgh += groove * striation * 0.5;
+		}
 		grass_alb = mix(grass_alb, r_alb, rock_blend);
 		grass_nrm = mix(grass_nrm, r_nrm, rock_blend);
 		grass_rgh = mix(grass_rgh, r_rgh, rock_blend);
 		// Mica sparkle: slight specular on rock surfaces
-		rock_specular = rock_blend * 0.25;
+		float mica = hash2(floor(world_pos.xz * 20.0));
+		rock_specular = rock_blend * mix(0.25, 0.55, step(0.92, mica));
 	}
 
 	// --- Structure mask: LiDAR-detected built features get stone/concrete texture ---
