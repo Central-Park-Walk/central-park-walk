@@ -10,6 +10,7 @@ uniform float cloud_density = 0.50;
 uniform float cloud_speed = 0.004;
 uniform vec3 cloud_color_top = vec3(0.90, 0.90, 0.92);
 uniform vec3 cloud_color_bottom = vec3(0.45, 0.45, 0.50);
+global uniform vec2 wind_vec;
 
 // Scalar hash — used for stars (cell-based)
 float sky_hash(vec2 p) {
@@ -114,7 +115,10 @@ void sky() {
 			float twinkle = 0.8 + 0.2 * sin(TIME * 2.0 + star_rand * 100.0);
 			vec2 star_frac = fract(star_uv) - 0.5;
 			float star_point = smoothstep(0.10, 0.02, length(star_frac));
-			sky_col += vec3(star_bright * star_mask * star_point * star_fade * twinkle);
+			// Star color variation: some warm (Betelgeuse), some blue-white (Sirius)
+			float star_hue = sky_hash(star_cell + vec2(37.1, 71.3));
+			vec3 star_color = mix(vec3(1.0, 0.85, 0.70), vec3(0.80, 0.90, 1.0), star_hue);
+			sky_col += star_color * (star_bright * star_mask * star_point * star_fade * twinkle);
 		}
 		// Light pollution sky glow — warm amber dome, directional
 		// NYC: brighter toward south (Midtown/Downtown) and east/west (avenues)
@@ -134,7 +138,10 @@ void sky() {
 		// Project onto cloud dome — higher elevation = closer to zenith
 		float cloud_y = max(elev, 0.01);
 		vec2 cloud_uv = dir.xz / (cloud_y + 0.1) * 0.8;
-		cloud_uv += vec2(TIME * cloud_speed, TIME * cloud_speed * 0.7);
+		// Cloud drift: base speed + wind pushes clouds in wind direction
+		vec2 drift = vec2(cloud_speed, cloud_speed * 0.7);
+		drift += wind_vec * 0.002;  // wind accelerates cloud movement
+		cloud_uv += TIME * drift;
 
 		float n = sky_fbm(cloud_uv * 3.0, 5);
 		// Coverage threshold — higher coverage = more clouds
