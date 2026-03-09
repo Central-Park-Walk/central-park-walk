@@ -773,10 +773,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.keycode == KEY_N:
 		if event.shift_pressed:
 			# Shift+N: cycle season backward
-			_season_t = fmod(_season_t - 0.5 + 4.0, 4.0)
+			_season_t = fmod(float(int(_season_t - 1.0 + 4.0)), 4.0)
 		else:
 			# N: cycle season forward
-			_season_t = fmod(_season_t + 0.5, 4.0)
+			_season_t = fmod(float(int(_season_t + 1.0)), 4.0)
 		RenderingServer.global_shader_parameter_set("season_t", _season_t)
 		var season_name := _season_name(_season_t)
 		print("Season: %s (%.1f)" % [season_name, _season_t])
@@ -1567,21 +1567,81 @@ func _setup_ground() -> void:
 	var verts    := PackedVector3Array(); verts.resize(V)
 	var uvs      := PackedVector2Array(); uvs.resize(V)
 
+	# Build inside-park mask at mesh resolution for boundary clipping.
+	# Triangles with no inside-park vertices are excluded — no data, no terrain.
+	var inside_mask := PackedByteArray()
+	inside_mask.resize(V)
+	if _park_loader and _park_loader.boundary_polygon.size() > 2:
+		var poly: PackedVector2Array = _park_loader.boundary_polygon
+		var n_poly := poly.size()
+		for zi in MH:
+			var zw := -half + zi * cell
+			var row_off := zi * MW
+			var crossings := PackedFloat32Array()
+			for i in range(n_poly):
+				var j := (i + 1) % n_poly
+				var pzi := poly[i].y
+				var pzj := poly[j].y
+				if (pzi > zw) != (pzj > zw):
+					crossings.append(poly[i].x + (zw - pzi) / (pzj - pzi) * (poly[j].x - poly[i].x))
+			var arr: Array = Array(crossings)
+			arr.sort()
+			for k in range(0, arr.size() - 1, 2):
+				var px0 := maxi(int((float(arr[k]) + half) / cell), 0)
+				var px1 := mini(int((float(arr[k + 1]) + half) / cell), MW - 1)
+				for xi in range(px0, px1 + 1):
+					inside_mask[row_off + xi] = 1
+
+		# Dilate mask ~50m outside boundary so terrain covers the streets
+		# between the park edge and perimeter buildings (fills the "moat").
+		# The LiDAR heightmap has valid street-level readings in this zone.
+		var TERRAIN_BUFFER_M := 50.0
+		var buf_cells := int(ceil(TERRAIN_BUFFER_M / cell))
+		var frontier := PackedInt32Array()
+		# Seed: outside cells adjacent to inside cells
+		for bzi in range(1, MH - 1):
+			for bxi in range(1, MW - 1):
+				var bidx := bzi * MW + bxi
+				if inside_mask[bidx] == 0:
+					if inside_mask[bidx - 1] or inside_mask[bidx + 1] or inside_mask[bidx - MW] or inside_mask[bidx + MW]:
+						inside_mask[bidx] = 1
+						frontier.append(bidx)
+		var buf_added := frontier.size()
+		for _step in range(1, buf_cells):
+			var nf := PackedInt32Array()
+			for bidx in frontier:
+				var bxi := bidx % MW
+				var bzi_v := bidx / MW
+				if bxi > 1 and inside_mask[bidx - 1] == 0:
+					inside_mask[bidx - 1] = 1; nf.append(bidx - 1)
+				if bxi < MW - 2 and inside_mask[bidx + 1] == 0:
+					inside_mask[bidx + 1] = 1; nf.append(bidx + 1)
+				if bzi_v > 1 and inside_mask[bidx - MW] == 0:
+					inside_mask[bidx - MW] = 1; nf.append(bidx - MW)
+				if bzi_v < MH - 2 and inside_mask[bidx + MW] == 0:
+					inside_mask[bidx + MW] = 1; nf.append(bidx + MW)
+			buf_added += nf.size()
+			frontier = nf
+		print("Terrain: boundary buffer %dm (%d cells) — %d vertices added" % [TERRAIN_BUFFER_M, buf_cells, buf_added])
+
 	for zi in MH:
 		var zw  := -half + zi * cell
 		var uzv := float(zi) * inv_mh
-		var row := zi * MW
 		var hzi := mini(int(zi * hm_step_z + 0.5), _hm_depth - 1)
 		var hm_row := hzi * HW
 		for xi in MW:
-			var idx := row + xi
+			var idx := zi * MW + xi
 			var hxi := mini(int(xi * hm_step_x + 0.5), HW - 1)
-			verts[idx] = Vector3(-half + xi * cell, _hm_data[hm_row + hxi], zw)
+			var h := _hm_data[hm_row + hxi]
+			verts[idx] = Vector3(-half + xi * cell, h, zw)
 			uvs[idx]   = Vector2(float(xi) * inv_mw, uzv)
 
-	var T       := (MW - 1) * (MH - 1) * 6
-	var indices := PackedInt32Array(); indices.resize(T)
+	# Clip terrain mesh to park boundary: only emit triangles with ≥1 inside vertex.
+	# No LiDAR data outside the park = no terrain rendered there.
+	var max_T   := (MW - 1) * (MH - 1) * 6
+	var indices := PackedInt32Array(); indices.resize(max_T)
 	var t       := 0
+	var clipped := 0
 	for zi in (MH - 1):
 		var row0 := zi * MW
 		var row1 := row0 + MW
@@ -1590,9 +1650,20 @@ func _setup_ground() -> void:
 			var i10 := i00 + 1
 			var i01 := row1 + xi
 			var i11 := i01 + 1
-			indices[t]     = i00; indices[t + 1] = i10; indices[t + 2] = i11
-			indices[t + 3] = i00; indices[t + 4] = i11; indices[t + 5] = i01
-			t += 6
+			# Upper triangle: i00, i10, i11 — all vertices must be inside park
+			if inside_mask[i00] and inside_mask[i10] and inside_mask[i11]:
+				indices[t] = i00; indices[t + 1] = i10; indices[t + 2] = i11
+				t += 3
+			else:
+				clipped += 1
+			# Lower triangle: i00, i11, i01
+			if inside_mask[i00] and inside_mask[i11] and inside_mask[i01]:
+				indices[t] = i00; indices[t + 1] = i11; indices[t + 2] = i01
+				t += 3
+			else:
+				clipped += 1
+	indices.resize(t)
+	print("Terrain: %d triangles (%d clipped outside park boundary)" % [t / 3, clipped])
 
 	var arrays: Array = []; arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX]  = verts
@@ -1827,22 +1898,14 @@ void fragment() {
 	float tU = texture(heightmap_tex, hm_uv + vec2(0.0, -htexel)).r;
 	float tD = texture(heightmap_tex, hm_uv + vec2(0.0,  htexel)).r;
 	vec3 terrain_n = normalize(vec3(tL - tR, 2.0 * cell_m, tU - tD));
+
+	// --- Park boundary mask: outside = NYC sidewalk ---
+	vec2 mask_uv = (world_pos.xz + world_size * 0.5) / world_size;
+	float park_inside = texture(park_mask, mask_uv).r;
+
 	// TBN aligned to grass UV (U=+X, V=+Z) on the terrain surface
 	vec3 terr_T = normalize(vec3(2.0 * cell_m, tR - tL, 0.0));
 	vec3 terr_B = normalize(cross(terr_T, terrain_n));
-
-	// --- Park boundary mask: outside = dark pavement ---
-	vec2 mask_uv = (world_pos.xz + world_size * 0.5) / world_size;
-	float park_inside = texture(park_mask, mask_uv).r;
-	if (park_inside < 0.1) {
-		// Outside park — city sidewalk / street
-		float street_noise = hash2(floor(world_pos.xz * 0.3)) * 0.04;
-		ALBEDO    = vec3(0.18 + street_noise, 0.17 + street_noise, 0.16 + street_noise);
-		ROUGHNESS = 0.95;
-		SPECULAR  = 0.0;
-		METALLIC  = 0.0;
-		NORMAL = normalize((VIEW_MATRIX * vec4(terrain_n, 0.0)).xyz);
-	} else {
 
 	// --- Analytical GPU path distance + raster fallback ---
 	vec2 splat_uv = (world_pos.xz + world_size * 0.5) / world_size;
@@ -2039,6 +2102,9 @@ void fragment() {
 
 	// --- Structure mask: LiDAR-detected built features get stone/concrete texture ---
 	float struct_val = texture(structure_mask, splat_uv).r * 254.0;
+	// Suppress near park boundary — prevents LiDAR building detections from
+	// painting dark stone in the dilated grass zone under perimeter buildings
+	struct_val *= smoothstep(0.3, 0.9, park_inside);
 	if (struct_val > 0.5) {
 		vec2 stuv = world_pos.xz / path_tile_m;
 		float struct_h = struct_val;  // half-feet (val 2 = 1ft, val 20 = 10ft)
@@ -2311,7 +2377,6 @@ void fragment() {
 		SPECULAR = mix(SPECULAR, 0.3, snow_amt);
 	}
 
-	} // end park_inside else
 }
 """
 

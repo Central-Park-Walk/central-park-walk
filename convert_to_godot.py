@@ -712,6 +712,64 @@ def main() -> None:
         buildings_out.append(bld)
         osm_count += 1
     print(f"  OSM buildings: {osm_count} (in-park structures)")
+    print(f"  Total buildings (pre-filter): {len(buildings_out)}")
+
+    # Filter buildings by distance to park boundary polygon (80m max).
+    # Buildings beyond the first ring don't inform the park simulation.
+    MAX_BUILDING_DIST = 350.0  # metres from park boundary — captures first 1-2 rows of buildings
+    if len(boundary_pts) >= 3:
+        # Precompute boundary arrays + AABB for fast rejection
+        bx_arr = [float(p[0]) for p in boundary_pts]
+        bz_arr = [float(p[1]) for p in boundary_pts]
+        bnd_n = len(boundary_pts)
+        aabb_xmin = min(bx_arr) - MAX_BUILDING_DIST
+        aabb_xmax = max(bx_arr) + MAX_BUILDING_DIST
+        aabb_zmin = min(bz_arr) - MAX_BUILDING_DIST
+        aabb_zmax = max(bz_arr) + MAX_BUILDING_DIST
+        thresh_sq = MAX_BUILDING_DIST * MAX_BUILDING_DIST
+
+        def _near_or_in_boundary(px, pz):
+            """Check if point is inside boundary or within MAX_BUILDING_DIST of it."""
+            # AABB reject
+            if px < aabb_xmin or px > aabb_xmax or pz < aabb_zmin or pz > aabb_zmax:
+                return False
+            # Point-in-polygon (ray casting)
+            inside = False
+            j = bnd_n - 1
+            for i in range(bnd_n):
+                zi, zj = bz_arr[i], bz_arr[j]
+                if (zi > pz) != (zj > pz):
+                    if px < bx_arr[i] + (pz - zi) / (zj - zi) * (bx_arr[j] - bx_arr[i]):
+                        inside = not inside
+                j = i
+            if inside:
+                return True
+            # Distance to nearest boundary segment
+            for i in range(bnd_n):
+                ni = (i + 1) % bnd_n
+                abx, abz = bx_arr[ni] - bx_arr[i], bz_arr[ni] - bz_arr[i]
+                len_sq = abx * abx + abz * abz
+                if len_sq < 0.001:
+                    dsq = (px - bx_arr[i]) ** 2 + (pz - bz_arr[i]) ** 2
+                else:
+                    t = max(0.0, min(1.0, ((px - bx_arr[i]) * abx + (pz - bz_arr[i]) * abz) / len_sq))
+                    cx, cz = bx_arr[i] + t * abx, bz_arr[i] + t * abz
+                    dsq = (px - cx) ** 2 + (pz - cz) ** 2
+                if dsq <= thresh_sq:
+                    return True
+            return False
+
+        filtered = []
+        for bld in buildings_out:
+            pts = bld["points"]
+            cx = sum(float(p[0]) for p in pts) / len(pts)
+            cz = sum(float(p[1]) for p in pts) / len(pts)
+            if _near_or_in_boundary(cx, cz):
+                filtered.append(bld)
+        print(f"  Filtered to {len(filtered)} buildings (within {MAX_BUILDING_DIST}m of boundary, "
+              f"{len(buildings_out) - len(filtered)} removed)")
+        buildings_out = filtered
+
     print(f"  Total buildings: {len(buildings_out)}")
 
     # -------------------------------------------------------------------
