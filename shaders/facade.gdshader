@@ -28,6 +28,8 @@ uniform float gap_x = 0.6;
 uniform float gap_y = 0.8;
 uniform float ground_h = 3.5;
 uniform float night_factor = 0.0;
+global uniform float rain_wetness;
+global uniform float snow_cover;
 uniform sampler2D win_gradient : source_color, filter_linear_mipmap;
 
 varying vec3 world_pos;
@@ -168,6 +170,7 @@ void fragment() {
 		ALBEDO    = clamp(wall_col, 0.0, 1.0);
 		ROUGHNESS = final_rough;
 		METALLIC  = final_metal;
+		SPECULAR  = 0.08;
 		NORMAL_MAP = tex_nrm;
 		NORMAL_MAP_DEPTH = 0.8;
 		if (is_ledge) {
@@ -180,6 +183,32 @@ void fragment() {
 	}
 
 	EMISSION = emission;
+
+	// Rain wetness: wet walls darken, get reflective; windows streak
+	if (rain_wetness > 0.01) {
+		float wet = rain_wetness;
+		if (!in_win) {
+			// Wet masonry/brick darkens significantly
+			ALBEDO *= mix(1.0, 0.60, wet);
+			ROUGHNESS = mix(ROUGHNESS, max(ROUGHNESS * 0.3, 0.10), wet);
+			SPECULAR = mix(0.0, 0.4, wet);
+		} else {
+			// Rain on glass: slightly reduced transmission, higher specular
+			ROUGHNESS = mix(ROUGHNESS, 0.05, wet * 0.4);
+		}
+	}
+
+	// Snow on ledges and cornices
+	if (snow_cover > 0.01 && !in_win) {
+		vec3 world_n = mat3(INV_VIEW_MATRIX) * NORMAL;
+		float upward = max(world_n.y, 0.0);
+		if (upward > 0.7 && (is_ledge || is_cornice || is_awning)) {
+			float snow_noise = hash2(floor(world_pos.xz * 2.0)) * 0.2;
+			float snow_amt = clamp((upward + snow_noise - 0.5) * snow_cover, 0.0, 1.0);
+			ALBEDO = mix(ALBEDO, vec3(0.92, 0.93, 0.96), snow_amt * 0.7);
+			ROUGHNESS = mix(ROUGHNESS, 0.90, snow_amt);
+		}
+	}
 
 	// Atmospheric distance fade — buildings dissolve into haze
 	float bldg_dist = length(world_pos.xyz - INV_VIEW_MATRIX[3].xyz);

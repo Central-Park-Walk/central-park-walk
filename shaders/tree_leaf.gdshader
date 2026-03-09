@@ -8,6 +8,7 @@ uniform float alpha_scissor : hint_range(0.0, 1.0) = 0.5;
 global uniform vec2 wind_vec;
 global uniform float snow_cover;
 global uniform float season_t;
+global uniform float rain_wetness;
 
 // Species fall colors (12): oak, maple, elm, birch, deciduous, conifer,
 // honeylocust, callery_pear, ginkgo, london_plane, linden, cherry
@@ -118,5 +119,13 @@ void fragment() {
 	ROUGHNESS = 0.88;
 	SPECULAR = 0.08;
 	METALLIC = 0.0;
+
+	// Rain: wet leaves darken and get glossier (water film on surface)
+	if (rain_wetness > 0.01) {
+		ALBEDO *= mix(1.0, 0.70, rain_wetness);
+		ROUGHNESS = mix(ROUGHNESS, 0.25, rain_wetness);
+		SPECULAR = mix(SPECULAR, 0.35, rain_wetness);
+	}
+
 	BACKLIGHT = vec3(0.28, 0.20, 0.06) * v_leaf_density;
 }
