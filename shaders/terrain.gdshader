@@ -61,6 +61,7 @@ global uniform float snow_cover;
 global uniform float rain_wetness;
 global uniform float season_t;
 global uniform vec3 sky_reflect_color;
+global uniform vec2 wind_vec;
 
 // Landuse zone map: encodes zone type per pixel
 // 0=unzoned (default mowed lawn), 1=garden, 2=grass, 3=pitch, 4=playground,
@@ -704,12 +705,16 @@ void fragment() {
 
 	// --- Fallen leaf scatter in autumn ---
 	// Leaves accumulate on grass near trees, along path edges, and in low areas
+	// Wind biases leaf positions — leaves drift downwind over time
 	{
 		float leaf_autumn = smoothstep(2.0, 2.6, season_t) * (1.0 - smoothstep(3.3, 3.8, season_t));
 		if (leaf_autumn > 0.01 && mat_idx == 0 && slope < 0.25) {
+			// Wind drift: offset noise coordinates so leaves appear to blow downwind
+			float wind_str = length(wind_vec);
+			vec2 leaf_drift = wind_vec * TIME * 0.015;  // slow drift
 			// Multi-scale leaf noise: large clumps + individual leaf scatter
-			float leaf_clump = vnoise(world_pos.xz * 0.08);   // where leaves gather
-			float leaf_detail = vnoise(world_pos.xz * 0.6);   // individual leaf scale
+			float leaf_clump = vnoise(world_pos.xz * 0.08 - leaf_drift * 0.3);
+			float leaf_detail = vnoise(world_pos.xz * 0.6 - leaf_drift);
 			// Leaves accumulate more in woodland and along path edges
 			float gather = is_woodland ? 0.5 : 0.15;
 			// Path edge accumulation: wind blows leaves to path margins
@@ -719,6 +724,8 @@ void fragment() {
 			// Leaves also gather in concave areas (low noise = low ground)
 			float topo_low = 1.0 - smoothstep(0.3, 0.6, fbm(world_pos.xz * 0.02, 2));
 			gather += topo_low * 0.15;
+			// Wind spreads leaves more widely across open ground
+			gather += wind_str * 0.08;
 			float leaf_mask = smoothstep(0.3, 0.7, leaf_clump) * gather * leaf_autumn;
 			leaf_mask *= smoothstep(0.2, 0.5, leaf_detail);  // break up into patches
 			if (leaf_mask > 0.01) {
