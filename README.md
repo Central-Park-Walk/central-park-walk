@@ -129,7 +129,7 @@ All data is freely available. No paid APIs. No API keys.
 | Sports fields | 60 | Baseball (25), soccer (6), tennis (28), basketball (1) |
 | Landmarks | 16 viewpoints + 42 attractions | OSM-sourced viewpoints, zoo exhibits, museums, historic features with labels |
 | Seasons | 4 | Per-species phenology, fallen leaf scatter, seasonal water/fog/atmosphere/sky/paths, winter frost + ice, stone moss, bark moss, hedge seasonal color |
-| Weather | 4 modes | Rain (wet surfaces/paths/stone/bark/iron, glossy leaves, puddles on paths+terrain+roofs, facade rain streaks), snow (terrain/trees/buildings/paths/stone/water/roofs/iron), fog, clear — dew, frost |
+| Weather | 5 modes | Rain (wet surfaces/paths/stone/bark/iron/sports, glossy leaves, puddles with sky reflections, facade rain streaks, rain-on-lens), thunderstorm (30K particles, lightning flash + cloud glow + color grade wash), snow (terrain/trees/buildings/paths/stone/water/roofs/iron/hedges), fog, clear — dew, frost |
 | Day/night | 5 keyframes | 48-light lamp pool, lit windows, directional NYC light pollution, blue hour, moon with maria, dawn mist |
 | Color grading | Time-aware | Golden hour warmth, cool night desaturation, seasonal tint shifts, dynamic vignette, film grain, eye adaptation |
 | Sound | — | Audio not yet implemented (field recordings needed) |
@@ -181,7 +181,7 @@ See [FUNDING.md](FUNDING.md) for details on how funds are used.
 | Data pipeline | Python: GDAL, numpy/scipy, Pillow |
 | 3D modeling | Blender 3.0.1 (headless scripts) |
 | Audio | Not yet implemented (awaiting field recordings) |
-| Rendering | 17 custom GLSL shaders (terrain, water, stream, facade, tree leaf/bark, sky, stone, path, roof, cast iron, hedge, wood, IMAGINE mosaic, color grade, lens distortion), shared noise include, MultiMesh instancing, analytical GPU path rendering |
+| Rendering | 17 custom GLSL shaders (terrain, water, stream, facade, tree leaf/bark, sky, stone, path, roof, cast iron, hedge, wood, ground surface, IMAGINE mosaic, color grade, lens distortion), shared noise include, MultiMesh instancing, analytical GPU path rendering |
 
 ## License
 
