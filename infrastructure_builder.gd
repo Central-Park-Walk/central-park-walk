@@ -434,49 +434,6 @@ func _build_statues(statues: Array) -> void:
 	if statues.is_empty():
 		return
 
-	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
-	var stone_mat: ShaderMaterial = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh, Color(0.56, 0.56, 0.54))  # gray granite pedestal
-
-	var bronze_mat := StandardMaterial3D.new()
-	bronze_mat.albedo_color = Color(0.29, 0.42, 0.29)  # aged green-brown patina per Wikimedia
-	bronze_mat.roughness    = 0.65
-	bronze_mat.metallic     = 0.55
-
-	# Load GLB statue models (3 variants for variety)
-	var statue_glb_meshes: Array[Mesh] = []
-	var statue_glb_heights: Array[float] = []
-	for glb_name in ["statue1", "statue2", "statue3"]:
-		var abs_path := ProjectSettings.globalize_path("res://models/furniture/%s.glb" % glb_name)
-		if not FileAccess.file_exists(abs_path):
-			continue
-		var meshes: Array = []
-		var gd := GLTFDocument.new()
-		var gs := GLTFState.new()
-		if gd.append_from_file(abs_path, gs) == OK:
-			var root: Node = gd.generate_scene(gs)
-			if root:
-				_loader._collect_meshes(root, meshes)
-				# Detect node scale (these models have scale=0.33)
-				var node_scale := 1.0
-				for child in root.get_children():
-					if child is Node3D:
-						var s: Vector3 = (child as Node3D).scale
-						if absf(s.x - 1.0) > 0.01:
-							node_scale = s.x
-							break
-				if not meshes.is_empty():
-					var m: Mesh = meshes[0]
-					var ab: AABB = m.get_aabb()
-					var raw_h := maxf(ab.size.x, maxf(ab.size.y, ab.size.z))
-					statue_glb_meshes.append(m)
-					statue_glb_heights.append(raw_h * node_scale)
-				root.queue_free()
-	var use_glb := not statue_glb_meshes.is_empty()
-	if use_glb:
-		print("Statues: loaded %d GLB variants" % statue_glb_meshes.size())
-
 	# Named statue GLBs (photogrammetry scans with own textures)
 	# Each entry: { "file": glb filename, "height": desired real-world height in metres }
 	var named_statue_glbs: Dictionary = {}  # key -> { "root": Node, "scale": float }
@@ -593,82 +550,18 @@ func _build_statues(statues: Array) -> void:
 			_loader._water_builder._build_imagine_mosaic(sx, sy, sz)
 			continue
 
-		# Generic statue placement
-		var ped_h := 1.2
-		var ped_r := 0.6
-		var fig_h := 1.6
-
-		if stype == "obelisk" or sname_lower.contains("needle") or sname_lower.contains("obelisk"):
-			stype = "obelisk"
-			ped_h = 1.5
-			ped_r = 1.2
-			fig_h = 21.0  # Cleopatra's Needle = 69ft (21m)
-		elif stype == "monument":
-			ped_h = 1.8
-			ped_r = 0.9
-			fig_h = 2.5
-
-		# Pedestal (cylinder)
-		_loader._water_builder._make_cylinder_mesh(sx, sy, sz, ped_r, ped_h, stone_mat,
-							"Pedestal_%s" % sname if sname else "Pedestal")
-
-		var fig_y := sy + ped_h
-
-		if stype == "obelisk":
-			# Tall tapered column — simplified geometric form
-			# Cleopatra's Needle: Aswan red granite — warm pinkish-red
-			var obelisk_mat: ShaderMaterial = stone_mat
-			if sname_lower.contains("needle") or sname_lower.contains("cleopatra"):
-				obelisk_mat = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh, Color(0.62, 0.42, 0.38))
-			_loader._water_builder._make_cylinder_mesh(sx, fig_y, sz, 0.8, fig_h, obelisk_mat,
-								"Obelisk_%s" % safe_name, 4)
-		elif use_glb and stype != "bust":
-			# Use GLB statue model
-			var vi := hash(sname) % statue_glb_meshes.size()
-			if vi < 0:
-				vi = -vi % statue_glb_meshes.size()
-			var mesh: Mesh = statue_glb_meshes[vi]
-			var glb_h: float = statue_glb_heights[vi]
-			# Scale to desired figure height
-			var desired_h := fig_h
-			var s := desired_h / maxf(glb_h, 0.01)
-			var mi := MeshInstance3D.new()
-			mi.mesh = mesh
-			mi.material_override = bronze_mat
-			# GLB models are Y-up, so just scale + position
-			mi.transform = Transform3D(
-				Basis().scaled(Vector3(s, s, s)),
-				Vector3(sx, fig_y, sz))
-			mi.name = "Statue_%s" % safe_name
-			_loader.add_child(mi)
-		elif stype == "bust":
-			# Small bust — keep simple cylinder approximation
-			_loader._water_builder._make_cylinder_mesh(sx, fig_y, sz, 0.14, 0.30, bronze_mat,
-								"BustTorso_%s" % safe_name, 10)
-			_loader._water_builder._make_cylinder_mesh(sx, fig_y + 0.30, sz, 0.10, 0.20, bronze_mat,
-								"BustHead_%s" % safe_name, 8)
-
-		# Label
+		# No photogrammetry scan available — skip procedural geometry,
+		# just place a label so the data gap stays visible.
 		var lbl := Label3D.new()
 		lbl.text = sname if sname else stype.capitalize()
 		lbl.font_size = 48
 		lbl.pixel_size = 0.02
 		lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-
 		lbl.modulate = Color(0.75, 0.72, 0.68, 0.65)
 		lbl.outline_size = 6
 		lbl.outline_modulate = Color(0.0, 0.0, 0.0, 0.50)
-		lbl.position = Vector3(sx, sy + ped_h + fig_h + 0.5, sz)
+		lbl.position = Vector3(sx, sy + 2.0, sz)
 		_loader.add_child(lbl)
-
-		# Collect collision data for batching
-		var cyl := CylinderShape3D.new()
-		cyl.radius = ped_r
-		cyl.height = ped_h + fig_h
-		var col := CollisionShape3D.new()
-		col.shape = cyl
-		col.position = Vector3(sx, sy + (ped_h + fig_h) * 0.5, sz)
-		statue_col_shapes.append(col)
 
 	# Single StaticBody3D for all statue collision shapes
 	if not statue_col_shapes.is_empty():

@@ -732,56 +732,13 @@ def main() -> None:
     trash_cans_out = []
 
     # -------------------------------------------------------------------
-    # Trees — NYC census (authoritative) + woodland fill + OSM
+    # Trees — NYC census (authoritative) + OSM individual nodes
     #
     # Strategy:
-    #   1. Load NYC census trees FIRST (real positions, species, DBH)
-    #   2. Build woodland polygons from OSM natural=wood
-    #   3. Fill woodland polygons with trees at ~4m spacing, SKIPPING
-    #      cells near existing census trees (dedup)
-    #   4. Add OSM individual tree nodes outside woodlands
-    #   Census trees take priority — they have accurate species and positions.
+    #   1. Load NYC census trees (real positions, species, DBH)
+    #   2. Add OSM individual tree nodes (dedup against census)
+    #   Data-first: no woodland fill — gaps stay visible.
     # -------------------------------------------------------------------
-    import random as _random
-    _rng_wood = _random.Random(42)
-
-    # ── Foliage zones from Central Park Conservancy Fall Foliage Map ──
-    # Each zone: [x_min, x_max, z_min, z_max, species_pool]
-    # Street N → Z ≈ 1500 - (N - 66) * 75  (calibrated from OSM landmarks)
-    # Species pools weighted by Conservancy's published dominant species per area.
-    FOLIAGE_ZONES = [
-        # 1. North Woods (W side, 101st-110th St)
-        [-300, 700, -1800, -1125,
-         ["elm", "oak", "oak", "maple", "maple", "deciduous", "deciduous", "conifer"]],
-        # 2. Conservatory Garden (E side, 104th-106th St)
-        [200, 600, -1500, -1350,
-         ["deciduous", "deciduous", "deciduous", "maple", "maple"]],  # crabapple/magnolia → deciduous
-        # 3. The Pool (W side, 100th-103rd St)
-        [-600, 0, -1275, -1050,
-         ["maple", "maple", "maple", "deciduous", "deciduous", "conifer"]],  # bald cypress, hickory, maples
-        # 4. North Meadow (Mid-Park, 97th-102nd St)
-        [-200, 600, -1200, -825,
-         ["deciduous", "deciduous", "maple", "maple"]],  # dogwood, hickory, sugar maple
-        # 5. Reservoir perimeter (Mid-Park, 85th-96th St)
-        [-400, 300, -750, 75,
-         ["deciduous", "deciduous", "deciduous", "deciduous"]],  # cherries → deciduous
-        # 6. The Ramble (Mid-Park, 73rd-79th St)
-        [-600, 0, 375, 975,
-         ["oak", "oak", "maple", "deciduous", "deciduous", "deciduous", "conifer"]],
-        # 7. The Mall / Literary Walk (Mid-Park, 66th-72nd St)
-        [-700, -300, 1050, 1500,
-         ["elm", "elm", "elm", "elm", "elm"]],  # American Elm canopy — signature trees
-        # 8. Hallett Nature Sanctuary & The Pond (South, ~59th-62nd St)
-        [-700, 100, 1650, 2050,
-         ["oak", "oak", "birch", "deciduous", "deciduous", "deciduous"]],
-    ]
-
-    def _zone_species(x, z):
-        """Return species pool for a given position, or None for default."""
-        for zone in FOLIAGE_ZONES:
-            if zone[0] <= x <= zone[1] and zone[2] <= z <= zone[3]:
-                return zone[4]
-        return None
 
     SPECIES_MAP = {
         # Deciduous — broad-leaved
@@ -822,85 +779,11 @@ def main() -> None:
         "cryptomeria": "conifer",    # Japanese cedar
     }
 
-    def _point_in_poly(px, pz, poly):
-        """Ray-casting point-in-polygon test. poly = list of (x, z)."""
-        n = len(poly)
-        inside = False
-        j = n - 1
-        for i in range(n):
-            xi, zi = poly[i]
-            xj, zj = poly[j]
-            if ((zi > pz) != (zj > pz)) and (px < (xj - xi) * (pz - zi) / (zj - zi) + xi):
-                inside = not inside
-            j = i
-        return inside
-
-    def _poly_area(poly):
-        """Shoelace formula for polygon area."""
-        n = len(poly)
-        a = 0.0
-        for i in range(n):
-            j = (i + 1) % n
-            a += poly[i][0] * poly[j][1]
-            a -= poly[j][0] * poly[i][1]
-        return abs(a) / 2.0
-
-    def _in_any_wood(px, pz, polys):
-        """Check if point is inside any woodland polygon."""
-        for poly in polys:
-            if _point_in_poly(px, pz, poly):
-                return True
-        return False
-
-    # --- Step 1: Build woodland polygons ---
-    wood_polys = []
-    for e in elements:
-        if e["type"] != "way":
-            continue
-        tags = e.get("tags", {})
-        if tags.get("natural") != "wood":
-            continue
-        nds = e.get("nodes", [])
-        if len(nds) < 3:
-            continue
-        pts = []
-        for nid in nds:
-            if nid in nodes_ll:
-                lat, lon = nodes_ll[nid]
-                x, z = project(lat, lon)
-                pts.append((x, z))
-        if len(pts) >= 3:
-            wood_polys.append(pts)
-
-    # Also resolve woodland relations (outer ways)
-    for e in elements:
-        if e["type"] != "relation":
-            continue
-        tags = e.get("tags", {})
-        if tags.get("natural") != "wood":
-            continue
-        for member in e.get("members", []):
-            if member.get("type") == "way" and member.get("role", "outer") == "outer":
-                wid = member["ref"]
-                if wid in ways_nodes:
-                    nds = ways_nodes[wid]
-                    pts = []
-                    for nid in nds:
-                        if nid in nodes_ll:
-                            lat, lon = nodes_ll[nid]
-                            x, z = project(lat, lon)
-                            pts.append((x, z))
-                    if len(pts) >= 3:
-                        wood_polys.append(pts)
-
-    wood_area = sum(a for p in wood_polys for a in [_poly_area(p)] if a >= 10.0)
-    print(f"  Woodland polygons: {len(wood_polys)} ({wood_area:.0f} m²)")
-
-    DEDUP_DIST = 3.0  # metres — avoid exact overlaps with census, keep woodland dense
+    DEDUP_DIST = 3.0  # metres — avoid exact overlaps between census and OSM
     CELL = 10.0
     tree_hash: dict = {}
 
-    # --- Step 2: NYC census trees FIRST (authoritative positions & species) ---
+    # --- Step 1: NYC census trees (authoritative positions & species) ---
     NYC_TREES = "lidar_data/central_park_trees.json"
     nyc_count = 0
     if os.path.exists(NYC_TREES):
@@ -921,58 +804,7 @@ def main() -> None:
             nyc_count += 1
         print(f"  Trees: {nyc_count} from NYC census (all included)")
 
-    # --- Step 3: Fill woodland polygons, skipping near census trees ---
-    WOOD_SPACING = 4.0
-    WOOD_JITTER = 1.5
-    wood_added = 0
-    for poly in wood_polys:
-        xs = [p[0] for p in poly]
-        zs = [p[1] for p in poly]
-        xmin, xmax = min(xs), max(xs)
-        zmin, zmax = min(zs), max(zs)
-        area = _poly_area(poly)
-        if area < 10.0:
-            continue
-        gx = xmin
-        while gx <= xmax:
-            gz = zmin
-            while gz <= zmax:
-                tx = gx + _rng_wood.uniform(-WOOD_JITTER, WOOD_JITTER)
-                tz = gz + _rng_wood.uniform(-WOOD_JITTER, WOOD_JITTER)
-                if _point_in_poly(tx, tz, poly):
-                    # Skip if too close to an existing census tree
-                    ck = (int(tx // CELL), int(tz // CELL))
-                    too_close = False
-                    for dx in range(-1, 2):
-                        for dz in range(-1, 2):
-                            for (ex, ez) in tree_hash.get((ck[0] + dx, ck[1] + dz), []):
-                                if abs(ex - tx) < DEDUP_DIST and abs(ez - tz) < DEDUP_DIST:
-                                    too_close = True
-                                    break
-                            if too_close:
-                                break
-                        if too_close:
-                            break
-                    if too_close:
-                        gz += WOOD_SPACING
-                        continue
-                    h = round(terrain(tx, tz), 2)
-                    zone_pool = _zone_species(tx, tz)
-                    if zone_pool:
-                        sp = _rng_wood.choice(zone_pool)
-                    else:
-                        sp = _rng_wood.choice(["oak", "maple", "elm", "deciduous", "deciduous", "deciduous", "deciduous", "conifer"])
-                    dbh = _rng_wood.randint(8, 24)
-                    trees_out.append({"pos": [round(tx, 2), h, round(tz, 2)], "species": sp, "dbh": dbh})
-                    if ck not in tree_hash:
-                        tree_hash[ck] = []
-                    tree_hash[ck].append((tx, tz))
-                    wood_added += 1
-                gz += WOOD_SPACING
-            gx += WOOD_SPACING
-    print(f"  Trees: +{wood_added} from woodland polygons (natural=wood)")
-
-    # --- Step 4: OSM individual tree nodes outside woodlands ---
+    # --- Step 2: OSM individual tree nodes ---
     osm_added = 0
     for e in elements:
         if e["type"] != "node" or "lat" not in e:
@@ -981,8 +813,6 @@ def main() -> None:
         if tags.get("natural") != "tree":
             continue
         x, z = project(e["lat"], e["lon"])
-        if _in_any_wood(x, z, wood_polys):
-            continue
         ck = (int(x // CELL), int(z // CELL))
         duplicate = False
         for dx in range(-1, 2):
@@ -1005,7 +835,7 @@ def main() -> None:
     print(f"  Trees: +{osm_added} from OSM individual nodes")
     print(f"  Trees total: {len(trees_out)}")
 
-    # --- Step 5: Enrich with LiDAR heights from 6 Million Trees ---
+    # --- Step 3: Enrich with LiDAR heights from 6 Million Trees ---
     LIDAR_TREES = "lidar_data/6m_trees_central_park.json"
     if os.path.exists(LIDAR_TREES):
         with open(LIDAR_TREES) as fh:
@@ -1424,24 +1254,24 @@ def main() -> None:
             bcz = sum(float(pt[2]) for pt in pts) / len(pts)
             bridge_centroids.append((bcx, bcz))
     prebake_paths(paths_out, bridge_centroids)
+    prebake_world_atlas(boundary_pts, paths_out, water_out, buildings_out,
+                        trees_out, benches_out, lampposts_out, trash_cans_out,
+                        barriers_out, bridge_outlines, terrain, bridge_centroids)
 
 
 def prebake_paths(paths, bridge_centroids):
-    """Pre-bake splat map + GPU path textures → binary files for fast Godot load."""
+    """Pre-bake GPU path textures → binary file for analytical shader rendering.
+
+    Note: splat map surface classification is now handled by the world atlas.
+    This function only produces the vector segment data (path_gpu.bin) that the
+    terrain shader uses for resolution-independent crisp path edges.
+    """
     import numpy as np
     import struct
 
-    SPLAT_RES = 4096
     FEATHER = 1.2  # metres
     HALF = WORLD_SIZE / 2.0
-    SCALE = SPLAT_RES / WORLD_SIZE
 
-    # Same width/surface/priority tables as park_loader.gd
-    HW_WIDTH = {
-        "pedestrian": 12.0, "footway": 3.5, "cycleway": 3.5,
-        "steps": 3.0, "track": 3.0, "service": 8.0,
-        "secondary": 10.0, "bridleway": 3.5,
-    }
     HW_PRIORITY = {
         "pedestrian": 0.05, "footway": 0.04, "steps": 0.03,
         "cycleway": 0.02, "path": 0.01, "track": 0.00,
@@ -1458,7 +1288,7 @@ def prebake_paths(paths, bridge_centroids):
                     return wf
             except ValueError:
                 pass
-        return HW_WIDTH.get(p.get("highway", "path"), 2.5)
+        return HIGHWAY_WIDTH.get(p.get("highway", "path"), 2.5)
 
     def splat_mat_idx(hw, surface):
         surf_map = {
@@ -1534,95 +1364,7 @@ def prebake_paths(paths, bridge_centroids):
         ground_paths.append((priority, p))
     ground_paths.sort(key=lambda x: x[0])
 
-    # --- Splat map: numpy vectorized rasterization ---
-    print("  Pre-baking splat map (4096×4096)…")
-    splat_mat = np.zeros((SPLAT_RES, SPLAT_RES), dtype=np.uint8)
-    splat_cov = np.zeros((SPLAT_RES, SPLAT_RES), dtype=np.uint8)
-
-    seg_count_splat = 0
-    for _, p in ground_paths:
-        hw = p.get("highway", "path")
-        surf = p.get("surface", "")
-        mat = splat_mat_idx(hw, surf)
-        hw2 = path_width(p) * 0.5
-        raw = p["points"]
-        smoothed = catmull_rom(raw) if len(raw) >= 3 and hw != "steps" else raw
-        # Subdivide to max 2.5m
-        pts = []
-        for i in range(len(smoothed)):
-            pts.append(smoothed[i])
-            if i < len(smoothed) - 1:
-                dx = float(smoothed[i+1][0]) - float(smoothed[i][0])
-                dz = float(smoothed[i+1][2]) - float(smoothed[i][2])
-                seg_len = math.hypot(dx, dz)
-                if seg_len > 2.5:
-                    n = int(math.ceil(seg_len / 2.5))
-                    for j in range(1, n):
-                        t = j / n
-                        pts.append([
-                            float(smoothed[i][0]) + dx * t,
-                            float(smoothed[i][1]) + (float(smoothed[i+1][1]) - float(smoothed[i][1])) * t,
-                            float(smoothed[i][2]) + dz * t,
-                        ])
-        # Rasterize segments
-        for i in range(len(pts) - 1):
-            x0, z0 = float(pts[i][0]), float(pts[i][2])
-            x1, z1 = float(pts[i+1][0]), float(pts[i+1][2])
-            # Convert to pixel space
-            px0 = (x0 + HALF) * SCALE
-            pz0 = (z0 + HALF) * SCALE
-            px1 = (x1 + HALF) * SCALE
-            pz1 = (z1 + HALF) * SCALE
-            pr = hw2 * SCALE
-            feather = FEATHER * SCALE
-            outer = pr + feather
-            inner = max(pr - feather, 0.0)
-            # Bounding box
-            bmin_x = max(0, int(min(px0, px1) - outer))
-            bmax_x = min(SPLAT_RES - 1, int(math.ceil(max(px0, px1) + outer)))
-            bmin_z = max(0, int(min(pz0, pz1) - outer))
-            bmax_z = min(SPLAT_RES - 1, int(math.ceil(max(pz0, pz1) + outer)))
-            if bmax_x <= bmin_x or bmax_z <= bmin_z:
-                continue
-            # Vectorized distance computation
-            zz, xx = np.mgrid[bmin_z:bmax_z+1, bmin_x:bmax_x+1]
-            fpx = xx.astype(np.float32) + 0.5
-            fpz = zz.astype(np.float32) + 0.5
-            dx = px1 - px0
-            dz = pz1 - pz0
-            len_sq = dx * dx + dz * dz
-            if len_sq < 0.001:
-                dist_sq = (fpx - px0)**2 + (fpz - pz0)**2
-            else:
-                t = np.clip(((fpx - px0) * dx + (fpz - pz0) * dz) / len_sq, 0.0, 1.0)
-                cx = px0 + t * dx
-                cz = pz0 + t * dz
-                dist_sq = (fpx - cx)**2 + (fpz - cz)**2
-            outer_sq = outer * outer
-            mask = dist_sq <= outer_sq
-            dist = np.sqrt(dist_sq)
-            range_inv = 1.0 / max(outer - inner, 0.001)
-            s = np.clip((dist - inner) * range_inv, 0.0, 1.0)
-            coverage = (1.0 - s * s * (3.0 - 2.0 * s)) * 255.0
-            cov_byte = coverage.astype(np.uint8)
-            # Apply where coverage exceeds existing
-            region_cov = splat_cov[bmin_z:bmax_z+1, bmin_x:bmax_x+1]
-            update = mask & (cov_byte >= region_cov)
-            splat_mat[bmin_z:bmax_z+1, bmin_x:bmax_x+1][update] = mat
-            splat_cov[bmin_z:bmax_z+1, bmin_x:bmax_x+1][update] = cov_byte[update]
-            seg_count_splat += 1
-
-    # Interleave to RG8 format: [mat, cov, mat, cov, ...]
-    splat_data = np.zeros((SPLAT_RES, SPLAT_RES, 2), dtype=np.uint8)
-    splat_data[:, :, 0] = splat_mat
-    splat_data[:, :, 1] = splat_cov
-    splat_bytes = splat_data.tobytes()
-    with open("splat_map.bin", "wb") as f:
-        f.write(struct.pack("<II", SPLAT_RES, SPLAT_RES))
-        f.write(splat_bytes)
-    print(f"  Splat map: {seg_count_splat} segments → splat_map.bin ({len(splat_bytes) / 1048576:.1f} MB)")
-
-    # --- GPU path textures ---
+    # --- GPU path textures (analytical segment data for shader) ---
     print("  Pre-baking GPU path textures…")
     SEG_TEX_W = 256
     GRID_CELL = 16.0
@@ -1718,6 +1460,273 @@ def prebake_paths(paths, bridge_centroids):
     total_kb = (seg_data.nbytes + grid_data.nbytes + list_data.nbytes) / 1024
     print(f"  GPU textures: segs {SEG_TEX_W}×{seg_rows}, grid {GPU_GRID_W}×{GPU_GRID_W}, "
           f"list {LIST_TEX_W}×{list_tex_h} ({list_count} entries) → path_gpu.bin ({total_kb:.0f} KB)")
+
+
+def prebake_world_atlas(boundary_pts, paths, water, buildings, trees,
+                        benches, lampposts, trash_cans, barriers, bridge_outlines,
+                        terrain_func, bridge_centroids):
+    """
+    Pre-bake a unified world atlas at heightmap resolution (GRID_W × GRID_H).
+
+    Output: world_atlas.bin
+    Format: 8-byte header (width, height as uint32) + width×height×2 bytes (RG8)
+      R = surface type
+      G = occupancy bitmask
+
+    Surface types (R channel):
+      0 = outside park boundary
+      1 = grass (default inside park)
+      2 = paved path (asphalt/concrete/stone)
+      3 = unpaved path (dirt/gravel/compacted)
+      4 = water
+      5 = building footprint
+      6 = bridge deck
+      7 = rock outcrop (from landuse)
+
+    Occupancy bitmask (G channel):
+      bit 0 (1)   = tree
+      bit 1 (2)   = bench
+      bit 2 (4)   = lamppost
+      bit 3 (8)   = trash can
+      bit 4 (16)  = barrier/wall
+      bit 5 (32)  = reserved
+      bit 6 (64)  = reserved
+      bit 7 (128) = reserved
+
+    Replaces: splat_map.bin surface classification, boundary bitmap,
+              5 runtime dictionary grids, structure mask.
+    """
+    import numpy as np
+    import struct
+
+    RES = GRID_W  # match heightmap: 8192×8192 at ~0.61m/cell
+    HALF = WORLD_SIZE / 2.0
+    CELL = WORLD_SIZE / RES  # ~0.61m
+
+    surface = np.zeros((RES, RES), dtype=np.uint8)   # R channel
+    occupancy = np.zeros((RES, RES), dtype=np.uint8)  # G channel
+
+    def world_to_pixel(wx, wz):
+        px = (wx + HALF) / WORLD_SIZE * RES
+        pz = (wz + HALF) / WORLD_SIZE * RES
+        return px, pz
+
+    def world_to_cell(wx, wz):
+        px, pz = world_to_pixel(wx, wz)
+        return int(px), int(pz)
+
+    from PIL import Image, ImageDraw
+
+    # --- 1. Rasterize park boundary → surface=1 (grass) inside ---
+    print("  Atlas: rasterizing boundary...")
+    if len(boundary_pts) >= 3:
+        bnd_img = Image.new('L', (RES, RES), 0)
+        draw = ImageDraw.Draw(bnd_img)
+        poly_pixels = [(world_to_pixel(float(bp[0]), float(bp[1]))) for bp in boundary_pts]
+        draw.polygon(poly_pixels, fill=1)
+        boundary_mask = np.array(bnd_img, dtype=np.uint8)
+        surface[boundary_mask == 1] = 1  # grass
+        inside_count = int(boundary_mask.sum())
+        print(f"    {inside_count} cells inside park ({inside_count * CELL * CELL / 1e6:.2f} km²)")
+        del bnd_img, boundary_mask
+
+    # --- 2. Rasterize water bodies → surface=4 ---
+    # All water polygons drawn onto one shared image
+    print("  Atlas: rasterizing water...")
+    w_img = Image.new('L', (RES, RES), 0)
+    draw = ImageDraw.Draw(w_img)
+    for body in water:
+        pts = body.get("points", [])
+        if len(pts) < 3:
+            continue
+        poly = [world_to_pixel(float(pt[0]), float(pt[1])) for pt in pts]
+        draw.polygon(poly, fill=1)
+    w_mask = np.array(w_img, dtype=np.uint8)
+    water_count = int(w_mask.sum())
+    surface[w_mask == 1] = 4
+    print(f"    {water_count} water cells")
+    del w_img, w_mask
+
+    # --- 3. Rasterize building footprints → surface=5 ---
+    # All buildings drawn onto one shared image
+    print("  Atlas: rasterizing buildings...")
+    b_img = Image.new('L', (RES, RES), 0)
+    draw = ImageDraw.Draw(b_img)
+    for bld in buildings:
+        pts = bld.get("points", [])
+        if len(pts) < 3:
+            continue
+        poly = [world_to_pixel(float(pt[0]), float(pt[1])) for pt in pts]
+        draw.polygon(poly, fill=1)
+    b_mask = np.array(b_img, dtype=np.uint8)
+    bld_count = int(b_mask.sum())
+    surface[b_mask == 1] = 5
+    print(f"    {bld_count} building cells")
+    del b_img, b_mask
+
+    # --- 4. Rasterize bridge outlines → surface=6 ---
+    print("  Atlas: rasterizing bridges...")
+    br_img = Image.new('L', (RES, RES), 0)
+    draw = ImageDraw.Draw(br_img)
+    for bo in bridge_outlines:
+        pts = bo.get("points", bo) if isinstance(bo, dict) else bo
+        if not isinstance(pts, list) or len(pts) < 3:
+            continue
+        poly = [world_to_pixel(float(pt[0]), float(pt[1])) for pt in pts]
+        draw.polygon(poly, fill=1)
+    br_mask = np.array(br_img, dtype=np.uint8)
+    bridge_count = int(br_mask.sum())
+    surface[br_mask == 1] = 6
+    print(f"    {bridge_count} bridge cells")
+    del br_img, br_mask
+
+    # --- 5. Rasterize paths → surface=2 (paved) or 3 (unpaved) ---
+    print("  Atlas: rasterizing paths...")
+    PAVED_SURFACES = {"asphalt", "concrete", "concrete:plates", "paving_stones",
+                      "sett", "unhewn_cobblestone", "brick", "stone", "metal",
+                      "rubber", "tartan", "wood"}
+    PAVED_HW = {"pedestrian", "footway", "cycleway", "service", "secondary"}
+
+    path_cells = 0
+    for p in paths:
+        hw = p.get("highway", "path")
+        layer = int(p.get("layer", 0))
+        is_bridge = p.get("bridge", False) or layer >= 1
+        is_tunnel = p.get("tunnel", False) or layer <= -1
+        if is_bridge or hw == "steps":
+            continue
+        if is_tunnel:
+            continue
+
+        surf = p.get("surface", "")
+        if surf in PAVED_SURFACES or (not surf and hw in PAVED_HW):
+            stype = 2  # paved
+        else:
+            stype = 3  # unpaved
+
+        hw2 = HIGHWAY_WIDTH.get(hw, 2.5) * 0.5
+        w = p.get("width", 0)
+        if isinstance(w, (int, float)) and w > 0:
+            hw2 = float(w) * 0.5
+        elif isinstance(w, str) and w:
+            try:
+                wf = float(w)
+                if wf > 0:
+                    hw2 = wf * 0.5
+            except ValueError:
+                pass
+
+        pts = p["points"]
+        for i in range(len(pts) - 1):
+            x0, z0 = float(pts[i][0]), float(pts[i][2])
+            x1, z1 = float(pts[i+1][0]), float(pts[i+1][2])
+            px0, pz0 = world_to_pixel(x0, z0)
+            px1, pz1 = world_to_pixel(x1, z1)
+            pr = hw2 / CELL  # half-width in pixels
+
+            bmin_x = max(0, int(min(px0, px1) - pr - 1))
+            bmax_x = min(RES - 1, int(max(px0, px1) + pr + 1))
+            bmin_z = max(0, int(min(pz0, pz1) - pr - 1))
+            bmax_z = min(RES - 1, int(max(pz0, pz1) + pr + 1))
+            if bmax_x <= bmin_x or bmax_z <= bmin_z:
+                continue
+
+            # Vectorized distance-to-segment
+            zz, xx = np.mgrid[bmin_z:bmax_z+1, bmin_x:bmax_x+1]
+            fpx = xx.astype(np.float32) + 0.5
+            fpz = zz.astype(np.float32) + 0.5
+            dx = px1 - px0
+            dz = pz1 - pz0
+            len_sq = dx * dx + dz * dz
+            if len_sq < 0.001:
+                dist_sq = (fpx - px0)**2 + (fpz - pz0)**2
+            else:
+                t = np.clip(((fpx - px0) * dx + (fpz - pz0) * dz) / len_sq, 0.0, 1.0)
+                cx = px0 + t * dx
+                cz = pz0 + t * dz
+                dist_sq = (fpx - cx)**2 + (fpz - cz)**2
+            mask = dist_sq <= pr * pr
+            region = surface[bmin_z:bmax_z+1, bmin_x:bmax_x+1]
+            # Only overwrite grass/boundary cells, not water/buildings
+            can_write = mask & ((region == 0) | (region == 1))
+            region[can_write] = stype
+            path_cells += int(can_write.sum())
+    print(f"    {path_cells} path cells")
+
+    # --- 6. Mark object occupancy (G channel bitmask) ---
+    print("  Atlas: marking occupancy...")
+
+    # Trees (bit 0)
+    tree_marked = 0
+    for t in trees:
+        pos = t["pos"] if isinstance(t, dict) else t
+        ci, cj = world_to_cell(float(pos[0]), float(pos[2]))
+        if 0 <= ci < RES and 0 <= cj < RES:
+            occupancy[cj, ci] |= 1
+            tree_marked += 1
+
+    # Benches (bit 1)
+    bench_marked = 0
+    for b in benches:
+        ci, cj = world_to_cell(float(b[0]), float(b[2]))
+        if 0 <= ci < RES and 0 <= cj < RES:
+            occupancy[cj, ci] |= 2
+            bench_marked += 1
+
+    # Lampposts (bit 2)
+    lamp_marked = 0
+    for lp in lampposts:
+        ci, cj = world_to_cell(float(lp[0]), float(lp[2]))
+        if 0 <= ci < RES and 0 <= cj < RES:
+            occupancy[cj, ci] |= 4
+            lamp_marked += 1
+
+    # Trash cans (bit 3)
+    trash_marked = 0
+    for tc in trash_cans:
+        ci, cj = world_to_cell(float(tc[0]), float(tc[2]))
+        if 0 <= ci < RES and 0 <= cj < RES:
+            occupancy[cj, ci] |= 8
+            trash_marked += 1
+
+    # Barriers (bit 4) — mark cells along barrier segments
+    barrier_marked = 0
+    for bar in barriers:
+        pts = bar.get("points", [])
+        for i in range(len(pts) - 1):
+            x0, z0 = float(pts[i][0]), float(pts[i][1])
+            x1, z1 = float(pts[i+1][0]), float(pts[i+1][1])
+            seg_len = math.hypot(x1 - x0, z1 - z0)
+            steps = max(1, int(seg_len / (CELL * 0.5)))
+            for s in range(steps + 1):
+                t = s / steps
+                wx = x0 + (x1 - x0) * t
+                wz = z0 + (z1 - z0) * t
+                ci, cj = world_to_cell(wx, wz)
+                if 0 <= ci < RES and 0 <= cj < RES:
+                    occupancy[cj, ci] |= 16
+                    barrier_marked += 1
+
+    print(f"    trees={tree_marked} benches={bench_marked} lamps={lamp_marked} "
+          f"trash={trash_marked} barriers={barrier_marked}")
+
+    # --- 7. Save ---
+    atlas_data = np.zeros((RES, RES, 2), dtype=np.uint8)
+    atlas_data[:, :, 0] = surface
+    atlas_data[:, :, 1] = occupancy
+    atlas_bytes = atlas_data.tobytes()
+
+    with open("world_atlas.bin", "wb") as f:
+        f.write(struct.pack("<II", RES, RES))
+        f.write(atlas_bytes)
+
+    total_mb = len(atlas_bytes) / (1024 * 1024)
+    print(f"  Atlas: {RES}×{RES} RG8 → world_atlas.bin ({total_mb:.1f} MB)")
+
+    # Summary
+    nonzero_surface = int(np.count_nonzero(surface))
+    nonzero_occ = int(np.count_nonzero(occupancy))
+    print(f"  Atlas: {nonzero_surface} classified cells, {nonzero_occ} occupied cells")
 
 
 if __name__ == "__main__":

@@ -96,12 +96,7 @@ func _building_style(cx: float, cz: float, h: float, year: int) -> int:
 		if year > 1980:
 			return 1  # modern glass
 		return 3  # Art Deco hotels
-	# Mixed zone: deterministic hash
-	var hv := fmod(abs(cx * 7.3 + cz * 13.1), 10.0)
-	if hv < 3.0: return 0
-	if hv < 5.5: return 2
-	if hv < 7.5: return 3
-	if hv < 8.5: return 1
+	# Default: limestone (most common Manhattan facade material)
 	return 0
 
 
@@ -123,7 +118,6 @@ func _build_buildings(buildings: Array) -> void:
 	var roof_normals := PackedVector3Array()
 	var roof_colors  := PackedColorArray()
 
-	var rng := RandomNumberGenerator.new()
 	var built_count := 0
 	var skipped_dist := 0
 
@@ -181,23 +175,7 @@ func _build_buildings(buildings: Array) -> void:
 		elif bld_name.contains("chess") or bld_name.contains("checkers"):
 			style = 4  # DARK_STONE — Chess & Checkers House (rustic stone)
 
-		# Per-building tint variation via vertex color (±15%)
-		rng.seed = int(abs(cx * 73.7 + cz * 131.1)) + 12345
-		var rv := rng.randf_range(-0.15, 0.15)
-		var gv := rng.randf_range(-0.12, 0.12)
-		var bv := rng.randf_range(-0.08, 0.08)
-		var bld_tint := Color(1.0 + rv, 1.0 + gv, 1.0 + bv)
-
-		# Mark building footprint cells (only for in-park buildings; outside don't affect vegetation)
-		if in_park:
-			var grid_cell: float = _loader.BUILDING_GRID_CELL
-			for pt in pts:
-				var bx := float(pt[0]); var bz := float(pt[1])
-				for di in range(-1, 2):
-					for dj in range(-1, 2):
-						var key := Vector2i(int(floor(bx / grid_cell)) + di,
-											int(floor(bz / grid_cell)) + dj)
-						_loader._building_grid[key] = true
+		var bld_tint := Color.WHITE
 
 		# --- Setback for tall towers (>40m): upper 35% recedes 1.5m ---
 		var setback_h := 0.0  # height where setback begins (0 = no setback)
@@ -421,14 +399,7 @@ func _build_buildings(buildings: Array) -> void:
 			roof_col = Color(0.22, 0.20, 0.18)    # dark slate
 			roof_override = true
 		if not roof_override:
-			# Random roof: dark tar (30%), light concrete (30%), brown (20%), greenish (20%)
-			var roof_rv := fmod(abs(cx * 11.3 + cz * 17.7), 10.0)
-			if roof_rv >= 3.0 and roof_rv < 6.0:
-				roof_col = Color(0.52, 0.50, 0.48)    # light concrete
-			elif roof_rv >= 6.0 and roof_rv < 8.0:
-				roof_col = Color(0.34, 0.28, 0.20)    # brown
-			elif roof_rv >= 8.0:
-				roof_col = Color(0.28, 0.36, 0.26)    # greenish patina
+			pass  # uniform dark tar — no data for real roof colors
 		for i in range(0, indices.size(), 3):
 			roof_verts.append(Vector3(polygon[indices[i    ]].x, top, polygon[indices[i    ]].y))
 			roof_verts.append(Vector3(polygon[indices[i + 1]].x, top, polygon[indices[i + 1]].y))

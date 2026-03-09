@@ -273,23 +273,6 @@ func _build_tunnel(path: Dictionary) -> void:
 			]))
 			col_faces.append_array(PackedVector3Array([wa, wb, wc, wa, wc, wd]))
 
-		# Export terrain depression for this stairwell
-		_loader.tunnel_depressions.append({
-			"x": pe.x, "z": pe.z,
-			"dx": out_dir.x, "dz": out_dir.y,
-			"length": actual_run, "hw": hw2 + 1.0,
-			"max_depth": total_rise + 1.0,
-		})
-
-	# Export tunnel body as polyline for terrain depression
-	var body_pts: Array = []
-	for i in range(pts.size()):
-		body_pts.append([float(pts[i][0]), float(pts[i][2])])
-	_loader.tunnel_depressions.append({
-		"polyline": body_pts, "hw": hw2 + 3.0,  # extra 3m beyond walls
-		"max_depth": _loader.TUNNEL_H + 1.0, "body": true  # extra 1m below floor
-	})
-
 	# --- Create visual mesh ---
 	if not all_verts.is_empty():
 		var mesh: ArrayMesh = _loader._make_mesh(all_verts, all_normals, all_uvs)

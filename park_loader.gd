@@ -25,27 +25,6 @@ var _hm_max_h:      float   = 1.0
 var _furn_glb_meshes: Dictionary = {}
 
 
-# Spatial hash of bench positions — used to keep undergrowth clear in front
-var _bench_grid:    Dictionary = {}  # Vector2i → true
-const BENCH_GRID_CELL := 4.0
-
-# Spatial hash of bridge zones — keep furniture/undergrowth away
-var _bridge_grid:   Dictionary = {}  # Vector2i → true
-const BRIDGE_GRID_CELL := 5.0
-
-# Spatial hash of building footprints — keep furniture out of walls
-var _building_grid: Dictionary = {}  # Vector2i → true
-const BUILDING_GRID_CELL := 4.0
-
-# Spatial hash of path zones — keep shore vegetation off paths
-var _path_grid: Dictionary = {}
-const PATH_GRID_CELL := 3.0
-
-# Spatial hash of water zones — keep flowers away from lakes
-var _water_grid: Dictionary = {}
-const WATER_GRID_CELL := 4.0
-
-
 # Slope threshold for furniture placement
 const BENCH_MAX_SLOPE := 0.27  # tan(~15°) — skip benches on steeper terrain
 
@@ -53,11 +32,13 @@ const BENCH_MAX_SLOPE := 0.27  # tan(~15°) — skip benches on steeper terrain
 var lamppost_material: StandardMaterial3D
 var facade_materials: Array = []  # ShaderMaterial list for night window emission
 
-# Splat map: 4096×4096 RG8 — R=material index, G=coverage alpha (smooth edges)
-const SPLAT_RES := 4096
-const SPLAT_FEATHER := 1.2  # metres — soft edge transition width
-var splat_texture: ImageTexture
-var _splat_data: PackedByteArray  # raw RG8 bytes for path coverage queries
+# World atlas: unified 8192×8192 RG8 texture (R=surface type, G=occupancy bitmask)
+# Replaces: splat_map, boundary bitmap, 5 dictionary grids
+var _atlas_data: PackedByteArray   # raw RG8 bytes
+var _atlas_res: int = 0            # atlas width/height (square)
+
+# Path feather width for GPU analytical rendering
+const PATH_FEATHER := 1.2  # metres — soft edge transition width
 
 # Analytical GPU path textures (sharp edges at any zoom)
 var path_segs_texture: ImageTexture   # RGBA32F — segment endpoints + properties
@@ -67,12 +48,10 @@ var gpu_path_grid_cell: float = 16.0
 var gpu_path_grid_w: int = 313
 var gpu_path_seg_tex_w: int = 256
 var gpu_path_list_tex_w: int = 512
-var tunnel_depressions: Array = []  # stairwell depressions for terrain carving
 var boundary_polygon: PackedVector2Array  # XZ boundary for player clamping
 var landuse_zones: Array = []             # from park_data.json: type, name, points
 var _bridge_outlines: Array = []          # bridge outline polygons for deck shapes
 var _tunnel_outlines: Array = []          # tunnel outline polygons for labels
-var _foliage_zones: Array = []            # per-area species composition
 
 var water_bodies: Array = []              # water body polygons for shore blending
 var _water_polygons: Array = []           # water polygon outlines for proximity baking
@@ -88,20 +67,65 @@ var _infrastructure_builder              # infrastructure_builder.gd instance
 
 
 # ---------------------------------------------------------------------------
-# Splat map query — check if a world position is on a painted path
+# World atlas queries — surface type and occupancy from unified RG8 texture
 # ---------------------------------------------------------------------------
-func _is_on_path(wx: float, wz: float) -> bool:
-	## Returns true if the splat map has path coverage > 128 at world (wx, wz).
-	if _splat_data.is_empty():
-		return false
+func _atlas_surface(wx: float, wz: float) -> int:
+	## Returns the atlas R channel (surface type) at world position (wx, wz).
+	## 0=outside, 1=grass, 2=paved, 3=unpaved, 4=water, 5=building, 6=bridge, 7=rock.
+	if _atlas_data.is_empty():
+		return 0
 	var half := _hm_world_size * 0.5
-	var scale := float(SPLAT_RES) / _hm_world_size
+	var scale := float(_atlas_res) / _hm_world_size
 	var px := int((wx + half) * scale)
 	var pz := int((wz + half) * scale)
-	if px < 0 or px >= SPLAT_RES or pz < 0 or pz >= SPLAT_RES:
-		return false
-	var byte_idx := pz * SPLAT_RES * 2 + px * 2
-	return _splat_data[byte_idx + 1] > 128  # G channel = coverage alpha
+	if px < 0 or px >= _atlas_res or pz < 0 or pz >= _atlas_res:
+		return 0
+	return _atlas_data[(pz * _atlas_res + px) * 2]
+
+func _atlas_occupancy(wx: float, wz: float) -> int:
+	## Returns the atlas G channel (occupancy bitmask) at world position (wx, wz).
+	if _atlas_data.is_empty():
+		return 0
+	var half := _hm_world_size * 0.5
+	var scale := float(_atlas_res) / _hm_world_size
+	var px := int((wx + half) * scale)
+	var pz := int((wz + half) * scale)
+	if px < 0 or px >= _atlas_res or pz < 0 or pz >= _atlas_res:
+		return 0
+	return _atlas_data[(pz * _atlas_res + px) * 2 + 1]
+
+func _is_on_path(wx: float, wz: float) -> bool:
+	## Returns true if the atlas surface at (wx, wz) is paved (2) or unpaved (3).
+	var s := _atlas_surface(wx, wz)
+	return s == 2 or s == 3
+
+
+func _load_world_atlas() -> void:
+	## Load world_atlas.bin (8-byte header + RG8 data) into _atlas_data.
+	var fh := FileAccess.open("res://world_atlas.bin", FileAccess.READ)
+	if not fh:
+		push_warning("ParkLoader: world_atlas.bin not found — run convert_to_godot.py first")
+		return
+	var w := fh.get_32()
+	var h := fh.get_32()
+	if w != h or w < 1:
+		push_warning("ParkLoader: world_atlas.bin invalid header: %d×%d" % [w, h])
+		fh.close()
+		return
+	_atlas_res = w
+	_atlas_data = fh.get_buffer(w * h * 2)
+	fh.close()
+	# Count surface types for diagnostics
+	var counts := PackedInt32Array()
+	counts.resize(8)
+	counts.fill(0)
+	for i in range(w * h):
+		var s: int = _atlas_data[i * 2]
+		if s < 8:
+			counts[s] += 1
+	print("ParkLoader: world atlas %d×%d loaded — grass=%d path=%d water=%d building=%d bridge=%d" % [
+		w, h, counts[1], counts[2] + counts[3], counts[4], counts[5], counts[6]])
+
 
 # ---------------------------------------------------------------------------
 # Typed helpers – avoids Dictionary.get() returning Variant (parse error in 4.6)
@@ -609,34 +633,9 @@ func _fbm(p: Vector2, octaves: int) -> float:
 	return v
 
 
-func _is_excluded(x: float, z: float) -> bool:
-	## Unified exclusion check: paths, bridges, buildings, benches, water.
-	var pk := Vector2i(int(floor(x / PATH_GRID_CELL)), int(floor(z / PATH_GRID_CELL)))
-	if _path_grid.has(pk):
-		return true
-	var bk := Vector2i(int(floor(x / BRIDGE_GRID_CELL)), int(floor(z / BRIDGE_GRID_CELL)))
-	if _bridge_grid.has(bk):
-		return true
-	var blk := Vector2i(int(floor(x / BUILDING_GRID_CELL)), int(floor(z / BUILDING_GRID_CELL)))
-	if _building_grid.has(blk):
-		return true
-	var bnk := Vector2i(int(floor(x / BENCH_GRID_CELL)), int(floor(z / BENCH_GRID_CELL)))
-	if _bench_grid.has(bnk):
-		return true
-	var wk := Vector2i(int(floor(x / WATER_GRID_CELL)), int(floor(z / WATER_GRID_CELL)))
-	if _water_grid.has(wk):
-		return true
-	return false
-
-
-# Rasterized boundary bitmap — populated from OSM boundary_polygon in _ready().
-# Each bit in the grid = 1 if inside park, 0 if outside.
-var _bnd_bitmap: PackedByteArray
-var _bnd_cell: float = 4.0  # metres per cell
-var _bnd_min_x: float = 0.0
-var _bnd_min_z: float = 0.0
-var _bnd_nx: int = 0
-var _bnd_nz: int = 0
+func _in_boundary(px: float, pz: float) -> bool:
+	## O(1) atlas lookup — inside park if surface type > 0.
+	return _atlas_surface(px, pz) > 0
 
 
 static func _convex_hull(points: PackedVector2Array) -> PackedVector2Array:
@@ -678,60 +677,6 @@ static func _convex_hull(points: PackedVector2Array) -> PackedVector2Array:
 	for p in upper:
 		result.append(p)
 	return result
-
-
-func _rasterize_boundary() -> void:
-	## Scanline-rasterize boundary_polygon into _bnd_bitmap for O(1) lookups.
-	var poly := boundary_polygon
-	if poly.size() < 3:
-		return
-	# Compute AABB
-	var mn_x: float = poly[0].x; var mx_x: float = poly[0].x
-	var mn_z: float = poly[0].y; var mx_z: float = poly[0].y
-	for i in range(1, poly.size()):
-		mn_x = minf(mn_x, poly[i].x); mx_x = maxf(mx_x, poly[i].x)
-		mn_z = minf(mn_z, poly[i].y); mx_z = maxf(mx_z, poly[i].y)
-	# Pad by one cell
-	_bnd_min_x = mn_x - _bnd_cell
-	_bnd_min_z = mn_z - _bnd_cell
-	_bnd_nx = int(ceilf((mx_x - _bnd_min_x) / _bnd_cell)) + 2
-	_bnd_nz = int(ceilf((mx_z - _bnd_min_z) / _bnd_cell)) + 2
-	_bnd_bitmap.resize(_bnd_nx * _bnd_nz)
-	_bnd_bitmap.fill(0)
-	# Scanline fill: for each Z row, find X intersections with polygon edges
-	var n := poly.size()
-	for row in range(_bnd_nz):
-		var z := _bnd_min_z + (float(row) + 0.5) * _bnd_cell
-		var x_hits: Array = []
-		var j := n - 1
-		for i in range(n):
-			var zi := poly[i].y; var zj := poly[j].y
-			if (zi > z) != (zj > z):
-				var xi := poly[i].x; var xj := poly[j].x
-				x_hits.append(xi + (z - zi) / (zj - zi) * (xj - xi))
-			j = i
-		x_hits.sort()
-		# Fill between pairs of intersections
-		for hi in range(0, x_hits.size() - 1, 2):
-			var col0 := int(floorf((x_hits[hi] - _bnd_min_x) / _bnd_cell))
-			var col1 := int(floorf((x_hits[hi + 1] - _bnd_min_x) / _bnd_cell))
-			col0 = clampi(col0, 0, _bnd_nx - 1)
-			col1 = clampi(col1, 0, _bnd_nx - 1)
-			for col in range(col0, col1 + 1):
-				_bnd_bitmap[row * _bnd_nx + col] = 1
-	var inside_count := 0
-	for b in _bnd_bitmap:
-		if b: inside_count += 1
-	print("ParkLoader: boundary rasterized %dx%d grid, %d cells inside" % [_bnd_nx, _bnd_nz, inside_count])
-
-
-func _in_boundary(px: float, pz: float) -> bool:
-	## O(1) bitmap lookup against rasterized OSM boundary polygon.
-	var col := int(floorf((px - _bnd_min_x) / _bnd_cell))
-	var row := int(floorf((pz - _bnd_min_z) / _bnd_cell))
-	if col < 0 or col >= _bnd_nx or row < 0 or row >= _bnd_nz:
-		return false
-	return _bnd_bitmap[row * _bnd_nx + col] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -776,7 +721,7 @@ func _ready() -> void:
 					subdiv.append(p1.lerp(p2, float(s) / float(steps)))
 		boundary_polygon = subdiv
 		print("ParkLoader: boundary convex hull %d -> %d points (subdivided)" % [raw_poly.size(), boundary_polygon.size()])
-	_rasterize_boundary()
+	_load_world_atlas()
 
 	# Cache data arrays once — avoids repeated Dictionary.get() calls
 	var paths: Array = data.get("paths", [])
@@ -797,7 +742,6 @@ func _ready() -> void:
 	_bridge_outlines = data.get("bridge_outlines", [])
 	_tunnel_outlines = data.get("tunnel_outlines", [])
 
-	_foliage_zones = data.get("foliage_zones", [])
 	var streams: Array = data.get("streams", [])
 	var amenities: Array = data.get("amenities", [])
 
@@ -820,7 +764,6 @@ func _ready() -> void:
 	_water_builder._build_water(water)
 	_water_builder._build_streams(streams)
 	print("  water: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
-	_furniture_builder._populate_water_grid(water)
 	_infrastructure_builder._build_labels(water)
 	_tree_builder._build_trees(trees)
 	print("  trees: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
@@ -884,78 +827,6 @@ func _splat_mat_idx(hw: String, surface: String) -> int:
 		_:            return 16  # gravel
 
 
-func _raster_thick_line(data: PackedByteArray, x0: float, z0: float, x1: float, z1: float, hw2: float, mat_idx: int) -> void:
-	## Rasterize a thick line segment with soft anti-aliased edges into the byte array.
-	## RG8 layout: data[(z*SPLAT_RES + x)*2] = material index, +1 = coverage (0-255).
-	var half := _hm_world_size * 0.5
-	var scale := float(SPLAT_RES) / _hm_world_size
-	var px0 := (x0 + half) * scale
-	var pz0 := (z0 + half) * scale
-	var px1 := (x1 + half) * scale
-	var pz1 := (z1 + half) * scale
-	var pr  := hw2 * scale
-	var feather := SPLAT_FEATHER * scale
-	var outer := pr + feather
-	var inner := maxf(pr - feather, 0.0)
-	var outer_sq := outer * outer
-	var range_inv := 1.0 / maxf(outer - inner, 0.001)
-
-	var bmin_x := clampi(int(floor(minf(px0, px1) - outer)), 0, SPLAT_RES - 1)
-	var bmax_x := clampi(int(ceil(maxf(px0, px1) + outer)), 0, SPLAT_RES - 1)
-	var bmin_z := clampi(int(floor(minf(pz0, pz1) - outer)), 0, SPLAT_RES - 1)
-	var bmax_z := clampi(int(ceil(maxf(pz0, pz1) + outer)), 0, SPLAT_RES - 1)
-
-	var dx := px1 - px0; var dz := pz1 - pz0
-	var len_sq := dx * dx + dz * dz
-	var stride := SPLAT_RES * 2  # bytes per row (RG8)
-
-	for pz in range(bmin_z, bmax_z + 1):
-		var row_off := pz * stride
-		for px in range(bmin_x, bmax_x + 1):
-			var fpx := float(px) + 0.5
-			var fpz := float(pz) + 0.5
-			var dist_sq: float
-			if len_sq < 0.001:
-				dist_sq = (fpx - px0) * (fpx - px0) + (fpz - pz0) * (fpz - pz0)
-			else:
-				var t := clampf(((fpx - px0) * dx + (fpz - pz0) * dz) / len_sq, 0.0, 1.0)
-				var cx := px0 + t * dx; var cz := pz0 + t * dz
-				dist_sq = (fpx - cx) * (fpx - cx) + (fpz - cz) * (fpz - cz)
-			if dist_sq > outer_sq:
-				continue
-			var dist := sqrt(dist_sq)
-			# Smooth coverage: 1.0 inside, transitions to 0.0 at outer edge
-			var s := clampf((dist - inner) * range_inv, 0.0, 1.0)
-			var coverage := 1.0 - s * s * (3.0 - 2.0 * s)  # smoothstep
-			var cov_byte := int(coverage * 255.0)
-			if cov_byte < 1:
-				continue
-			var byte_idx := row_off + px * 2
-			if cov_byte >= data[byte_idx + 1]:
-				data[byte_idx] = mat_idx
-				data[byte_idx + 1] = cov_byte
-
-
-func _load_prebaked_splat() -> ImageTexture:
-	## Load pre-baked splat map from splat_map.bin (generated by convert_to_godot.py).
-	var fh := FileAccess.open("res://splat_map.bin", FileAccess.READ)
-	if not fh:
-		return null
-	var w := fh.get_32()
-	var h := fh.get_32()
-	if w != SPLAT_RES or h != SPLAT_RES:
-		push_warning("Splat map size mismatch: %d×%d vs expected %d×%d" % [w, h, SPLAT_RES, SPLAT_RES])
-		fh.close()
-		return null
-	var data := fh.get_buffer(SPLAT_RES * SPLAT_RES * 2)
-	fh.close()
-	_splat_data = data
-	var img := Image.create_from_data(SPLAT_RES, SPLAT_RES, false, Image.FORMAT_RG8, data)
-	var tex := ImageTexture.create_from_image(img)
-	print("ParkLoader: splat map loaded from splat_map.bin (%d×%d)" % [SPLAT_RES, SPLAT_RES])
-	return tex
-
-
 func _load_prebaked_gpu_textures() -> bool:
 	## Load pre-baked GPU path textures from path_gpu.bin.
 	var fh := FileAccess.open("res://path_gpu.bin", FileAccess.READ)
@@ -996,76 +867,6 @@ func _load_prebaked_gpu_textures() -> bool:
 	return true
 
 
-func _generate_splat_map(paths: Array, bridge_centroids: Array) -> ImageTexture:
-	## Create 4096×4096 RG8 splat map. R = material index, G = coverage alpha.
-	## Uses direct byte array access for performance.
-	var data := PackedByteArray()
-	data.resize(SPLAT_RES * SPLAT_RES * 2)
-	data.fill(0)
-
-	# Collect ground paths + tunnel underpasses, sorted by priority ascending
-	var ground_segs: Array = []
-	for path in paths:
-		var hw: String = str(path.get("highway", "path"))
-		var surf: String = str(path.get("surface", ""))
-		var layer: int = int(path.get("layer", 0))
-		var is_bridge: bool = bool(path.get("bridge", false)) or layer >= 1
-		var is_tunnel: bool = bool(path.get("tunnel", false)) or layer <= -1
-
-		if is_bridge:
-			continue
-		if hw == "steps":
-			continue
-
-		if is_tunnel:
-			var tpts: Array = path["points"]
-			var tcx := 0.0; var tcz := 0.0
-			for pt in tpts:
-				tcx += float(pt[0]); tcz += float(pt[2])
-			tcx /= tpts.size(); tcz /= tpts.size()
-			var near_bridge := false
-			for bc in bridge_centroids:
-				if Vector2(tcx, tcz).distance_to(bc) < 60.0:
-					near_bridge = true
-					break
-			if not near_bridge:
-				continue
-		ground_segs.append({
-			"points": path["points"],
-			"hw": hw,
-			"surface": surf,
-			"priority": _hw_y_priority(hw),
-			"pw": _path_width(path)
-		})
-
-	ground_segs.sort_custom(func(a, b): return a["priority"] < b["priority"])
-
-	for seg in ground_segs:
-		var hw: String = seg["hw"]
-		var surf: String = seg["surface"]
-		var mat_idx := _splat_mat_idx(hw, surf)
-		var hw2: float = seg["pw"] * 0.5
-		var raw: Array = seg["points"]
-		var is_poly := _is_closed_polygon(raw)
-		if is_poly:
-			# Skip closed polygon fills — they create visible rectangle artifacts
-			# on paths. The analytical GPU path system handles all open polylines.
-			# Closed polygon outlines still get thick-line stroked below.
-			pass
-		var smoothed: Array = _smooth_path_catmull_rom(raw) if raw.size() >= 3 and hw != "steps" else raw
-		var pts: Array = _subdivide_pts(smoothed, 2.5)
-		for i in range(pts.size() - 1):
-			_raster_thick_line(data, float(pts[i][0]), float(pts[i][2]),
-				float(pts[i+1][0]), float(pts[i+1][2]), hw2, mat_idx)
-
-	_splat_data = data  # store for path coverage queries (dirt circles, leaf litter)
-	var img := Image.create_from_data(SPLAT_RES, SPLAT_RES, false, Image.FORMAT_RG8, data)
-	# No mipmaps — material indices are discrete values, filtering creates garbage
-	var tex := ImageTexture.create_from_image(img)
-	print("ParkLoader: splat map generated (%d×%d), %d ground paths" % [SPLAT_RES, SPLAT_RES, ground_segs.size()])
-	return tex
-
-
 # ---------------------------------------------------------------------------
 # Analytical GPU path textures — sharp edges at any zoom level
 # ---------------------------------------------------------------------------
@@ -1075,7 +876,7 @@ func _build_path_gpu_textures(paths: Array, bridge_centroids: Array) -> void:
 	var CELL := gpu_path_grid_cell
 	var GRID_W := gpu_path_grid_w
 	var HALF_WS := _hm_world_size * 0.5
-	var FEATHER := SPLAT_FEATHER
+	var FEATHER := PATH_FEATHER
 
 	# --- Step 1: Collect open polyline segments ---
 	# segments[i] = [x0, z0, x1, z1, half_width, mat_idx]
@@ -1240,24 +1041,6 @@ func _build_paths(paths: Array) -> void:
 		elif is_tunnel:
 			tunnel_paths.append(path)
 
-	# Populate path spatial grid for vegetation exclusion
-	for path in paths:
-		if bool(path.get("bridge", false)) or bool(path.get("tunnel", false)):
-			continue
-		var ppts_raw: Array = path["points"]
-		var phw_str := str(path.get("highway", "path"))
-		var ppts: Array = _smooth_path_catmull_rom(ppts_raw) if ppts_raw.size() >= 3 and phw_str != "steps" else ppts_raw
-		var phw := _hw_width(phw_str)
-		var margin := phw * 0.5 + 1.5
-		var cells := int(ceil(margin / PATH_GRID_CELL)) + 1
-		for pt in ppts:
-			var ppx := float(pt[0]); var ppz := float(pt[2])
-			var ci := int(floor(ppx / PATH_GRID_CELL))
-			var cj := int(floor(ppz / PATH_GRID_CELL))
-			for di in range(-cells, cells + 1):
-				for dj in range(-cells, cells + 1):
-					_path_grid[Vector2i(ci + di, cj + dj)] = true
-
 	# Collect bridge centroids so tunnels can detect if they're an underpass
 	var bridge_centroids: Array = []
 	for bp in bridge_paths:
@@ -1268,45 +1051,12 @@ func _build_paths(paths: Array) -> void:
 		cx /= bpts.size(); cz /= bpts.size()
 		bridge_centroids.append(Vector2(cx, cz))
 
-	print("    path grid: %d ms" % (Time.get_ticks_msec() - _pt)); _pt = Time.get_ticks_msec()
-
-	# Load pre-baked splat map or generate at runtime
-	var _prebaked_splat := _load_prebaked_splat()
-	if _prebaked_splat:
-		splat_texture = _prebaked_splat
-		print("    splat map (prebaked): %d ms" % (Time.get_ticks_msec() - _pt)); _pt = Time.get_ticks_msec()
-	else:
-		splat_texture = _generate_splat_map(paths, bridge_centroids)
-		print("    splat map (runtime): %d ms" % (Time.get_ticks_msec() - _pt)); _pt = Time.get_ticks_msec()
-
 	# Load pre-baked GPU path textures or build at runtime
 	if _load_prebaked_gpu_textures():
 		print("    GPU textures (prebaked): %d ms" % (Time.get_ticks_msec() - _pt)); _pt = Time.get_ticks_msec()
 	else:
 		_build_path_gpu_textures(paths, bridge_centroids)
 		print("    GPU textures (runtime): %d ms" % (Time.get_ticks_msec() - _pt)); _pt = Time.get_ticks_msec()
-
-	# Populate bridge spatial grid — mark all cells along bridge paths + 8m around endpoints
-	for bp in bridge_paths:
-		var bpts: Array = bp["points"]
-		if bpts.size() < 2:
-			continue
-		for pt in bpts:
-			var px := float(pt[0]); var pz := float(pt[2])
-			for di in range(-1, 2):
-				for dj in range(-1, 2):
-					var key := Vector2i(int(floor(px / BRIDGE_GRID_CELL)) + di,
-										int(floor(pz / BRIDGE_GRID_CELL)) + dj)
-					_bridge_grid[key] = true
-		for ep_idx in [0, bpts.size() - 1]:
-			var ex := float(bpts[ep_idx][0]); var ez := float(bpts[ep_idx][2])
-			for di in range(-2, 3):
-				for dj in range(-2, 3):
-					var key := Vector2i(int(floor(ex / BRIDGE_GRID_CELL)) + di,
-										int(floor(ez / BRIDGE_GRID_CELL)) + dj)
-					_bridge_grid[key] = true
-
-	print("    bridge grid: %d ms" % (Time.get_ticks_msec() - _pt)); _pt = Time.get_ticks_msec()
 
 	for bp in bridge_paths:
 		var _bpts: Array = bp["points"]
@@ -1466,81 +1216,6 @@ func _is_closed_polygon(pts: Array) -> bool:
 	var dx := float(pts[0][0]) - float(pts[-1][0])
 	var dz := float(pts[0][2]) - float(pts[-1][2])
 	return (dx * dx + dz * dz) < 4.0  # within 2m
-
-
-func _raster_scanline_fill(data: PackedByteArray, pts: Array, mat_idx: int) -> void:
-	## Fast scanline polygon fill with feathered edges.
-	var half := _hm_world_size * 0.5
-	var scale := float(SPLAT_RES) / _hm_world_size
-	var feather_px := SPLAT_FEATHER * scale
-
-	# Convert to pixel coords
-	var n := pts.size() - 1  # skip duplicate last point
-	var px_x: PackedFloat64Array = PackedFloat64Array()
-	var px_z: PackedFloat64Array = PackedFloat64Array()
-	px_x.resize(n); px_z.resize(n)
-	var z_min := 1e18; var z_max := -1e18
-	for i in n:
-		px_x[i] = (float(pts[i][0]) + half) * scale
-		px_z[i] = (float(pts[i][2]) + half) * scale
-		z_min = minf(z_min, px_z[i]); z_max = maxf(z_max, px_z[i])
-
-	var row0 := clampi(int(floor(z_min - feather_px)), 0, SPLAT_RES - 1)
-	var row1 := clampi(int(ceil(z_max + feather_px)), 0, SPLAT_RES - 1)
-	var stride := SPLAT_RES * 2
-
-	for py in range(row0, row1 + 1):
-		var fy := float(py) + 0.5
-		# Find all edge intersections with this scanline
-		var x_hits: PackedFloat64Array = PackedFloat64Array()
-		for i in n:
-			var j := (i + 1) % n
-			var z0 := px_z[i]; var z1 := px_z[j]
-			if (z0 <= fy and z1 > fy) or (z1 <= fy and z0 > fy):
-				var t := (fy - z0) / (z1 - z0)
-				x_hits.append(px_x[i] + t * (px_x[j] - px_x[i]))
-		x_hits.sort()
-
-		# Fill between pairs (even-odd rule)
-		var h := x_hits.size()
-		var hi := 0
-		while hi + 1 < h:
-			var x_left  := x_hits[hi]
-			var x_right := x_hits[hi + 1]
-			# Interior fill
-			var xl := clampi(int(ceil(x_left)), 0, SPLAT_RES - 1)
-			var xr := clampi(int(floor(x_right)), 0, SPLAT_RES - 1)
-			for px in range(xl, xr + 1):
-				var byte_idx := py * stride + px * 2
-				if 255 > data[byte_idx + 1]:
-					data[byte_idx] = mat_idx
-					data[byte_idx + 1] = 255
-			# Feathered left edge
-			var fl := clampi(int(floor(x_left - feather_px)), 0, SPLAT_RES - 1)
-			for px in range(fl, xl):
-				var dist := x_left - (float(px) + 0.5)
-				if dist <= 0.0 or dist > feather_px:
-					continue
-				var s := dist / feather_px
-				var cov := int((1.0 - s * s * (3.0 - 2.0 * s)) * 255.0)
-				var byte_idx := py * stride + px * 2
-				if cov > data[byte_idx + 1]:
-					data[byte_idx] = mat_idx
-					data[byte_idx + 1] = cov
-			# Feathered right edge
-			var fr := clampi(int(ceil(x_right + feather_px)), 0, SPLAT_RES - 1)
-			for px in range(xr + 1, fr + 1):
-				var dist := (float(px) + 0.5) - x_right
-				if dist <= 0.0 or dist > feather_px:
-					continue
-				var s := dist / feather_px
-				var cov := int((1.0 - s * s * (3.0 - 2.0 * s)) * 255.0)
-				var byte_idx := py * stride + px * 2
-				if cov > data[byte_idx + 1]:
-					data[byte_idx] = mat_idx
-					data[byte_idx + 1] = cov
-			hi += 2
-
 
 
 
