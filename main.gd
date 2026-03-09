@@ -115,8 +115,10 @@ const TIME_PRESETS: Dictionary = {
 	"golden_hour": 17.5, "dusk": 19.5, "night": 22.0,
 }
 
-var _cli_pos := Vector3.ZERO  # --pos x,z  or --pos x,z,yaw
+var _cli_pos := Vector3.ZERO  # --pos x,z  or --pos x,z,yaw  or --pos x,z,yaw,height
 var _cli_pos_set := false
+var _cli_height := 1.8  # default eye height above terrain
+var _cli_pitch := 0.0   # --pitch degrees (negative = look down)
 
 func _ready() -> void:
 	# Check for CLI args early
@@ -136,7 +138,11 @@ func _ready() -> void:
 				_cli_pos.z = float(parts[1])
 				if parts.size() >= 3:
 					_cli_pos.y = float(parts[2])  # yaw
+				if parts.size() >= 4:
+					_cli_height = float(parts[3])  # height above terrain
 				_cli_pos_set = true
+		elif arg == "--pitch" and i + 1 < OS.get_cmdline_user_args().size():
+			_cli_pitch = float(OS.get_cmdline_user_args()[i + 1])
 	if cli_time != "":
 		if TIME_PRESETS.has(cli_time):
 			_time_of_day = TIME_PRESETS[cli_time]
@@ -2610,8 +2616,10 @@ func _setup_player() -> CharacterBody3D:
 		p.rotation_degrees.y = 0.0
 		p.set_physics_process(false)
 	elif _cli_pos_set:
-		p.position = Vector3(_cli_pos.x, _terrain_height(_cli_pos.x, _cli_pos.z) + 1.8, _cli_pos.z)
+		p.position = Vector3(_cli_pos.x, _terrain_height(_cli_pos.x, _cli_pos.z) + _cli_height, _cli_pos.z)
 		p.rotation_degrees.y = _cli_pos.y if _cli_pos.y != 0.0 else 30.0
+		if _cli_height > 5.0:
+			p.set_physics_process(false)  # disable gravity for elevated shots
 	else:
 		p.position = Vector3(-400.0, _terrain_height(-400.0, 600.0) + 1.8, 600.0)
 	if not _cli_pos_set:
@@ -2619,6 +2627,8 @@ func _setup_player() -> CharacterBody3D:
 	add_child(p)
 	if _terrain_only and p.head:
 		p.head.rotation_degrees.x = -55.0  # look down at terrain
+	elif _cli_pitch != 0.0 and p.head:
+		p.head.rotation_degrees.x = _cli_pitch
 	return p
 
 
