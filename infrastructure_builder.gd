@@ -1846,7 +1846,7 @@ func _build_fountains(amenities: Array) -> void:
 
 		# Stone basin — short wide cylinder
 		var basin_r := 2.5
-		elif "Untermyer" in name_ or "Cherry Hill" in name_:
+		if "Untermyer" in name_ or "Cherry Hill" in name_:
 			basin_r = 3.5
 
 		var basin: ArrayMesh = _loader._make_cylinder(basin_r, 0.6, 20)
@@ -2310,7 +2310,7 @@ func _build_special_zone_labels() -> void:
 	var count := 0
 	for zone in _loader.landuse_zones:
 		var ztype: String = zone.get("type", "")
-		if ztype not in label_types:
+		if not (ztype in label_types):
 			continue
 		var name_: String = zone.get("name", "")
 		if name_.is_empty():
