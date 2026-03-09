@@ -678,6 +678,39 @@ void fragment() {
 		}
 	}
 
+	// --- Fallen leaf scatter in autumn ---
+	// Leaves accumulate on grass near trees, along path edges, and in low areas
+	{
+		float leaf_autumn = smoothstep(2.0, 2.6, season_t) * (1.0 - smoothstep(3.3, 3.8, season_t));
+		if (leaf_autumn > 0.01 && mat_idx == 0 && slope < 0.25) {
+			// Multi-scale leaf noise: large clumps + individual leaf scatter
+			float leaf_clump = vnoise(world_pos.xz * 0.08);   // where leaves gather
+			float leaf_detail = vnoise(world_pos.xz * 0.6);   // individual leaf scale
+			// Leaves accumulate more in woodland and along path edges
+			float gather = is_woodland ? 0.5 : 0.15;
+			// Path edge accumulation: wind blows leaves to path margins
+			if (nearest_path_dist > 0.0 && nearest_path_dist < 3.0) {
+				gather += smoothstep(3.0, 0.5, nearest_path_dist) * 0.3;
+			}
+			// Leaves also gather in concave areas (low noise = low ground)
+			float topo_low = 1.0 - smoothstep(0.3, 0.6, fbm(world_pos.xz * 0.02, 2));
+			gather += topo_low * 0.15;
+			float leaf_mask = smoothstep(0.3, 0.7, leaf_clump) * gather * leaf_autumn;
+			leaf_mask *= smoothstep(0.2, 0.5, leaf_detail);  // break up into patches
+			if (leaf_mask > 0.01) {
+				// Varied leaf colors: amber, brown, red-orange
+				float col_var = vnoise(world_pos.xz * 1.2);
+				vec3 leaf_col = mix(
+					vec3(0.45, 0.28, 0.10),  // brown
+					mix(vec3(0.65, 0.35, 0.10), vec3(0.55, 0.20, 0.08), col_var),  // amber ↔ red
+					smoothstep(0.3, 0.7, leaf_clump)
+				);
+				ALBEDO = mix(ALBEDO, leaf_col, leaf_mask * 0.65);
+				ROUGHNESS = mix(ROUGHNESS, 0.92, leaf_mask * 0.5);
+			}
+		}
+	}
+
 	// --- Snow accumulation on flat surfaces ---
 	if (snow_cover > 0.01) {
 		float flatness = terrain_n.y;  // 1.0=flat, 0.0=vertical
