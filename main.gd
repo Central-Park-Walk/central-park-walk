@@ -258,6 +258,8 @@ const TOUR_ANGLES: Array = [
 	{"suffix": "_0", "yaw_offset": 0.0, "pitch": 0.0},    # forward
 	{"suffix": "_1", "yaw_offset": -90.0, "pitch": 0.0},   # left 90°
 	{"suffix": "_2", "yaw_offset": 0.0, "pitch": -25.0},   # down
+	{"suffix": "_aerial30", "yaw_offset": 0.0, "pitch": -55.0, "height": 30.0},   # 30m aerial
+	{"suffix": "_aerial80", "yaw_offset": 0.0, "pitch": -75.0, "height": 80.0},   # 80m aerial overview
 ]
 
 const TOUR_TIMES: Array = [7.0, 12.0, 17.0, 22.0]
@@ -272,7 +274,7 @@ func _build_tour_shots() -> void:
 	for vp in TOUR_VIEWPOINTS:
 		for ti in range(TOUR_TIMES.size()):
 			for ai in range(TOUR_ANGLES.size()):
-				_tour_shots.append({
+				var shot_data: Dictionary = {
 					"name": vp["name"],
 					"x": float(vp["x"]),
 					"z": float(vp["z"]),
@@ -280,7 +282,10 @@ func _build_tour_shots() -> void:
 					"pitch": float(TOUR_ANGLES[ai]["pitch"]),
 					"hour": TOUR_TIMES[ti],
 					"filename": "%s_%dh%s" % [vp["name"], int(TOUR_TIMES[ti]), TOUR_ANGLES[ai]["suffix"]],
-				})
+				}
+				if TOUR_ANGLES[ai].has("height"):
+					shot_data["height"] = float(TOUR_ANGLES[ai]["height"])
+				_tour_shots.append(shot_data)
 
 
 # Showcase tour — curated shots demonstrating time, weather, and season variety
@@ -317,6 +322,19 @@ const SHOWCASE_SHOTS: Array = [
 	{"name": "the_lake_autumn_afternoon", "x": -560.0, "z": 780.0, "yaw": 60.0, "pitch": 0.0, "hour": 15.0, "season": 2.7, "weather": "clear"},
 	# Spring morning at soccer fields
 	{"name": "soccer_fields_spring_morning", "x": 390.0, "z": -1070.0, "yaw": 30.0, "pitch": 0.0, "hour": 9.0, "season": 0.5, "weather": "clear"},
+	# Aerial views — looking down from various heights
+	# Bethesda Terrace + fountain from 40m — summer noon
+	{"name": "bethesda_aerial_40m", "x": -480.0, "z": 1020.0, "yaw": 180.0, "pitch": -70.0, "hour": 12.0, "season": 1.5, "weather": "clear", "height": 40.0},
+	# The Lake + Bow Bridge from 80m — autumn afternoon
+	{"name": "lake_aerial_80m_autumn", "x": -540.0, "z": 740.0, "yaw": 0.0, "pitch": -80.0, "hour": 15.0, "season": 2.5, "weather": "clear", "height": 80.0},
+	# Great Lawn from 100m — summer golden hour
+	{"name": "great_lawn_aerial_100m", "x": -100.0, "z": 100.0, "yaw": 0.0, "pitch": -85.0, "hour": 17.5, "season": 1.5, "weather": "clear", "height": 100.0},
+	# Conservatory Water from 30m — rainy day
+	{"name": "conservatory_aerial_30m_rain", "x": -152.0, "z": 958.0, "yaw": 90.0, "pitch": -60.0, "hour": 14.0, "season": 2.0, "weather": "rain", "height": 30.0},
+	# North Woods from 60m — winter snow
+	{"name": "north_woods_aerial_60m_snow", "x": 600.0, "z": -1315.0, "yaw": 180.0, "pitch": -75.0, "hour": 10.0, "season": 3.5, "weather": "snow", "height": 60.0},
+	# Reservoir from 120m — dawn overview
+	{"name": "reservoir_aerial_120m_dawn", "x": -200.0, "z": -400.0, "yaw": 0.0, "pitch": -80.0, "hour": 6.0, "season": 1.5, "weather": "clear", "height": 120.0},
 ]
 
 
@@ -584,7 +602,8 @@ func _tour_teleport(idx: int) -> void:
 	var yaw: float = shot["yaw"]
 	var pitch: float = shot["pitch"]
 	var hour: float = shot["hour"]
-	_player.global_position = Vector3(x, _terrain_height(x, z) + 1.3, z)
+	var cam_height: float = shot.get("height", 1.3)
+	_player.global_position = Vector3(x, _terrain_height(x, z) + cam_height, z)
 	_player.velocity = Vector3.ZERO
 	_player.rotation_degrees.y = yaw
 	var head: Node3D = _player.get_node("Head")

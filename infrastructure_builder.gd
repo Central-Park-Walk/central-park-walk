@@ -1436,11 +1436,10 @@ func _build_gardens() -> void:
 	if gardens.is_empty():
 		return
 
-	# Hedge material — dark green dense foliage
-	var hedge_mat := StandardMaterial3D.new()
-	hedge_mat.albedo_color = Color(0.18, 0.32, 0.12)
-	hedge_mat.roughness = 0.85
-	hedge_mat.metallic = 0.0
+	# Hedge material — seasonal foliage with weather response
+	var hedge_sh: Shader = _loader._get_shader("hedge", "res://shaders/hedge.gdshader")
+	var hedge_mat := ShaderMaterial.new()
+	hedge_mat.shader = hedge_sh
 
 	# Build hedge geometry — low box along polygon perimeter
 	var h_verts := PackedVector3Array()
@@ -1648,12 +1647,15 @@ func _build_fountains(amenities: Array) -> void:
 	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 	var basin_mat: Material = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh, Color(0.58, 0.55, 0.50))
 
-	# Water surface material
-	var water_mat := StandardMaterial3D.new()
-	water_mat.albedo_color = Color(0.15, 0.25, 0.35, 0.75)
-	water_mat.roughness = 0.05
-	water_mat.metallic = 0.3
-	water_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	# Water surface material — uses water shader for animated waves + weather
+	var water_mat := ShaderMaterial.new()
+	water_mat.shader = _loader._get_shader("water", "res://shaders/water.gdshader")
+	if _loader._hm_texture:
+		water_mat.set_shader_parameter("heightmap_tex", _loader._hm_texture)
+		water_mat.set_shader_parameter("hm_world_size", _loader._hm_world_size)
+		water_mat.set_shader_parameter("hm_min_h",      _loader._hm_min_h)
+		water_mat.set_shader_parameter("hm_range",      _loader._hm_max_h - _loader._hm_min_h)
+		water_mat.set_shader_parameter("hm_res",        float(mini(_loader._hm_width, 4096)))
 
 	var count := 0
 	for fnt in fountains:
