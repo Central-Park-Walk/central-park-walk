@@ -1788,3 +1788,124 @@ func _build_attractions(attractions: Array) -> void:
 		_loader.add_child(label)
 		count += 1
 	print("  Attractions: %d placed" % count)
+
+
+# ---------------------------------------------------------------------------
+# Swimming pools — landuse polygons rendered as blue water surfaces
+# ---------------------------------------------------------------------------
+func _build_pools() -> void:
+	var pools: Array = []
+	for zone in _loader.landuse_zones:
+		if zone.get("type", "") != "swimming_pool":
+			continue
+		var pts: Array = zone.get("points", [])
+		if pts.size() < 3:
+			continue
+		pools.append(zone)
+
+	if pools.is_empty():
+		return
+
+	# Pool water material — slightly bluer and clearer than natural water
+	var pool_mat := ShaderMaterial.new()
+	pool_mat.shader = _loader._get_shader("water", "res://shaders/water.gdshader")
+	if _loader._hm_texture:
+		pool_mat.set_shader_parameter("heightmap_tex", _loader._hm_texture)
+		pool_mat.set_shader_parameter("hm_world_size", _loader._hm_world_size)
+		pool_mat.set_shader_parameter("hm_min_h",      _loader._hm_min_h)
+		pool_mat.set_shader_parameter("hm_range",      _loader._hm_max_h - _loader._hm_min_h)
+		pool_mat.set_shader_parameter("hm_res",        float(mini(_loader._hm_width, 4096)))
+
+	var count := 0
+	for pool in pools:
+		var name_: String = pool.get("name", "")
+		var pts: Array = pool["points"]
+
+		# Compute centroid
+		var cx := 0.0; var cz := 0.0
+		for pt in pts:
+			cx += float(pt[0]); cz += float(pt[1])
+		cx /= pts.size(); cz /= pts.size()
+		if not _loader._in_boundary(cx, cz):
+			continue
+
+		var ty: float = _loader._terrain_y(cx, cz) + 0.1
+
+		# Triangulate polygon (fan from centroid)
+		var verts := PackedVector3Array()
+		var normals := PackedVector3Array()
+		for i in range(pts.size()):
+			var j := (i + 1) % pts.size()
+			var x0: float = float(pts[i][0])
+			var z0: float = float(pts[i][1])
+			var x1: float = float(pts[j][0])
+			var z1: float = float(pts[j][1])
+			verts.append(Vector3(cx, ty, cz))
+			verts.append(Vector3(x0, ty, z0))
+			verts.append(Vector3(x1, ty, z1))
+			for _k in 3:
+				normals.append(Vector3.UP)
+
+		if verts.is_empty():
+			continue
+
+		var mesh: ArrayMesh = _loader._make_mesh(verts, normals)
+		mesh.surface_set_material(0, pool_mat)
+		var mi := MeshInstance3D.new()
+		mi.mesh = mesh
+		mi.name = "Pool_%s" % name_.replace(" ", "_")
+		_loader.add_child(mi)
+
+		# Pool edge — concrete rim
+		var rim_verts := PackedVector3Array()
+		var rim_normals := PackedVector3Array()
+		var rim_h := 0.3
+		for i in range(pts.size()):
+			var j := (i + 1) % pts.size()
+			var x0: float = float(pts[i][0])
+			var z0: float = float(pts[i][1])
+			var x1: float = float(pts[j][0])
+			var z1: float = float(pts[j][1])
+			var dx := x1 - x0; var dz := z1 - z0
+			var ln := sqrt(dx * dx + dz * dz)
+			if ln < 0.1:
+				continue
+			var fn := Vector3(-dz / ln, 0.0, dx / ln)
+			var a := Vector3(x0, ty, z0)
+			var b := Vector3(x1, ty, z1)
+			var c := Vector3(x1, ty + rim_h, z1)
+			var d := Vector3(x0, ty + rim_h, z0)
+			rim_verts.append_array(PackedVector3Array([a, b, c, a, c, d]))
+			for _k in 6:
+				rim_normals.append(fn)
+
+		if not rim_verts.is_empty():
+			var rim_mesh: ArrayMesh = _loader._make_mesh(rim_verts, rim_normals)
+			var rim_mat: Material = _loader._make_stone_material(
+				_loader._load_tex("res://textures/rock_wall_diff.jpg"),
+				_loader._load_tex("res://textures/rock_wall_nrm.jpg"),
+				_loader._load_tex("res://textures/rock_wall_rgh.jpg"),
+				Color(0.72, 0.70, 0.66))
+			rim_mesh.surface_set_material(0, rim_mat)
+			var rim_mi := MeshInstance3D.new()
+			rim_mi.mesh = rim_mesh
+			rim_mi.name = "PoolRim_%s" % name_.replace(" ", "_")
+			_loader.add_child(rim_mi)
+
+		# Label
+		if not name_.is_empty():
+			var label := Label3D.new()
+			label.text = name_
+			label.font_size = 24
+			label.position = Vector3(cx, ty + 3.0, cz)
+			label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			label.modulate = Color(0.40, 0.60, 0.80, 0.65)
+			label.outline_modulate = Color(0.05, 0.05, 0.05, 0.45)
+			label.outline_size = 4
+			label.no_depth_test = false
+			label.pixel_size = 0.011
+			_loader.add_child(label)
+
+		count += 1
+	if count > 0:
+		print("  Swimming pools: %d placed" % count)
