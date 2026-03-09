@@ -1642,11 +1642,11 @@ func _build_fountains(amenities: Array) -> void:
 	if fountains.is_empty():
 		return
 
-	# Basin material — granite
-	var basin_mat := StandardMaterial3D.new()
-	basin_mat.albedo_color = Color(0.58, 0.55, 0.50)
-	basin_mat.roughness = 0.75
-	basin_mat.metallic = 0.0
+	# Basin material — granite stone (uses stone shader for rain/snow/moss response)
+	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var basin_mat: Material = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh, Color(0.58, 0.55, 0.50))
 
 	# Water surface material
 	var water_mat := StandardMaterial3D.new()
