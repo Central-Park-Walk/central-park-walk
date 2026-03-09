@@ -1292,6 +1292,27 @@ func _apply_time_of_day() -> void:
 				_env.volumetric_fog_density += dawn_mist * 0.003
 			_env.adjustment_saturation *= (1.0 - dawn_mist * 0.15)  # slightly desaturated mist
 
+	# Seasonal fog and atmosphere modulation
+	# Autumn: warmer golden haze, slightly denser
+	# Winter: cooler blue-gray haze, denser, more desaturated
+	# Spring: fresh, clear, slightly green-tinted
+	var s_autumn := smoothstep(1.5, 2.5, _season_t) * (1.0 - smoothstep(2.5, 3.5, _season_t))
+	var s_winter := smoothstep(2.5, 3.5, _season_t)
+	if s_autumn > 0.01:
+		# Warm golden haze from humidity + pollen/leaf particles
+		var fog_c: Color = _env.fog_light_color
+		_env.fog_light_color = fog_c.lerp(Color(0.82, 0.72, 0.55), s_autumn * 0.25)
+		_env.fog_density *= (1.0 + s_autumn * 0.15)
+	if s_winter > 0.01:
+		# Cold, blue-gray winter atmosphere — shorter days, lower sun angle
+		var fog_c: Color = _env.fog_light_color
+		_env.fog_light_color = fog_c.lerp(Color(0.72, 0.75, 0.82), s_winter * 0.3)
+		_env.fog_density *= (1.0 + s_winter * 0.2)
+		_env.adjustment_saturation *= (1.0 - s_winter * 0.2)
+		# Winter overcast: increase cloud coverage
+		var cc: float = _sky_mat.get_shader_parameter("cloud_coverage")
+		_sky_mat.set_shader_parameter("cloud_coverage", minf(cc + s_winter * 0.15, 0.95))
+
 	# Sun / moon directional light
 	_sun.light_energy    = _lerp_kf("sun_energy", a, b, t)
 	_sun.light_color     = _lerp_kf("sun_color", a, b, t)
