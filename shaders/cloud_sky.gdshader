@@ -11,6 +11,7 @@ uniform float cloud_speed = 0.004;
 uniform vec3 cloud_color_top = vec3(0.90, 0.90, 0.92);
 uniform vec3 cloud_color_bottom = vec3(0.45, 0.45, 0.50);
 global uniform vec2 wind_vec;
+global uniform float season_t;
 
 // Scalar hash — used for stars (cell-based)
 float sky_hash(vec2 p) {
@@ -59,6 +60,25 @@ void sky() {
 	} else {
 		float t = clamp(-elev * 4.0, 0.0, 1.0);
 		sky_col = mix(ground_horizon_color, ground_bottom_color, t);
+	}
+
+	// --- Seasonal sky modulation ---
+	// Winter: paler, hazier, more gray-white
+	// Autumn: warm amber horizon, slightly hazier
+	// Spring: fresh, slightly cooler blue
+	// Summer: deep rich blue (baseline)
+	if (elev >= 0.0) {
+		float s_autumn = smoothstep(1.5, 2.5, season_t) * (1.0 - smoothstep(2.5, 3.5, season_t));
+		float s_winter = smoothstep(2.5, 3.5, season_t);
+		float s_spring = smoothstep(1.0, 0.0, season_t) + smoothstep(3.5, 4.0, season_t);
+		s_spring = clamp(s_spring, 0.0, 1.0);
+		// Winter: pale blue-gray, washed out
+		sky_col = mix(sky_col, sky_col * vec3(0.92, 0.95, 1.02) + vec3(0.04, 0.04, 0.05), s_winter * 0.25);
+		// Autumn: warmer amber-gold in lower sky
+		float low_sky = 1.0 - smoothstep(0.0, 0.35, elev);
+		sky_col += vec3(0.06, 0.03, 0.0) * s_autumn * low_sky;
+		// Spring: slightly cooler, more saturated blue
+		sky_col = mix(sky_col, sky_col * vec3(0.96, 1.0, 1.06), s_spring * 0.15);
 	}
 
 	// --- Sun disc + atmospheric scattering ---
