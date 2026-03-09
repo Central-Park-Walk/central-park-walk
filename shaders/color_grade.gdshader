@@ -84,10 +84,23 @@ void fragment() {
 	cast = mix(cast, vec3(1.10, 1.03, 0.86), golden_t * 0.4);
 	c *= cast;
 
+	// Eye adaptation — lift shadows in very dark scenes (NYC never pitch black)
+	float scene_lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
+	float lift = smoothstep(0.04, 0.0, scene_lum) * night_t * 0.015;
+	c += lift;
+
 	// Vignette — darker edges deepen the tunnel-vision glow
+	// Stronger at night (lamplight pools), softer during day
 	vec2 vig_uv = SCREEN_UV * 2.0 - 1.0;
-	float vig = 1.0 - dot(vig_uv, vig_uv) * 0.20;
+	float vig_strength = mix(0.18, 0.28, night_t);
+	float vig = 1.0 - dot(vig_uv, vig_uv) * vig_strength;
 	c *= vig;
+
+	// Film grain — subtle photographic texture, more visible at night
+	float grain_seed = dot(SCREEN_UV, vec2(12.9898, 78.233)) + TIME * 0.1;
+	float grain = fract(sin(grain_seed) * 43758.5453) - 0.5;
+	float grain_strength = mix(0.012, 0.025, night_t);  // subtler in daylight
+	c += grain * grain_strength;
 
 	COLOR = vec4(c, 1.0);
 }
