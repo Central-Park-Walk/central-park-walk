@@ -10,11 +10,11 @@ Central Park Walk is a real-time 3D simulation of the entirety of New York's Cen
 
 Every tree has a real measured height from LiDAR. Every path follows its real-world geometry from OpenStreetMap. Every bridge is one of 55 actual bridges, rendered in its correct architectural style. The terrain is accurate to one foot of vertical resolution. And all of it was assembled by an AI interpreting the accumulated record of human attention to one of the most documented places on Earth.
 
-The simulation covers 100% of Central Park's terrain at 4096×4096 mesh resolution, derived from NYC's 2017 LiDAR survey. 16,243 trees are placed from the NYC Tree Census, cross-referenced with LiDAR canopy measurements so 89% have their real measured heights. 2,624 paths are rendered with analytical GPU path rendering — material-specific and width-correct. 8,463 building facades line the park boundary with procedural windows that glow warm at night.
+The simulation covers 100% of Central Park's terrain at 4096×4096 mesh resolution, derived from NYC's 2017 LiDAR survey. 16,243 trees are placed from the NYC Tree Census, cross-referenced with LiDAR canopy measurements so 89% have their real measured heights. 2,624 paths are rendered with analytical GPU path rendering — material-specific and width-correct. 18,368 buildings are rendered from real NYC Building Footprints data — each with its actual measured height, construction year, and footprint polygon — with windows that glow warm at night.
 
 55 bridges span the park in 5 architectural styles: stone, cast iron, brick, rustic wood, and the signature Bow Bridge with its interlocking-circles railing. 15 tunnels have barrel-vault interiors with portal lighting. A 7,962-segment brownstone perimeter wall with 105 gate openings marks where the park meets the city. Custom Blender scripts generate period-accurate park furniture: Bishop's Crook lampposts, cast iron benches, wire mesh trash cans, granite drinking fountains.
 
-Rain, snow, fog, puddles, morning dew. A full day/night cycle with sodium vapor park lighting and lit windows, procedural clouds, ambient soundscapes that shift by location. The data-first philosophy means: if we don't have real data for something, we leave a gap rather than guess. Gaps tell us what humans haven't yet measured, mapped, or photographed.
+Rain, snow, fog, puddles, morning dew. A full day/night cycle with sodium vapor park lighting and lit windows. The data-first philosophy means: if we don't have real data for something, we leave a gap rather than guess. Gaps tell us what humans haven't yet measured, mapped, or photographed.
 
 ## The Vision
 
@@ -53,11 +53,7 @@ python3 download_models.py
 # 4. Convert data to Godot format
 python3 convert_to_godot.py
 
-# 5. Generate procedural sounds
-pip install numpy scipy
-python3 scripts/generate_sounds.py
-
-# 6. Run
+# 5. Run
 /path/to/Godot_v4.6.1-stable_linux.x86_64 --path .
 ```
 
@@ -109,7 +105,7 @@ All data is freely available. No paid APIs. No API keys.
 | Trees | 16,243 placed | 4 species models, LOD0 + LOD1 billboards (0–500m), zone-specific species |
 | Paths | 2,624 | Analytical GPU rendering, 58K segments, width-correct |
 | Water | 27 bodies | Per-body color, shore alpha, depth tinting |
-| Buildings | 8,463 | 5 facade styles, procedural windows, night emission |
+| Buildings | 18,368 | Real NYC footprints + measured heights, 5 facade styles, night emission |
 | Bridges | 55 | 5 styles, miter joints, arched soffits, Bow Bridge railings |
 | Tunnels | 15 | Barrel vault interiors, portal lighting |
 | Furniture | 1,004+ | Custom Blender models: lampposts, benches, trash cans, fountains |
@@ -118,7 +114,7 @@ All data is freely available. No paid APIs. No API keys.
 | Sports fields | 60 | Baseball (25), soccer (6), tennis (28), basketball (1) |
 | Weather | 4 modes | Rain, snow, fog, clear — with puddles, mist, dew |
 | Day/night | 5 keyframes | Sodium vapor lamps, lit windows, stars, dawn mist |
-| Sound | 7 loops | Birds, wind, city, water, footsteps — zone-based crossfade |
+| Sound | — | Audio not yet implemented (field recordings needed) |
 
 ## How to Contribute
 
@@ -166,7 +162,7 @@ See [FUNDING.md](FUNDING.md) for details on how funds are used.
 | Engine | Godot 4.6.1 (Forward+, GDScript) |
 | Data pipeline | Python: GDAL, numpy/scipy, Pillow |
 | 3D modeling | Blender 3.0.1 (headless scripts) |
-| Audio | Procedural synthesis (numpy/scipy FM + filtered noise) |
+| Audio | Not yet implemented (awaiting field recordings) |
 | Rendering | Custom GLSL shaders, MultiMesh instancing, analytical GPU path rendering |
 
 ## License

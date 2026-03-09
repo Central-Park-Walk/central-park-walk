@@ -2815,12 +2815,6 @@ func _setup_fog_weather() -> void:
 	print("Fog: heavy atmospheric fog")
 
 
-# ---------------------------------------------------------------------------
-# Weather audio — procedural rain, wind, and thunder
-# ---------------------------------------------------------------------------
-
-
-
 func _setup_lens_distortion() -> void:
 	# Barrel distortion + chromatic aberration
 	_lens_canvas = CanvasLayer.new()
