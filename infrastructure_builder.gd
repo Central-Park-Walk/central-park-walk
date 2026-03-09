@@ -221,6 +221,86 @@ func _build_fence_segments(pts: Array, height: float,
 
 
 # ---------------------------------------------------------------------------
+# Dog parks — chain-link fenced perimeters from landuse zones
+# ---------------------------------------------------------------------------
+func _build_dog_parks() -> void:
+	var dog_parks: Array = []
+	for zone in _loader.landuse_zones:
+		if zone.get("type", "") == "dog_park":
+			dog_parks.append(zone)
+	if dog_parks.is_empty():
+		return
+
+	var f_verts := PackedVector3Array()
+	var f_norms := PackedVector3Array()
+	var c_verts := PackedVector3Array()
+
+	for dp in dog_parks:
+		var name_: String = dp.get("name", "")
+		var pts: Array = dp.get("points", [])
+		if pts.size() < 4:
+			continue
+
+		# Build 3D point array with terrain heights
+		var pts3d: Array = []
+		var cx := 0.0
+		var cz := 0.0
+		for pt in pts:
+			var x := float(pt[0])
+			var z := float(pt[1])
+			var y: float = _loader._terrain_y(x, z)
+			pts3d.append([x, y, z])
+			cx += x
+			cz += z
+		cx /= pts.size()
+		cz /= pts.size()
+		if not _loader._in_boundary(cx, cz):
+			continue
+
+		# Close the polygon if not already closed
+		var first := pts3d[0]
+		var last := pts3d[pts3d.size() - 1]
+		if abs(float(first[0]) - float(last[0])) > 0.5 or abs(float(first[2]) - float(last[2])) > 0.5:
+			pts3d.append(first)
+
+		# Build fence around perimeter (1.2m tall chain-link)
+		_build_fence_segments(pts3d, 1.2, f_verts, f_norms, c_verts)
+
+		# Label
+		if not name_.is_empty():
+			var ty: float = _loader._terrain_y(cx, cz)
+			var label := Label3D.new()
+			label.text = name_
+			label.font_size = 22
+			label.position = Vector3(cx, ty + 2.5, cz)
+			label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			label.modulate = Color(0.60, 0.50, 0.30, 0.65)
+			label.outline_modulate = Color(0.08, 0.06, 0.04, 0.45)
+			label.outline_size = 4
+			label.no_depth_test = false
+			label.pixel_size = 0.011
+			_loader.add_child(label)
+
+	# Chain-link fence mesh — dark green powder-coated
+	if not f_verts.is_empty():
+		_loader._add_batch_mesh(f_verts, f_norms,
+			Color(0.18, 0.22, 0.15), 0.55, "DogParkFences", true)
+
+	# Collision
+	if not c_verts.is_empty():
+		var body := StaticBody3D.new()
+		body.name = "DogPark_Collision"
+		var shape := ConcavePolygonShape3D.new()
+		shape.set_faces(c_verts)
+		var col := CollisionShape3D.new()
+		col.shape = shape
+		body.add_child(col)
+		_loader.add_child(body)
+
+	print("  Dog parks: %d fenced" % dog_parks.size())
+
+
+# ---------------------------------------------------------------------------
 # Staircases – 3D stepped treads + risers replacing flat ribbons
 # ---------------------------------------------------------------------------
 func _build_staircases(paths: Array) -> void:
