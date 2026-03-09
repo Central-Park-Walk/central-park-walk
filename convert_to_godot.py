@@ -1302,12 +1302,49 @@ def main() -> None:
 
     # --- Step 4: Fill OSM natural=wood polygons with scattered trees ---
     # NYC census covers street trees only. Park interior woodland needs procedural fill.
+    # Species selected per foliage zone (Central Park Conservancy data).
     import random as _rng
     _rng.seed(42)
     TREE_DENSITY = 0.015  # trees per m² (~150 trees/hectare, typical temperate woodland)
     MIN_TREE_SPACING = 4.0  # minimum 4m between trees
-    WOODLAND_SPECIES = ["oak", "maple", "elm", "birch", "cherry", "honeylocust",
-                        "london_plane", "linden", "ginkgo", "deciduous"]
+
+    # Common name → archetype mapping for foliage zone species
+    ZONE_SPECIES_MAP = {
+        "american elm": "elm", "pin oak": "oak", "red oak": "oak",
+        "scarlet oak": "oak", "sawtooth oak": "oak", "black cherry": "cherry",
+        "red maple": "maple", "sugar maple": "maple", "sweetgum": "deciduous",
+        "crabapple": "callery_pear", "star magnolia": "deciduous",
+        "stewartia": "deciduous", "bald cypress": "conifer",
+        "hickory": "deciduous", "tupelo": "deciduous",
+        "flowering dogwood": "cherry", "kwanzan cherry (west)": "cherry",
+        "yoshino cherry (east)": "cherry", "gray birch": "birch",
+        "sassafras": "deciduous", "ginkgo": "ginkgo",
+    }
+    # Build z-indexed foliage zone lookup: [(z_min, z_max, [archetype, ...])]
+    foliage_zones_out = data_dict.get("foliage_zones", [])
+    _zone_lookup = []
+    for fz in foliage_zones_out:
+        zr = fz.get("z_range", [])
+        if len(zr) != 2:
+            continue
+        archetypes = []
+        for sp_name in fz.get("species", []):
+            arch = ZONE_SPECIES_MAP.get(sp_name.lower(), "deciduous")
+            if arch not in archetypes:
+                archetypes.append(arch)
+        if not archetypes:
+            archetypes = ["deciduous"]
+        _zone_lookup.append((float(zr[0]), float(zr[1]), archetypes))
+
+    WOODLAND_FALLBACK = ["oak", "maple", "elm", "birch", "cherry", "honeylocust",
+                         "london_plane", "linden", "ginkgo", "deciduous"]
+
+    def _zone_species(tz: float) -> str:
+        """Pick a species appropriate for the foliage zone at this z coordinate."""
+        for z_min, z_max, archetypes in _zone_lookup:
+            if z_min <= tz <= z_max:
+                return _rng.choice(archetypes)
+        return _rng.choice(WOODLAND_FALLBACK)
 
     def _point_in_poly(px, pz, poly):
         """Point-in-polygon test (ray casting)."""
@@ -1393,7 +1430,7 @@ def main() -> None:
                 continue
             placed.append((tx, tz))
             th = round(terrain(tx, tz), 2)
-            species = _rng.choice(WOODLAND_SPECIES)
+            species = _zone_species(tz)
             dbh = _rng.randint(8, 30)
             trees_out.append({"pos": [round(tx, 2), th, round(tz, 2)],
                               "species": species, "dbh": dbh})
