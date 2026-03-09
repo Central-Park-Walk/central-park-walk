@@ -75,6 +75,8 @@ var _tunnel_outlines: Array = []          # tunnel outline polygons for labels
 var _foliage_zones: Array = []            # per-area species composition
 var _perimeter_heights: Array = []        # NYC real building heights [x, z, h_m, ?name]
 var water_bodies: Array = []              # water body polygons for shore blending
+var _water_polygons: Array = []           # water polygon outlines for proximity baking
+var _portal_lights: Array = []            # tunnel portal OmniLight3D nodes
 
 
 # ---------------------------------------------------------------------------

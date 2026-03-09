@@ -4,11 +4,11 @@ extends CharacterBody3D
 const LOOK_SPEED    := 100.0  # degrees/second at full stick deflection
 const DEADZONE      := 0.15   # ignore stick values below this
 const STEP_HEIGHT   := 0.25  # max step-up height (> 0.17m stair rise)
-const SPEED_STEPS: Array = [0.35, 1.0, 3.0, 10.0, 30.0, 100.0]
+const SPEED_STEPS: Array = [0.35, 1.2, 3.0, 10.0, 30.0, 100.0]
 const SPEED_NAMES: Array = ["Stroll", "Walk", "Jog", "Bike", "Drive", "Fly"]
 
-var walk_speed: float = 0.35
-var _speed_idx: int = 0
+var walk_speed: float = 1.2
+var _speed_idx: int = 1
 var head: Node3D    # pitch pivot at eye height
 var _stair_offset: float = 0.0  # camera smoothing for stair steps
 var boundary_polygon: PackedVector2Array  # XZ park boundary (set by main.gd)
@@ -37,16 +37,10 @@ func _ready() -> void:
 	var cam := Camera3D.new()
 	cam.name    = "Camera"
 	cam.current = true
-	cam.fov     = 110.0
-	# Depth of field — far blur for atmospheric depth
+	cam.fov     = 82.0
 	var cam_attr := CameraAttributesPractical.new()
-	cam_attr.dof_blur_far_enabled    = true
-	cam_attr.dof_blur_far_distance   = 20.0
-	cam_attr.dof_blur_far_transition = 120.0
-	cam_attr.dof_blur_amount         = 0.025
-	cam_attr.dof_blur_near_enabled   = true
-	cam_attr.dof_blur_near_distance  = 1.2
-	cam_attr.dof_blur_near_transition = 0.7
+	cam_attr.dof_blur_far_enabled    = false
+	cam_attr.dof_blur_near_enabled   = false
 	cam.attributes = cam_attr
 	head.add_child(cam)
 
