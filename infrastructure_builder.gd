@@ -2194,3 +2194,119 @@ func _build_bandstands() -> void:
 			_loader.add_child(label)
 
 	print("  Bandstands: %d placed" % bandstands.size())
+
+
+func _build_meadow_labels() -> void:
+	## Labels for named grass zones — major park landmarks like Sheep Meadow, Great Hill.
+	var count := 0
+	for zone in _loader.landuse_zones:
+		if zone.get("type", "") != "grass":
+			continue
+		var name_: String = zone.get("name", "")
+		if name_.is_empty():
+			continue
+		var pts: Array = zone.get("points", [])
+		if pts.size() < 3:
+			continue
+		# Compute centroid of the grass polygon
+		var cx := 0.0; var cz := 0.0
+		for pt in pts:
+			cx += float(pt[0]); cz += float(pt[1])
+		cx /= pts.size(); cz /= pts.size()
+		if not _loader._in_boundary(cx, cz):
+			continue
+		var cy: float = _loader._terrain_y(cx, cz)
+		# Ground-level label — soft green tint, visible from a distance
+		var label := Label3D.new()
+		label.text = name_
+		label.font_size = 36
+		label.position = Vector3(cx, cy + 4.0, cz)
+		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		label.modulate = Color(0.42, 0.56, 0.35, 0.55)
+		label.outline_modulate = Color(0.08, 0.10, 0.05, 0.40)
+		label.outline_size = 5
+		label.no_depth_test = false
+		label.pixel_size = 0.015
+		_loader.add_child(label)
+		count += 1
+	if count > 0:
+		print("  Meadow labels: %d named grass zones" % count)
+
+
+func _build_shrubbery(shrubbery_data: Array) -> void:
+	## Decorative shrubbery beds from OSM natural=shrubbery.
+	## Rendered as low-profile hedge volumes following the polygon outline.
+	if shrubbery_data.is_empty():
+		return
+	var hedge_sh: Shader = _loader._get_shader("hedge", "res://shaders/hedge.gdshader")
+	var hedge_mat := ShaderMaterial.new()
+	hedge_mat.shader = hedge_sh
+	var shrub_verts := PackedVector3Array()
+	var shrub_normals := PackedVector3Array()
+	var col_verts := PackedVector3Array()
+	var shrub_h := 0.6  # low ornamental shrubs
+	for shrub in shrubbery_data:
+		var pts: Array = shrub.get("points", [])
+		if pts.size() < 3:
+			continue
+		# Build filled polygon (fan from centroid) for top surface
+		var cx := 0.0; var cz := 0.0
+		for pt in pts:
+			cx += float(pt[0]); cz += float(pt[1])
+		cx /= pts.size(); cz /= pts.size()
+		if not _loader._in_boundary(cx, cz):
+			continue
+		var base_y: float = _loader._terrain_y(cx, cz)
+		var top_y := base_y + shrub_h
+		# Top surface (triangulated fan)
+		for i in range(pts.size()):
+			var j := (i + 1) % pts.size()
+			var x0 := float(pts[i][0]); var z0 := float(pts[i][1])
+			var x1 := float(pts[j][0]); var z1 := float(pts[j][1])
+			shrub_verts.append(Vector3(cx, top_y, cz))
+			shrub_verts.append(Vector3(x0, top_y, z0))
+			shrub_verts.append(Vector3(x1, top_y, z1))
+			for _k in 3: shrub_normals.append(Vector3.UP)
+		# Side walls
+		for i in range(pts.size()):
+			var j := (i + 1) % pts.size()
+			var x0 := float(pts[i][0]); var z0 := float(pts[i][1])
+			var x1 := float(pts[j][0]); var z1 := float(pts[j][1])
+			var dx := x1 - x0; var dz := z1 - z0
+			var ln := sqrt(dx * dx + dz * dz)
+			if ln < 0.05:
+				continue
+			var fn := Vector3(-dz / ln, 0.0, dx / ln)
+			var by: float = _loader._terrain_y((x0 + x1) * 0.5, (z0 + z1) * 0.5)
+			shrub_verts.append(Vector3(x0, by, z0))
+			shrub_verts.append(Vector3(x1, by, z1))
+			shrub_verts.append(Vector3(x1, top_y, z1))
+			shrub_verts.append(Vector3(x0, by, z0))
+			shrub_verts.append(Vector3(x1, top_y, z1))
+			shrub_verts.append(Vector3(x0, top_y, z0))
+			for _k in 6: shrub_normals.append(fn)
+			# Collision
+			col_verts.append(Vector3(x0, by, z0))
+			col_verts.append(Vector3(x1, by, z1))
+			col_verts.append(Vector3(x1, top_y, z1))
+			col_verts.append(Vector3(x0, by, z0))
+			col_verts.append(Vector3(x1, top_y, z1))
+			col_verts.append(Vector3(x0, top_y, z0))
+	if not shrub_verts.is_empty():
+		var mesh: ArrayMesh = _loader._make_mesh(shrub_verts, shrub_normals)
+		mesh.surface_set_material(0, hedge_mat)
+		var mi := MeshInstance3D.new()
+		mi.mesh = mesh
+		mi.name = "Shrubbery"
+		_loader.add_child(mi)
+	if not col_verts.is_empty():
+		var col_mesh := _loader._make_mesh(col_verts, col_verts)  # normals ignored for collision
+		var body := StaticBody3D.new()
+		body.name = "Shrubbery_Col"
+		var shape := ConcavePolygonShape3D.new()
+		shape.set_faces(col_verts)
+		var col := CollisionShape3D.new()
+		col.shape = shape
+		body.add_child(col)
+		_loader.add_child(body)
+	print("  Shrubbery: %d areas" % shrubbery_data.size())

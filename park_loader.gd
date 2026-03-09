@@ -916,6 +916,7 @@ func _ready() -> void:
 	var trash_cans: Array = data.get("trash_cans", [])
 	var flagpoles: Array = data.get("flagpoles", [])
 	var rocks: Array = data.get("rocks", [])
+	var shrubbery: Array = data.get("shrubbery", [])
 	# Build boundary array from subdivided hull for walls/perimeter
 	var boundary: Array = []
 	for p in boundary_polygon:
@@ -977,6 +978,8 @@ func _ready() -> void:
 	_infrastructure_builder._build_dog_parks()
 	_infrastructure_builder._build_pools()
 	_infrastructure_builder._build_bandstands()
+	_infrastructure_builder._build_meadow_labels()
+	_infrastructure_builder._build_shrubbery(shrubbery)
 	print("  fields+gardens: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	_gap_builder._build_gap_markers()
 	print("  gap markers: %d ms" % (Time.get_ticks_msec() - _tp))

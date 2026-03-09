@@ -1680,6 +1680,22 @@ def main() -> None:
         print(f"  Rock outcrops: {len(rocks_out)}")
 
     # -------------------------------------------------------------------
+    # Shrubbery areas — natural=shrubbery (decorative plantings)
+    # -------------------------------------------------------------------
+    shrubbery_out = []
+    for wid, tags in ways_tags.items():
+        if tags.get("natural") != "shrubbery":
+            continue
+        nids = ways_nodes.get(wid, [])
+        if len(nids) < 3:
+            continue
+        pts = _extract_polygon(nids)
+        if len(pts) >= 3:
+            shrubbery_out.append({"name": tags.get("name", ""), "points": pts})
+    if shrubbery_out:
+        print(f"  Shrubbery areas: {len(shrubbery_out)}")
+
+    # -------------------------------------------------------------------
     # Amenity points — fountains, toilets, restaurants, etc.
     # -------------------------------------------------------------------
     amenities_out = []
@@ -1934,6 +1950,7 @@ def main() -> None:
         "bridge_outlines":    bridge_outlines,
         "tunnel_outlines":    tunnel_outlines,
         "rocks":              rocks_out,
+        "shrubbery":          shrubbery_out,
         "amenities":          amenities_out,
 
         "playgrounds":        playgrounds,
