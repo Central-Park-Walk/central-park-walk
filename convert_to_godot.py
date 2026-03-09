@@ -865,7 +865,7 @@ def main() -> None:
                     if len(pts) >= 3:
                         wood_polys.append(pts)
 
-    wood_area = sum(_poly_area(p) for p in wood_polys if _poly_area(p) >= 10.0)
+    wood_area = sum(a for p in wood_polys for a in [_poly_area(p)] if a >= 10.0)
     print(f"  Woodland polygons: {len(wood_polys)} ({wood_area:.0f} m²)")
 
     DEDUP_DIST = 3.0  # metres — avoid exact overlaps with census, keep woodland dense
@@ -1128,59 +1128,6 @@ def main() -> None:
                 benches_out.append([cx, round(terrain(cx, cz), 2), cz, 0.0])
 
     # -------------------------------------------------------------------
-    # Landuse zones — gardens, grass, pitches, playgrounds, etc.
-    # These are area polygons for terrain texture differentiation.
-    # -------------------------------------------------------------------
-    LANDUSE_TAGS = {
-        # tag_key: tag_value -> zone_type
-        ("leisure", "garden"):         "garden",
-        ("leisure", "pitch"):          "pitch",
-        ("leisure", "playground"):     "playground",
-        ("leisure", "swimming_pool"):  "pool",
-        ("leisure", "sports_centre"):  "sports",
-        ("leisure", "track"):          "track",
-        ("leisure", "dog_park"):       "dog_park",
-        ("landuse", "grass"):          "grass",
-        ("leisure", "nature_reserve"): "nature_reserve",
-        ("natural", "wood"):           "wood",
-        ("landuse", "forest"):         "forest",
-    }
-    landuse_out = []
-    for wid, tags in ways_tags.items():
-        for (tk, tv), zone_type in LANDUSE_TAGS.items():
-            if tags.get(tk) == tv:
-                nids = ways_nodes.get(wid, [])
-                if len(nids) < 4 or nids[0] != nids[-1]:
-                    break
-                pts = _extract_polygon(nids)
-                if len(pts) >= 3:
-                    landuse_out.append({
-                        "type": zone_type,
-                        "name": tags.get("name", ""),
-                        "points": pts,
-                    })
-                break
-    # Also resolve landuse relations (outer ways)
-    for rel in relations:
-        tags = rel.get("tags", {})
-        for (tk, tv), zone_type in LANDUSE_TAGS.items():
-            if tags.get(tk) == tv:
-                members = rel.get("members", [])
-                outer_ids = [m["ref"] for m in members
-                             if m["type"] == "way" and m.get("role", "outer") == "outer"]
-                if outer_ids:
-                    pts = _extract_polygon(assemble_ring(outer_ids, ways_nodes))
-                    if len(pts) >= 3:
-                        landuse_out.append({
-                            "type": zone_type,
-                            "name": tags.get("name", ""),
-                            "points": pts,
-                        })
-                break
-    if landuse_out:
-        print(f"  Landuse zones: {len(landuse_out)}")
-
-    # -------------------------------------------------------------------
     # man_made=bridge and man_made=tunnel — structural outlines with names
     # Cross-reference with path bridges/tunnels for names and materials.
     # -------------------------------------------------------------------
@@ -1332,18 +1279,6 @@ def main() -> None:
         {"name": "SummerStage (Rumsey Playfield)", "pos": [-500, 1200], "type": "facility"},
         {"name": "North Gate House", "pos": [0, -600], "type": "building"},
         {"name": "South Gate House", "pos": [0, -375], "type": "building"},
-    ]
-
-    # Running loops from Running Map (distances in miles)
-    running_loops = [
-        {"name": "Full Park Loop", "miles": 6.02, "surface": "paved"},
-        {"name": "Lower Loop", "miles": 5.14, "surface": "paved"},
-        {"name": "Upper Loop", "miles": 4.92, "surface": "paved"},
-        {"name": "Mid Loop", "miles": 4.04, "surface": "paved"},
-        {"name": "Small Lower Loop", "miles": 1.71, "surface": "paved"},
-        {"name": "Bridle Path Loop", "miles": 1.66, "surface": "dirt"},
-        {"name": "Reservoir Running Track", "miles": 1.58, "surface": "crushed_gravel"},
-        {"name": "Small Upper Loop", "miles": 1.42, "surface": "paved"},
     ]
 
     # Fall foliage zones — tree species by area (Conservancy Fall Foliage Map)
