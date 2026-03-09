@@ -82,6 +82,24 @@ void sky() {
 		sky_col += scatter_col * scatter;
 	}
 
+	// --- Moon — visible through NYC light pollution ---
+	if (elev > 0.0 && LIGHT0_ENERGY < 0.15) {
+		// Moon direction: opposite sun with slight south offset (NYC ~40°N)
+		vec3 moon_dir = normalize(-LIGHT0_DIRECTION + vec3(0.0, 0.35, 0.1));
+		float moon_dot = dot(dir, moon_dir);
+		float moon_fade = smoothstep(0.15, 0.0, LIGHT0_ENERGY);  // appears at dusk
+
+		// Moon disc — angular diameter ~0.5°, bright white-blue through atmosphere
+		float moon_disc = smoothstep(0.9996, 0.9999, moon_dot);
+		// Subtle surface variation (maria dark patches)
+		float maria = sky_gnoise(dir.xz / max(elev, 0.01) * 120.0) * 0.15;
+		vec3 moon_col = vec3(0.82, 0.85, 0.92) * (1.0 - max(maria, 0.0) * moon_disc);
+		// Moon glow halo — atmospheric scattering around the disc
+		float moon_glow = pow(max(moon_dot, 0.0), 128.0) * 0.15;
+		float moon_halo = pow(max(moon_dot, 0.0), 16.0) * 0.04;
+		sky_col += moon_col * (moon_disc * 1.5 + moon_glow + moon_halo) * moon_fade;
+	}
+
 	// --- Stars (Bortle 8-9: inner-city light pollution) ---
 	// Central Park: nearly starless sky. Only ~10 brightest stars visible on clear nights.
 	if (elev > 0.0) {
@@ -130,6 +148,16 @@ void sky() {
 			cloud_col += LIGHT0_COLOR * vec3(1.2, 0.6, 0.3) * rim * cloud_golden;
 			// Warmer cloud base at golden hour
 			cloud_col = mix(cloud_col, cloud_col * vec3(1.15, 0.9, 0.75), cloud_golden * 0.4);
+		}
+
+		// Moonlit cloud edges at night — silver-blue rim lighting
+		if (LIGHT0_ENERGY < 0.15) {
+			vec3 moon_dir2 = normalize(-LIGHT0_DIRECTION + vec3(0.0, 0.35, 0.1));
+			float moon_edge = pow(max(dot(dir, moon_dir2), 0.0), 4.0) * 0.25;
+			float night_f = smoothstep(0.15, 0.0, LIGHT0_ENERGY);
+			cloud_col += vec3(0.25, 0.28, 0.35) * moon_edge * night_f;
+			// Night clouds are darker overall (no sun illumination)
+			cloud_col *= mix(1.0, 0.30, night_f);
 		}
 
 		// Fade clouds near horizon to blend with haze
