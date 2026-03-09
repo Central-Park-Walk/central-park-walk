@@ -584,6 +584,17 @@ void fragment() {
 		grass_alb = mix(grass_alb, grass_alb * vec3(1.04, 1.02, 0.92), sm_blend);
 	}
 
+	// Strawberry Fields: formal, somber, exceptionally maintained memorial garden
+	float d_sf = length(world_pos.xz - vec2(-790.0, 820.0));
+	if (d_sf < 60.0 && slope < 0.10 && mat_idx == 0) {
+		float sf_blend = smoothstep(60.0, 30.0, d_sf);
+		// Formal, deep green, slightly desaturated (memorial dignity)
+		float sf_lum = dot(grass_alb, vec3(0.299, 0.587, 0.114));
+		vec3 formal = mix(vec3(sf_lum), grass_alb, 0.80) * vec3(0.98, 1.06, 0.92);
+		grass_alb = mix(grass_alb, formal, sf_blend);
+		grass_rgh = mix(grass_rgh, grass_rgh * 0.95, sf_blend);
+	}
+
 	// North Woods / The Ramble: deeper shade, earthy woodland floor
 	float d_ramble = length(world_pos.xz - vec2(-400.0, 600.0));
 	float d_nwoods = length(world_pos.xz - vec2(100.0, -1200.0));
