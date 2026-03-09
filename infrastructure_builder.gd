@@ -235,7 +235,7 @@ func _build_staircases(paths: Array) -> void:
 		var hw: String = str(path.get("highway", ""))
 		if hw != "steps":
 			continue
-		if bool(path.get("bridge", false)) or bool(path.get("tunnel", false)):
+		if path.get("bridge", false) or path.get("tunnel", false):
 			continue
 		var raw_pts: Array = path.get("points", [])
 		if raw_pts.size() < 2:
