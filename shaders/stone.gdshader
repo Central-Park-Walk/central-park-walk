@@ -5,6 +5,8 @@ uniform sampler2D tex_alb : source_color,      filter_linear_mipmap_anisotropic,
 uniform sampler2D tex_nrm : hint_normal,        filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D tex_rgh : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform vec4 tint : source_color = vec4(1.0);
+global uniform float rain_wetness;
+global uniform float snow_cover;
 
 varying vec3 world_pos;
 varying vec3 world_nrm;
@@ -33,4 +35,19 @@ void fragment() {
 	NORMAL_MAP = nrm;
 	ROUGHNESS  = clamp(rgh + 0.05, 0.0, 1.0);
 	METALLIC   = 0.0;
+	SPECULAR   = 0.10;
+
+	// Rain: wet stone darkens and gets reflective sheen
+	if (rain_wetness > 0.01) {
+		ALBEDO *= mix(1.0, 0.60, rain_wetness);
+		ROUGHNESS = mix(ROUGHNESS, max(ROUGHNESS * 0.25, 0.06), rain_wetness);
+		SPECULAR = mix(SPECULAR, 0.45, rain_wetness);
+	}
+
+	// Snow on upward-facing surfaces
+	if (snow_cover > 0.01 && world_nrm.y > 0.5) {
+		float snow_amt = clamp((world_nrm.y - 0.5) * 2.0 * snow_cover, 0.0, 1.0);
+		ALBEDO = mix(ALBEDO, vec3(0.92, 0.93, 0.96), snow_amt * 0.7);
+		ROUGHNESS = mix(ROUGHNESS, 0.90, snow_amt);
+	}
 }
