@@ -49,19 +49,18 @@ bsdf_g.inputs["Alpha"].default_value = 0.8
 globe_mat.blend_method = 'BLEND' if hasattr(globe_mat, 'blend_method') else None
 
 # --- Dimensions (metres, matching real Type B) ---
-# Base section
-FOOT_R = 0.16       # foot pad radius
-FOOT_H = 0.04       # foot pad height
-BASE_R_BOT = 0.14   # base body bottom radius
-BASE_R_TOP = 0.08   # base body top radius (tapers)
-BASE_H = 0.50       # decorative base total height
-BASE_COLLAR_R = 0.065  # collar at top of base
+# Base section — compact flared base per real Type B parts photos
+BASE_FOOT_W = 0.12   # foot plate half-width (square plate, ~24cm across)
+BASE_FOOT_H = 0.03   # foot plate thickness
+BASE_H = 0.30        # total base height (foot to shaft junction)
+BASE_R_BOT = 0.09    # base radius at bottom (just above foot plate)
+BASE_R_TOP = 0.055   # base radius at top (transitions into shaft)
 
 # Shaft
 SHAFT_R = 0.05      # shaft radius (lower fluted section)
 SHAFT_UPPER_R = 0.04  # upper plain pipe radius
 FLUTE_H = 1.60      # fluted section height
-PLAIN_H = 1.60      # plain pipe section height
+PLAIN_H = 1.80      # plain pipe section height (compensates for compact base)
 SHAFT_START = BASE_H
 FLUTE_TOP = SHAFT_START + FLUTE_H
 PLAIN_TOP = FLUTE_TOP + PLAIN_H
@@ -126,43 +125,34 @@ def make_tube(name, points, radii, segments=CIRC_SEGS, mat=None):
 
 
 def make_base():
-    """Decorative Beaux Arts base — stepped profile with flared foot."""
+    """Compact cast base — squared foot plate, tapered body to shaft junction.
+    Based on actual Type B replacement base parts (galvanized cast iron)."""
     objs = []
-    # Foot pad (wide, short disc)
-    bpy.ops.mesh.primitive_cylinder_add(
-        radius=FOOT_R, depth=FOOT_H, vertices=CIRC_SEGS,
-        location=(0, 0, FOOT_H / 2)
+    # Foot plate — low square plate at ground level
+    bpy.ops.mesh.primitive_cube_add(
+        size=1,
+        location=(0, 0, BASE_FOOT_H / 2)
     )
     foot = bpy.context.active_object
     foot.name = "base_foot"
+    foot.scale = (BASE_FOOT_W, BASE_FOOT_W, BASE_FOOT_H / 2)
+    bpy.ops.object.transform_apply(scale=True)
     foot.data.materials.append(iron_mat)
     objs.append(foot)
 
-    # Base body — tapered from FOOT_R down to BASE_COLLAR_R
-    # Profile: wider at bottom, necking in toward shaft
-    n_steps = 12
+    # Base body — smooth convex taper from foot to shaft
+    n_steps = 10
     pts = []
     radii = []
     for i in range(n_steps):
         t = i / (n_steps - 1)
-        z = FOOT_H + t * (BASE_H - FOOT_H)
-        # Concave taper profile (wider bottom, narrow top)
-        r = BASE_R_BOT + (BASE_R_TOP - BASE_R_BOT) * (t ** 0.6)
+        z = BASE_FOOT_H + t * (BASE_H - BASE_FOOT_H)
+        # Convex taper: wider at bottom, narrowing into shaft
+        r = BASE_R_BOT + (BASE_R_TOP - BASE_R_BOT) * (t ** 0.4)
         pts.append(Vector((0, 0, z)))
         radii.append(r)
     obj = make_tube("base_body", pts, radii, CIRC_SEGS, iron_mat)
     objs.append(obj)
-
-    # Collar ring at top of base
-    bpy.ops.mesh.primitive_torus_add(
-        major_radius=BASE_COLLAR_R + 0.01, minor_radius=0.012,
-        major_segments=CIRC_SEGS, minor_segments=8,
-        location=(0, 0, BASE_H)
-    )
-    collar = bpy.context.active_object
-    collar.name = "base_collar"
-    collar.data.materials.append(iron_mat)
-    objs.append(collar)
 
     return objs
 
