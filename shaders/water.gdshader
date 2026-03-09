@@ -144,17 +144,30 @@ void fragment() {
 		extra_reflect = 0.08;
 	}
 	// The Pool (North Woods): secluded, dark, tree-shadowed
-	float d_pool = length(world_pos.xz - vec2(-400.0, -1100.0));
-	if (d_pool < 80.0) {
+	float d_pool = length(world_pos.xz - vec2(394.0, -1311.0));
+	if (d_pool < 100.0) {
 		deep    = vec3(0.012, 0.025, 0.018);   // very dark, canopy-shadowed
 		shallow = vec3(0.030, 0.048, 0.032);
 	}
 	// The Lake (main): classic Central Park, moderate reflectivity
-	float d_lake = length(world_pos.xz - vec2(-420.0, 740.0));
-	if (d_lake < 250.0) {
+	float d_lake = length(world_pos.xz - vec2(-522.0, 694.0));
+	if (d_lake < 300.0) {
 		deep    = vec3(0.018, 0.034, 0.028);   // natural dark green
 		shallow = vec3(0.045, 0.065, 0.050);
 		extra_reflect = 0.05;
+	}
+	// The Pond (59th St): formal, shallow, clear, near Columbus Circle
+	float d_pond = length(world_pos.xz - vec2(-764.0, 1829.0));
+	if (d_pond < 100.0) {
+		deep    = vec3(0.025, 0.040, 0.035);   // clearer than most
+		shallow = vec3(0.050, 0.070, 0.060);
+		extra_reflect = 0.10;  // reflecting nearby skyscrapers
+	}
+	// Azalea Pond (Ramble): small, secluded, tree-shadowed
+	float d_azalea = length(world_pos.xz - vec2(-358.0, 645.0));
+	if (d_azalea < 50.0) {
+		deep    = vec3(0.012, 0.025, 0.018);   // very dark, canopy-filtered
+		shallow = vec3(0.028, 0.042, 0.030);
 	}
 
 	// Seasonal water color shifts
