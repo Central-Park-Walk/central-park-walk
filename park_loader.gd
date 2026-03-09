@@ -266,36 +266,21 @@ func _compute_miter_normals(pts: Array, n_pts: int) -> Array[Vector2]:
 func _add_box_post(v: PackedVector3Array, n: PackedVector3Array,
 				   cx: float, cz: float, bot_y: float, top_y: float,
 				   post_w: float) -> void:
-	## Append a 4-face box post to vertex/normal arrays.
+	## Append a 4-face box post (no top/bottom) to non-indexed vertex/normal arrays.
 	var hw := post_w * 0.5
-	for face in range(4):
-		var fn: Vector3
-		var c0: Vector3; var c1: Vector3; var c2: Vector3; var c3: Vector3
-		if face == 0:
-			fn = Vector3(1, 0, 0)
-			c0 = Vector3(cx + hw, bot_y, cz - hw)
-			c1 = Vector3(cx + hw, bot_y, cz + hw)
-			c2 = Vector3(cx + hw, top_y, cz + hw)
-			c3 = Vector3(cx + hw, top_y, cz - hw)
-		elif face == 1:
-			fn = Vector3(-1, 0, 0)
-			c0 = Vector3(cx - hw, bot_y, cz + hw)
-			c1 = Vector3(cx - hw, bot_y, cz - hw)
-			c2 = Vector3(cx - hw, top_y, cz - hw)
-			c3 = Vector3(cx - hw, top_y, cz + hw)
-		elif face == 2:
-			fn = Vector3(0, 0, 1)
-			c0 = Vector3(cx + hw, bot_y, cz + hw)
-			c1 = Vector3(cx - hw, bot_y, cz + hw)
-			c2 = Vector3(cx - hw, top_y, cz + hw)
-			c3 = Vector3(cx + hw, top_y, cz + hw)
-		else:
-			fn = Vector3(0, 0, -1)
-			c0 = Vector3(cx - hw, bot_y, cz - hw)
-			c1 = Vector3(cx + hw, bot_y, cz - hw)
-			c2 = Vector3(cx + hw, top_y, cz - hw)
-			c3 = Vector3(cx - hw, top_y, cz - hw)
-		v.append_array(PackedVector3Array([c0, c1, c2, c0, c2, c3]))
+	var hy := (top_y - bot_y) * 0.5
+	var cy := bot_y + hy
+	var faces := [
+		[Vector3(cx+hw,cy-hy,cz+hw), Vector3(cx+hw,cy-hy,cz-hw), Vector3(cx+hw,cy+hy,cz-hw), Vector3(cx+hw,cy+hy,cz+hw), Vector3(1,0,0)],
+		[Vector3(cx-hw,cy-hy,cz-hw), Vector3(cx-hw,cy-hy,cz+hw), Vector3(cx-hw,cy+hy,cz+hw), Vector3(cx-hw,cy+hy,cz-hw), Vector3(-1,0,0)],
+		[Vector3(cx-hw,cy-hy,cz+hw), Vector3(cx+hw,cy-hy,cz+hw), Vector3(cx+hw,cy+hy,cz+hw), Vector3(cx-hw,cy+hy,cz+hw), Vector3(0,0,1)],
+		[Vector3(cx+hw,cy-hy,cz-hw), Vector3(cx-hw,cy-hy,cz-hw), Vector3(cx-hw,cy+hy,cz-hw), Vector3(cx+hw,cy+hy,cz-hw), Vector3(0,0,-1)],
+	]
+	for face in faces:
+		var f0: Vector3 = face[0]; var f1: Vector3 = face[1]
+		var f2: Vector3 = face[2]; var f3: Vector3 = face[3]
+		var fn: Vector3 = face[4]
+		v.append_array(PackedVector3Array([f0, f1, f2, f0, f2, f3]))
 		for _j in range(6):
 			n.append(fn)
 
