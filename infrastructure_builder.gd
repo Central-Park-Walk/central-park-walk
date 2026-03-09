@@ -1324,6 +1324,122 @@ func _build_field_markings() -> void:
 
 
 # ---------------------------------------------------------------------------
+# Garden borders — low hedge/border outlines for named gardens
+# ---------------------------------------------------------------------------
+func _build_gardens() -> void:
+	var gardens: Array = []
+	for zone in _loader.landuse_zones:
+		if zone.get("type", "") != "garden":
+			continue
+		var pts: Array = zone.get("points", [])
+		if pts.size() < 4:
+			continue
+		gardens.append(zone)
+
+	if gardens.is_empty():
+		return
+
+	# Hedge material — dark green dense foliage
+	var hedge_mat := StandardMaterial3D.new()
+	hedge_mat.albedo_color = Color(0.18, 0.32, 0.12)
+	hedge_mat.roughness = 0.85
+	hedge_mat.metallic = 0.0
+
+	# Build hedge geometry — low box along polygon perimeter
+	var h_verts := PackedVector3Array()
+	var h_norms := PackedVector3Array()
+	var hedge_h := 0.7   # 70cm tall hedges
+	var hedge_w := 0.25  # 25cm wide
+
+	var label_count := 0
+	for zone in gardens:
+		var name_: String = zone.get("name", "")
+		var pts: Array = zone.get("points", [])
+		var n: int = pts.size()
+
+		# Centroid for label placement
+		var cx := 0.0
+		var cz := 0.0
+		for pt in pts:
+			cx += float(pt[0])
+			cz += float(pt[1])
+		cx /= n
+		cz /= n
+		if not _loader._in_boundary(cx, cz):
+			continue
+
+		# Build hedge segments along perimeter
+		for i in range(n):
+			var j := (i + 1) % n
+			var x1 := float(pts[i][0])
+			var z1 := float(pts[i][1])
+			var x2 := float(pts[j][0])
+			var z2 := float(pts[j][1])
+
+			var dx := x2 - x1
+			var dz := z2 - z1
+			var seg_len := sqrt(dx * dx + dz * dz)
+			if seg_len < 0.5:
+				continue
+
+			# Normal perpendicular to segment
+			var nx := -dz / seg_len * hedge_w
+			var nz := dx / seg_len * hedge_w
+
+			var y1 := _loader._terrain_y(x1, z1)
+			var y2 := _loader._terrain_y(x2, z2)
+
+			# Two triangles for top face
+			var a := Vector3(x1 - nx, y1 + hedge_h, z1 - nz)
+			var b := Vector3(x1 + nx, y1 + hedge_h, z1 + nz)
+			var c := Vector3(x2 + nx, y2 + hedge_h, z2 + nz)
+			var d := Vector3(x2 - nx, y2 + hedge_h, z2 - nz)
+			h_verts.append_array(PackedVector3Array([a, b, c, a, c, d]))
+			h_norms.append_array(PackedVector3Array([Vector3.UP, Vector3.UP, Vector3.UP,
+				Vector3.UP, Vector3.UP, Vector3.UP]))
+
+			# Front face (outer side)
+			var e := Vector3(x1 + nx, y1, z1 + nz)
+			var f := Vector3(x2 + nx, y2, z2 + nz)
+			var fn := Vector3(nx, 0, nz).normalized()
+			h_verts.append_array(PackedVector3Array([e, b, c, e, c, f]))
+			h_norms.append_array(PackedVector3Array([fn, fn, fn, fn, fn, fn]))
+
+			# Back face (inner side)
+			var g := Vector3(x1 - nx, y1, z1 - nz)
+			var h := Vector3(x2 - nx, y2, z2 - nz)
+			var bn := Vector3(-nx, 0, -nz).normalized()
+			h_verts.append_array(PackedVector3Array([a, g, h, a, h, d]))
+			h_norms.append_array(PackedVector3Array([bn, bn, bn, bn, bn, bn]))
+
+		# Named garden label
+		if not name_.is_empty():
+			var ty: float = _loader._terrain_y(cx, cz)
+			var label := Label3D.new()
+			label.text = name_
+			label.font_size = 24
+			label.position = Vector3(cx, ty + 3.0, cz)
+			label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			label.modulate = Color(0.30, 0.55, 0.25, 0.65)
+			label.outline_modulate = Color(0.05, 0.08, 0.03, 0.45)
+			label.outline_size = 4
+			label.no_depth_test = false
+			label.pixel_size = 0.011
+			_loader.add_child(label)
+			label_count += 1
+
+	if not h_verts.is_empty():
+		var mesh: ArrayMesh = _loader._make_mesh(h_verts, h_norms)
+		mesh.surface_set_material(0, hedge_mat)
+		var mi := MeshInstance3D.new()
+		mi.mesh = mesh
+		mi.name = "GardenHedges"
+		_loader.add_child(mi)
+
+	print("  Gardens: %d hedged (%d labeled)" % [gardens.size(), label_count])
+
+
+# ---------------------------------------------------------------------------
 # Playgrounds — named locations with colored ground markers and labels
 # ---------------------------------------------------------------------------
 func _build_playgrounds(playgrounds: Array) -> void:
