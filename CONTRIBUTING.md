@@ -98,9 +98,6 @@ Gaps are okay. A gap in the simulation is a signal that we need more data from t
 
 ## Creative Contributions
 
-### Guided Meditations
-If you're interested in contributing contemplative experiences within the park — meditation scripts, ambient narratives, or mindfulness exercises tied to specific park locations — open an issue to discuss.
-
 ### Historical Layers
 Central Park has 170 years of history. Help us map:
 - What specific locations looked like at different points in time
