@@ -176,6 +176,19 @@ func _build_buildings(buildings: Array) -> void:
 			style = 4  # DARK_STONE — Chess & Checkers House (rustic stone)
 
 		var bld_tint := Color.WHITE
+		# Age patina: older buildings are slightly darker/warmer from weathering
+		if year_built > 0:
+			var age := 2026 - year_built
+			if age > 120:
+				# Pre-1900: heavy patina — darker, warmer, brownish streaks
+				bld_tint = Color(0.90, 0.86, 0.80)
+			elif age > 80:
+				# 1900-1945: moderate weathering — slight darkening
+				bld_tint = Color(0.93, 0.91, 0.87)
+			elif age > 40:
+				# 1945-1985: mild aging
+				bld_tint = Color(0.96, 0.95, 0.93)
+			# Post-1985: clean, no tint
 
 		# --- Setback for tall towers (>40m): upper 35% recedes 1.5m ---
 		var setback_h := 0.0  # height where setback begins (0 = no setback)
