@@ -22,13 +22,13 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-# Central Park bounding box with 200m buffer (~0.002° lat/lon)
+# Central Park bounding box with 350m buffer (~0.0035° lat/lon)
 # Park runs roughly 40.764-40.800 lat, -73.982 to -73.949 lon
-# Buffer adds ~200m on each side for perimeter buildings
-SOUTH = 40.762
-WEST = -73.984
-NORTH = 40.802
-EAST = -73.947
+# Buffer adds ~350m — first 1-2 rows of skyline buildings
+SOUTH = 40.7608
+WEST = -73.9895
+NORTH = 40.8032
+EAST = -73.9413
 
 API_BASE = "https://data.cityofnewyork.us/resource/5zhs-2jue.geojson"
 PAGE_SIZE = 50000  # API max per request

@@ -10,7 +10,7 @@ Central Park Walk is a real-time 3D simulation of the entirety of New York's Cen
 
 Every tree has a real measured height from LiDAR. Every path follows its real-world geometry from OpenStreetMap. Every bridge is one of 55 actual bridges, rendered in its correct architectural style. The terrain is accurate to one foot of vertical resolution. And all of it was assembled by an AI interpreting the accumulated record of human attention to one of the most documented places on Earth.
 
-The simulation covers 100% of Central Park's terrain at 4096×4096 mesh resolution, derived from NYC's 2017 LiDAR survey. Trees are placed from the NYC Tree Census, cross-referenced with LiDAR canopy measurements for real measured heights. 2,624 paths are rendered with analytical GPU path rendering — material-specific and width-correct. 18,368 buildings are rendered from real NYC Building Footprints data — each with its actual measured height, construction year, and footprint polygon — with windows that glow warm at night.
+The terrain is clipped to the park boundary — no terrain is rendered outside the park, because there is no data outside the park. 4096×4096 mesh resolution, derived from NYC's 2017 LiDAR survey. Trees are placed from the NYC Tree Census, cross-referenced with LiDAR canopy measurements for real measured heights (19,200 trees with LiDAR heights — 87% match rate). 2,624 paths are rendered with analytical GPU path rendering — material-specific and width-correct. 4,865 buildings are rendered from real NYC Building Footprints data — filtered from 18,368 to only those within 350m of the park boundary — each with its actual measured height, construction year, and footprint polygon — with windows that glow warm at night.
 
 55 bridges span the park in 5 architectural styles: stone, cast iron, brick, rustic wood, and the signature Bow Bridge with its interlocking-circles railing. 15 tunnels have barrel-vault interiors with portal lighting. A 7,962-segment brownstone perimeter wall with 105 gate openings marks where the park meets the city. Custom Blender scripts generate period-accurate park furniture: Bishop's Crook lampposts, cast iron benches, wire mesh trash cans, granite drinking fountains.
 
@@ -27,7 +27,7 @@ The project is designed to expand. More places, more data sources, more contribu
 ## Screenshots
 
 ![Autumn Dusk — Central Park West Skyline](screenshots/cpw_skyline_autumn_dusk.png)
-*Autumn dusk on the Literary Walk. Per-species fall colors — maple red, oak brown, elm gold — driven by phenology data. 18,368 buildings from NYC Building Footprints.*
+*Autumn dusk on the Literary Walk. Per-species fall colors — maple red, oak brown, elm gold — driven by phenology data. 4,865 buildings from NYC Building Footprints.*
 
 ![Summer Golden Hour — Literary Walk](screenshots/literary_walk_summer_golden.png)
 *The Literary Walk at golden hour. Every tree placed from NYC Tree Census data, every path from OpenStreetMap.*
@@ -115,11 +115,11 @@ All data is freely available. No paid APIs. No API keys.
 
 | Feature | Count | Detail |
 |---------|-------|--------|
-| Terrain | 4096×4096 | LiDAR-accurate, per-pixel normals, structure mask |
+| Terrain | 4096×4096 | LiDAR-accurate, per-pixel normals, structure mask, clipped to park boundary |
 | Trees | 22,098 in census | 5 species models, LiDAR heights, seasonal phenology |
 | Paths | 2,624 | Analytical GPU rendering, 58K segments, width-correct |
 | Water | 27 bodies | Per-body color, shore alpha, depth tinting |
-| Buildings | 18,368 | Real NYC footprints + measured heights, 5 facade styles, night emission |
+| Buildings | 4,865 | Real NYC footprints + measured heights (filtered to 350m of park boundary), 5 facade styles, night emission |
 | Bridges | 55 | 5 styles, miter joints, arched soffits, Bow Bridge railings |
 | Tunnels | 15 | Barrel vault interiors, portal lighting |
 | Furniture | 1,004+ | Custom Blender models: lampposts, benches, trash cans, fountains |

@@ -3,7 +3,7 @@
 # Extracted from park_loader.gd — all shared utilities accessed via _loader reference.
 
 var _loader  # Reference to park_loader for shared utilities
-const MAX_BUILDING_DIST := 200.0  # metres — skip buildings farther than this from park boundary
+const MAX_BUILDING_DIST := 350.0  # metres — first 1-2 rows of skyline buildings
 
 func _init(loader) -> void:
 	_loader = loader
