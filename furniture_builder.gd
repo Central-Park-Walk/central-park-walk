@@ -48,10 +48,11 @@ func _build_furniture(bench_data: Array, lamppost_data: Array, paths: Array) -> 
 		lamp_meshes_formal = lamp_meshes_standard
 	if lamp_meshes_simple.is_empty():
 		lamp_meshes_simple = lamp_meshes_standard
-	var lamp_post_mat := StandardMaterial3D.new()
-	lamp_post_mat.albedo_color = Color(0.08, 0.08, 0.06)  # dark wrought iron
-	lamp_post_mat.roughness    = 0.78
-	lamp_post_mat.metallic     = 0.45
+	# Cast iron shader for weather-responsive lamppost posts
+	var iron_shader: Shader = _loader._get_shader("cast_iron", "res://shaders/cast_iron.gdshader")
+	var lamp_post_mat := ShaderMaterial.new()
+	lamp_post_mat.shader = iron_shader
+	lamp_post_mat.set_shader_parameter("iron_color", Vector3(0.08, 0.08, 0.06))
 	var lamp_mat_override: Material = lamp_post_mat
 	# Emissive bulb material (main.gd modulates emission for day/night)
 	var lamp_bulb_mat := StandardMaterial3D.new()
@@ -176,10 +177,10 @@ func _build_trash_cans(trash_data: Array, paths: Array) -> void:
 		print("TrashCan: loaded CP trash can model (green wire)")
 	elif _loader._furn_glb_meshes.has("ParkFurn_TrashCan_A"):
 		mesh = _loader._furn_glb_meshes["ParkFurn_TrashCan_A"]
-		var trash_mat := StandardMaterial3D.new()
-		trash_mat.albedo_color = Color(0.08, 0.08, 0.06)
-		trash_mat.roughness = 0.78
-		trash_mat.metallic = 0.45
+		var iron_shader: Shader = _loader._get_shader("cast_iron", "res://shaders/cast_iron.gdshader")
+		var trash_mat := ShaderMaterial.new()
+		trash_mat.shader = iron_shader
+		trash_mat.set_shader_parameter("iron_color", Vector3(0.08, 0.08, 0.06))
 		mat = trash_mat
 	else:
 		print("WARNING: no trash can mesh found, skipping")

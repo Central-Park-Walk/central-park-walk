@@ -104,10 +104,10 @@ func _build_barriers(barriers: Array) -> void:
 		# Manhattan schist: gray stone with subtle warm weathering
 		_loader._add_stone_mesh(wall_verts, wall_normals, rw_alb, rw_nrm, rw_rgh,
 						Color(0.50, 0.48, 0.44), "StoneWalls")
-	# Iron fence mesh
+	# Iron fence mesh — cast iron shader for weather response
 	if not fence_verts.is_empty():
-		_loader._add_batch_mesh(fence_verts, fence_normals,
-						Color(0.15, 0.15, 0.14), 0.45, "IronFences", true)
+		_loader._add_iron_mesh(fence_verts, fence_normals,
+						Color(0.15, 0.15, 0.14), "IronFences")
 	# Combined collision
 	if not col_verts.is_empty():
 		var body := StaticBody3D.new()
@@ -281,10 +281,10 @@ func _build_dog_parks() -> void:
 			label.pixel_size = 0.011
 			_loader.add_child(label)
 
-	# Chain-link fence mesh — dark green powder-coated
+	# Chain-link fence mesh — dark green powder-coated iron
 	if not f_verts.is_empty():
-		_loader._add_batch_mesh(f_verts, f_norms,
-			Color(0.18, 0.22, 0.15), 0.55, "DogParkFences", true)
+		_loader._add_iron_mesh(f_verts, f_norms,
+			Color(0.18, 0.22, 0.15), "DogParkFences")
 
 	# Collision
 	if not c_verts.is_empty():
