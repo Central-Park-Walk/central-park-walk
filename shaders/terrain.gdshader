@@ -60,6 +60,7 @@ uniform sampler2D park_mask : filter_linear, repeat_disable;
 global uniform float snow_cover;
 global uniform float rain_wetness;
 global uniform float season_t;
+global uniform vec3 sky_reflect_color;
 
 // Landuse zone map: encodes zone type per pixel
 // 0=unzoned (default mowed lawn), 1=garden, 2=grass, 3=pitch, 4=playground,
@@ -779,6 +780,24 @@ void fragment() {
 				ALBEDO += vec3(0.05) * intensity * snow_amt;
 			}
 		}
+	}
+
+	// --- Atmospheric distance fade — terrain dissolves into haze ---
+	// Matches facade.gdshader haze for visual consistency
+	float terr_dist = length(world_pos.xyz - INV_VIEW_MATRIX[3].xyz);
+	float terr_fade = smoothstep(200.0, 600.0, terr_dist);
+	if (terr_fade > 0.01) {
+		float sky_lum = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
+		vec3 haze_col = mix(vec3(0.58, 0.56, 0.52), sky_reflect_color * 0.8 + vec3(0.20), 0.35);
+		float night_t = smoothstep(0.15, 0.02, sky_lum);
+		haze_col = mix(haze_col, vec3(0.14, 0.10, 0.06), night_t * 0.6);
+		// Seasonal haze tint (matching facade shader)
+		float autumn_h = smoothstep(1.5, 2.5, season_t) * (1.0 - smoothstep(2.5, 3.5, season_t));
+		haze_col = mix(haze_col, haze_col * vec3(1.10, 1.00, 0.82), autumn_h * 0.4);
+		float winter_h = smoothstep(2.5, 3.5, season_t);
+		haze_col = mix(haze_col, haze_col * vec3(0.90, 0.95, 1.08), winter_h * 0.3);
+		ALBEDO = mix(ALBEDO, haze_col, terr_fade * 0.35);
+		ROUGHNESS = mix(ROUGHNESS, 0.95, terr_fade * 0.25);
 	}
 
 }
