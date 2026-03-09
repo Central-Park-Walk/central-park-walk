@@ -55,10 +55,6 @@ func _physics_process(delta: float) -> void:
 	var pre_pos := position
 	var pre_y := position.y
 	_handle_movement(delta)
-	# Clamp to park boundary
-	if boundary_polygon.size() > 2 and not _point_in_polygon(position.x, position.z):
-		position.x = pre_pos.x
-		position.z = pre_pos.z
 	# Smooth camera on stair step teleports
 	var dy := position.y - pre_y
 	if absf(dy) > 0.08:  # sudden jump = stair step, not normal movement

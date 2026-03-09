@@ -1595,7 +1595,7 @@ func _setup_ground() -> void:
 		# Dilate mask ~50m outside boundary so terrain covers the streets
 		# between the park edge and perimeter buildings (fills the "moat").
 		# The LiDAR heightmap has valid street-level readings in this zone.
-		var TERRAIN_BUFFER_M := 50.0
+		var TERRAIN_BUFFER_M := 200.0
 		var buf_cells := int(ceil(TERRAIN_BUFFER_M / cell))
 		var frontier := PackedInt32Array()
 		# Seed: outside cells adjacent to inside cells
@@ -1636,8 +1636,8 @@ func _setup_ground() -> void:
 			verts[idx] = Vector3(-half + xi * cell, h, zw)
 			uvs[idx]   = Vector2(float(xi) * inv_mw, uzv)
 
-	# Clip terrain mesh to park boundary: only emit triangles with ≥1 inside vertex.
-	# No LiDAR data outside the park = no terrain rendered there.
+	# Clip terrain mesh to park boundary: emit triangles with ≥1 inside vertex.
+	# This smooths the terrain edge (no sawtooth from requiring all-3-inside).
 	var max_T   := (MW - 1) * (MH - 1) * 6
 	var indices := PackedInt32Array(); indices.resize(max_T)
 	var t       := 0
@@ -1650,14 +1650,14 @@ func _setup_ground() -> void:
 			var i10 := i00 + 1
 			var i01 := row1 + xi
 			var i11 := i01 + 1
-			# Upper triangle: i00, i10, i11 — all vertices must be inside park
-			if inside_mask[i00] and inside_mask[i10] and inside_mask[i11]:
+			# Upper triangle: i00, i10, i11 — at least one vertex inside
+			if inside_mask[i00] or inside_mask[i10] or inside_mask[i11]:
 				indices[t] = i00; indices[t + 1] = i10; indices[t + 2] = i11
 				t += 3
 			else:
 				clipped += 1
 			# Lower triangle: i00, i11, i01
-			if inside_mask[i00] and inside_mask[i11] and inside_mask[i01]:
+			if inside_mask[i00] or inside_mask[i11] or inside_mask[i01]:
 				indices[t] = i00; indices[t + 1] = i11; indices[t + 2] = i01
 				t += 3
 			else:
