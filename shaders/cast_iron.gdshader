@@ -31,7 +31,7 @@ void fragment() {
 	col *= (0.92 + obj_hash * 0.16);
 
 	// Micro-texture: brushed/cast surface imperfections
-	float surface = vnoise(world_pos * 15.0);
+	float surface = vnoise(world_pos.xz * 15.0 + world_pos.yy * 8.0);
 	col *= (0.95 + surface * 0.10);
 	rough += surface * 0.05;
 

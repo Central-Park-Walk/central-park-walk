@@ -1392,10 +1392,10 @@ func _build_wood_railings(pts: Array, pt_y: PackedFloat32Array,
 
 	if rail_verts.is_empty():
 		return
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.38, 0.32, 0.25)  # weathered gray-brown (#614F3F)
-	mat.roughness = 0.88
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var wood_sh: Shader = _loader._get_shader("wood", "res://shaders/wood.gdshader")
+	var mat := ShaderMaterial.new()
+	mat.shader = wood_sh
+	mat.set_shader_parameter("wood_color", Vector3(0.38, 0.32, 0.25))
 	var mesh: ArrayMesh = _loader._make_mesh(rail_verts, rail_normals)
 	mesh.surface_set_material(0, mat)
 	var mi := MeshInstance3D.new()

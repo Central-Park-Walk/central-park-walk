@@ -333,13 +333,15 @@ func _build_streams(streams: Array) -> void:
 		return
 	var verts := PackedVector3Array()
 	var normals := PackedVector3Array()
+	var uvs := PackedVector2Array()
 	const STREAM_W := 1.5  # half-width in metres
 
 	for stream in streams:
 		var pts: Array = stream.get("points", [])
 		if pts.size() < 2:
 			continue
-		# Build ribbon mesh along polyline
+		# Accumulate along-stream distance for UV.y (flow coordinate)
+		var dist_accum := 0.0
 		for i in range(pts.size() - 1):
 			var x0: float = pts[i][0]
 			var y0: float = pts[i][1]
@@ -363,23 +365,30 @@ func _build_streams(streams: Array) -> void:
 			y0 = maxf(y0, ty0)
 			y1 = maxf(y1, ty1)
 
+			var d0 := dist_accum
+			dist_accum += ln
+			var d1 := dist_accum
+
 			# Two triangles per segment
-			var a := Vector3(x0 - nx, y0, z0 - nz)
-			var b := Vector3(x0 + nx, y0, z0 + nz)
-			var c := Vector3(x1 + nx, y1, z1 + nz)
-			var d := Vector3(x1 - nx, y1, z1 - nz)
-			verts.append(a); verts.append(b); verts.append(c)
-			verts.append(a); verts.append(c); verts.append(d)
+			# UV.x = 0 (left bank) or 1 (right bank), UV.y = along-stream distance
+			var va := Vector3(x0 - nx, y0, z0 - nz)
+			var vb := Vector3(x0 + nx, y0, z0 + nz)
+			var vc := Vector3(x1 + nx, y1, z1 + nz)
+			var vd := Vector3(x1 - nx, y1, z1 - nz)
+			verts.append(va); verts.append(vb); verts.append(vc)
+			verts.append(va); verts.append(vc); verts.append(vd)
+			uvs.append(Vector2(0.0, d0)); uvs.append(Vector2(1.0, d0)); uvs.append(Vector2(1.0, d1))
+			uvs.append(Vector2(0.0, d0)); uvs.append(Vector2(1.0, d1)); uvs.append(Vector2(0.0, d1))
 			for _j in 6:
 				normals.append(Vector3.UP)
 
 	if verts.is_empty():
 		return
 
-	var s_mesh: ArrayMesh = _loader._make_mesh(verts, normals)
+	var s_mesh: ArrayMesh = _loader._make_mesh(verts, normals, uvs)
 
 	var mat := ShaderMaterial.new()
-	mat.shader = _loader._get_shader("water", _water_shader_code())
+	mat.shader = _loader._get_shader("stream", "res://shaders/stream.gdshader")
 	if _loader._hm_texture:
 		mat.set_shader_parameter("heightmap_tex", _loader._hm_texture)
 		mat.set_shader_parameter("hm_world_size", _loader._hm_world_size)
