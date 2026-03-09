@@ -137,28 +137,38 @@ func _ready() -> void:
 			print("Unknown --time '%s'. Options: dawn morning noon golden_hour dusk night (or 0-24)" % cli_time)
 	if _weather_mode != "clear":
 		print("Weather: %s" % _weather_mode)
+	var _mt := Time.get_ticks_msec()
 	_build_keyframes()
 	_load_heightmap()
+	print("main: heightmap: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_setup_environment()
 	# Register global shader parameters BEFORE park_loader creates materials
 	RenderingServer.global_shader_parameter_add("wind_vec", RenderingServer.GLOBAL_VAR_TYPE_VEC2, Vector2.ZERO)
 	RenderingServer.global_shader_parameter_add("snow_cover", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	RenderingServer.global_shader_parameter_add("rain_wetness", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	RenderingServer.global_shader_parameter_add("sky_reflect_color", RenderingServer.GLOBAL_VAR_TYPE_VEC3, Vector3(0.32, 0.38, 0.45))
+	print("main: environment: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	if not _terrain_only:
 		_setup_park()
+		print("main: park_loader: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 		_apply_tunnel_depressions()
+		print("main: tunnel depressions: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_setup_ground()
+	print("main: ground mesh: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	if not _terrain_only:
 		if _park_loader and _park_loader.splat_texture:
 			_apply_splat_map(_park_loader.splat_texture)
+		print("main: splat textures: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 		if _park_loader and _park_loader.path_segs_texture:
 			_apply_gpu_path_textures()
 		if _park_loader and _park_loader.boundary_polygon.size() > 2:
 			_apply_boundary_mask(_park_loader.boundary_polygon)
+		print("main: boundary mask: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 		if _park_loader and not _park_loader.landuse_zones.is_empty():
 			_apply_landuse_map(_park_loader.landuse_zones, _park_loader.water_bodies)
+		print("main: landuse map: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 		_apply_structure_mask()
+		print("main: structure mask: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_player = _setup_player()
 	if _park_loader and _park_loader.boundary_polygon.size() > 2:
 		_player.boundary_polygon = _park_loader.boundary_polygon
@@ -167,6 +177,7 @@ func _ready() -> void:
 	_setup_letterbox()
 	if not _terrain_only:
 		_setup_lamp_lights()
+	print("main: total _ready: %d ms" % (Time.get_ticks_msec() - _mt + (Time.get_ticks_msec() - _mt)))
 	_apply_time_of_day()
 	_setup_weather()
 	# Check for --tour CLI arg
@@ -254,10 +265,10 @@ func _load_heightmap() -> void:
 		var buf := fa.get_buffer(byte_count)
 		fa.close()
 		_hm_data = buf.to_float32_array()
-		# Mesh capped at 4096 (GDScript can't build 67M verts fast enough);
-		# shader heightmap texture uses full resolution for per-pixel normals.
-		_mesh_width = mini(_hm_width, 4096)
-		_mesh_depth = mini(_hm_depth, 4096)
+		# Mesh capped at 1024 (~4.9m cells); shader heightmap texture uses
+		# full resolution for per-pixel normals, so mesh just needs shape.
+		_mesh_width = mini(_hm_width, 1024)
+		_mesh_depth = mini(_hm_depth, 1024)
 		print("Heightmap loaded (bin): %d×%d  mesh=%d×%d  origin_y=%.1f m" % [
 			_hm_width, _hm_depth, _mesh_width, _mesh_depth, _hm_origin_height])
 		return
