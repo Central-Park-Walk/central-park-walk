@@ -88,7 +88,7 @@ python3 convert_to_godot.py
 | Furniture | 1,022+ | Lampposts (201), benches (610), trash cans (166), fountains (19), flagpoles (18), water towers (45) |
 | Statues | 106 positions | 4 photogrammetry scans + Cleopatra's Needle model, rest labeled |
 | Sports fields | 147 | Tennis, basketball, baseball, soccer, handball |
-| Grass | ~250K blade clumps | Wind-responsive 3D grass on all lawn + meadow surfaces |
+| Grass | ~407K patches | Blender-built grass from CP reference photos, wind-responsive, mowed + meadow |
 | Seasons | 4 | Per-species phenology, leaf scatter, water color, atmosphere |
 | Weather | 5 modes | Rain, thunderstorm, snow, fog, clear — with surface response |
 | Day/night | Full cycle | 48-lamp pool, lit windows, NYC light pollution, moon |
