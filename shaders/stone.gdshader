@@ -156,5 +156,17 @@ void fragment() {
 		float snow_amt = clamp((world_nrm.y - 0.5) * 2.0 * snow_cover + snow_noise, 0.0, 1.0);
 		ALBEDO = mix(ALBEDO, vec3(0.92, 0.93, 0.96), snow_amt * 0.7);
 		ROUGHNESS = mix(ROUGHNESS, 0.90, snow_amt);
+		// Snow sparkle on stone
+		if (snow_amt > 0.3) {
+			float sparkle = hash2(floor(world_pos.xz * 25.0 + world_pos.yy * 15.0));
+			if (sparkle > 0.96) {
+				float si = (sparkle - 0.96) * 25.0;
+				SPECULAR = mix(SPECULAR, 0.90, si * snow_amt);
+				ROUGHNESS = mix(ROUGHNESS, 0.05, si * snow_amt * 0.4);
+			}
+		}
 	}
+
+	// Ambient emission for shadow fill
+	EMISSION = ALBEDO * 0.10;
 }
