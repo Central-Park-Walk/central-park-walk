@@ -536,6 +536,7 @@ func _build_statues(statues: Array) -> void:
 		"alice in wonderland": { "file": "alice_in_wonderland.glb", "height": 3.35 },
 		"hans christian andersen": { "file": "hans_christian_andersen.glb", "height": 3.4 },
 		"eagles and prey": { "file": "eagles_and_prey.glb", "height": 3.8 },
+		"cleopatra's needle": { "file": "cp_obelisk.glb", "height": 25.0 },
 	}
 	for skey in named_defs:
 		var def: Dictionary = named_defs[skey]
