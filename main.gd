@@ -241,7 +241,7 @@ const TOUR_VIEWPOINTS: Array = [
 	{"name": "balto_south", "x": -473.0, "z": 1430.0, "yaw": 60.0},
 	{"name": "the_lake", "x": -560.0, "z": 780.0, "yaw": 60.0},
 	{"name": "cherry_hill", "x": -630.0, "z": 880.0, "yaw": 90.0},
-	{"name": "cleopatras_needle", "x": 0.0, "z": 360.0, "yaw": 180.0},
+	{"name": "cleopatras_needle", "x": 40.0, "z": 360.0, "yaw": 250.0},
 	{"name": "ramble", "x": -400.0, "z": 600.0, "yaw": 225.0},
 	{"name": "cpw_skyline", "x": -600.0, "z": 1420.0, "yaw": 90.0},
 	{"name": "fifth_ave_skyline", "x": 100.0, "z": 200.0, "yaw": 270.0},
