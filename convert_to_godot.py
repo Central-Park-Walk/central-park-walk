@@ -51,7 +51,7 @@ TERRAIN_DIR = "terrain_tiles"
 LIDAR_DEM   = "lidar_data/central_park_dsm_enhanced_8k.tif"  # Structure-enhanced DSM (HH with trees removed)
 GRID_W      = 8192         # heightmap output resolution (~0.6 m/cell)
 GRID_H      = 8192
-ATLAS_RES   = 4096         # world atlas / boundary / landuse grid (1.22 m/cell)
+ATLAS_RES   = 8192         # world atlas / boundary / landuse grid — matches heightmap (0.61 m/cell)
 WORLD_SIZE  = 5000.0       # metres – must match main.gd ground plane size
 FT_TO_M     = 0.3048006096  # US Survey Foot → metres
 
@@ -791,6 +791,8 @@ def main() -> None:
             fh.write(rg8.tobytes())
         gpu_kb = os.path.getsize("heightmap_gpu.bin") / 1024
         print(f"  Saved → heightmap_gpu.bin ({TEX_RES}×{TEX_RES} RG8, {gpu_kb:.0f} KB)")
+
+        # Terrain mesh prebake deferred — needs boundary_pts loaded below
     else:
         hm_out = {}
 
@@ -2383,6 +2385,8 @@ def main() -> None:
                         barriers_out, bridge_outlines, terrain, bridge_centroids)
     prebake_landuse_map(landuse_out, water_out)
     prebake_boundary_mask(boundary_pts)
+    if have_terrain:
+        prebake_terrain_mesh(hm_arr, boundary_pts)
 
 
 def prebake_paths(paths, bridge_centroids):
@@ -2592,7 +2596,7 @@ def prebake_world_atlas(boundary_pts, paths, water, buildings, trees,
                         benches, lampposts, trash_cans, barriers, bridge_outlines,
                         terrain_func, bridge_centroids):
     """
-    Pre-bake a unified world atlas at ATLAS_RES (4096×4096, ~1.22m/cell).
+    Pre-bake a unified world atlas at ATLAS_RES (8192×8192, ~0.61m/cell).
 
     Output: world_atlas.bin
     Format: 8-byte header (width, height as uint32) + width×height×2 bytes (RG8)
@@ -2625,7 +2629,7 @@ def prebake_world_atlas(boundary_pts, paths, water, buildings, trees,
     import numpy as np
     import struct
 
-    RES = ATLAS_RES  # 4096×4096 at ~1.22m/cell (matches OSM polygon precision)
+    RES = ATLAS_RES  # 8192×8192 at ~0.61m/cell (matches heightmap resolution)
     HALF = WORLD_SIZE / 2.0
     CELL = WORLD_SIZE / RES  # ~1.22m
 
@@ -2856,7 +2860,7 @@ def prebake_world_atlas(boundary_pts, paths, water, buildings, trees,
 
 
 def prebake_landuse_map(landuse_zones, water_bodies):
-    """Pre-bake landuse zone map at 4096×4096 resolution → landuse_map.png.
+    """Pre-bake landuse zone map at 8192×8192 resolution → landuse_map.png.
 
     Replaces runtime GDScript scanline rasterization (1024×1024) with a
     higher-resolution pre-baked texture.  Zone encoding matches main.gd:
@@ -2873,7 +2877,7 @@ def prebake_landuse_map(landuse_zones, water_bodies):
         "track": 9, "wood": 10, "forest": 11,
     }
 
-    RES = ATLAS_RES  # 4096 — matches world atlas and boundary grids
+    RES = ATLAS_RES  # 8192 — matches heightmap and world atlas
     HALF = WORLD_SIZE / 2.0
 
     def world_to_pixel(wx, wz):
@@ -2914,12 +2918,12 @@ def prebake_landuse_map(landuse_zones, water_bodies):
     print(f"  Landuse: {water_count} water bodies rasterized")
 
     # --- Dilate water → shore zone (13) using numpy ---
-    # At 4096 over 5000m, 1 pixel ≈ 1.22m. 12-pixel radius ≈ 15m shore.
+    # At 8192 over 5000m, 1 pixel ≈ 0.61m. 24-pixel radius ≈ 15m shore.
     if water_count > 0:
         arr = np.array(img, dtype=np.uint8)
         water_mask = (arr == 12)
         # Create circular structuring element
-        SHORE_R = 12  # pixels ≈ 15m
+        SHORE_R = 24  # pixels ≈ 15m at 8192
         y_idx, x_idx = np.ogrid[-SHORE_R:SHORE_R+1, -SHORE_R:SHORE_R+1]
         disk = (x_idx**2 + y_idx**2) <= SHORE_R**2
         # Dilate water mask
@@ -2931,7 +2935,7 @@ def prebake_landuse_map(landuse_zones, water_bodies):
         shore_mask |= dilated & ~water_mask & ((arr == 1) | (arr == 2))
         shore_count = int(shore_mask.sum())
         arr[shore_mask] = 13
-        print(f"  Landuse: {shore_count} shore pixels (12px ≈ 15m radius)")
+        print(f"  Landuse: {shore_count} shore pixels ({SHORE_R}px ≈ 15m radius)")
         img = Image.fromarray(arr, mode='L')
 
     img.save("landuse_map.png")
@@ -2961,15 +2965,135 @@ def prebake_landuse_map(landuse_zones, water_bodies):
         print(f"  Shore distance: saved → shore_distance.png ({RES}×{RES}, {sd_kb:.0f} KB)")
 
 
+def prebake_terrain_mesh(hm_arr, boundary_pts):
+    """Pre-bake terrain mesh at full 8K resolution → terrain_mesh.bin.
+
+    Generates the terrain ArrayMesh in Python rather than GDScript.
+    At 8192×8192, the mesh has 0.61m cells — enough to capture bridge decks,
+    parapets, steps, retaining walls, and rock outcrop detail from LiDAR.
+
+    Only emits triangles inside the park boundary + 200m buffer.
+    Vertices are re-indexed so only used vertices are stored.
+
+    Format:
+        uint32 vertex_count
+        uint32 index_count
+        float32 world_size
+        float32[vertex_count * 3] positions (x, y, z interleaved)
+        float32[vertex_count * 2] uvs (u, v interleaved)
+        uint32[index_count] indices
+    """
+    import struct
+    import numpy as np
+    from PIL import Image, ImageDraw
+    from scipy.ndimage import binary_dilation
+
+    W = hm_arr.shape[1]  # 8192
+    H = hm_arr.shape[0]  # 8192
+    HALF = WORLD_SIZE / 2.0
+    cell = WORLD_SIZE / (W - 1)
+    print(f"Pre-baking terrain mesh at {W}×{H} ({cell:.2f} m/cell)...")
+
+    # Rasterize boundary + buffer as a mask at grid resolution
+    def world_to_pixel(wx, wz):
+        px = (wx + HALF) / WORLD_SIZE * W
+        pz = (wz + HALF) / WORLD_SIZE * H
+        return px, pz
+
+    mask_img = Image.new('L', (W, H), 0)
+    draw = ImageDraw.Draw(mask_img)
+    if len(boundary_pts) >= 3:
+        poly = [world_to_pixel(float(bp[0]), float(bp[1])) for bp in boundary_pts]
+        draw.polygon(poly, fill=255)
+
+    inside = np.array(mask_img, dtype=np.uint8) > 0
+    del mask_img
+
+    # Dilate by ~200m buffer (streets between park and buildings)
+    buf_cells = int(np.ceil(200.0 / cell))
+    dilated = binary_dilation(inside, iterations=buf_cells)
+    # Use dilated mask for vertex inclusion
+    vertex_mask = dilated
+    inside_count = int(inside.sum())
+    buffer_count = int(vertex_mask.sum()) - inside_count
+    print(f"  Boundary: {inside_count} cells inside + {buffer_count} buffer = {int(vertex_mask.sum())} total")
+    del inside, dilated
+
+    # Determine which cells emit triangles (any corner inside mask)
+    print("  Building cell and vertex maps...")
+    cell_mask = (vertex_mask[:-1, :-1] | vertex_mask[:-1, 1:] |
+                 vertex_mask[1:, :-1]  | vertex_mask[1:, 1:])
+
+    # Mark vertices needed: all 4 corners of every emitting cell
+    needed = np.zeros((H, W), dtype=bool)
+    cell_zi, cell_xi = np.where(cell_mask)
+    needed[cell_zi,     cell_xi]     = True  # top-left
+    needed[cell_zi,     cell_xi + 1] = True  # top-right
+    needed[cell_zi + 1, cell_xi]     = True  # bottom-left
+    needed[cell_zi + 1, cell_xi + 1] = True  # bottom-right
+
+    n_verts = int(needed.sum())
+    print(f"  Vertices: {n_verts:,} ({n_verts * 12 / 1e6:.1f} MB positions)")
+
+    # Assign sequential indices to needed vertices
+    vert_idx = np.full((H, W), -1, dtype=np.int32)
+    vert_idx[needed] = np.arange(n_verts, dtype=np.int32)
+
+    # Generate vertex positions (UVs derived at load time from position)
+    print("  Generating positions...")
+    zi_all, xi_all = np.where(needed)
+    positions = np.empty((n_verts, 3), dtype=np.float32)
+    positions[:, 0] = -HALF + xi_all.astype(np.float32) * cell  # x
+    positions[:, 1] = hm_arr[zi_all, xi_all]                     # y (height)
+    positions[:, 2] = -HALF + zi_all.astype(np.float32) * cell  # z
+
+    # Generate triangle indices from cell_mask (already computed above)
+    print("  Generating triangles...")
+    n_cells = len(cell_zi)
+    n_tris = n_cells * 2
+    n_indices = n_tris * 3
+    print(f"  Triangles: {n_tris:,} ({n_indices:,} indices, {n_indices * 4 / 1e6:.1f} MB)")
+
+    # Look up vertex indices for each cell's 4 corners
+    i00 = vert_idx[cell_zi,     cell_xi]      # top-left
+    i10 = vert_idx[cell_zi,     cell_xi + 1]  # top-right
+    i01 = vert_idx[cell_zi + 1, cell_xi]      # bottom-left
+    i11 = vert_idx[cell_zi + 1, cell_xi + 1]  # bottom-right
+
+    # Two triangles per cell: (i00, i10, i11) and (i00, i11, i01)
+    indices = np.empty((n_cells, 6), dtype=np.uint32)
+    indices[:, 0] = i00; indices[:, 1] = i10; indices[:, 2] = i11
+    indices[:, 3] = i00; indices[:, 4] = i11; indices[:, 5] = i01
+    indices = indices.ravel()
+
+    # Verify no -1 indices (should never happen with correct needed mask)
+    bad = int((indices == 0xFFFFFFFF).sum())
+    if bad > 0:
+        print(f"  WARNING: {bad} invalid indices — vertex mask error")
+
+    # Write binary (positions + indices; UVs derived at load time)
+    print("  Writing terrain_mesh.bin...")
+    with open("terrain_mesh.bin", "wb") as f:
+        f.write(struct.pack("<II", n_verts, len(indices)))
+        f.write(struct.pack("<f", WORLD_SIZE))
+        f.write(positions.tobytes())
+        f.write(indices.tobytes())
+
+    mesh_mb = os.path.getsize("terrain_mesh.bin") / 1e6
+    print(f"  Saved → terrain_mesh.bin ({n_verts:,} verts, {n_tris:,} tris, {mesh_mb:.1f} MB)")
+
+    del vert_idx, needed, positions, indices
+
+
 def prebake_boundary_mask(boundary_pts):
-    """Pre-bake park boundary mask at 4096×4096 → boundary_mask.png.
+    """Pre-bake park boundary mask at 8192×8192 → boundary_mask.png.
 
     White = inside park, black = outside.  Replaces runtime GDScript
     scanline rasterization (1024×1024) with higher-resolution pre-bake.
     """
     from PIL import Image, ImageDraw
 
-    RES = ATLAS_RES  # 4096 — matches world atlas and landuse grids
+    RES = ATLAS_RES  # 8192 — matches heightmap and world atlas
     HALF = WORLD_SIZE / 2.0
 
     def world_to_pixel(wx, wz):

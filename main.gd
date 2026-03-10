@@ -16,9 +16,6 @@ var _hm_width:         int     = 0
 var _hm_depth:         int     = 0
 var _hm_world_size:    float   = 5000.0
 var _hm_origin_height: float   = 0.0
-# Mesh resolution (subsample from full heightmap for GPU-feasible vertex count)
-var _mesh_width:       int     = 0
-var _mesh_depth:       int     = 0
 
 # HUD label references kept for per-frame updates
 var _player:        CharacterBody3D
@@ -385,13 +382,8 @@ func _load_heightmap() -> void:
 		var buf := fa.get_buffer(byte_count)
 		fa.close()
 		_hm_data = buf.to_float32_array()
-		# Mesh at 2048 (~2.4m cells): captures bridge decks, steps, retaining
-		# walls from LiDAR. Shader heightmap texture (8K) provides per-pixel
-		# normals for sub-cell shading detail.
-		_mesh_width = mini(_hm_width, 2048)
-		_mesh_depth = mini(_hm_depth, 2048)
-		print("Heightmap loaded (bin): %d×%d  mesh=%d×%d  origin_y=%.1f m" % [
-			_hm_width, _hm_depth, _mesh_width, _mesh_depth, _hm_origin_height])
+		print("Heightmap loaded (bin): %d×%d  origin_y=%.1f m" % [
+			_hm_width, _hm_depth, _hm_origin_height])
 		return
 	if not FileAccess.file_exists("res://heightmap.json"):
 		return
@@ -408,8 +400,6 @@ func _load_heightmap() -> void:
 	_hm_data.resize(raw_data.size())
 	for i in range(raw_data.size()):
 		_hm_data[i] = float(raw_data[i])
-	_mesh_width = _hm_width
-	_mesh_depth = _hm_depth
 	print("Heightmap loaded (json): %d×%d  origin_y=%.1f m" % [_hm_width, _hm_depth, _hm_origin_height])
 
 
@@ -1514,121 +1504,36 @@ func _setup_ground() -> void:
 		add_child(body)
 		return
 
-	# ---- Build terrain ArrayMesh ----
-	# Mesh at MW×MH (capped at 4096); shader computes per-pixel normals
-	# from the full-res heightmap texture, so we skip mesh normals/tangents.
-	var MW        := _mesh_width
-	var MH        := _mesh_depth
-	var HW        := _hm_width   # full heightmap resolution
-	var half      := _hm_world_size * 0.5
-	var cell      := _hm_world_size / float(MW - 1)
-	var V         := MW * MH
-	var inv_mw    := 1.0 / float(MW - 1)
-	var inv_mh    := 1.0 / float(MH - 1)
-	# Step for subsampling full-res heightmap into mesh vertices
-	var hm_step_x := float(HW - 1) / float(MW - 1)
-	var hm_step_z := float(_hm_depth - 1) / float(MH - 1)
-
-	var verts    := PackedVector3Array(); verts.resize(V)
-	var uvs      := PackedVector2Array(); uvs.resize(V)
-
-	# Build inside-park mask at mesh resolution for boundary clipping.
-	# Triangles with no inside-park vertices are excluded — no data, no terrain.
-	var inside_mask := PackedByteArray()
-	inside_mask.resize(V)
-	if _park_loader and _park_loader.boundary_polygon.size() > 2:
-		var poly: PackedVector2Array = _park_loader.boundary_polygon
-		var n_poly := poly.size()
-		for zi in MH:
-			var zw := -half + zi * cell
-			var row_off := zi * MW
-			var crossings := PackedFloat32Array()
-			for i in range(n_poly):
-				var j := (i + 1) % n_poly
-				var pzi := poly[i].y
-				var pzj := poly[j].y
-				if (pzi > zw) != (pzj > zw):
-					crossings.append(poly[i].x + (zw - pzi) / (pzj - pzi) * (poly[j].x - poly[i].x))
-			var arr: Array = Array(crossings)
-			arr.sort()
-			for k in range(0, arr.size() - 1, 2):
-				var px0 := maxi(int((float(arr[k]) + half) / cell), 0)
-				var px1 := mini(int((float(arr[k + 1]) + half) / cell), MW - 1)
-				for xi in range(px0, px1 + 1):
-					inside_mask[row_off + xi] = 1
-
-		# Dilate mask ~50m outside boundary so terrain covers the streets
-		# between the park edge and perimeter buildings (fills the "moat").
-		# The LiDAR heightmap has valid street-level readings in this zone.
-		var TERRAIN_BUFFER_M := 200.0
-		var buf_cells := int(ceil(TERRAIN_BUFFER_M / cell))
-		var frontier := PackedInt32Array()
-		# Seed: outside cells adjacent to inside cells
-		for bzi in range(1, MH - 1):
-			for bxi in range(1, MW - 1):
-				var bidx := bzi * MW + bxi
-				if inside_mask[bidx] == 0:
-					if inside_mask[bidx - 1] or inside_mask[bidx + 1] or inside_mask[bidx - MW] or inside_mask[bidx + MW]:
-						inside_mask[bidx] = 1
-						frontier.append(bidx)
-		var buf_added := frontier.size()
-		for _step in range(1, buf_cells):
-			var nf := PackedInt32Array()
-			for bidx in frontier:
-				var bxi := bidx % MW
-				var bzi_v := bidx / MW
-				if bxi > 1 and inside_mask[bidx - 1] == 0:
-					inside_mask[bidx - 1] = 1; nf.append(bidx - 1)
-				if bxi < MW - 2 and inside_mask[bidx + 1] == 0:
-					inside_mask[bidx + 1] = 1; nf.append(bidx + 1)
-				if bzi_v > 1 and inside_mask[bidx - MW] == 0:
-					inside_mask[bidx - MW] = 1; nf.append(bidx - MW)
-				if bzi_v < MH - 2 and inside_mask[bidx + MW] == 0:
-					inside_mask[bidx + MW] = 1; nf.append(bidx + MW)
-			buf_added += nf.size()
-			frontier = nf
-		print("Terrain: boundary buffer %dm (%d cells) — %d vertices added" % [TERRAIN_BUFFER_M, buf_cells, buf_added])
-
-	for zi in MH:
-		var zw  := -half + zi * cell
-		var uzv := float(zi) * inv_mh
-		var hzi := mini(int(zi * hm_step_z + 0.5), _hm_depth - 1)
-		var hm_row := hzi * HW
-		for xi in MW:
-			var idx := zi * MW + xi
-			var hxi := mini(int(xi * hm_step_x + 0.5), HW - 1)
-			var h := _hm_data[hm_row + hxi]
-			verts[idx] = Vector3(-half + xi * cell, h, zw)
-			uvs[idx]   = Vector2(float(xi) * inv_mw, uzv)
-
-	# Clip terrain mesh to park boundary: emit triangles with ≥1 inside vertex.
-	# This smooths the terrain edge (no sawtooth from requiring all-3-inside).
-	var max_T   := (MW - 1) * (MH - 1) * 6
-	var indices := PackedInt32Array(); indices.resize(max_T)
-	var t       := 0
-	var clipped := 0
-	for zi in (MH - 1):
-		var row0 := zi * MW
-		var row1 := row0 + MW
-		for xi in (MW - 1):
-			var i00 := row0 + xi
-			var i10 := i00 + 1
-			var i01 := row1 + xi
-			var i11 := i01 + 1
-			# Upper triangle: i00, i10, i11 — at least one vertex inside
-			if inside_mask[i00] or inside_mask[i10] or inside_mask[i11]:
-				indices[t] = i00; indices[t + 1] = i10; indices[t + 2] = i11
-				t += 3
-			else:
-				clipped += 1
-			# Lower triangle: i00, i11, i01
-			if inside_mask[i00] or inside_mask[i11] or inside_mask[i01]:
-				indices[t] = i00; indices[t + 1] = i11; indices[t + 2] = i01
-				t += 3
-			else:
-				clipped += 1
-	indices.resize(t)
-	print("Terrain: %d triangles (%d clipped outside park boundary)" % [t / 3, clipped])
+	# ---- Load pre-baked terrain mesh (8K, built by convert_to_godot.py) ----
+	# At 8192×8192 (0.61m cells), LiDAR detail is preserved: bridge decks,
+	# parapets, steps, retaining walls, rock outcrops — all in the geometry.
+	# Shader heightmap texture provides per-pixel normals for sub-cell shading.
+	var mesh_path := "res://terrain_mesh.bin"
+	if not FileAccess.file_exists(mesh_path):
+		print("ERROR: terrain_mesh.bin not found — run convert_to_godot.py")
+		return
+	var mf := FileAccess.open(mesh_path, FileAccess.READ)
+	var n_verts := mf.get_32()
+	var n_indices := mf.get_32()
+	var world_sz := mf.get_float()
+	# Read positions: n_verts × 3 floats (x, y, z interleaved)
+	var pos_buf := mf.get_buffer(n_verts * 12)
+	var pos_f32 := pos_buf.to_float32_array()
+	var verts := PackedVector3Array(); verts.resize(n_verts)
+	var uvs := PackedVector2Array(); uvs.resize(n_verts)
+	var half := world_sz * 0.5
+	var inv_ws := 1.0 / world_sz
+	for i in n_verts:
+		var px := pos_f32[i * 3]
+		var pz := pos_f32[i * 3 + 2]
+		verts[i] = Vector3(px, pos_f32[i * 3 + 1], pz)
+		uvs[i] = Vector2((px + half) * inv_ws, (pz + half) * inv_ws)
+	# Read indices: n_indices × uint32
+	var idx_buf := mf.get_buffer(n_indices * 4)
+	var indices := idx_buf.to_int32_array()
+	mf.close()
+	print("Terrain mesh loaded: %d verts, %d tris (%.1f MB file)" % [
+		n_verts, n_indices / 3, FileAccess.open(mesh_path, FileAccess.READ).get_length() / 1e6])
 
 	var arrays: Array = []; arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX]  = verts
@@ -1643,19 +1548,19 @@ func _setup_ground() -> void:
 	mi.name       = "Terrain"
 	add_child(mi)
 
-	# ---- HeightMapShape3D collision (subsampled from full-res heightmap) ----
-	var COL_RES := 2048
+	# ---- HeightMapShape3D collision (4096 = ~1.2m cells, matching atlas res) ----
+	var COL_RES := 4096
 	var col_cell := _hm_world_size / float(COL_RES - 1)
-	var col_step_x := float(HW - 1) / float(COL_RES - 1)
+	var col_step_x := float(_hm_width - 1) / float(COL_RES - 1)
 	var col_step_z := float(_hm_depth - 1) / float(COL_RES - 1)
 	var hm_shape          := HeightMapShape3D.new()
 	hm_shape.map_width     = COL_RES
 	hm_shape.map_depth     = COL_RES
 	var pf                := PackedFloat32Array(); pf.resize(COL_RES * COL_RES)
 	for czi in COL_RES:
-		var src_row := mini(int(czi * col_step_z + 0.5), _hm_depth - 1) * HW
+		var src_row := mini(int(czi * col_step_z + 0.5), _hm_depth - 1) * _hm_width
 		for cxi in COL_RES:
-			pf[czi * COL_RES + cxi] = _hm_data[src_row + mini(int(cxi * col_step_x + 0.5), HW - 1)]
+			pf[czi * COL_RES + cxi] = _hm_data[src_row + mini(int(cxi * col_step_x + 0.5), _hm_width - 1)]
 	hm_shape.map_data      = pf
 
 	# Heightmap texture for per-pixel fragment normals — full-res data
@@ -1739,7 +1644,7 @@ func _apply_boundary_mask(poly: PackedVector2Array) -> void:
 	## White = inside park, black = outside.
 	var img: Image = null
 
-	# Try pre-baked PNG first (generated by convert_to_godot.py at 4096×4096)
+	# Try pre-baked PNG first (generated by convert_to_godot.py at 8192×8192)
 	for path in ["res://boundary_mask.png"]:
 		var global_path := ProjectSettings.globalize_path(path)
 		if FileAccess.file_exists(path):
@@ -1785,14 +1690,14 @@ func _apply_boundary_mask(poly: PackedVector2Array) -> void:
 
 
 func _apply_landuse_map(zones: Array, water: Array = []) -> void:
-	## Load pre-baked landuse map (4096×4096) from landuse_map.png, or fall back
+	## Load pre-baked landuse map (8192×8192) from landuse_map.png, or fall back
 	## to runtime rasterization at 1024×1024 if the pre-baked file is missing.
 	## Zone encoding: 0=unzoned (woodland/meadow), 1=garden, 2=grass, 3=pitch,
 	## 4=playground, 5=nature_reserve, 6=dog_park, 7=sports, 8=pool, 9=track,
 	## 10=wood, 11=forest, 12=water, 13=shore
 	var img: Image = null
 
-	# Try pre-baked PNG first (generated by convert_to_godot.py at 4096×4096)
+	# Try pre-baked PNG first (generated by convert_to_godot.py at 8192×8192)
 	for path in ["res://landuse_map.png"]:
 		var global_path := ProjectSettings.globalize_path(path)
 		if FileAccess.file_exists(path):
