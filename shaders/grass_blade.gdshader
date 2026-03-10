@@ -152,7 +152,9 @@ void fragment() {
 	float winter_t = smoothstep(2.7, 3.1, season_t);  // match terrain's dormancy start
 
 	col = mix(col, col * vec3(1.1, 1.15, 0.75), spring_t * 0.6);    // spring: match terrain
-	col = mix(col, col * vec3(1.3, 0.85, 0.45), autumn_t * 0.7);    // autumn: match terrain's 0.7
+	// Autumn: flat target color (matching terrain) prevents noise amplification
+	vec3 autumn_blade = vec3(0.16, 0.12, 0.04);  // match terrain's autumn_target
+	col = mix(col, autumn_blade, autumn_t * 0.7);                     // autumn: uniform golden
 	// Winter dormancy: match terrain's flat dormant brown color
 	float lum = dot(col, vec3(0.299, 0.587, 0.114));
 	vec3 dormant_brown = vec3(0.12, 0.10, 0.06);  // match terrain shader's winter_grass target

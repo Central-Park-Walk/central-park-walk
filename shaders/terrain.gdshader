@@ -216,8 +216,12 @@ void fragment() {
 		float winter_t = smoothstep(2.7, 3.1, season_t);  // dormancy starts in late autumn
 		// Spring: brighter, more yellow-green
 		vec3 spring_grass = grass_alb * vec3(1.1, 1.15, 0.75);
-		// Autumn: golden-amber, desaturated
-		vec3 autumn_grass = grass_alb * vec3(1.3, 0.85, 0.45);
+		// Autumn: golden-amber — use flat target color to prevent texture noise
+		// amplification that creates visible squares from aerial views.
+		// Real autumn lawns are uniformly golden with only gentle large-scale variation.
+		vec3 autumn_target = vec3(0.16, 0.12, 0.04);  // golden-brown autumn lawn
+		float autumn_var = vnoise(world_pos.xz * 0.008) * 0.04;  // large-scale variation only
+		vec3 autumn_grass = autumn_target + autumn_var;
 		// Winter: dormant brown — nearly flat color to eliminate tiling artifacts.
 		// Real dormant grass is uniformly straw-brown, very little texture contrast.
 		float g_lum = dot(grass_alb, vec3(0.299, 0.587, 0.114));
