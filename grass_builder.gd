@@ -115,11 +115,24 @@ func _build_grass() -> void:
 		var jz: float = wz + rng.randf_range(-0.6, 0.6)
 		var wy: float = _loader._terrain_y(jx, jz) + 0.002
 
+		# Skip grass near water — prevents checkerboard at water body edges
+		var _s0: int = _loader._atlas_surface(jx, jz)
+		if _s0 == 4:  # on water cell
+			continue
+		# Check if any neighbor is water — skip grass within 2m of water
+		var near_water := false
+		for _woff in [Vector2(1,0), Vector2(-1,0), Vector2(0,1), Vector2(0,-1),
+					   Vector2(1.5,0), Vector2(-1.5,0), Vector2(0,1.5), Vector2(0,-1.5)]:
+			if _loader._atlas_surface(jx + _woff.x, jz + _woff.y) == 4:
+				near_water = true
+				break
+		if near_water:
+			continue
+
 		# Path proximity: check nearby cells for paved/unpaved (types 2,3)
 		# Encodes 0.0 (far from path) to 1.0 (right at path edge)
 		# Check 8 directions at 1m and 2m (fast — only 9 lookups per instance)
 		var path_prox := 0.0
-		var _s0: int = _loader._atlas_surface(jx, jz)
 		if _s0 == 2 or _s0 == 3:
 			path_prox = 1.0
 		else:

@@ -415,10 +415,32 @@ void fragment() {
 		grass_rgh = mix(grass_rgh, sh_rgh, shore_blend);
 	}
 
-	// Water zone (12) — dark muddy ground under water surface
-	if (zone_id == 12) {
-		grass_alb = vec3(0.12, 0.11, 0.08);
-		grass_rgh = 0.95;
+	// Water zone (12) OR atlas water surface (4) — dark muddy ground under water surface
+	// Without this, water-edge terrain cells render as bright grass through transparent water.
+	// Also check if ANY neighbor is water — eliminates checkerboard at water/grass boundaries.
+	float water_near = 0.0;
+	if (surface_type == 4 || zone_id == 12) {
+		water_near = 1.0;
+	} else if (surface_type == 1) {
+		// Check 4 neighbors for water — catches the alternating grass cells at water edge
+		float htx = 1.0 / float(textureSize(surface_atlas, 0).x);
+		float sn2 = texture(surface_atlas, splat_uv + vec2(0.0, -htx)).r * 255.0;
+		float ss2 = texture(surface_atlas, splat_uv + vec2(0.0,  htx)).r * 255.0;
+		float se2 = texture(surface_atlas, splat_uv + vec2( htx, 0.0)).r * 255.0;
+		float sw2 = texture(surface_atlas, splat_uv + vec2(-htx, 0.0)).r * 255.0;
+		float w_count = 0.0;
+		if (int(sn2 + 0.5) == 4) w_count += 1.0;
+		if (int(ss2 + 0.5) == 4) w_count += 1.0;
+		if (int(se2 + 0.5) == 4) w_count += 1.0;
+		if (int(sw2 + 0.5) == 4) w_count += 1.0;
+		water_near = w_count * 0.3;  // partial blend based on how many neighbors are water
+	}
+	if (water_near > 0.01) {
+		// Underwater/waterside silt/mud: dark brown-gray, organic sediment
+		float mud_noise = vnoise(world_pos.xz * 0.3);
+		vec3 mud_col = vec3(0.08, 0.07, 0.05) + mud_noise * vec3(0.04, 0.03, 0.02);
+		grass_alb = mix(grass_alb, mud_col, clamp(water_near, 0.0, 1.0));
+		grass_rgh = mix(grass_rgh, 0.95, clamp(water_near, 0.0, 1.0));
 	}
 
 	// Rock on steep slopes + atlas rock (type 7) — Manhattan schist outcrops
