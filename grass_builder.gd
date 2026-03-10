@@ -214,8 +214,8 @@ func _landuse_at(wx: float, wz: float) -> int:
 	## 0=unzoned, 1=garden, 2=grass, 3=pitch, 5=nature_reserve, 10=wood, 11=forest
 	if _landuse_data.is_empty():
 		return 0
-	var half := _loader._hm_world_size * 0.5
-	var scale := float(_landuse_res) / _loader._hm_world_size
+	var half: float = _loader._hm_world_size * 0.5
+	var scale: float = float(_landuse_res) / _loader._hm_world_size
 	var px := clampi(int((wx + half) * scale), 0, _landuse_res - 1)
 	var pz := clampi(int((wz + half) * scale), 0, _landuse_res - 1)
 	return _landuse_data[pz * _landuse_res + px]
