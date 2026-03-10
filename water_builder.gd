@@ -345,6 +345,49 @@ func _build_water(water: Array) -> void:
 	mi.name = "WaterBodies"
 	_loader.add_child(mi)
 
+	# --- Water body mist: localized FogVolume for atmospheric dawn/dusk mist ---
+	# Only add mist to named water bodies large enough to produce visible effect
+	var mist_shader: Shader = _loader._get_shader("water_mist", "res://shaders/water_mist.gdshader")
+	var mist_count := 0
+	for body in water:
+		var pts2: Array = body["points"]
+		if pts2.size() < 3:
+			continue
+		var bname2: String = str(body.get("name", ""))
+		if bname2.is_empty():
+			continue  # skip unnamed small pools
+		if bname2.to_lower().contains("fountain"):
+			continue  # skip fountains
+		# Compute bounds
+		var mn_x := INF; var mx_x := -INF
+		var mn_z := INF; var mx_z := -INF
+		var wc_x := 0.0; var wc_z := 0.0
+		for wpt in pts2:
+			var px: float = float(wpt[0]); var pz: float = float(wpt[1])
+			mn_x = minf(mn_x, px); mx_x = maxf(mx_x, px)
+			mn_z = minf(mn_z, pz); mx_z = maxf(mx_z, pz)
+			wc_x += px; wc_z += pz
+		wc_x /= float(pts2.size()); wc_z /= float(pts2.size())
+		if not _loader._in_boundary(wc_x, wc_z):
+			continue
+		var w: float = mx_x - mn_x
+		var d: float = mx_z - mn_z
+		if w < 20.0 and d < 20.0:
+			continue  # too small for visible mist
+		var wy2: float = _loader._terrain_y(wc_x, wc_z) + _loader.WATER_Y
+		var fog_vol := FogVolume.new()
+		fog_vol.name = "Mist_" + bname2.replace(" ", "_")
+		fog_vol.shape = RenderingServer.FOG_VOLUME_SHAPE_BOX
+		fog_vol.size = Vector3(w + 10.0, 5.0, d + 10.0)  # 5m tall mist layer
+		fog_vol.position = Vector3(wc_x, wy2 + 2.0, wc_z)  # center 2m above water
+		var fog_mat := ShaderMaterial.new()
+		fog_mat.shader = mist_shader
+		fog_vol.material = fog_mat
+		_loader.add_child(fog_vol)
+		mist_count += 1
+	if mist_count > 0:
+		print("Water mist: %d fog volumes for dawn/dusk atmosphere" % mist_count)
+
 
 func _build_water_curb(pts: Array, tint: Color) -> void:
 	## Build a raised stone curb ring around a water body (e.g. Conservatory Water).
