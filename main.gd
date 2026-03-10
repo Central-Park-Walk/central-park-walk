@@ -1004,46 +1004,48 @@ func _build_keyframes() -> void:
 	})
 
 	# ---- 6.5  Sunrise / Golden hour ----
+	# Morning light from the east bathes the Fifth Avenue buildings in gold,
+	# long shadows stretch westward across the lawns, mist rises from the ponds.
 	_keyframes.append({
 		"hour": 6.5,
-		"sky_top":        Color(0.25, 0.38, 0.62),
-		"sky_horizon":    Color(0.68, 0.50, 0.38),
+		"sky_top":        Color(0.28, 0.42, 0.68),
+		"sky_horizon":    Color(0.75, 0.52, 0.35),    # richer sunrise glow
 		"gnd_bottom":     Color(0.10, 0.08, 0.06),
-		"gnd_horizon":    Color(0.42, 0.32, 0.22),
-		"ambient_color":  Color(0.45, 0.35, 0.25),
-		"ambient_energy": 0.60,
-		"exposure":       0.70,
-		"white":          6.0,
-		"glow_intensity": 0.0,
-		"glow_bloom":     0.0,
-		"glow_strength":  0.0,
-		"glow_threshold": 2.0,
-		"glow_cap":       10.0,
+		"gnd_horizon":    Color(0.46, 0.34, 0.22),
+		"ambient_color":  Color(0.48, 0.38, 0.26),
+		"ambient_energy": 0.65,
+		"exposure":       0.72,
+		"white":          5.5,
+		"glow_intensity": 0.45,   # soft morning bloom
+		"glow_bloom":     0.05,
+		"glow_strength":  0.5,
+		"glow_threshold": 0.70,
+		"glow_cap":       6.0,
 		"ssao_radius":    1.5,
 		"ssao_intensity": 2.5,
 		"ssao_power":     1.8,
 		"ssil_intensity": 0.7,
-		"saturation":     1.08,
+		"saturation":     1.12,
 		"contrast":       1.08,
-		"brightness":     0.90,
-		"fog_color":      Color(0.55, 0.42, 0.34),
-		"fog_energy":     0.6,
-		"fog_scatter":    0.20,
-		"fog_density":    0.0003,
-		"fog_aerial":     0.15,
+		"brightness":     0.92,
+		"fog_color":      Color(0.58, 0.44, 0.34),
+		"fog_energy":     0.65,
+		"fog_scatter":    0.25,
+		"fog_density":    0.0004,
+		"fog_aerial":     0.18,
 		"fog_sky_affect": 0.3,
-		"sun_energy":     0.85,
-		"sun_color":      Color(1.0, 0.72, 0.38),
-		"sun_pitch":      -15.0,
+		"sun_energy":     0.90,
+		"sun_color":      Color(1.0, 0.70, 0.35),
+		"sun_pitch":      -12.0,
 		"sun_yaw":        -95.0,
 		"shadow_dist":    250.0,
 		"lamp_emission":  0.0,
-		"vol_fog_density":    0.0003,
-		"vol_fog_anisotropy": 0.85,
-		"cloud_coverage":     0.55,
-		"cloud_density":      0.60,
-		"cloud_color_top":    Color(0.92, 0.88, 0.78),
-		"cloud_color_bottom": Color(0.48, 0.40, 0.32),
+		"vol_fog_density":    0.0004,
+		"vol_fog_anisotropy": 0.88,
+		"cloud_coverage":     0.50,
+		"cloud_density":      0.55,
+		"cloud_color_top":    Color(0.95, 0.85, 0.72),   # gold-lit cloud tops
+		"cloud_color_bottom": Color(0.52, 0.42, 0.32),
 		"cloud_speed":        0.004,
 	})
 
@@ -1092,46 +1094,48 @@ func _build_keyframes() -> void:
 	})
 
 	# ---- 19.0  Sunset / Golden hour ----
+	# The most photogenic time in Central Park — warm light raking across meadows,
+	# long shadows, golden tree canopy, NYC skyline silhouettes catching fire.
 	_keyframes.append({
 		"hour": 19.0,
-		"sky_top":        Color(0.25, 0.22, 0.38),
-		"sky_horizon":    Color(0.72, 0.46, 0.30),
-		"gnd_bottom":     Color(0.08, 0.06, 0.04),
-		"gnd_horizon":    Color(0.42, 0.32, 0.20),
-		"ambient_color":  Color(0.48, 0.38, 0.26),
-		"ambient_energy": 0.80,
-		"exposure":       0.70,
-		"white":          6.0,
-		"glow_intensity": 0.0,
-		"glow_bloom":     0.0,
-		"glow_strength":  0.0,
-		"glow_threshold": 2.0,
-		"glow_cap":       8.0,
+		"sky_top":        Color(0.28, 0.22, 0.42),   # deeper purple above
+		"sky_horizon":    Color(0.82, 0.50, 0.28),    # richer orange at horizon
+		"gnd_bottom":     Color(0.10, 0.07, 0.04),
+		"gnd_horizon":    Color(0.48, 0.35, 0.20),    # warm ground reflection
+		"ambient_color":  Color(0.52, 0.40, 0.26),    # warmer ambient fill
+		"ambient_energy": 0.85,
+		"exposure":       0.72,
+		"white":          5.5,
+		"glow_intensity": 0.5,   # warm atmospheric bloom — golden hour glow
+		"glow_bloom":     0.06,
+		"glow_strength":  0.6,
+		"glow_threshold": 0.65,
+		"glow_cap":       6.0,
 		"ssao_radius":    2.0,
 		"ssao_intensity": 1.8,
 		"ssao_power":     1.9,
 		"ssil_intensity": 0.8,
-		"saturation":     1.10,
-		"contrast":       1.08,
-		"brightness":     0.92,
-		"fog_color":      Color(0.68, 0.52, 0.38),
-		"fog_energy":     0.6,
-		"fog_scatter":    0.25,
-		"fog_density":    0.0004,
-		"fog_aerial":     0.18,
-		"fog_sky_affect": 0.3,
-		"sun_energy":     0.85,
-		"sun_color":      Color(1.0, 0.68, 0.35),
-		"sun_pitch":      -15.0,
+		"saturation":     1.15,   # more vivid colors in golden light
+		"contrast":       1.10,   # richer contrast with long shadows
+		"brightness":     0.93,
+		"fog_color":      Color(0.72, 0.52, 0.35),    # warmer haze
+		"fog_energy":     0.7,
+		"fog_scatter":    0.30,    # more atmospheric scatter
+		"fog_density":    0.0005,
+		"fog_aerial":     0.22,    # stronger aerial perspective
+		"fog_sky_affect": 0.35,
+		"sun_energy":     0.95,    # stronger low sun
+		"sun_color":      Color(1.0, 0.65, 0.30),     # deeper amber
+		"sun_pitch":      -12.0,   # lower sun angle for longer shadows
 		"sun_yaw":        95.0,
-		"shadow_dist":    220.0,
+		"shadow_dist":    250.0,
 		"lamp_emission":  0.0,  # lamps off until after sunset (ramp 19h→21h)
-		"vol_fog_density":    0.0004,
-		"vol_fog_anisotropy": 0.88,
-		"cloud_coverage":     0.65,
-		"cloud_density":      0.60,
-		"cloud_color_top":    Color(0.78, 0.55, 0.42),
-		"cloud_color_bottom": Color(0.50, 0.28, 0.18),
+		"vol_fog_density":    0.0005,
+		"vol_fog_anisotropy": 0.92,  # stronger forward scatter (sun halo)
+		"cloud_coverage":     0.60,
+		"cloud_density":      0.55,
+		"cloud_color_top":    Color(0.85, 0.55, 0.38),  # golden-lit cloud tops
+		"cloud_color_bottom": Color(0.55, 0.30, 0.18),  # warm undersides
 		"cloud_speed":        0.004,
 	})
 
