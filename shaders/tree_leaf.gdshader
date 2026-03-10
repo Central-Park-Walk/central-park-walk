@@ -10,6 +10,8 @@ global uniform float snow_cover;
 global uniform float season_t;
 global uniform float rain_wetness;
 
+#include "res://shaders/include/hash_noise.gdshaderinc"
+
 // Per-species summer leaf color — each species has a distinct green
 // Data: field observation + USDA plant database
 const vec3 SUMMER_COLORS[14] = vec3[14](
