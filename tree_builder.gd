@@ -119,7 +119,7 @@ func _build_trees(trees: Array) -> void:
 		var max_h := 0.0
 		for m: Mesh in meshes:
 			var ab: AABB = m.get_aabb()
-			var h := ab.size.z
+			var h := ab.size.y  # GLB models are Y-up (standard GLTF convention)
 			if h < 0.001:
 				h = maxf(ab.size.x, maxf(ab.size.y, ab.size.z))
 			max_h = maxf(max_h, h)
@@ -332,10 +332,10 @@ func _build_trees(trees: Array) -> void:
 		# Random Y rotation for variety
 		var y_rot := rng.randf() * TAU
 
-		# Build transform: Y rotation × Z-up fix (rotate -90° around X) × non-uniform scale
-		# The GLB meshes grow along +Z (Blender convention). We need +Y up.
-		# sx scales crown width (XZ), sy scales height (Y after rotation)
-		var basis := Basis(Vector3.UP, y_rot) * Basis(Vector3.RIGHT, -PI * 0.5) * Basis().scaled(Vector3(sx, sy, sx))
+		# Build transform: Y rotation × non-uniform scale
+		# GLB models are Y-up (standard GLTF export from Blender).
+		# sx scales crown width (XZ), sy scales height (Y)
+		var basis := Basis(Vector3.UP, y_rot) * Basis().scaled(Vector3(sx, sy, sx))
 		var tf := Transform3D(basis, Vector3(tx, ty, tz))
 
 		var key := "%s_%d" % [species, variant_idx]
