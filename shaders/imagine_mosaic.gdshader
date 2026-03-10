@@ -130,4 +130,17 @@ void fragment() {
 		ALBEDO = mix(ALBEDO, vec3(0.92, 0.93, 0.96), snow_amt * 0.7);
 		ROUGHNESS = mix(ROUGHNESS, 0.85, snow_amt);
 	}
+
+	// Foot traffic patina: centuries of visitors have polished the surface
+	// Rose petals and tributes often placed here — some staining persists
+	if (r < 0.20) {
+		// Slight warm patina from flower/candle staining near center
+		float stain_noise = hash2(tile_id * 0.3 + vec2(42.0));
+		if (stain_noise > 0.85) {
+			ALBEDO = mix(ALBEDO, ALBEDO * vec3(1.02, 0.96, 0.90), 0.15);
+		}
+	}
+
+	// Ambient emission for shadow fill
+	EMISSION = ALBEDO * 0.10;
 }

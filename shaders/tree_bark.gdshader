@@ -117,4 +117,22 @@ void fragment() {
 		ALBEDO = mix(ALBEDO, vec3(0.90, 0.91, 0.94), snow_amt * 0.7);
 		ROUGHNESS = mix(ROUGHNESS, 0.85, snow_amt);
 	}
+
+	// --- Sap runs and resin: dark wet streaks on deciduous trees ---
+	// Especially visible in spring when sap flows
+	float sap_season = smoothstep(0.0, 0.5, season_t) * (1.0 - smoothstep(1.5, 2.5, season_t));
+	if (sap_season > 0.01) {
+		float sap_hash = hash2(floor(vec2(bark_u * 2.0, bark_y * 0.5)) + tree_var * 20.0);
+		// Only ~8% of positions show sap runs
+		if (sap_hash > 0.92) {
+			// Dark glossy streak running downward
+			float sap_run = smoothstep(0.92, 0.96, sap_hash) * sap_season;
+			ALBEDO *= mix(1.0, 0.72, sap_run * 0.6);
+			ROUGHNESS = mix(ROUGHNESS, 0.25, sap_run * 0.4);
+			SPECULAR = mix(SPECULAR, 0.30, sap_run * 0.3);
+		}
+	}
+
+	// --- Ambient emission for shadow fill ---
+	EMISSION = ALBEDO * 0.10;
 }
