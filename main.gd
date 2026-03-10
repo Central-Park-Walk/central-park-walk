@@ -1059,8 +1059,8 @@ func _build_keyframes() -> void:
 		"sun_yaw":        -95.0,
 		"shadow_dist":    250.0,
 		"lamp_emission":  0.0,
-		"vol_fog_density":    0.0004,
-		"vol_fog_anisotropy": 0.88,
+		"vol_fog_density":    0.0008,  # denser for sunrise light shafts through trees
+		"vol_fog_anisotropy": 0.92,   # strong forward scatter → god rays at dawn
 		"cloud_coverage":     0.50,
 		"cloud_density":      0.55,
 		"cloud_color_top":    Color(0.95, 0.85, 0.72),   # gold-lit cloud tops
@@ -1149,8 +1149,8 @@ func _build_keyframes() -> void:
 		"sun_yaw":        95.0,
 		"shadow_dist":    250.0,
 		"lamp_emission":  0.0,  # lamps off until after sunset (ramp 19h→21h)
-		"vol_fog_density":    0.0005,
-		"vol_fog_anisotropy": 0.92,  # stronger forward scatter (sun halo)
+		"vol_fog_density":    0.0010,  # denser for sunset god rays through tree canopy
+		"vol_fog_anisotropy": 0.94,   # very strong forward scatter — dramatic light shafts
 		"cloud_coverage":     0.60,
 		"cloud_density":      0.55,
 		"cloud_color_top":    Color(0.85, 0.55, 0.38),  # golden-lit cloud tops
