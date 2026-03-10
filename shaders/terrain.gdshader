@@ -344,10 +344,13 @@ void fragment() {
 		vec3 p_alb = texture(path_alb_arr, vec3(puv, 0.0)).rgb;  // layer 0 = Asphalt
 		vec3 p_nrm = texture(path_nrm_arr, vec3(puv, 0.0)).rgb;
 		float p_rgh = clamp(texture(path_rgh_arr, vec3(puv, 0.0)).r + 0.05, 0.0, 1.0);
-		// NYC Parks asphalt: heavily worn, sun-bleached warm medium gray
+		// NYC Parks asphalt: neutral medium gray, slightly weathered
 		// PBR asphalt textures are ~0.08-0.12 in linear space; real sun-worn
-		// Central Park paths read ~0.25-0.35 — decades of UV bleaching + pedestrian polish
-		p_alb *= vec3(2.8, 2.6, 2.3);
+		// Central Park paths read ~0.20-0.30 — neutral gray, not pinkish
+		// Desaturate texture to remove colored aggregate speckles
+		float p_lum = dot(p_alb, vec3(0.2126, 0.7152, 0.0722));
+		p_alb = mix(p_alb, vec3(p_lum), 0.5);  // 50% desaturation
+		p_alb *= vec3(2.5, 2.5, 2.45);
 		// Subtle patchy wear — lighter in high-traffic center, darker at edges
 		float wear = fbm(world_pos.xz * 0.05, 2);
 		p_alb *= (0.90 + wear * 0.20);
@@ -471,9 +474,15 @@ void fragment() {
 	if (rock_blend > 0.01) {
 		vec2 ruv = world_pos.xz / rock_tile_m;
 		vec3 r_alb = textureNoTile_c(rock_albedo, ruv);
-		// Add rusty weathering patches to match Manhattan schist appearance
+		// Manhattan schist: dark silvery-gray metamorphic rock with mica
+		// PBR rock textures are warm/sandy — remap to schist using luminance as detail
+		float r_lum = dot(r_alb, vec3(0.2126, 0.7152, 0.0722));
+		// Remap: dark gray base + texture detail, slight blue cool shift
+		vec3 schist_gray = vec3(0.13, 0.14, 0.16) + vec3(0.30, 0.30, 0.32) * r_lum;
+		r_alb = mix(r_alb, schist_gray, 0.70);  // 70% schist, 30% original detail
+		// Rusty weathering patches — iron oxide staining in crevices
 		float rust_noise = fbm(world_pos.xz * 0.08, 2);
-		vec3 rust_tint = mix(r_alb, r_alb * vec3(1.15, 0.85, 0.70), smoothstep(0.5, 0.7, rust_noise) * 0.3);
+		vec3 rust_tint = mix(r_alb, r_alb * vec3(1.12, 0.88, 0.72), smoothstep(0.5, 0.7, rust_noise) * 0.25);
 		r_alb = rust_tint;
 		vec3 r_nrm = textureNoTile_n(rock_normal, ruv);
 		float r_rgh = clamp(textureNoTile_r(rock_rough, ruv) * 0.15 + 0.70, 0.0, 1.0);
@@ -540,6 +549,8 @@ void fragment() {
 		float struct_slope = 1.0 - terrain_n.y;  // 0=flat, 1=vertical
 		// Large-scale warm/cool variation — some areas sandstone-warm, others schist-gray
 		float warmth = fbm(world_pos.xz * 0.004, 2);
+		// Atlas rock outcrops are Manhattan schist — always cool gray
+		if (surface_type == 7) warmth = 0.12;
 		// Named structure overrides — force warmth for known materials
 		// Bethesda Terrace: New Brunswick sandstone (warm mustard-olive)
 		float d_beth_s = length(world_pos.xz - vec2(-458.0, 949.0));
@@ -568,8 +579,8 @@ void fragment() {
 			// Steep face: stone walls
 			tex_layer = 2.0;  // PavingStones as base
 			float weather = fbm(world_pos.xz * 0.15, 2);
-			vec3 cool_base = mix(vec3(0.42, 0.40, 0.38),  // gray schist
-			                     vec3(0.48, 0.36, 0.28),   // rusty weathering
+			vec3 cool_base = mix(vec3(0.32, 0.33, 0.35),  // dark gray schist
+			                     vec3(0.38, 0.34, 0.30),   // rusty weathering
 			                     smoothstep(0.35, 0.65, weather));
 			vec3 warm_base = mix(vec3(0.52, 0.47, 0.35),  // New Brunswick sandstone
 			                     vec3(0.56, 0.44, 0.30),   // weathered sandstone
