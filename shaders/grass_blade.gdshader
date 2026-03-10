@@ -98,6 +98,31 @@ void fragment() {
 	float clump_var = hash2(floor(v_world_pos.xz * 0.5));
 	col *= 0.88 + clump_var * 0.24;
 
+	// --- Wildflower coloring in meadow zones (spring/summer) ---
+	// Meadow (type 8) and waterside (type 7) get occasional colored blade tips
+	float flower_season = smoothstep(0.0, 0.8, season_t) * (1.0 - smoothstep(2.2, 3.0, season_t));
+	if (flower_season > 0.01 && blade_t > 0.7 && v_grass_type > 6.5) {
+		float flower_hash = hash2(floor(v_world_pos.xz * 2.0));
+		// ~15% of blades in meadow zones get wildflower color at tips
+		if (flower_hash > 0.85) {
+			float flower_type = fract(flower_hash * 7.3);
+			vec3 flower_col;
+			if (flower_type < 0.30) {
+				flower_col = vec3(0.95, 0.85, 0.20);  // dandelion yellow
+			} else if (flower_type < 0.50) {
+				flower_col = vec3(0.90, 0.90, 0.85);  // white clover
+			} else if (flower_type < 0.70) {
+				flower_col = vec3(0.55, 0.30, 0.65);  // violet/purple
+			} else if (flower_type < 0.85) {
+				flower_col = vec3(0.90, 0.65, 0.15);  // black-eyed susan
+			} else {
+				flower_col = vec3(0.85, 0.40, 0.50);  // pink clover
+			}
+			float tip_blend = smoothstep(0.7, 0.95, blade_t) * flower_season;
+			col = mix(col, flower_col, tip_blend * 0.8);
+		}
+	}
+
 	ALBEDO    = col;
 	ROUGHNESS = mix(0.85, 0.70, blade_t);  // tips smoother (catch specular)
 	SPECULAR  = mix(0.05, 0.15, blade_t);  // tips more reflective
