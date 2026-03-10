@@ -1168,8 +1168,8 @@ func _build_keyframes() -> void:
 		"gnd_bottom":     Color(0.03, 0.025, 0.02),
 		"gnd_horizon":    Color(0.10, 0.07, 0.05),  # warm ground glow from city
 		"ambient_color":  Color(0.85, 0.65, 0.40),  # warm amber city glow — NYC sodium vapor spill
-		"ambient_energy": 0.35,   # NYC ambient — 6,557 lit buildings bathe the park
-		"exposure":       0.95,
+		"ambient_energy": 0.22,   # NYC ambient — enough to see shapes, not enough for green trees
+		"exposure":       1.05,   # compensate for lower ambient — eye adapts at night
 		"white":          6.0,
 		"glow_intensity": 0.7,
 		"glow_bloom":     0.10,
@@ -1180,15 +1180,15 @@ func _build_keyframes() -> void:
 		"ssao_intensity": 2.2,
 		"ssao_power":     1.8,
 		"ssil_intensity": 0.6,
-		"saturation":     0.70,
-		"contrast":       1.02,   # less crush — preserves shadow detail in dark areas
-		"brightness":     1.0,    # full brightness — NYC is never pitch black
+		"saturation":     0.50,   # colors are very muted at night — olive/brown, not green
+		"contrast":       1.04,
+		"brightness":     1.0,
 		"fog_color":      Color(0.12, 0.09, 0.07),  # warm amber night haze — city light scatter
-		"fog_energy":     0.25,
-		"fog_scatter":    0.08,
-		"fog_density":    0.0005,
-		"fog_aerial":     0.20,
-		"fog_sky_affect": 0.5,
+		"fog_energy":     0.20,
+		"fog_scatter":    0.06,
+		"fog_density":    0.0003,
+		"fog_aerial":     0.15,
+		"fog_sky_affect": 0.4,
 		"sun_energy":     0.05,
 		"sun_color":      Color(0.70, 0.78, 1.00),
 		"sun_pitch":      -65.0,
