@@ -1270,7 +1270,7 @@ def main() -> None:
         "fraxinus":    "deciduous",     # ash
         "liquidambar": "maple",         # sweetgum — star-shaped leaves, maple-like
         "cornus":      "cherry",        # dogwood — small ornamental, like cherry
-        "magnolia":    "deciduous",     # magnolia
+        "magnolia":    "magnolia",      # saucer magnolia — spreading, spring bloom
         "cercis":      "cherry",        # redbud — small ornamental
         "malus":       "cherry",        # crabapple — small ornamental, spring blooms
         "salix":       "willow",        # weeping willow — cascading branches
@@ -1447,7 +1447,7 @@ def main() -> None:
         "sassafras": "deciduous", "hickory": "deciduous", "shagbark hickory": "deciduous",
         "pignut hickory": "deciduous", "black locust": "honeylocust",
         "honeylocust": "honeylocust", "black walnut": "deciduous",
-        "crabapple": "callery_pear", "star magnolia": "deciduous",
+        "crabapple": "callery_pear", "star magnolia": "magnolia",
         "stewartia": "deciduous", "bald cypress": "conifer",
         "eastern redcedar": "conifer", "white pine": "conifer",
         "austrian pine": "conifer", "eastern hemlock": "conifer",
@@ -1461,6 +1461,8 @@ def main() -> None:
         "hackberry": "elm",  # Celtis — vase-shaped, similar habit to elm
         "birch": "birch",
         "weeping willow": "willow", "willow": "willow",
+        "star magnolia": "magnolia", "saucer magnolia": "magnolia",
+        "magnolia": "magnolia",
     }
 
     # --- Ecological zone model ---
