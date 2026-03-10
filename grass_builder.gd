@@ -109,13 +109,16 @@ func _build_grass() -> void:
 			if meshes[gtype] == null:
 				continue
 
-		var wy: float = _loader._terrain_y(wx, wz) + 0.002
-
 		rng.seed = int(wx * 73856.0 + wz * 19349.0) & 0x7FFFFFFF
+		# Jitter position to break up grid regularity — offset within ±0.6m
+		var jx: float = wx + rng.randf_range(-0.6, 0.6)
+		var jz: float = wz + rng.randf_range(-0.6, 0.6)
+		var wy: float = _loader._terrain_y(jx, jz) + 0.002
+
 		var y_rot := rng.randf() * TAU
-		var s := rng.randf_range(0.88, 1.12)
+		var s := rng.randf_range(0.82, 1.18)  # wider scale range for variety
 		var basis := Basis(Vector3.UP, y_rot).scaled(Vector3(s, s, s))
-		var tf := Transform3D(basis, Vector3(wx, wy, wz))
+		var tf := Transform3D(basis, Vector3(jx, wy, jz))
 
 		var cx := int(floorf(wx / CHUNK))
 		var cz := int(floorf(wz / CHUNK))
