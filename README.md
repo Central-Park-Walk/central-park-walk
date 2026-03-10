@@ -81,16 +81,12 @@ python3 convert_to_godot.py
 
 | Feature | Count | Source |
 |---------|-------|--------|
-| Terrain | 4096×4096 mesh | NYC LiDAR 2017 (1ft resolution) |
+| Terrain | 8192×8192 mesh (14M verts) | NYC LiDAR 2017 (1ft resolution, 0.61m cells) |
 | Trees | ~9,300 | NYC Tree Census + OSM + woodland scatter in 12 ecological zones |
-| Paths | 2,624 | OpenStreetMap (58K segments, GPU-rendered) |
 | Water | 23 bodies + 10 streams | OpenStreetMap polygons |
 | Buildings | 6,557 | NYC Building Footprints + LiDAR heights |
-| Bridges | 55 | 5 architectural styles from OSM |
-| Tunnels | 15 | Barrel vault interiors with portal lighting |
 | Furniture | 1,022+ | Lampposts (201), benches (610), trash cans (166), fountains (19), flagpoles (18), water towers (45) |
 | Statues | 106 positions | 4 photogrammetry scans + Cleopatra's Needle model, rest labeled |
-| Perimeter wall | 7,962 segments | Manhattan schist, 105 gate openings |
 | Sports fields | 147 | Tennis, basketball, baseball, soccer, handball |
 | Seasons | 4 | Per-species phenology, leaf scatter, water color, atmosphere |
 | Weather | 5 modes | Rain, thunderstorm, snow, fog, clear — with surface response |
@@ -142,7 +138,7 @@ See [FUNDING.md](FUNDING.md) for details on how funds are used.
 | Engine | Godot 4.6.1 (Forward+, GDScript) |
 | Data pipeline | Python (GDAL, numpy/scipy, Pillow) |
 | 3D modeling | Blender 3.0.1 (headless scripts) |
-| Rendering | 18 custom GLSL shaders, MultiMesh instancing, analytical GPU path rendering |
+| Rendering | 18 custom GLSL shaders, MultiMesh instancing, 8K prebaked terrain mesh |
 
 ## License
 
