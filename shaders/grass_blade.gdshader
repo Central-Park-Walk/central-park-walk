@@ -98,6 +98,14 @@ void fragment() {
 	// Vertex colors from Blender model provide base albedo
 	vec3 col = COLOR.rgb;
 
+	// --- Base color toning: Blender vertex colors are too saturated ---
+	// Real park grass (Kentucky bluegrass + ryegrass) in PBR linear space should be
+	// warm olive-green, albedo ~0.05-0.10. Blender vertex colors produce ~0.15-0.30
+	// which looks neon after gamma correction. Aggressively tone down.
+	float base_lum = dot(col, vec3(0.299, 0.587, 0.114));
+	col = mix(vec3(base_lum), col, 0.60);  // 40% desaturation
+	col *= vec3(0.92, 0.88, 0.72);  // darken + warm: suppress green channel, add earthy tone
+
 	// --- Height-based shading: darker at base, brighter at tip ---
 	// UV.y from Blender: 0.0 at base, 1.0 at tip (set in make_grass_patch.py)
 	float blade_t = clamp(UV.y, 0.0, 1.0);
