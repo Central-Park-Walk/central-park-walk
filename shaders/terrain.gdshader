@@ -68,6 +68,10 @@ global uniform vec2 wind_vec;
 // 5=nature_reserve, 6=dog_park, 7=sports, 8=pool, 9=track, 10=wood, 11=forest
 uniform sampler2D landuse_map : filter_nearest, repeat_disable;
 
+// Shore distance field: R=distance from water (0-30m→0-255), A=depth into water (0-30m→0-255)
+// filter_linear gives smooth interpolation — no aliased edges at zone boundaries
+uniform sampler2D shore_distance : filter_linear, repeat_disable;
+
 // Structure mask from LiDAR (HH - BE difference): 0=ground, 1-254=height in half-feet
 uniform sampler2D structure_mask : filter_linear, repeat_disable;
 
@@ -353,13 +357,18 @@ void fragment() {
 		grass_rgh = mix(grass_rgh, d_rgh, dirt_blend);
 	}
 
-	// Shore zone (13) — muddy/sandy edges near water bodies
-	if (zone_id == 13) {
+	// Shore transition — smooth distance-based blending from shore_distance texture
+	// R channel = distance from water (0-30m encoded as 0-255), filter_linear for smooth edges
+	vec2 shore_sample = texture(shore_distance, splat_uv).ra;
+	float shore_dist_m = shore_sample.r * 30.0;  // 0-30m range
+	if (shore_dist_m < 15.0) {
 		vec2 suv = world_pos.xz / shore_tile_m;
 		vec3 sh_alb = textureNoTile_c(shore_albedo, suv);
 		vec3 sh_nrm = textureNoTile_n(shore_normal, suv);
 		float sh_rgh = clamp(textureNoTile_r(shore_rough, suv) * 0.15 + 0.80, 0.0, 1.0);
-		float shore_blend = clamp(0.80 + edge_noise, 0.0, 1.0);
+		// Smooth blend: full shore at water edge, fading to grass over 15m
+		float shore_blend = smoothstep(15.0, 2.0, shore_dist_m) + edge_noise * 0.15;
+		shore_blend = clamp(shore_blend, 0.0, 1.0);
 		grass_alb = mix(grass_alb, sh_alb, shore_blend);
 		grass_nrm = mix(grass_nrm, sh_nrm, shore_blend);
 		grass_rgh = mix(grass_rgh, sh_rgh, shore_blend);

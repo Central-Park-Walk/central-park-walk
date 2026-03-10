@@ -1788,6 +1788,19 @@ func _apply_landuse_map(zones: Array, water: Array = []) -> void:
 	var tex := ImageTexture.create_from_image(img)
 	_terrain_mat.set_shader_parameter("landuse_map", tex)
 
+	# Load pre-baked shore distance field for smooth water-to-land transitions
+	var shore_path := "res://shore_distance.png"
+	var shore_global := ProjectSettings.globalize_path(shore_path)
+	var shore_img: Image = null
+	if FileAccess.file_exists(shore_path):
+		shore_img = Image.load_from_file(shore_path)
+	elif FileAccess.file_exists(shore_global):
+		shore_img = Image.load_from_file(shore_global)
+	if shore_img:
+		var shore_tex := ImageTexture.create_from_image(shore_img)
+		_terrain_mat.set_shader_parameter("shore_distance", shore_tex)
+		print("Terrain: loaded shore distance field %dx%d" % [shore_img.get_width(), shore_img.get_height()])
+
 
 func _rasterize_landuse_runtime(zones: Array, water: Array) -> Image:
 	## Runtime fallback: scanline-fill landuse zones at 1024×1024.

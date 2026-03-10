@@ -2594,6 +2594,28 @@ def prebake_landuse_map(landuse_zones, water_bodies):
     size_kb = os.path.getsize("landuse_map.png") / 1024
     print(f"  Landuse: saved → landuse_map.png ({RES}×{RES}, {size_kb:.0f} KB)")
 
+    # --- Pre-bake shore distance field → shore_distance.png ---
+    # Continuous distance-to-water encoded as 0-255 (0=water edge, 255=far away).
+    # Saved with filter_linear so the shader gets smooth interpolation — no aliased edges.
+    if water_count > 0:
+        from scipy.ndimage import distance_transform_edt
+        arr2 = np.array(img, dtype=np.uint8)
+        water_mask2 = (arr2 == 12)
+        # Distance from every non-water pixel to the nearest water pixel (in pixel units)
+        dist = distance_transform_edt(~water_mask2).astype(np.float32)
+        # Also compute distance INTO water from shore (for underwater depth tinting)
+        dist_in = distance_transform_edt(water_mask2).astype(np.float32)
+        # Encode: R = distance from water (0-30m mapped to 0-255), G = depth into water (0-30m)
+        MAX_DIST_M = 30.0
+        px_per_m = RES / WORLD_SIZE  # ~0.82 px/m
+        max_dist_px = MAX_DIST_M * px_per_m
+        r_ch = np.clip(dist / max_dist_px * 255.0, 0, 255).astype(np.uint8)
+        g_ch = np.clip(dist_in / max_dist_px * 255.0, 0, 255).astype(np.uint8)
+        shore_img = Image.fromarray(np.stack([r_ch, g_ch], axis=-1), mode='LA')
+        shore_img.save("shore_distance.png")
+        sd_kb = os.path.getsize("shore_distance.png") / 1024
+        print(f"  Shore distance: saved → shore_distance.png ({RES}×{RES}, {sd_kb:.0f} KB)")
+
 
 def prebake_boundary_mask(boundary_pts):
     """Pre-bake park boundary mask at 4096×4096 → boundary_mask.png.
