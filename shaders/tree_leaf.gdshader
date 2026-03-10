@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode cull_disabled, alpha_to_coverage_and_one;
+render_mode cull_disabled, depth_prepass_alpha;
 
 uniform vec3 albedo_tint = vec3(0.28, 0.48, 0.18);
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic;
@@ -199,8 +199,9 @@ void fragment() {
 	vec4 tex = texture(albedo_tex, UV);
 	float lum = dot(tex.rgb, vec3(0.3, 0.6, 0.1));
 	float alpha = tex.a * v_leaf_density;
-	// Hard-discard fully transparent fragments (performance: skip shading)
-	if (alpha < 0.1) discard;
+	// Fixed-threshold alpha test: no dither, no per-frame variation.
+	// Each texel deterministically passes or fails regardless of wind sway.
+	if (alpha < 0.35) discard;
 
 	vec3 col = v_leaf_color * (0.4 + lum * 0.6);  // reduced: Blender vertex colors are too bright for PBR
 	int sp = int(v_species_idx + 0.5);
@@ -303,8 +304,4 @@ void fragment() {
 		sss_strength = mix(sss_strength, 1.2, v_blossom);  // petals are very translucent
 	}
 	BACKLIGHT = backlight_col * sss_strength;
-
-	// Alpha-to-coverage: hardware distributes alpha across MSAA samples (4x).
-	// Wind sway shifts coverage by ~1 sample (25% brightness) instead of binary pop.
-	ALPHA = alpha;
 }
