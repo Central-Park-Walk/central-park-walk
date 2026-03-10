@@ -10,9 +10,9 @@ global uniform float snow_cover;
 global uniform float season_t;
 global uniform float rain_wetness;
 
-// Species fall colors (12): oak, maple, elm, birch, deciduous, conifer,
-// honeylocust, callery_pear, ginkgo, london_plane, linden, cherry
-const vec3 FALL_COLORS[12] = vec3[12](
+// Species fall colors (14): oak, maple, elm, birch, deciduous, conifer,
+// honeylocust, callery_pear, ginkgo, london_plane, linden, cherry, willow, magnolia
+const vec3 FALL_COLORS[14] = vec3[14](
 	vec3(0.55, 0.25, 0.12),  // 0 oak: russet red-brown
 	vec3(0.85, 0.22, 0.08),  // 1 maple: brilliant red-orange
 	vec3(0.78, 0.72, 0.18),  // 2 elm: golden yellow
@@ -24,11 +24,13 @@ const vec3 FALL_COLORS[12] = vec3[12](
 	vec3(0.92, 0.85, 0.20),  // 8 ginkgo: brilliant pure yellow
 	vec3(0.70, 0.52, 0.18),  // 9 london_plane: tawny brown-gold
 	vec3(0.78, 0.70, 0.22),  // 10 linden: warm yellow
-	vec3(0.80, 0.30, 0.15)   // 11 cherry: orange-red
+	vec3(0.80, 0.30, 0.15),  // 11 cherry: orange-red
+	vec3(0.82, 0.78, 0.25),  // 12 willow: golden yellow (early)
+	vec3(0.60, 0.42, 0.18)   // 13 magnolia: warm brown-gold
 );
 
 // Phenology timing per species: (fall_start, fall_peak, bare_start, leaf_start)
-const vec4 PHENOLOGY[12] = vec4[12](
+const vec4 PHENOLOGY[14] = vec4[14](
 	vec4(2.3, 2.7, 3.1, 0.4),  // 0 oak: late, holds leaves
 	vec4(2.1, 2.5, 2.9, 0.3),  // 1 maple: classic mid-fall
 	vec4(2.2, 2.6, 3.0, 0.3),  // 2 elm: mid-fall
@@ -40,7 +42,9 @@ const vec4 PHENOLOGY[12] = vec4[12](
 	vec4(2.4, 2.6, 2.8, 0.5),  // 8 ginkgo: very late, drops all at once
 	vec4(2.2, 2.6, 3.0, 0.3),  // 9 london_plane: mid-fall, persistent
 	vec4(2.1, 2.5, 2.9, 0.3),  // 10 linden: mid-fall
-	vec4(2.0, 2.4, 2.8, 0.3)   // 11 cherry: early fall
+	vec4(2.0, 2.4, 2.8, 0.3),  // 11 cherry: early fall
+	vec4(2.0, 2.3, 2.7, 0.2),  // 12 willow: early fall yellow, early spring
+	vec4(2.3, 2.6, 3.0, 0.2)   // 13 magnolia: late fall, early spring bloom
 );
 
 varying float v_leaf_density;
@@ -48,8 +52,8 @@ varying vec3 v_leaf_color;
 varying float v_blossom;     // 0-1 blossom intensity (cherry/callery pear spring bloom)
 varying float v_species_idx; // species index for fragment shader
 
-// Spring blossom colors: cherry = pink, callery_pear = white
-const vec3 BLOSSOM_COLORS[12] = vec3[12](
+// Spring blossom colors: cherry = pink, callery_pear = white, magnolia = pink-white
+const vec3 BLOSSOM_COLORS[14] = vec3[14](
 	vec3(0.0),                     // 0 oak: no blossoms
 	vec3(0.0),                     // 1 maple: no blossoms
 	vec3(0.0),                     // 2 elm: no blossoms
@@ -61,12 +65,14 @@ const vec3 BLOSSOM_COLORS[12] = vec3[12](
 	vec3(0.0),                     // 8 ginkgo: no blossoms
 	vec3(0.0),                     // 9 london_plane: no blossoms
 	vec3(0.0),                     // 10 linden: no blossoms
-	vec3(0.88, 0.68, 0.72)        // 11 cherry: Yoshino pale pink blossoms
+	vec3(0.88, 0.68, 0.72),       // 11 cherry: Yoshino pale pink blossoms
+	vec3(0.0),                     // 12 willow: no showy blossoms
+	vec3(0.90, 0.72, 0.78)        // 13 magnolia: pink-white tulip-shaped blooms
 );
 
 // Blossom timing: (start, peak, end) — before leaf-out
 // season_t 0=spring start, 1=summer, 2=autumn, 3=winter
-const vec3 BLOSSOM_TIMING[12] = vec3[12](
+const vec3 BLOSSOM_TIMING[14] = vec3[14](
 	vec3(0.0),                     // 0 oak
 	vec3(0.0),                     // 1 maple
 	vec3(0.0),                     // 2 elm
@@ -78,13 +84,15 @@ const vec3 BLOSSOM_TIMING[12] = vec3[12](
 	vec3(0.0),                     // 8 ginkgo
 	vec3(0.0),                     // 9 london_plane
 	vec3(0.0),                     // 10 linden
-	vec3(0.05, 0.20, 0.42)        // 11 cherry: very early, 2-week bloom peak
+	vec3(0.05, 0.20, 0.42),       // 11 cherry: very early, 2-week bloom peak
+	vec3(0.0),                     // 12 willow: no showy blossoms
+	vec3(0.02, 0.15, 0.35)        // 13 magnolia: very early spring, before leaf-out
 );
 
 void vertex() {
 	// Decode per-instance season data (all INSTANCE_CUSTOM reads in vertex only)
 	float is_evergreen = INSTANCE_CUSTOM.b;
-	int sp_idx = int(INSTANCE_CUSTOM.r * 11.0 + 0.5);
+	int sp_idx = int(INSTANCE_CUSTOM.r * 13.0 + 0.5);
 	float timing_off = INSTANCE_CUSTOM.g - 0.5;
 	float s = mod(season_t + timing_off, 4.0);
 	v_species_idx = float(sp_idx);
