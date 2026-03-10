@@ -167,31 +167,33 @@ void vertex() {
 	v_leaf_color = leaf_color;
 
 	vec3 tree_origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-	float sway = max(VERTEX.y, 0.0);
+	// Tree models grow along model +Z (Blender Z-up). Instance basis rotates:
+	//   model X → world X,  model Y → world -Z,  model Z → world Y
+	float sway = max(VERTEX.z, 0.0);  // height along trunk (model +Z)
 	float wind_str = length(wind_vec);
 	float rustle = (0.3 + wind_str * 0.7) * mix(0.3, 1.0, leaf_density);
-	// Base sway: gentle continuous oscillation
+	// Base sway: gentle continuous oscillation in world XZ (= model X, Y)
 	VERTEX.x += sin(TIME * 0.7 + tree_origin.x * 0.04 + tree_origin.z * 0.06) * 0.09 * sway * rustle;
-	VERTEX.z += sin(TIME * 1.1 + tree_origin.z * 0.05) * 0.05 * sway * rustle;
-	// Wind push: constant lean in wind direction
+	VERTEX.y += sin(TIME * 1.1 + tree_origin.z * 0.05) * 0.05 * sway * rustle;
+	// Wind push: constant lean in wind direction (world XZ = model X, -Y)
 	VERTEX.x += wind_vec.x * sway * 0.18;
-	VERTEX.z += wind_vec.y * sway * 0.18;
+	VERTEX.y -= wind_vec.y * sway * 0.18;
 	// Wind gusts: periodic stronger push that travels across the canopy
 	float gust_phase = tree_origin.x * 0.02 + tree_origin.z * 0.03;  // spatial wave
 	float gust = sin(TIME * 0.3 + gust_phase) * 0.5 + 0.5;  // 0-1 gust intensity
 	gust = gust * gust * gust;  // sharpen peaks: brief strong gusts, long calm
 	float gust_strength = gust * wind_str * 0.25;
 	VERTEX.x += wind_vec.x * sway * gust_strength;
-	VERTEX.z += wind_vec.y * sway * gust_strength;
-	// Leaf flutter: high-frequency per-leaf vibration
-	float flutter = sin(TIME * 3.5 + VERTEX.x * 11.0 + VERTEX.z * 7.0) * 0.012 * rustle;
-	flutter += sin(TIME * 5.7 + VERTEX.z * 17.0) * 0.006 * gust_strength;  // gust flutter
-	VERTEX.y += flutter * sway;
+	VERTEX.y -= wind_vec.y * sway * gust_strength;
+	// Leaf flutter: high-frequency per-leaf vibration (vertical = model Z → world Y)
+	float flutter = sin(TIME * 3.5 + VERTEX.x * 11.0 + VERTEX.y * 7.0) * 0.012 * rustle;
+	flutter += sin(TIME * 5.7 + VERTEX.y * 17.0) * 0.006 * gust_strength;  // gust flutter
+	VERTEX.z += flutter * sway;
 
-	// Winter: shrink canopy toward trunk
+	// Winter: shrink canopy toward trunk (horizontal = model XY)
 	if (is_evergreen < 0.5 && leaf_density < 0.5) {
 		float shrink = mix(0.4, 1.0, leaf_density * 2.0);
-		VERTEX.xz *= shrink;
+		VERTEX.xy *= shrink;
 	}
 }
 
