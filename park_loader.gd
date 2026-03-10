@@ -1048,6 +1048,21 @@ func _splat_mat_idx(hw: String, surface: String) -> int:
 const BRIDGE_GLBS: Dictionary = {
 	"Bow Bridge": "cp_bow_bridge.glb",
 	"Gapstow Bridge": "cp_gapstow_bridge.glb",
+	"Greyshot Arch": "cp_greyshot_arch.glb",
+	"Winterdale Arch": "cp_winterdale_arch.glb",
+	"Dalehead Arch": "cp_dalehead_arch.glb",
+	"Trefoil Arch": "cp_trefoil_arch.glb",
+	"Huddlestone Arch": "cp_huddlestone_arch.glb",
+	"Glen Span Arch": "cp_glen_span_arch.glb",
+	"Springbanks Arch": "cp_springbanks_arch.glb",
+	"Willowdell Arch": "cp_willowdell_arch.glb",
+	"Driprock Arch": "cp_driprock_arch.glb",
+	"Denesmouth Arch": "cp_denesmouth_arch.glb",
+	"Green Gap Arch": "cp_green_gap_arch.glb",
+	"Riftstone Arch": "cp_riftstone_arch.glb",
+	"Balcony Bridge": "cp_balcony_bridge.glb",
+	"Oak Bridge": "cp_oak_bridge.glb",
+	"Eaglevale Bridge": "cp_eaglevale_bridge.glb",
 }
 
 
@@ -1057,9 +1072,13 @@ func _build_bridge_models() -> void:
 	## We compute centroid + principal axis from the outline polygon, then
 	## rotate the model to align with the real-world orientation.
 	var count := 0
-	for bo in _bridge_outlines:
+	var placed_names: Dictionary = {}
+	var all_outlines: Array = []
+	all_outlines.append_array(_bridge_outlines)
+	all_outlines.append_array(_tunnel_outlines)
+	for bo in all_outlines:
 		var bname: String = bo.get("name", "")
-		if bname.is_empty() or not BRIDGE_GLBS.has(bname):
+		if bname.is_empty() or not BRIDGE_GLBS.has(bname) or placed_names.has(bname):
 			continue
 		var bpts: Array = bo.get("points", [])
 		if bpts.size() < 3:
@@ -1113,6 +1132,7 @@ func _build_bridge_models() -> void:
 		root.rotation.y = -angle
 		root.name = bname.replace(" ", "_")
 		add_child(root)
+		placed_names[bname] = true
 		count += 1
 		print("  Bridge model: %s at (%.0f, %.1f, %.0f) rot=%.1f°" % [
 			bname, cx, deck_y, cz, rad_to_deg(-angle)])
