@@ -167,7 +167,7 @@ func _build_water(water: Array) -> void:
 
 	var verts   := PackedVector3Array()
 	var normals := PackedVector3Array()
-	const WATER_CELL := 4.0  # grid cell size in metres for dense interior mesh
+	const WATER_CELL := 2.0  # grid cell size in metres — 2m for smooth shore edges (was 4m)
 
 	for body in water:
 		var pts: Array = body["points"]
