@@ -200,9 +200,16 @@ void fragment() {
 		shallow = mix(shallow, vec3(s_lum) * 1.15, winter_t * 0.3);
 	}
 	if (spring_t > 0.01) {
-		// Spring algae bloom: subtle green boost
-		deep    = mix(deep,    deep    * vec3(0.90, 1.10, 0.85), spring_t * 0.25);
-		shallow = mix(shallow, shallow * vec3(0.90, 1.12, 0.85), spring_t * 0.25);
+		// Spring algae bloom: green boost, more visible in shallow warm areas
+		deep    = mix(deep,    deep    * vec3(0.85, 1.18, 0.78), spring_t * 0.30);
+		shallow = mix(shallow, shallow * vec3(0.82, 1.22, 0.75), spring_t * 0.35);
+	}
+	// Summer peak algae: July-August warmth drives chlorophyll
+	float summer_t = smoothstep(0.5, 1.2, season_t) * smoothstep(2.0, 1.2, season_t);
+	if (summer_t > 0.01) {
+		// Warm stagnant water gets greener, especially shallow edges
+		deep    = mix(deep,    deep    * vec3(0.88, 1.12, 0.82), summer_t * 0.20);
+		shallow = mix(shallow, shallow * vec3(0.80, 1.25, 0.72), summer_t * 0.30);
 	}
 
 	// Depth tinting: deeper water is darker and more saturated
@@ -252,6 +259,22 @@ void fragment() {
 	}
 
 	vec3 col = mix(base_col, sky_col, fresnel * (0.6 + extra_reflect));
+
+	// Caustics: light dappling in shallow clear water during daytime
+	// Sunlight refracting through wave surface creates bright dancing patterns on bed
+	float caustic = 0.0;
+	float daytime = 1.0 - night_boost;
+	if (daytime > 0.1 && v_water_depth < 1.5) {
+		float shallow_factor = 1.0 - smoothstep(0.0, 1.5, v_water_depth);
+		// Two overlapping caustic layers at different scales/speeds
+		float c1 = gnoise(world_pos.xz * 1.8 + vec2(t * 0.12, t * 0.08));
+		float c2 = gnoise(world_pos.xz * 2.5 + vec2(-t * 0.15, t * 0.11));
+		caustic = (c1 + c2) * 0.5;
+		caustic = smoothstep(0.1, 0.5, caustic) * shallow_factor * daytime * 0.12;
+		// Rain disrupts caustics (turbid water)
+		caustic *= (1.0 - rain_wetness * 0.7);
+		col += vec3(caustic * 1.1, caustic, caustic * 0.8);
+	}
 
 	// Foam — white caps at wave peaks (subtle in ponds, more on reservoir)
 	// Wind increases foam: lower threshold, more visible caps
