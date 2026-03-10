@@ -12,10 +12,10 @@ const PHENOLOGY_INDEX := {
 }
 # Maps archetype → base GLB model name
 const ARCHETYPE_MODEL := {
-	"oak": "deciduous", "maple": "maple", "elm": "elm", "birch": "birch",
+	"oak": "oak", "maple": "maple", "elm": "elm", "birch": "birch",
 	"deciduous": "deciduous", "conifer": "pine",
 	"honeylocust": "deciduous", "callery_pear": "maple", "ginkgo": "birch",
-	"london_plane": "deciduous", "linden": "maple", "cherry": "birch",
+	"london_plane": "oak", "linden": "maple", "cherry": "cherry",
 	"zelkova": "elm",
 }
 
@@ -76,7 +76,7 @@ func _build_trees(trees: Array) -> void:
 	var leaf_shader: Shader = _loader._get_shader("tree_leaf_glb", _tree_glb_leaf_shader_code())
 	var bark_shader: Shader = _loader._get_shader("tree_bark", "res://shaders/tree_bark.gdshader")
 
-	for model_name in ["maple", "birch", "deciduous", "pine", "elm"]:
+	for model_name in ["maple", "birch", "deciduous", "pine", "elm", "oak", "cherry"]:
 		var abs_path := ProjectSettings.globalize_path("res://models/trees/%s.glb" % model_name)
 		if not FileAccess.file_exists(abs_path):
 			print("WARNING: tree model not found: %s" % abs_path)
