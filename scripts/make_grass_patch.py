@@ -144,12 +144,12 @@ def make_clover_leaf(bm, color_layer, uv_layer, cx, cz, height, size):
 
 # Flower types with colors (Central Park lawn weeds/wildflowers)
 FLOWER_PALETTE = [
-    # (rgb, size_mult, name)
-    ((0.90, 0.90, 0.85), 0.8, "white_clover_bloom"),
-    ((0.85, 0.78, 0.15), 1.0, "dandelion"),
-    ((0.50, 0.30, 0.70), 0.7, "violet"),
-    ((0.85, 0.85, 0.80), 0.5, "chickweed"),
-    ((0.80, 0.55, 0.70), 0.6, "henbit"),
+    # (rgb, size_mult, name) — subtle, small, nestled in grass
+    ((0.70, 0.70, 0.62), 0.5, "white_clover_bloom"),
+    ((0.72, 0.65, 0.12), 0.6, "dandelion"),
+    ((0.40, 0.25, 0.55), 0.5, "violet"),
+    ((0.65, 0.65, 0.58), 0.35, "chickweed"),
+    ((0.60, 0.42, 0.52), 0.4, "henbit"),
 ]
 
 
@@ -221,7 +221,7 @@ def build_grass_tile(cfg, seed):
         fz = r * math.sin(theta)
         fh = rng.uniform(h_lo * 0.8, h_hi * 1.1)
         ftype = rng.choice(FLOWER_PALETTE)
-        fsize = rng.uniform(0.012, 0.022) * ftype[1]
+        fsize = rng.uniform(0.008, 0.014) * ftype[1]
         make_flower(bm, color_layer, uv_layer, fx, fz, fh, fsize, ftype[0])
 
     # Clover patches — 3-leaf clusters nestled in grass
@@ -232,13 +232,13 @@ def build_grass_tile(cfg, seed):
         cx = r * math.cos(theta)
         cz = r * math.sin(theta)
         ch = rng.uniform(h_lo * 0.5, h_lo * 0.9)
-        csize = rng.uniform(0.015, 0.025)
+        csize = rng.uniform(0.010, 0.018)
         make_clover_leaf(bm, color_layer, uv_layer, cx, cz, ch, csize)
-        # 30% chance of white clover bloom on top
-        if rng.random() < 0.3:
+        # 20% chance of white clover bloom on top
+        if rng.random() < 0.2:
             make_flower(bm, color_layer, uv_layer, cx, cz,
-                        ch + 0.01, rng.uniform(0.008, 0.014),
-                        (0.90, 0.90, 0.85))
+                        ch + 0.008, rng.uniform(0.005, 0.010),
+                        (0.65, 0.65, 0.58))
 
     return bm
 
@@ -269,7 +269,7 @@ GRASS_TYPES = [
         "tip_rgb": (0.48, 0.68, 0.30),
         "color_var": 0.04,
         "flower_pct": 0.01,   # A Lawn: almost no weeds
-        "clover_pct": 0.02,
+        "clover_pct": 0.01,
         "seed": 42,
     },
     # 1: Great Lawn — rich green maintained turf (A Lawn, mowed 2x/week)
@@ -285,7 +285,7 @@ GRASS_TYPES = [
         "tip_rgb": (0.42, 0.62, 0.25),
         "color_var": 0.05,
         "flower_pct": 0.01,
-        "clover_pct": 0.02,
+        "clover_pct": 0.01,
         "seed": 73,
     },
     # 2: North Meadow — open meadow (A Lawn, heavily used soccer fields)
@@ -301,7 +301,7 @@ GRASS_TYPES = [
         "tip_rgb": (0.45, 0.60, 0.26),
         "color_var": 0.06,
         "flower_pct": 0.02,   # A Lawn but heavy use = some weeds
-        "clover_pct": 0.04,
+        "clover_pct": 0.02,
         "seed": 109,
     },
     # 3: Formal garden — Conservatory Garden, Shakespeare Garden (A Lawn)
@@ -349,7 +349,7 @@ GRASS_TYPES = [
         "tip_rgb": (0.25, 0.42, 0.15),
         "color_var": 0.05,
         "flower_pct": 0.06,   # D Lawn: violets, chickweed
-        "clover_pct": 0.04,
+        "clover_pct": 0.02,
         "seed": 233,
     },
     # 6: Ramble / Dene — moderate woodland floor (D Lawn)
@@ -365,7 +365,7 @@ GRASS_TYPES = [
         "tip_rgb": (0.30, 0.48, 0.18),
         "color_var": 0.05,
         "flower_pct": 0.05,
-        "clover_pct": 0.05,
+        "clover_pct": 0.02,
         "seed": 277,
     },
     # 7: Waterside — near lakes/ponds, taller moisture-loving (C Lawn)
@@ -397,7 +397,7 @@ GRASS_TYPES = [
         "tip_rgb": (0.45, 0.48, 0.20),
         "color_var": 0.06,
         "flower_pct": 0.10,   # Nature reserve: abundant wildflowers
-        "clover_pct": 0.06,
+        "clover_pct": 0.03,
         "seed": 359,
     },
     # 9: Open lawn — default maintained grass (B/C Lawn)
@@ -413,7 +413,7 @@ GRASS_TYPES = [
         "tip_rgb": (0.44, 0.62, 0.26),
         "color_var": 0.05,
         "flower_pct": 0.03,   # B/C Lawn: some clover + dandelions
-        "clover_pct": 0.05,
+        "clover_pct": 0.02,
         "seed": 401,
     },
 ]
