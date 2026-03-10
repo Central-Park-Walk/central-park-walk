@@ -12,6 +12,7 @@ varying float v_grass_type;
 varying vec3 v_world_pos;
 varying float v_mow_stripe;  // -1 to +1: mowing stripe lean direction (mowed lawns only)
 varying float v_path_prox;   // 0-1: proximity to nearest path (for edge wear)
+varying float v_edge_fade;   // 0-1: soft fade at tile edge (0=center, 1=perimeter)
 
 void vertex() {
 	// INSTANCE_CUSTOM: R = grass_type, G = random, B = path_proximity
@@ -20,6 +21,14 @@ void vertex() {
 
 	vec3 origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	v_world_pos = origin;
+
+	// Soft edge fade: compute how close this blade is to the tile perimeter.
+	// Tile models are circular with radius ~0.95-1.0m in model space.
+	// Blades near the edge get faded out (dithered discard in fragment),
+	// creating soft overlapping boundaries that hide the grid pattern.
+	float blade_r = length(VERTEX.xz);  // model-space distance from tile center
+	float tile_radius = 1.0;  // approximate tile model radius
+	v_edge_fade = smoothstep(0.5, 1.0, blade_r / tile_radius);  // 0 at center, 1 at edge
 
 	// Height-based sway: model-space VERTEX.y (0 at base, tip varies by type)
 	float sway = max(VERTEX.y, 0.0);
@@ -105,6 +114,14 @@ void fragment() {
 	float winter_discard = smoothstep(3.2, 3.8, season_t);
 	if (winter_discard > 0.95 && v_grass_type < 4.5) discard;  // lawn types only
 
+	// Soft tile edge: stochastically discard blades near tile perimeter.
+	// This creates a soft circular falloff per tile — adjacent tiles' soft edges
+	// overlap, producing a seamless carpet instead of a visible grid.
+	if (v_edge_fade > 0.01) {
+		float edge_dither = fract(sin(dot(FRAGCOORD.xy, vec2(12.9898, 78.233))) * 43758.5453);
+		if (edge_dither < v_edge_fade * 0.85) discard;  // 85% discard chance at very edge
+	}
+
 	// Vertex colors from Blender model provide base albedo
 	vec3 col = COLOR.rgb;
 
@@ -113,8 +130,10 @@ void fragment() {
 	// warm olive-green, albedo ~0.05-0.10. Blender vertex colors produce ~0.15-0.30
 	// which looks neon after gamma correction. Aggressively tone down.
 	float base_lum = dot(col, vec3(0.299, 0.587, 0.114));
-	col = mix(vec3(base_lum), col, 0.55);  // 45% desaturation — match terrain grass toning
-	col *= vec3(0.78, 0.74, 0.60);  // darken to match terrain 0.82× + reduce green channel
+	col = mix(vec3(base_lum), col, 0.60);  // 40% desaturation
+	// With specular=0, blades are purely diffuse like terrain. Albedo can be closer
+	// to terrain values without needing to compensate for specular highlights.
+	col *= vec3(0.68, 0.64, 0.54);  // darken to match terrain grass albedo range
 
 	// --- Height-based shading: darker at base, brighter at tip ---
 	// UV.y from Blender: 0.0 at base, 1.0 at tip (set in make_grass_patch.py)
@@ -225,16 +244,22 @@ void fragment() {
 		}
 	}
 
-	// Aerial perspective: desaturate + cool shift at distance (match terrain)
+	// Distance-based darkening (match terrain shader: blade highlights average out at distance)
 	float blade_dist = length(v_world_pos - INV_VIEW_MATRIX[3].xyz);
+	float dist_darken = smoothstep(30.0, 150.0, blade_dist) * 0.25;
+	col *= (1.0 - dist_darken);
+	// Aerial perspective: desaturate + cool shift at distance (match terrain)
 	float blade_aerial = smoothstep(60.0, 300.0, blade_dist);
 	float col_lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
 	col = mix(col, vec3(col_lum), blade_aerial * 0.25);
 	col = mix(col, col * vec3(0.94, 0.96, 1.04), blade_aerial);
 
 	ALBEDO    = col;
-	ROUGHNESS = mix(0.85, 0.70, blade_t);  // tips smoother (catch specular)
-	SPECULAR  = mix(0.05, 0.15, blade_t);  // tips more reflective
+	// Real grass is one of the most Lambertian surfaces in nature — almost no specular.
+	// Any specular on 3D blades makes them pop brighter than the flat terrain underneath,
+	// creating a visible grid pattern from tile placement.
+	ROUGHNESS = 0.95;
+	SPECULAR  = 0.0;
 	METALLIC  = 0.0;
 
 	// Rain: wet darkening + gloss
@@ -283,7 +308,7 @@ void fragment() {
 		ALBEDO   *= mix(1.0, 0.85, dew_drop * 0.5);
 	}
 
-	// Backlight / subsurface scattering — stronger at blade tips
-	// Light passing through thin grass blade tips creates warm glow
-	BACKLIGHT = col * mix(0.15, 0.50, blade_t);
+	// Backlight / subsurface scattering — subtle, only at blade tips.
+	// Reduced to prevent grass tiles appearing brighter than terrain underneath.
+	BACKLIGHT = col * mix(0.05, 0.20, blade_t);
 }

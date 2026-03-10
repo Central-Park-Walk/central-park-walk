@@ -110,9 +110,10 @@ func _build_grass() -> void:
 				continue
 
 		rng.seed = int(wx * 73856.0 + wz * 19349.0) & 0x7FFFFFFF
-		# Jitter position to break up grid regularity — offset within ±0.6m
-		var jx: float = wx + rng.randf_range(-0.6, 0.6)
-		var jz: float = wz + rng.randf_range(-0.6, 0.6)
+		# Jitter position to break up grid regularity — offset within ±0.9m
+		# (stride is ~1.83m at 8K, so ±0.9m gives nearly full-stride randomization)
+		var jx: float = wx + rng.randf_range(-0.9, 0.9)
+		var jz: float = wz + rng.randf_range(-0.9, 0.9)
 		var wy: float = _loader._terrain_y(jx, jz) + 0.002
 
 		# Skip grass near water — prevents checkerboard at water body edges
@@ -146,11 +147,14 @@ func _build_grass() -> void:
 						path_prox = maxf(path_prox, 0.4)
 
 		var y_rot := rng.randf() * TAU
-		var s := rng.randf_range(0.82, 1.18)  # wider scale range for variety
-		# Path-edge grass is shorter: scale down near paths
+		# Decouple XZ scale (coverage) from Y scale (height) — wide XZ ensures
+		# overlap between neighboring tiles, hiding the grid pattern.
+		var s_xz := rng.randf_range(1.0, 1.45)  # always >= tile radius, up to 45% larger
+		var s_y := rng.randf_range(0.85, 1.15)   # subtle height variation only
+		# Path-edge grass is shorter: scale down height near paths
 		if path_prox > 0.1:
-			s *= lerpf(1.0, 0.55, path_prox)  # up to 45% shorter at edge
-		var basis := Basis(Vector3.UP, y_rot).scaled(Vector3(s, s, s))
+			s_y *= lerpf(1.0, 0.55, path_prox)  # up to 45% shorter at edge
+		var basis := Basis(Vector3.UP, y_rot).scaled(Vector3(s_xz, s_y, s_xz))
 		var tf := Transform3D(basis, Vector3(jx, wy, jz))
 
 		var cx := int(floorf(wx / CHUNK))

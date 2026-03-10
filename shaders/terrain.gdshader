@@ -161,16 +161,18 @@ void fragment() {
 	// Aerial imagery of Central Park shows a patchwork of greens, olives, browns.
 
 	// Define grass color targets (linear space values — these blend with PBR texture)
-	vec3 lush_green    = vec3(0.05, 0.10, 0.03);  // deep rich green — recently watered
-	vec3 olive_green   = vec3(0.08, 0.08, 0.03);  // olive — normal healthy grass
+	// Brightened to better match 3D grass blade shader output — prevents visible grid
+	vec3 lush_green    = vec3(0.07, 0.12, 0.04);  // deep rich green — recently watered
+	vec3 olive_green   = vec3(0.10, 0.10, 0.04);  // olive — normal healthy grass
 	vec3 yellow_stress = vec3(0.14, 0.12, 0.04);  // yellow-green — drought stress
 	vec3 brown_dirt    = vec3(0.10, 0.07, 0.04);  // exposed soil/thatch
 
 	// Scale 1: very large (100-200m) — whole-field condition (visible from aerial)
 	float field_cond = vnoise(world_pos.xz * 0.003 + vec2(50.0, 23.0));
-	// Mix between lush and olive at field scale — strong enough to show from 100m
+	// Mix between lush and olive at field scale — visible from 100m but subtle
+	// enough that grass blade clumps don't create a grid pattern
 	vec3 field_tone = mix(lush_green, olive_green, field_cond);
-	grass_alb = mix(grass_alb, field_tone, 0.40);
+	grass_alb = mix(grass_alb, field_tone, 0.25);
 
 	// Scale 2: large patches (25-40m) — drainage, irrigation, sun/shade
 	float lawn_large = fbm(world_pos.xz * 0.006, 3);
@@ -188,9 +190,10 @@ void fragment() {
 	grass_alb *= vec3(1.0 + temp_shift * 0.28, 1.0, 1.0 - temp_shift * 0.22);
 
 	// Scale 5: small-scale thinning (2-4m) — bare spots, compaction, foot traffic
+	// Reduced from 0.30 to 0.15 to prevent dark spots that contrast with 3D grass blades
 	float thin_noise = vnoise(world_pos.xz * 0.15);
 	float thin_patch = smoothstep(0.50, 0.70, thin_noise);
-	grass_alb = mix(grass_alb, brown_dirt, thin_patch * 0.30);
+	grass_alb = mix(grass_alb, brown_dirt, thin_patch * 0.15);
 
 	// Distance-based darkening + aerial perspective.
 	// Far grass darkens (blade highlights average out, self-shadowing).
