@@ -194,6 +194,12 @@ void fragment() {
 	float thin_patch = smoothstep(0.50, 0.70, thin_noise);
 	grass_alb = mix(grass_alb, brown_dirt, thin_patch * 0.30);
 
+	// Distance-based darkening — grass appears darker from far away/aerial.
+	// Individual blade highlights average out, self-shadowing reduces canopy albedo.
+	float cam_dist = length(world_pos - INV_VIEW_MATRIX[3].xyz);
+	float dist_darken = smoothstep(30.0, 150.0, cam_dist) * 0.25;
+	grass_alb *= (1.0 - dist_darken);
+
 	// --- Seasonal grass color modulation ---
 	// Spring (0-1): fresh bright green, Summer (1-2): rich green (baseline),
 	// Autumn (2-3): golden-brown, Winter (3-4): dormant brown
