@@ -87,10 +87,15 @@ void vertex() {
 	flutter += sin(TIME * 8.0 + VERTEX.z * 18.0) * 0.008 * gust_str;
 	VERTEX.y += flutter * sway;
 
-	// Winter: lawn types go dormant (shorter). Woodland already sparse.
+	// Winter: lawn types go dormant — shrink nearly flat to avoid grid pattern
+	// on brown terrain. Terrain shader handles winter ground color.
 	float winter_t = smoothstep(3.0, 3.5, season_t);
 	if (winter_t > 0.0 && (v_grass_type < 4.5 || v_grass_type > 8.5)) {
-		VERTEX.y *= mix(1.0, 0.3, winter_t);
+		VERTEX.y *= mix(1.0, 0.08, winter_t);  // nearly flat — 8% of summer height
+	}
+	// Woodland grass also shrinks but less (some evergreen understory)
+	if (winter_t > 0.0 && v_grass_type > 4.5 && v_grass_type < 8.5) {
+		VERTEX.y *= mix(1.0, 0.25, winter_t);
 	}
 }
 

@@ -199,22 +199,33 @@ void fragment() {
 	// Autumn (2-3): golden-brown, Winter (3-4): dormant brown
 	{
 		float spring_t = 1.0 - smoothstep(0.0, 1.0, season_t);
-		float autumn_t = smoothstep(2.0, 2.8, season_t) * (1.0 - smoothstep(3.2, 4.0, season_t));
-		float winter_t = smoothstep(3.0, 3.5, season_t);
+		float autumn_t = smoothstep(2.0, 2.6, season_t) * (1.0 - smoothstep(2.8, 3.5, season_t));
+		float winter_t = smoothstep(2.7, 3.1, season_t);  // dormancy starts in late autumn
 		// Spring: brighter, more yellow-green
 		vec3 spring_grass = grass_alb * vec3(1.1, 1.15, 0.75);
 		// Autumn: golden-amber, desaturated
 		vec3 autumn_grass = grass_alb * vec3(1.3, 0.85, 0.45);
-		// Winter: dormant brown, desaturated
+		// Winter: dormant brown — nearly flat color to eliminate tiling artifacts.
+		// Real dormant grass is uniformly straw-brown, very little texture contrast.
 		float g_lum = dot(grass_alb, vec3(0.299, 0.587, 0.114));
-		vec3 winter_grass = mix(vec3(g_lum), grass_alb, 0.3) * vec3(0.85, 0.78, 0.55);
+		// Flat dormant brown with only slight noise variation (not from texture)
+		vec3 dormant_brown = vec3(0.12, 0.10, 0.06);
+		float w_noise = vnoise(world_pos.xz * 0.04) * 0.03;
+		vec3 winter_grass = dormant_brown + w_noise;
 		grass_alb = mix(grass_alb, spring_grass, spring_t * 0.6);
 		grass_alb = mix(grass_alb, autumn_grass, autumn_t * 0.7);
-		grass_alb = mix(grass_alb, winter_grass, winter_t * 0.8);
+		grass_alb = mix(grass_alb, winter_grass, winter_t);
 	}
 
 	vec3 grass_nrm = textureNoTile_n(grass_normal, uv);
 	float grass_rgh = clamp(textureNoTile_r(grass_rough, uv) * 0.20 + 0.65, 0.0, 1.0);
+	// Winter: flatten normal map and increase roughness — dormant grass is a flat mat
+	// of straw, not textured blades. Eliminates anti-tiling checkerboard in normals.
+	{
+		float w_t = smoothstep(2.7, 3.1, season_t);
+		grass_nrm = mix(grass_nrm, vec3(0.5, 0.5, 1.0), w_t * 0.85);
+		grass_rgh = mix(grass_rgh, 0.95, w_t * 0.6);
+	}
 
 	// Meadow/wild grass blend — driven by landuse zones from OSM
 	// Unzoned areas (0) = woodland/meadow, zoned (garden/grass/pitch) = mowed lawn
