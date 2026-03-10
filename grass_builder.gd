@@ -1,14 +1,18 @@
 # grass_builder.gd
-# Dense wind-responsive grass patches on lawn and meadow surfaces.
-# Models built in Blender from Wikimedia Commons Central Park reference photos.
-# Mowed lawn: Sheep Meadow / Great Lawn style (short, dense, bright green + clover).
-# Wild meadow: North Woods / Ramble style (tall, flowing, darker green).
+# Data-driven grass system based on real Central Park vegetation zones.
+# Three grass types reflecting actual ground cover:
+#   Type 0 — Lawn: Kentucky bluegrass (Sheep Meadow, Great Lawn, etc.)
+#   Type 1 — Woodland floor: shade-adapted understory (North Woods, Ramble)
+#   Type 2 — Wild meadow: unmowed nature reserve areas
+# Density inversely proportional to canopy density (from Conservancy data).
 # Positions prebaked in convert_to_godot.py → grass_instances.bin.
 
 var _loader  # Reference to park_loader for shared utilities
 
 const CHUNK := 40.0      # spatial chunk size in metres
-const VIS_END := 60.0    # grass visibility range
+const VIS_LAWN := 80.0   # lawn visibility — larger patches, farther vis
+const VIS_WOOD := 50.0   # woodland — sparser, less vis needed
+const VIS_MEADOW := 70.0 # meadow — moderate
 
 
 func _init(loader) -> void:
@@ -20,15 +24,19 @@ func _build_grass() -> void:
 
 	var grass_shader: Shader = _loader._get_shader("grass_blade", "res://shaders/grass_blade.gdshader")
 
-	# Load Blender-built patch models
-	var mowed_mesh: Mesh = _load_patch_model("Grass_Patch_Mowed", grass_shader)
+	# Load Blender-built patch models (3 types)
+	var lawn_mesh: Mesh = _load_patch_model("Grass_Patch_Lawn", grass_shader)
+	var woodland_mesh: Mesh = _load_patch_model("Grass_Patch_Woodland", grass_shader)
 	var meadow_mesh: Mesh = _load_patch_model("Grass_Patch_Meadow", grass_shader)
 
-	if mowed_mesh == null and meadow_mesh == null:
+	# Fallback: try old names if new ones not found
+	if lawn_mesh == null:
+		lawn_mesh = _load_patch_model("Grass_Patch_Mowed", grass_shader)
+	if meadow_mesh == null and woodland_mesh == null and lawn_mesh == null:
 		print("Grass: no patch models loaded — skipping")
 		return
 
-	# Read prebaked instance positions from grass_instances.bin
+	# Read prebaked instance positions
 	var instances: Array = _load_instances()
 	if instances.is_empty():
 		print("Grass: no prebaked instances — skipping")
@@ -39,6 +47,11 @@ func _build_grass() -> void:
 	var type_arr: PackedByteArray = instances[2]
 	var count: int = x_arr.size()
 
+	# Map type → mesh and visibility range
+	var mesh_for_type: Array = [lawn_mesh, woodland_mesh, meadow_mesh]
+	var vis_for_type: Array = [VIS_LAWN, VIS_WOOD, VIS_MEADOW]
+	var prefix_for_type: Array = ["l", "w", "m"]
+
 	# Build transforms and group by type + spatial chunk
 	var chunks: Dictionary = {}
 	var total := 0
@@ -47,12 +60,15 @@ func _build_grass() -> void:
 	for i in count:
 		var wx: float = x_arr[i]
 		var wz: float = z_arr[i]
-		var is_meadow: bool = type_arr[i] == 1
+		var gtype: int = type_arr[i]
+
+		# Clamp to valid type range
+		if gtype > 2:
+			gtype = 0
 
 		# Skip if we don't have the model for this type
-		if is_meadow and meadow_mesh == null:
-			continue
-		if not is_meadow and mowed_mesh == null:
+		var mesh: Mesh = mesh_for_type[gtype]
+		if mesh == null:
 			continue
 
 		# Terrain height
@@ -65,28 +81,30 @@ func _build_grass() -> void:
 		var basis := Basis(Vector3.UP, y_rot).scaled(Vector3(s, s, s))
 		var tf := Transform3D(basis, Vector3(wx, wy, wz))
 
-		var grass_type := 1.0 if is_meadow else 0.0
+		var grass_type_f := float(gtype)
 		var cx := int(floorf(wx / CHUNK))
 		var cz := int(floorf(wz / CHUNK))
-		var tk := "m" if is_meadow else "l"
+		var tk: String = prefix_for_type[gtype]
 		var ck := "%s|%d|%d" % [tk, cx, cz]
 		if not chunks.has(ck):
-			chunks[ck] = {"type": tk, "xf": [], "cd": []}
+			chunks[ck] = {"type": gtype, "tk": tk, "xf": [], "cd": []}
 		chunks[ck]["xf"].append(tf)
-		chunks[ck]["cd"].append(Color(grass_type, rng.randf(), 0.0, 0.0))
+		chunks[ck]["cd"].append(Color(grass_type_f, rng.randf(), 0.0, 0.0))
 		total += 1
 
 	# Build MultiMesh per chunk
 	var chunk_count := 0
 	for ck in chunks:
 		var info: Dictionary = chunks[ck]
-		var tk: String = info["type"]
+		var gtype: int = info["type"]
+		var tk: String = info["tk"]
 		var xf_list: Array = info["xf"]
 		var cd_list: Array = info["cd"]
 		if xf_list.is_empty():
 			continue
 
-		var mesh: Mesh = meadow_mesh if tk == "m" else mowed_mesh
+		var mesh: Mesh = mesh_for_type[gtype]
+		var vis_end: float = vis_for_type[gtype]
 
 		# Compute chunk centroid for positioning
 		var sx := 0.0; var sy := 0.0; var sz := 0.0
@@ -111,7 +129,7 @@ func _build_grass() -> void:
 		mmi.multimesh = mm
 		mmi.position = chunk_origin
 		mmi.name = "Grass_%s" % ck.replace("|", "_")
-		mmi.visibility_range_end = VIS_END
+		mmi.visibility_range_end = vis_end
 		mmi.visibility_range_begin = 0.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -152,7 +170,6 @@ func _load_patch_model(mname: String, shader: Shader) -> Mesh:
 	var aabb: AABB = mesh.get_aabb()
 
 	# Replace each surface material with wind-responsive shader
-	# No texture needed — vertex colors provide albedo
 	for si in mesh.get_surface_count():
 		var new_mat := ShaderMaterial.new()
 		new_mat.shader = shader
@@ -167,6 +184,7 @@ func _load_patch_model(mname: String, shader: Shader) -> Mesh:
 func _load_instances() -> Array:
 	## Read prebaked grass_instances.bin → [x_arr, z_arr, type_arr]
 	## Format: uint32 count, float32[N] x, float32[N] z, uint8[N] type
+	## Type: 0=lawn, 1=woodland, 2=meadow
 	for path in ["res://grass_instances.bin"]:
 		var abs_path := ProjectSettings.globalize_path(path)
 		var f := FileAccess.open(abs_path, FileAccess.READ)
@@ -187,12 +205,10 @@ func _load_instances() -> Array:
 		var type_arr := PackedByteArray()
 		type_arr.resize(count)
 
-		# Read float32 arrays
 		var x_bytes := f.get_buffer(count * 4)
 		var z_bytes := f.get_buffer(count * 4)
 		var t_bytes := f.get_buffer(count)
 
-		# Decode packed arrays
 		for j in count:
 			x_arr[j] = x_bytes.decode_float(j * 4)
 			z_arr[j] = z_bytes.decode_float(j * 4)

@@ -147,10 +147,11 @@ void fragment() {
 	// --- Grass shading (textureNoTile — Inigo Quilez anti-tiling) ---
 	vec2 uv  = world_pos.xz / tile_m;
 	vec3 grass_alb = textureNoTile_c(grass_albedo, uv);
-	// Natural grass: moderate color correction (texture is quite saturated)
+	// Natural grass: keep saturation, boost green for summer lushness
 	float grass_lum = dot(grass_alb, vec3(0.299, 0.587, 0.114));
-	grass_alb = mix(vec3(grass_lum), grass_alb, 0.88);  // 12% desaturation
-	grass_alb.g *= 1.02;  // very mild green boost (was 1.12 — too neon)
+	grass_alb = mix(vec3(grass_lum), grass_alb, 0.92);  // 8% desaturation (was 12%)
+	grass_alb.g *= 1.08;  // green boost for lush lawn look
+	grass_alb.r *= 0.95;  // reduce warmth — real CP grass is cool green in summer
 	// Large-scale color variation: breaks up uniformity across wide lawns
 	float lawn_noise = fbm(world_pos.xz * 0.006, 2);
 	float lawn_warm  = fbm(world_pos.xz * 0.003 + vec2(100.0), 2);
