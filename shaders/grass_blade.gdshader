@@ -1,10 +1,7 @@
 shader_type spatial;
-render_mode cull_disabled, depth_prepass_alpha;
+render_mode cull_disabled;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
-
-uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic;
-uniform float alpha_scissor : hint_range(0.0, 1.0) = 0.0;
 
 global uniform vec2 wind_vec;
 global uniform float season_t;
@@ -15,19 +12,29 @@ varying float v_grass_type;
 varying vec3 v_world_pos;
 
 void vertex() {
-	// INSTANCE_CUSTOM: R = grass_type (0=mowed, 1=meadow)
+	// INSTANCE_CUSTOM: R = grass_type (0=lawn, 1=woodland, 2=meadow)
 	v_grass_type = INSTANCE_CUSTOM.r;
 
 	vec3 origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	v_world_pos = origin;
 
-	// Height-based sway: model-space VERTEX.y (0 at base, ~1-2 at tip)
+	// Height-based sway: model-space VERTEX.y (0 at base, tip varies by type)
 	float sway = max(VERTEX.y, 0.0);
 	float wind_str = length(wind_vec);
-	float flex = mix(0.7, 2.2, v_grass_type);
+
+	// Wind response varies by type:
+	// Lawn (0): moderate sway — short mowed grass
+	// Woodland (1): minimal sway — sheltered under canopy
+	// Meadow (2): strong sway — tall flowing grass
+	float flex = 0.7;
+	if (v_grass_type > 1.5) {
+		flex = 2.5;  // meadow: dramatic flow
+	} else if (v_grass_type > 0.5) {
+		flex = 0.4;  // woodland: sheltered
+	}
 	float rustle = (0.2 + wind_str * 0.8) * flex;
 
-	// Base sway: continuous oscillation (faster than trees)
+	// Base sway: continuous oscillation
 	float px = origin.x * 0.15 + origin.z * 0.22;
 	float pz = origin.z * 0.18 + origin.x * 0.12;
 	VERTEX.x += sin(TIME * 1.8 + px) * 0.12 * sway * rustle;
@@ -37,7 +44,7 @@ void vertex() {
 	VERTEX.x += wind_vec.x * sway * 0.4 * flex;
 	VERTEX.z += wind_vec.y * sway * 0.4 * flex;
 
-	// Traveling wind gusts (wave across the field)
+	// Traveling wind gusts
 	float gust_phase = origin.x * 0.04 + origin.z * 0.05;
 	float gust = sin(TIME * 0.5 + gust_phase) * 0.5 + 0.5;
 	gust = gust * gust * gust;
@@ -50,7 +57,7 @@ void vertex() {
 	flutter += sin(TIME * 8.0 + VERTEX.z * 18.0) * 0.008 * gust_str;
 	VERTEX.y += flutter * sway;
 
-	// Winter: mowed grass goes dormant (shorter)
+	// Winter: lawn goes dormant (shorter). Woodland already sparse. Meadow browns.
 	float winter_t = smoothstep(3.0, 3.5, season_t);
 	if (winter_t > 0.0 && v_grass_type < 0.5) {
 		VERTEX.y *= mix(1.0, 0.3, winter_t);
@@ -58,15 +65,10 @@ void vertex() {
 }
 
 void fragment() {
-	vec4 tex = texture(albedo_tex, UV);
-	if (tex.a < alpha_scissor) discard;
+	// Vertex colors from Blender model provide base albedo
+	vec3 col = COLOR.rgb;
 
-	vec3 col = tex.rgb;
-
-	// Apply model vertex colours (Quaternius uses these for AO / tint variation)
-	col *= COLOR.rgb;
-
-	// Seasonal colour modulation
+	// --- Seasonal colour modulation ---
 	float spring_t = 1.0 - smoothstep(0.0, 1.0, season_t);
 	float autumn_t = smoothstep(2.0, 2.8, season_t) * (1.0 - smoothstep(3.2, 4.0, season_t));
 	float winter_t = smoothstep(3.0, 3.5, season_t);

@@ -2863,28 +2863,61 @@ def prebake_world_atlas(boundary_pts, paths, water, buildings, trees,
 def prebake_grass_instances(landuse_zones):
     """Pre-bake grass patch positions → grass_instances.bin.
 
-    Scans the world atlas (surface=1 grass, no occupancy) and landuse map
-    (zone filtering) at STRIDE=4 (~2.44m spacing). Each instance stores
-    world X/Z position and mowed/meadow type.
+    Data-driven density: stride varies by landuse zone to reflect real
+    Central Park ground cover. Grass density is inversely proportional to
+    canopy density — dense woodland has sparse ground cover.
+
+    Three grass types based on real park vegetation:
+      0 = Maintained lawn (Kentucky bluegrass) — dense, bright green
+          Zones: grass(2), pitch(3), sports(7), garden(1), unzoned(0)
+          Stride: 3 (~1.83m) — patches overlap at 0.85m radius
+      1 = Woodland floor — sparse shade-adapted understory
+          Zones: wood(10), forest(11)
+          Stride: 6 (~3.66m) — sparse, canopy blocks light
+      2 = Wild meadow — tall flowing grass
+          Zone: nature_reserve(5)
+          Stride: 4 (~2.44m) — moderate density
 
     Output: grass_instances.bin
-    Format: uint32 count
-            float32[count] x_positions
-            float32[count] z_positions
-            uint8[count]   is_meadow (0=mowed lawn, 1=wild meadow)
-
-    Depends on: world_atlas.bin, landuse_map.png (both must be prebaked first)
+    Format: uint32 count, float32[N] x, float32[N] z, uint8[N] type
     """
     import numpy as np
     import struct
     from PIL import Image
 
-    STRIDE = 3
     RES = ATLAS_RES
     HALF = WORLD_SIZE / 2.0
     cell_m = WORLD_SIZE / RES
 
-    print("Pre-baking grass instances (stride=%d)..." % STRIDE)
+    # Zone → grass type and stride
+    # Skip zones: playground(4), dog_park(6), pool(8), track(9), water(12), shore(13)
+    SKIP_ZONES = {4, 6, 8, 9, 12, 13}
+    ZONE_CONFIG = {
+        # zone_id: (grass_type, stride)
+        0:  (0, 3),   # unzoned → lawn, moderate density
+        1:  (0, 3),   # garden → lawn
+        2:  (0, 3),   # grass → lawn (Sheep Meadow, Great Lawn, etc.)
+        3:  (0, 3),   # pitch → lawn (sports turf)
+        5:  (2, 4),   # nature_reserve → wild meadow
+        7:  (0, 3),   # sports → lawn
+        10: (1, 6),   # wood → woodland floor, sparse
+        11: (1, 6),   # forest → woodland floor, sparse
+    }
+
+    # Woodland detection for unzoned (zone 0) cells.
+    # OSM natural=wood polygons aren't in the landuse map, so use foliage
+    # zone Z-ranges from Conservancy data to classify woodland understory.
+    # These match the 12 ecological zones in _foliage_zones.
+    # Dense canopy zones (density_mult >= 1.0) → woodland floor (sparse grass).
+    WOODLAND_Z_RANGES = [
+        (-1800, -1125),  # North Woods (density 1.3)
+        (-1650, -1350),  # Ravine/The Loch (density 1.1)
+        (-750, -375),    # The Ramble (density 1.0)
+        (-375, -150),    # The Dene (density 0.9 — borderline, include)
+        (75, 375),       # Hallett Nature Sanctuary (density 1.4)
+    ]
+
+    print("Pre-baking grass instances (zone-aware density)...")
 
     # Load world atlas
     atlas_path = "world_atlas.bin"
@@ -2905,30 +2938,49 @@ def prebake_grass_instances(landuse_zones):
     landuse_img = Image.open(landuse_path).convert('L')
     landuse_arr = np.array(landuse_img, dtype=np.uint8)
 
-    # Scan atlas at stride intervals
-    # Zone filtering: skip water(4), bridge(6), pool(8), track(9)
-    # Meadow zones: nature_reserve(5), wood(10), forest(11)
-    SKIP_ZONES = {4, 6, 8, 9}
-    MEADOW_ZONES = {5, 10, 11}
-
     xs = []
     zs = []
     types = []
     rng = np.random.RandomState(73856093)
 
-    for gz in range(0, RES, STRIDE):
-        for gx in range(0, RES, STRIDE):
-            if surface[gz, gx] != 1:  # not grass
+    # Multi-pass: scan at each stride level to handle different zone densities
+    # Use stride=1 scan with per-cell stride check (simple, correct)
+    # But that's slow for 67M cells. Instead, scan at finest stride (3) and
+    # sub-sample coarser zones with modular arithmetic.
+    BASE_STRIDE = 3
+
+    for gz in range(0, RES, BASE_STRIDE):
+        for gx in range(0, RES, BASE_STRIDE):
+            if surface[gz, gx] != 1:  # not grass surface
                 continue
-            if occupancy[gz, gx] & 0x1F != 0:  # occupied
+            if occupancy[gz, gx] & 0x1F != 0:  # occupied by tree/bench/etc
                 continue
 
-            # Landuse zone check
             zone = int(landuse_arr[gz, gx])
             if zone in SKIP_ZONES:
                 continue
 
-            # Deterministic jitter (must match GDScript seed pattern)
+            config = ZONE_CONFIG.get(zone)
+            if config is None:
+                continue
+
+            grass_type, zone_stride = config
+
+            # For unzoned cells, check if in a woodland foliage zone
+            if zone == 0:
+                wz_check = float(gz) * cell_m - HALF
+                for z_lo, z_hi in WOODLAND_Z_RANGES:
+                    if z_lo <= wz_check <= z_hi:
+                        grass_type = 1   # woodland floor
+                        zone_stride = 6  # sparse under canopy
+                        break
+
+            # Sub-sample: skip cells that don't align with this zone's stride
+            if zone_stride > BASE_STRIDE:
+                if (gx % zone_stride) != 0 or (gz % zone_stride) != 0:
+                    continue
+
+            # Deterministic jitter
             seed_val = gx * 73856093 + gz * 19349663
             rng.seed(seed_val & 0x7FFFFFFF)
             jx = rng.uniform(-0.3, 0.3) * cell_m
@@ -2937,19 +2989,18 @@ def prebake_grass_instances(landuse_zones):
             wx = float(gx) * cell_m - HALF + jx
             wz = float(gz) * cell_m - HALF + jz
 
-            is_meadow = 1 if zone in MEADOW_ZONES else 0
-
             xs.append(wx)
             zs.append(wz)
-            types.append(is_meadow)
+            types.append(grass_type)
 
     count = len(xs)
     x_arr = np.array(xs, dtype=np.float32)
     z_arr = np.array(zs, dtype=np.float32)
     type_arr = np.array(types, dtype=np.uint8)
 
-    n_mowed = int(np.sum(type_arr == 0))
-    n_meadow = int(np.sum(type_arr == 1))
+    n_lawn = int(np.sum(type_arr == 0))
+    n_woodland = int(np.sum(type_arr == 1))
+    n_meadow = int(np.sum(type_arr == 2))
 
     out_path = "grass_instances.bin"
     with open(out_path, 'wb') as f:
@@ -2959,7 +3010,7 @@ def prebake_grass_instances(landuse_zones):
         f.write(type_arr.tobytes())
 
     size_mb = os.path.getsize(out_path) / (1024 * 1024)
-    print(f"  Grass: {count} instances ({n_mowed} mowed, {n_meadow} meadow) → {size_mb:.1f} MB")
+    print(f"  Grass: {count} instances ({n_lawn} lawn, {n_woodland} woodland, {n_meadow} meadow) → {size_mb:.1f} MB")
 
 
 def prebake_landuse_map(landuse_zones, water_bodies):

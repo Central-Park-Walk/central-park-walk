@@ -1,17 +1,24 @@
-"""Build grass clump models for Central Park Walk.
+"""Build grass patch models for Central Park Walk.
 
-Reference: grassexample.png — bushy 3D grass clumps with wide arching blades
-radiating outward from center. When tiled densely, fully carpets the ground.
+Data-driven grass based on real Central Park vegetation zones:
+  1. Maintained lawn (Kentucky bluegrass) — Sheep Meadow, Great Lawn, etc.
+     Short (6-10cm), dense, bright green. Largest footprint (~0.85m radius)
+     so patches overlap at 1.83m spacing to carpet the ground.
+  2. Woodland floor — North Woods, Ramble, Hallett understory.
+     Sparse, shade-adapted, darker green. Smaller footprint (~0.45m radius).
+  3. Wild meadow — Nature reserve edges, unmowed areas.
+     Tall (20-35cm), flowing, varied green with golden tips.
 
-Two clump types:
-  1. Mowed lawn (Sheep Meadow, Great Lawn) — shorter, tighter clumps
-  2. Wild meadow (North Woods, Ramble) — taller, wider, more dramatic arch
+Colors from PIL analysis of Wikimedia Commons Central Park reference photos:
+  - Sheep Meadow: bright green Kentucky bluegrass
+  - North Woods/Ramble: darker shade-adapted understory
+  - Grass texture close-up: blade color gradients
 
-Each blade is a wide curved mesh strip (1.5-2.5cm wide, 3 segments).
-Blades radiate outward from the clump center like a fountain.
-Vertex colors encode green variation for the wind shader.
+Each blade is a wide curved mesh strip radiating outward from clump center.
+Vertex colors provide albedo (no texture needed — shader uses COLOR.rgb).
 
-Exports to models/vegetation/Grass_Patch_Mowed.glb
+Exports to models/vegetation/Grass_Patch_Lawn.glb
+                              Grass_Patch_Woodland.glb
                               Grass_Patch_Meadow.glb
 """
 
@@ -50,38 +57,33 @@ def make_blade(bm, color_layer, uv_layer,
                segments, base_rgb, tip_rgb):
     """Create one wide arching grass blade as a curved mesh strip.
 
-    Blades arch outward from center — the arch_strength controls how far
-    the tip extends horizontally from the base.
+    Blades arch outward from center — arch_strength controls horizontal reach.
+    Height follows parabolic arc: rises then droops toward tip.
     """
-    # Blade faces outward from clump center
     out_dx = math.cos(rot)
     out_dz = math.sin(rot)
-    # Perpendicular direction for blade width
     perp_dx = -math.sin(rot)
     perp_dz = math.cos(rot)
 
     vert_pairs = []
     for si in range(segments + 1):
         t = si / segments
-        # Height follows a parabolic arc (rises then curves over)
+        # Parabolic arc: rises then curves over
         seg_h = height * (t - 0.3 * t * t)
         # Horizontal extension: blade arches outward
         extend = arch_strength * t * t
         # Width tapers from base to tip
-        seg_w = width * (1.0 - t * 0.75)
+        seg_w = width * (1.0 - t * 0.7)
         hw = seg_w * 0.5
 
-        # Center of blade at this segment
         cx = bx + out_dx * extend
         cz = bz + out_dz * extend
 
-        # Left and right vertices (perpendicular to outward direction)
         lx = cx + perp_dx * hw
         lz = cz + perp_dz * hw
         rx = cx - perp_dx * hw
         rz = cz - perp_dz * hw
 
-        # Colour interpolation
         r = base_rgb[0] + (tip_rgb[0] - base_rgb[0]) * t
         g = base_rgb[1] + (tip_rgb[1] - base_rgb[1]) * t
         b = base_rgb[2] + (tip_rgb[2] - base_rgb[2]) * t
@@ -90,7 +92,6 @@ def make_blade(bm, color_layer, uv_layer,
         vr = bm.verts.new((rx, seg_h, rz))
         vert_pairs.append((vl, vr, (r, g, b, 1.0), t))
 
-    # Create quad faces between segment pairs
     for si in range(segments):
         vl0, vr0, col0, t0 = vert_pairs[si]
         vl1, vr1, col1, t1 = vert_pairs[si + 1]
@@ -116,47 +117,80 @@ def make_blade(bm, color_layer, uv_layer,
 
 
 # ---------------------------------------------------------------------------
-# Clump builders
+# Lawn patch — Kentucky bluegrass (Sheep Meadow, Great Lawn, etc.)
 # ---------------------------------------------------------------------------
-def build_mowed_clump(seed=42):
-    """Mowed lawn clump — shorter, tighter, bushy.
+def build_lawn_patch(seed=42):
+    """Maintained lawn — Kentucky bluegrass, mowed 5-10cm.
 
-    ~18 wide blades radiating outward, 8-15cm tall, 1.5-2cm wide.
-    Moderate arch. Dense coverage when tiled.
+    Large footprint (~0.85m radius) so patches overlap at 1.83m spacing.
+    Two rings of blades:
+      Inner ring (12 blades): moderate arch, taller
+      Outer ring (22 blades): strong arch, ground-hugging, fills carpet
+    Total: 34 blades.
+
+    Colors from Sheep Meadow reference photos:
+      Base: dark rich green (0.12, 0.28, 0.04)
+      Tips: bright yellow-green (0.38, 0.55, 0.22)
     """
     rng = random.Random(seed)
-
     bm = bmesh.new()
     color_layer = bm.loops.layers.color.new("Color")
     uv_layer = bm.loops.layers.uv.new("UV")
 
-    BLADE_COUNT = 18
+    # --- Inner ring: 12 taller blades near center ---
+    INNER_COUNT = 12
+    for i in range(INNER_COUNT):
+        base_angle = (i / INNER_COUNT) * 2 * math.pi
+        rot = base_angle + rng.uniform(-0.35, 0.35)
 
-    for i in range(BLADE_COUNT):
-        # Evenly spaced around center with jitter
-        base_angle = (i / BLADE_COUNT) * 2 * math.pi
-        rot = base_angle + rng.uniform(-0.3, 0.3)
-
-        # Small offset from center for natural look
-        offset_r = rng.uniform(0.0, 0.03)
+        offset_r = rng.uniform(0.0, 0.10)
         bx = math.cos(rot) * offset_r
         bz = math.sin(rot) * offset_r
 
-        h = rng.uniform(0.08, 0.15)
-        w = rng.uniform(0.015, 0.022)    # 1.5-2.2cm wide
-        arch = rng.uniform(0.06, 0.12)   # moderate outward arch
+        h = rng.uniform(0.07, 0.12)       # 7-12cm
+        w = rng.uniform(0.025, 0.040)     # 2.5-4cm wide
+        arch = rng.uniform(0.20, 0.38)    # moderate outward reach
 
-        # Colors from Sheep Meadow + grass/clover reference photos
         cv = rng.uniform(-0.03, 0.03)
         base_rgb = (
-            max(0.08, 0.18 + cv),
-            max(0.15, 0.32 + cv * 0.7),
+            max(0.06, 0.12 + cv),
+            max(0.15, 0.28 + cv * 0.7),
+            max(0.02, 0.04 + cv * 0.4),
+        )
+        tip_rgb = (
+            min(0.55, 0.38 + cv),
+            min(0.70, 0.55 + cv * 0.6),
+            min(0.35, 0.22 + cv * 0.3),
+        )
+
+        make_blade(bm, color_layer, uv_layer,
+                   bx, bz, h, w, rot, arch,
+                   segments=3, base_rgb=base_rgb, tip_rgb=tip_rgb)
+
+    # --- Outer ring: 22 ground-hugging blades for carpet coverage ---
+    OUTER_COUNT = 22
+    for i in range(OUTER_COUNT):
+        base_angle = (i / OUTER_COUNT) * 2 * math.pi
+        rot = base_angle + rng.uniform(-0.25, 0.25)
+
+        offset_r = rng.uniform(0.15, 0.35)
+        bx = math.cos(rot) * offset_r
+        bz = math.sin(rot) * offset_r
+
+        h = rng.uniform(0.05, 0.09)       # shorter, ground-hugging
+        w = rng.uniform(0.030, 0.050)     # wider blades for coverage
+        arch = rng.uniform(0.30, 0.55)    # strong outward arch → tips at 0.65-0.90m
+
+        cv = rng.uniform(-0.04, 0.04)
+        base_rgb = (
+            max(0.06, 0.14 + cv),
+            max(0.15, 0.30 + cv * 0.7),
             max(0.02, 0.05 + cv * 0.4),
         )
         tip_rgb = (
-            min(0.60, 0.45 + cv),
-            min(0.70, 0.58 + cv * 0.6),
-            min(0.40, 0.28 + cv * 0.3),
+            min(0.60, 0.42 + cv),
+            min(0.72, 0.58 + cv * 0.6),
+            min(0.38, 0.25 + cv * 0.3),
         )
 
         make_blade(bm, color_layer, uv_layer,
@@ -166,43 +200,132 @@ def build_mowed_clump(seed=42):
     return bm
 
 
-def build_meadow_clump(seed=137):
-    """Wild meadow clump — taller, wider, dramatic arch.
+# ---------------------------------------------------------------------------
+# Woodland floor patch — shade-adapted understory
+# ---------------------------------------------------------------------------
+def build_woodland_patch(seed=137):
+    """Woodland understory — North Woods, Ramble, Hallett.
 
-    ~15 wide blades, 18-38cm tall, 1.8-2.8cm wide.
-    Strong outward arch like ornamental grass.
+    Sparse, shade-adapted, darker green. Smaller footprint (~0.45m radius).
+    Under heavy canopy (density_mult 1.0-1.4), grass is thin and patchy.
+    12 blades total — sparse is correct for woodland floor.
+
+    Colors darker than lawn — reduced light under canopy:
+      Base: very dark green (0.06, 0.18, 0.02)
+      Tips: muted green (0.20, 0.35, 0.12)
     """
     rng = random.Random(seed)
-
     bm = bmesh.new()
     color_layer = bm.loops.layers.color.new("Color")
     uv_layer = bm.loops.layers.uv.new("UV")
 
-    BLADE_COUNT = 15
+    BLADE_COUNT = 12
 
     for i in range(BLADE_COUNT):
         base_angle = (i / BLADE_COUNT) * 2 * math.pi
-        rot = base_angle + rng.uniform(-0.35, 0.35)
+        rot = base_angle + rng.uniform(-0.5, 0.5)
 
-        offset_r = rng.uniform(0.0, 0.04)
+        offset_r = rng.uniform(0.0, 0.12)
         bx = math.cos(rot) * offset_r
         bz = math.sin(rot) * offset_r
 
-        h = rng.uniform(0.18, 0.38)
-        w = rng.uniform(0.018, 0.028)    # 1.8-2.8cm wide
-        arch = rng.uniform(0.12, 0.25)   # strong outward arch
+        h = rng.uniform(0.04, 0.10)       # 4-10cm
+        w = rng.uniform(0.020, 0.035)     # 2-3.5cm wide
+        arch = rng.uniform(0.12, 0.30)    # moderate reach
 
-        # Colors from grass texture close-up reference photo (darker, richer)
-        cv = rng.uniform(-0.05, 0.05)
+        cv = rng.uniform(-0.04, 0.04)
+        # Darker colors — reduced light under canopy
         base_rgb = (
-            max(0.06, 0.12 + cv),
-            max(0.14, 0.26 + cv * 0.6),
+            max(0.03, 0.06 + cv),
+            max(0.10, 0.18 + cv * 0.6),
             max(0.01, 0.02 + cv * 0.3),
         )
         tip_rgb = (
-            min(0.50, 0.35 + cv),
-            min(0.62, 0.50 + cv * 0.5),
-            min(0.30, 0.18 + cv * 0.3),
+            min(0.35, 0.20 + cv),
+            min(0.48, 0.35 + cv * 0.5),
+            min(0.22, 0.12 + cv * 0.3),
+        )
+
+        make_blade(bm, color_layer, uv_layer,
+                   bx, bz, h, w, rot, arch,
+                   segments=3, base_rgb=base_rgb, tip_rgb=tip_rgb)
+
+    return bm
+
+
+# ---------------------------------------------------------------------------
+# Wild meadow patch — nature reserve / unmowed areas
+# ---------------------------------------------------------------------------
+def build_meadow_patch(seed=271):
+    """Wild meadow — nature reserves, unmowed edges.
+
+    Tall flowing grass (20-35cm), dramatic arch, darker green with golden tips.
+    Two rings for coverage (~0.7m radius).
+
+    Colors from North Meadow / grass texture reference photos:
+      Base: deep green (0.08, 0.22, 0.02)
+      Tips: golden-green (0.40, 0.45, 0.15) — seed heads
+    """
+    rng = random.Random(seed)
+    bm = bmesh.new()
+    color_layer = bm.loops.layers.color.new("Color")
+    uv_layer = bm.loops.layers.uv.new("UV")
+
+    # Inner ring: 10 tall blades
+    INNER_COUNT = 10
+    for i in range(INNER_COUNT):
+        base_angle = (i / INNER_COUNT) * 2 * math.pi
+        rot = base_angle + rng.uniform(-0.40, 0.40)
+
+        offset_r = rng.uniform(0.0, 0.08)
+        bx = math.cos(rot) * offset_r
+        bz = math.sin(rot) * offset_r
+
+        h = rng.uniform(0.22, 0.38)       # tall
+        w = rng.uniform(0.022, 0.035)     # moderate width
+        arch = rng.uniform(0.20, 0.40)    # strong arch
+
+        cv = rng.uniform(-0.05, 0.05)
+        base_rgb = (
+            max(0.04, 0.08 + cv),
+            max(0.12, 0.22 + cv * 0.6),
+            max(0.01, 0.02 + cv * 0.3),
+        )
+        # Golden-green tips (seed heads)
+        tip_rgb = (
+            min(0.55, 0.40 + cv),
+            min(0.58, 0.45 + cv * 0.5),
+            min(0.25, 0.15 + cv * 0.3),
+        )
+
+        make_blade(bm, color_layer, uv_layer,
+                   bx, bz, h, w, rot, arch,
+                   segments=4, base_rgb=base_rgb, tip_rgb=tip_rgb)
+
+    # Outer ring: 14 medium blades
+    OUTER_COUNT = 14
+    for i in range(OUTER_COUNT):
+        base_angle = (i / OUTER_COUNT) * 2 * math.pi
+        rot = base_angle + rng.uniform(-0.30, 0.30)
+
+        offset_r = rng.uniform(0.10, 0.25)
+        bx = math.cos(rot) * offset_r
+        bz = math.sin(rot) * offset_r
+
+        h = rng.uniform(0.15, 0.30)
+        w = rng.uniform(0.025, 0.042)     # wider for coverage
+        arch = rng.uniform(0.25, 0.50)
+
+        cv = rng.uniform(-0.05, 0.05)
+        base_rgb = (
+            max(0.04, 0.10 + cv),
+            max(0.12, 0.24 + cv * 0.6),
+            max(0.01, 0.03 + cv * 0.3),
+        )
+        tip_rgb = (
+            min(0.55, 0.38 + cv),
+            min(0.58, 0.42 + cv * 0.5),
+            min(0.25, 0.14 + cv * 0.3),
         )
 
         make_blade(bm, color_layer, uv_layer,
@@ -282,17 +405,21 @@ def export_patch(bm, name, material):
 # Main
 # ---------------------------------------------------------------------------
 print("=" * 60)
-print("Building grass clump models (wide arching blades)")
+print("Building data-driven grass patch models")
 print("=" * 60)
 
 mat = make_grass_material("GrassBlade")
 
-print("\n[1/2] Mowed lawn clump (18 blades, 8-15cm, 1.5-2.2cm wide)...")
-bm_mowed = build_mowed_clump(seed=42)
-export_patch(bm_mowed, "Grass_Patch_Mowed", mat)
+print("\n[1/3] Maintained lawn (34 blades, 5-12cm, ~0.85m radius)...")
+bm_lawn = build_lawn_patch(seed=42)
+export_patch(bm_lawn, "Grass_Patch_Lawn", mat)
 
-print("\n[2/2] Wild meadow clump (15 blades, 18-38cm, 1.8-2.8cm wide)...")
-bm_meadow = build_meadow_clump(seed=137)
+print("\n[2/3] Woodland floor (12 blades, 4-10cm, ~0.45m radius)...")
+bm_woodland = build_woodland_patch(seed=137)
+export_patch(bm_woodland, "Grass_Patch_Woodland", mat)
+
+print("\n[3/3] Wild meadow (24 blades, 15-38cm, ~0.7m radius)...")
+bm_meadow = build_meadow_patch(seed=271)
 export_patch(bm_meadow, "Grass_Patch_Meadow", mat)
 
 print("\nDone.")
