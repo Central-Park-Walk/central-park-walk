@@ -168,71 +168,71 @@ def build_grass_tile(cfg, seed):
 #   Water edges: deeper green, moisture influence
 
 GRASS_TYPES = [
-    # 0: Sheep Meadow — iconic bright Kentucky bluegrass
-    #    PIL analysis: avg (0.42, 0.46, 0.30), bright (0.64, 0.68, 0.58)
+    # 0: Sheep Meadow — iconic bright Kentucky bluegrass (A Lawn, mowed 2x/week)
+    #    CPC: 3 inches (7.6cm). PIL analysis: avg (0.42, 0.46, 0.30)
     {
         "name": "Grass_Tile_SheepMeadow",
         "blade_count": 550,
         "radius": 1.0,
-        "height_range": (0.06, 0.12),
+        "height_range": (0.04, 0.08),
         "width_range": (0.045, 0.075),
-        "arch_range": (0.03, 0.08),
+        "arch_range": (0.02, 0.05),
         "segments": 2,
         "base_rgb": (0.22, 0.42, 0.08),
         "tip_rgb": (0.48, 0.68, 0.30),
         "color_var": 0.04,
         "seed": 42,
     },
-    # 1: Great Lawn — rich green maintained turf
+    # 1: Great Lawn — rich green maintained turf (A Lawn, mowed 2x/week)
     {
         "name": "Grass_Tile_GreatLawn",
         "blade_count": 500,
         "radius": 1.0,
-        "height_range": (0.06, 0.12),
+        "height_range": (0.04, 0.08),
         "width_range": (0.042, 0.070),
-        "arch_range": (0.03, 0.09),
+        "arch_range": (0.02, 0.05),
         "segments": 2,
         "base_rgb": (0.20, 0.40, 0.07),
         "tip_rgb": (0.42, 0.62, 0.25),
         "color_var": 0.05,
         "seed": 73,
     },
-    # 2: North Meadow — open meadow, slightly wilder
+    # 2: North Meadow — open meadow (A Lawn, heavily used soccer fields)
     {
         "name": "Grass_Tile_NorthMeadow",
         "blade_count": 420,
         "radius": 0.95,
-        "height_range": (0.08, 0.16),
+        "height_range": (0.05, 0.09),
         "width_range": (0.045, 0.075),
-        "arch_range": (0.04, 0.12),
+        "arch_range": (0.02, 0.06),
         "segments": 2,
         "base_rgb": (0.20, 0.38, 0.07),
         "tip_rgb": (0.45, 0.60, 0.26),
         "color_var": 0.06,
         "seed": 109,
     },
-    # 3: Formal garden — Conservatory Garden, Shakespeare Garden
+    # 3: Formal garden — Conservatory Garden, Shakespeare Garden (A Lawn)
     {
         "name": "Grass_Tile_FormalGarden",
         "blade_count": 480,
         "radius": 0.95,
-        "height_range": (0.04, 0.08),
+        "height_range": (0.03, 0.06),
         "width_range": (0.040, 0.065),
-        "arch_range": (0.02, 0.05),
+        "arch_range": (0.015, 0.04),
         "segments": 2,
         "base_rgb": (0.22, 0.40, 0.10),
         "tip_rgb": (0.40, 0.58, 0.24),
         "color_var": 0.03,
         "seed": 151,
     },
-    # 4: Sports field — tennis, basketball, baseball turf
+    # 4: Sports field — tennis, basketball, baseball turf (A Lawn, shortest)
     {
         "name": "Grass_Tile_SportsTurf",
         "blade_count": 600,
         "radius": 1.0,
-        "height_range": (0.03, 0.07),
+        "height_range": (0.02, 0.05),
         "width_range": (0.038, 0.060),
-        "arch_range": (0.01, 0.04),
+        "arch_range": (0.01, 0.03),
         "segments": 2,
         "base_rgb": (0.25, 0.45, 0.10),
         "tip_rgb": (0.45, 0.65, 0.28),
@@ -267,14 +267,14 @@ GRASS_TYPES = [
         "color_var": 0.05,
         "seed": 277,
     },
-    # 7: Waterside — near lakes/ponds, taller moisture-loving, richer green
+    # 7: Waterside — near lakes/ponds, taller moisture-loving (C Lawn)
     {
         "name": "Grass_Tile_Waterside",
         "blade_count": 350,
         "radius": 0.90,
-        "height_range": (0.08, 0.18),
+        "height_range": (0.06, 0.12),
         "width_range": (0.045, 0.075),
-        "arch_range": (0.04, 0.12),
+        "arch_range": (0.03, 0.08),
         "segments": 2,
         "base_rgb": (0.14, 0.34, 0.06),
         "tip_rgb": (0.35, 0.55, 0.20),
@@ -286,23 +286,23 @@ GRASS_TYPES = [
         "name": "Grass_Tile_WildMeadow",
         "blade_count": 280,
         "radius": 0.90,
-        "height_range": (0.20, 0.40),
+        "height_range": (0.15, 0.30),
         "width_range": (0.040, 0.065),
-        "arch_range": (0.06, 0.20),
+        "arch_range": (0.05, 0.16),
         "segments": 3,
         "base_rgb": (0.14, 0.32, 0.05),
         "tip_rgb": (0.45, 0.48, 0.20),
         "color_var": 0.06,
         "seed": 359,
     },
-    # 9: Open lawn — default maintained grass for unzoned areas
+    # 9: Open lawn — default maintained grass (B/C Lawn)
     {
         "name": "Grass_Tile_OpenLawn",
         "blade_count": 480,
         "radius": 1.0,
-        "height_range": (0.06, 0.12),
+        "height_range": (0.05, 0.08),
         "width_range": (0.042, 0.070),
-        "arch_range": (0.03, 0.09),
+        "arch_range": (0.02, 0.05),
         "segments": 2,
         "base_rgb": (0.20, 0.40, 0.07),
         "tip_rgb": (0.44, 0.62, 0.26),
