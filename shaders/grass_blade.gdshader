@@ -170,33 +170,34 @@ void fragment() {
 	vec3 dormant_brown = vec3(0.12, 0.10, 0.06);  // match terrain shader's winter_grass target
 	col = mix(col, dormant_brown, winter_t);                          // winter: dormant brown
 
-	// --- Multi-scale colour variation (visible from aerial views) ---
-	// Real park grass has visible patches from soil, drainage, shade, species mix
+	// --- Multi-scale colour variation — MUST match terrain.gdshader exactly ---
+	// Using identical noise scales and seed offsets as terrain shader ensures that
+	// grass blades and the terrain underneath get the same color modulation.
+	// Any mismatch makes the tile grid visible as colored blocks.
 
-	// Large scale (15-25m): soil conditions, drainage, shade patterns
-	float large_patch = fbm3(v_world_pos.xz * 0.04);
-	// Shift hue: some patches yellower (dry/sunny), some bluer-green (shade/moist)
-	vec3 warm_shift = vec3(1.08, 1.02, 0.82);  // warm/yellow — sunny, drier soil
-	vec3 cool_shift = vec3(0.88, 1.06, 0.94);  // cool/blue-green — shade, moist
-	vec3 patch_tint = mix(cool_shift, warm_shift, large_patch);
-	col *= patch_tint;
+	// Scale 1: field condition (333m) — matches terrain field_tone
+	float field_cond = vnoise(v_world_pos.xz * 0.003 + vec2(50.0, 23.0));
+	// Terrain blends toward lush/olive targets; we apply equivalent brightness shift
+	col *= mix(1.02, 0.96, field_cond);  // subtle — terrain does 25% blend
 
-	// Medium scale (4-8m): wear patches, thin spots, slightly stressed grass
-	float med_patch = vnoise(v_world_pos.xz * 0.18);
-	// ~20% of area has slightly browner/thinner grass (foot traffic, drainage)
-	float stress = smoothstep(0.65, 0.85, med_patch);
-	col = mix(col, col * vec3(1.05, 0.92, 0.72), stress * 0.35);
+	// Scale 2: large patches (166m) — matches terrain lawn_large
+	float lawn_large = fbm3(v_world_pos.xz * 0.006);
+	col *= 0.80 + lawn_large * 0.40;  // similar range to terrain's 0.75 + 0.50
 
-	// Per-clump colour variation (0.5m scale): different grass species in each clump
+	// Scale 3: medium patches (40m) — matches terrain lawn_med
+	float lawn_med = fbm3(v_world_pos.xz * 0.025 + 37.0);
+	float stress = smoothstep(0.55, 0.80, lawn_med);
+	col = mix(col, col * vec3(1.06, 0.94, 0.74), stress * 0.20);
+	col *= 0.90 + lawn_med * 0.20;
+
+	// Scale 4: warm/cool hue (100m) — matches terrain temp_shift
+	float temp_shift = fbm3(v_world_pos.xz * 0.01 + 91.0) - 0.5;
+	col *= vec3(1.0 + temp_shift * 0.20, 1.0, 1.0 - temp_shift * 0.16);
+
+	// Scale 5: per-clump variation (2m) — sub-tile, doesn't need to match terrain
+	// Kept small to preserve close-up visual interest without affecting aerial pattern
 	float clump_var = hash2(floor(v_world_pos.xz * 0.5));
-	col *= 0.88 + clump_var * 0.24;
-	// Per-clump hue micro-shift: Kentucky bluegrass vs perennial ryegrass vs fescue
-	float hue_shift = hash2(floor(v_world_pos.xz * 0.5) + vec2(71.0, 13.0));
-	if (hue_shift > 0.7) {
-		col *= vec3(0.96, 1.04, 0.92);  // cooler (bluegrass)
-	} else if (hue_shift < 0.2) {
-		col *= vec3(1.06, 1.0, 0.88);   // warmer (fescue)
-	}
+	col *= 0.94 + clump_var * 0.12;  // reduced from 0.88+0.24 to minimize grid contrast
 
 	// --- Path-edge wear: grass near paths is stressed and browner ---
 	// Foot traffic compacts soil, wears grass. Trampled edges are a universal park feature.
