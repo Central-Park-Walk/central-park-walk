@@ -86,18 +86,26 @@ void vertex() {
 		w.y = terrain_h;
 	}
 	world_pos = w;
-	// Shore softening: sample terrain at 4 neighboring points
-	float step_d = 3.0;
+	// Shore softening: fade water alpha where terrain is close to or above water level.
+	// Sample terrain at this vertex and at 4 neighbors. Use the maximum terrain height
+	// to detect shore proximity — if any nearby terrain rises to water level, we're
+	// near the shore and should start fading.
+	float bed_h = sample_terrain(w.xz);
+	float step_d = 2.0;
 	float t_n = sample_terrain(w.xz + vec2(0.0, -step_d));
 	float t_s = sample_terrain(w.xz + vec2(0.0,  step_d));
 	float t_e = sample_terrain(w.xz + vec2( step_d, 0.0));
 	float t_w = sample_terrain(w.xz + vec2(-step_d, 0.0));
 	float max_neighbor = max(max(t_n, t_s), max(t_e, t_w));
-	v_shore_dist = max(0.0, w.y - max_neighbor) * 3.0 + 0.5;
-	if (max_neighbor > w.y) { v_shore_dist = max(0.0, w.y - max_neighbor + 0.5); }
+	// How far below the water surface is the terrain here?
+	// depth > 0 = water is deep, depth ≈ 0 = shore edge
+	float depth_here = w.y - bed_h;
+	float depth_neighbor = w.y - max_neighbor;
+	// Shore dist: blend of local depth and neighbor depth.
+	// Use the shallower of the two — if ANY measurement says "shore", fade.
+	v_shore_dist = min(depth_here, depth_neighbor);
 	// Depth tinting
-	float bed_h = sample_terrain(w.xz);
-	v_water_depth = max(0.0, w.y - bed_h);
+	v_water_depth = max(0.0, depth_here);
 }
 
 void fragment() {
@@ -288,6 +296,8 @@ void fragment() {
 		}
 	}
 
-	// Shore softening — fade alpha near edges
-	ALPHA     = smoothstep(0.0, 1.5, v_shore_dist);
+	// Shore softening — fade alpha where water is shallow near shore.
+	// v_shore_dist = depth below water surface at this vertex (metres).
+	// Fade from 0 (fully transparent at shore) to 1 (fully opaque at >0.5m depth).
+	ALPHA = smoothstep(-0.1, 0.5, v_shore_dist);
 }
