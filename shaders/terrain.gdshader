@@ -676,6 +676,56 @@ void fragment() {
 		}
 	}
 
+	// --- Seasonal wildflower color patches ---
+	// Central Park meadows bloom with distinct wildflowers throughout the year:
+	// Spring: purple violets, white clover | Summer: yellow buttercups, pink clover
+	// Late summer: goldenrod, purple asters | Fall: dried seed heads (handled by leaf scatter)
+	{
+		float spring_bloom = smoothstep(0.0, 0.5, season_t) * smoothstep(1.2, 0.7, season_t);
+		float summer_bloom = smoothstep(0.5, 1.0, season_t) * smoothstep(2.3, 1.8, season_t);
+		float late_summer = smoothstep(1.3, 1.8, season_t) * smoothstep(2.5, 2.0, season_t);
+		float any_bloom = max(spring_bloom, max(summer_bloom, late_summer));
+		if (any_bloom > 0.01 && slope < 0.15 && !is_paved && !is_unpaved && !is_dirt) {
+			// Wildflowers prefer meadows, woodland edges, and unmowed areas
+			float flower_zone = is_woodland ? 0.25 : (meadow_blend > 0.3 ? 0.5 : 0.08);
+			// Noise determines where flowers appear (patchy, natural distribution)
+			float f_noise = vnoise(world_pos.xz * 0.25 + vec2(55.0, 88.0));
+			float f_detail = hash2(floor(world_pos.xz * 3.0));
+			float f_mask = smoothstep(0.4, 0.7, f_noise) * step(0.75, f_detail) * flower_zone;
+			if (f_mask > 0.01) {
+				// Species selection: deterministic per-patch
+				float sp_hash = hash2(floor(world_pos.xz * 0.5 + vec2(33.0)));
+				vec3 flower_col;
+				if (spring_bloom > 0.1 && sp_hash < 0.35) {
+					// Purple violets (Viola sororia) — early spring
+					flower_col = vec3(0.35, 0.18, 0.50);
+					f_mask *= spring_bloom;
+				} else if (spring_bloom > 0.1 && sp_hash < 0.60) {
+					// White clover (Trifolium repens) — spring into summer
+					flower_col = vec3(0.82, 0.80, 0.75);
+					f_mask *= max(spring_bloom, summer_bloom * 0.5);
+				} else if (summer_bloom > 0.1 && sp_hash < 0.75) {
+					// Yellow buttercups (Ranunculus) — late spring/summer
+					flower_col = vec3(0.85, 0.78, 0.15);
+					f_mask *= summer_bloom;
+				} else if (late_summer > 0.1 && sp_hash < 0.88) {
+					// Goldenrod (Solidago) — late summer
+					flower_col = vec3(0.80, 0.70, 0.12);
+					f_mask *= late_summer;
+				} else if (late_summer > 0.1) {
+					// Purple asters (Symphyotrichum) — late summer/early fall
+					flower_col = vec3(0.52, 0.28, 0.60);
+					f_mask *= late_summer;
+				} else {
+					f_mask = 0.0;
+					flower_col = vec3(0.0);
+				}
+				// Subtle blend — wildflowers are small, they tint more than replace
+				ALBEDO = mix(ALBEDO, flower_col, f_mask * 0.25);
+			}
+		}
+	}
+
 	// --- Spring/summer morning dew: grass glistens with tiny water droplets ---
 	// Dew appears when rain is recent (wetness > 0) on grass in spring/summer
 	{
