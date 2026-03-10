@@ -81,7 +81,7 @@ python3 convert_to_godot.py
 
 | Feature | Count | Source |
 |---------|-------|--------|
-| Terrain | 8192×8192 mesh (14M verts) | NYC LiDAR 2017 (1ft resolution, 0.61m cells) |
+| Terrain | 8192×8192 mesh (14M verts) | NYC LiDAR 2017 bare earth DEM (1ft resolution, 0.61m cells). 3D path mesh strips from OSM polylines (2,624 paths) |
 | Trees | ~9,300 | NYC Tree Census + OSM + woodland scatter in 12 ecological zones. 17 custom Blender models: 15 species (oak, elm, maple, birch, cherry, ginkgo, honeylocust, linden, london plane, callery pear, pine, willow, magnolia) + generic deciduous + standing dead snag. Per-species summer leaf colors + fall colors + phenology. Cherry blossom + callery pear + magnolia spring bloom. 5 species-specific bark textures (birch lenticels, london plane mottled exfoliation, pine scaled plates). Frost sparkle, morning dew |
 | Water | 23 bodies + 10 streams | OpenStreetMap polygons. Dawn/dusk mist (8 localized fog volumes) |
 | Buildings | 6,557 | NYC Building Footprints + LiDAR heights. 5 facade material types (limestone, brick, concrete, glass/granite, cream) with per-building hash variation, floor-height-accurate windows, cornice bands, awnings, grime weathering |
@@ -140,7 +140,7 @@ See [FUNDING.md](FUNDING.md) for details on how funds are used.
 | Engine | Godot 4.6.1 (Forward+, GDScript) |
 | Data pipeline | Python (GDAL, numpy/scipy, Pillow) |
 | 3D modeling | Blender 3.0.1 (headless scripts) |
-| Rendering | 20 custom GLSL shaders (terrain, water, water mist, stream, facade, stone, tree leaf/bark, grass, hedge, wood, cast iron, roof, sky, weather), MultiMesh instancing, 8K prebaked terrain mesh, world atlas path rendering |
+| Rendering | 20 custom GLSL shaders (terrain, water, water mist, stream, facade, stone, tree leaf/bark, grass, hedge, wood, cast iron, roof, sky, path, weather), MultiMesh instancing, 8K prebaked terrain mesh, 3D path mesh extrusion |
 
 ## License
 

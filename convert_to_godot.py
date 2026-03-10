@@ -48,7 +48,7 @@ HIGHWAY_WIDTH = {
 
 TERRAIN_Z   = 15           # zoom level matching download_terrain.py
 TERRAIN_DIR = "terrain_tiles"
-LIDAR_DEM   = "lidar_data/central_park_dsm_enhanced_8k.tif"  # Structure-enhanced DSM (HH with trees removed)
+LIDAR_DEM   = "lidar_data/central_park_dem_8k.tif"  # Bare earth DEM — clean ground level, no tree/structure peaks
 GRID_W      = 8192         # heightmap output resolution (~0.6 m/cell)
 GRID_H      = 8192
 ATLAS_RES   = 8192         # world atlas / boundary / landuse grid — matches heightmap (0.61 m/cell)
@@ -76,7 +76,7 @@ def latlon_to_tile(lat: float, lon: float, z: int) -> tuple[int, int]:
 # ---------------------------------------------------------------------------
 def build_height_grid_lidar() -> tuple[list, float, float] | tuple[None, float, float]:
     """
-    Read the clipped LiDAR DEM (structure-enhanced 8K DSM) and return:
+    Read the bare earth LiDAR DEM (8K) and return:
         (flat_grid, min_elev, origin_height)
     Elevation values are in metres (converted from US Survey Feet).
     Returns (None, 0, 0) if file missing or GDAL unavailable.
@@ -2383,7 +2383,6 @@ def main() -> None:
             bcx = sum(float(pt[0]) for pt in pts) / len(pts)
             bcz = sum(float(pt[2]) for pt in pts) / len(pts)
             bridge_centroids.append((bcx, bcz))
-    prebake_paths(paths_out, bridge_centroids)
     surface_arr = prebake_world_atlas(boundary_pts, paths_out, water_out, buildings_out,
                         trees_out, benches_out, lampposts_out, trash_cans_out,
                         barriers_out, bridge_outlines, terrain, bridge_centroids)
@@ -2392,209 +2391,6 @@ def main() -> None:
     prebake_boundary_mask(boundary_pts)
     if have_terrain:
         prebake_terrain_mesh(hm_arr, boundary_pts, surface_arr)
-
-
-def prebake_paths(paths, bridge_centroids):
-    """Pre-bake GPU path textures → binary file for analytical shader rendering.
-
-    Note: splat map surface classification is now handled by the world atlas.
-    This function only produces the vector segment data (path_gpu.bin) that the
-    terrain shader uses for resolution-independent crisp path edges.
-    """
-    import numpy as np
-    import struct
-
-    FEATHER = 1.2  # metres
-    HALF = WORLD_SIZE / 2.0
-
-    HW_PRIORITY = {
-        "pedestrian": 0.05, "footway": 0.04, "steps": 0.03,
-        "cycleway": 0.02, "path": 0.01, "track": 0.00,
-    }
-
-    def path_width(p):
-        w = p.get("width", 0)
-        if isinstance(w, (int, float)) and w > 0:
-            return float(w)
-        if isinstance(w, str) and w:
-            try:
-                wf = float(w)
-                if wf > 0:
-                    return wf
-            except ValueError:
-                pass
-        return HIGHWAY_WIDTH.get(p.get("highway", "path"), 2.5)
-
-    def splat_mat_idx(hw, surface):
-        surf_map = {
-            "asphalt": 1, "concrete": 2, "concrete:plates": 3,
-            "paving_stones": 4, "sett": 5, "unhewn_cobblestone": 6,
-            "pebblestone": 7, "stone": 8, "rock": 9, "brick": 10,
-            "compacted": 11, "fine_gravel": 12, "gravel": 13,
-            "dirt": 14, "ground": 15, "grass": 17, "sand": 18,
-            "earth": 19, "wood": 20, "metal": 21, "rubber": 22,
-            "tartan": 23, "clay": 24, "mud": 25,
-        }
-        if surface in surf_map:
-            return surf_map[surface]
-        hw_map = {
-            "pedestrian": 4, "footway": 11, "cycleway": 1,
-            "path": 11, "steps": 8, "service": 1, "secondary": 1,
-            "track": 29, "bridleway": 14,
-        }
-        return hw_map.get(hw, 16)
-
-    def catmull_rom(pts, subdiv=4):
-        """Catmull-Rom spline — same math as park_loader.gd."""
-        if len(pts) < 3:
-            return list(pts)
-        out = []
-        for i in range(len(pts) - 1):
-            p0 = pts[max(i - 1, 0)]
-            p1 = pts[i]
-            p2 = pts[i + 1]
-            p3 = pts[min(i + 2, len(pts) - 1)]
-            x0, y0, z0 = float(p0[0]), float(p0[1]), float(p0[2])
-            x1, y1, z1 = float(p1[0]), float(p1[1]), float(p1[2])
-            x2, y2, z2 = float(p2[0]), float(p2[1]), float(p2[2])
-            x3, y3, z3 = float(p3[0]), float(p3[1]), float(p3[2])
-            for j in range(subdiv):
-                t = j / subdiv
-                t2 = t * t
-                t3 = t2 * t
-                vx = 0.5 * ((2*x1) + (-x0+x2)*t + (2*x0-5*x1+4*x2-x3)*t2 + (-x0+3*x1-3*x2+x3)*t3)
-                vy = 0.5 * ((2*y1) + (-y0+y2)*t + (2*y0-5*y1+4*y2-y3)*t2 + (-y0+3*y1-3*y2+y3)*t3)
-                vz = 0.5 * ((2*z1) + (-z0+z2)*t + (2*z0-5*z1+4*z2-z3)*t2 + (-z0+3*z1-3*z2+z3)*t3)
-                out.append([vx, vy, vz])
-        out.append(list(pts[-1]))
-        return out
-
-    def is_closed(pts):
-        if len(pts) < 4:
-            return False
-        dx = float(pts[0][0]) - float(pts[-1][0])
-        dz = float(pts[0][2]) - float(pts[-1][2])
-        return (dx * dx + dz * dz) < 4.0
-
-    def is_near_bridge(pts, bc_list):
-        tcx = sum(float(p[0]) for p in pts) / len(pts)
-        tcz = sum(float(p[2]) for p in pts) / len(pts)
-        for bcx, bcz in bc_list:
-            if math.hypot(tcx - bcx, tcz - bcz) < 60.0:
-                return True
-        return False
-
-    # --- Filter ground paths (same logic as GDScript) ---
-    ground_paths = []
-    for p in paths:
-        hw = p.get("highway", "path")
-        layer = int(p.get("layer", 0))
-        is_bridge = p.get("bridge", False) or layer >= 1
-        is_tunnel = p.get("tunnel", False) or layer <= -1
-        if is_bridge or hw == "steps":
-            continue
-        if is_tunnel and not is_near_bridge(p["points"], bridge_centroids):
-            continue
-        priority = HW_PRIORITY.get(hw, 0.01)
-        ground_paths.append((priority, p))
-    ground_paths.sort(key=lambda x: x[0])
-
-    # --- GPU path textures (analytical segment data for shader) ---
-    print("  Pre-baking GPU path textures…")
-    SEG_TEX_W = 256
-    GRID_CELL = 16.0
-    GPU_GRID_W = 313
-    LIST_TEX_W = 512
-
-    # Collect open polyline segments (same filter as splat + skip closed polygons)
-    segments = []  # [x0, z0, x1, z1, half_width, mat_idx]
-    for _, p in ground_paths:
-        hw = p.get("highway", "path")
-        surf = p.get("surface", "")
-        raw = p["points"]
-        if is_closed(raw):
-            continue
-        hw2 = path_width(p) * 0.5
-        mat = splat_mat_idx(hw, surf)
-        smoothed = catmull_rom(raw) if len(raw) >= 3 else raw
-        for si in range(len(smoothed) - 1):
-            sx0 = float(smoothed[si][0])
-            sz0 = float(smoothed[si][2])
-            sx1 = float(smoothed[si + 1][0])
-            sz1 = float(smoothed[si + 1][2])
-            if (sx0 < -HALF and sx1 < -HALF) or (sx0 > HALF and sx1 > HALF):
-                continue
-            if (sz0 < -HALF and sz1 < -HALF) or (sz0 > HALF and sz1 > HALF):
-                continue
-            segments.append((sx0, sz0, sx1, sz1, hw2, mat))
-    seg_count = len(segments)
-    print(f"  GPU segments: {seg_count}")
-
-    # Segment texture (RGBA32F, 2 rows per segment)
-    seg_rows = ((seg_count + SEG_TEX_W - 1) // SEG_TEX_W) * 2
-    if seg_rows < 2:
-        seg_rows = 2
-    seg_data = np.zeros((seg_rows, SEG_TEX_W, 4), dtype=np.float32)
-    for si, seg in enumerate(segments):
-        col = si % SEG_TEX_W
-        row_base = (si // SEG_TEX_W) * 2
-        seg_data[row_base, col] = [seg[0], seg[1], seg[2], seg[3]]
-        seg_data[row_base + 1, col] = [seg[4], float(seg[5]), 0.0, 0.0]
-
-    # Spatial grid binning
-    from collections import defaultdict as dd
-    grid_lists = dd(list)
-    for si, seg in enumerate(segments):
-        expand = seg[4] + FEATHER
-        min_x = min(seg[0], seg[2]) - expand
-        max_x = max(seg[0], seg[2]) + expand
-        min_z = min(seg[1], seg[3]) - expand
-        max_z = max(seg[1], seg[3]) + expand
-        c0x = max(0, int((min_x + HALF) / GRID_CELL))
-        c1x = min(GPU_GRID_W - 1, int((max_x + HALF) / GRID_CELL))
-        c0z = max(0, int((min_z + HALF) / GRID_CELL))
-        c1z = min(GPU_GRID_W - 1, int((max_z + HALF) / GRID_CELL))
-        for cz in range(c0z, c1z + 1):
-            for cx in range(c0x, c1x + 1):
-                grid_lists[cz * GPU_GRID_W + cx].append(si)
-
-    # Sort each cell by half_width descending
-    for key in grid_lists:
-        grid_lists[key].sort(key=lambda si: segments[si][4], reverse=True)
-
-    # Flatten grid + list
-    flat_list = []
-    grid_data = np.zeros((GPU_GRID_W, GPU_GRID_W, 2), dtype=np.float32)
-    for cz in range(GPU_GRID_W):
-        for cx in range(GPU_GRID_W):
-            key = cz * GPU_GRID_W + cx
-            if key in grid_lists:
-                cell = grid_lists[key]
-                grid_data[cz, cx, 0] = float(len(flat_list))
-                grid_data[cz, cx, 1] = float(len(cell))
-                flat_list.extend(cell)
-
-    list_count = len(flat_list)
-    list_tex_h = max(1, math.ceil(list_count / LIST_TEX_W))
-    list_data = np.zeros(LIST_TEX_W * list_tex_h, dtype=np.float32)
-    for li, val in enumerate(flat_list):
-        list_data[li] = float(val)
-
-    # Save all three textures as binary
-    with open("path_gpu.bin", "wb") as f:
-        # Header
-        f.write(struct.pack("<I", seg_count))
-        f.write(struct.pack("<II", SEG_TEX_W, seg_rows))
-        f.write(struct.pack("<II", GPU_GRID_W, GPU_GRID_W))
-        f.write(struct.pack("<II", LIST_TEX_W, list_tex_h))
-        f.write(struct.pack("<I", list_count))
-        # Data
-        f.write(seg_data.tobytes())
-        f.write(grid_data.tobytes())
-        f.write(list_data.tobytes())
-    total_kb = (seg_data.nbytes + grid_data.nbytes + list_data.nbytes) / 1024
-    print(f"  GPU textures: segs {SEG_TEX_W}×{seg_rows}, grid {GPU_GRID_W}×{GPU_GRID_W}, "
-          f"list {LIST_TEX_W}×{list_tex_h} ({list_count} entries) → path_gpu.bin ({total_kb:.0f} KB)")
 
 
 def prebake_world_atlas(boundary_pts, paths, water, buildings, trees,
