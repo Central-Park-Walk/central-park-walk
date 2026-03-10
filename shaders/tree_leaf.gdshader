@@ -3,7 +3,7 @@ render_mode cull_disabled, depth_prepass_alpha;
 
 uniform vec3 albedo_tint = vec3(0.28, 0.48, 0.18);
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic;
-uniform float alpha_scissor : hint_range(0.0, 1.0) = 0.5;
+uniform float alpha_scissor : hint_range(0.0, 1.0) = 0.35;
 
 global uniform vec2 wind_vec;
 global uniform float snow_cover;
