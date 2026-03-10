@@ -88,6 +88,7 @@ python3 convert_to_godot.py
 | Furniture | 1,022+ | Lampposts (201), benches (610), trash cans (166), fountains (19), flagpoles (18), water towers (45) |
 | Statues | 106 positions | 4 photogrammetry scans + Cleopatra's Needle model, rest labeled |
 | Sports fields | 147 | Tennis, basketball, baseball, soccer, handball |
+| Grass | ~250K blade clumps | Wind-responsive 3D grass on all lawn + meadow surfaces |
 | Seasons | 4 | Per-species phenology, leaf scatter, water color, atmosphere |
 | Weather | 5 modes | Rain, thunderstorm, snow, fog, clear — with surface response |
 | Day/night | Full cycle | 48-lamp pool, lit windows, NYC light pollution, moon |
@@ -138,7 +139,7 @@ See [FUNDING.md](FUNDING.md) for details on how funds are used.
 | Engine | Godot 4.6.1 (Forward+, GDScript) |
 | Data pipeline | Python (GDAL, numpy/scipy, Pillow) |
 | 3D modeling | Blender 3.0.1 (headless scripts) |
-| Rendering | 18 custom GLSL shaders, MultiMesh instancing, 8K prebaked terrain mesh |
+| Rendering | 19 custom GLSL shaders, MultiMesh instancing, 8K prebaked terrain mesh |
 
 ## License
 
