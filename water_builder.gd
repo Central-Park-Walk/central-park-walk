@@ -242,20 +242,23 @@ func _build_water(water: Array) -> void:
 				var idx := zi * (nx + 1) + xi
 				inside[idx] = Geometry2D.is_point_in_polygon(Vector2(gx, gz), polygon)
 
-		# Emit two triangles per grid cell where all 4 corners are inside
+		# Emit two triangles per grid cell where ANY corner is inside.
+		# Boundary cells (partially inside) extend the water mesh to the true
+		# polygon edge. The water shader fades alpha near shore via terrain
+		# height comparison, so partial cells blend smoothly instead of
+		# creating a staircase edge.
 		for zi in range(nz):
 			for xi in range(nx):
 				var i00 := zi * (nx + 1) + xi
 				var i10 := i00 + 1
 				var i01 := (zi + 1) * (nx + 1) + xi
 				var i11 := i01 + 1
-				if not (inside[i00] and inside[i10] and inside[i01] and inside[i11]):
+				if not (inside[i00] or inside[i10] or inside[i01] or inside[i11]):
 					continue
 				var x0 := bb_min_x + xi * WATER_CELL
 				var x1 := x0 + WATER_CELL
 				var z0 := bb_min_z + zi * WATER_CELL
 				var z1 := z0 + WATER_CELL
-				# Triangle 1: (x0,z0) (x1,z0) (x1,z1)
 				for tri_pt in [Vector2(x0,z0), Vector2(x1,z0), Vector2(x1,z1),
 							   Vector2(x0,z0), Vector2(x1,z1), Vector2(x0,z1)]:
 					var ty: float = _loader._terrain_y(tri_pt.x, tri_pt.y) + _loader.WATER_Y
