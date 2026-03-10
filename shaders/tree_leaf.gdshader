@@ -10,6 +10,25 @@ global uniform float snow_cover;
 global uniform float season_t;
 global uniform float rain_wetness;
 
+// Per-species summer leaf color — each species has a distinct green
+// Data: field observation + USDA plant database
+const vec3 SUMMER_COLORS[14] = vec3[14](
+	vec3(0.22, 0.42, 0.14),  // 0 oak: deep dark green, slightly blue
+	vec3(0.26, 0.48, 0.16),  // 1 maple: medium green, hint of yellow-green
+	vec3(0.30, 0.52, 0.20),  // 2 elm: lighter bright green (quintessential shade tree)
+	vec3(0.32, 0.54, 0.18),  // 3 birch: fresh light green, slightly golden
+	vec3(0.28, 0.48, 0.18),  // 4 deciduous: generic mid-green (baseline)
+	vec3(0.12, 0.28, 0.10),  // 5 conifer: very dark blue-green (pine/spruce)
+	vec3(0.30, 0.50, 0.14),  // 6 honeylocust: fine-textured yellow-green
+	vec3(0.24, 0.44, 0.16),  // 7 callery_pear: glossy dark green
+	vec3(0.35, 0.52, 0.12),  // 8 ginkgo: unique chartreuse/yellow-green
+	vec3(0.26, 0.45, 0.20),  // 9 london_plane: dark slightly gray-green
+	vec3(0.24, 0.46, 0.16),  // 10 linden: rich medium green, slightly lime
+	vec3(0.28, 0.48, 0.18),  // 11 cherry: medium green, reddish tint to new growth
+	vec3(0.30, 0.50, 0.16),  // 12 willow: pale sage green
+	vec3(0.22, 0.42, 0.14)   // 13 magnolia: thick waxy dark green
+);
+
 // Species fall colors (14): oak, maple, elm, birch, deciduous, conifer,
 // honeylocust, callery_pear, ginkgo, london_plane, linden, cherry, willow, magnolia
 const vec3 FALL_COLORS[14] = vec3[14](
@@ -123,13 +142,15 @@ void vertex() {
 	v_blossom = blossom;
 
 	// Compute seasonal leaf color in vertex, pass to fragment via varying
-	vec3 leaf_color = albedo_tint;
+	// Use per-species summer color instead of uniform tint
+	vec3 species_green = SUMMER_COLORS[sp_idx];
+	vec3 leaf_color = species_green;
 	if (is_evergreen < 0.5) {
 		vec4 ph = PHENOLOGY[sp_idx];
 		vec3 fall_col = FALL_COLORS[sp_idx];
-		vec3 spring_tint = albedo_tint * vec3(1.15, 1.2, 0.7);
+		vec3 spring_tint = species_green * vec3(1.15, 1.2, 0.7);
 		float spring_t = smoothstep(ph.w, ph.w + 0.4, s);
-		leaf_color = mix(spring_tint, albedo_tint, spring_t);
+		leaf_color = mix(spring_tint, species_green, spring_t);
 		float fall_t = smoothstep(ph.x, ph.y, s);
 		leaf_color = mix(leaf_color, fall_col, fall_t);
 		float late_fall = smoothstep(ph.y, ph.z, s);
