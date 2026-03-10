@@ -42,6 +42,20 @@ func _build_fountain(body: Dictionary) -> void:
 
 	if lname.contains("bethesda"):
 		_build_bethesda_fountain(cx, cz, base_y, max_r, rw_alb, rw_nrm, rw_rgh)
+
+	# Water spray jets — animated GPUParticles3D for fountains with water features
+	# Bethesda: tall central jet + ring of smaller jets
+	# Sophie Loeb, Cherry Hill, Untermyer: single central spray
+	if lname.contains("bethesda"):
+		_add_fountain_spray(cx, pool_y, cz, 4.0, 350, 0.8)   # tall main jet
+		for ang_i in 8:
+			var ang := float(ang_i) * TAU / 8.0
+			var jx := cx + cos(ang) * max_r * 0.55
+			var jz := cz + sin(ang) * max_r * 0.55
+			_add_fountain_spray(jx, pool_y, jz, 1.8, 80, 0.35)  # ring jets
+	elif lname.contains("sophie") or lname.contains("cherry") or lname.contains("untermyer") or lname.contains("burnett"):
+		_add_fountain_spray(cx, pool_y, cz, 2.5, 200, 0.5)
+
 	# Fountain basin collision — cylinder around the basin
 	var ftn_body := StaticBody3D.new()
 	ftn_body.name = "Fountain_Collision"
@@ -82,6 +96,51 @@ func _build_fountain_pool(pts: Array, wy: float) -> void:
 
 
 
+
+func _add_fountain_spray(x: float, y: float, z: float,
+						 height: float, amount: int, spread_r: float) -> void:
+	## Add a vertical water jet at position (x, y, z).
+	## height: max spray height in metres. amount: particle count. spread_r: horizontal spread.
+	var particles := GPUParticles3D.new()
+	particles.amount = amount
+	particles.lifetime = 1.2 + height * 0.15  # taller jets need longer lifetime
+	particles.visibility_aabb = AABB(
+		Vector3(-spread_r - 1, -0.5, -spread_r - 1),
+		Vector3((spread_r + 1) * 2, height + 2, (spread_r + 1) * 2))
+
+	var pm := ParticleProcessMaterial.new()
+	pm.direction = Vector3(0, 1, 0)
+	pm.spread = 8.0 + spread_r * 10.0  # wider spread for smaller jets
+	pm.initial_velocity_min = height * 2.0
+	pm.initial_velocity_max = height * 2.8
+	pm.gravity = Vector3(0, -9.8, 0)  # realistic gravity
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	pm.emission_sphere_radius = spread_r * 0.2
+	# Damping simulates air resistance on water droplets
+	pm.damping_min = 1.0
+	pm.damping_max = 3.0
+	# Scale: larger drops at base, smaller spray at top
+	pm.scale_min = 0.4
+	pm.scale_max = 1.0
+	particles.process_material = pm
+
+	var mesh := QuadMesh.new()
+	mesh.size = Vector2(0.06, 0.06)  # small water droplet quads
+	particles.draw_pass_1 = mesh
+
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.75, 0.82, 0.90, 0.35)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+	mat.emission_enabled = true
+	mat.emission = Color(0.5, 0.55, 0.65)
+	mat.emission_energy_multiplier = 0.15
+	particles.material_override = mat
+
+	particles.position = Vector3(x, y + 0.1, z)
+	particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_loader.add_child(particles)
 
 
 # -- Bethesda Fountain: photogrammetry GLB ------
