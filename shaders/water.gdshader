@@ -323,6 +323,8 @@ void fragment() {
 
 	// Shore softening — fade alpha where water is shallow near shore.
 	// v_shore_dist = depth below water surface at this vertex (metres).
-	// Fade from 0 (fully transparent at shore) to 1 (fully opaque at >0.5m depth).
-	ALPHA = smoothstep(-0.1, 0.5, v_shore_dist);
+	// Fade quickly: min 0.3 opacity prevents terrain checkerboard in shallow ponds
+	// (Conservatory Water, Turtle Pond). Only fully transparent right at the shore edge.
+	float shore_alpha = smoothstep(-0.05, 0.25, v_shore_dist);
+	ALPHA = max(shore_alpha, smoothstep(-0.15, -0.05, v_shore_dist) * 0.5);
 }
