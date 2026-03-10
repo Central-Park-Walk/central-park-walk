@@ -62,6 +62,21 @@ void fragment() {
 	float leaf_noise = vnoise(world_pos.xz * 8.0 + world_pos.yy * 4.0);
 	col *= (0.88 + leaf_noise * 0.24);
 
+	// --- 3D depth: top-lit canopy gradient (like real hedges in sunlight) ---
+	vec3 world_n = mat3(INV_VIEW_MATRIX) * NORMAL;
+	float top_lit = world_n.y * 0.5 + 0.5;  // 0=facing down, 1=facing up
+	col *= mix(0.74, 1.10, top_lit);  // dark underneath, bright on top
+	// Sky ambient blue tint in shadow areas (underside of hedge)
+	col = mix(col, col * vec3(0.92, 0.95, 1.06), (1.0 - top_lit) * 0.20);
+
+	// Fresnel rim light: bright translucent edge at grazing angles
+	float fresnel = pow(1.0 - abs(dot(NORMAL, VIEW)), 3.0);
+	col += col * fresnel * 0.14;
+
+	// Fine-scale leaf edge variation: alternating light/dark spots for individual leaf impression
+	float leaf_edge = vnoise(world_pos * 12.0);
+	col *= (0.96 + leaf_edge * 0.08);
+
 	ALBEDO = col;
 	ROUGHNESS = mix(0.85, 0.75, summer_f);  // glossier leaves in summer
 	METALLIC = 0.0;
@@ -88,10 +103,11 @@ void fragment() {
 
 	// Subsurface scattering: light passing through outer hedge leaves
 	// Green glow visible when sun is behind the hedge
-	float sss_strength = mix(0.10, 0.30, summer_f);  // stronger in summer (more leaves)
+	float sss_strength = mix(0.15, 0.40, summer_f);  // stronger in summer (more leaves)
 	sss_strength *= (1.0 - winter_f * 0.8);  // minimal in winter (bare)
-	BACKLIGHT = col * sss_strength;
+	// SSS tinted by leaf color: warm green glow through foliage
+	BACKLIGHT = ALBEDO * sss_strength * vec3(1.0, 1.2, 0.8);
 
 	// Subtle emission for visibility in shadow
-	EMISSION = ALBEDO * 0.15;
+	EMISSION = ALBEDO * 0.12;
 }
