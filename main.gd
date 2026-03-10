@@ -1163,10 +1163,10 @@ func _build_keyframes() -> void:
 	# Real nighttime in CP: you can see paths, grass, trees clearly. The city bathes everything in warm glow.
 	_keyframes.append({
 		"hour": 21.0,
-		"sky_top":        Color(0.04, 0.05, 0.14),
-		"sky_horizon":    Color(0.18, 0.13, 0.10),  # warm orange light pollution horizon
-		"gnd_bottom":     Color(0.025, 0.025, 0.04),
-		"gnd_horizon":    Color(0.08, 0.06, 0.10),
+		"sky_top":        Color(0.07, 0.05, 0.04),  # warm gray-brown — NYC Bortle 9, never blue
+		"sky_horizon":    Color(0.20, 0.14, 0.09),  # bright warm amber light pollution glow
+		"gnd_bottom":     Color(0.03, 0.025, 0.02),
+		"gnd_horizon":    Color(0.10, 0.07, 0.05),  # warm ground glow from city
 		"ambient_color":  Color(0.85, 0.65, 0.40),  # warm amber city glow — NYC sodium vapor spill
 		"ambient_energy": 0.35,   # NYC ambient — 6,557 lit buildings bathe the park
 		"exposure":       0.95,
