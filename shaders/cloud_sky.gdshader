@@ -149,15 +149,17 @@ void sky() {
 			sky_col += star_color * (star_bright * star_mask * star_point * star_fade * twinkle);
 		}
 		// Light pollution sky glow — warm amber dome, directional
-		// NYC: brighter toward south (Midtown/Downtown) and east/west (avenues)
+		// NYC Bortle 8-9: entire sky dome is warm amber-brown, never dark blue
+		// Brighter toward south (Midtown/Downtown) and east/west (avenues)
 		// Park runs N-S, denser city to south, north is Harlem (less bright)
 		float lp_fade = smoothstep(0.15, 0.0, LIGHT0_ENERGY);
-		vec3 light_pollution = vec3(0.12, 0.08, 0.04);  // warm amber-brown
+		vec3 light_pollution = vec3(0.18, 0.12, 0.06);  // warm amber-brown (stronger)
 		// Directional: south-facing (+Z in our coords) is Midtown = brightest
 		float south_bias = dir.z * 0.25 + 0.75;  // 0.5 north, 1.0 south
 		// East/west sides brighter (avenues), center dimmer (park blocks light)
 		float side_glow = abs(dir.x) * 0.15;
-		float lp_strength = lp_fade * (0.6 + 0.4 * (1.0 - elev)) * (south_bias + side_glow);
+		// Strong even at zenith — NYC light pollution reaches all elevations
+		float lp_strength = lp_fade * (0.75 + 0.25 * (1.0 - elev)) * (south_bias + side_glow);
 		sky_col += light_pollution * lp_strength;
 	}
 
