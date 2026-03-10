@@ -12,6 +12,7 @@ uniform vec3 cloud_color_top = vec3(0.90, 0.90, 0.92);
 uniform vec3 cloud_color_bottom = vec3(0.45, 0.45, 0.50);
 global uniform vec2 wind_vec;
 global uniform float season_t;
+global uniform float rain_wetness;
 global uniform float lightning_flash;
 
 // Scalar hash — used for stars (cell-based)
@@ -82,6 +83,25 @@ void sky() {
 		sky_col = mix(sky_col, sky_col * vec3(0.96, 1.0, 1.06), s_spring * 0.15);
 	}
 
+	// --- Urban atmospheric haze layer ---
+	// NYC air: warm haze band at horizon from urban heat island + particulates.
+	// Visible from CP looking at skylines on both sides. Thicker in summer.
+	if (elev >= 0.0) {
+		float haze_band = exp(-elev * 12.0);  // concentrated at horizon, decays above
+		// Summer smog is thicker; winter air is cleaner
+		float s_summer = smoothstep(0.5, 1.2, season_t) * smoothstep(2.0, 1.2, season_t);
+		float s_winter2 = smoothstep(2.5, 3.5, season_t);
+		float haze_density = mix(0.12, 0.22, s_summer) * (1.0 - s_winter2 * 0.3);
+		// Rain cleans air, reducing haze
+		haze_density *= (1.0 - rain_wetness * 0.6);
+		vec3 haze_col = vec3(0.62, 0.63, 0.68);  // blue-gray urban haze
+		// Sun-lit haze: warmer when sun illuminates from behind
+		float sun_elev_pre = LIGHT0_DIRECTION.y;
+		float haze_warm = smoothstep(0.30, 0.05, sun_elev_pre);
+		haze_col = mix(haze_col, vec3(0.72, 0.62, 0.52), haze_warm * 0.4);
+		sky_col = mix(sky_col, haze_col, haze_band * haze_density);
+	}
+
 	// --- Sun disc + atmospheric scattering ---
 	float sun_dot = dot(dir, LIGHT0_DIRECTION);
 	float sun_disc = smoothstep(0.9992, 0.9998, sun_dot);
@@ -89,7 +109,10 @@ void sky() {
 	// Sun glow halo — tight inner core + wider outer aureole
 	float sun_glow = pow(max(sun_dot, 0.0), 64.0) * 0.3;
 	float sun_aureole = pow(max(sun_dot, 0.0), 8.0) * 0.12;
-	sky_col += sun_col * (sun_disc + sun_glow + sun_aureole);
+	// Mie forward scattering: broader warm halo from atmospheric aerosols
+	float mie = pow(max(sun_dot, 0.0), 3.0) * 0.06;
+	vec3 mie_col = LIGHT0_COLOR * vec3(1.05, 0.95, 0.85);  // slightly warm
+	sky_col += sun_col * (sun_disc + sun_glow + sun_aureole) + mie_col * mie * LIGHT0_ENERGY;
 
 	// Golden hour scatter — warm tint near horizon when sun is low
 	float sun_elev = LIGHT0_DIRECTION.y;  // negative = below horizon
@@ -97,14 +120,26 @@ void sky() {
 	if (golden > 0.01 && elev >= 0.0) {
 		// Rayleigh-like forward scatter: warm orange glow around sun direction on horizon
 		float scatter_dot = max(sun_dot, 0.0);
-		float scatter = pow(scatter_dot, 3.0) * golden * 0.35;
-		vec3 scatter_col = LIGHT0_COLOR * vec3(1.1, 0.7, 0.4);  // warm orange
+		float scatter = pow(scatter_dot, 3.0) * golden * 0.40;
+		vec3 scatter_col = LIGHT0_COLOR * vec3(1.15, 0.65, 0.35);  // deeper orange
 		// Stronger near horizon, fades above
 		scatter *= (1.0 - smoothstep(0.0, 0.35, elev));
 		sky_col += scatter_col * scatter;
 
-		// Blue hour: opposite-sun sky deepens to purple-blue at dusk/dawn
+		// Earth shadow: deep blue-purple band on the horizon opposite the sun at dusk
+		// The shadow of the earth rises as the sun sets — visible from CP looking east
 		float anti_sun = max(-sun_dot, 0.0);  // strongest away from sun
+		float earth_shadow = pow(anti_sun, 1.5) * golden * 0.25;
+		vec3 shadow_tint = vec3(0.12, 0.08, 0.30);  // deep purple-blue
+		earth_shadow *= (1.0 - smoothstep(0.0, 0.20, elev));  // tight horizon band
+		sky_col = mix(sky_col, shadow_tint, earth_shadow);
+
+		// Belt of Venus: pink-orange band just ABOVE the earth shadow
+		float venus_belt = smoothstep(0.05, 0.12, elev) * smoothstep(0.25, 0.12, elev);
+		venus_belt *= anti_sun * golden * 0.18;
+		sky_col += vec3(0.20, 0.10, 0.08) * venus_belt;
+
+		// Blue hour: opposite-sun sky deepens to purple-blue at dusk/dawn
 		float blue_hour = pow(anti_sun, 1.5) * golden * 0.20;
 		vec3 blue_tint = vec3(0.15, 0.10, 0.35);  // deep purple-blue
 		blue_hour *= (1.0 - smoothstep(0.0, 0.5, elev));  // near horizon
