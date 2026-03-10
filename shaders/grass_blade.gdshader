@@ -10,6 +10,7 @@ global uniform float rain_wetness;
 
 varying float v_grass_type;
 varying vec3 v_world_pos;
+varying float v_mow_stripe;  // -1 to +1: mowing stripe lean direction (mowed lawns only)
 
 void vertex() {
 	// INSTANCE_CUSTOM: R = grass_type (0=lawn, 1=woodland, 2=meadow)
@@ -39,6 +40,27 @@ void vertex() {
 		flex = 0.5;  // sports turf: short, less sway
 	}
 	float rustle = (0.2 + wind_str * 0.8) * flex;
+
+	// --- Mowing stripes on formal lawns (types 0-4, 9) ---
+	// Central Park Conservancy mows with riding mowers creating ~1.5m alternating
+	// stripe passes. Blades lean in opposite directions in adjacent stripes.
+	// The stripe direction rotates slightly per area (hash on coarse grid).
+	v_mow_stripe = 0.0;
+	bool is_mowed = v_grass_type < 4.5 || (v_grass_type > 8.5 && v_grass_type < 9.5);
+	if (is_mowed) {
+		// Per-area mow angle: rotates stripe direction by field so they don't all align
+		float area_hash = hash2(floor(origin.xz * 0.005));
+		float mow_angle = area_hash * 3.14159;  // 0 to PI rotation per meadow
+		// Project world position onto the mow direction perpendicular
+		float stripe_pos = origin.x * cos(mow_angle) + origin.z * sin(mow_angle);
+		// 1.5m stripe width (riding mower deck)
+		float stripe_phase = sin(stripe_pos * (3.14159 * 2.0 / 1.5));
+		v_mow_stripe = stripe_phase;
+		// Lean blade tips in stripe direction (subtle, ~0.015m offset at tip)
+		float lean = stripe_phase * sway * 0.015;
+		VERTEX.x += lean * cos(mow_angle);
+		VERTEX.z += lean * sin(mow_angle);
+	}
 
 	// Base sway: continuous oscillation
 	float px = origin.x * 0.15 + origin.z * 0.22;
@@ -97,6 +119,16 @@ void fragment() {
 	// Per-clump colour variation
 	float clump_var = hash2(floor(v_world_pos.xz * 0.5));
 	col *= 0.88 + clump_var * 0.24;
+
+	// --- Mowing stripes: view-dependent brightness on formal lawns ---
+	// Blades bent toward viewer appear lighter (reflect sky), away appear darker
+	// This creates the classic striped lawn pattern visible from any angle
+	if (abs(v_mow_stripe) > 0.01) {
+		// View-dependent: stripe brightness varies with camera angle
+		// Stripe phase is -1 to +1; positive lean toward camera = brighter
+		float stripe_bright = v_mow_stripe * 0.06;  // subtle ±6% brightness
+		col *= 1.0 + stripe_bright;
+	}
 
 	// --- Wildflower coloring in meadow zones (spring/summer) ---
 	// Meadow (type 8) and waterside (type 7) get occasional colored blade tips
