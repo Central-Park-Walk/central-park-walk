@@ -73,12 +73,12 @@ func _build_grass() -> void:
 			# Terrain height (slight offset to prevent Z-fighting with ground)
 			var wy: float = _loader._terrain_y(wx, wz) + 0.005
 
-			# Instance dimensions
+			# Instance dimensions — sized for visual impact at walking height
 			var grass_type := 1.0 if is_meadow else 0.0
-			var h_base := 0.35 if is_meadow else 0.09
-			var w_base := 0.40 if is_meadow else 0.28
-			var height := h_base * rng.randf_range(0.7, 1.3)
-			var width := w_base * rng.randf_range(0.85, 1.15)
+			var h_base := 0.55 if is_meadow else 0.25
+			var w_base := 0.70 if is_meadow else 0.60
+			var height := h_base * rng.randf_range(0.65, 1.4)
+			var width := w_base * rng.randf_range(0.80, 1.20)
 
 			# Random Y rotation
 			var y_rot := rng.randf() * TAU
