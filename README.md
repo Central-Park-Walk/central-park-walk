@@ -82,10 +82,10 @@ python3 convert_to_godot.py
 | Feature | Count | Source |
 |---------|-------|--------|
 | Terrain | 8192×8192 mesh (14M verts) | NYC LiDAR 2017 (1ft resolution, 0.61m cells) |
-| Trees | ~9,300 | NYC Tree Census + OSM + woodland scatter in 12 ecological zones |
+| Trees | ~9,300 | NYC Tree Census + OSM + woodland scatter in 12 ecological zones. 12 species-specific Blender models (oak, elm, maple, birch, cherry, ginkgo, honeylocust, linden, london plane, pine, deciduous, conifer) |
 | Water | 23 bodies + 10 streams | OpenStreetMap polygons |
 | Buildings | 6,557 | NYC Building Footprints + LiDAR heights |
-| Furniture | 1,022+ | Lampposts (201), benches (610), trash cans (166), fountains (19), flagpoles (18), water towers (45) |
+| Furniture | 1,022+ | Lampposts (201), benches (610), trash cans (166), fountains (19), flagpoles (18), water towers (45), iron fences (207 segments) |
 | Statues | 106 positions | 4 photogrammetry scans + Cleopatra's Needle model, rest labeled |
 | Sports fields | 147 | Tennis, basketball, baseball, soccer, handball |
 | Grass | ~762K tiles | 10 CPC-data-driven types with narrow 3D blades (8–15mm), wildflowers, clover. Mowed=1-segment spikes, woodland=2-segment curves, meadow=3-segment arches |
@@ -139,7 +139,7 @@ See [FUNDING.md](FUNDING.md) for details on how funds are used.
 | Engine | Godot 4.6.1 (Forward+, GDScript) |
 | Data pipeline | Python (GDAL, numpy/scipy, Pillow) |
 | 3D modeling | Blender 3.0.1 (headless scripts) |
-| Rendering | 19 custom GLSL shaders, MultiMesh instancing, 8K prebaked terrain mesh |
+| Rendering | 19 custom GLSL shaders, MultiMesh instancing, 8K prebaked terrain mesh, world atlas path rendering |
 
 ## License
 
