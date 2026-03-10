@@ -728,15 +728,28 @@ void fragment() {
 		}
 	}
 
+	// --- Ambient fill: prevent pitch-black shadows on terrain ---
+	// Central Park is never in complete darkness: sky light, bounce light from
+	// buildings, and diffuse ambient all contribute. Without this, shadowed
+	// grass becomes an opaque black void.
+	{
+		float sky_lum = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
+		float night_t = smoothstep(0.15, 0.02, sky_lum);
+		// Day: subtle green-tinted ambient from sky/foliage bounce
+		// Night: warm amber from NYC light pollution
+		vec3 ambient = mix(ALBEDO * 0.12, vec3(0.020, 0.015, 0.010), night_t);
+		EMISSION = ambient;
+	}
+
 	// --- Atmospheric distance fade — terrain dissolves into haze ---
 	// Matches facade.gdshader haze for visual consistency
 	float terr_dist = length(world_pos.xyz - INV_VIEW_MATRIX[3].xyz);
 	float terr_fade = smoothstep(200.0, 600.0, terr_dist);
 	if (terr_fade > 0.01) {
-		float sky_lum = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
+		float sky_lum2 = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
 		vec3 haze_col = mix(vec3(0.58, 0.56, 0.52), sky_reflect_color * 0.8 + vec3(0.20), 0.35);
-		float night_t = smoothstep(0.15, 0.02, sky_lum);
-		haze_col = mix(haze_col, vec3(0.14, 0.10, 0.06), night_t * 0.6);
+		float night_t2 = smoothstep(0.15, 0.02, sky_lum2);
+		haze_col = mix(haze_col, vec3(0.14, 0.10, 0.06), night_t2 * 0.6);
 		// Seasonal haze tint (matching facade shader)
 		float autumn_h = smoothstep(1.5, 2.5, season_t) * (1.0 - smoothstep(2.5, 3.5, season_t));
 		haze_col = mix(haze_col, haze_col * vec3(1.10, 1.00, 0.82), autumn_h * 0.4);
@@ -744,6 +757,7 @@ void fragment() {
 		haze_col = mix(haze_col, haze_col * vec3(0.90, 0.95, 1.08), winter_h * 0.3);
 		ALBEDO = mix(ALBEDO, haze_col, terr_fade * 0.35);
 		ROUGHNESS = mix(ROUGHNESS, 0.95, terr_fade * 0.25);
+		EMISSION = mix(EMISSION, haze_col * 0.25, terr_fade * 0.4);
 	}
 
 }
