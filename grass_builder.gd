@@ -115,8 +115,28 @@ func _build_grass() -> void:
 		var jz: float = wz + rng.randf_range(-0.6, 0.6)
 		var wy: float = _loader._terrain_y(jx, jz) + 0.002
 
+		# Path proximity: check nearby cells for paved/unpaved (types 2,3)
+		# Encodes 0.0 (far from path) to 1.0 (right at path edge)
+		# Check 8 directions at 1m and 2m (fast — only 9 lookups per instance)
+		var path_prox := 0.0
+		var _s0: int = _loader._atlas_surface(jx, jz)
+		if _s0 == 2 or _s0 == 3:
+			path_prox = 1.0
+		else:
+			for _off in [Vector2(1,0), Vector2(-1,0), Vector2(0,1), Vector2(0,-1)]:
+				var s1: int = _loader._atlas_surface(jx + _off.x, jz + _off.y)
+				if s1 == 2 or s1 == 3:
+					path_prox = maxf(path_prox, 0.8)
+				else:
+					var s2: int = _loader._atlas_surface(jx + _off.x * 2.0, jz + _off.y * 2.0)
+					if s2 == 2 or s2 == 3:
+						path_prox = maxf(path_prox, 0.4)
+
 		var y_rot := rng.randf() * TAU
 		var s := rng.randf_range(0.82, 1.18)  # wider scale range for variety
+		# Path-edge grass is shorter: scale down near paths
+		if path_prox > 0.1:
+			s *= lerpf(1.0, 0.55, path_prox)  # up to 45% shorter at edge
 		var basis := Basis(Vector3.UP, y_rot).scaled(Vector3(s, s, s))
 		var tf := Transform3D(basis, Vector3(jx, wy, jz))
 
@@ -126,7 +146,8 @@ func _build_grass() -> void:
 		if not chunks.has(ck):
 			chunks[ck] = {"type": gtype, "xf": [], "cd": []}
 		chunks[ck]["xf"].append(tf)
-		chunks[ck]["cd"].append(Color(float(gtype), rng.randf(), 0.0, 0.0))
+		# B channel = path proximity (0-1) for shader wear tinting
+		chunks[ck]["cd"].append(Color(float(gtype), rng.randf(), path_prox, 0.0))
 		total += 1
 		type_counts[gtype] += 1
 
