@@ -1125,6 +1125,20 @@ func _build_bridge_models() -> void:
 		if root == null:
 			continue
 
+		# Compute bounding extent along principal axis for collision
+		var extent_major := 0.0
+		var extent_minor := 0.0
+		var cos_a := cos(angle)
+		var sin_a := sin(angle)
+		for pt in bpts:
+			var dx := float(pt[0]) - cx
+			var dz := float(pt[2]) - cz
+			# Project onto principal axes
+			var proj_major: float = absf(dx * cos_a + dz * sin_a)
+			var proj_minor: float = absf(-dx * sin_a + dz * cos_a)
+			extent_major = maxf(extent_major, proj_major)
+			extent_minor = maxf(extent_minor, proj_minor)
+
 		# Position at deck height, rotated to match outline principal axis
 		# Blender bridge runs along Y → in Godot that's Z axis
 		# angle is the principal axis direction in XZ plane
@@ -1132,10 +1146,27 @@ func _build_bridge_models() -> void:
 		root.rotation.y = -angle
 		root.name = bname.replace(" ", "_")
 		add_child(root)
+
+		# Add walkable collision at deck level (box covering the outline footprint)
+		var body := StaticBody3D.new()
+		body.name = bname.replace(" ", "_") + "_col"
+		var shape := BoxShape3D.new()
+		# Major axis = bridge length (along Godot Z after rotation)
+		# Minor axis = bridge width (along Godot X after rotation)
+		shape.size = Vector3(extent_minor * 2, 0.5, extent_major * 2)
+		var col := CollisionShape3D.new()
+		col.shape = shape
+		col.position = Vector3(0, -0.25, 0)  # top of box at deck surface
+		body.add_child(col)
+		body.position = Vector3(cx, deck_y, cz)
+		body.rotation.y = -angle
+		add_child(body)
+
 		placed_names[bname] = true
 		count += 1
-		print("  Bridge model: %s at (%.0f, %.1f, %.0f) rot=%.1f°" % [
-			bname, cx, deck_y, cz, rad_to_deg(-angle)])
+		print("  Bridge model: %s at (%.0f, %.1f, %.0f) rot=%.1f° extent=%.0f×%.0f" % [
+			bname, cx, deck_y, cz, rad_to_deg(-angle),
+			extent_major * 2, extent_minor * 2])
 
 	print("ParkLoader: bridge models = %d" % count)
 
