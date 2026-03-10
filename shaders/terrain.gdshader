@@ -122,8 +122,6 @@ float textureNoTile_r(sampler2D tex, vec2 uv) {
 
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	// No vertex displacement — LiDAR heightmap provides natural terrain variation.
-	// Previous noise displacement created visible grid-square artifacts at 2.4m cell size.
 }
 
 void fragment() {

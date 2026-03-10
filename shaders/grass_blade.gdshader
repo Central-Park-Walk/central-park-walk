@@ -100,6 +100,11 @@ void vertex() {
 }
 
 void fragment() {
+	// In deep winter, discard lawn grass entirely — the tiny 8% stubs create
+	// a visible grid pattern in fog/snow. Terrain shader handles winter ground.
+	float winter_discard = smoothstep(3.2, 3.8, season_t);
+	if (winter_discard > 0.95 && v_grass_type < 4.5) discard;  // lawn types only
+
 	// Vertex colors from Blender model provide base albedo
 	vec3 col = COLOR.rgb;
 
