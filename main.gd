@@ -1834,30 +1834,19 @@ func _apply_structure_mask() -> void:
 
 
 func _apply_surface_atlas() -> void:
-	## Extract the R channel (surface type) from world_atlas.bin and pass it to the
-	## terrain shader as an 8K texture. This lets the shader distinguish paths (2,3),
-	## water (4), buildings (5), bridges (6), and rock (7) from grass (1).
+	## Upload world_atlas.bin as an RG8 GPU texture for the terrain shader.
+	## R channel = surface type (0=outside, 1=grass, 2=paved, 3=unpaved, 4=water,
+	## 5=building, 6=bridge, 7=rock). Shader samples .r to render distinct path surfaces.
 	if not _park_loader or _park_loader._atlas_data.is_empty():
 		return
 	var res: int = _park_loader._atlas_res
-	var atlas: PackedByteArray = _park_loader._atlas_data
-	# Extract R channel only (every other byte in RG8 data)
-	var r_data := PackedByteArray()
-	r_data.resize(res * res)
-	for i in range(res * res):
-		r_data[i] = atlas[i * 2]
-	var img := Image.create_from_data(res, res, false, Image.FORMAT_R8, r_data)
+	# Upload full RG8 data directly — no per-pixel extraction loop needed.
+	# Shader reads .r for surface type (ignoring .g occupancy channel).
+	var img := Image.create_from_data(res, res, false, Image.FORMAT_RG8, _park_loader._atlas_data)
 	var atlas_tex := ImageTexture.create_from_image(img)
 	_terrain_mat.set_shader_parameter("surface_atlas", atlas_tex)
-	# Count path pixels for diagnostics
-	var paved := 0
-	var unpaved := 0
-	for i in range(res * res):
-		if r_data[i] == 2:
-			paved += 1
-		elif r_data[i] == 3:
-			unpaved += 1
-	print("Terrain: surface atlas %dx%d — %d paved, %d unpaved path cells" % [res, res, paved, unpaved])
+	print("Terrain: surface atlas %dx%d uploaded (RG8, %d KB)" % [
+		res, res, _park_loader._atlas_data.size() / 1024])
 
 
 # ---------------------------------------------------------------------------
