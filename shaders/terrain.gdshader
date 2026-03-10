@@ -158,9 +158,23 @@ void fragment() {
 	grass_alb.g *= 1.18;  // strong green push — Kentucky bluegrass in summer
 	grass_alb.r *= 0.85;  // cut red/golden warmth
 	grass_alb.b *= 0.92;  // slight blue reduction for natural green
-	// Large-scale color variation: subtle brightness, no warm patches
-	float lawn_noise = fbm(world_pos.xz * 0.006, 2);
-	grass_alb *= 0.95 + lawn_noise * 0.10;  // ±5% brightness variation
+
+	// Multi-scale grass color variation — real lawns are never uniform
+	// Scale 1: large patches (30-50m) — irrigation, drainage, soil differences
+	float lawn_large = fbm(world_pos.xz * 0.005, 3);
+	grass_alb *= 0.92 + lawn_large * 0.16;  // ±8% broad brightness variation
+	// Scale 2: medium patches (8-15m) — mowing history, sun/shade, species mix
+	float lawn_med = fbm(world_pos.xz * 0.025 + 37.0, 2);
+	grass_alb *= 0.96 + lawn_med * 0.08;  // ±4% medium detail
+	// Scale 3: warm/cool temperature shifts (some patches yellower, some bluer)
+	float temp_shift = fbm(world_pos.xz * 0.008 + 91.0, 2);
+	grass_alb.r *= 1.0 + temp_shift * 0.06;  // warmer patches
+	grass_alb.b *= 1.0 - temp_shift * 0.05;  // cooler patches balance
+	// Scale 4: small-scale thinning (2-4m) — bare spots, thatch, wear
+	float thin_noise = vnoise(world_pos.xz * 0.15);
+	float thin_patch = smoothstep(0.55, 0.75, thin_noise) * 0.15;
+	// Thin patches show more dirt: slightly brown, lighter
+	grass_alb = mix(grass_alb, grass_alb * vec3(1.12, 1.0, 0.78), thin_patch);
 
 	// --- Seasonal grass color modulation ---
 	// Spring (0-1): fresh bright green, Summer (1-2): rich green (baseline),
@@ -226,7 +240,15 @@ void fragment() {
 		float sat = dot(grass_alb, vec3(0.299, 0.587, 0.114));
 		grass_alb = mix(vec3(sat), grass_alb, 0.85);  // 15% desaturation
 		grass_alb *= 1.05;  // slightly brighter, well-maintained
-	} else if (zone_id == 3 || zone_id == 8) {
+		// Mowing stripes: alternating lighter/darker bands from reel mower passes
+		// Visible on formal lawns and gardens — Conservatory Garden, Great Lawn
+		float stripe = sin(world_pos.z * 0.85);  // ~3.7m stripe width (realistic)
+		grass_alb *= 1.0 + stripe * 0.04;  // very subtle ±4% stripe
+	} else if (zone_id == 2 || zone_id == 3) {
+		// Maintained grass/pitch: mowing stripes more prominent on sports turf
+		float stripe = sin(world_pos.z * 1.1);  // ~2.9m stripe width
+		grass_alb *= 1.0 + stripe * 0.06;  // ±6% stripe on maintained turf
+	} else if (zone_id == 8) {
 		// Grass/pitch → Pastoral: warm, golden Kentucky bluegrass
 		grass_alb.r *= 1.06;
 		grass_alb.g *= 1.02;
@@ -246,11 +268,38 @@ void fragment() {
 		grass_rgh = mix(grass_rgh, d_rgh, dirt_blend);
 	}
 
-	// --- Paths from world atlas: paved (2) and unpaved (3) surfaces ---
-	// This makes paths visually distinct from grass — the biggest single visual improvement.
+	// --- Path-edge wear: grass thins out near heavily-used paths ---
+	// Sample atlas neighbors to detect nearby path surfaces
 	float atlas_val = texture(surface_atlas, splat_uv).r * 255.0;
 	int surface_type = int(atlas_val + 0.5);
 	float slope = 1.0 - terrain_n.y;  // 0=flat, 1=vertical (used by paths and rock sections)
+	if (surface_type == 1 && slope < 0.15) {
+		// Count path neighbors within 2-cell radius — detects proximity to paths
+		float path_near = 0.0;
+		float s2 = htexel * 2.0;
+		float sn = texture(surface_atlas, splat_uv + vec2(0.0, -s2)).r * 255.0;
+		float ss = texture(surface_atlas, splat_uv + vec2(0.0,  s2)).r * 255.0;
+		float se = texture(surface_atlas, splat_uv + vec2( s2, 0.0)).r * 255.0;
+		float sw = texture(surface_atlas, splat_uv + vec2(-s2, 0.0)).r * 255.0;
+		int isn = int(sn + 0.5); int iss = int(ss + 0.5);
+		int ise = int(se + 0.5); int isw = int(sw + 0.5);
+		if (isn == 2 || isn == 3 || isn == 6) path_near += 1.0;
+		if (iss == 2 || iss == 3 || iss == 6) path_near += 1.0;
+		if (ise == 2 || ise == 3 || ise == 6) path_near += 1.0;
+		if (isw == 2 || isw == 3 || isw == 6) path_near += 1.0;
+		if (path_near > 0.5) {
+			// Worn grass at path edges: browner, lighter, trampled
+			float wear = path_near * 0.25;
+			float wear_noise = vnoise(world_pos.xz * 0.3) * 0.3;
+			wear = clamp(wear + wear_noise - 0.15, 0.0, 0.5);
+			vec3 worn_grass = grass_alb * vec3(1.15, 1.02, 0.72);  // yellowed, trampled
+			grass_alb = mix(grass_alb, worn_grass, wear);
+			grass_rgh = mix(grass_rgh, grass_rgh + 0.08, wear);
+		}
+	}
+
+	// --- Paths from world atlas: paved (2) and unpaved (3) surfaces ---
+	// This makes paths visually distinct from grass — the biggest single visual improvement.
 	bool is_paved = (surface_type == 2 || surface_type == 6);   // paved path or bridge deck
 	bool is_unpaved = (surface_type == 3);
 	if (is_paved && slope < 0.20) {
