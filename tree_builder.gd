@@ -81,7 +81,6 @@ func _build_trees(trees: Array) -> void:
 	var base_meshes: Dictionary = {}     # model_name -> Array[Mesh]
 	var base_heights: Dictionary = {}    # model_name -> float
 	var base_leaf_textures: Dictionary = {} # model_name -> Array[Texture2D or null]
-	var base_alpha_thresholds: Dictionary = {} # model_name -> Array[float]
 	var leaf_shader: Shader = _loader._get_shader("tree_leaf_glb", _tree_glb_leaf_shader_code())
 	var bark_shader: Shader = _loader._get_shader("tree_bark", "res://shaders/tree_bark.gdshader")
 
@@ -124,12 +123,10 @@ func _build_trees(trees: Array) -> void:
 			if h < 0.001:
 				h = maxf(ab.size.x, maxf(ab.size.y, ab.size.z))
 			max_h = maxf(max_h, h)
-		# Extract leaf textures and alpha thresholds before freeing scene
+		# Extract leaf textures before freeing scene
 		var ltexs: Array = []
-		var lalphas: Array = []
 		for m: Mesh in meshes:
 			var tex: Texture2D = null
-			var alpha := 0.5
 			for si in m.get_surface_count():
 				var smat: Material = m.surface_get_material(si)
 				if smat is StandardMaterial3D:
@@ -137,10 +134,7 @@ func _build_trees(trees: Array) -> void:
 					if sm.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
 						if sm.albedo_texture:
 							tex = sm.albedo_texture
-						if sm.alpha_scissor_threshold > 0.0:
-							alpha = sm.alpha_scissor_threshold
 			ltexs.append(tex)
-			lalphas.append(alpha)
 		root.queue_free()
 		if meshes.is_empty():
 			print("WARNING: no meshes found in %s" % model_name)
@@ -148,7 +142,6 @@ func _build_trees(trees: Array) -> void:
 		base_meshes[model_name] = meshes
 		base_heights[model_name] = max_h
 		base_leaf_textures[model_name] = ltexs
-		base_alpha_thresholds[model_name] = lalphas
 		print("Trees: loaded %s — %d variants, raw=%.4f actual=%.1fm" % [model_name, meshes.size(), max_h, max_h * node_scale])
 
 	# Step 2: Create per-archetype mesh copies with distinct leaf/bark colors
@@ -160,7 +153,6 @@ func _build_trees(trees: Array) -> void:
 		var leaf_tint: Vector3 = leaf_tints.get(archetype, Vector3(0.28, 0.48, 0.18))
 		var bark_col: Color = bark_colors.get(archetype, Color(0.48, 0.38, 0.28))
 		var ltexs: Array = base_leaf_textures[model_name]
-		var lalphas: Array = base_alpha_thresholds[model_name]
 		var arch_meshes: Array = []
 		for mi in src_meshes.size():
 			var m: Mesh = src_meshes[mi].duplicate(true)
@@ -174,7 +166,6 @@ func _build_trees(trees: Array) -> void:
 						leaf_mat.set_shader_parameter("albedo_tint", leaf_tint)
 						if ltexs[mi]:
 							leaf_mat.set_shader_parameter("albedo_tex", ltexs[mi])
-						leaf_mat.set_shader_parameter("alpha_scissor", lalphas[mi])
 						m.surface_set_material(si, leaf_mat)
 					else:
 						# Bark: shader for weather/season response
