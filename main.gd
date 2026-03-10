@@ -217,9 +217,16 @@ func _ready() -> void:
 			_tour_state = 0  # WAIT_LOAD
 			_tour_timer = 0.0
 			_tour_idx = 0
-			_player.tour_freeze = true  # keep physics synced but freeze movement/look
 			DirAccess.make_dir_recursive_absolute(_tour_save_dir)
-			print("Tour mode: %d shots queued → %s/" % [_tour_shots.size(), _tour_save_dir])
+			if arg == "--tour-showcase":
+				_tour_settle_time = 60.0  # 60s per location for interactive exploration
+				_player.tour_freeze = false  # let user fly around between transports
+				print("Tour showcase (interactive): %d shots, %ds per location → %s/" % [
+					_tour_shots.size(), int(_tour_settle_time), _tour_save_dir])
+			else:
+				_tour_settle_time = 3.0
+				_player.tour_freeze = true  # freeze for automated captures
+				print("Tour mode: %d shots queued → %s/" % [_tour_shots.size(), _tour_save_dir])
 			break
 var _screenshot_timer := 0.0
 var _screenshot_done  := false
@@ -237,6 +244,7 @@ var _tour_timer := 0.0
 var _tour_idx := 0  # index into _tour_shots array
 var _tour_shots: Array = []  # populated in _build_tour_shots()
 var _tour_save_dir := "/tmp/tour"  # overridden by --readme-shots
+var _tour_settle_time := 3.0  # seconds to wait at each location (60 for showcase)
 
 const TOUR_VIEWPOINTS: Array = [
 	{"name": "bethesda_fountain", "x": -480.0, "z": 1020.0, "yaw": 180.0},
@@ -462,8 +470,8 @@ func _process(delta: float) -> void:
 					_tour_timer = 0.0
 					_tour_teleport(_tour_idx)
 					print("Tour: load complete, starting captures")
-			1:  # SETTLE — let SSAO/SSR/fog converge
-				if _tour_timer >= 3.0:
+			1:  # SETTLE — let SSAO/SSR/fog converge + explore time
+				if _tour_timer >= _tour_settle_time:
 					_tour_state = 2
 					_tour_timer = 0.0
 			2:  # CAPTURE
