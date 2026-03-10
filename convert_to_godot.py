@@ -2384,6 +2384,7 @@ def main() -> None:
                         trees_out, benches_out, lampposts_out, trash_cans_out,
                         barriers_out, bridge_outlines, terrain, bridge_centroids)
     prebake_landuse_map(landuse_out, water_out)
+    prebake_grass_instances(landuse_out)
     prebake_boundary_mask(boundary_pts)
     if have_terrain:
         prebake_terrain_mesh(hm_arr, boundary_pts)
@@ -2857,6 +2858,108 @@ def prebake_world_atlas(boundary_pts, paths, water, buildings, trees,
     nonzero_surface = int(np.count_nonzero(surface))
     nonzero_occ = int(np.count_nonzero(occupancy))
     print(f"  Atlas: {nonzero_surface} classified cells, {nonzero_occ} occupied cells")
+
+
+def prebake_grass_instances(landuse_zones):
+    """Pre-bake grass patch positions → grass_instances.bin.
+
+    Scans the world atlas (surface=1 grass, no occupancy) and landuse map
+    (zone filtering) at STRIDE=4 (~2.44m spacing). Each instance stores
+    world X/Z position and mowed/meadow type.
+
+    Output: grass_instances.bin
+    Format: uint32 count
+            float32[count] x_positions
+            float32[count] z_positions
+            uint8[count]   is_meadow (0=mowed lawn, 1=wild meadow)
+
+    Depends on: world_atlas.bin, landuse_map.png (both must be prebaked first)
+    """
+    import numpy as np
+    import struct
+    from PIL import Image
+
+    STRIDE = 4
+    RES = ATLAS_RES
+    HALF = WORLD_SIZE / 2.0
+    cell_m = WORLD_SIZE / RES
+
+    print("Pre-baking grass instances (stride=%d)..." % STRIDE)
+
+    # Load world atlas
+    atlas_path = "world_atlas.bin"
+    if not os.path.exists(atlas_path):
+        print("  WARNING: world_atlas.bin not found — skipping grass prebake")
+        return
+    with open(atlas_path, 'rb') as f:
+        aw, ah = struct.unpack('<II', f.read(8))
+        atlas_raw = np.frombuffer(f.read(), dtype=np.uint8).reshape(ah, aw, 2)
+    surface = atlas_raw[:, :, 0]
+    occupancy = atlas_raw[:, :, 1]
+
+    # Load landuse map
+    landuse_path = "landuse_map.png"
+    if not os.path.exists(landuse_path):
+        print("  WARNING: landuse_map.png not found — skipping grass prebake")
+        return
+    landuse_img = Image.open(landuse_path).convert('L')
+    landuse_arr = np.array(landuse_img, dtype=np.uint8)
+
+    # Scan atlas at stride intervals
+    # Zone filtering: skip water(4), bridge(6), pool(8), track(9)
+    # Meadow zones: nature_reserve(5), wood(10), forest(11)
+    SKIP_ZONES = {4, 6, 8, 9}
+    MEADOW_ZONES = {5, 10, 11}
+
+    xs = []
+    zs = []
+    types = []
+    rng = np.random.RandomState(73856093)
+
+    for gz in range(0, RES, STRIDE):
+        for gx in range(0, RES, STRIDE):
+            if surface[gz, gx] != 1:  # not grass
+                continue
+            if occupancy[gz, gx] & 0x1F != 0:  # occupied
+                continue
+
+            # Landuse zone check
+            zone = int(landuse_arr[gz, gx])
+            if zone in SKIP_ZONES:
+                continue
+
+            # Deterministic jitter (must match GDScript seed pattern)
+            seed_val = gx * 73856093 + gz * 19349663
+            rng.seed(seed_val & 0x7FFFFFFF)
+            jx = rng.uniform(-0.3, 0.3) * cell_m
+            jz = rng.uniform(-0.3, 0.3) * cell_m
+
+            wx = float(gx) * cell_m - HALF + jx
+            wz = float(gz) * cell_m - HALF + jz
+
+            is_meadow = 1 if zone in MEADOW_ZONES else 0
+
+            xs.append(wx)
+            zs.append(wz)
+            types.append(is_meadow)
+
+    count = len(xs)
+    x_arr = np.array(xs, dtype=np.float32)
+    z_arr = np.array(zs, dtype=np.float32)
+    type_arr = np.array(types, dtype=np.uint8)
+
+    n_mowed = int(np.sum(type_arr == 0))
+    n_meadow = int(np.sum(type_arr == 1))
+
+    out_path = "grass_instances.bin"
+    with open(out_path, 'wb') as f:
+        f.write(struct.pack('<I', count))
+        f.write(x_arr.tobytes())
+        f.write(z_arr.tobytes())
+        f.write(type_arr.tobytes())
+
+    size_mb = os.path.getsize(out_path) / (1024 * 1024)
+    print(f"  Grass: {count} instances ({n_mowed} mowed, {n_meadow} meadow) → {size_mb:.1f} MB")
 
 
 def prebake_landuse_map(landuse_zones, water_bodies):
