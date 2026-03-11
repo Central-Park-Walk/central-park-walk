@@ -1348,10 +1348,11 @@ func _apply_time_of_day() -> void:
 	# Sky reflection color for water surfaces — tracks time-of-day sky tone
 	var sky_r: Color = _lerp_kf("fog_color", a, b, t)
 	var sun_c: Color = _lerp_kf("sun_color", a, b, t)
-	# Blend fog color (ambient sky) with sun color for water reflection
-	var reflect := sky_r.lerp(sun_c, 0.3)
-	# Boost luminance slightly for specular reflection
-	reflect = reflect * 1.2
+	# Blend fog color (ambient sky) with sun color, bias toward cooler tones
+	# Real water preferentially reflects blue/gray sky, not warm ground haze
+	var reflect := sky_r.lerp(sun_c, 0.2)
+	# Cool bias: shift toward blue-gray to prevent brown water at golden hour
+	reflect = Color(reflect.r * 0.75, reflect.g * 0.85, reflect.b * 1.1)
 	RenderingServer.global_shader_parameter_set("sky_reflect_color",
 		Vector3(reflect.r, reflect.g, reflect.b))
 
