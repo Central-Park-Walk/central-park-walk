@@ -610,17 +610,36 @@ func _build_statues(statues: Array) -> void:
 		"eagles and prey": { "file": "eagles_and_prey.glb", "height": 3.8 },
 		"cleopatra's needle": { "file": "cp_obelisk.glb", "height": 25.0 },
 	}
+	var cache_dir := "res://cache/statues/"
+	var abs_cache_dir := ProjectSettings.globalize_path(cache_dir)
+	DirAccess.make_dir_recursive_absolute(abs_cache_dir)
 	for skey in named_defs:
 		var def: Dictionary = named_defs[skey]
 		var abs_path := ProjectSettings.globalize_path("res://models/furniture/%s" % def["file"])
 		if not FileAccess.file_exists(abs_path):
 			continue
+		# Try cached PackedScene first (much faster than GLTFDocument parsing)
+		var cache_path := cache_dir + def["file"].replace(".glb", ".scn")
+		var abs_cache := ProjectSettings.globalize_path(cache_path)
+		if FileAccess.file_exists(abs_cache):
+			var packed = ResourceLoader.load(cache_path)
+			if packed and packed is PackedScene:
+				var root: Node = (packed as PackedScene).instantiate()
+				if root:
+					named_statue_glbs[skey] = { "root": root, "height": def["height"] }
+					print("Statues: loaded named GLB '%s' (cached)" % skey)
+					continue
+		# Fall back to GLTFDocument parsing
 		var gd := GLTFDocument.new()
 		var gs := GLTFState.new()
 		if gd.append_from_file(abs_path, gs) == OK:
 			var root: Node = gd.generate_scene(gs)
 			if root:
 				named_statue_glbs[skey] = { "root": root, "height": def["height"] }
+				# Save as PackedScene for next time
+				var packed := PackedScene.new()
+				if packed.pack(root) == OK:
+					ResourceSaver.save(packed, cache_path)
 				print("Statues: loaded named GLB '%s'" % skey)
 			else:
 				print("Statues: failed to generate scene for '%s'" % skey)
@@ -632,17 +651,10 @@ func _build_statues(statues: Array) -> void:
 	# Variant 2: Memorial (memorials, monuments) ~0.68m
 	var pedestal_meshes: Array = []  # [Mesh, Mesh, Mesh]
 	var pedestal_heights: Array = [1.08, 1.36, 0.68]
-	var ped_path := ProjectSettings.globalize_path("res://models/furniture/cp_pedestal.glb")
-	if FileAccess.file_exists(ped_path):
-		var gd_p := GLTFDocument.new()
-		var gs_p := GLTFState.new()
-		if gd_p.append_from_file(ped_path, gs_p) == OK:
-			var ped_root: Node = gd_p.generate_scene(gs_p)
-			if ped_root:
-				for child in ped_root.get_children():
-					if child is MeshInstance3D and child.mesh:
-						pedestal_meshes.append(child.mesh)
-				ped_root.queue_free()
+	var ped_glb_meshes: Dictionary = _loader._load_glb_meshes(
+		ProjectSettings.globalize_path("res://models/furniture/cp_pedestal.glb"))
+	for mname in ped_glb_meshes:
+		pedestal_meshes.append(ped_glb_meshes[mname])
 	print("Statues: %d pedestal variants loaded" % pedestal_meshes.size())
 
 	# Stone material for pedestals (gray granite)
