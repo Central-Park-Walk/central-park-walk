@@ -30,7 +30,6 @@ var _furn_glb_meshes: Dictionary = {}
 const BENCH_MAX_SLOPE := 0.27  # tan(~15°) — skip benches on steeper terrain
 
 # Exposed for day/night cycle (main.gd writes emission at runtime)
-var lamppost_material: StandardMaterial3D
 var facade_materials: Array = []  # ShaderMaterial list for night window emission
 
 # World atlas: unified 4096×4096 RG8 texture (R=surface type, G=occupancy bitmask)

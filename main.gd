@@ -37,7 +37,6 @@ const TIME_SPEED_NAMES: Array = ["1x", "10x", "100x", "Paused"]
 var _env: Environment
 var _sky_mat: ShaderMaterial
 var _sun: DirectionalLight3D
-var _lamp_mat: StandardMaterial3D
 var _lamp_emission: float = 0.0  # cached for SpotLight3D pool
 var _terrain_mat: ShaderMaterial
 var _time_label: Label
@@ -1432,18 +1431,8 @@ func _apply_time_of_day() -> void:
 	_sun.rotation_degrees = Vector3(pitch, yaw, 0.0)
 	_sun.directional_shadow_max_distance = _lerp_kf("shadow_dist", a, b, t)
 
-	# Lamppost bulb emission — also dim albedo during day to prevent glow bloom
-	if _lamp_mat:
-		_lamp_emission = _lerp_kf("lamp_emission", a, b, t)
-		_lamp_mat.emission_energy_multiplier = _lamp_emission
-		if _lamp_emission < 0.01:
-			_lamp_mat.emission = Color(0.0, 0.0, 0.0)
-			_lamp_mat.albedo_color = Color(0.25, 0.22, 0.18)  # dark glass during day
-			_lamp_mat.roughness = 0.85  # matte when off — prevent specular bloom
-		else:
-			_lamp_mat.emission = Color(1.0, 0.72, 0.32) * _lamp_emission
-			_lamp_mat.albedo_color = Color(1.0, 0.72, 0.32)  # warm amber when lit
-			_lamp_mat.roughness = 0.3   # glossy when lit
+	# Lamp emission level — drives SpotLight3D pool energy (globe mesh removed)
+	_lamp_emission = _lerp_kf("lamp_emission", a, b, t)
 
 	# Building window emission — smooth night_factor curve
 	# 0.0 during day (7h-18h), ramps to 1.0 at night (21h-5h)
@@ -1662,9 +1651,6 @@ func _setup_park() -> void:
 		loader.set_heightmap(_hm_data, _hm_width, _hm_depth, _hm_world_size)
 	add_child(loader)
 	_park_loader = loader
-	# Grab lamppost material for day/night emission control
-	if loader.lamppost_material:
-		_lamp_mat = loader.lamppost_material
 
 
 func _apply_structure_textures() -> void:
