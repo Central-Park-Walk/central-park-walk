@@ -21,12 +21,9 @@ func _build_furniture(bench_data: Array, lamppost_data: Array, paths: Array) -> 
 	var cp_lamp_path := ProjectSettings.globalize_path("res://models/furniture/cp_lamppost.glb")
 	var cp_lamp_meshes: Dictionary = _loader._load_glb_meshes(cp_lamp_path)
 	var lamp_iron_mesh: Mesh = null
-	var lamp_globe_mesh: Mesh = null
 	if cp_lamp_meshes.has("CP_Lamppost"):
 		lamp_iron_mesh = cp_lamp_meshes["CP_Lamppost"] as Mesh
-		if cp_lamp_meshes.has("CP_Lamppost_Globe"):
-			lamp_globe_mesh = cp_lamp_meshes["CP_Lamppost_Globe"] as Mesh
-		print("Lamp: loaded CP lamppost model (Type B + Bloomer luminaire, %d meshes)" % cp_lamp_meshes.size())
+		print("Lamp: loaded CP lamppost model (Type B + Bloomer luminaire)")
 	else:
 		# Fallback to generic furniture GLB
 		for lname in ["ParkFurn_Lamp_A", "ParkFurn_Lamp_B", "ParkFurn_Lamp_C"]:
@@ -41,15 +38,7 @@ func _build_furniture(bench_data: Array, lamppost_data: Array, paths: Array) -> 
 	var lamp_post_mat := ShaderMaterial.new()
 	lamp_post_mat.shader = iron_shader
 	lamp_post_mat.set_shader_parameter("iron_color", Vector3(0.08, 0.08, 0.06))
-	# Emissive globe material (main.gd modulates emission for day/night)
-	var lamp_globe_mat := StandardMaterial3D.new()
-	lamp_globe_mat.albedo_color = Color(1.0, 0.88, 0.65, 0.85)  # warm frosted glass
-	lamp_globe_mat.roughness    = 0.25
-	lamp_globe_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	lamp_globe_mat.emission_enabled = true
-	lamp_globe_mat.emission         = Color(0.0, 0.0, 0.0)  # start dark; main.gd modulates
-	lamp_globe_mat.emission_energy_multiplier = 0.0
-	_loader.lamppost_material = lamp_globe_mat
+	# Globe mesh removed — SpotLight3D pool provides scene lighting
 
 	# --- Bench mesh (CP-specific model: surface 0=Iron, surface 1=Wood) ---
 	var cp_bench_path := ProjectSettings.globalize_path("res://models/furniture/cp_bench.glb")
@@ -109,9 +98,6 @@ func _build_furniture(bench_data: Array, lamppost_data: Array, paths: Array) -> 
 	# Spawn lamppost iron parts (cast iron shader for weather response)
 	if not lamp_xf.is_empty():
 		_loader._spawn_multimesh(lamp_iron_mesh, lamp_post_mat, lamp_xf, "Lampposts")
-		# Spawn globe separately with emissive material (same transforms — globe is part of model)
-		if lamp_globe_mesh:
-			_loader._spawn_multimesh(lamp_globe_mesh, lamp_globe_mat, lamp_xf, "Lamppost_Globes")
 	# Spawn all benches with the CP bench model (materials baked into GLB)
 	if not bench_xf.is_empty():
 		_loader._spawn_multimesh(bench_mesh, null, bench_xf, "Benches_0")
