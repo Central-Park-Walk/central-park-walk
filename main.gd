@@ -201,7 +201,7 @@ func _ready() -> void:
 	if _park_loader and _park_loader.boundary_polygon.size() > 2:
 		_player.boundary_polygon = _park_loader.boundary_polygon
 	_setup_hud()
-	_setup_color_grade()
+	#_setup_color_grade()  # POST-FX BASELINE TEST — disabled
 	_setup_letterbox()
 	if not _terrain_only:
 		_setup_lamp_lights()
@@ -618,18 +618,18 @@ func _process(delta: float) -> void:
 	if absf(_time_of_day - _last_applied_tod) > 0.01 or _last_applied_tod < 0.0:
 		_apply_time_of_day()
 
-	# Glow height fade — runs every frame (camera-dependent, not time-dependent).
-	# Must be outside _apply_time_of_day which only runs when time changes.
-	if _env and _player:
-		var cam_y: float = _player.global_position.y
-		var terr_y: float = _terrain_height(_player.global_position.x, _player.global_position.z)
-		var hag: float = maxf(cam_y - terr_y, 0.0)
-		var gfade: float = 1.0 - clampf((hag - 20.0) / 60.0, 0.0, 1.0)
-		_env.glow_enabled = gfade > 0.01
-		if _env.glow_enabled:
-			_env.glow_intensity *= gfade
-			_env.glow_bloom    *= gfade
-			_env.glow_strength *= gfade
+	# ===== POST-FX BASELINE TEST — glow height fade disabled =====
+	# if _env and _player:
+	# 	var cam_y: float = _player.global_position.y
+	# 	var terr_y: float = _terrain_height(_player.global_position.x, _player.global_position.z)
+	# 	var hag: float = maxf(cam_y - terr_y, 0.0)
+	# 	var gfade: float = 1.0 - clampf((hag - 20.0) / 60.0, 0.0, 1.0)
+	# 	_env.glow_enabled = gfade > 0.01
+	# 	if _env.glow_enabled:
+	# 		_env.glow_intensity *= gfade
+	# 		_env.glow_bloom    *= gfade
+	# 		_env.glow_strength *= gfade
+	# ===== END POST-FX BASELINE TEST =====
 
 	# Letterbox bar sizing (adapts to viewport resize)
 	if _letterbox_on and _letterbox_top:
@@ -935,40 +935,19 @@ func _setup_environment() -> void:
 	_env.sky                   = sky
 	_env.ambient_light_source  = Environment.AMBIENT_SOURCE_SKY
 	_env.ambient_light_sky_contribution = 0.3
-	_env.tonemap_mode          = Environment.TONE_MAPPER_FILMIC
+	# ===== POST-FX BASELINE TEST — all post-processing OFF =====
+	# Re-enable one at a time to find the artifact source.
+	_env.tonemap_mode          = Environment.TONE_MAPPER_LINEAR  # was FILMIC
 	_env.tonemap_white         = 6.0
-	_env.glow_enabled          = true
-	_env.glow_blend_mode       = Environment.GLOW_BLEND_MODE_ADDITIVE
-	_env.ssao_enabled          = true
-	_env.ssao_detail           = 0.5
-	_env.ssil_enabled          = true
-	_env.ssil_radius           = 5.0
-	_env.ssil_sharpness        = 0.98
-	# SSR disabled — screen-space reflections produce multi-colored temporal
-	# artifacts on water surfaces from aerial view (confirmed).
-	_env.ssr_enabled           = false
-	_env.adjustment_enabled    = true
-	_env.adjustment_brightness = 1.02
-	_env.fog_enabled           = true
-
-	# Volumetric fog — light shafts (god rays at sunrise/sunset via high anisotropy)
-	_env.volumetric_fog_enabled = true
-	_env.volumetric_fog_density = 0.0001
-	_env.volumetric_fog_albedo = Color(1.0, 1.0, 1.0)
-	_env.volumetric_fog_emission = Color(0.8, 0.85, 0.9)
-	_env.volumetric_fog_emission_energy = 0.08
-	_env.volumetric_fog_anisotropy = 0.3
-	_env.volumetric_fog_length = 100.0
-	_env.volumetric_fog_detail_spread = 2.0
-	_env.volumetric_fog_ambient_inject = 0.15
-	_env.volumetric_fog_gi_inject = 0.2
-	_env.volumetric_fog_sky_affect = 0.20
-	_env.volumetric_fog_temporal_reprojection_enabled = true
-
-	# SDFGI disabled — probe temporal instability causes diamond-shaped artifacts
-	# that glow bloom amplifies into visible blips. SSIL provides indirect lighting
-	# without probe-based temporal artifacts.
-	_env.sdfgi_enabled = false
+	_env.glow_enabled          = false   # OFF
+	_env.ssao_enabled          = false   # OFF
+	_env.ssil_enabled          = false   # OFF
+	_env.ssr_enabled           = false   # OFF
+	_env.adjustment_enabled    = false   # OFF
+	_env.fog_enabled           = false   # OFF
+	_env.volumetric_fog_enabled = false  # OFF
+	_env.sdfgi_enabled         = false   # OFF
+	# ===== END POST-FX BASELINE TEST =====
 
 	var world_env := WorldEnvironment.new()
 	world_env.environment = _env
@@ -1288,40 +1267,32 @@ func _apply_time_of_day() -> void:
 	_env.tonemap_exposure = _lerp_kf("exposure", a, b, t)
 	_env.tonemap_white    = _lerp_kf("white", a, b, t)
 
-	# Glow — base values from keyframes. Height fade applied per-frame in _process().
-	_env.glow_intensity         = _lerp_kf("glow_intensity", a, b, t)
-	_env.glow_bloom             = _lerp_kf("glow_bloom", a, b, t)
-	_env.glow_strength          = _lerp_kf("glow_strength", a, b, t)
-	_env.glow_hdr_threshold     = _lerp_kf("glow_threshold", a, b, t)
-	_env.glow_hdr_luminance_cap = _lerp_kf("glow_cap", a, b, t)
-
-	# SSAO
-	_env.ssao_radius    = _lerp_kf("ssao_radius", a, b, t)
-	_env.ssao_intensity = _lerp_kf("ssao_intensity", a, b, t)
-	_env.ssao_power     = _lerp_kf("ssao_power", a, b, t)
-
-	# SSIL
-	_env.ssil_intensity = _lerp_kf("ssil_intensity", a, b, t)
-
-	# Colour grading
-	_env.adjustment_saturation = _lerp_kf("saturation", a, b, t)
-	_env.adjustment_contrast   = _lerp_kf("contrast", a, b, t)
-	_env.adjustment_brightness = _lerp_kf("brightness", a, b, t) * _user_gamma
-	# Lightning flash boost — multiplicative on top of normal brightness
-	if _lightning_flash > 0.01:
-		_env.adjustment_brightness *= (1.0 + _lightning_flash * 3.0)
-
-	# Fog
-	_env.fog_light_color       = _lerp_kf("fog_color", a, b, t)
-	_env.fog_light_energy      = _lerp_kf("fog_energy", a, b, t)
-	_env.fog_sun_scatter       = _lerp_kf("fog_scatter", a, b, t)
-	_env.fog_density           = _lerp_kf("fog_density", a, b, t)
-	_env.fog_aerial_perspective = _lerp_kf("fog_aerial", a, b, t)
-	_env.fog_sky_affect        = _lerp_kf("fog_sky_affect", a, b, t)
-
-	# Volumetric fog
-	_env.volumetric_fog_density    = _lerp_kf("vol_fog_density", a, b, t)
-	_env.volumetric_fog_anisotropy = _lerp_kf("vol_fog_anisotropy", a, b, t)
+	# ===== POST-FX BASELINE TEST — skip all post-processing updates =====
+	# Glow, SSAO, SSIL, adjustment, fog, volumetric fog all disabled.
+	# Only ambient + tonemapping exposure still update (needed for basic lighting).
+	# _env.glow_intensity         = _lerp_kf("glow_intensity", a, b, t)
+	# _env.glow_bloom             = _lerp_kf("glow_bloom", a, b, t)
+	# _env.glow_strength          = _lerp_kf("glow_strength", a, b, t)
+	# _env.glow_hdr_threshold     = _lerp_kf("glow_threshold", a, b, t)
+	# _env.glow_hdr_luminance_cap = _lerp_kf("glow_cap", a, b, t)
+	# _env.ssao_radius    = _lerp_kf("ssao_radius", a, b, t)
+	# _env.ssao_intensity = _lerp_kf("ssao_intensity", a, b, t)
+	# _env.ssao_power     = _lerp_kf("ssao_power", a, b, t)
+	# _env.ssil_intensity = _lerp_kf("ssil_intensity", a, b, t)
+	# _env.adjustment_saturation = _lerp_kf("saturation", a, b, t)
+	# _env.adjustment_contrast   = _lerp_kf("contrast", a, b, t)
+	# _env.adjustment_brightness = _lerp_kf("brightness", a, b, t) * _user_gamma
+	# if _lightning_flash > 0.01:
+	# 	_env.adjustment_brightness *= (1.0 + _lightning_flash * 3.0)
+	# _env.fog_light_color       = _lerp_kf("fog_color", a, b, t)
+	# _env.fog_light_energy      = _lerp_kf("fog_energy", a, b, t)
+	# _env.fog_sun_scatter       = _lerp_kf("fog_scatter", a, b, t)
+	# _env.fog_density           = _lerp_kf("fog_density", a, b, t)
+	# _env.fog_aerial_perspective = _lerp_kf("fog_aerial", a, b, t)
+	# _env.fog_sky_affect        = _lerp_kf("fog_sky_affect", a, b, t)
+	# _env.volumetric_fog_density    = _lerp_kf("vol_fog_density", a, b, t)
+	# _env.volumetric_fog_anisotropy = _lerp_kf("vol_fog_anisotropy", a, b, t)
+	# ===== END POST-FX BASELINE TEST =====
 
 	# Weather overrides — use absolute values for fog/clouds so the effect
 	# is clearly visible regardless of time-of-day keyframe base values.
