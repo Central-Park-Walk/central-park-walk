@@ -135,15 +135,13 @@ void fragment() {
 	// Vertex colors from Blender model provide base albedo
 	vec3 col = COLOR.rgb;
 
-	// --- Base color toning: Blender vertex colors are too saturated ---
-	// Real park grass (Kentucky bluegrass + ryegrass) in PBR linear space should be
-	// warm olive-green, albedo ~0.05-0.10. Blender vertex colors produce ~0.15-0.30
-	// which looks neon after gamma correction. Aggressively tone down.
+	// --- Base color toning: match terrain shader for seamless blending ---
+	// CP Conservancy Class A lawns are lush green, not olive. Keep more saturation
+	// and push green-dominant to match the richer terrain grass color.
 	float base_lum = dot(col, vec3(0.299, 0.587, 0.114));
-	col = mix(vec3(base_lum), col, 0.60);  // 40% desaturation
-	// With specular=0, blades are purely diffuse like terrain. Albedo can be closer
-	// to terrain values without needing to compensate for specular highlights.
-	col *= vec3(0.68, 0.64, 0.54);  // darken to match terrain grass albedo range
+	col = mix(vec3(base_lum), col, 0.72);  // 28% desaturation (was 40%) — preserve green character
+	// Darken to PBR range but keep green dominant over red (no olive shift)
+	col *= vec3(0.58, 0.68, 0.48);  // green channel preserved, red reduced → distinctly green
 
 	// --- Height-based shading: darker at base, brighter at tip ---
 	// UV.y from Blender: 0.0 at base, 1.0 at tip (set in make_grass_patch.py)
@@ -182,17 +180,17 @@ void fragment() {
 
 	// Scale 2: large patches (166m) — matches terrain lawn_large
 	float lawn_large = fbm3(v_world_pos.xz * 0.006);
-	col *= 0.85 + lawn_large * 0.30;  // match terrain's 0.85 + 0.30
+	col *= 0.88 + lawn_large * 0.24;  // match terrain's gentler 0.85 + 0.30
 
 	// Scale 3: medium patches (40m) — matches terrain lawn_med
 	float lawn_med = fbm3(v_world_pos.xz * 0.025 + 37.0);
 	float stress = smoothstep(0.55, 0.80, lawn_med);
-	col = mix(col, col * vec3(1.06, 0.94, 0.74), stress * 0.12);
-	col *= 0.92 + lawn_med * 0.16;  // match terrain's 0.92 + 0.16
+	col = mix(col, col * vec3(1.04, 0.96, 0.80), stress * 0.08);  // subtler stress
+	col *= 0.94 + lawn_med * 0.12;  // match terrain's 0.94 + 0.12
 
-	// Scale 4: warm/cool hue (100m) — matches terrain temp_shift
+	// Scale 4: warm/cool hue (100m) — matches terrain temp_shift (reduced amplitude)
 	float temp_shift = fbm3(v_world_pos.xz * 0.01 + 91.0) - 0.5;
-	col *= vec3(1.0 + temp_shift * 0.15, 1.0, 1.0 - temp_shift * 0.12);  // match terrain
+	col *= vec3(1.0 + temp_shift * 0.10, 1.0, 1.0 - temp_shift * 0.08);  // subtler
 
 	// Scale 5: per-clump variation (2m) — sub-tile, doesn't need to match terrain
 	// Kept small to preserve close-up visual interest without affecting aerial pattern
