@@ -108,6 +108,4 @@ void fragment() {
 	// SSS tinted by leaf color: warm green glow through foliage
 	BACKLIGHT = ALBEDO * sss_strength * vec3(1.0, 1.2, 0.8);
 
-	// Subtle emission for visibility in shadow
-	EMISSION = ALBEDO * 0.12;
 }
