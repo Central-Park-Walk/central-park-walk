@@ -115,20 +115,19 @@ void fragment() {
 	if (winter_discard > 0.95 && v_grass_type < 4.5) discard;  // lawn types only
 
 	// Soft tile edge: stochastically discard blades near tile perimeter.
-	// This creates a soft circular falloff per tile — adjacent tiles' soft edges
-	// overlap, producing a seamless carpet instead of a visible grid.
+	// Uses world-space hash (not FRAGCOORD) so pattern is stable as camera moves.
 	if (v_edge_fade > 0.01) {
-		float edge_dither = fract(sin(dot(FRAGCOORD.xy, vec2(12.9898, 78.233))) * 43758.5453);
-		if (edge_dither < v_edge_fade * 0.85) discard;  // 85% discard chance at very edge
+		float edge_dither = hash2(v_world_pos.xz * 3.7 + vec2(VERTEX.x * 11.0, VERTEX.z * 13.0));
+		if (edge_dither < v_edge_fade * 0.85) discard;
 	}
 
 	// Aerial height-based fade — from above, individual grass blades would be
 	// sub-pixel, but the tile grid pattern becomes visible as colored blocks.
-	// Stochastically discard grass when camera is high above the terrain.
+	// World-space hash for stable discard pattern (no per-frame sparkle).
 	float cam_h = INV_VIEW_MATRIX[3].y - v_world_pos.y;
 	if (cam_h > 12.0) {
 		float aerial_discard = smoothstep(12.0, 35.0, cam_h);
-		float ad = fract(sin(dot(FRAGCOORD.xy, vec2(41.231, 63.917))) * 28947.1293);
+		float ad = hash2(v_world_pos.xz * 1.3 + vec2(41.2, 63.9));
 		if (ad < aerial_discard) discard;
 	}
 
