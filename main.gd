@@ -2131,7 +2131,7 @@ func _setup_rain() -> void:
 	mat.no_depth_test = true
 	mat.emission_enabled = true
 	mat.emission = Color(0.4, 0.45, 0.55)
-	mat.emission_energy_multiplier = 0.2
+	mat.emission_energy_multiplier = 0.04  # low: prevents bloom stacking
 	_rain_particles.material_override = mat
 
 	add_child(_rain_particles)
@@ -2167,7 +2167,7 @@ func _setup_thunderstorm() -> void:
 	mat.no_depth_test = true
 	mat.emission_enabled = true
 	mat.emission = Color(0.35, 0.40, 0.50)
-	mat.emission_energy_multiplier = 0.25
+	mat.emission_energy_multiplier = 0.05  # low: prevents bloom stacking
 	_rain_particles.material_override = mat
 
 	add_child(_rain_particles)
@@ -2320,7 +2320,7 @@ func _setup_blossom_particles() -> void:
 	# Slight emission for that ethereal glow of sunlit petals
 	mat.emission_enabled = true
 	mat.emission = Color(0.95, 0.80, 0.82)
-	mat.emission_energy_multiplier = 0.15
+	mat.emission_energy_multiplier = 0.03  # low: prevents bloom stacking from aerial view
 	_blossom_particles.material_override = mat
 
 	add_child(_blossom_particles)
