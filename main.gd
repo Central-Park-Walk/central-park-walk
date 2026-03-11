@@ -1291,6 +1291,9 @@ func _apply_time_of_day() -> void:
 	var terrain_y: float = _terrain_height(_player.global_position.x, _player.global_position.z) if _player else 0.0
 	var height_above_ground: float = maxf(cam_y - terrain_y, 0.0)
 	var glow_fade: float = 1.0 - clampf((height_above_ground - 20.0) / 60.0, 0.0, 1.0)  # full at <20m, zero at >80m
+	# Must actually disable glow pipeline at altitude — setting intensity/bloom/strength
+	# to zero still processes bright pixels through the HDR threshold.
+	_env.glow_enabled           = glow_fade > 0.01
 	_env.glow_intensity         = glow_base_intensity * glow_fade
 	_env.glow_bloom             = glow_base_bloom * glow_fade
 	_env.glow_strength          = glow_base_strength * glow_fade
