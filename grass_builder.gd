@@ -208,6 +208,7 @@ func _build_grass() -> void:
 		mmi.position = chunk_origin
 		mmi.name = "Grass_%s" % ck.replace("|", "_")
 		mmi.visibility_range_end = vis_end
+		mmi.visibility_range_end_margin = vis_end * 0.15  # 15% fade margin for smooth pop-in
 		mmi.visibility_range_begin = 0.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
