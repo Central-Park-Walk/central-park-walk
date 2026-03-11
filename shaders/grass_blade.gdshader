@@ -308,18 +308,10 @@ void fragment() {
 		ROUGHNESS = mix(ROUGHNESS, 0.40, frost_mask * 0.3);
 	}
 
-	// Dew drops: morning moisture on blades in spring/summer
-	// Small water droplets at blade tips catch and refract light
-	if (spring_t > 0.2 || (season_t > 0.5 && season_t < 2.5)) {
-		float dew_season = max(spring_t, smoothstep(0.5, 1.0, season_t) * smoothstep(2.5, 2.0, season_t));
-		float dew_pos = hash2(floor(v_world_pos.xz * 8.0));
-		// ~12% of blade tips hold a visible dew drop
-		float dew_drop = step(0.88, dew_pos) * smoothstep(0.6, 0.9, blade_t) * dew_season;
-		ROUGHNESS = mix(ROUGHNESS, 0.05, dew_drop * 0.7);
-		SPECULAR  = mix(SPECULAR,  0.50, dew_drop * 0.8);
-		// Dew slightly darkens the blade (wet surface)
-		ALBEDO   *= mix(1.0, 0.85, dew_drop * 0.5);
-	}
+	// Dew drops removed — the specular highlights (ROUGHNESS=0.05, SPECULAR=0.50
+	// on 12% of blade tips) created visible bright circular blips from any angle.
+	// Real dew isn't visible at this rendering scale. Could revisit with a
+	// time_of_day uniform to limit to dawn/morning only.
 
 	// Backlight / subsurface scattering — subtle, only at blade tips.
 	// Reduced to prevent grass tiles appearing brighter than terrain underneath.
