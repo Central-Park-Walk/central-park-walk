@@ -201,7 +201,7 @@ func _ready() -> void:
 	if _park_loader and _park_loader.boundary_polygon.size() > 2:
 		_player.boundary_polygon = _park_loader.boundary_polygon
 	_setup_hud()
-	#_setup_color_grade()  # causes orbs on water (amplifies spotlight specular)
+	_setup_color_grade()  # safe now — lamp energy reduced from 110 to 5
 	_setup_letterbox()
 	if not _terrain_only:
 		_setup_lamp_lights()
@@ -934,19 +934,32 @@ func _setup_environment() -> void:
 	_env.sky                   = sky
 	_env.ambient_light_source  = Environment.AMBIENT_SOURCE_SKY
 	_env.ambient_light_sky_contribution = 0.3
-	# ===== POST-FX BASELINE TEST — all post-processing OFF =====
-	# Re-enable one at a time to find the artifact source.
-	_env.tonemap_mode          = Environment.TONE_MAPPER_FILMIC  # TEST 1: filmic tonemap
+	_env.tonemap_mode          = Environment.TONE_MAPPER_FILMIC
 	_env.tonemap_white         = 6.0
-	_env.glow_enabled          = false   # CONFIRMED: amplifies temporal bright pixels into blips
-	_env.ssao_enabled          = true    # TEST 3: SSAO
-	_env.ssil_enabled          = false   # CONFIRMED: causes blip artifacts
-	_env.ssr_enabled           = false   # OFF
-	_env.adjustment_enabled    = true    # TEST 5: adjustment
-	_env.fog_enabled           = true    # TEST 2: fog
-	_env.volumetric_fog_enabled = true   # TEST 6: volumetric fog
-	_env.sdfgi_enabled         = false   # OFF
-	# ===== END POST-FX BASELINE TEST =====
+	_env.glow_enabled          = true
+	_env.glow_blend_mode       = Environment.GLOW_BLEND_MODE_ADDITIVE
+	_env.ssao_enabled          = true
+	_env.ssao_detail           = 0.5
+	_env.ssil_enabled          = false   # causes yellow shield artifacts (temporal accumulation)
+	_env.ssr_enabled           = false   # causes multi-colored artifacts on water from aerial view
+	_env.sdfgi_enabled         = false   # causes diamond-shaped probe flash artifacts
+	_env.adjustment_enabled    = true
+	_env.adjustment_brightness = 1.02
+	_env.fog_enabled           = true
+
+	# Volumetric fog — light shafts (god rays at sunrise/sunset via high anisotropy)
+	_env.volumetric_fog_enabled = true
+	_env.volumetric_fog_density = 0.0001
+	_env.volumetric_fog_albedo = Color(1.0, 1.0, 1.0)
+	_env.volumetric_fog_emission = Color(0.8, 0.85, 0.9)
+	_env.volumetric_fog_emission_energy = 0.08
+	_env.volumetric_fog_anisotropy = 0.3
+	_env.volumetric_fog_length = 100.0
+	_env.volumetric_fog_detail_spread = 2.0
+	_env.volumetric_fog_ambient_inject = 0.15
+	_env.volumetric_fog_gi_inject = 0.2
+	_env.volumetric_fog_sky_affect = 0.20
+	_env.volumetric_fog_temporal_reprojection_enabled = true
 
 	var world_env := WorldEnvironment.new()
 	world_env.environment = _env
@@ -1003,7 +1016,7 @@ func _build_keyframes() -> void:
 		"sun_pitch":      -10.0,
 		"sun_yaw":        -100.0,
 		"shadow_dist":    180.0,
-		"lamp_emission":  5.0,  # pre-dawn: lamps still at full brightness
+		"lamp_emission":  5.0,  # pre-dawn: lamps on (direct SpotLight3D energy)
 		"vol_fog_density":    0.0004,
 		"vol_fog_anisotropy": 0.45,
 		"cloud_coverage":     0.50,
@@ -1185,7 +1198,7 @@ func _build_keyframes() -> void:
 		"sun_pitch":      -65.0,
 		"sun_yaw":        40.0,
 		"shadow_dist":    200.0,
-		"lamp_emission":  5.0,  # stronger glow — Kent Bloomer luminaires are quite bright
+		"lamp_emission":  5.0,  # night: direct SpotLight3D energy (was 110 via 22x multiplier)
 		"vol_fog_density":    0.0005,  # slight night haze catches lamplight scatter
 		"vol_fog_anisotropy": 0.35,
 		"cloud_coverage":     0.45,
@@ -1266,32 +1279,38 @@ func _apply_time_of_day() -> void:
 	_env.tonemap_exposure = _lerp_kf("exposure", a, b, t)
 	_env.tonemap_white    = _lerp_kf("white", a, b, t)
 
-	# ===== POST-FX BASELINE TEST — skip all post-processing updates =====
-	# Glow, SSAO, SSIL, adjustment, fog, volumetric fog all disabled.
-	# Only ambient + tonemapping exposure still update (needed for basic lighting).
-	_env.glow_intensity         = _lerp_kf("glow_intensity", a, b, t)  # TEST 7
+	# Glow
+	_env.glow_intensity         = _lerp_kf("glow_intensity", a, b, t)
 	_env.glow_bloom             = _lerp_kf("glow_bloom", a, b, t)
 	_env.glow_strength          = _lerp_kf("glow_strength", a, b, t)
 	_env.glow_hdr_threshold     = _lerp_kf("glow_threshold", a, b, t)
 	_env.glow_hdr_luminance_cap = _lerp_kf("glow_cap", a, b, t)
-	_env.ssao_radius    = _lerp_kf("ssao_radius", a, b, t)             # TEST 3
+
+	# SSAO
+	_env.ssao_radius    = _lerp_kf("ssao_radius", a, b, t)
 	_env.ssao_intensity = _lerp_kf("ssao_intensity", a, b, t)
 	_env.ssao_power     = _lerp_kf("ssao_power", a, b, t)
-	# _env.ssil_intensity = _lerp_kf("ssil_intensity", a, b, t)  # SSIL disabled
-	_env.adjustment_saturation = _lerp_kf("saturation", a, b, t)       # TEST 5
+
+	# SSIL disabled — temporal accumulation causes yellow shield artifacts
+
+	# Colour grading
+	_env.adjustment_saturation = _lerp_kf("saturation", a, b, t)
 	_env.adjustment_contrast   = _lerp_kf("contrast", a, b, t)
 	_env.adjustment_brightness = _lerp_kf("brightness", a, b, t) * _user_gamma
 	if _lightning_flash > 0.01:
 		_env.adjustment_brightness *= (1.0 + _lightning_flash * 3.0)
-	_env.fog_light_color       = _lerp_kf("fog_color", a, b, t)       # TEST 2
+
+	# Fog
+	_env.fog_light_color       = _lerp_kf("fog_color", a, b, t)
 	_env.fog_light_energy      = _lerp_kf("fog_energy", a, b, t)
 	_env.fog_sun_scatter       = _lerp_kf("fog_scatter", a, b, t)
 	_env.fog_density           = _lerp_kf("fog_density", a, b, t)
 	_env.fog_aerial_perspective = _lerp_kf("fog_aerial", a, b, t)
 	_env.fog_sky_affect        = _lerp_kf("fog_sky_affect", a, b, t)
-	_env.volumetric_fog_density    = _lerp_kf("vol_fog_density", a, b, t)  # TEST 6
+
+	# Volumetric fog
+	_env.volumetric_fog_density    = _lerp_kf("vol_fog_density", a, b, t)
 	_env.volumetric_fog_anisotropy = _lerp_kf("vol_fog_anisotropy", a, b, t)
-	# ===== END POST-FX BASELINE TEST =====
 
 	# Weather overrides — use absolute values for fog/clouds so the effect
 	# is clearly visible regardless of time-of-day keyframe base values.
@@ -1964,7 +1983,7 @@ func _update_lamp_lights() -> void:
 		if li < dists.size() and night_energy > 0.1:
 			var idx: int = dists[li][1]
 			_lamp_lights[li].global_position = _lamp_positions[idx]
-			_lamp_lights[li].light_energy = night_energy * 22.0
+			_lamp_lights[li].light_energy = night_energy
 		else:
 			_lamp_lights[li].light_energy = 0.0
 
