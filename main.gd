@@ -928,12 +928,13 @@ func _setup_environment() -> void:
 	_env.glow_blend_mode       = Environment.GLOW_BLEND_MODE_ADDITIVE
 	_env.ssao_enabled          = true
 	_env.ssao_detail           = 0.5
-	# SSIL + SSR disabled — both are screen-space temporal effects that produce
-	# bright multi-colored blobs from aerial view. They sample screen pixels
-	# that don't correspond to correct geometry at extreme angles, generating
-	# garbage bright pixels (facade emission colors) that glow-bloom amplifies
-	# into visible circular artifacts. Disappear in rain/fog because atmospheric
-	# effects dominate the screen buffer. SDFGI provides better GI than SSIL.
+	# SSIL + SSR + SDFGI disabled — all three produce temporal multi-colored
+	# blob artifacts, especially from aerial view. SSR/SSIL sample screen pixels
+	# that don't correspond to correct geometry at extreme angles; SDFGI probes
+	# reconverge over multiple frames producing colored light leaks that glow-
+	# bloom amplifies into visible circles. SDFGI artifacts also propagate into
+	# volumetric fog via gi_inject. Ambient lighting + SSAO + direct lights are
+	# sufficient for the scene.
 	_env.ssil_enabled          = false
 	_env.ssr_enabled           = false
 	_env.adjustment_enabled    = true
@@ -950,21 +951,15 @@ func _setup_environment() -> void:
 	_env.volumetric_fog_length = 100.0
 	_env.volumetric_fog_detail_spread = 2.0
 	_env.volumetric_fog_ambient_inject = 0.15
-	_env.volumetric_fog_gi_inject = 0.2
+	_env.volumetric_fog_gi_inject = 0.0  # no GI to inject (SDFGI disabled)
 	_env.volumetric_fog_sky_affect = 0.20
 	_env.volumetric_fog_temporal_reprojection_enabled = true
 
-	# SDFGI — global illumination (green bounce under canopies, warm path reflections)
-	_env.sdfgi_enabled = true
-	_env.sdfgi_use_occlusion = true
-	_env.sdfgi_read_sky_light = true
-	_env.sdfgi_bounce_feedback = 0.5
-	_env.sdfgi_cascades = 4
-	_env.sdfgi_min_cell_size = 0.4
-	_env.sdfgi_y_scale = Environment.SDFGI_Y_SCALE_75_PERCENT
-	_env.sdfgi_energy = 0.8
-	_env.sdfgi_normal_bias = 1.1
-	_env.sdfgi_probe_bias = 1.1
+	# SDFGI disabled — probe reconvergence produces temporal colored light leaks
+	# from aerial view, amplified by glow bloom into multi-colored blob artifacts.
+	# Also propagated via volumetric_fog_gi_inject. Ambient + SSAO + direct lights
+	# provide sufficient illumination.
+	_env.sdfgi_enabled = false
 
 	var world_env := WorldEnvironment.new()
 	world_env.environment = _env
