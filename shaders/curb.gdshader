@@ -125,5 +125,4 @@ void fragment() {
 	ROUGHNESS = rough;
 	METALLIC = 0.0;
 	SPECULAR = 0.08 + sparkle_spec;
-	EMISSION = base * 0.06;
 }

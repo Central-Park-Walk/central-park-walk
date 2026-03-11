@@ -167,6 +167,4 @@ void fragment() {
 		}
 	}
 
-	// Ambient emission for shadow fill
-	EMISSION = ALBEDO * 0.10;
 }

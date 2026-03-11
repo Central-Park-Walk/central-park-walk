@@ -284,9 +284,6 @@ void fragment() {
 		SPECULAR = mix(SPECULAR, 0.50, droplet * 0.4);
 	}
 
-	// Ambient emission for shadow fill — minimal, just prevents pitch black shadows
-	EMISSION = ALBEDO * 0.04;
-
 	// --- Enhanced subsurface scattering ---
 	// Light passing through thin leaves creates warm glow
 	// Stronger in spring (fresh thin leaves), reduced in fall (dry/thick), absent in winter

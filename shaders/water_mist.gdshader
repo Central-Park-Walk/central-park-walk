@@ -41,5 +41,4 @@ void fog() {
 
 	DENSITY = density * 0.8;
 	ALBEDO = mist_col;
-	EMISSION = mist_col * 0.05;
 }

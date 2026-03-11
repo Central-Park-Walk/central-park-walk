@@ -99,6 +99,4 @@ void fragment() {
 		ROUGHNESS = mix(ROUGHNESS, 0.95, algae * 0.2);
 	}
 
-	// Subtle emission for shadow-side visibility
-	EMISSION = ALBEDO * 0.12;
 }
