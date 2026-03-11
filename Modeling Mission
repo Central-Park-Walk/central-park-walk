@@ -1,0 +1,33 @@
+Prompt — Map Completion Strategy: Iterative Blender Modeling
+
+We are building a 3D open walkthrough of Central Park in Godot. The map currently uses billboard/sprite placeholders for many structures throughout the park. We want to replace all of these with proper 3D models built iteratively in Blender using the bpy Python scripting API.
+The workflow is:
+
+Claude writes a self-contained bpy Python script that models a structure from scratch
+I run it in Blender's scripting tab and screenshot the result
+Claude reads the screenshot, corrects proportions, geometry, or detail, and rewrites the script
+We repeat until the model looks right
+Claude exports as GLB and I drop it into the Godot project to replace the billboard
+
+The structures we want to model, roughly in priority order:
+
+Bow Bridge (symmetrical stone arch bridge — high scriptability)
+Bethesda Terrace and its underpass arcade (barrel vault, repeating ceiling tiles)
+Trefoil Arch and other pedestrian tunnels
+Perimeter walls, balustrades, and staircases (repetitive, array-friendly)
+Belvedere Castle
+The Dairy building
+The Bandshell
+The Ramble cave tunnel (organic rock — use Displace modifier and noise)
+
+Modeling guidelines for Claude:
+
+Use bpy scripting only — no manual operations
+Favor Blender modifiers (Array, Mirror, Bevel, Solidify, Curve, Displace) to keep scripts parametric and easy to adjust
+Each script should be fully self-contained: clear the scene, build the model, set up basic materials, and position at world origin
+Keep poly count game-appropriate — use modifiers for detail rather than dense geometry
+Include a comment block at the top of each script with the key parameters (span width, height, arch radius etc.) so they are easy to find and tweak
+Export as GLB to a path I specify
+
+When I give feedback, I will provide a screenshot and describe what needs to change. Claude should identify which parameters or operations to adjust and rewrite the full script.
+Please confirm you understand this workflow and ask me which structure to start with.

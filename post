@@ -1,0 +1,132 @@
+In Godot (Real-time, in-engine)
+WorldEnvironment + Environment Resource is your main hub for post-processing. Key settings for a stylized look:
+
+Tonemapping — Try the "Filmic" or "ACES" tonemapper for punchy, cinematic contrast, or keep it flat and push color manually.
+Glow/Bloom — A soft, low-intensity bloom can make sunlight filtering through trees feel magical. Godot's glow has a "bicubic upscale" option that looks much softer.
+Screen-Space Ambient Occlusion (SSAO) — Adds depth to foliage and ground contact shadows without heavy rendering cost.
+Depth of Field — Blur distant elements or foreground grass to create a painterly, shallow-focus feel.
+Color Correction via LUT — You can load a custom color lookup table (LUT) to apply a whole "mood" in one step — great for a warm golden hour Central Park vibe or a cool overcast morning.
+Fog — Godot's volumetric or distance fog can soften the horizon and give the park a hazy, atmospheric depth.
+
+Stylized tip: Combine a slightly desaturated base with boosted glow and a warm LUT — this is a common trick for that "storybook outdoors" aesthetic.
+
+In Blender (Pre-render / Offline)
+If you're rendering cinematic shots or cutscenes out of Blender before bringing them into Godot:
+
+Compositor nodes — This is the powerhouse. You can chain Glare, Color Balance, Lens Distortion, Vignette, and more non-destructively.
+Glare node — Specifically the "Bloom" or "Streaks" type for stylized sun rays through the Central Park canopy.
+Color Balance (ASC-CDL) — Lift/Gamma/Gain gives you precise filmic color control.
+Halftone or painterly shaders — If you want something more illustrative, you can use Blender's Geometry Nodes or shader tricks to push toward a watercolor or graphic novel look.
+
+
+Stylistic Directions Worth Considering
+Given it's Central Park, a few aesthetic approaches that work really well:
+
+Golden hour warmth — Warm LUT, soft bloom, slight vignette
+Impressionistic/painterly — Cel shading in Godot + toon outline shader + Blender compositor stylization
+Moody overcast — Desaturated palette, heavy SSAO, subtle fog, cooler color grade
+Storybook illustration — Flat lighting, strong outlines, bold saturated colors
+
+
+Would you like to go deeper on any of these — like how to set up a LUT pipeline between Blender and Godot, or how to build a specific stylized look?i think we should make time stand still for our simulation.  the command line operation can specify the time of day, or it will default to golden hour.  then we apply different post-processing techniques based on the time of day.  i would think it fun to try the game with a lens distortion and a huge fov.  or in rain or snow.11:33 AMLove this direction! A time-locked simulation with CLI-driven mood is a really elegant design. Let me make sure I understand the full scope before we dig in.Let's nail down the structure first!Q: What should the CLI argument control?
+A: 2Q: Which time-of-day presets should we build out? (Select all that apply)
+A: Dawn, Morning, Noon, Golden Hour (default), Dusk, NightQ: Which weather/effect overlays should we support? (Select all that apply)
+A: Rain, Snow, Fog, Lens distortion + huge FOV, Clear (no weather)11:35 AMPerfect — so we're building a system with separate --time and --weather flags, all 6 time presets, and all 5 weather/effect modes. That's a really expressive combo matrix.
+Here's how I'd architect this in Godot:
+
+CLI Argument Parsing
+In your main scene's _ready():
+gdscriptfunc _ready():
+    var args = OS.get_cmdline_args()
+    var time = "golden_hour"  # default
+    var weather = "clear"     # default
+
+    for i in args.size():
+        if args[i] == "--time" and i + 1 < args.size():
+            time = args[i + 1]
+        if args[i] == "--weather" and i + 1 < args.size():
+            weather = args[i + 1]
+
+    SimulationManager.apply_time(time)
+    SimulationManager.apply_weather(weather)
+Launch examples:
+bash./central_park --time night --weather snow
+./central_park --time dawn --weather fog
+./central_park --weather lens  # defaults to golden hour
+
+SimulationManager (Autoload Singleton)
+This drives everything — lighting, environment, particles, camera, post-processing:
+gdscript# SimulationManager.gd
+extends Node
+
+@onready var env: WorldEnvironment = $WorldEnvironment
+@onready var sun: DirectionalLight3D = $Sun
+@onready var camera: Camera3D = $Camera3D
+
+func apply_time(preset: String):
+    match preset:
+        "dawn":       _set_dawn()
+        "morning":    _set_morning()
+        "noon":       _set_noon()
+        "golden_hour":_set_golden_hour()
+        "dusk":       _set_dusk()
+        "night":      _set_night()
+        _:            _set_golden_hour()
+
+func apply_weather(preset: String):
+    match preset:
+        "rain":   _set_rain()
+        "snow":   _set_snow()
+        "fog":    _set_fog()
+        "lens":   _set_lens()
+        "clear":  _set_clear()
+        _:        _set_clear()
+
+Time Presets — What Changes Per Preset
+Each preset touches: sun angle, sun color/energy, sky color, ambient light, SSAO, glow, and LUT.
+PresetSun AngleSun ColorEnergySky MoodGlowDawn5°Soft pink/lavender0.4Pale blue-pinkLowMorning25°Warm yellow-white0.8Light blueLowNoon80°Bright white1.5Deep blueNoneGolden Hour15°Deep orange-gold1.0Warm amberMediumDusk3°Red-purple0.3Purple-orangeHighNight-20° (moon)Cool blue-white0.05Deep navyLow
+
+Weather/Effect Overlays — Key Techniques
+Rain
+
+GPUParticles3D with downward velocity, slight random spread
+Screen-space rain drop texture via a CanvasLayer shader
+Boost fog density slightly, desaturate color grade
+Wet ground: increase surface roughness/reflectivity on materials
+
+Snow
+
+GPUParticles3D with slow drift + sine wave horizontal movement
+Larger, softer particles than rain
+Brighten ambient slightly (snow reflects light)
+Optional accumulation on geometry via a secondary albedo blend shader
+
+Fog
+
+Godot's volumetric fog in WorldEnvironment — density ~0.08, height falloff
+Reduce sun energy by ~40%
+Great combined with Dawn or Dusk for a moody Central Park morning
+
+Lens Distortion + Huge FOV
+
+Set Camera3D.fov to 110–140° (play with it — 120° is a sweet spot for surreal but navigable)
+Apply a barrel distortion shader on a CanvasLayer fullscreen quad:
+
+glsl// Barrel distortion fragment shader
+uniform float strength = 0.3;
+void fragment() {
+    vec2 uv = SCREEN_UV - 0.5;
+    float dist = dot(uv, uv);
+    uv *= 1.0 + strength * dist;
+    COLOR = texture(SCREEN_TEXTURE, uv + 0.5);
+}
+
+Add chromatic aberration (RGB channel offset) for extra weirdness
+
+Clear
+
+No particles, no distortion, standard fog settings off
+
+
+Combinability
+Since --time and --weather are independent, you get combos like night + snow (blue moonlit snowfall), dawn + fog (misty park morning), or noon + lens (blazing sun with a fisheye feel) totally for free. You may want to add a few override tweaks — e.g. fog should reduce sun energy regardless of time preset — which you can handle with a post-apply pass in SimulationManager.
