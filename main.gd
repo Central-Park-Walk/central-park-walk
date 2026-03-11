@@ -618,6 +618,19 @@ func _process(delta: float) -> void:
 	if absf(_time_of_day - _last_applied_tod) > 0.01 or _last_applied_tod < 0.0:
 		_apply_time_of_day()
 
+	# Glow height fade — runs every frame (camera-dependent, not time-dependent).
+	# Must be outside _apply_time_of_day which only runs when time changes.
+	if _env and _player:
+		var cam_y: float = _player.global_position.y
+		var terr_y: float = _terrain_height(_player.global_position.x, _player.global_position.z)
+		var hag: float = maxf(cam_y - terr_y, 0.0)
+		var gfade: float = 1.0 - clampf((hag - 20.0) / 60.0, 0.0, 1.0)
+		_env.glow_enabled = gfade > 0.01
+		if _env.glow_enabled:
+			_env.glow_intensity *= gfade
+			_env.glow_bloom    *= gfade
+			_env.glow_strength *= gfade
+
 	# Letterbox bar sizing (adapts to viewport resize)
 	if _letterbox_on and _letterbox_top:
 		var vp := get_viewport().get_visible_rect().size
@@ -1276,22 +1289,10 @@ func _apply_time_of_day() -> void:
 	_env.tonemap_exposure = _lerp_kf("exposure", a, b, t)
 	_env.tonemap_white    = _lerp_kf("white", a, b, t)
 
-	# Glow — attenuated by camera height to prevent sub-pixel aliased geometry
-	# (tree leaves, facades, terrain) from blooming into circular artifacts
-	# when viewed from aerial distances. Full bloom at ground level, zero above 80m.
-	var glow_base_intensity: float = _lerp_kf("glow_intensity", a, b, t)
-	var glow_base_bloom: float     = _lerp_kf("glow_bloom", a, b, t)
-	var glow_base_strength: float  = _lerp_kf("glow_strength", a, b, t)
-	var cam_y: float = _player.global_position.y if _player else 0.0
-	var terrain_y: float = _terrain_height(_player.global_position.x, _player.global_position.z) if _player else 0.0
-	var height_above_ground: float = maxf(cam_y - terrain_y, 0.0)
-	var glow_fade: float = 1.0 - clampf((height_above_ground - 20.0) / 60.0, 0.0, 1.0)  # full at <20m, zero at >80m
-	# Must actually disable glow pipeline at altitude — setting intensity/bloom/strength
-	# to zero still processes bright pixels through the HDR threshold.
-	_env.glow_enabled           = glow_fade > 0.01
-	_env.glow_intensity         = glow_base_intensity * glow_fade
-	_env.glow_bloom             = glow_base_bloom * glow_fade
-	_env.glow_strength          = glow_base_strength * glow_fade
+	# Glow — base values from keyframes. Height fade applied per-frame in _process().
+	_env.glow_intensity         = _lerp_kf("glow_intensity", a, b, t)
+	_env.glow_bloom             = _lerp_kf("glow_bloom", a, b, t)
+	_env.glow_strength          = _lerp_kf("glow_strength", a, b, t)
 	_env.glow_hdr_threshold     = _lerp_kf("glow_threshold", a, b, t)
 	_env.glow_hdr_luminance_cap = _lerp_kf("glow_cap", a, b, t)
 
