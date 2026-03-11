@@ -1298,7 +1298,7 @@ func _apply_time_of_day() -> void:
 	_env.adjustment_contrast   = _lerp_kf("contrast", a, b, t)
 	_env.adjustment_brightness = _lerp_kf("brightness", a, b, t) * _user_gamma
 	if _lightning_flash > 0.01:
-		_env.adjustment_brightness *= (1.0 + _lightning_flash * 3.0)
+		_env.adjustment_brightness *= (1.0 + _lightning_flash * 0.8)
 
 	# Fog
 	_env.fog_light_color       = _lerp_kf("fog_color", a, b, t)
