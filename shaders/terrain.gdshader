@@ -160,30 +160,30 @@ void fragment() {
 		float avg_g = dot(grass_alb, vec3(0.299, 0.587, 0.114));
 		grass_alb = mix(grass_alb, vec3(avg_g), tex_fade);
 	}
-	// Summer lawn: strong green — terrain IS the grass carpet, 3D blades add depth.
-	// The Great Lawn looks correct; push all grass surfaces to match.
+	// Summer lawn: rich green — CP Conservancy Class A lawns are genuinely lush.
+	// Kentucky bluegrass + perennial ryegrass = deep green, not olive.
 	float grass_lum = dot(grass_alb, vec3(0.299, 0.587, 0.114));
-	grass_alb = mix(vec3(grass_lum), grass_alb, 0.75);  // 25% desaturation — grass isn't neon in linear PBR
-	grass_alb *= 0.82;  // real grass albedo is quite dark in linear space (~0.04-0.10 green channel)
-	grass_alb.r *= 0.94;  // reduce red for cooler green, not warm yellow-green
-	grass_alb.b *= 0.85;  // reduce blue for earthy green, not teal
+	grass_alb = mix(vec3(grass_lum), grass_alb, 0.82);  // 18% desaturation — preserve green character
+	grass_alb *= 0.80;  // real grass albedo is quite dark in linear space (~0.04-0.10 green channel)
+	grass_alb.r *= 0.88;  // stronger red reduction — push firmly toward green, away from olive
+	grass_alb.b *= 0.82;  // reduce blue slightly — earthy green, not teal
 
 	// Multi-scale grass color variation — real lawns are never uniform.
 	// Aerial imagery of Central Park shows a patchwork of greens, olives, browns.
 
 	// Define grass color targets (linear space values — these blend with PBR texture)
-	// Brightened to better match 3D grass blade shader output — prevents visible grid
-	vec3 lush_green    = vec3(0.07, 0.12, 0.04);  // deep rich green — recently watered
-	vec3 olive_green   = vec3(0.10, 0.10, 0.04);  // olive — normal healthy grass
-	vec3 yellow_stress = vec3(0.14, 0.12, 0.04);  // yellow-green — drought stress
+	// CP lawns are well-maintained — lush is the baseline, not the exception.
+	vec3 lush_green    = vec3(0.05, 0.12, 0.04);  // deep rich green — baseline maintained lawn
+	vec3 med_green     = vec3(0.07, 0.11, 0.04);  // slightly less vibrant but still green
+	vec3 yellow_stress = vec3(0.12, 0.11, 0.04);  // subtle yellow-green — light drought stress
 	vec3 brown_dirt    = vec3(0.10, 0.07, 0.04);  // exposed soil/thatch
 
 	// Scale 1: very large (100-200m) — whole-field condition (visible from aerial)
 	float field_cond = vnoise(world_pos.xz * 0.003 + vec2(50.0, 23.0));
-	// Mix between lush and olive at field scale — visible from 100m but subtle
-	// enough that grass blade clumps don't create a grid pattern
-	vec3 field_tone = mix(lush_green, olive_green, field_cond);
-	grass_alb = mix(grass_alb, field_tone, 0.25);
+	// Mix between lush and medium at field scale — visible from 100m but subtle.
+	// CP lawns are well-irrigated so the variation is green-to-green, not green-to-olive.
+	vec3 field_tone = mix(lush_green, med_green, field_cond);
+	grass_alb = mix(grass_alb, field_tone, 0.22);
 
 	// Scale 2: large patches (25-40m) — drainage, irrigation, sun/shade
 	float lawn_large = fbm(world_pos.xz * 0.006, 3);
@@ -191,20 +191,20 @@ void fragment() {
 
 	// Scale 3: medium patches (8-15m) — mowing age, species dominance
 	float lawn_med = fbm(world_pos.xz * 0.025 + 37.0, 2);
-	// Yellow stress patches where grass is thin
+	// Yellow stress patches where grass is thin — kept subtle on maintained CP lawns
 	float stress_mask = smoothstep(0.55, 0.80, lawn_med);
-	grass_alb = mix(grass_alb, yellow_stress, stress_mask * 0.15);
-	grass_alb *= 0.92 + lawn_med * 0.16;
+	grass_alb = mix(grass_alb, yellow_stress, stress_mask * 0.08);
+	grass_alb *= 0.94 + lawn_med * 0.12;
 
 	// Scale 4: warm/cool hue patches — Kentucky bluegrass vs perennial ryegrass
 	float temp_shift = fbm(world_pos.xz * 0.01 + 91.0, 2) - 0.5;
-	grass_alb *= vec3(1.0 + temp_shift * 0.15, 1.0, 1.0 - temp_shift * 0.12);
+	grass_alb *= vec3(1.0 + temp_shift * 0.10, 1.0, 1.0 - temp_shift * 0.08);
 
 	// Scale 5: small-scale thinning (2-4m) — bare spots, compaction, foot traffic
-	// Reduced from 0.30 to 0.15 to prevent dark spots that contrast with 3D grass blades
+	// Bare spots from foot traffic — very subtle on maintained CP lawns
 	float thin_noise = vnoise(world_pos.xz * 0.15);
-	float thin_patch = smoothstep(0.50, 0.70, thin_noise);
-	grass_alb = mix(grass_alb, brown_dirt, thin_patch * 0.15);
+	float thin_patch = smoothstep(0.55, 0.75, thin_noise);
+	grass_alb = mix(grass_alb, brown_dirt, thin_patch * 0.08);
 
 	// Distance-based darkening + aerial perspective.
 	// Far grass darkens (blade highlights average out, self-shadowing).
