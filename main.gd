@@ -954,11 +954,17 @@ func _setup_environment() -> void:
 	_env.volumetric_fog_sky_affect = 0.20
 	_env.volumetric_fog_temporal_reprojection_enabled = true
 
-	# SDFGI disabled — probe reconvergence with animated surfaces (grass wind,
-	# water waves) produces colored light artifacts that bloom into visible
-	# circles from aerial view at night. SSAO + SSIL + shader EMISSION provide
-	# sufficient ambient fill without the temporal instability.
-	_env.sdfgi_enabled = false
+	# SDFGI — global illumination (green bounce under canopies, warm path reflections)
+	_env.sdfgi_enabled = true
+	_env.sdfgi_use_occlusion = true
+	_env.sdfgi_read_sky_light = true
+	_env.sdfgi_bounce_feedback = 0.5
+	_env.sdfgi_cascades = 4
+	_env.sdfgi_min_cell_size = 0.4
+	_env.sdfgi_y_scale = Environment.SDFGI_Y_SCALE_75_PERCENT
+	_env.sdfgi_energy = 0.8
+	_env.sdfgi_normal_bias = 1.1
+	_env.sdfgi_probe_bias = 1.1
 
 	var world_env := WorldEnvironment.new()
 	world_env.environment = _env
@@ -992,10 +998,10 @@ func _build_keyframes() -> void:
 		"ambient_energy": 0.40,   # NYC ambient from light pollution
 		"exposure":       0.85,
 		"white":          6.0,
-		"glow_intensity": 0.6,
-		"glow_bloom":     0.08,
-		"glow_strength":  0.7,
-		"glow_threshold": 0.55,
+		"glow_intensity": 0.25,
+		"glow_bloom":     0.02,
+		"glow_strength":  0.5,
+		"glow_threshold": 1.2,   # high: only direct SpotLight3D bloom, not window emission (~0.77)
 		"glow_cap":       5.0,
 		"ssao_radius":    2.0,
 		"ssao_intensity": 2.2,
@@ -1174,10 +1180,10 @@ func _build_keyframes() -> void:
 		"ambient_energy": 0.10,   # darker ambient — lets lamppost pools stand out more
 		"exposure":       0.92,   # darker overall — night IS dark even in NYC
 		"white":          6.0,
-		"glow_intensity": 0.45,   # restrained — only lampposts and windows bloom
-		"glow_bloom":     0.06,
-		"glow_strength":  0.6,
-		"glow_threshold": 0.65,   # high threshold — only bright light sources bloom
+		"glow_intensity": 0.20,
+		"glow_bloom":     0.02,
+		"glow_strength":  0.5,
+		"glow_threshold": 1.2,   # high: only direct SpotLight3D bloom, not window emission (~0.77)
 		"glow_cap":       5.0,
 		"ssao_radius":    2.0,
 		"ssao_intensity": 2.2,
