@@ -1012,7 +1012,7 @@ func _build_keyframes() -> void:
 		"glow_intensity": 0.6,
 		"glow_bloom":     0.08,
 		"glow_strength":  0.7,
-		"glow_threshold": 1.0,   # high enough to skip wind-flickering SSS on tree leaves
+		"glow_threshold": 0.55,
 		"glow_cap":       5.0,
 		"ssao_radius":    2.0,
 		"ssao_intensity": 2.2,
@@ -1194,7 +1194,7 @@ func _build_keyframes() -> void:
 		"glow_intensity": 0.45,
 		"glow_bloom":     0.06,
 		"glow_strength":  0.6,
-		"glow_threshold": 1.0,   # high enough to skip wind-flickering SSS on tree leaves
+		"glow_threshold": 0.65,
 		"glow_cap":       5.0,
 		"ssao_radius":    2.0,
 		"ssao_intensity": 2.2,
