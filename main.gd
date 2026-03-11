@@ -201,7 +201,7 @@ func _ready() -> void:
 	if _park_loader and _park_loader.boundary_polygon.size() > 2:
 		_player.boundary_polygon = _park_loader.boundary_polygon
 	_setup_hud()
-	#_setup_color_grade()  # POST-FX BASELINE TEST — disabled
+	_setup_color_grade()  # TEST 8: color grade shader
 	_setup_letterbox()
 	if not _terrain_only:
 		_setup_lamp_lights()
@@ -938,7 +938,7 @@ func _setup_environment() -> void:
 	# Re-enable one at a time to find the artifact source.
 	_env.tonemap_mode          = Environment.TONE_MAPPER_FILMIC  # TEST 1: filmic tonemap
 	_env.tonemap_white         = 6.0
-	_env.glow_enabled          = true    # TEST 7: glow
+	_env.glow_enabled          = false   # CONFIRMED: amplifies temporal bright pixels into blips
 	_env.ssao_enabled          = true    # TEST 3: SSAO
 	_env.ssil_enabled          = false   # CONFIRMED: causes blip artifacts
 	_env.ssr_enabled           = false   # OFF
