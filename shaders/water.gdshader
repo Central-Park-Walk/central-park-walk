@@ -275,13 +275,13 @@ void fragment() {
 	float sky_warmth = sky_reflect_color.r - sky_reflect_color.b;
 	float golden_w = smoothstep(0.05, 0.20, sky_warmth) * smoothstep(0.02, 0.10, sky_lum);
 	if (golden_w > 0.01) {
-		// Warm amber-gold amplified by fresnel at glancing angles
-		vec3 golden_reflect = sky_reflect_color * vec3(1.10, 0.85, 0.65);
-		float golden_path = fresnel * golden_w * 0.20;
+		// Subtle warm tint at glancing angles — not a bronze mirror
+		vec3 golden_reflect = sky_reflect_color * vec3(1.05, 0.90, 0.75);
+		float golden_path = fresnel * golden_w * 0.08;
 		sky_col += golden_reflect * golden_path;
 	}
 
-	vec3 col = mix(base_col, sky_col, fresnel * (0.6 + extra_reflect));
+	vec3 col = mix(base_col, sky_col, fresnel * (0.35 + extra_reflect));
 
 	// Caustics: light dappling in shallow clear water during daytime
 	// Sunlight refracting through wave surface creates bright dancing patterns on bed
