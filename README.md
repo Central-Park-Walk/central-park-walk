@@ -61,6 +61,7 @@ python3 convert_to_godot.py
 | G | Toggle data gap markers |
 | H | Toggle HUD |
 | F11 | Toggle fullscreen |
+| M | Toggle audio mute |
 | F12 | Screenshot (saves to screenshots/) |
 
 **Xbox/gamepad**: left stick walk, right stick look, right trigger fly mode.

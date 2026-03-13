@@ -525,7 +525,7 @@ func _process(delta: float) -> void:
 	# Ambient audio
 	if _audio_manager:
 		_audio_manager.update(delta, _wind_vec.length(), _weather_mode,
-			_rain_wetness, _time_of_day)
+			_rain_wetness, _time_of_day, _lightning_flash)
 
 	# Snow accumulation — ramps up during snow, melts otherwise
 	var prev_snow := _snow_cover
@@ -863,6 +863,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		print("Season: %s (%.1f)" % [season_name, _season_t])
 	elif event.keycode == KEY_F12:
 		_take_screenshot()
+	elif event.keycode == KEY_M:
+		if _audio_manager:
+			_audio_manager.toggle_mute()
 
 
 func _season_name(t: float) -> String:
