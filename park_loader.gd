@@ -1045,6 +1045,9 @@ func _ready() -> void:
 	print("  furniture: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	_infrastructure_builder._build_statues(statues)
 	_infrastructure_builder._build_amenities(amenities)  # GLB drinking fountains + labels
+	_infrastructure_builder._build_bethesda_terrace()
+	_infrastructure_builder._build_belvedere_castle()
+	_infrastructure_builder._build_comfort_stations(amenities)
 	print("  statues+amenities: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	_infrastructure_builder._build_barriers(barriers)
 	print("  barriers: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()

@@ -1061,6 +1061,197 @@ func _build_meadow_labels() -> void:
 
 
 # ---------------------------------------------------------------------------
+# Bethesda Terrace — place the pre-built GLB model south of Bethesda Fountain
+# ---------------------------------------------------------------------------
+func _build_bethesda_terrace() -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_bethesda_terrace.glb")
+	if not FileAccess.file_exists(glb_path):
+		print("  Bethesda Terrace: GLB not found, skipping")
+		return
+
+	var gltf_doc := GLTFDocument.new()
+	var gltf_state := GLTFState.new()
+	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
+		print("WARNING: failed to load Bethesda Terrace GLB")
+		return
+	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	if root == null:
+		return
+
+	# Bethesda Fountain is at approx (-457, 17.6, 949). The terrace sits
+	# directly south (+Z). The arcade passage center is ~35m south of the
+	# fountain center.  Model origin = arcade floor center (lower terrace).
+	var tx := -457.0
+	var tz := 986.0
+	var ty: float = _loader._terrain_y(tx, tz)
+
+	# Blender +Y = south → glTF -Z. Our park +Z = south. Rotate 180° around Y.
+	root.position = Vector3(tx, ty, tz)
+	root.rotation.y = PI
+	root.name = "BethesdaTerrace"
+
+	# Apply stone material to all mesh surfaces
+	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+
+	# Material lookup by Blender material name
+	var mat_map: Dictionary = {}
+	mat_map["Sandstone"] = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
+		Color(0.72, 0.65, 0.52))
+	mat_map["Brownstone"] = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
+		Color(0.42, 0.32, 0.24))
+	mat_map["VaultTile"] = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
+		Color(0.82, 0.72, 0.55))
+	mat_map["StairStone"] = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
+		Color(0.60, 0.56, 0.48))
+	# Default sandstone fallback
+	var default_mat: Material = mat_map["Sandstone"]
+
+	var stack: Array = [root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n is MeshInstance3D:
+			var mi := n as MeshInstance3D
+			if mi.mesh:
+				for si in range(mi.mesh.get_surface_count()):
+					var surf_mat := mi.mesh.surface_get_material(si)
+					var applied := false
+					if surf_mat:
+						var mname: String = surf_mat.resource_name
+						for key in mat_map:
+							if mname.contains(key):
+								mi.mesh.surface_set_material(si, mat_map[key])
+								applied = true
+								break
+					if not applied:
+						mi.mesh.surface_set_material(si, default_mat)
+		for c in n.get_children():
+			stack.append(c)
+
+	_loader.add_child(root)
+	print("ParkLoader: Bethesda Terrace placed at (%.0f, %.1f, %.0f)" % [tx, ty, tz])
+
+
+# ---------------------------------------------------------------------------
+# Belvedere Castle — Victorian folly on Vista Rock
+# ---------------------------------------------------------------------------
+func _build_belvedere_castle() -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_belvedere_castle.glb")
+	if not FileAccess.file_exists(glb_path):
+		print("  Belvedere Castle: GLB not found, skipping")
+		return
+
+	var gltf_doc := GLTFDocument.new()
+	var gltf_state := GLTFState.new()
+	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
+		print("WARNING: failed to load Belvedere Castle GLB")
+		return
+	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	if root == null:
+		return
+
+	# Belvedere Castle sits on Vista Rock at approximately (0, ?, 525)
+	var cx := 0.0
+	var cz := 525.0
+	var cy: float = _loader._terrain_y(cx, cz)
+
+	# The castle faces south (toward the Turtle Pond and Great Lawn).
+	# Blender +Y = south → glTF -Z. Park +Z = south. Rotate 180° around Y.
+	root.position = Vector3(cx, cy, cz)
+	root.rotation.y = PI
+	root.name = "BelvedereCastle"
+
+	# Apply stone material to all surfaces
+	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+
+	var mat_map: Dictionary = {}
+	mat_map["Schist"] = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
+		Color(0.38, 0.36, 0.33))
+	mat_map["Granite"] = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
+		Color(0.52, 0.50, 0.46))
+	mat_map["Slate"] = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
+		Color(0.30, 0.28, 0.26))
+	var default_mat: Material = mat_map["Schist"]
+
+	var stack: Array = [root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n is MeshInstance3D:
+			var mi := n as MeshInstance3D
+			if mi.mesh:
+				for si in range(mi.mesh.get_surface_count()):
+					var surf_mat := mi.mesh.surface_get_material(si)
+					var applied := false
+					if surf_mat:
+						var mname: String = surf_mat.resource_name
+						for key in mat_map:
+							if mname.contains(key):
+								mi.mesh.surface_set_material(si, mat_map[key])
+								applied = true
+								break
+					if not applied:
+						mi.mesh.surface_set_material(si, default_mat)
+		for c in n.get_children():
+			stack.append(c)
+
+	_loader.add_child(root)
+	print("ParkLoader: Belvedere Castle placed at (%.0f, %.1f, %.0f)" % [cx, cy, cz])
+
+
+# ---------------------------------------------------------------------------
+# Comfort stations — small stone restroom buildings at 30 OSM toilet locations
+# ---------------------------------------------------------------------------
+func _build_comfort_stations(amenities: Array) -> void:
+	# Load comfort station GLB model
+	var cs_path := ProjectSettings.globalize_path("res://models/furniture/cp_comfort_station.glb")
+	if not FileAccess.file_exists(cs_path):
+		print("  Comfort stations: GLB not found, skipping")
+		return
+
+	var cs_meshes: Dictionary = _loader._load_glb_meshes(cs_path)
+	var cs_mesh: Mesh = null
+	for mname in cs_meshes:
+		cs_mesh = cs_meshes[mname] as Mesh
+		break  # take first mesh
+	if cs_mesh == null:
+		print("  Comfort stations: no mesh found in GLB")
+		return
+
+	# Apply stone material
+	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var stone_mat: Material = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
+		Color(0.58, 0.54, 0.48))
+	for si in range(cs_mesh.get_surface_count()):
+		cs_mesh.surface_set_material(si, stone_mat)
+
+	var xforms: Array = []
+	for am in amenities:
+		if am.get("type", "") != "toilets":
+			continue
+		var pos: Array = am.get("position", [])
+		if pos.size() < 3:
+			continue
+		var x: float = pos[0]
+		var z: float = pos[2]
+		if not _loader._in_boundary(x, z):
+			continue
+		var y: float = _loader._terrain_y(x, z)
+		# Random rotation from position hash for variety
+		var rot := fmod(absf(x * 73.17 + z * 137.29), TAU)
+		var basis := Basis(Vector3.UP, rot)
+		xforms.append(Transform3D(basis, Vector3(x, y, z)))
+
+	if not xforms.is_empty():
+		_loader._spawn_multimesh(cs_mesh, null, xforms, "ComfortStations")
+	print("  Comfort stations: %d placed" % xforms.size())
+
+
+# ---------------------------------------------------------------------------
 # Stone staircases — 250 OSM highway=steps paths built as stepped geometry
 # ---------------------------------------------------------------------------
 func _build_staircases(paths: Array) -> void:
