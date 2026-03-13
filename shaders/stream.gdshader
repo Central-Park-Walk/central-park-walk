@@ -13,6 +13,10 @@ global uniform vec3 sky_reflect_color;
 global uniform float season_t;
 global uniform vec2 wind_vec;
 
+// Canopy coverage map for dappled shade on streams under trees
+uniform sampler2D canopy_map : filter_linear, repeat_disable;
+uniform float canopy_world_size = 5000.0;
+
 varying vec3 world_pos;
 varying float v_water_depth;
 
@@ -156,6 +160,25 @@ void fragment() {
 	float edge_mask = smoothstep(0.15, 0.0, min(UV.x, 1.0 - UV.x));
 	float edge_foam = edge_mask * (0.3 + gnoise(vec2(flow_uv * 4.0, UV.x * 8.0)) * 0.4);
 	col = mix(col, vec3(0.80, 0.84, 0.86), clamp(edge_foam * 0.35, 0.0, 0.3));
+
+	// Canopy shade on stream — most CP streams flow through wooded areas
+	{
+		vec2 canopy_uv = (world_pos.xz + canopy_world_size * 0.5) / canopy_world_size;
+		float canopy = texture(canopy_map, canopy_uv).r;
+		if (canopy > 0.01) {
+			float deciduous_loss = smoothstep(2.5, 3.2, season_t);
+			float winter_bare2 = smoothstep(3.0, 3.5, season_t);
+			float spring_fill = smoothstep(0.0, 0.4, season_t);
+			float sc = canopy * mix(1.0, 0.3, deciduous_loss) * mix(1.0, 0.15, winter_bare2) * mix(0.5, 1.0, spring_fill);
+			float sky_lum2 = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
+			float sun_factor = smoothstep(0.02, 0.20, sky_lum2);
+			float dapple = gnoise(world_pos.xz * 0.3 + wind_vec * TIME * 0.06) * 0.5 + 0.5;
+			float light_gap = smoothstep(0.30, 0.70, dapple);
+			float shade = sc * sun_factor;
+			col *= (1.0 - shade * (1.0 - light_gap) * 0.30);
+			col += vec3(1.0, 0.8, 0.3) * light_gap * shade * 0.04;
+		}
+	}
 
 	ALBEDO    = col;
 	ROUGHNESS = mix(0.15, 0.05, fresnel);
