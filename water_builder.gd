@@ -90,6 +90,9 @@ func _build_fountain_pool(pts: Array, wy: float) -> void:
 	var mesh: ArrayMesh = _loader._make_mesh(verts, normals)
 	var wmat := ShaderMaterial.new()
 	wmat.shader = _loader._get_shader("water", _water_shader_code())
+	if _loader._canopy_texture:
+		wmat.set_shader_parameter("canopy_map", _loader._canopy_texture)
+		wmat.set_shader_parameter("canopy_world_size", _loader._hm_world_size)
 	mesh.surface_set_material(0, wmat)
 	var mi := MeshInstance3D.new(); mi.mesh = mesh; mi.name = "FountainPool"
 	_loader.add_child(mi)
@@ -424,6 +427,10 @@ func _build_water_mesh(verts: PackedVector3Array, normals: PackedVector3Array, w
 		mat.set_shader_parameter("hm_min_h",      _loader._hm_min_h)
 		mat.set_shader_parameter("hm_range",      _loader._hm_max_h - _loader._hm_min_h)
 		mat.set_shader_parameter("hm_res",        float(mini(_loader._hm_width, 4096)))
+	# Canopy map for dappled shade on water under trees
+	if _loader._canopy_texture:
+		mat.set_shader_parameter("canopy_map", _loader._canopy_texture)
+		mat.set_shader_parameter("canopy_world_size", _loader._hm_world_size)
 	mesh.surface_set_material(0, mat)
 
 	var mi := MeshInstance3D.new()
@@ -587,6 +594,9 @@ func _build_streams(streams: Array) -> void:
 		mat.set_shader_parameter("hm_min_h",      _loader._hm_min_h)
 		mat.set_shader_parameter("hm_range",      _loader._hm_max_h - _loader._hm_min_h)
 		mat.set_shader_parameter("hm_res",        float(mini(_loader._hm_width, 4096)))
+	if _loader._canopy_texture:
+		mat.set_shader_parameter("canopy_map", _loader._canopy_texture)
+		mat.set_shader_parameter("canopy_world_size", _loader._hm_world_size)
 	s_mesh.surface_set_material(0, mat)
 
 	var s_mi := MeshInstance3D.new()

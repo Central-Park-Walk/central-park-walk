@@ -13,6 +13,10 @@ global uniform vec3 sky_reflect_color;
 global uniform float season_t;
 global uniform vec2 wind_vec;
 
+// Canopy coverage map for dappled shade on water under trees
+uniform sampler2D canopy_map : filter_linear, repeat_disable;
+uniform float canopy_world_size = 5000.0;
+
 varying vec3 world_pos;
 varying float v_shore_dist;
 varying float v_water_depth;
@@ -297,6 +301,33 @@ void fragment() {
 		// Rain disrupts caustics (turbid water)
 		caustic *= (1.0 - rain_wetness * 0.7);
 		col += vec3(caustic * 1.1, caustic, caustic * 0.8);
+	}
+
+	// Canopy shade on water — dappled sunlight through overhanging trees.
+	// The light pattern dances on the water surface, one of Central Park's
+	// most beautiful effects visible at The Lake, The Pool, Azalea Pond.
+	{
+		vec2 canopy_uv = (world_pos.xz + canopy_world_size * 0.5) / canopy_world_size;
+		float canopy = texture(canopy_map, canopy_uv).r;
+		if (canopy > 0.01) {
+			float deciduous_loss = smoothstep(2.5, 3.2, season_t);
+			float winter_bare = smoothstep(3.0, 3.5, season_t);
+			float spring_fill = smoothstep(0.0, 0.4, season_t);
+			float sc = canopy * mix(1.0, 0.3, deciduous_loss) * mix(1.0, 0.15, winter_bare) * mix(0.5, 1.0, spring_fill);
+			// Dappled light pattern — larger scale on water (light travels further)
+			vec2 dapple_uv = world_pos.xz * 0.25 + wind_vec * TIME * 0.06;
+			float dapple = gnoise(dapple_uv * 3.0) * 0.5 + 0.5;
+			float dapple_fine = gnoise(world_pos.xz * 0.8 + wind_vec * TIME * 0.12) * 0.5 + 0.5;
+			float light_gap = smoothstep(0.30, 0.65, dapple) * 0.55 + smoothstep(0.50, 0.75, dapple_fine) * 0.45;
+			float sky_lum2 = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
+			float sun_factor = smoothstep(0.02, 0.20, sky_lum2);
+			float shade = sc * sun_factor;
+			// Shade darkens water; light gaps create bright dancing patches
+			col *= (1.0 - shade * (1.0 - light_gap) * 0.25);
+			// Bright sun patches on water have a warm golden quality
+			float warm_patch = light_gap * shade * 0.06;
+			col += vec3(warm_patch * 1.2, warm_patch * 0.8, warm_patch * 0.3);
+		}
 	}
 
 	// Foam — white caps at wave peaks (subtle in ponds, more on reservoir)
