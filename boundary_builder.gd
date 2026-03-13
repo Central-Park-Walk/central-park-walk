@@ -261,9 +261,10 @@ func _build_gate_pillars(boundary: Array, gate_positions: Array,
 		var gy: float = _loader._terrain_y(gp.x, gp.y) - 0.02
 
 		# Two pillars at ±(gate_radius + pillar_width/2) along wall direction
-		for side in [-1.0, 1.0]:
+		for side_val in [-1.0, 1.0]:
+			var side: float = float(side_val)
 			var offset: Vector2 = best_dir * (gate_r + PILLAR_W * 0.5) * side
-			var pc := gp + offset
+			var pc: Vector2 = gp + offset
 			var phw := PILLAR_W * 0.5
 			var py: float = _loader._terrain_y(pc.x, pc.y) - 0.02
 

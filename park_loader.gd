@@ -1056,6 +1056,7 @@ func _ready() -> void:
 	_infrastructure_builder._build_summerhouse()
 	_infrastructure_builder._build_model_boathouse()
 	_infrastructure_builder._build_boat_landings()
+	_infrastructure_builder._build_cop_cot()
 	_infrastructure_builder._build_imagine_mosaic()
 	_infrastructure_builder._build_tennis_house()
 	print("  statues+amenities: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
