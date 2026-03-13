@@ -95,6 +95,7 @@ python3 convert_to_godot.py
 | Seasons | 4 | Per-species phenology, cherry/callery pear/magnolia spring blossoms, spring cherry blossom petal drift, autumn falling leaf particles, leaf scatter, water color, atmosphere |
 | Weather | 5 modes | Rain, thunderstorm, snow, fog, clear — with surface response |
 | Day/night | Full cycle | 48-lamp pool (45m range, 110 energy), lit windows, NYC warm ambient light pollution, moon, atmospheric haze, aerial perspective (distance desaturation + blue shift) |
+| Audio | 5 layers | Wind (strength + altitude), city ambient (edge proximity + time of day), water proximity (nearest body), surface-aware footsteps (grass/stone), rain |
 | Color grading | Cinematic | Split-tone (teal shadows/amber highlights), film grain, vignette, seasonal + TOD color shifts, S-curve contrast, distance-based grass darkening |
 
 ## Performance
