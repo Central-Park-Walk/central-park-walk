@@ -194,7 +194,7 @@ func update(delta: float, wind_strength: float, weather: String,
 				best_pos = wc
 		_water_player.global_position = best_pos
 		# Fountain sound boost when very close
-		var dist := sqrtf(best_dist)
+		var dist := sqrt(best_dist)
 		if dist < 15.0:
 			_water_player.volume_db = -6.0
 		elif dist < 40.0:
@@ -219,7 +219,7 @@ func _update_footsteps(delta: float, pos: Vector3, speed: float) -> void:
 	_step_timer = 0.0
 
 	# Choose sound based on surface type
-	var surface := _loader._atlas_surface(pos.x, pos.z)
+	var surface: int = _loader._atlas_surface(pos.x, pos.z)
 	var stream: AudioStreamWAV = null
 	match surface:
 		1:  # grass

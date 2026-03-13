@@ -162,7 +162,7 @@ func _place_fence_panels(pts: Array, height: float,
 			continue
 		var d := seg / seg_len
 		var n := Vector2(-d.y, d.x)
-		var n_panels := max(1, int(round(seg_len / panel_w)))
+		var n_panels: int = maxi(1, int(round(seg_len / panel_w)))
 		var x_scale: float = (seg_len / float(n_panels)) / panel_w
 		var rot_angle := atan2(-d.y, d.x)
 		for pi in n_panels:
@@ -386,15 +386,16 @@ func _add_basketball_markings(cx: float, cz: float, y: float,
 	_arc_quads(cx, cz, y, 1.8 * s, 0.0, TAU, lw, col, verts, normals, colors)
 
 	# Free throw lanes + 3-point arcs at each end
-	for side in [-1.0, 1.0]:
-		var end_z := cz + cd * side
-		var basket_z := end_z - 1.575 * s * side  # basket offset from baseline
+	for side_val in [-1.0, 1.0]:
+		var side: float = float(side_val)
+		var end_z: float = cz + cd * side
+		var basket_z: float = end_z - 1.575 * s * side  # basket offset from baseline
 		# Free throw lane (key): 5.8m × 4.9m (FIBA)
-		var key_hw := 2.45 * s
-		var key_d := 5.8 * s
+		var key_hw: float = 2.45 * s
+		var key_d: float = 5.8 * s
 		_rect_outline(cx, end_z - key_d * 0.5 * side, y, key_hw, key_d * 0.5, lw, col, verts, normals, colors)
 		# Free throw circle (1.8m radius)
-		var ft_z := end_z - key_d * side
+		var ft_z: float = end_z - key_d * side
 		_arc_quads(cx, ft_z, y, 1.8 * s, 0.0, TAU, lw, col, verts, normals, colors)
 		# 3-point arc (6.75m radius from basket)
 		var arc_r := 6.75 * s
@@ -458,8 +459,9 @@ func _add_soccer_markings(cx: float, cz: float, y: float,
 	_line_quad(cx - 0.15, cz, cx + 0.15, cz, y, lw, col, verts, normals, colors)
 
 	# Penalty areas at each end
-	for side in [-1.0, 1.0]:
-		var end_z := cz + fd * side
+	for side_val in [-1.0, 1.0]:
+		var side: float = float(side_val)
+		var end_z: float = cz + fd * side
 		# Goal area: 18.32m × 5.5m (scaled)
 		var ga_hw := minf(9.16, fw * 0.3)
 		var ga_d := minf(5.5, fd * 0.1)
@@ -952,9 +954,7 @@ func _build_facilities(facilities: Array) -> void:
 			continue
 		var x: float = float(pos[0])
 		var z: float = float(pos[1])
-		if not _loader._in_boundary(x, z):
-			continue
-
+		# Don't filter facilities by boundary — curated data, some are at park edges
 		var ty: float = _loader._terrain_y(x, z)
 		var col: Color = type_colors.get(ftype, Color(0.5, 0.5, 0.5, 0.70))
 
@@ -1079,6 +1079,7 @@ func _build_attractions(attractions: Array) -> void:
 	var default_col := Color(0.50, 0.60, 0.70, 0.65)
 	var count := 0
 	var model_count := 0
+	var placed_names: Dictionary = {}  # Dedup
 	for att in attractions:
 		var pos: Array = att.get("position", [])
 		if pos.size() < 3:
@@ -1090,6 +1091,11 @@ func _build_attractions(attractions: Array) -> void:
 		var name_: String = att.get("name", "")
 		if name_.is_empty():
 			continue
+		# Skip duplicate entries
+		var dedup_key: String = name_ + str(int(x))
+		if placed_names.has(dedup_key):
+			continue
+		placed_names[dedup_key] = true
 		var subtype: String = att.get("subtype", "")
 		var ty: float = _loader._terrain_y(x, z)
 		var col: Color = subtype_colors.get(subtype, default_col)
@@ -1626,6 +1632,31 @@ func _build_boat_landings() -> void:
 	if not xforms.is_empty():
 		_loader._spawn_multimesh(dock_mesh, null, xforms, "BoatLandings")
 	print("  Boat landings: %d placed" % xforms.size())
+
+
+# ---------------------------------------------------------------------------
+# Cop Cot — rustic timber shelter on rocky knoll overlooking the Lake
+# ---------------------------------------------------------------------------
+func _build_cop_cot() -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_cop_cot.glb")
+	if not FileAccess.file_exists(glb_path):
+		return
+	var gltf_doc := GLTFDocument.new()
+	var gltf_state := GLTFState.new()
+	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
+		return
+	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	if root == null:
+		return
+	# Cop Cot sits on a rocky knoll southwest of the Lake
+	var cx := -750.0
+	var cz := 930.0
+	var cy: float = _loader._terrain_y(cx, cz)
+	root.position = Vector3(cx, cy, cz)
+	root.rotation.y = PI * 0.8
+	root.name = "CopCot"
+	_loader.add_child(root)
+	print("  Cop Cot placed at (%.0f, %.1f, %.0f)" % [cx, cy, cz])
 
 
 # ---------------------------------------------------------------------------
