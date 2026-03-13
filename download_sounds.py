@@ -5,59 +5,54 @@ Usage:
     python3 download_sounds.py
 
 Requires a Freesound API key in FREESOUND_API_KEY env var, OR falls back to
-generating silent placeholder OGG files so the game can load without errors.
+generating silent placeholder WAV files so the game can load without errors.
 
-Sound files are saved to sounds/ directory.
+Sound files are saved to sounds/ directory as WAV (audio_manager.gd loads WAV).
 """
 
 import os
 import struct
-import sys
 
 SOUNDS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sounds")
 
 # Required sound files and their freesound.org search queries
+# audio_manager.gd expects .wav files in sounds/
 SOUND_FILES = {
-    "birds_daytime.ogg": "birdsong forest loop",
-    "wind_trees.ogg": "wind through trees loop",
-    "city_distant.ogg": "distant city traffic ambient",
-    "water_lake.ogg": "gentle lake water lapping",
-    "water_fountain.ogg": "fountain water splash",
-    "footstep_grass.ogg": "footstep grass single",
-    "footstep_stone.ogg": "footstep stone concrete single",
+    "wind_trees.wav": "wind through trees loop",
+    "city_distant.wav": "distant city traffic ambient",
+    "water_lake.wav": "gentle lake water lapping",
+    "water_fountain.wav": "fountain water splash",
+    "footstep_grass.wav": "footstep grass single",
+    "footstep_stone.wav": "footstep stone concrete single",
+    "birds_daytime.wav": "birdsong forest loop",
 }
 
 
-def make_silent_ogg(path: str, duration_s: float = 1.0) -> None:
-    """Create a minimal valid OGG/Vorbis file with silence.
+def make_silent_wav(path: str, duration_s: float = 2.0, sample_rate: int = 44100) -> None:
+    """Create a valid WAV file with silence.
 
-    This is a tiny valid OGG file that Godot can load without errors.
-    We write a minimal OGG page with a Vorbis identification header.
+    Generates a mono 16-bit PCM WAV that audio_manager.gd can parse and loop.
     """
-    # For simplicity, just write an empty file that Godot will skip gracefully
-    # Godot's OGG loader handles missing/empty files with a warning, not a crash
+    num_samples = int(sample_rate * duration_s)
+    data_size = num_samples * 2  # 16-bit = 2 bytes per sample
     with open(path, "wb") as f:
-        # Minimal OGG page header (won't decode audio but won't crash)
-        # OggS capture pattern
-        f.write(b"OggS")
-        f.write(b"\x00")  # version
-        f.write(b"\x02")  # header type (BOS)
-        f.write(b"\x00" * 8)  # granule position
-        f.write(struct.pack("<I", 0))  # serial
-        f.write(struct.pack("<I", 0))  # page sequence
-        f.write(struct.pack("<I", 0))  # CRC (invalid but placeholder)
-        f.write(b"\x01")  # segment count
-        f.write(b"\x1e")  # segment table (30 bytes)
-        # Vorbis identification header
-        f.write(b"\x01vorbis")  # packet type + codec id
-        f.write(struct.pack("<I", 0))  # version
-        f.write(b"\x01")  # channels (mono)
-        f.write(struct.pack("<I", 44100))  # sample rate
-        f.write(struct.pack("<i", 0))  # bitrate max
-        f.write(struct.pack("<i", 128000))  # bitrate nominal
-        f.write(struct.pack("<i", 0))  # bitrate min
-        f.write(b"\xb8")  # blocksize 0/1
-        f.write(b"\x01")  # framing
+        # RIFF header
+        f.write(b"RIFF")
+        f.write(struct.pack("<I", 36 + data_size))
+        f.write(b"WAVE")
+        # fmt chunk
+        f.write(b"fmt ")
+        f.write(struct.pack("<I", 16))  # chunk size
+        f.write(struct.pack("<H", 1))   # PCM format
+        f.write(struct.pack("<H", 1))   # mono
+        f.write(struct.pack("<I", sample_rate))
+        f.write(struct.pack("<I", sample_rate * 2))  # byte rate
+        f.write(struct.pack("<H", 2))   # block align
+        f.write(struct.pack("<H", 16))  # bits per sample
+        # data chunk
+        f.write(b"data")
+        f.write(struct.pack("<I", data_size))
+        f.write(b"\x00" * data_size)  # silence
 
 
 def main():
@@ -81,12 +76,12 @@ def main():
         if api_key:
             try:
                 import requests
-                # Search for CC0 sounds
+                # Search for CC0 sounds, prefer WAV previews
                 resp = requests.get(
                     "https://freesound.org/apiv2/search/text/",
                     params={
                         "query": query,
-                        "filter": "license:\"Creative Commons 0\"",
+                        "filter": 'license:"Creative Commons 0"',
                         "fields": "id,name,previews",
                         "page_size": 1,
                         "token": api_key,
@@ -95,21 +90,28 @@ def main():
                 )
                 data = resp.json()
                 if data.get("results"):
-                    preview_url = data["results"][0]["previews"]["preview-hq-ogg"]
-                    audio = requests.get(preview_url, timeout=30)
-                    with open(filepath, "wb") as f:
-                        f.write(audio.content)
-                    print(f"  OK   {filename} <- freesound #{data['results'][0]['id']}")
-                    continue
+                    previews = data["results"][0]["previews"]
+                    # Prefer HQ MP3 preview, then convert; or just save OGG and note
+                    preview_url = previews.get("preview-hq-mp3") or previews.get("preview-hq-ogg")
+                    if preview_url:
+                        audio = requests.get(preview_url, timeout=30)
+                        # Save as-is (may be MP3/OGG — user should convert to WAV)
+                        with open(filepath, "wb") as f:
+                            f.write(audio.content)
+                        print(f"  OK   {filename} <- freesound #{data['results'][0]['id']}")
+                        print(f"         NOTE: may need conversion to WAV format")
+                        continue
             except Exception as e:
                 print(f"  WARN {filename}: freesound download failed ({e})")
 
-        # Fallback: silent placeholder
-        print(f"  GEN  {filename} (silent placeholder)")
-        make_silent_ogg(filepath)
+        # Fallback: silent WAV placeholder
+        print(f"  GEN  {filename} (silent WAV placeholder)")
+        make_silent_wav(filepath)
 
     print(f"\nDone. {len(SOUND_FILES)} sound files in {SOUNDS_DIR}/")
-    print("To get real sounds, set FREESOUND_API_KEY and re-run.")
+    if not api_key:
+        print("To get real sounds, set FREESOUND_API_KEY and re-run.")
+        print("Or place your own WAV files (mono/stereo, 16-bit, 44100Hz) in sounds/")
 
 
 if __name__ == "__main__":
