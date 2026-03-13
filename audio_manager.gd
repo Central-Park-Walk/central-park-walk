@@ -1,4 +1,4 @@
-## Ambient audio manager — wind, city hum, water proximity, footsteps, rain.
+## Ambient audio manager — wind, city hum, water proximity, footsteps, rain, thunder.
 ## All sounds are looping WAV files positioned/mixed dynamically based on
 ## player position, weather, time of day, wind strength, and atlas surface type.
 
@@ -12,6 +12,11 @@ var _rain_player: AudioStreamPlayer
 # Positional water sound — moves to nearest water body
 var _water_player: AudioStreamPlayer3D
 
+# Thunder — triggered by lightning flashes
+var _thunder_player: AudioStreamPlayer
+var _thunder_stream: AudioStreamWAV  # wind_trees.wav pitched down = thunder rumble
+var _last_lightning: float = 0.0
+
 # Footstep system
 var _step_grass: AudioStreamWAV
 var _step_stone: AudioStreamWAV
@@ -24,6 +29,7 @@ var _last_surface: int = 0
 var _player_node: CharacterBody3D
 var _water_centroids: Array = []  # [Vector3] — precomputed water body centers
 var _boundary_polygon: PackedVector2Array  # park boundary for edge distance
+var _muted: bool = false
 
 
 func _init(loader) -> void:
@@ -101,6 +107,13 @@ func setup(player: CharacterBody3D, water_bodies: Array, boundary: PackedVector2
 	if _water_player.stream:
 		_water_player.play()
 
+	# --- Thunder (pitched-down wind = convincing rumble) ---
+	_thunder_player = AudioStreamPlayer.new()
+	_thunder_player.bus = "Master"
+	_thunder_player.volume_db = -4.0
+	_thunder_stream = _load_wav("res://sounds/wind_trees.wav")
+	_loader.add_child(_thunder_player)
+
 	# --- Footsteps ---
 	_step_grass = _load_wav("res://sounds/footstep_grass.wav")
 	_step_stone = _load_wav("res://sounds/footstep_stone.wav")
@@ -110,8 +123,14 @@ func setup(player: CharacterBody3D, water_bodies: Array, boundary: PackedVector2
 	_loader.add_child(_step_player)
 
 
+func toggle_mute() -> void:
+	_muted = not _muted
+	AudioServer.set_bus_mute(0, _muted)
+	print("Audio: %s" % ("muted" if _muted else "unmuted"))
+
+
 func update(delta: float, wind_strength: float, weather: String,
-		rain_wetness: float, time_of_day: float) -> void:
+		rain_wetness: float, time_of_day: float, lightning_flash: float = 0.0) -> void:
 	if not _player_node:
 		return
 	var pos := _player_node.global_position
@@ -153,6 +172,16 @@ func update(delta: float, wind_strength: float, weather: String,
 				_rain_player.stop()
 			elif _rain_player.playing:
 				_rain_player.volume_db = lerpf(-40.0, -8.0, rain_wetness)
+
+	# --- Thunder: triggered by lightning flash rising edge ---
+	if lightning_flash > 0.5 and _last_lightning < 0.3 and _thunder_stream and _thunder_player:
+		# Delay = distance / speed of sound (~0.5-3s depending on "lightning distance")
+		# We fake this by just playing immediately with a random pitch for variety
+		_thunder_player.stream = _thunder_stream
+		_thunder_player.pitch_scale = randf_range(0.25, 0.45)  # very low = rumble
+		_thunder_player.volume_db = lerpf(-12.0, 0.0, lightning_flash)
+		_thunder_player.play()
+	_last_lightning = lightning_flash
 
 	# --- Water proximity: snap to nearest water body ---
 	if _water_player and _water_player.stream and not _water_centroids.is_empty():
