@@ -2362,7 +2362,68 @@ func _build_sports_equipment(landuse: Array) -> void:
 	if not net_xforms.is_empty() and net_mesh:
 		_loader._spawn_multimesh(net_mesh, null, net_xforms, "TennisNets")
 
-	print("  Sports equipment: %d backstops, %d hoops, %d tennis nets" % [backstop_xforms.size(), hoop_xforms.size(), net_xforms.size()])
+	# Soccer goals
+	var goal_path := ProjectSettings.globalize_path("res://models/furniture/cp_soccer_goal.glb")
+	var goal_mesh: Mesh = null
+	var gl_meshes: Dictionary = _loader._load_glb_meshes(goal_path)
+	for mname in gl_meshes:
+		goal_mesh = gl_meshes[mname] as Mesh
+		break
+	var goal_xforms: Array = []
+
+	if goal_mesh:
+		for zone in landuse:
+			if str(zone.get("type", "")) != "pitch":
+				continue
+			var sport3: String = str(zone.get("sport", ""))
+			if not ("soccer" in sport3):
+				continue
+			var pts3: Array = zone.get("points", [])
+			if pts3.size() < 4:
+				continue
+
+			var cx3 := 0.0
+			var cz3 := 0.0
+			for pt in pts3:
+				cx3 += float(pt[0])
+				cz3 += float(pt[1])
+			cx3 /= float(pts3.size())
+			cz3 /= float(pts3.size())
+			var cy3: float = _loader._terrain_y(cx3, cz3)
+
+			# Find short axis (goals at each end of long axis)
+			var e0x3: float = float(pts3[1][0]) - float(pts3[0][0])
+			var e0z3: float = float(pts3[1][1]) - float(pts3[0][1])
+			var e1x3: float = float(pts3[2][0]) - float(pts3[1][0])
+			var e1z3: float = float(pts3[2][1]) - float(pts3[1][1])
+			var l0g: float = sqrt(e0x3 * e0x3 + e0z3 * e0z3)
+			var l1g: float = sqrt(e1x3 * e1x3 + e1z3 * e1z3)
+
+			var long_dx3: float
+			var long_dz3: float
+			var long_l3: float
+			if l0g > l1g:
+				long_dx3 = e0x3; long_dz3 = e0z3; long_l3 = l0g
+			else:
+				long_dx3 = e1x3; long_dz3 = e1z3; long_l3 = l1g
+			if long_l3 < 1.0:
+				continue
+			var ndx3: float = long_dx3 / long_l3
+			var ndz3: float = long_dz3 / long_l3
+
+			for end_val3 in [-1.0, 1.0]:
+				var end3: float = float(end_val3)
+				var gx: float = cx3 + ndx3 * (long_l3 * 0.5 - 1.0) * end3
+				var gz: float = cz3 + ndz3 * (long_l3 * 0.5 - 1.0) * end3
+				var gy: float = _loader._terrain_y(gx, gz)
+				# Goal faces inward toward center
+				var g_yaw: float = atan2(ndx3, ndz3) + (PI if end3 > 0.0 else 0.0)
+				goal_xforms.append(Transform3D(Basis(Vector3.UP, g_yaw), Vector3(gx, gy, gz)))
+
+	if not goal_xforms.is_empty() and goal_mesh:
+		_loader._spawn_multimesh(goal_mesh, null, goal_xforms, "SoccerGoals")
+
+	print("  Sports equipment: %d backstops, %d hoops, %d nets, %d goals" % [backstop_xforms.size(), hoop_xforms.size(), net_xforms.size(), goal_xforms.size()])
 
 
 # ---------------------------------------------------------------------------
