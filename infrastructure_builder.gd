@@ -931,6 +931,10 @@ func _build_facilities(facilities: Array) -> void:
 		"arsenal": { "file": "cp_arsenal.glb", "rot": PI },
 		"zoo": { "file": "cp_zoo.glb", "rot": PI },
 		"lasker": { "file": "cp_lasker.glb", "rot": 0.0 },
+		"mineral springs": { "file": "cp_mineral_springs.glb", "rot": PI },
+		"le pain": { "file": "cp_mineral_springs.glb", "rot": PI },
+		"precinct": { "file": "cp_precinct.glb", "rot": PI },
+		"police": { "file": "cp_precinct.glb", "rot": PI },
 	}
 
 	# Load stone material for facility models
@@ -1055,6 +1059,8 @@ func _build_attractions(attractions: Array) -> void:
 		"carousel": { "file": "cp_carousel.glb", "rot": 0.0 },
 		"blockhouse": { "file": "cp_blockhouse.glb", "rot": PI * 0.25 },
 		"cop cot": { "file": "cp_cop_cot.glb", "rot": PI },
+		"fort clinton": { "file": "cp_fort_clinton.glb", "rot": PI * 0.75 },
+		"nutter": { "file": "cp_fort_clinton.glb", "rot": PI * 0.75 },
 	}
 
 	# Load stone material for attraction models
