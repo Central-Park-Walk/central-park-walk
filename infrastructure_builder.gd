@@ -935,6 +935,7 @@ func _build_facilities(facilities: Array) -> void:
 		"le pain": { "file": "cp_mineral_springs.glb", "rot": PI },
 		"precinct": { "file": "cp_precinct.glb", "rot": PI },
 		"police": { "file": "cp_precinct.glb", "rot": PI },
+		"north meadow rec": { "file": "cp_rec_center.glb", "rot": 0.0 },
 	}
 
 	# Load stone material for facility models
@@ -1494,6 +1495,55 @@ func _build_pergola() -> void:
 			stack.append(c)
 	_loader.add_child(root)
 	print("  Pergola placed at (%.0f, %.1f, %.0f)" % [px, py, pz])
+
+
+# ---------------------------------------------------------------------------
+# Ladies' Pavilion — Victorian cast-iron gazebo on the Lake shore
+# ---------------------------------------------------------------------------
+func _build_ladies_pavilion() -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_ladies_pavilion.glb")
+	if not FileAccess.file_exists(glb_path):
+		print("  Ladies' Pavilion: GLB not found, skipping")
+		return
+	var gltf_doc := GLTFDocument.new()
+	var gltf_state := GLTFState.new()
+	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
+		return
+	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	if root == null:
+		return
+	var lx := -636.0
+	var lz := 578.0
+	var ly: float = _loader._terrain_y(lx, lz)
+	root.position = Vector3(lx, ly, lz)
+	root.rotation.y = PI * 0.3
+	root.name = "LadiesPavilion"
+	_loader.add_child(root)
+	print("  Ladies' Pavilion placed at (%.0f, %.1f, %.0f)" % [lx, ly, lz])
+
+
+# ---------------------------------------------------------------------------
+# Cherry Hill Fountain — Victorian ornamental fountain
+# ---------------------------------------------------------------------------
+func _build_cherry_hill_fountain() -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_cherry_hill_fountain.glb")
+	if not FileAccess.file_exists(glb_path):
+		print("  Cherry Hill Fountain: GLB not found, skipping")
+		return
+	var gltf_doc := GLTFDocument.new()
+	var gltf_state := GLTFState.new()
+	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
+		return
+	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	if root == null:
+		return
+	var cx := -615.9
+	var cz := 906.9
+	var cy: float = _loader._terrain_y(cx, cz)
+	root.position = Vector3(cx, cy, cz)
+	root.name = "CherryHillFountain"
+	_loader.add_child(root)
+	print("  Cherry Hill Fountain placed at (%.0f, %.1f, %.0f)" % [cx, cy, cz])
 
 
 # ---------------------------------------------------------------------------
