@@ -36,9 +36,10 @@ cd central-park-walk
 # 2. Download OSM data
 python3 download_osm.py
 
-# 3. Download textures and models
+# 3. Download textures, models, and sounds
 python3 download_assets.py
 python3 download_models.py
+python3 download_sounds.py
 
 # 4. Convert data to Godot format
 python3 convert_to_godot.py
