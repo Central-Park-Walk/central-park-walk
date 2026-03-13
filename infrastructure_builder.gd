@@ -1722,6 +1722,89 @@ func _build_tennis_house() -> void:
 
 
 # ---------------------------------------------------------------------------
+# 79th Street Maintenance Yard
+# ---------------------------------------------------------------------------
+func _build_maintenance_yard() -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_maintenance_yard.glb")
+	if not FileAccess.file_exists(glb_path):
+		return
+	var gltf_doc := GLTFDocument.new()
+	var gltf_state := GLTFState.new()
+	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
+		return
+	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	if root == null:
+		return
+	var mx := -476.0
+	var mz := 266.0
+	var my: float = _loader._terrain_y(mx, mz)
+	root.position = Vector3(mx, my, mz)
+	root.rotation.y = PI * 0.5
+	root.name = "MaintenanceYard"
+	_loader.add_child(root)
+	print("  Maintenance Yard placed at (%.0f, %.1f, %.0f)" % [mx, my, mz])
+
+
+# ---------------------------------------------------------------------------
+# Dana Pier — stone pier at Harlem Meer
+# ---------------------------------------------------------------------------
+func _build_dana_pier() -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_dana_pier.glb")
+	if not FileAccess.file_exists(glb_path):
+		return
+	var gltf_doc := GLTFDocument.new()
+	var gltf_state := GLTFState.new()
+	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
+		return
+	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	if root == null:
+		return
+	# Near Dana Discovery Center, extending into Harlem Meer
+	var dx := 420.0
+	var dz := -1830.0
+	var dy: float = _loader._terrain_y(dx, dz)
+	root.position = Vector3(dx, dy, dz)
+	root.rotation.y = PI  # Points north into Meer
+	root.name = "DanaPier"
+	_loader.add_child(root)
+	print("  Dana Pier placed at (%.0f, %.1f, %.0f)" % [dx, dy, dz])
+
+
+# ---------------------------------------------------------------------------
+# Stone weirs — low dams along The Loch and other streams
+# ---------------------------------------------------------------------------
+func _build_stone_weirs() -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_stone_weir.glb")
+	if not FileAccess.file_exists(glb_path):
+		return
+	var weir_meshes: Dictionary = _loader._load_glb_meshes(glb_path)
+	var weir_mesh: Mesh = null
+	for mname in weir_meshes:
+		weir_mesh = weir_meshes[mname] as Mesh
+		break
+	if weir_mesh == null:
+		return
+	# Weir positions along The Loch and other waterfall locations
+	var weir_positions: Array = [
+		[600.0, -1200.0, PI * 0.3],    # The Loch upper
+		[700.0, -1380.0, PI * 0.5],    # The Loch middle
+		[850.0, -1480.0, PI * 0.2],    # The Loch lower
+		[-600.0, 430.0, PI * 0.7],     # Gill stream
+	]
+	var xforms: Array = []
+	for w in weir_positions:
+		var wx: float = w[0]
+		var wz: float = w[1]
+		var wr: float = w[2]
+		var wy: float = _loader._terrain_y(wx, wz)
+		var basis := Basis(Vector3.UP, wr)
+		xforms.append(Transform3D(basis, Vector3(wx, wy, wz)))
+	if not xforms.is_empty():
+		_loader._spawn_multimesh(weir_mesh, null, xforms, "StoneWeirs")
+	print("  Stone weirs: %d placed" % xforms.size())
+
+
+# ---------------------------------------------------------------------------
 # Stone staircases — 250 OSM highway=steps paths built as stepped geometry
 # ---------------------------------------------------------------------------
 func _build_staircases(paths: Array) -> void:
