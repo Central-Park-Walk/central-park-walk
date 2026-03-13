@@ -2210,6 +2210,108 @@ func _build_playground_equipment(landuse: Array) -> void:
 
 
 # ---------------------------------------------------------------------------
+# Sports equipment — backstops at baseball diamonds, hoops at basketball courts
+# ---------------------------------------------------------------------------
+func _build_sports_equipment(landuse: Array) -> void:
+	var backstop_path := ProjectSettings.globalize_path("res://models/furniture/cp_backstop.glb")
+	var hoop_path := ProjectSettings.globalize_path("res://models/furniture/cp_basketball_hoop.glb")
+
+	var backstop_mesh: Mesh = null
+	var hoop_mesh: Mesh = null
+
+	var bs_meshes: Dictionary = _loader._load_glb_meshes(backstop_path)
+	for mname in bs_meshes:
+		backstop_mesh = bs_meshes[mname] as Mesh
+		break
+
+	var hp_meshes: Dictionary = _loader._load_glb_meshes(hoop_path)
+	for mname in hp_meshes:
+		hoop_mesh = hp_meshes[mname] as Mesh
+		break
+
+	if backstop_mesh == null and hoop_mesh == null:
+		return
+
+	var backstop_xforms: Array = []
+	var hoop_xforms: Array = []
+	var rng := RandomNumberGenerator.new()
+
+	for zone in landuse:
+		if str(zone.get("type", "")) != "pitch":
+			continue
+		var sport: String = str(zone.get("sport", ""))
+		var pts: Array = zone.get("points", [])
+		if pts.size() < 3:
+			continue
+
+		# Compute centroid
+		var cx := 0.0
+		var cz := 0.0
+		for pt in pts:
+			cx += float(pt[0])
+			cz += float(pt[1])
+		cx /= float(pts.size())
+		cz /= float(pts.size())
+
+		var cy: float = _loader._terrain_y(cx, cz)
+
+		if sport == "baseball" and backstop_mesh:
+			# Find "home plate" corner — typically the vertex farthest from centroid
+			# of the infield diamond shape, or use first vertex as approximation
+			var home_x: float = float(pts[0][0])
+			var home_z: float = float(pts[0][1])
+			# Find direction from home plate to centroid (outfield direction)
+			var dx: float = cx - home_x
+			var dz: float = cz - home_z
+			var d: float = sqrt(dx * dx + dz * dz)
+			if d > 0.1:
+				# Backstop goes BEHIND home plate, facing outfield
+				var yaw: float = atan2(dx, dz)
+				var bx: float = home_x - dx / d * 3.0  # 3m behind home
+				var bz: float = home_z - dz / d * 3.0
+				var by: float = _loader._terrain_y(bx, bz)
+				backstop_xforms.append(Transform3D(Basis(Vector3.UP, yaw), Vector3(bx, by, bz)))
+
+		elif sport == "basketball" and hoop_mesh:
+			# Place hoops at both ends of the court
+			if pts.size() >= 4:
+				# Find long axis by checking edge lengths
+				var e0x: float = float(pts[1][0]) - float(pts[0][0])
+				var e0z: float = float(pts[1][1]) - float(pts[0][1])
+				var e1x: float = float(pts[2][0]) - float(pts[1][0])
+				var e1z: float = float(pts[2][1]) - float(pts[1][1])
+				var l0: float = sqrt(e0x * e0x + e0z * e0z)
+				var l1: float = sqrt(e1x * e1x + e1z * e1z)
+
+				var long_dx: float
+				var long_dz: float
+				var long_l: float
+				if l0 > l1:
+					long_dx = e0x; long_dz = e0z; long_l = l0
+				else:
+					long_dx = e1x; long_dz = e1z; long_l = l1
+
+				if long_l > 0.1:
+					var ndx: float = long_dx / long_l
+					var ndz: float = long_dz / long_l
+					var yaw: float = atan2(ndx, ndz)
+					# Hoop at each end, 1.5m from edge
+					for end_val in [-1.0, 1.0]:
+						var end: float = float(end_val)
+						var hx: float = cx + ndx * (long_l * 0.5 - 1.5) * end
+						var hz: float = cz + ndz * (long_l * 0.5 - 1.5) * end
+						var hy: float = _loader._terrain_y(hx, hz)
+						var h_yaw: float = yaw + (PI if end > 0.0 else 0.0)
+						hoop_xforms.append(Transform3D(Basis(Vector3.UP, h_yaw), Vector3(hx, hy, hz)))
+
+	if not backstop_xforms.is_empty() and backstop_mesh:
+		_loader._spawn_multimesh(backstop_mesh, null, backstop_xforms, "BaseballBackstops")
+	if not hoop_xforms.is_empty() and hoop_mesh:
+		_loader._spawn_multimesh(hoop_mesh, null, hoop_xforms, "BasketballHoops")
+	print("  Sports equipment: %d backstops, %d hoops" % [backstop_xforms.size(), hoop_xforms.size()])
+
+
+# ---------------------------------------------------------------------------
 # Bridle path posts — split-rail wooden fence along horseback riding trails
 # ---------------------------------------------------------------------------
 func _build_bridle_posts(paths: Array) -> void:
