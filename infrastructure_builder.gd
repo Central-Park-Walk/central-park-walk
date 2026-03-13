@@ -184,6 +184,318 @@ func _place_fence_panels(pts: Array, height: float,
 
 
 # ---------------------------------------------------------------------------
+# Sports field markings — regulation court/field lines from OSM pitch polygons
+# ---------------------------------------------------------------------------
+func _build_sport_markings(landuse: Array) -> void:
+	var line_verts := PackedVector3Array()
+	var line_normals := PackedVector3Array()
+	var line_colors := PackedColorArray()
+	var court_count := 0
+
+	for zone in landuse:
+		var sport: String = str(zone.get("sport", ""))
+		if sport.is_empty():
+			continue
+		var pts: Array = zone.get("points", [])
+		if pts.size() < 3:
+			continue
+
+		# Compute oriented bounding box: centroid + axes from polygon
+		var cx := 0.0
+		var cz := 0.0
+		for p in pts:
+			cx += float(p[0])
+			cz += float(p[1])
+		cx /= float(pts.size())
+		cz /= float(pts.size())
+		if not _loader._in_boundary(cx, cz):
+			continue
+
+		# AABB for size
+		var min_x := 99999.0
+		var max_x := -99999.0
+		var min_z := 99999.0
+		var max_z := -99999.0
+		for p in pts:
+			var px := float(p[0])
+			var pz := float(p[1])
+			if px < min_x: min_x = px
+			if px > max_x: max_x = px
+			if pz < min_z: min_z = pz
+			if pz > max_z: max_z = pz
+		var w := max_x - min_x
+		var d := max_z - min_z
+
+		# Skip facility-scale polygons (>50m in either direction = entire facility)
+		if w > 50.0 or d > 50.0:
+			continue
+		# Skip very small polygons
+		if w < 5.0 or d < 5.0:
+			continue
+
+		# Determine field orientation: longer axis is the length
+		var half_w: float
+		var half_d: float
+		if w > d:
+			half_w = w * 0.5
+			half_d = d * 0.5
+		else:
+			half_w = d * 0.5
+			half_d = w * 0.5
+
+		var ty: float = _loader._terrain_y(cx, cz) + 0.05  # just above terrain
+		var line_col := Color.WHITE
+
+		match sport:
+			"tennis":
+				_add_tennis_markings(cx, cz, ty, half_w, half_d, line_verts, line_normals, line_colors)
+				court_count += 1
+			"basketball":
+				_add_basketball_markings(cx, cz, ty, half_w, half_d, line_verts, line_normals, line_colors)
+				court_count += 1
+			"baseball":
+				_add_baseball_markings(cx, cz, ty, half_w, half_d, line_verts, line_normals, line_colors)
+				court_count += 1
+			"soccer", "soccer;american_football":
+				_add_soccer_markings(cx, cz, ty, half_w, half_d, line_verts, line_normals, line_colors)
+				court_count += 1
+			"american_handball":
+				_add_handball_markings(cx, cz, ty, half_w, half_d, line_verts, line_normals, line_colors)
+				court_count += 1
+
+	if not line_verts.is_empty():
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color.WHITE
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.no_depth_test = false
+		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		mat.vertex_color_use_as_albedo = true
+		var arr := []
+		arr.resize(Mesh.ARRAY_MAX)
+		arr[Mesh.ARRAY_VERTEX] = line_verts
+		arr[Mesh.ARRAY_NORMAL] = line_normals
+		arr[Mesh.ARRAY_COLOR] = line_colors
+		var mesh := ArrayMesh.new()
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+		mesh.surface_set_material(0, mat)
+		var mi := MeshInstance3D.new()
+		mi.mesh = mesh
+		mi.name = "SportMarkings"
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_loader.add_child(mi)
+		print("ParkLoader: sport markings = %d courts, %d verts" % [court_count, line_verts.size()])
+
+
+func _line_quad(x1: float, z1: float, x2: float, z2: float,
+		y: float, hw: float, col: Color,
+		verts: PackedVector3Array, normals: PackedVector3Array,
+		colors: PackedColorArray) -> void:
+	## Draw a line quad from (x1,z1) to (x2,z2) with half-width hw at height y.
+	var dx := x2 - x1
+	var dz := z2 - z1
+	var len := sqrt(dx * dx + dz * dz)
+	if len < 0.01:
+		return
+	var nx := -dz / len * hw
+	var nz := dx / len * hw
+	var a := Vector3(x1 + nx, y, z1 + nz)
+	var b := Vector3(x1 - nx, y, z1 - nz)
+	var c := Vector3(x2 - nx, y, z2 - nz)
+	var d := Vector3(x2 + nx, y, z2 + nz)
+	verts.append_array(PackedVector3Array([a, b, c, a, c, d]))
+	for _i in 6:
+		normals.append(Vector3.UP)
+		colors.append(col)
+
+
+func _arc_quads(cx: float, cz: float, y: float, radius: float,
+		start_angle: float, end_angle: float, hw: float,
+		col: Color, verts: PackedVector3Array,
+		normals: PackedVector3Array, colors: PackedColorArray,
+		segments: int = 16) -> void:
+	## Draw an arc of line quads.
+	var step := (end_angle - start_angle) / float(segments)
+	for i in segments:
+		var a := start_angle + step * float(i)
+		var b := start_angle + step * float(i + 1)
+		var x1 := cx + cos(a) * radius
+		var z1 := cz + sin(a) * radius
+		var x2 := cx + cos(b) * radius
+		var z2 := cz + sin(b) * radius
+		_line_quad(x1, z1, x2, z2, y, hw, col, verts, normals, colors)
+
+
+func _rect_outline(cx: float, cz: float, y: float,
+		hw: float, hd: float, lw: float, col: Color,
+		verts: PackedVector3Array, normals: PackedVector3Array,
+		colors: PackedColorArray) -> void:
+	## Draw a rectangle outline centered at (cx, cz).
+	_line_quad(cx - hw, cz - hd, cx + hw, cz - hd, y, lw, col, verts, normals, colors)
+	_line_quad(cx + hw, cz - hd, cx + hw, cz + hd, y, lw, col, verts, normals, colors)
+	_line_quad(cx + hw, cz + hd, cx - hw, cz + hd, y, lw, col, verts, normals, colors)
+	_line_quad(cx - hw, cz + hd, cx - hw, cz - hd, y, lw, col, verts, normals, colors)
+
+
+func _add_tennis_markings(cx: float, cz: float, y: float,
+		hw: float, hd: float,
+		verts: PackedVector3Array, normals: PackedVector3Array,
+		colors: PackedColorArray) -> void:
+	## ITF regulation tennis court: 23.77m × 10.97m (doubles), 8.23m (singles)
+	## Scale to fit the OSM polygon proportionally.
+	var lw := 0.05  # line half-width (5cm total = standard)
+	var col := Color.WHITE
+	var scale_w := hw / 12.0  # approximate court half-width
+	var scale_d := hd / 5.5   # approximate court half-depth
+	var s := minf(scale_w, scale_d)
+	var cw := 5.485 * s   # doubles half-width
+	var sw := 4.115 * s   # singles half-width
+	var cd := 11.885 * s  # court half-length
+	var sd := 6.40 * s    # service line distance from net
+
+	# Outer (doubles) court outline
+	_rect_outline(cx, cz, y, cw, cd, lw, col, verts, normals, colors)
+	# Singles sidelines
+	_line_quad(cx - sw, cz - cd, cx - sw, cz + cd, y, lw, col, verts, normals, colors)
+	_line_quad(cx + sw, cz - cd, cx + sw, cz + cd, y, lw, col, verts, normals, colors)
+	# Center (net) line
+	_line_quad(cx - cw, cz, cx + cw, cz, y, lw, col, verts, normals, colors)
+	# Service lines
+	_line_quad(cx - sw, cz - sd, cx + sw, cz - sd, y, lw, col, verts, normals, colors)
+	_line_quad(cx - sw, cz + sd, cx + sw, cz + sd, y, lw, col, verts, normals, colors)
+	# Center service line
+	_line_quad(cx, cz - sd, cx, cz + sd, y, lw, col, verts, normals, colors)
+
+
+func _add_basketball_markings(cx: float, cz: float, y: float,
+		hw: float, hd: float,
+		verts: PackedVector3Array, normals: PackedVector3Array,
+		colors: PackedColorArray) -> void:
+	## FIBA/park basketball court: ~28m × 15m. NYC park courts are often smaller.
+	var lw := 0.05
+	var col := Color.WHITE
+	var s := minf(hw / 14.0, hd / 7.5)
+
+	var cw := 7.5 * s    # half-width
+	var cd := 14.0 * s   # half-length
+
+	# Court outline
+	_rect_outline(cx, cz, y, cw, cd, lw, col, verts, normals, colors)
+	# Half-court line
+	_line_quad(cx - cw, cz, cx + cw, cz, y, lw, col, verts, normals, colors)
+	# Center circle (1.8m radius)
+	_arc_quads(cx, cz, y, 1.8 * s, 0.0, TAU, lw, col, verts, normals, colors)
+
+	# Free throw lanes + 3-point arcs at each end
+	for side in [-1.0, 1.0]:
+		var end_z := cz + cd * side
+		var basket_z := end_z - 1.575 * s * side  # basket offset from baseline
+		# Free throw lane (key): 5.8m × 4.9m (FIBA)
+		var key_hw := 2.45 * s
+		var key_d := 5.8 * s
+		_rect_outline(cx, end_z - key_d * 0.5 * side, y, key_hw, key_d * 0.5, lw, col, verts, normals, colors)
+		# Free throw circle (1.8m radius)
+		var ft_z := end_z - key_d * side
+		_arc_quads(cx, ft_z, y, 1.8 * s, 0.0, TAU, lw, col, verts, normals, colors)
+		# 3-point arc (6.75m radius from basket)
+		var arc_r := 6.75 * s
+		if side > 0:
+			_arc_quads(cx, basket_z, y, arc_r, -PI * 0.75, -PI * 0.25, lw, col, verts, normals, colors, 20)
+		else:
+			_arc_quads(cx, basket_z, y, arc_r, PI * 0.25, PI * 0.75, lw, col, verts, normals, colors, 20)
+
+
+func _add_baseball_markings(cx: float, cz: float, y: float,
+		hw: float, hd: float,
+		verts: PackedVector3Array, normals: PackedVector3Array,
+		colors: PackedColorArray) -> void:
+	## Baseball diamond: 90ft (27.43m) between bases. Foul lines extend to outfield.
+	var lw := 0.05
+	var col := Color.WHITE
+	var base_dist := minf(hw, hd) * 0.7  # scale to fit polygon
+	if base_dist > 27.0: base_dist = 27.0  # cap at regulation
+
+	# Home plate at polygon center-south
+	var hx := cx
+	var hz := cz + hd * 0.4  # home plate toward south edge
+	# Diamond rotated 45°: bases at N, E, S, W
+	var d45 := base_dist * 0.7071  # base_dist / sqrt(2)
+
+	# Foul lines: home to 1st base, home to 3rd base (extend past bases)
+	var first_x := hx + d45
+	var first_z := hz - d45
+	var third_x := hx - d45
+	var third_z := hz - d45
+	# Extend foul lines 50% past bases
+	_line_quad(hx, hz, hx + d45 * 1.5, hz - d45 * 1.5, y, lw, col, verts, normals, colors)
+	_line_quad(hx, hz, hx - d45 * 1.5, hz - d45 * 1.5, y, lw, col, verts, normals, colors)
+	# Base paths: 1B-2B, 2B-3B
+	var second_x := hx
+	var second_z := hz - base_dist
+	_line_quad(first_x, first_z, second_x, second_z, y, lw, col, verts, normals, colors)
+	_line_quad(second_x, second_z, third_x, third_z, y, lw, col, verts, normals, colors)
+	# Batter's box arcs (approximation)
+	_arc_quads(hx, hz, y, base_dist * 0.35, -PI * 0.5, PI * 0.5, lw, col, verts, normals, colors, 12)
+
+
+func _add_soccer_markings(cx: float, cz: float, y: float,
+		hw: float, hd: float,
+		verts: PackedVector3Array, normals: PackedVector3Array,
+		colors: PackedColorArray) -> void:
+	## Soccer/football field: touchlines, goal lines, center circle, penalty areas.
+	var lw := 0.05
+	var col := Color.WHITE
+	var fw := hw * 0.95  # field half-width (5% margin)
+	var fd := hd * 0.95  # field half-depth
+
+	# Touchlines and goal lines (outer rectangle)
+	_rect_outline(cx, cz, y, fw, fd, lw, col, verts, normals, colors)
+	# Half-way line
+	_line_quad(cx - fw, cz, cx + fw, cz, y, lw, col, verts, normals, colors)
+	# Center circle (9.15m or scaled)
+	var center_r := minf(9.15, fw * 0.25)
+	_arc_quads(cx, cz, y, center_r, 0.0, TAU, lw, col, verts, normals, colors, 24)
+	# Center mark
+	_line_quad(cx - 0.15, cz, cx + 0.15, cz, y, lw, col, verts, normals, colors)
+
+	# Penalty areas at each end
+	for side in [-1.0, 1.0]:
+		var end_z := cz + fd * side
+		# Goal area: 18.32m × 5.5m (scaled)
+		var ga_hw := minf(9.16, fw * 0.3)
+		var ga_d := minf(5.5, fd * 0.1)
+		_line_quad(cx - ga_hw, end_z, cx - ga_hw, end_z - ga_d * side, y, lw, col, verts, normals, colors)
+		_line_quad(cx - ga_hw, end_z - ga_d * side, cx + ga_hw, end_z - ga_d * side, y, lw, col, verts, normals, colors)
+		_line_quad(cx + ga_hw, end_z - ga_d * side, cx + ga_hw, end_z, y, lw, col, verts, normals, colors)
+		# Penalty area: 40.32m × 16.5m (scaled)
+		var pa_hw := minf(20.16, fw * 0.55)
+		var pa_d := minf(16.5, fd * 0.25)
+		_line_quad(cx - pa_hw, end_z, cx - pa_hw, end_z - pa_d * side, y, lw, col, verts, normals, colors)
+		_line_quad(cx - pa_hw, end_z - pa_d * side, cx + pa_hw, end_z - pa_d * side, y, lw, col, verts, normals, colors)
+		_line_quad(cx + pa_hw, end_z - pa_d * side, cx + pa_hw, end_z, y, lw, col, verts, normals, colors)
+
+
+func _add_handball_markings(cx: float, cz: float, y: float,
+		hw: float, hd: float,
+		verts: PackedVector3Array, normals: PackedVector3Array,
+		colors: PackedColorArray) -> void:
+	## American handball (1-wall): 20ft × 34ft (6.1m × 10.36m)
+	## Blue court surface with white service line.
+	var lw := 0.05
+	var col := Color.WHITE
+	var fw := minf(hw * 0.9, 3.05)   # half-width
+	var fd := minf(hd * 0.9, 5.18)   # half-length
+
+	# Court outline
+	_rect_outline(cx, cz, y, fw, fd, lw, col, verts, normals, colors)
+	# Service line (short line): 16ft from wall = ~4.88m from back
+	var service_z := cz - fd + 4.88
+	_line_quad(cx - fw, service_z, cx + fw, service_z, y, lw, col, verts, normals, colors)
+	# Service zone line (receiving line): 9ft from back wall
+	var recv_z := cz + fd - 2.74  # 9ft = 2.74m from front
+	_line_quad(cx - fw, recv_z, cx + fw, recv_z, y, lw, col, verts, normals, colors)
+
+
+# ---------------------------------------------------------------------------
 # POI name labels – billboard Label3D above each named water body
 # ---------------------------------------------------------------------------
 func _build_labels(water: Array) -> void:
