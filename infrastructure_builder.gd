@@ -930,6 +930,7 @@ func _build_facilities(facilities: Array) -> void:
 		"summerstage": { "file": "cp_summerstage.glb", "rot": PI },
 		"arsenal": { "file": "cp_arsenal.glb", "rot": PI },
 		"zoo": { "file": "cp_zoo.glb", "rot": PI },
+		"lasker": { "file": "cp_lasker.glb", "rot": 0.0 },
 	}
 
 	# Load stone material for facility models
@@ -1406,6 +1407,87 @@ func _build_vanderbilt_gate() -> void:
 			stack.append(c)
 	_loader.add_child(root)
 	print("  Vanderbilt Gate placed at (%.0f, %.1f, %.0f)" % [gx, gy, gz])
+
+
+# ---------------------------------------------------------------------------
+# Naumburg Bandshell — Neoclassical concert stage on the Mall
+# ---------------------------------------------------------------------------
+func _build_bandshell() -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_bandshell.glb")
+	if not FileAccess.file_exists(glb_path):
+		print("  Bandshell: GLB not found, skipping")
+		return
+	var gltf_doc := GLTFDocument.new()
+	var gltf_state := GLTFState.new()
+	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
+		return
+	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	if root == null:
+		return
+	var bx := -473.0
+	var bz := 1131.0
+	var by: float = _loader._terrain_y(bx, bz)
+	root.position = Vector3(bx, by, bz)
+	root.rotation.y = PI  # Shell faces south toward Mall
+	root.name = "NaumburgBandshell"
+	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var stone_mat: Material = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
+		Color(0.68, 0.64, 0.58))
+	var stack: Array = [root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n is MeshInstance3D:
+			var mi := n as MeshInstance3D
+			if mi.mesh:
+				for si in range(mi.mesh.get_surface_count()):
+					mi.mesh.surface_set_material(si, stone_mat)
+		for c in n.get_children():
+			stack.append(c)
+	_loader.add_child(root)
+	print("  Bandshell placed at (%.0f, %.1f, %.0f)" % [bx, by, bz])
+
+
+# ---------------------------------------------------------------------------
+# Conservatory Garden pergola — wisteria pergola in the North Garden
+# ---------------------------------------------------------------------------
+func _build_pergola() -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_pergola.glb")
+	if not FileAccess.file_exists(glb_path):
+		print("  Pergola: GLB not found, skipping")
+		return
+	var gltf_doc := GLTFDocument.new()
+	var gltf_state := GLTFState.new()
+	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
+		return
+	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	if root == null:
+		return
+	# Pergola in the North Garden of Conservatory Garden
+	var px := 1100.0
+	var pz := -1200.0
+	var py: float = _loader._terrain_y(px, pz)
+	root.position = Vector3(px, py, pz)
+	root.rotation.y = PI * 0.15  # Slightly angled to garden axis
+	root.name = "WisteriaPergola"
+	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var stone_mat: Material = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
+		Color(0.65, 0.60, 0.54))
+	var stack: Array = [root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n is MeshInstance3D:
+			var mi := n as MeshInstance3D
+			if mi.mesh:
+				for si in range(mi.mesh.get_surface_count()):
+					mi.mesh.surface_set_material(si, stone_mat)
+		for c in n.get_children():
+			stack.append(c)
+	_loader.add_child(root)
+	print("  Pergola placed at (%.0f, %.1f, %.0f)" % [px, py, pz])
 
 
 # ---------------------------------------------------------------------------

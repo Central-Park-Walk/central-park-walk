@@ -1049,6 +1049,8 @@ func _ready() -> void:
 	_infrastructure_builder._build_belvedere_castle()
 	_infrastructure_builder._build_comfort_stations(amenities)
 	_infrastructure_builder._build_vanderbilt_gate()
+	_infrastructure_builder._build_bandshell()
+	_infrastructure_builder._build_pergola()
 	print("  statues+amenities: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	_infrastructure_builder._build_barriers(barriers)
 	print("  barriers: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
