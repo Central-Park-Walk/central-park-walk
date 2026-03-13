@@ -987,6 +987,8 @@ func _ready() -> void:
 	print("  statues+amenities: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	_infrastructure_builder._build_barriers(barriers)
 	print("  barriers: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
+	_infrastructure_builder._build_sport_markings(landuse_zones)
+	print("  sport markings: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 
 	# --- Water surfaces (dynamic shader effect positioned by data) ---
 	_water_builder._build_water(water)
