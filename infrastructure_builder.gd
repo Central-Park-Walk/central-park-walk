@@ -792,19 +792,17 @@ func _build_amenities(amenities: Array) -> void:
 	var df_path := ProjectSettings.globalize_path("res://models/furniture/cp_drinking_fountain.glb")
 	var df_meshes: Dictionary = _loader._load_glb_meshes(df_path)
 	var df_mesh: Mesh = null
-	if df_meshes.has("CP_DrinkingFountain"):
-		df_mesh = df_meshes["CP_DrinkingFountain"] as Mesh
-		# Apply weather-responsive materials to fountain surfaces
-		if df_mesh and df_mesh.get_surface_count() >= 2:
-			var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-			var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-			var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
-			df_mesh.surface_set_material(0, _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh, Color(0.55, 0.52, 0.48)))
-			var iron_sh: Shader = _loader._get_shader("cast_iron", "res://shaders/cast_iron.gdshader")
+	for mname in df_meshes:
+		df_mesh = df_meshes[mname] as Mesh
+		break
+	if df_mesh:
+		# Apply cast iron material to all surfaces
+		var iron_sh: Shader = _loader._get_shader("cast_iron", "res://shaders/cast_iron.gdshader")
+		for si in df_mesh.get_surface_count():
 			var df_iron := ShaderMaterial.new()
 			df_iron.shader = iron_sh
-			df_iron.set_shader_parameter("iron_color", Vector3(0.08, 0.08, 0.06))
-			df_mesh.surface_set_material(1, df_iron)
+			df_iron.set_shader_parameter("iron_color", Vector3(0.12, 0.14, 0.10))
+			df_mesh.surface_set_material(si, df_iron)
 	var df_xforms: Array = []
 
 	var count := 0
@@ -1898,6 +1896,104 @@ func _build_dog_run_fences(landuse: Array) -> void:
 	if not xforms.is_empty():
 		_loader._spawn_multimesh(fence_mesh, null, xforms, "DogRunFences")
 	print("  Dog run fences: %d sections around %d runs" % [xforms.size(), run_count])
+
+
+# ---------------------------------------------------------------------------
+# Park wayfinding signs — brown wooden signs at major path intersections
+# ---------------------------------------------------------------------------
+func _build_park_signs(paths: Array) -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_park_sign.glb")
+	if not FileAccess.file_exists(glb_path):
+		return
+	var sign_meshes: Dictionary = _loader._load_glb_meshes(glb_path)
+	var sign_mesh: Mesh = null
+	for mname in sign_meshes:
+		sign_mesh = sign_meshes[mname] as Mesh
+		break
+	if sign_mesh == null:
+		return
+
+	# Apply wood shader if available, otherwise keep GLB material
+	var wood_sh: Shader = _loader._get_shader("wood", "res://shaders/wood.gdshader")
+	if wood_sh:
+		for si in sign_mesh.get_surface_count():
+			var wood_mat := ShaderMaterial.new()
+			wood_mat.shader = wood_sh
+			wood_mat.set_shader_parameter("wood_color", Vector3(0.25, 0.15, 0.08))
+			sign_mesh.surface_set_material(si, wood_mat)
+
+	# Find path intersections — collect all path endpoints, cluster them
+	const GRID_SIZE := 10.0
+	var grid: Dictionary = {}  # "gx|gz" -> Array of [x, z]
+
+	for path in paths:
+		var hw: String = str(path.get("highway", ""))
+		if hw in ["secondary", "service", "tertiary", "residential"]:
+			continue  # skip roads
+		var pts: Array = path.get("points", [])
+		if pts.size() < 2:
+			continue
+		# Start and end points
+		for pidx in [0, pts.size() - 1]:
+			var pt: Array = pts[pidx]
+			var px: float = float(pt[0])
+			var pz: float = float(pt[2]) if pt.size() > 2 else float(pt[1])
+			var gx: int = int(floorf(px / GRID_SIZE))
+			var gz: int = int(floorf(pz / GRID_SIZE))
+			var gk: String = "%d|%d" % [gx, gz]
+			if not grid.has(gk):
+				grid[gk] = []
+			grid[gk].append([px, pz])
+
+	# Find cells with 3+ path endpoints = intersection
+	var intersections: Array = []
+	for gk in grid:
+		var pts: Array = grid[gk]
+		if pts.size() >= 3:
+			var cx := 0.0
+			var cz := 0.0
+			for p in pts:
+				cx += float(p[0])
+				cz += float(p[1])
+			cx /= float(pts.size())
+			cz /= float(pts.size())
+			intersections.append([cx, cz, pts.size()])
+
+	# Sort by connectivity (most paths first), deduplicate within 20m
+	intersections.sort_custom(func(a: Array, b: Array) -> bool: return int(a[2]) > int(b[2]))
+	var final: Array = []
+	for inter in intersections:
+		var ix: float = float(inter[0])
+		var iz: float = float(inter[1])
+		if not _loader._in_boundary(ix, iz):
+			continue
+		var too_close := false
+		for f in final:
+			var fdx: float = ix - float(f[0])
+			var fdz: float = iz - float(f[1])
+			if fdx * fdx + fdz * fdz < 400.0:  # 20m minimum spacing
+				too_close = true
+				break
+		if not too_close:
+			final.append(inter)
+		if final.size() >= 80:  # cap at ~80 signs (realistic for CP)
+			break
+
+	# Place signs
+	var xforms: Array = []
+	var rng := RandomNumberGenerator.new()
+	for f in final:
+		var fx: float = float(f[0])
+		var fz: float = float(f[1])
+		var fy: float = _loader._terrain_y(fx, fz)
+		rng.seed = int(fx * 73856.0 + fz * 19349.0) & 0x7FFFFFFF
+		var yaw: float = rng.randf() * TAU  # random facing
+		var basis := Basis(Vector3.UP, yaw)
+		xforms.append(Transform3D(basis, Vector3(fx, fy, fz)))
+
+	if not xforms.is_empty():
+		_loader._spawn_multimesh(sign_mesh, null, xforms, "ParkSigns")
+	print("  Park signs: %d placed at path intersections" % xforms.size())
 
 
 # ---------------------------------------------------------------------------
