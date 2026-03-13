@@ -1470,53 +1470,66 @@ func _setup_ground() -> void:
 	if not FileAccess.file_exists(mesh_path):
 		print("ERROR: terrain_mesh.bin not found — run convert_to_godot.py")
 		return
-	var mf := FileAccess.open(mesh_path, FileAccess.READ)
-	var n_verts := mf.get_32()
-	var n_indices := mf.get_32()
-	var world_sz := mf.get_float()
-	# Check for v2 format (has vertex colors)
-	var mesh_version := mf.get_32()  # v2 = vertex colors present
-	# Read positions: n_verts × 3 floats (x, y, z interleaved)
-	var pos_buf := mf.get_buffer(n_verts * 12)
-	var pos_f32 := pos_buf.to_float32_array()
-	var verts := PackedVector3Array(); verts.resize(n_verts)
-	var uvs := PackedVector2Array(); uvs.resize(n_verts)
-	var half := world_sz * 0.5
-	var inv_ws := 1.0 / world_sz
-	for i in n_verts:
-		var px := pos_f32[i * 3]
-		var pz := pos_f32[i * 3 + 2]
-		verts[i] = Vector3(px, pos_f32[i * 3 + 1], pz)
-		uvs[i] = Vector2((px + half) * inv_ws, (pz + half) * inv_ws)
-	# Read vertex colors if v2 format: n_verts × 4 bytes (RGBA8)
-	# R=paved path blend, G=unpaved blend, B=rock blend, A=building blend
-	var vert_colors := PackedColorArray()
-	if mesh_version >= 2:
-		var col_buf := mf.get_buffer(n_verts * 4)
-		vert_colors.resize(n_verts)
+	# Try cached ArrayMesh first (C++ ResourceLoader — near instant vs 8s GDScript parse)
+	var cache_path := "res://cache/terrain_mesh.res"
+	var abs_cache := ProjectSettings.globalize_path(cache_path)
+	var abs_bin := ProjectSettings.globalize_path(mesh_path)
+	var mesh: ArrayMesh = null
+	if FileAccess.file_exists(abs_cache):
+		var bin_mod := FileAccess.get_modified_time(abs_bin)
+		var cache_mod := FileAccess.get_modified_time(abs_cache)
+		if cache_mod >= bin_mod:
+			var loaded = ResourceLoader.load(cache_path)
+			if loaded is ArrayMesh:
+				mesh = loaded as ArrayMesh
+				mesh.surface_set_material(0, _terrain_mat)
+				print("Terrain mesh loaded from cache (%d verts)" % mesh.get_faces().size())
+	if mesh == null:
+		# Parse from .bin (slow first run — 13.9M vertex GDScript loop)
+		var mf := FileAccess.open(mesh_path, FileAccess.READ)
+		var n_verts := mf.get_32()
+		var n_indices := mf.get_32()
+		var world_sz := mf.get_float()
+		var mesh_version := mf.get_32()  # v2 = vertex colors present
+		var pos_buf := mf.get_buffer(n_verts * 12)
+		var pos_f32 := pos_buf.to_float32_array()
+		var verts := PackedVector3Array(); verts.resize(n_verts)
+		var uvs := PackedVector2Array(); uvs.resize(n_verts)
+		var half := world_sz * 0.5
+		var inv_ws := 1.0 / world_sz
 		for i in n_verts:
-			vert_colors[i] = Color(
-				col_buf[i * 4] / 255.0,
-				col_buf[i * 4 + 1] / 255.0,
-				col_buf[i * 4 + 2] / 255.0,
-				col_buf[i * 4 + 3] / 255.0)
-		print("Terrain: vertex colors loaded (v2 — smooth surface blending)")
-	# Read indices: n_indices × uint32
-	var idx_buf := mf.get_buffer(n_indices * 4)
-	var indices := idx_buf.to_int32_array()
-	mf.close()
-	print("Terrain mesh loaded: %d verts, %d tris (%.1f MB file)" % [
-		n_verts, n_indices / 3, FileAccess.open(mesh_path, FileAccess.READ).get_length() / 1e6])
-
-	var arrays: Array = []; arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX]  = verts
-	arrays[Mesh.ARRAY_TEX_UV]  = uvs
-	if not vert_colors.is_empty():
-		arrays[Mesh.ARRAY_COLOR] = vert_colors
-	arrays[Mesh.ARRAY_INDEX]   = indices
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	mesh.surface_set_material(0, _terrain_mat)
+			var px := pos_f32[i * 3]
+			var pz := pos_f32[i * 3 + 2]
+			verts[i] = Vector3(px, pos_f32[i * 3 + 1], pz)
+			uvs[i] = Vector2((px + half) * inv_ws, (pz + half) * inv_ws)
+		var vert_colors := PackedColorArray()
+		if mesh_version >= 2:
+			var col_buf := mf.get_buffer(n_verts * 4)
+			vert_colors.resize(n_verts)
+			for i in n_verts:
+				vert_colors[i] = Color(
+					col_buf[i * 4] / 255.0,
+					col_buf[i * 4 + 1] / 255.0,
+					col_buf[i * 4 + 2] / 255.0,
+					col_buf[i * 4 + 3] / 255.0)
+		var idx_buf := mf.get_buffer(n_indices * 4)
+		var indices := idx_buf.to_int32_array()
+		mf.close()
+		print("Terrain mesh parsed: %d verts, %d tris (%.1f MB)" % [
+			n_verts, n_indices / 3, FileAccess.open(mesh_path, FileAccess.READ).get_length() / 1e6])
+		var arrays: Array = []; arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX]  = verts
+		arrays[Mesh.ARRAY_TEX_UV]  = uvs
+		if not vert_colors.is_empty():
+			arrays[Mesh.ARRAY_COLOR] = vert_colors
+		arrays[Mesh.ARRAY_INDEX]   = indices
+		mesh = ArrayMesh.new()
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		mesh.surface_set_material(0, _terrain_mat)
+		# Cache for next run (compressed .res — C++ native load)
+		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://cache"))
+		if ResourceSaver.save(mesh, cache_path, ResourceSaver.FLAG_COMPRESS) == OK:
+			print("Terrain mesh cached → %s" % cache_path)
 
 	var mi       := MeshInstance3D.new()
 	mi.mesh       = mesh
