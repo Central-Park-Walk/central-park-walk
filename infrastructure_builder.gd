@@ -936,6 +936,7 @@ func _build_facilities(facilities: Array) -> void:
 		"precinct": { "file": "cp_precinct.glb", "rot": PI },
 		"police": { "file": "cp_precinct.glb", "rot": PI },
 		"north meadow rec": { "file": "cp_rec_center.glb", "rot": 0.0 },
+		"columbus circle": { "file": "cp_columbus_kiosk.glb", "rot": 0.0 },
 	}
 
 	# Load stone material for facility models
@@ -1625,6 +1626,68 @@ func _build_boat_landings() -> void:
 	if not xforms.is_empty():
 		_loader._spawn_multimesh(dock_mesh, null, xforms, "BoatLandings")
 	print("  Boat landings: %d placed" % xforms.size())
+
+
+# ---------------------------------------------------------------------------
+# Imagine mosaic — Strawberry Fields memorial
+# ---------------------------------------------------------------------------
+func _build_imagine_mosaic() -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_imagine_mosaic.glb")
+	if not FileAccess.file_exists(glb_path):
+		return
+	var gltf_doc := GLTFDocument.new()
+	var gltf_state := GLTFState.new()
+	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
+		return
+	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	if root == null:
+		return
+	var ix := -787.4
+	var iz := 826.8
+	var iy: float = _loader._terrain_y(ix, iz) + 0.02  # Flush with ground
+	root.position = Vector3(ix, iy, iz)
+	root.name = "ImagineMosaic"
+	_loader.add_child(root)
+	print("  Imagine mosaic placed at (%.0f, %.1f, %.0f)" % [ix, iy, iz])
+
+
+# ---------------------------------------------------------------------------
+# Tennis House — Tudor Revival building at the Tennis Center
+# ---------------------------------------------------------------------------
+func _build_tennis_house() -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_tennis_house.glb")
+	if not FileAccess.file_exists(glb_path):
+		return
+	var gltf_doc := GLTFDocument.new()
+	var gltf_state := GLTFState.new()
+	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
+		return
+	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	if root == null:
+		return
+	var tx := 297.0
+	var tz := -721.0
+	var ty: float = _loader._terrain_y(tx, tz)
+	root.position = Vector3(tx, ty, tz)
+	root.rotation.y = PI
+	root.name = "TennisHouse"
+	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var stone_mat: Material = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
+		Color(0.52, 0.28, 0.20))
+	var stack: Array = [root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n is MeshInstance3D:
+			var mi := n as MeshInstance3D
+			if mi.mesh:
+				for si in range(mi.mesh.get_surface_count()):
+					mi.mesh.surface_set_material(si, stone_mat)
+		for c in n.get_children():
+			stack.append(c)
+	_loader.add_child(root)
+	print("  Tennis House placed at (%.0f, %.1f, %.0f)" % [tx, ty, tz])
 
 
 # ---------------------------------------------------------------------------
