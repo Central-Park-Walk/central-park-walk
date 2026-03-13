@@ -22,6 +22,8 @@ const ARCHETYPE_MODEL := {
 	"zelkova": "elm", "dead": "dead", "willow": "willow", "magnolia": "magnolia",
 }
 
+var canopy_data: Array = []  # [{x, z, radius}] for canopy map generation
+
 func _init(loader) -> void:
 	_loader = loader
 
@@ -405,6 +407,11 @@ func _build_trees(trees: Array) -> void:
 		var timing_off := rng.randf_range(-0.15, 0.15)
 		var is_evergreen := 1.0 if species == "conifer" else 0.0
 		cd_by_key[key].append(Color(float(pheno_idx) / 13.0, timing_off + 0.5, is_evergreen, 0.0))
+
+		# Canopy data for dappled shade map — crown radius from height + species
+		var crown_r := desired_h * (0.25 if species == "conifer" else 0.38)
+		crown_r *= sx / sy  # apply crown width scaling
+		canopy_data.append({"x": tx, "z": tz, "r": crown_r, "ev": species == "conifer"})
 
 		# Collision: simplified cylinder at trunk position
 		var trunk_r := desired_h * 0.02

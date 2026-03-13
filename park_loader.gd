@@ -41,6 +41,7 @@ var _tunnel_outlines: Array = []          # tunnel outline polygons for labels
 
 var water_bodies: Array = []              # water body polygons for shore blending
 var _water_polygons: Array = []           # water polygon outlines for proximity baking
+var _canopy_texture: ImageTexture         # 2K canopy coverage map for dappled shade
 var _water_builder                        # water_builder.gd instance
 var _building_builder                     # building_builder.gd instance
 var _tree_builder                        # tree_builder.gd instance
@@ -356,6 +357,8 @@ func _make_bridge_deck_material(hw: String, surface: String) -> Material:
 		mat.set_shader_parameter("tex_rgh", tex_rgh)
 	mat.set_shader_parameter("tint", _path_color(hw, surface))
 	mat.set_shader_parameter("snap_to_terrain", 0.0)  # no terrain snap for bridge decks
+	if _canopy_texture:
+		mat.set_shader_parameter("canopy_map", _canopy_texture)
 	return mat
 
 
@@ -376,6 +379,9 @@ func _make_path_material(hw: String, surface: String) -> Material:
 	mat.set_shader_parameter("tint",    _path_color(hw, surface))
 	mat.set_shader_parameter("path_y_offset", PATH_Y + _hw_y_priority(hw))
 	mat.render_priority = _hw_render_priority(hw)
+	# Canopy coverage map for dappled shade
+	if _canopy_texture:
+		mat.set_shader_parameter("canopy_map", _canopy_texture)
 	# Heightmap for vertex-shader terrain snapping
 	if _hm_texture:
 		mat.set_shader_parameter("heightmap_tex", _hm_texture)
@@ -404,6 +410,53 @@ func _make_curb_material() -> Material:
 		mat.set_shader_parameter("hm_range",      _hm_max_h - _hm_min_h)
 		mat.set_shader_parameter("hm_res",        float(mini(_hm_width, 4096)))
 	return mat
+
+
+# ---------------------------------------------------------------------------
+# Canopy coverage map — 2K grayscale Image stamped from placed tree crowns.
+# Used by terrain + path shaders for dappled sunlight through tree canopy.
+# ---------------------------------------------------------------------------
+func _generate_canopy_map(data: Array) -> ImageTexture:
+	const CANOPY_RES := 2048
+	var img := Image.create(CANOPY_RES, CANOPY_RES, false, Image.FORMAT_L8)
+	img.fill(Color(0, 0, 0, 1))
+
+	var half := _hm_world_size * 0.5
+	var cell_m := _hm_world_size / float(CANOPY_RES)
+
+	for entry in data:
+		var wx: float = entry["x"]
+		var wz: float = entry["z"]
+		var cr: float = entry["r"]  # crown radius in metres
+
+		# Convert to pixel coordinates
+		var px := int((wx + half) / cell_m)
+		var pz := int((wz + half) / cell_m)
+		var pr := int(ceil(cr / cell_m))  # radius in pixels
+
+		# Stamp a soft circle (Gaussian-ish falloff)
+		for dy in range(-pr, pr + 1):
+			var iy := pz + dy
+			if iy < 0 or iy >= CANOPY_RES:
+				continue
+			for dx in range(-pr, pr + 1):
+				var ix := px + dx
+				if ix < 0 or ix >= CANOPY_RES:
+					continue
+				var dist_sq := float(dx * dx + dy * dy)
+				var r_sq := float(pr * pr)
+				if dist_sq > r_sq:
+					continue
+				# Soft falloff: dense at center, thin at edges
+				var t := sqrt(dist_sq) / float(pr)
+				var intensity := 1.0 - t * t  # quadratic falloff
+				var existing := img.get_pixel(ix, iy).r
+				var new_val := minf(existing + intensity * 0.7, 1.0)
+				img.set_pixel(ix, iy, Color(new_val, new_val, new_val, 1.0))
+
+	var tex := ImageTexture.create_from_image(img)
+	print("Canopy map: %d trees → %d×%d coverage texture" % [data.size(), CANOPY_RES, CANOPY_RES])
+	return tex
 
 
 # ---------------------------------------------------------------------------
@@ -976,6 +1029,8 @@ func _ready() -> void:
 	print("  bridge models: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	_tree_builder._build_trees(trees)
 	print("  trees: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
+	_canopy_texture = _generate_canopy_map(_tree_builder.canopy_data)
+	print("  canopy map: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	_grass_builder._build_grass()
 	print("  grass: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	_furniture_builder._build_furniture(benches, lampposts, paths)
