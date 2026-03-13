@@ -1051,6 +1051,7 @@ func _build_attractions(attractions: Array) -> void:
 	var attraction_glbs: Dictionary = {
 		"carousel": { "file": "cp_carousel.glb", "rot": 0.0 },
 		"blockhouse": { "file": "cp_blockhouse.glb", "rot": PI * 0.25 },
+		"cop cot": { "file": "cp_cop_cot.glb", "rot": PI },
 	}
 
 	# Load stone material for attraction models
