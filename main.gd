@@ -188,6 +188,9 @@ func _ready() -> void:
 		print("main: landuse map: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 		_apply_structure_mask()
 		print("main: structure mask: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
+		if _park_loader and _park_loader._canopy_texture:
+			_terrain_mat.set_shader_parameter("canopy_map", _park_loader._canopy_texture)
+		print("main: canopy map: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_player = _setup_player()
 	if _park_loader and _park_loader.boundary_polygon.size() > 2:
 		_player.boundary_polygon = _park_loader.boundary_polygon

@@ -12,6 +12,7 @@ uniform float hm_range      = 1.0;
 uniform float hm_res        = 256.0;
 uniform float path_y_offset = 0.08;
 uniform float snap_to_terrain = 1.0;  // 0.0 for bridge decks (pre-elevated)
+uniform sampler2D canopy_map : filter_linear, repeat_disable;
 global uniform float rain_wetness;
 global uniform float snow_cover;
 global uniform float season_t;
@@ -45,6 +46,26 @@ void fragment() {
 	ROUGHNESS  = clamp(rough + 0.10, 0.0, 1.0);
 	METALLIC   = 0.0;
 	SPECULAR   = 0.06;  // matte paving default
+
+	// --- Dappled canopy shade on paths ---
+	{
+		vec2 canopy_uv = (world_pos.xz + hm_world_size * 0.5) / hm_world_size;
+		float canopy = texture(canopy_map, canopy_uv).r;
+		if (canopy > 0.01) {
+			float deciduous_loss = smoothstep(2.5, 3.2, season_t);
+			float winter_bare = smoothstep(3.0, 3.5, season_t);
+			float spring_fill = smoothstep(0.0, 0.4, season_t);
+			float sc = canopy * mix(1.0, 0.3, deciduous_loss) * mix(1.0, 0.15, winter_bare) * mix(0.5, 1.0, spring_fill);
+			vec2 dapple_uv = world_pos.xz * 0.35 + wind_vec * TIME * 0.08;
+			float dapple = vnoise(dapple_uv);
+			float dapple_fine = vnoise(world_pos.xz * 1.2 + wind_vec * TIME * 0.15);
+			float light_gap = smoothstep(0.35, 0.65, dapple) * 0.6 + smoothstep(0.55, 0.75, dapple_fine) * 0.4;
+			float sky_lum = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
+			float sun_factor = smoothstep(0.02, 0.20, sky_lum);
+			float shade = sc * sun_factor;
+			ALBEDO *= (1.0 - shade * (1.0 - light_gap) * 0.30);
+		}
+	}
 
 	// Seasonal path appearance
 	// Autumn: scattered leaf litter on paths, warmer tint, wind-drifted

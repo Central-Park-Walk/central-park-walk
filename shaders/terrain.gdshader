@@ -67,6 +67,10 @@ uniform sampler2D shore_distance : filter_linear, repeat_disable;
 // Structure mask from LiDAR (HH - BE difference): 0=ground, 1-254=height in half-feet
 uniform sampler2D structure_mask : filter_linear, repeat_disable;
 
+// Canopy coverage map: grayscale, 2K resolution. Bright=under tree canopy.
+// Used for dappled sunlight through tree canopy — Central Park's signature light.
+uniform sampler2D canopy_map : filter_linear, repeat_disable;
+
 varying vec3 world_pos;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
@@ -678,6 +682,51 @@ void fragment() {
 		// Deeper, cooler woodland floor per Olmsted "Picturesque" design
 		grass_alb = mix(grass_alb, grass_alb * vec3(0.90, 0.98, 0.95), woodland_prox * 0.5);
 		grass_alb *= mix(1.0, 0.88, woodland_prox);  // darker in deep woods
+	}
+
+	// --- Dappled canopy shade — sunlight filtering through tree leaves ---
+	// Central Park's signature light: shifting patterns of sun and shadow
+	// under the elms of the Mall, the oaks of the Ramble, the maples of North Woods
+	{
+		vec2 canopy_uv = (world_pos.xz + world_size * 0.5) / world_size;
+		float canopy = texture(canopy_map, canopy_uv).r;
+		if (canopy > 0.01) {
+			// Seasonal canopy density: deciduous trees thin in autumn, bare in winter
+			// Evergreen coverage stays constant (pine groves)
+			float deciduous_loss = smoothstep(2.5, 3.2, season_t);  // autumn thinning
+			float winter_bare = smoothstep(3.0, 3.5, season_t);     // full bare
+			float spring_fill = smoothstep(0.0, 0.4, season_t);      // spring leaf-out
+			float seasonal_canopy = canopy;
+			// Reduce canopy in autumn/winter (leaves falling/gone)
+			seasonal_canopy *= mix(1.0, 0.3, deciduous_loss);
+			seasonal_canopy *= mix(1.0, 0.15, winter_bare);
+			// Spring: canopy fills back in
+			seasonal_canopy *= mix(0.5, 1.0, spring_fill);
+
+			// Dappled light pattern: multi-scale noise for realistic leaf gap pattern
+			// Wind-animated — leaves shift, creating moving shadows
+			vec2 dapple_uv = world_pos.xz * 0.35 + wind_vec * TIME * 0.08;
+			float dapple = vnoise(dapple_uv);
+			// Smaller scale for individual leaf gaps
+			float dapple_fine = vnoise(world_pos.xz * 1.2 + wind_vec * TIME * 0.15);
+			// Combine: large shade areas with fine bright gaps
+			float light_gap = smoothstep(0.35, 0.65, dapple) * 0.6
+				+ smoothstep(0.55, 0.75, dapple_fine) * 0.4;
+
+			// Sun angle factor: dappled shade only visible when sun is up
+			// sky_reflect_color luminance indicates day vs night
+			float sky_lum = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
+			float sun_factor = smoothstep(0.02, 0.20, sky_lum);
+
+			// Apply shade: darken under canopy, with bright dappled sun spots
+			float shade = seasonal_canopy * sun_factor;
+			// Base shade: 35% darkening under dense canopy
+			float shade_amount = shade * (1.0 - light_gap) * 0.35;
+			grass_alb *= (1.0 - shade_amount);
+			// Sun spots through canopy are slightly warm (filtered by leaves)
+			float warm_spots = light_gap * shade * 0.08;
+			grass_alb *= vec3(1.0 + warm_spots, 1.0 + warm_spots * 0.5, 1.0 - warm_spots * 0.3);
+		}
 	}
 
 	ALBEDO          = grass_alb;
