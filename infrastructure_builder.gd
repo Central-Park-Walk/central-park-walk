@@ -928,6 +928,8 @@ func _build_facilities(facilities: Array) -> void:
 		"dana": { "file": "cp_discovery_center.glb", "rot": PI },
 		"gate house": { "file": "cp_gate_house.glb", "rot": 0.0 },
 		"summerstage": { "file": "cp_summerstage.glb", "rot": PI },
+		"arsenal": { "file": "cp_arsenal.glb", "rot": PI },
+		"zoo": { "file": "cp_zoo.glb", "rot": PI },
 	}
 
 	# Load stone material for facility models
@@ -1362,6 +1364,48 @@ func _build_comfort_stations(amenities: Array) -> void:
 	if not xforms.is_empty():
 		_loader._spawn_multimesh(cs_mesh, null, xforms, "ComfortStations")
 	print("  Comfort stations: %d placed" % xforms.size())
+
+
+# ---------------------------------------------------------------------------
+# Vanderbilt Gate — ornamental iron gate at Conservatory Garden entrance
+# ---------------------------------------------------------------------------
+func _build_vanderbilt_gate() -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_vanderbilt_gate.glb")
+	if not FileAccess.file_exists(glb_path):
+		print("  Vanderbilt Gate: GLB not found, skipping")
+		return
+	var gltf_doc := GLTFDocument.new()
+	var gltf_state := GLTFState.new()
+	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
+		return
+	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	if root == null:
+		return
+	# Gate at Conservatory Garden entrance — east side, 105th St
+	var gx := 1063.0
+	var gz := -1088.0
+	var gy: float = _loader._terrain_y(gx, gz)
+	root.position = Vector3(gx, gy, gz)
+	root.rotation.y = PI * 0.5  # Faces west into garden
+	root.name = "VanderbiltGate"
+	# Apply iron material to gate parts, stone to piers
+	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var stone_mat: Material = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
+		Color(0.58, 0.55, 0.50))
+	var stack: Array = [root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n is MeshInstance3D:
+			var mi := n as MeshInstance3D
+			if mi.mesh:
+				for si in range(mi.mesh.get_surface_count()):
+					mi.mesh.surface_set_material(si, stone_mat)
+		for c in n.get_children():
+			stack.append(c)
+	_loader.add_child(root)
+	print("  Vanderbilt Gate placed at (%.0f, %.1f, %.0f)" % [gx, gy, gz])
 
 
 # ---------------------------------------------------------------------------
