@@ -919,6 +919,9 @@ func _build_facilities(facilities: Array) -> void:
 	var facility_glbs: Dictionary = {
 		"swedish cottage": { "file": "cp_swedish_cottage.glb", "rot": PI },
 		"dairy": { "file": "cp_dairy.glb", "rot": PI },
+		"chess": { "file": "cp_chess_house.glb", "rot": 0.0 },
+		"boathouse": { "file": "cp_boathouse.glb", "rot": PI * 0.5 },
+		"delacorte": { "file": "cp_delacorte.glb", "rot": PI },
 	}
 
 	# Load stone material for facility models
