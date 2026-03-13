@@ -255,7 +255,7 @@ func _load_instances() -> Array:
 			return []
 
 		var magic: int = f.get_32()
-		if magic == 0x47525332:  # "GRS2" — v2 format with pre-baked Y + path proximity
+		if magic == 0x47525332 or magic == 0x32535247:  # "GRS2" — v2 format (either byte order)
 			var cnt: int = f.get_32()
 			if cnt == 0:
 				return []
