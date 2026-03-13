@@ -247,12 +247,12 @@ func _build_water(water: Array) -> void:
 	# Central Park's model-boat pond, meer, and turtle pond have dressed stone edges
 	var FORMAL_WATER := ["conservatory", "harlem meer", "turtle pond"]
 	for body in water:
-		var bname: String = str(body.get("name", "")).to_lower()
-		if bname.contains("fountain"):
+		var bname: String = str(body.get("name", ""))
+		if bname.to_lower().contains("fountain"):
 			continue
 		for keyword in FORMAL_WATER:
-			if bname.contains(keyword):
-				_build_water_curb(body["points"], Color(0.55, 0.53, 0.50))
+			if bname.to_lower().contains(keyword):
+				_build_water_curb(body["points"], Color(0.55, 0.53, 0.50), bname)
 				break
 
 	_build_water_mesh(verts, normals, water)
@@ -475,7 +475,7 @@ func _build_water_mesh(verts: PackedVector3Array, normals: PackedVector3Array, w
 		print("Water mist: %d fog volumes for dawn/dusk atmosphere" % mist_count)
 
 
-func _build_water_curb(pts: Array, tint: Color) -> void:
+func _build_water_curb(pts: Array, tint: Color, body_name: String = "") -> void:
 	## Build a raised stone curb ring around a water body (e.g. Conservatory Water).
 	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
 	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
@@ -514,9 +514,10 @@ func _build_water_curb(pts: Array, tint: Color) -> void:
 		return
 	var mesh: ArrayMesh = _loader._make_mesh(verts, normals)
 	mesh.surface_set_material(0, mat)
-	var mi := MeshInstance3D.new(); mi.mesh = mesh; mi.name = "WaterCurb_Conservatory"
+	var safe_name := body_name.replace(" ", "_") if not body_name.is_empty() else "Unknown"
+	var mi := MeshInstance3D.new(); mi.mesh = mesh; mi.name = "WaterCurb_" + safe_name
 	_loader.add_child(mi)
-	print("ParkLoader: Conservatory Water curb (%d segments)" % pts.size())
+	print("ParkLoader: %s water curb (%d segments)" % [body_name if not body_name.is_empty() else "Water body", pts.size()])
 
 
 func _build_streams(streams: Array) -> void:
