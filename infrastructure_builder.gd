@@ -1997,6 +1997,192 @@ func _build_park_signs(paths: Array) -> void:
 
 
 # ---------------------------------------------------------------------------
+# Reservoir fence — tall chain-link around JKO Reservoir running track
+# ---------------------------------------------------------------------------
+func _build_reservoir_fence(water: Array) -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_reservoir_fence.glb")
+	if not FileAccess.file_exists(glb_path):
+		return
+	var fence_meshes: Dictionary = _loader._load_glb_meshes(glb_path)
+	var fence_mesh: Mesh = null
+	for mname in fence_meshes:
+		fence_mesh = fence_meshes[mname] as Mesh
+		break
+	if fence_mesh == null:
+		return
+
+	# Find the reservoir polygon
+	var res_pts: Array = []
+	for wb in water:
+		var wname: String = str(wb.get("name", ""))
+		if "reservoir" in wname.to_lower():
+			res_pts = wb.get("points", wb.get("polygon", []))
+			break
+	if res_pts.size() < 10:
+		return
+
+	# Place fence sections around the perimeter, offset 3m outward from water edge
+	const SECTION_W := 3.0
+	const FENCE_OFFSET := 5.0  # metres outside water polygon
+
+	# Compute polygon centroid for outward offset direction
+	var cx := 0.0
+	var cz := 0.0
+	for pt in res_pts:
+		cx += float(pt[0])
+		cz += float(pt[1])
+	cx /= float(res_pts.size())
+	cz /= float(res_pts.size())
+
+	var xforms: Array = []
+
+	for pi in res_pts.size():
+		var p0x: float = float(res_pts[pi][0])
+		var p0z: float = float(res_pts[pi][1])
+		var ni: int = (pi + 1) % res_pts.size()
+		var p1x: float = float(res_pts[ni][0])
+		var p1z: float = float(res_pts[ni][1])
+
+		var dx: float = p1x - p0x
+		var dz: float = p1z - p0z
+		var seg_len: float = sqrt(dx * dx + dz * dz)
+		if seg_len < 0.5:
+			continue
+
+		# Outward normal (away from centroid)
+		var nx: float = -dz / seg_len
+		var nz: float = dx / seg_len
+		# Ensure it points away from centroid
+		var mx: float = (p0x + p1x) * 0.5 - cx
+		var mz: float = (p0z + p1z) * 0.5 - cz
+		if nx * mx + nz * mz < 0.0:
+			nx = -nx
+			nz = -nz
+
+		var n_sections: int = maxi(1, int(round(seg_len / SECTION_W)))
+		var yaw: float = atan2(dx, dz)
+
+		for si in n_sections:
+			var t: float = (float(si) + 0.5) / float(n_sections)
+			var fx: float = p0x + dx * t + nx * FENCE_OFFSET
+			var fz: float = p0z + dz * t + nz * FENCE_OFFSET
+			var fy: float = _loader._terrain_y(fx, fz)
+			var basis := Basis(Vector3.UP, yaw)
+			xforms.append(Transform3D(basis, Vector3(fx, fy, fz)))
+
+	if not xforms.is_empty():
+		_loader._spawn_multimesh(fence_mesh, null, xforms, "ReservoirFence")
+	print("  Reservoir fence: %d sections around running track" % xforms.size())
+
+
+# ---------------------------------------------------------------------------
+# Bridle path posts — split-rail wooden fence along horseback riding trails
+# ---------------------------------------------------------------------------
+func _build_bridle_posts(paths: Array) -> void:
+	# Use a simple cylinder + rail from park_loader utilities
+	# Bridle paths have wooden split-rail fencing every ~5m
+	var wood_sh: Shader = _loader._get_shader("wood", "res://shaders/wood.gdshader")
+
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+
+	const POST_H := 1.0       # 1m tall posts
+	const POST_R := 0.04      # 4cm radius
+	const RAIL_R := 0.03      # 3cm radius rail
+	const SPACING := 5.0      # 5m between posts
+	const OFFSET := 1.2       # 1.2m from path centerline
+	const SEGS := 6           # cylinder segments
+
+	var post_count := 0
+	for path in paths:
+		if str(path.get("highway", "")) != "bridleway":
+			continue
+		var pts: Array = path.get("points", [])
+		if pts.size() < 2:
+			continue
+
+		# Walk along path placing posts on both sides
+		var dist := 0.0
+		for pi in range(pts.size() - 1):
+			var ax: float = float(pts[pi][0])
+			var az: float = float(pts[pi][2]) if len(pts[pi]) > 2 else float(pts[pi][1])
+			var bx: float = float(pts[pi + 1][0])
+			var bz: float = float(pts[pi + 1][2]) if len(pts[pi + 1]) > 2 else float(pts[pi + 1][1])
+			var sdx: float = bx - ax
+			var sdz: float = bz - az
+			var seg_len: float = sqrt(sdx * sdx + sdz * sdz)
+			if seg_len < 0.1:
+				continue
+
+			# Perpendicular for offset
+			var px: float = -sdz / seg_len
+			var pz: float = sdx / seg_len
+
+			while dist < seg_len:
+				var t: float = dist / seg_len
+				var wx: float = ax + sdx * t
+				var wz: float = az + sdz * t
+				if not _loader._in_boundary(wx, wz):
+					dist += SPACING
+					continue
+				var wy: float = _loader._terrain_y(wx, wz)
+
+				# Place post on both sides
+				for side_val in [-1.0, 1.0]:
+					var side: float = float(side_val)
+					var ppx: float = wx + px * OFFSET * side
+					var ppz: float = wz + pz * OFFSET * side
+					var ppy: float = _loader._terrain_y(ppx, ppz)
+					# Simple cylinder post
+					for si in SEGS:
+						var a0: float = TAU * float(si) / float(SEGS)
+						var a1: float = TAU * float(si + 1) / float(SEGS)
+						var c0x: float = cos(a0) * POST_R
+						var c0z: float = sin(a0) * POST_R
+						var c1x: float = cos(a1) * POST_R
+						var c1z: float = sin(a1) * POST_R
+						var n0 := Vector3(cos(a0), 0, sin(a0))
+						var n1 := Vector3(cos(a1), 0, sin(a1))
+						# Two triangles for the side quad
+						verts.append(Vector3(ppx + c0x, ppy, ppz + c0z))
+						normals.append(n0)
+						verts.append(Vector3(ppx + c1x, ppy, ppz + c1z))
+						normals.append(n1)
+						verts.append(Vector3(ppx + c1x, ppy + POST_H, ppz + c1z))
+						normals.append(n1)
+						verts.append(Vector3(ppx + c0x, ppy, ppz + c0z))
+						normals.append(n0)
+						verts.append(Vector3(ppx + c1x, ppy + POST_H, ppz + c1z))
+						normals.append(n1)
+						verts.append(Vector3(ppx + c0x, ppy + POST_H, ppz + c0z))
+						normals.append(n0)
+					post_count += 1
+				dist += SPACING
+			dist -= seg_len  # carry remainder to next segment
+
+	if verts.is_empty():
+		return
+
+	# Build mesh with wood material
+	var mesh: ArrayMesh = _loader._make_mesh(verts, normals)
+	var mat: StandardMaterial3D = StandardMaterial3D.new()
+	mat.albedo_color = Color(0.35, 0.22, 0.12)  # warm wood brown
+	mat.roughness = 0.85
+	mesh.surface_set_material(0, mat)
+	if wood_sh:
+		var wood_mat := ShaderMaterial.new()
+		wood_mat.shader = wood_sh
+		wood_mat.set_shader_parameter("wood_color", Vector3(0.35, 0.22, 0.12))
+		mesh.surface_set_material(0, wood_mat)
+
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.name = "BridlePosts"
+	_loader.add_child(mi)
+	print("  Bridle path posts: %d along horseback trails" % post_count)
+
+
+# ---------------------------------------------------------------------------
 # Stone staircases — 250 OSM highway=steps paths built as stepped geometry
 # ---------------------------------------------------------------------------
 func _build_staircases(paths: Array) -> void:
