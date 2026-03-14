@@ -2062,6 +2062,48 @@ func _build_park_signs(paths: Array) -> void:
 		_loader._spawn_multimesh(sign_mesh, null, xforms, "ParkSigns")
 	print("  Park signs: %d placed at path intersections" % xforms.size())
 
+	# Named gate labels at park entrances
+	var gate_names: Array = [
+		["Merchants' Gate", -1050.0, 2025.0],
+		["Women's Gate", -1100.0, 1800.0],
+		["Artisans' Gate", -1050.0, 1575.0],
+		["Naturalists' Gate", -1100.0, 1200.0],
+		["Hunters' Gate", -1100.0, 750.0],
+		["Mariners' Gate", -1100.0, 225.0],
+		["Gate of All Saints", -1100.0, -375.0],
+		["Boys' Gate", -1100.0, -900.0],
+		["Strangers' Gate", -1100.0, -1500.0],
+		["Farmers' Gate", 300.0, -2000.0],
+		["Warriors' Gate", 700.0, -2000.0],
+		["Pioneers' Gate", 1200.0, -2000.0],
+		["Woodsmen's Gate", 1200.0, -1350.0],
+		["Girls' Gate", 1200.0, -750.0],
+		["Engineers' Gate", 1200.0, -225.0],
+		["Inventors' Gate", 1200.0, 225.0],
+		["Miners' Gate", 1200.0, 750.0],
+		["Children's Gate", 1200.0, 1125.0],
+		["Scholars' Gate", 1200.0, 1950.0],
+	]
+	var gate_label_count := 0
+	for g in gate_names:
+		var gname: String = str(g[0])
+		var gx: float = float(g[1])
+		var gz: float = float(g[2])
+		var gy: float = _loader._terrain_y(gx, gz)
+		var label := Label3D.new()
+		label.text = gname
+		label.font_size = 32
+		label.position = Vector3(gx, gy + 3.5, gz)
+		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		label.modulate = Color(0.45, 0.35, 0.20, 0.75)
+		label.outline_modulate = Color(0.1, 0.08, 0.05, 0.55)
+		label.outline_size = 5
+		label.no_depth_test = false
+		label.pixel_size = 0.012
+		_loader.add_child(label)
+		gate_label_count += 1
+	print("  Gate labels: %d named entrances" % gate_label_count)
+
 
 # ---------------------------------------------------------------------------
 # Reservoir fence — tall chain-link around JKO Reservoir running track
