@@ -202,11 +202,11 @@ func _ready() -> void:
 	print("main: total _ready: %d ms" % (Time.get_ticks_msec() - _mt))
 	_apply_time_of_day()
 	_setup_weather()
-	# Ambient audio
-	if not _terrain_only and _park_loader and _player:
-		_audio_manager = preload("res://audio_manager.gd").new(_park_loader)
-		_audio_manager.setup(_player, _park_loader.water_bodies, _park_loader.boundary_polygon)
-		print("main: audio: ready")
+	# Ambient audio — disabled for now
+	#if not _terrain_only and _park_loader and _player:
+	#	_audio_manager = preload("res://audio_manager.gd").new(_park_loader)
+	#	_audio_manager.setup(_player, _park_loader.water_bodies, _park_loader.boundary_polygon)
+	#	print("main: audio: ready")
 	# Check for --tour / --tour-showcase / --readme-shots CLI arg
 	for arg in OS.get_cmdline_user_args():
 		if arg in ["--tour", "--tour-showcase", "--readme-shots"]:
