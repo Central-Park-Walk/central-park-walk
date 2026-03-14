@@ -3721,3 +3721,60 @@ func _build_bike_racks() -> void:
 	if not xforms.is_empty():
 		_loader._spawn_multimesh(mesh, null, xforms, "BikeRacks")
 	print("  Bike racks: %d at %d locations" % [xforms.size(), clusters.size()])
+
+
+# ---------------------------------------------------------------------------
+# Tree pit grates — cast iron grates around street-side trees
+# ---------------------------------------------------------------------------
+func _build_tree_pit_grates(trees: Array) -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_tree_pit_grate.glb")
+	if not FileAccess.file_exists(glb_path):
+		return
+	var meshes: Dictionary = _loader._load_glb_meshes(glb_path)
+	var mesh: Mesh = null
+	for mname in meshes:
+		mesh = meshes[mname] as Mesh
+		break
+	if mesh == null:
+		return
+
+	# Apply cast iron material
+	var iron_sh: Shader = _loader._get_shader("cast_iron", "res://shaders/cast_iron.gdshader")
+	if iron_sh:
+		var mat := ShaderMaterial.new()
+		mat.shader = iron_sh
+		mat.set_shader_parameter("iron_color", Vector3(0.10, 0.10, 0.11))
+		mat.set_shader_parameter("base_roughness", 0.65)
+		mat.set_shader_parameter("base_metallic", 0.85)
+		for si in mesh.get_surface_count():
+			mesh.surface_set_material(si, mat)
+
+	# Tree pit grates only around trees adjacent to paved surfaces
+	# Check atlas surface type at tree position and 2m radius
+	var xforms: Array = []
+	for tree in trees:
+		var tpos: Array = tree.get("pos", [])
+		if tpos.size() < 3:
+			continue
+		var tx: float = float(tpos[0])
+		var tz: float = float(tpos[2])
+		# Tree must be on or near paved path (atlas surface type 2)
+		var surf: int = _loader._atlas_surface(tx, tz)
+		if surf != 2:
+			# Check 2m radius for nearby pavement
+			var near_paved := false
+			for off in [Vector2(2,0), Vector2(-2,0), Vector2(0,2), Vector2(0,-2)]:
+				if _loader._atlas_surface(tx + off.x, tz + off.y) == 2:
+					near_paved = true
+					break
+			if not near_paved:
+				continue
+		var ty: float = _loader._terrain_y(tx, tz) + 0.01  # slightly above ground
+		var rng := RandomNumberGenerator.new()
+		rng.seed = int(tx * 47.0 + tz * 131.0) & 0x7FFFFFFF
+		var yaw := rng.randf() * TAU
+		xforms.append(Transform3D(Basis(Vector3.UP, yaw), Vector3(tx, ty, tz)))
+
+	if not xforms.is_empty():
+		_loader._spawn_multimesh(mesh, null, xforms, "TreePitGrates")
+	print("  Tree pit grates: %d placed" % xforms.size())
