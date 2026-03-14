@@ -3032,3 +3032,137 @@ func _build_special_zone_labels() -> void:
 		count += 1
 	if count > 0:
 		print("  Special zone labels: %d" % count)
+
+
+# ---------------------------------------------------------------------------
+# Fitness stations — exercise equipment along running paths
+# ---------------------------------------------------------------------------
+func _build_fitness_stations(paths: Array) -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_fitness_station.glb")
+	if not FileAccess.file_exists(glb_path):
+		return
+	var meshes: Dictionary = _loader._load_glb_meshes(glb_path)
+	var mesh: Mesh = null
+	for mname in meshes:
+		mesh = meshes[mname] as Mesh
+		break
+	if mesh == null:
+		return
+
+	# Apply steel material
+	var iron_sh: Shader = _loader._get_shader("cast_iron", "res://shaders/cast_iron.gdshader")
+	if iron_sh:
+		var mat := ShaderMaterial.new()
+		mat.shader = iron_sh
+		mat.set_shader_parameter("iron_color", Vector3(0.30, 0.28, 0.25))
+		mat.set_shader_parameter("base_roughness", 0.55)
+		mat.set_shader_parameter("base_metallic", 0.90)
+		for si in mesh.get_surface_count():
+			mesh.surface_set_material(si, mat)
+
+	# Known fitness station locations along Central Park running paths
+	# (North-south along the park, near the bridle path and loop drive)
+	var stations: Array = [
+		# North end
+		[290, -1580],   # near North Meadow
+		[180, -1200],   # near East Meadow
+		# Upper park
+		[-100, -800],   # near Reservoir east
+		[-500, -600],   # near Reservoir west
+		# Central
+		[-200, -200],   # near Great Lawn east
+		[-550, -50],    # near Tennis courts
+		# South-central
+		[-350, 400],    # near Ramble
+		[-650, 600],    # near Lake west
+		# South
+		[-450, 1000],   # near Bethesda
+		[-300, 1400],   # near Mall south
+		# Far south
+		[-500, 1650],   # near Heckscher
+		[-100, 1700],   # near Wollman
+	]
+
+	var xforms: Array = []
+	for st in stations:
+		var wx: float = float(st[0])
+		var wz: float = float(st[1])
+		if not _loader._in_boundary(wx, wz):
+			continue
+		var wy: float = _loader._terrain_y(wx, wz)
+		# Random orientation
+		var rng := RandomNumberGenerator.new()
+		rng.seed = int(wx * 73.0 + wz * 191.0) & 0x7FFFFFFF
+		var yaw := rng.randf() * TAU
+		xforms.append(Transform3D(Basis(Vector3.UP, yaw), Vector3(wx, wy, wz)))
+
+	if not xforms.is_empty():
+		_loader._spawn_multimesh(mesh, null, xforms, "FitnessStations")
+	print("  Fitness stations: %d placed" % xforms.size())
+
+
+# ---------------------------------------------------------------------------
+# Mile markers — bronze distance markers along the loop drive
+# ---------------------------------------------------------------------------
+func _build_mile_markers(paths: Array) -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_mile_marker.glb")
+	if not FileAccess.file_exists(glb_path):
+		return
+	var meshes: Dictionary = _loader._load_glb_meshes(glb_path)
+	var mesh: Mesh = null
+	for mname in meshes:
+		mesh = meshes[mname] as Mesh
+		break
+	if mesh == null:
+		return
+
+	# Find the main loop drive paths (primary/secondary roads)
+	# Place markers every ~400m (quarter mile) along drives
+	const MARKER_SPACING := 400.0  # metres between markers
+	var xforms: Array = []
+	var placed_count := 0
+
+	for path in paths:
+		var hw: String = str(path.get("highway", ""))
+		if hw != "primary" and hw != "secondary":
+			continue
+		var pts: Array = path.get("points", [])
+		if pts.size() < 2:
+			continue
+
+		# Walk along path placing markers
+		var dist := 0.0
+		for pi in range(pts.size() - 1):
+			var ax: float = float(pts[pi][0])
+			var az: float = float(pts[pi][2]) if len(pts[pi]) > 2 else float(pts[pi][1])
+			var bx: float = float(pts[pi + 1][0])
+			var bz: float = float(pts[pi + 1][2]) if len(pts[pi + 1]) > 2 else float(pts[pi + 1][1])
+			var sdx: float = bx - ax
+			var sdz: float = bz - az
+			var seg_len: float = sqrt(sdx * sdx + sdz * sdz)
+			if seg_len < 0.1:
+				continue
+
+			while dist < seg_len:
+				var t: float = dist / seg_len
+				var wx: float = ax + sdx * t
+				var wz: float = az + sdz * t
+				if not _loader._in_boundary(wx, wz):
+					dist += MARKER_SPACING
+					continue
+				var wy: float = _loader._terrain_y(wx, wz)
+				# Perpendicular offset (1.5m from path center)
+				var px: float = -sdz / seg_len
+				var pz: float = sdx / seg_len
+				var mx: float = wx + px * 1.5
+				var mz: float = wz + pz * 1.5
+				var my: float = _loader._terrain_y(mx, mz)
+				var yaw: float = atan2(sdx, sdz)
+				xforms.append(Transform3D(Basis(Vector3.UP, yaw), Vector3(mx, my, mz)))
+				placed_count += 1
+				dist += MARKER_SPACING
+			dist -= seg_len
+
+	if not xforms.is_empty():
+		_loader._spawn_multimesh(mesh, null, xforms, "MileMarkers")
+	print("  Mile markers: %d placed" % placed_count)
