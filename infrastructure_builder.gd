@@ -1300,16 +1300,16 @@ func _build_bethesda_terrace() -> void:
 	if root == null:
 		return
 
-	# Bethesda Fountain is at approx (-457, 17.6, 949). The terrace sits
-	# directly south (+Z). The arcade passage center is ~35m south of the
-	# fountain center.  Model origin = arcade floor center (lower terrace).
+	# Position aligned to DSM terrain grade change (the real staircase location).
+	# Terrain N-S profile at X=-457 shows arcade passage center at Z≈995,
+	# upper terrace at Z≈1002, lower terrace (fountain) at Z≈975.
+	# 72nd St transverse runs slightly NW-SE, so terrace faces ~4° east of south.
 	var tx := -457.0
-	var tz := 986.0
+	var tz := 995.0
 	var ty: float = _loader._terrain_y(tx, tz)
 
-	# Blender +Y = south → glTF -Z. Our park +Z = south. Rotate 180° around Y.
 	root.position = Vector3(tx, ty, tz)
-	root.rotation.y = PI
+	root.rotation.y = PI + 0.07  # ~4° to match transverse road angle
 	# Scale X to match real terrace width — model is 50m but real terrace
 	# spans ~61m (200ft). DSM terrain shows staircases wider apart than model.
 	root.scale.x = 1.24
