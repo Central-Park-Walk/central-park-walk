@@ -1870,6 +1870,31 @@ func _build_stone_weirs() -> void:
 
 
 # ---------------------------------------------------------------------------
+# Bethesda Terrace Arcade — tiled barrel-vault passage beneath 72nd St
+# ---------------------------------------------------------------------------
+func _build_bethesda_arcade() -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_bethesda_arcade.glb")
+	if not FileAccess.file_exists(glb_path):
+		return
+	var gltf_doc := GLTFDocument.new()
+	var gltf_state := GLTFState.new()
+	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
+		return
+	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	if root == null:
+		return
+	# Centered between upper Mall terrace and Bethesda Fountain
+	var ax := -480.0
+	var az := 1020.0
+	var ay: float = _loader._terrain_y(ax, az) - 1.0  # slightly below grade (arcade is sunken)
+	root.position = Vector3(ax, ay, az)
+	root.rotation.y = PI * 0.05  # slight rotation matching terrace alignment
+	root.name = "BethesdaArcade"
+	_loader.add_child(root)
+	print("  Bethesda Arcade placed at (%.0f, %.1f, %.0f)" % [ax, ay, az])
+
+
+# ---------------------------------------------------------------------------
 # Rustic bridges — log bridges at woodland stream crossings
 # ---------------------------------------------------------------------------
 func _build_rustic_bridges() -> void:
