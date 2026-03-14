@@ -3166,3 +3166,69 @@ func _build_mile_markers(paths: Array) -> void:
 	if not xforms.is_empty():
 		_loader._spawn_multimesh(mesh, null, xforms, "MileMarkers")
 	print("  Mile markers: %d placed" % placed_count)
+
+
+# ---------------------------------------------------------------------------
+# Balustrades — ornamental stone railings at formal terraces
+# ---------------------------------------------------------------------------
+func _build_balustrades() -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_balustrade.glb")
+	if not FileAccess.file_exists(glb_path):
+		return
+	var meshes: Dictionary = _loader._load_glb_meshes(glb_path)
+	var mesh: Mesh = null
+	for mname in meshes:
+		mesh = meshes[mname] as Mesh
+		break
+	if mesh == null:
+		return
+
+	# Apply stone material
+	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var stone_mat: Material = _loader._make_stone_material(
+		rw_alb, rw_nrm, rw_rgh, Color(0.62, 0.60, 0.56))
+	for si in mesh.get_surface_count():
+		mesh.surface_set_material(si, stone_mat)
+
+	# Balustrade sections at formal terrace locations
+	# Each entry: [x, z, yaw, count] — count = sections along that edge
+	# Bethesda Terrace — upper terrace edge (north, south, east, west sides)
+	var sections: Array = [
+		# Bethesda Terrace upper level — north edge (overlooking fountain)
+		[-480, 1010, 0.0, 8],
+		# Bethesda Terrace — east wing
+		[-450, 1025, PI * 0.5, 4],
+		# Bethesda Terrace — west wing
+		[-510, 1025, PI * 0.5, 4],
+		# Cherry Hill overlook — stone terrace edge
+		[-550, 950, PI * 0.25, 3],
+		# Belvedere Castle terrace — south overlook
+		[-265, 600, 0.0, 4],
+		# Belvedere Castle — east edge
+		[-245, 615, PI * 0.5, 2],
+		# Conservatory Garden — formal terrace edges
+		[1100, -1180, 0.0, 6],
+		[1100, -1250, 0.0, 6],
+	]
+
+	var xforms: Array = []
+	const SECTION_W := 2.0  # matches model width
+	for sec in sections:
+		var base_x: float = float(sec[0])
+		var base_z: float = float(sec[1])
+		var yaw: float = float(sec[2])
+		var count: int = int(sec[3])
+		var dir_x := sin(yaw)
+		var dir_z := cos(yaw)
+		for i in count:
+			var offset: float = (float(i) - float(count - 1) * 0.5) * SECTION_W
+			var wx: float = base_x + dir_x * offset
+			var wz: float = base_z + dir_z * offset
+			var wy: float = _loader._terrain_y(wx, wz)
+			xforms.append(Transform3D(Basis(Vector3.UP, yaw), Vector3(wx, wy, wz)))
+
+	if not xforms.is_empty():
+		_loader._spawn_multimesh(mesh, null, xforms, "Balustrades")
+	print("  Balustrades: %d sections at formal terraces" % xforms.size())
