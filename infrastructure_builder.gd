@@ -562,6 +562,14 @@ func _build_statues(statues: Array) -> void:
 		"eagles and prey": { "file": "eagles_and_prey.glb", "height": 3.8 },
 		"cleopatra's needle": { "file": "cp_obelisk.glb", "height": 25.0 },
 		"balto": { "file": "cp_balto.glb", "height": 1.8 },
+		"william shakespeare": { "file": "cp_shakespeare.glb", "height": 5.5 },
+		"robert burns": { "file": "cp_burns.glb", "height": 4.8 },
+		"indian hunter": { "file": "cp_indian_hunter.glb", "height": 2.6 },
+		"alexander hamilton": { "file": "cp_hamilton.glb", "height": 5.5 },
+		"fitz-greene halleck": { "file": "cp_halleck.glb", "height": 4.2 },
+		"sir walter scott": { "file": "cp_scott.glb", "height": 5.2 },
+		"christopher columbus": { "file": "cp_columbus.glb", "height": 19.0 },
+		"107th infantry memorial": { "file": "cp_107th_infantry.glb", "height": 4.5 },
 	}
 	var cache_dir := "res://cache/statues/"
 	var abs_cache_dir := ProjectSettings.globalize_path(cache_dir)
@@ -2753,6 +2761,8 @@ func _build_staircases(paths: Array) -> void:
 	var verts := PackedVector3Array()
 	var normals := PackedVector3Array()
 	var col_verts := PackedVector3Array()
+	var rail_verts := PackedVector3Array()
+	var rail_normals := PackedVector3Array()
 	var stair_count := 0
 
 	for path in paths:
@@ -2765,7 +2775,8 @@ func _build_staircases(paths: Array) -> void:
 		var mz := (float(pts[0][2]) + float(pts[pts.size()-1][2])) * 0.5
 		if not _loader._in_boundary(mx, mz):
 			continue
-		_build_single_staircase(pts, path, verts, normals, col_verts)
+		_build_single_staircase(pts, path, verts, normals, col_verts,
+			rail_verts, rail_normals)
 		stair_count += 1
 
 	if verts.is_empty():
@@ -2777,6 +2788,22 @@ func _build_staircases(paths: Array) -> void:
 	mi.mesh = mesh
 	mi.name = "Staircases"
 	_loader.add_child(mi)
+
+	# Iron handrails
+	if not rail_verts.is_empty():
+		var iron_sh: Shader = _loader._get_shader("cast_iron", "res://shaders/cast_iron.gdshader")
+		var rail_mat := ShaderMaterial.new()
+		rail_mat.shader = iron_sh
+		rail_mat.set_shader_parameter("iron_color", Vector3(0.06, 0.06, 0.07))
+		rail_mat.set_shader_parameter("base_roughness", 0.60)
+		rail_mat.set_shader_parameter("base_metallic", 0.90)
+		var rail_mesh: ArrayMesh = _loader._make_mesh(rail_verts, rail_normals)
+		rail_mesh.surface_set_material(0, rail_mat)
+		var rmi := MeshInstance3D.new()
+		rmi.mesh = rail_mesh
+		rmi.name = "StaircaseHandrails"
+		_loader.add_child(rmi)
+		print("  Staircase handrails: %d verts" % rail_verts.size())
 
 	# Collision for staircases
 	if not col_verts.is_empty():
@@ -2794,9 +2821,11 @@ func _build_staircases(paths: Array) -> void:
 
 func _build_single_staircase(pts: Array, path: Dictionary,
 		verts: PackedVector3Array, normals: PackedVector3Array,
-		col_verts: PackedVector3Array) -> void:
+		col_verts: PackedVector3Array,
+		rail_verts: PackedVector3Array, rail_normals: PackedVector3Array) -> void:
 	## Build stepped geometry for a single staircase path.
 	## Standard Central Park granite steps: 15cm riser, 30cm tread.
+	## Also generates iron handrails on both sides (for stairs with ≥4 steps).
 	const RISER_H := 0.15  # metres
 	const TREAD_D := 0.30  # metres (horizontal depth of each step)
 	const HALF_THICK := 0.05  # half-thickness of tread slab
@@ -2884,6 +2913,83 @@ func _build_single_staircase(pts: Array, path: Dictionary,
 		verts.append_array(riser)
 		col_verts.append_array(riser)
 		for _j in 6: normals.append(riser_n)
+
+	# --- Iron handrails on both sides (only for staircases ≥ 4 steps) ---
+	if n_steps < 4:
+		return
+	const RAIL_H := 0.90   # handrail height above step surface
+	const RAIL_R := 0.025  # rail tube radius (25mm — standard pipe)
+	const POST_R := 0.02   # post radius (20mm)
+	const POST_SPACING := 4  # one post every N steps
+	const RAIL_SEGS := 6   # cylinder segments
+
+	# Rail offset slightly inside step edges
+	var rail_offset := half_w - 0.05
+	for side_val in [-1.0, 1.0]:
+		var side: float = float(side_val)
+		var rx_off := perp_x * rail_offset * side
+		var rz_off := perp_z * rail_offset * side
+		var out_n := Vector3(perp_x * side, 0, perp_z * side)
+
+		# Top rail: continuous tube from bottom step to top step
+		for si in n_steps:
+			var cx0 := origin_x + dir_x * step_dir * step_run * float(si)
+			var cz0 := origin_z + dir_z * step_dir * step_run * float(si)
+			var y0 := base_y + step_rise * float(si + 1) + RAIL_H
+			var cx1 := origin_x + dir_x * step_dir * step_run * float(si + 1)
+			var cz1 := origin_z + dir_z * step_dir * step_run * float(si + 1)
+			var y1 := base_y + step_rise * float(si + 2) + RAIL_H
+			if si == n_steps - 1:
+				y1 = base_y + step_rise * float(n_steps) + RAIL_H
+
+			var p0 := Vector3(cx0 + rx_off, y0, cz0 + rz_off)
+			var p1 := Vector3(cx1 + rx_off, y1, cz1 + rz_off)
+			_add_rail_segment(p0, p1, RAIL_R, RAIL_SEGS, rail_verts, rail_normals)
+
+		# Vertical posts at intervals
+		for si in range(0, n_steps + 1, POST_SPACING):
+			var pcx := origin_x + dir_x * step_dir * step_run * float(si)
+			var pcz := origin_z + dir_z * step_dir * step_run * float(si)
+			var pby: float
+			if si < n_steps:
+				pby = base_y + step_rise * float(si + 1)
+			else:
+				pby = base_y + step_rise * float(n_steps)
+			var pty := pby + RAIL_H
+			var p_base := Vector3(pcx + rx_off, pby, pcz + rz_off)
+			var p_top := Vector3(pcx + rx_off, pty, pcz + rz_off)
+			_add_rail_segment(p_base, p_top, POST_R, RAIL_SEGS, rail_verts, rail_normals)
+
+
+func _add_rail_segment(p0: Vector3, p1: Vector3, radius: float, segs: int,
+		verts: PackedVector3Array, normals: PackedVector3Array) -> void:
+	## Add a cylindrical tube segment between two points.
+	var axis := p1 - p0
+	var length := axis.length()
+	if length < 0.01:
+		return
+	var up := axis.normalized()
+	# Find perpendicular vectors
+	var arbitrary := Vector3.RIGHT if absf(up.dot(Vector3.RIGHT)) < 0.9 else Vector3.FORWARD
+	var right := up.cross(arbitrary).normalized()
+	var fwd := right.cross(up).normalized()
+
+	for si in segs:
+		var a0 := TAU * float(si) / float(segs)
+		var a1 := TAU * float(si + 1) / float(segs)
+		var n0 := right * cos(a0) + fwd * sin(a0)
+		var n1 := right * cos(a1) + fwd * sin(a1)
+		var b0 := p0 + n0 * radius
+		var b1 := p0 + n1 * radius
+		var t0 := p1 + n0 * radius
+		var t1 := p1 + n1 * radius
+		# Two triangles for cylinder quad
+		verts.append(b0); normals.append(n0)
+		verts.append(b1); normals.append(n1)
+		verts.append(t1); normals.append(n1)
+		verts.append(b0); normals.append(n0)
+		verts.append(t1); normals.append(n1)
+		verts.append(t0); normals.append(n0)
 
 
 func _build_special_zone_labels() -> void:
