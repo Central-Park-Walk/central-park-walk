@@ -1091,8 +1091,11 @@ func _ready() -> void:
 	print("  barriers: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	_infrastructure_builder._build_sport_markings(landuse_zones)
 	print("  sport markings: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
-	_infrastructure_builder._build_staircases(paths)
-	print("  staircases: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
+	# Procedural staircases disabled — DEM/DSM hybrid terrain now captures
+	# real staircase geometry from LiDAR. Procedural steps + handrails were
+	# redundant and misaligned with the actual terrain grade changes.
+	#_infrastructure_builder._build_staircases(paths)
+	print("  staircases: skipped (terrain has real geometry)")
 
 	# --- Water surfaces (dynamic shader effect positioned by data) ---
 	_water_builder._build_water(water)
