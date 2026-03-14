@@ -561,6 +561,7 @@ func _build_statues(statues: Array) -> void:
 		"hans christian andersen": { "file": "hans_christian_andersen.glb", "height": 3.4 },
 		"eagles and prey": { "file": "eagles_and_prey.glb", "height": 3.8 },
 		"cleopatra's needle": { "file": "cp_obelisk.glb", "height": 25.0 },
+		"balto": { "file": "cp_balto.glb", "height": 1.8 },
 	}
 	var cache_dir := "res://cache/statues/"
 	var abs_cache_dir := ProjectSettings.globalize_path(cache_dir)
@@ -1126,6 +1127,7 @@ func _build_attractions(attractions: Array) -> void:
 		"cop cot": { "file": "cp_cop_cot.glb", "rot": PI },
 		"fort clinton": { "file": "cp_fort_clinton.glb", "rot": PI * 0.75 },
 		"nutter": { "file": "cp_fort_clinton.glb", "rot": PI * 0.75 },
+		"musical clock": { "file": "cp_musical_clock.glb", "rot": 0.0 },
 	}
 
 	# Load stone material for attraction models
