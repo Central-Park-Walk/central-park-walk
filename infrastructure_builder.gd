@@ -582,6 +582,13 @@ func _build_statues(statues: Array) -> void:
 		"josé de san martín": { "file": "cp_san_martin.glb", "height": 7.0 },
 		"group of bears": { "file": "cp_group_of_bears.glb", "height": 1.0 },
 		"romeo and juliet": { "file": "cp_romeo_juliet.glb", "height": 2.0 },
+		"joan of arc memorial": { "file": "cp_joan_of_arc.glb", "height": 8.0 },
+		"ludwig van beethoven": { "file": "cp_beethoven.glb", "height": 4.5 },
+		"daniel webster": { "file": "cp_daniel_webster.glb", "height": 5.5 },
+		"the pilgrim": { "file": "cp_pilgrim.glb", "height": 4.5 },
+		"giuseppe mazzini": { "file": "cp_mazzini.glb", "height": 4.0 },
+		"giuseppe verdi monument": { "file": "cp_verdi.glb", "height": 7.0 },
+		"women's rights pioneers monument": { "file": "cp_womens_rights.glb", "height": 1.2 },
 	}
 	var cache_dir := "res://cache/statues/"
 	var abs_cache_dir := ProjectSettings.globalize_path(cache_dir)
