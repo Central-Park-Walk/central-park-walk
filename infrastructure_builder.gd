@@ -1895,6 +1895,43 @@ func _build_bethesda_arcade() -> void:
 
 
 # ---------------------------------------------------------------------------
+# Conservatory Garden fountains — Untermyer + Burnett Memorial
+# ---------------------------------------------------------------------------
+func _build_conservatory_fountains() -> void:
+	# Untermyer Fountain (Three Dancing Maidens) — south/Italian garden
+	var u_path := ProjectSettings.globalize_path("res://models/furniture/cp_untermyer_fountain.glb")
+	if FileAccess.file_exists(u_path):
+		var gd := GLTFDocument.new()
+		var gs := GLTFState.new()
+		if gd.append_from_file(u_path, gs) == OK:
+			var root: Node3D = gd.generate_scene(gs)
+			if root:
+				var ux := 1134.0
+				var uz := -1256.0
+				var uy: float = _loader._terrain_y(ux, uz)
+				root.position = Vector3(ux, uy, uz)
+				root.name = "UntermyerFountain"
+				_loader.add_child(root)
+				print("  Untermyer Fountain placed at (%.0f, %.1f, %.0f)" % [ux, uy, uz])
+
+	# Burnett Memorial Fountain (Secret Garden) — north/English garden
+	var b_path := ProjectSettings.globalize_path("res://models/furniture/cp_burnett_fountain.glb")
+	if FileAccess.file_exists(b_path):
+		var gd := GLTFDocument.new()
+		var gs := GLTFState.new()
+		if gd.append_from_file(b_path, gs) == OK:
+			var root: Node3D = gd.generate_scene(gs)
+			if root:
+				var bx := 1065.0
+				var bz := -1134.0
+				var by: float = _loader._terrain_y(bx, bz)
+				root.position = Vector3(bx, by, bz)
+				root.name = "BurnettFountain"
+				_loader.add_child(root)
+				print("  Burnett Fountain placed at (%.0f, %.1f, %.0f)" % [bx, by, bz])
+
+
+# ---------------------------------------------------------------------------
 # Rustic bridges — log bridges at woodland stream crossings
 # ---------------------------------------------------------------------------
 func _build_rustic_bridges() -> void:
@@ -2529,7 +2566,71 @@ func _build_sports_equipment(landuse: Array) -> void:
 	if not goal_xforms.is_empty() and goal_mesh:
 		_loader._spawn_multimesh(goal_mesh, null, goal_xforms, "SoccerGoals")
 
-	print("  Sports equipment: %d backstops, %d hoops, %d nets, %d goals" % [backstop_xforms.size(), hoop_xforms.size(), net_xforms.size(), goal_xforms.size()])
+	# Handball walls
+	var hwall_path := ProjectSettings.globalize_path("res://models/furniture/cp_handball_wall.glb")
+	var hwall_mesh: Mesh = null
+	var hw_meshes: Dictionary = _loader._load_glb_meshes(hwall_path)
+	for mname in hw_meshes:
+		hwall_mesh = hw_meshes[mname] as Mesh
+		break
+	var hwall_xforms: Array = []
+
+	if hwall_mesh:
+		for zone in landuse:
+			if str(zone.get("type", "")) != "pitch":
+				continue
+			if str(zone.get("sport", "")) != "american_handball":
+				continue
+			var pts_h: Array = zone.get("points", [])
+			if pts_h.size() < 4:
+				continue
+
+			var cx_h := 0.0
+			var cz_h := 0.0
+			for pt in pts_h:
+				cx_h += float(pt[0])
+				cz_h += float(pt[1])
+			cx_h /= float(pts_h.size())
+			cz_h /= float(pts_h.size())
+			var cy_h: float = _loader._terrain_y(cx_h, cz_h)
+
+			# Find short axis (wall at one short end)
+			var e0x_h: float = float(pts_h[1][0]) - float(pts_h[0][0])
+			var e0z_h: float = float(pts_h[1][1]) - float(pts_h[0][1])
+			var e1x_h: float = float(pts_h[2][0]) - float(pts_h[1][0])
+			var e1z_h: float = float(pts_h[2][1]) - float(pts_h[1][1])
+			var l0_h: float = sqrt(e0x_h * e0x_h + e0z_h * e0z_h)
+			var l1_h: float = sqrt(e1x_h * e1x_h + e1z_h * e1z_h)
+
+			var long_dx_h: float
+			var long_dz_h: float
+			var long_l_h: float
+			if l0_h > l1_h:
+				long_dx_h = e0x_h; long_dz_h = e0z_h; long_l_h = l0_h
+			else:
+				long_dx_h = e1x_h; long_dz_h = e1z_h; long_l_h = l1_h
+			if long_l_h < 1.0:
+				continue
+			var ndx_h: float = long_dx_h / long_l_h
+			var ndz_h: float = long_dz_h / long_l_h
+			# Wall at one end of the long axis, facing inward
+			var wx_h: float = cx_h + ndx_h * (long_l_h * 0.5 - 0.3)
+			var wz_h: float = cz_h + ndz_h * (long_l_h * 0.5 - 0.3)
+			var wy_h: float = _loader._terrain_y(wx_h, wz_h)
+			# Short axis direction for wall alignment
+			var short_dx_h: float
+			var short_dz_h: float
+			if l0_h < l1_h:
+				short_dx_h = e0x_h; short_dz_h = e0z_h
+			else:
+				short_dx_h = e1x_h; short_dz_h = e1z_h
+			var h_yaw: float = atan2(short_dx_h, short_dz_h)
+			hwall_xforms.append(Transform3D(Basis(Vector3.UP, h_yaw), Vector3(wx_h, wy_h, wz_h)))
+
+	if not hwall_xforms.is_empty() and hwall_mesh:
+		_loader._spawn_multimesh(hwall_mesh, null, hwall_xforms, "HandballWalls")
+
+	print("  Sports equipment: %d backstops, %d hoops, %d nets, %d goals, %d walls" % [backstop_xforms.size(), hoop_xforms.size(), net_xforms.size(), goal_xforms.size(), hwall_xforms.size()])
 
 
 # ---------------------------------------------------------------------------
