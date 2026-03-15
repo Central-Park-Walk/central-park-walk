@@ -72,7 +72,7 @@ all_parts = []
 
 def box(name, cx, cy, cz, hx, hy, hz, mat):
     """Axis-aligned box at center (cx,cy,cz) with half-extents (hx,hy,hz)."""
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(cx, cy, cz))
+    bpy.ops.mesh.primitive_cube_add(size=2.0, location=(cx, cy, cz))
     o = bpy.context.active_object
     o.name = name
     o.scale = (hx, hy, hz)
