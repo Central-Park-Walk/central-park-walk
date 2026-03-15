@@ -74,6 +74,12 @@ uniform sampler2D canopy_map : filter_linear, repeat_disable;
 // Morning dew: global uniform set by main.gd based on time of day (dawn→mid-morning)
 global uniform float dew_amount;
 
+// Terrain void carving — lowers terrain mesh for walkable architectural interiors
+// Matches the heightmap carve in main.gd so mesh, collision, and normals agree
+uniform vec4 void_rect = vec4(0.0);   // (x_min, z_min, x_max, z_max) world coords
+uniform float void_floor = 0.0;       // target floor height
+uniform float void_feather = 4.0;     // blend distance outside rectangle
+
 varying vec3 world_pos;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
@@ -125,6 +131,20 @@ float textureNoTile_r(sampler2D tex, vec2 uv) {
 
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	// Terrain void displacement — carve depression for walkable interiors
+	if (void_rect.z > void_rect.x) {
+		// Signed distance from rectangle boundary (negative = inside)
+		float outside_x = max(void_rect.x - world_pos.x, world_pos.x - void_rect.z);
+		float outside_z = max(void_rect.y - world_pos.z, world_pos.z - void_rect.w);
+		float outside = max(outside_x, outside_z);
+		// smoothstep blend matching the GDScript heightmap carve
+		float blend = 1.0 - smoothstep(0.0, void_feather, outside);
+		if (blend > 0.001 && world_pos.y > void_floor) {
+			float delta = (void_floor - world_pos.y) * blend;
+			VERTEX.y += delta;
+			world_pos.y += delta;
+		}
+	}
 }
 
 void fragment() {
