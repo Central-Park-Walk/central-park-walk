@@ -476,9 +476,9 @@ func _carve_terrain_voids() -> void:
 	var floor_h := upper_h - 6.25
 	var x_min := bt_x - 16.0
 	var x_max := bt_x + 16.0
-	var z_min := bt_z - 23.0  # lower platform + margin
-	var z_max := bt_z + 7.0   # arcade south face
-	var feather := 6.0  # 6m feather → ~45° embankment slope (6.25m height / 6m run)
+	var z_min := bt_z - 28.0  # extend north for fountain approach (lower platform + ramp)
+	var z_max := bt_z + 9.0   # extend south past arcade entrance
+	var feather := 8.0  # 8m feather → ~38° embankment slope (gentler approach)
 	_carve_rect(x_min, x_max, z_min, z_max, floor_h, feather, "bethesda_tunnel")
 	_void_bethesda = {
 		"rect": Vector4(x_min, z_min, x_max, z_max),
