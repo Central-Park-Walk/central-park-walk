@@ -2421,21 +2421,24 @@ def main() -> None:
                 dsm_arr = np.maximum(dsm_arr, 0.0)
                 del dsm_raw
 
-                # Build DEM-priority mask: 1.0 where we want DEM (buildings + bridges)
-                # Dilate by ~10m (16 cells at 0.61m/cell) — buffer zone around structures
-                # prevents DSM rooftop heights from bleeding into nearby terrain
-                struct_mask = (surface_arr == 5) | (surface_arr == 6)
+                # Build DEM-priority mask: 1.0 where we want DEM (bare earth)
+                # Three sources of structure detection:
+                #   1. Atlas classification: surface_arr == 5 (building) or 6 (bridge)
+                #   2. Height spike detection: DSM > DEM + 3m inside park (catches
+                #      unclassified structures while preserving rock outcrops <3m)
+                #   3. Outside-park height: DSM > DEM + 1m outside boundary (Manhattan
+                #      buildings have no atlas classification but dominate DSM)
+                height_diff = dsm_arr - hm_arr
+                struct_mask = (
+                    (surface_arr == 5) | (surface_arr == 6) |    # classified
+                    (height_diff > 3.0) |                         # any 3m+ spike
+                    ((surface_arr == 0) & (height_diff > 1.0))    # outside park 1m+
+                )
+                del height_diff
 
-                # TODO: Bethesda Terrace terrain integration (session 34)
-                # The terrace is a tunnel through a hillside — open both ends,
-                # road on top, earth on sides, staircases carved into slopes.
-                # Needs custom terrain carve-out following the actual tunnel
-                # cross-section, not a simple rectangular flatten. The terrain
-                # mesh needs a void where the passage is, solid ground above,
-                # hillside wrapping the sides. Complex problem — needs its own session.
-
+                classified_count = int(((surface_arr == 5) | (surface_arr == 6)).sum())
                 struct_count = int(struct_mask.sum())
-                print(f"  Structure cells (buildings+bridges): {struct_count:,}")
+                print(f"  Structure cells: {struct_count:,} ({classified_count:,} classified + {struct_count - classified_count:,} height-detected)")
 
                 # Dilate to create buffer zone around structures
                 dilated = binary_dilation(struct_mask, iterations=16)
