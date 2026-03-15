@@ -460,12 +460,11 @@ func _terrain_height(x: float, z: float) -> float:
 func _carve_collision_voids() -> void:
 	if _hm_data.is_empty():
 		return
-	# Bethesda Terrace arcade — tunnel zone only (not the whole terrace)
-	# Arcade opening measured from heightmap: X=[-476,-461], Z=[972,998]
+	# Bethesda Terrace arcade — collision only, no visual terrain changes
+	# Wall peaks: (-484, 997) and (-462, 1004), center (-473, 1001)
 	# Lower terrace: 17.6m. Carve collision to 17.0m (below model floor).
 	var floor_h := 17.0
-	# Only carve the TUNNEL + lower terrace collision, not the whole terrace
-	_carve_collision_rect(-480.0, -458.0, 968.0, 999.0, floor_h, 3.0,
+	_carve_collision_rect(-488.0, -458.0, 968.0, 1005.0, floor_h, 3.0,
 		"bethesda_arcade")
 
 

@@ -58,7 +58,7 @@ TERRACE_W     = 63.0    # upper terrace E-W extent (X:-510 to -447)
 UPPER_D       = 35.0    # upper terrace N-S (Z:999 to 1034)
 
 # Arcade tunnel (under the 72nd St road)
-ARCADE_W      = 15.0    # average opening width at north face
+ARCADE_W      = 22.0    # wall-to-wall from stalagmite peaks: (-484,997) to (-462,1004)
 ARCADE_L      = 12.0    # road width / tunnel depth (estimated from profile)
 ARCADE_H      = LEVEL_DROP - 0.8  # vault crown height (level drop minus road slab)
 VAULT_T       = 0.45    # vault shell thickness
@@ -256,11 +256,14 @@ for face in (-1, 1):
 # 2. UPPER TERRACE PLATFORM
 # ════════════════════════════════════════════
 plat_h = 0.35
-# Full-width upper platform
-box("upper_platform", 0, 0, upper_z - plat_h / 2.0,
+# Full-width upper platform — offset 9.5m west (+X in Blender = west in world)
+# because the arcade is east of the platform center
+# Heightmap: platform X[-510,-447] center=-478.5, arcade center=-469, offset=9.5m
+PLAT_OFFSET_X = 9.5
+box("upper_platform", PLAT_OFFSET_X, 0, upper_z - plat_h / 2.0,
     TERRACE_W / 2.0, hl, plat_h / 2.0, sandstone)
-# South wing extending toward Mall
-box("upper_wing_s", 0, hl + south_wing_d / 2.0, upper_z - plat_h / 2.0,
+# South wing extending toward Mall (same offset)
+box("upper_wing_s", PLAT_OFFSET_X, hl + south_wing_d / 2.0, upper_z - plat_h / 2.0,
     TERRACE_W / 2.0, south_wing_d / 2.0, plat_h / 2.0, sandstone)
 
 

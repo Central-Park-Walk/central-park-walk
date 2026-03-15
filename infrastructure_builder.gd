@@ -1300,18 +1300,18 @@ func _build_bethesda_terrace() -> void:
 	if root == null:
 		return
 
-	# Position: arcade center from heightmap measurements
-	# Arcade opening at Z=997: X=[-476,-461], center ≈ (-469, 998)
-	# Coordinate chain verified: Blender→GLTF→Godot with PI rotation
-	# maps Blender +X → world -X, Blender +Y → world +Z (south)
-	var tx := -469.0
-	var tz := 998.0
-	# Model origin = arcade floor (lower level). Upper terrace = +6.0m above.
-	# Place model so arcade floor matches lower terrace terrain height (17.6m).
-	var ty: float = _loader._terrain_y(tx, tz)  # terrain at arcade entrance ≈ 17.6m
+	# Solved analytically from 2 stalagmite wall peaks in heightmap:
+	#   West parapet: (-484, 997) h=26.4
+	#   East parapet: (-462, 1004) h=26.5
+	# tx = midpoint X = -473, tz = midpoint Z = 1000.5
+	# rotation = atan2(3.5, -11) = PI - 0.308 = 2.834
+	# wall spacing = 23.1m → ARCADE_W = 22m
+	var tx := -473.0
+	var tz := 1000.5
+	var ty: float = _loader._terrain_y(tx, tz - 5.0)  # lower terrace north of center
 
 	root.position = Vector3(tx, ty, tz)
-	root.rotation.y = PI  # verified: maps model axes to world correctly
+	root.rotation.y = 2.834  # from wall peak positions, NOT assumed PI
 	# No scaling — model built at 1:1 from heightmap measurements
 	root.name = "BethesdaTerrace"
 
