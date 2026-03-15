@@ -1304,16 +1304,18 @@ func _build_bethesda_terrace() -> void:
 	#   Main terrace paths: X[-499,-452] Z[995,1019] center(-476,1007)
 	#   Lower terrace paths: X[-486,-453] Z[975,992] center(-468,982)
 	#   Combined structure center ≈ (-476, 997)
-	var tx := -476.0
-	var tz := 1000.0  # between arcade center (1012) and structure center (997)
-	# Sample terrain south of terrace (Mall approach, outside carve zone) for road level
-	var upper_h: float = _loader._terrain_y(tx, tz + 25.0)
-	var model_y: float = upper_h - 5.75  # arcade floor = road level minus level drop
+	# All parameters derived from PCA on combined terrace path footprint
+	# (35 points from park_data.json, upper + lower terrace paths)
+	var tx := -475.0   # centroid X
+	var tz := 1004.0   # centroid Z (rounded from 1004.2)
+	# Sample terrain south of terrace (Mall approach, outside void zone)
+	var upper_h: float = _loader._terrain_y(tx, tz + 35.0)
+	var model_y: float = upper_h - 5.75
 
 	root.position = Vector3(tx, model_y, tz)
-	# Arcade path bearing: atan2(6.9, 26.3) = 14.7° east of north → PI - 0.26
-	root.rotation.y = PI - 0.26
-	root.scale.x = 1.24  # model 50m → real 62m (200ft)
+	root.rotation.y = 2.823  # PCA major axis → 161.7° (PI - 0.319)
+	root.scale.x = 0.935     # model 50m → data 46.8m major extent
+	root.scale.z = 1.573     # model 31m → data 48.7m minor extent
 	root.name = "BethesdaTerrace"
 
 	# Apply stone material to all mesh surfaces
@@ -1362,7 +1364,7 @@ func _build_bethesda_terrace() -> void:
 	body.name = "BethesdaTerraceCollision"
 	body.position = root.position
 	body.rotation.y = root.rotation.y
-	body.scale = root.scale
+	body.scale = root.scale  # match full scale (XYZ)
 
 	# Arcade floor slab (model local coords: Y=0, extends ±4.7 X, ±7 Z)
 	var floor_col := CollisionShape3D.new()
