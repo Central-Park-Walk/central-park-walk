@@ -109,10 +109,28 @@ print(f"Terrace: upper_z={upper_z:.2f} lower_z={lower_z:.2f} drop={LEVEL_DROP:.2
 
 
 # ════════════════════════════════════════════
-# 1. ARCADE — walls, floor, vault, piers
+# 1. ARCADE — three-bay arcade with columns (matching reference photos)
 # ════════════════════════════════════════════
+# Three arched bays: center (taller/wider) + two flanking (shorter/narrower)
+# Layout within ARCADE_W=8.0m interior:
+#   side(1.9) + col(0.4) + center(3.4) + col(0.4) + side(1.9) = 8.0m
+CENTER_W = 3.4    # center vault width
+SIDE_VW  = 1.9    # side vault width
+COL_R    = 0.20   # column radius (0.4m diameter)
+center_r = CENTER_W / 2.0   # center vault semicircle radius = 1.7m
+side_vr  = SIDE_VW / 2.0    # side vault radius = 0.95m
+# Column row X positions (center of column)
+col_row_x = [-(center_r + COL_R), +(center_r + COL_R)]  # ±1.9
+# Side vault center X positions
+side_cx = [-(center_r + COL_R * 2 + side_vr),
+           +(center_r + COL_R * 2 + side_vr)]  # ±3.05
+# Vault heights: center full height, sides shorter (matching reference photos)
+center_crown = ARCADE_H                           # 4.5m
+center_spring = center_crown - center_r            # 2.8m
+side_crown = ARCADE_H - 0.8                        # 3.7m
+side_spring_z = side_crown - side_vr               # 2.75m
 
-# East and west walls of arcade passage
+# East and west outer walls of arcade passage
 for side in (-1, 1):
     wx = side * (half_arc + WALL_T / 2.0)
     wall_h = upper_z - arcade_floor_z
@@ -123,80 +141,107 @@ for side in (-1, 1):
 box("arcade_floor", 0, 0, arcade_floor_z - 0.15,
     half_arc + WALL_T, ARCADE_L / 2.0, 0.15, stair_mat)
 
-# Barrel vault (half-cylinder shell)
-vault_segs = 20
-mesh = bpy.data.meshes.new("vault_mesh")
-verts = []
-faces = []
+# --- Barrel vault helper ---
+vault_segs = 16
 hl = ARCADE_L / 2.0
 
-for j in range(2):
-    y = -hl if j == 0 else hl
-    for i in range(vault_segs + 1):
-        a = math.pi * i / vault_segs
-        cos_a, sin_a = math.cos(a), math.sin(a)
-        # Inner vertex
-        verts.append((cos_a * vault_r, y, sin_a * vault_r + spring_z))
-        # Outer vertex
-        verts.append((cos_a * (vault_r + VAULT_T), y, sin_a * (vault_r + VAULT_T) + spring_z))
-
-stride = (vault_segs + 1) * 2
-for i in range(vault_segs):
-    # Inner face (visible from below — winding for -Y normal towards interior)
-    a = i * 2
-    b = i * 2 + 2
-    c = stride + i * 2 + 2
-    d = stride + i * 2
-    faces.append((a, d, c, b))   # inner surface faces inward
-    # Outer face
-    a2 = a + 1
-    b2 = b + 1
-    c2 = c + 1
-    d2 = d + 1
-    faces.append((a2, b2, c2, d2))  # outer surface faces outward
-
-# End caps (front and back arches)
-for j in range(2):
-    base = j * stride
+def make_vault(name, cx, radius, v_spring, v_crown, mat):
+    """Create a barrel vault (half-cylinder shell) at X=cx."""
+    verts = []
+    faces = []
+    for j in range(2):
+        y = -hl if j == 0 else hl
+        for i in range(vault_segs + 1):
+            a = math.pi * i / vault_segs
+            cos_a, sin_a = math.cos(a), math.sin(a)
+            verts.append((cx + cos_a * radius, y, sin_a * radius + v_spring))
+            verts.append((cx + cos_a * (radius + VAULT_T), y,
+                          sin_a * (radius + VAULT_T) + v_spring))
+    stride = (vault_segs + 1) * 2
     for i in range(vault_segs):
-        a = base + i * 2
-        b = base + i * 2 + 1
-        c = base + i * 2 + 3
-        d = base + i * 2 + 2
-        if j == 0:
-            faces.append((a, b, c, d))  # front face
-        else:
-            faces.append((a, d, c, b))  # back face
+        a = i * 2; b = i * 2 + 2
+        c = stride + i * 2 + 2; d = stride + i * 2
+        faces.append((a, d, c, b))       # inner
+        faces.append((a+1, b+1, c+1, d+1))  # outer
+    # End caps
+    for j in range(2):
+        base = j * stride
+        for i in range(vault_segs):
+            a = base + i * 2; b = a + 1; c = b + 2; d = a + 2
+            if j == 0:
+                faces.append((a, b, c, d))
+            else:
+                faces.append((a, d, c, b))
+    m = bpy.data.meshes.new(name)
+    m.from_pydata(verts, [], faces)
+    m.update()
+    obj = bpy.data.objects.new(name, m)
+    bpy.context.collection.objects.link(obj)
+    obj.data.materials.append(mat)
+    all_parts.append(obj)
 
-mesh.from_pydata(verts, [], faces)
-mesh.update()
-vault_obj = bpy.data.objects.new("arcade_vault", mesh)
-bpy.context.collection.objects.link(vault_obj)
-vault_obj.data.materials.append(vault_tile)
-all_parts.append(vault_obj)
+# Center vault (taller, wider)
+make_vault("vault_center", 0.0, center_r, center_spring, center_crown, vault_tile)
+# Side vaults (shorter, narrower)
+for si, scx in enumerate(side_cx):
+    make_vault(f"vault_side_{si}", scx, side_vr, side_spring_z, side_crown, vault_tile)
 
-# Road slab above vault
-slab_bot = vault_crown_z + VAULT_T
+# --- Interior columns (2 rows of 5 columns separating the three bays) ---
+col_spacing = ARCADE_L / 5.0  # ~2.8m between columns
+for crx in col_row_x:
+    for ci in range(5):
+        cy = -hl + col_spacing * 0.5 + ci * col_spacing
+        col_h = min(center_spring, side_spring_z)  # column height to spring line
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=COL_R, depth=col_h, vertices=10,
+            location=(crx, cy, arcade_floor_z + col_h / 2.0))
+        col = bpy.context.active_object
+        col.name = f"arcade_col_{crx:.0f}_{ci}"
+        col.data.materials.append(brownstone)
+        all_parts.append(col)
+        # Column capital (wider ring)
+        bpy.ops.mesh.primitive_cylinder_add(
+            radius=COL_R * 1.4, depth=0.15, vertices=10,
+            location=(crx, cy, arcade_floor_z + col_h + 0.075))
+        cap = bpy.context.active_object
+        cap.name = f"col_cap_{crx:.0f}_{ci}"
+        cap.data.materials.append(brownstone)
+        all_parts.append(cap)
+
+# Road slab above vaults (fills space between vault crowns and upper platform)
+slab_bot = center_crown + VAULT_T
 slab_top = upper_z
 box("road_slab", 0, 0, (slab_bot + slab_top) / 2.0,
     half_arc + WALL_T, ARCADE_L / 2.0, (slab_top - slab_bot) / 2.0, sandstone)
+# Fill above side vaults (between side crown and center crown)
+for scx in side_cx:
+    fill_bot = side_crown + VAULT_T
+    fill_h = (slab_bot - fill_bot)
+    if fill_h > 0.01:
+        box(f"vault_fill_{scx:.0f}", scx, 0, fill_bot + fill_h / 2.0,
+            side_vr + VAULT_T, ARCADE_L / 2.0, fill_h / 2.0, sandstone)
 
-# Piers at arcade entrances (decorative pilasters)
-pier_h = spring_z - arcade_floor_z
+# Facade pilasters at arcade entrances (3 arched openings on each face)
+# Pilasters at each column position + outer walls
+pier_h = min(center_spring, side_spring_z)
 for face in (-1, 1):
     py = face * hl
+    # Pilasters at column row positions (between center and side arches)
+    for crx in col_row_x:
+        box(f"pier_{face}_{crx:.0f}", crx, py, arcade_floor_z + pier_h / 2.0,
+            PIER_W / 2.0, 0.25, pier_h / 2.0, brownstone)
+        box(f"pier_cap_{face}_{crx:.0f}", crx, py, arcade_floor_z + pier_h + 0.08,
+            PIER_W / 2.0 + 0.06, 0.30, 0.08, brownstone)
+    # Corner pilasters at outer walls
     for side in (-1, 1):
         px = side * (half_arc - 0.05)
-        box(f"pier_{face}_{side}", px, py, arcade_floor_z + pier_h / 2.0,
-            PIER_W / 2.0, 0.25, pier_h / 2.0, brownstone)
-        # Pier capital
-        box(f"pier_cap_{face}_{side}", px, py, arcade_floor_z + pier_h + 0.08,
-            PIER_W / 2.0 + 0.06, 0.30, 0.08, brownstone)
+        box(f"pier_outer_{face}_{side}", px, py, arcade_floor_z + pier_h / 2.0,
+            0.30, 0.25, pier_h / 2.0, brownstone)
 
-# Cornice / impost band at springing line
+# Cornice / impost band at springing line (across full facade width)
 for face in (-1, 1):
     py = face * (hl + 0.01)
-    box(f"impost_{face}", 0, py, spring_z + 0.06,
+    box(f"impost_{face}", 0, py, center_spring + 0.06,
         half_arc + WALL_T + 0.12, 0.12, 0.06, brownstone)
 
 
