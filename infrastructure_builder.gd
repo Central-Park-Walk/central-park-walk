@@ -1308,7 +1308,10 @@ func _build_bethesda_terrace() -> void:
 	# wall spacing = 23.1m → ARCADE_W = 22m
 	var tx := -473.0
 	var tz := 1000.5
-	var ty: float = _loader._terrain_y(tx, tz - 5.0)  # lower terrace north of center
+	# Sample terrain OUTSIDE the collision carve zone (Z:[968,1005])
+	# Upper terrace at Z=1010 is outside carve zone and at road level (23.6m)
+	var upper_h: float = _loader._terrain_y(tx, 1010.0)
+	var ty: float = upper_h - 6.0  # model origin = arcade floor = upper - level_drop
 
 	root.position = Vector3(tx, ty, tz)
 	root.rotation.y = 2.834  # from wall peak positions, NOT assumed PI
@@ -1323,14 +1326,15 @@ func _build_bethesda_terrace() -> void:
 		tx + a * ct, tz - a * st])
 	print("  EAST WALL: world (%.1f, %.1f) — target stalagmite (-462, 1004)" % [
 		tx - a * ct, tz + a * st])
-	# Upper platform south edge: Blender Y = +29 (hl + south_wing_d)
+	# South edge: Blender (0, +29, 0) → GLTF (0, 0, -29)
+	# world X = tx + (-29)*sin(θ), world Z = tz + (-29)*cos(θ)
 	var south_d := 29.0
 	print("  SOUTH EDGE: world (%.1f, %.1f)" % [
-		tx + south_d * st, tz + south_d * ct])
-	# Lower platform north edge: Blender Y = -20
+		tx - south_d * st, tz - south_d * ct])
+	# North edge: Blender (0, -20, 0) → GLTF (0, 0, +20)
 	var north_d := 20.0
 	print("  NORTH EDGE: world (%.1f, %.1f)" % [
-		tx - north_d * st, tz - north_d * ct])
+		tx + north_d * st, tz + north_d * ct])
 
 	# Apply stone material to all mesh surfaces
 	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
