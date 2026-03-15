@@ -1387,17 +1387,19 @@ func _build_bethesda_terrace() -> void:
 	lower_col.position = Vector3(0, -0.2, 19.0)
 	body.add_child(lower_col)
 
-	# Staircase ramps (approximate stepped surface as angled box)
+	# Staircase ramps (thick wedge-approximation collision)
 	# Stairs: model local X = ±(4.7 to 10.7), Z = +7 to +17, Y = 5.75 to 0
-	# Descend as Z increases: need positive rotation.x to tilt +Z end downward
+	# Descend as Z increases: positive rotation.x tilts +Z end downward.
+	# Thick box (2.4m) ensures the surface meets floor at the lower end
+	# and nearly reaches platform height at the upper end.
 	for side in [-1, 1]:
 		var stair_col := CollisionShape3D.new()
 		var stair_box := BoxShape3D.new()
-		stair_box.size = Vector3(6.0, 0.6, 11.0)  # thicker (0.6m) for reliable collision
+		stair_box.size = Vector3(6.0, 2.4, 11.0)  # thick wedge fill
 		stair_col.shape = stair_box
-		var cx: float = side * 7.7  # midpoint of stair width
-		stair_col.position = Vector3(cx, 2.88, 12.0)  # midpoint height & depth
-		stair_col.rotation.x = 0.52  # +30° slope: +Z end lower (descending toward fountain)
+		var cx: float = side * 7.7
+		stair_col.position = Vector3(cx, 1.5, 12.0)  # lowered center for floor-level entry
+		stair_col.rotation.x = 0.52  # +30° slope
 		body.add_child(stair_col)
 
 	_loader.add_child(body)
