@@ -66,11 +66,11 @@ WALL_T        = 0.8     # arcade side walls
 ROAD_SLAB_T   = 0.8     # road slab above vault crown
 
 # Staircases — measured positions relative to arcade center
-# West stair: X ≈ -490 in world, arcade center ≈ -469 → offset = -21m
-# East stair: X ≈ -460 in world, arcade center ≈ -469 → offset = +9m
-# But in model space, these are relative to the model origin (arcade center)
-WEST_STAIR_CX = -21.0   # center X of west staircase (model local)
-EAST_STAIR_CX = 9.0     # center X of east staircase (model local)
+# West stair: world X ≈ -490, arcade center X = -469, offset = -21m in world
+# East stair: world X ≈ -460, arcade center X = -469, offset = +9m in world
+# PI rotation MIRRORS X: world -X = Blender +X, world +X = Blender -X
+WEST_STAIR_CX = +21.0   # +X in Blender = west in world (PI mirrors X)
+EAST_STAIR_CX = -9.0    # -X in Blender = east in world (PI mirrors X)
 STAIR_W       = 6.0     # staircase width
 STAIR_RUN     = 14.0    # N-S run of each staircase (measured from heightmap)
 

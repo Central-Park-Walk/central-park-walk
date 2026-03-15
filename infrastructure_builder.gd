@@ -1283,7 +1283,7 @@ func _build_meadow_labels() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Bethesda Terrace — place the pre-built GLB model south of Bethesda Fountain
+# Bethesda Terrace — data-measured model, verified coordinate mapping
 # ---------------------------------------------------------------------------
 func _build_bethesda_terrace() -> void:
 	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_bethesda_terrace.glb")
@@ -1300,19 +1300,19 @@ func _build_bethesda_terrace() -> void:
 	if root == null:
 		return
 
-	# Position aligned to DSM terrain grade change (the real staircase location).
-	# Terrain N-S profile at X=-457 shows arcade passage center at Z≈995,
-	# upper terrace at Z≈1002, lower terrace (fountain) at Z≈975.
-	# 72nd St transverse runs slightly NW-SE, so terrace faces ~4° east of south.
-	var tx := -457.0
-	var tz := 995.0
-	var ty: float = _loader._terrain_y(tx, tz)
+	# Position: arcade center from heightmap measurements
+	# Arcade opening at Z=997: X=[-476,-461], center ≈ (-469, 998)
+	# Coordinate chain verified: Blender→GLTF→Godot with PI rotation
+	# maps Blender +X → world -X, Blender +Y → world +Z (south)
+	var tx := -469.0
+	var tz := 998.0
+	# Model origin = arcade floor (lower level). Upper terrace = +6.0m above.
+	# Place model so arcade floor matches lower terrace terrain height (17.6m).
+	var ty: float = _loader._terrain_y(tx, tz)  # terrain at arcade entrance ≈ 17.6m
 
 	root.position = Vector3(tx, ty, tz)
-	root.rotation.y = PI + 0.07  # ~4° to match transverse road angle
-	# Scale X to match real terrace width — model is 50m but real terrace
-	# spans ~61m (200ft). DSM terrain shows staircases wider apart than model.
-	root.scale.x = 1.24
+	root.rotation.y = PI  # verified: maps model axes to world correctly
+	# No scaling — model built at 1:1 from heightmap measurements
 	root.name = "BethesdaTerrace"
 
 	# Apply stone material to all mesh surfaces
