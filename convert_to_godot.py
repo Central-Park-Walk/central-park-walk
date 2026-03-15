@@ -2505,7 +2505,27 @@ def main() -> None:
         else:
             print("  DSM not available — using bare-earth DEM only")
 
-        prebake_terrain_mesh(hm_arr, boundary_pts, surface_arr)
+        # Define terrain holes for structures that integrate with terrain.
+        # 3D models fill these holes with complete geometry (vault, stairs, etc.)
+        # Polygon coordinates from park_data.json path footprints + heightmap.
+        terrain_holes = [
+            {
+                "name": "Bethesda Terrace",
+                # Upper terrace path polygon points (from park_data.json)
+                # + extended to cover lower terrace and stair zones
+                "points": [
+                    # Upper terrace south edge (from path data)
+                    (-454.4, 1019.5), (-459.5, 1018.0), (-493.6, 1008.0),
+                    (-499.0, 1006.4), (-497.6, 1001.6), (-496.2, 997.0),
+                    # Lower terrace / stair zone (extended from heightmap)
+                    (-491.0, 998.5), (-486.9, 999.7), (-485.5, 1001.1),
+                    (-483.8, 995.4), (-472.7, 998.7), (-462.2, 1001.8),
+                    # East side
+                    (-457.3, 1009.2), (-451.8, 1010.8), (-453.1, 1015.2),
+                ],
+            },
+        ]
+        prebake_terrain_mesh(hm_arr, boundary_pts, surface_arr, terrain_holes)
 
 
 def prebake_water_grids(water_bodies, terrain_func, boundary_pts):
@@ -3342,7 +3362,7 @@ def prebake_landuse_map(landuse_zones, water_bodies):
         print(f"  Shore distance: saved → shore_distance.png ({RES}×{RES}, {sd_kb:.0f} KB)")
 
 
-def prebake_terrain_mesh(hm_arr, boundary_pts, surface_arr=None):
+def prebake_terrain_mesh(hm_arr, boundary_pts, surface_arr=None, hole_polygons=None):
     """Pre-bake terrain mesh at full 8K resolution → terrain_mesh.bin.
 
     Generates the terrain ArrayMesh in Python rather than GDScript.
@@ -3350,6 +3370,7 @@ def prebake_terrain_mesh(hm_arr, boundary_pts, surface_arr=None):
     parapets, steps, retaining walls, and rock outcrop detail from LiDAR.
 
     Only emits triangles inside the park boundary + 200m buffer.
+    Triangles inside hole_polygons are REMOVED — 3D models fill these holes.
     Vertices are re-indexed so only used vertices are stored.
 
     Vertex colors encode smoothed surface blend weights (replaces the GPU
@@ -3409,6 +3430,25 @@ def prebake_terrain_mesh(hm_arr, boundary_pts, surface_arr=None):
     print("  Building cell and vertex maps...")
     cell_mask = (vertex_mask[:-1, :-1] | vertex_mask[:-1, 1:] |
                  vertex_mask[1:, :-1]  | vertex_mask[1:, 1:])
+
+    # Cut holes for terrain-integrated structures (tunnels, bridges)
+    # 3D models fill these holes with complete geometry
+    if hole_polygons:
+        hole_img = Image.new('L', (W, H), 0)
+        hole_draw = ImageDraw.Draw(hole_img)
+        for hp in hole_polygons:
+            name = hp.get("name", "unnamed")
+            pts = hp["points"]
+            poly = [world_to_pixel(float(p[0]), float(p[1])) for p in pts]
+            hole_draw.polygon(poly, fill=255)
+        hole_mask = np.array(hole_img, dtype=np.uint8) > 0
+        # Remove cells where ALL 4 corners are inside the hole
+        hole_cells = (hole_mask[:-1, :-1] & hole_mask[:-1, 1:] &
+                      hole_mask[1:, :-1]  & hole_mask[1:, 1:])
+        removed = int(hole_cells.sum())
+        cell_mask = cell_mask & ~hole_cells
+        del hole_img, hole_mask, hole_cells
+        print(f"  Terrain holes: {len(hole_polygons)} polygons, {removed:,} cells removed")
 
     # Mark vertices needed: all 4 corners of every emitting cell
     needed = np.zeros((H, W), dtype=bool)
