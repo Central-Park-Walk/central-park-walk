@@ -1304,18 +1304,18 @@ func _build_bethesda_terrace() -> void:
 	#   Main terrace paths: X[-499,-452] Z[995,1019] center(-476,1007)
 	#   Lower terrace paths: X[-486,-453] Z[975,992] center(-468,982)
 	#   Combined structure center ≈ (-476, 997)
-	# All parameters derived from PCA on combined terrace path footprint
-	# (35 points from park_data.json, upper + lower terrace paths)
-	var tx := -475.0   # centroid X
-	var tz := 1004.0   # centroid Z (rounded from 1004.2)
-	# Sample terrain south of terrace (Mall approach, outside void zone)
-	var upper_h: float = _loader._terrain_y(tx, tz + 35.0)
-	var model_y: float = upper_h - 5.75
+	# Position: arcade center from heightmap measurements
+	# Arcade opening at Z=997: X=[-476,-461], center X ≈ -469
+	# Model origin = arcade floor center, dimensions from heightmap
+	var tx := -469.0
+	var tz := 998.0    # north face of arcade (Z=998 transition in heightmap)
+	var upper_h: float = _loader._terrain_y(tx, tz + 20.0)  # road level south of arcade
+	var model_y: float = upper_h - 6.0  # level drop measured from heightmap: 6.0m
 
 	root.position = Vector3(tx, model_y, tz)
-	root.rotation.y = 2.823  # PCA major axis → 161.7° (PI - 0.319)
-	root.scale.x = 0.935     # model 50m → data 46.8m major extent
-	root.scale.z = 1.573     # model 31m → data 48.7m minor extent
+	root.rotation.y = 2.823  # PCA major axis direction
+	# No artificial scaling — model built at correct dimensions from data
+	root.scale = Vector3(1.0, 1.0, 1.0)
 	root.name = "BethesdaTerrace"
 
 	# Apply stone material to all mesh surfaces
@@ -1364,46 +1364,46 @@ func _build_bethesda_terrace() -> void:
 	body.name = "BethesdaTerraceCollision"
 	body.position = root.position
 	body.rotation.y = root.rotation.y
-	body.scale = root.scale  # match full scale (XYZ)
+	body.scale = Vector3.ONE  # model at 1:1 data-measured dimensions
 
-	# Arcade floor slab (model local coords: Y=0, extends ±4.7 X, ±7 Z)
+	# Collision dimensions match model (built from heightmap measurements)
+	# Arcade floor (ARCADE_W=15m wide, ARCADE_L=12m deep)
 	var floor_col := CollisionShape3D.new()
 	var floor_box := BoxShape3D.new()
-	floor_box.size = Vector3(9.4, 0.4, 14.0)
+	floor_box.size = Vector3(16.6, 0.4, 12.0)  # arcade + walls
 	floor_col.shape = floor_box
 	floor_col.position = Vector3(0, -0.2, 0)
 	body.add_child(floor_col)
 
-	# Upper platform (model local: Y=5.75, full width, covers arcade + wings)
+	# Upper platform (TERRACE_W=63m, ARCADE_L=12m + south wing)
 	var plat_col := CollisionShape3D.new()
 	var plat_box := BoxShape3D.new()
-	plat_box.size = Vector3(50.0, 0.5, 20.0)
+	plat_box.size = Vector3(63.0, 0.5, 40.0)
 	plat_col.shape = plat_box
-	plat_col.position = Vector3(0, 5.5, 0)
+	plat_col.position = Vector3(0, 5.75, -8.0)  # shifted south (GLTF -Z = Blender +Y = south)
 	body.add_child(plat_col)
 
-	# Lower terrace platform (model local: Y=0, north of arcade)
-	# In GLTF coords: Z = +17 to +21 (Blender Y = -17 to -21)
+	# Lower terrace (LOWER_W=30m, LOWER_D=6m, north of stairs)
+	# GLTF Z = stair_bot (Blender Y = stair_bot_y → GLTF Z = -stair_bot_y = +20)
 	var lower_col := CollisionShape3D.new()
 	var lower_box := BoxShape3D.new()
-	lower_box.size = Vector3(26.0, 0.4, 8.0)
+	lower_box.size = Vector3(30.0, 0.4, 6.0)
 	lower_col.shape = lower_box
-	lower_col.position = Vector3(0, -0.2, 19.0)
+	lower_col.position = Vector3(0, -0.2, 23.0)
 	body.add_child(lower_col)
 
-	# Staircase ramps (thick wedge-approximation collision)
-	# Stairs: model local X = ±(4.7 to 10.7), Z = +7 to +17, Y = 5.75 to 0
-	# Descend as Z increases: positive rotation.x tilts +Z end downward.
-	# Thick box (2.4m) ensures the surface meets floor at the lower end
-	# and nearly reaches platform height at the upper end.
-	for side in [-1, 1]:
+	# Staircase ramps — positions from heightmap measurements
+	# West stair: model local X = -21, East stair: model local X = +9
+	# GLTF Z: arcade face at +6, stair bottom at +20 → center at +13
+	# Stair slope: 6.0m rise / 14.0m run = 23.2° = 0.405 rad
+	var stair_angle := 0.405
+	for stair_x in [-21.0, 9.0]:
 		var stair_col := CollisionShape3D.new()
 		var stair_box := BoxShape3D.new()
-		stair_box.size = Vector3(6.0, 2.4, 11.0)  # thick wedge fill
+		stair_box.size = Vector3(6.0, 2.8, 15.0)
 		stair_col.shape = stair_box
-		var cx: float = side * 7.7
-		stair_col.position = Vector3(cx, 1.5, 12.0)  # lowered center for floor-level entry
-		stair_col.rotation.x = 0.52  # +30° slope
+		stair_col.position = Vector3(stair_x, 1.2, 13.0)
+		stair_col.rotation.x = stair_angle
 		body.add_child(stair_col)
 
 	_loader.add_child(body)

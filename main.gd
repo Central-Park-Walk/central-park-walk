@@ -465,18 +465,17 @@ func _carve_terrain_voids() -> void:
 	## main.gd and park_loader use carved heights.
 	if _hm_data.is_empty():
 		return
-	# Bethesda Terrace — PCA-derived from 35 combined terrace path points
-	# Footprint: 46.8m major × 48.7m minor, center (-475, 1004)
-	# Path data spans X:[-499,-452] Z:[975,1030]
-	var bt_x := -475.0
-	var bt_z := 1004.0
-	var upper_h := _terrain_height(bt_x, bt_z + 35.0)
-	var floor_h := upper_h - 6.25
-	# Void covers full path data extent + margin for feathering
-	var x_min := -508.0  # data X min (-499) - 9m margin
-	var x_max := -442.0  # data X max (-452) + 10m margin
-	var z_min := 965.0   # data Z min (975) - 10m margin
-	var z_max := 1040.0  # data Z max (1030) + 10m margin
+	# Bethesda Terrace — arcade center from heightmap measurements
+	# Arcade opening at Z=997: X=[-476,-461], center ≈ (-469, 998)
+	var bt_x := -469.0
+	var bt_z := 998.0
+	var upper_h := _terrain_height(bt_x, bt_z + 20.0)
+	var floor_h := upper_h - 6.5  # 6.0m drop + 0.5m clearance
+	# Void covers full LiDAR footprint: X[-510,-447] Z[970,1035]
+	var x_min := -515.0  # data X min (-510) - 5m
+	var x_max := -442.0  # data X max (-447) + 5m
+	var z_min := 965.0   # below lower terrace
+	var z_max := 1040.0  # past upper terrace south edge
 	var feather := 10.0
 	_carve_rect(x_min, x_max, z_min, z_max, floor_h, feather, "bethesda_tunnel")
 	_void_bethesda = {
