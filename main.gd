@@ -163,7 +163,8 @@ func _ready() -> void:
 	var _mt := Time.get_ticks_msec()
 	_build_keyframes()
 	_load_heightmap()
-	print("main: heightmap: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
+	_carve_collision_voids()
+	print("main: heightmap + collision voids: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_setup_environment()
 	# Register global shader parameters BEFORE park_loader creates materials
 	RenderingServer.global_shader_parameter_add("wind_vec", RenderingServer.GLOBAL_VAR_TYPE_VEC2, Vector2.ZERO)
@@ -449,6 +450,55 @@ func _terrain_height(x: float, z: float) -> float:
 			return h00 + (h10 - h00) * fx + (h01 - h00) * fz
 		else:
 			return h11 + (h01 - h11) * (1.0 - fx) + (h10 - h11) * (1.0 - fz)
+
+
+# ---------------------------------------------------------------------------
+# Collision-only terrain voids — lowers collision heightmap for walkable
+# tunnel interiors WITHOUT modifying the visual terrain mesh.
+# The 3D model provides interior surfaces (vault ceiling hides terrain).
+# ---------------------------------------------------------------------------
+func _carve_collision_voids() -> void:
+	if _hm_data.is_empty():
+		return
+	# Bethesda Terrace arcade — tunnel zone only (not the whole terrace)
+	# Arcade opening measured from heightmap: X=[-476,-461], Z=[972,998]
+	# Lower terrace: 17.6m. Carve collision to 17.0m (below model floor).
+	var floor_h := 17.0
+	# Only carve the TUNNEL + lower terrace collision, not the whole terrace
+	_carve_collision_rect(-480.0, -458.0, 968.0, 999.0, floor_h, 3.0,
+		"bethesda_arcade")
+
+
+func _carve_collision_rect(x_min: float, x_max: float, z_min: float, z_max: float,
+		floor_h: float, feather: float, label: String) -> void:
+	## Lower collision heightmap in a rectangle. Visual terrain is untouched.
+	var half := _hm_world_size * 0.5
+	var scale_x := float(_hm_width - 1) / _hm_world_size
+	var scale_z := float(_hm_depth - 1) / _hm_world_size
+	var col_lo := clampi(int((x_min - feather + half) * scale_x), 0, _hm_width - 1)
+	var col_hi := clampi(int((x_max + feather + half) * scale_x) + 1, 0, _hm_width - 1)
+	var row_lo := clampi(int((z_min - feather + half) * scale_z), 0, _hm_depth - 1)
+	var row_hi := clampi(int((z_max + feather + half) * scale_z) + 1, 0, _hm_depth - 1)
+	var cells := 0
+	for zi in range(row_lo, row_hi + 1):
+		var wz := float(zi) / float(_hm_depth - 1) * _hm_world_size - half
+		for xi in range(col_lo, col_hi + 1):
+			var wx := float(xi) / float(_hm_width - 1) * _hm_world_size - half
+			var outside_x := maxf(x_min - wx, wx - x_max)
+			var outside_z := maxf(z_min - wz, wz - z_max)
+			var outside := maxf(outside_x, outside_z)
+			if outside >= feather:
+				continue
+			var t := clampf(outside / feather, 0.0, 1.0)
+			var blend := 1.0 - t * t * (3.0 - 2.0 * t)
+			if blend <= 0.0:
+				continue
+			var idx := zi * _hm_width + xi
+			var orig_h := float(_hm_data[idx])
+			if orig_h > floor_h:
+				_hm_data[idx] = lerpf(orig_h, floor_h, blend)
+				cells += 1
+	print("  Collision void '%s': %d cells carved" % [label, cells])
 
 
 # ---------------------------------------------------------------------------
