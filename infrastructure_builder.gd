@@ -1312,8 +1312,25 @@ func _build_bethesda_terrace() -> void:
 
 	root.position = Vector3(tx, ty, tz)
 	root.rotation.y = 2.834  # from wall peak positions, NOT assumed PI
-	# No scaling — model built at 1:1 from heightmap measurements
 	root.name = "BethesdaTerrace"
+
+	# Debug: print where model walls map to in world space
+	var ct := cos(2.834)
+	var st := sin(2.834)
+	# half_arc + WALL_T/2 = 11 + 0.4 = 11.4 (Blender X of wall centers)
+	var a := 11.4
+	print("  WEST WALL: world (%.1f, %.1f) — target stalagmite (-484, 997)" % [
+		tx + a * ct, tz - a * st])
+	print("  EAST WALL: world (%.1f, %.1f) — target stalagmite (-462, 1004)" % [
+		tx - a * ct, tz + a * st])
+	# Upper platform south edge: Blender Y = +29 (hl + south_wing_d)
+	var south_d := 29.0
+	print("  SOUTH EDGE: world (%.1f, %.1f)" % [
+		tx + south_d * st, tz + south_d * ct])
+	# Lower platform north edge: Blender Y = -20
+	var north_d := 20.0
+	print("  NORTH EDGE: world (%.1f, %.1f)" % [
+		tx - north_d * st, tz - north_d * ct])
 
 	# Apply stone material to all mesh surfaces
 	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
