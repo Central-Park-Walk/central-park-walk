@@ -73,6 +73,9 @@ const _KF_HOURS: Array = [5.0, 6.5, 12.0, 19.0, 21.0]
 var _terrain_only := false
 var _weather_mode := "clear"  # clear, rain, thunderstorm, snow, fog
 
+# Terrain void zones — carved depressions for walkable architectural interiors
+var _void_bethesda: Dictionary = {}
+
 # Wind system — layered crossing breezes
 var _wind_vec := Vector2.ZERO   # current wind XZ direction+strength
 var _wind_time := 0.0           # accumulated wind time (independent of game clock)
@@ -164,6 +167,8 @@ func _ready() -> void:
 	_build_keyframes()
 	_load_heightmap()
 	print("main: heightmap: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
+	_carve_terrain_voids()
+	print("main: terrain voids: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_setup_environment()
 	# Register global shader parameters BEFORE park_loader creates materials
 	RenderingServer.global_shader_parameter_add("wind_vec", RenderingServer.GLOBAL_VAR_TYPE_VEC2, Vector2.ZERO)
@@ -449,6 +454,72 @@ func _terrain_height(x: float, z: float) -> float:
 			return h00 + (h10 - h00) * fx + (h01 - h00) * fz
 		else:
 			return h11 + (h01 - h11) * (1.0 - fx) + (h10 - h11) * (1.0 - fz)
+
+
+# ---------------------------------------------------------------------------
+# Terrain void carving — depress heightmap for walkable architectural interiors
+# ---------------------------------------------------------------------------
+func _carve_terrain_voids() -> void:
+	## Carve terrain depressions for structures with interior walkable spaces.
+	## Must run after _load_heightmap() and before _setup_park() so both
+	## main.gd and park_loader use carved heights.
+	if _hm_data.is_empty():
+		return
+	# Bethesda Terrace — arcade tunnel beneath 72nd St Transverse
+	# The arcade + grand staircases are carved into the hillside.
+	# Terrain must be depressed so the 3D model sits inside the void.
+	var bt_x := -457.0
+	var bt_z := 995.0
+	# Sample terrain south of terrace (Mall approach, outside carve zone)
+	var upper_h := _terrain_height(bt_x, bt_z + 20.0)
+	# Arcade floor = upper terrace minus 5.75m level drop, minus 0.5m clearance
+	var floor_h := upper_h - 6.25
+	var x_min := bt_x - 16.0
+	var x_max := bt_x + 16.0
+	var z_min := bt_z - 23.0  # lower platform + margin
+	var z_max := bt_z + 7.0   # arcade south face
+	var feather := 4.0
+	_carve_rect(x_min, x_max, z_min, z_max, floor_h, feather, "bethesda_tunnel")
+	_void_bethesda = {
+		"rect": Vector4(x_min, z_min, x_max, z_max),
+		"floor": floor_h,
+		"feather": feather,
+		"upper_h": upper_h,
+	}
+
+
+func _carve_rect(x_min: float, x_max: float, z_min: float, z_max: float,
+		floor_h: float, feather: float, label: String) -> void:
+	## Carve a rectangular void in the heightmap with smoothstep-feathered edges.
+	var half := _hm_world_size * 0.5
+	var scale_x := float(_hm_width - 1) / _hm_world_size
+	var scale_z := float(_hm_depth - 1) / _hm_world_size
+	var col_lo := clampi(int((x_min - feather + half) * scale_x), 0, _hm_width - 1)
+	var col_hi := clampi(int((x_max + feather + half) * scale_x) + 1, 0, _hm_width - 1)
+	var row_lo := clampi(int((z_min - feather + half) * scale_z), 0, _hm_depth - 1)
+	var row_hi := clampi(int((z_max + feather + half) * scale_z) + 1, 0, _hm_depth - 1)
+	var cells := 0
+	for zi in range(row_lo, row_hi + 1):
+		var wz := float(zi) / float(_hm_depth - 1) * _hm_world_size - half
+		for xi in range(col_lo, col_hi + 1):
+			var wx := float(xi) / float(_hm_width - 1) * _hm_world_size - half
+			var outside_x := maxf(x_min - wx, wx - x_max)
+			var outside_z := maxf(z_min - wz, wz - z_max)
+			var outside := maxf(outside_x, outside_z)
+			if outside >= feather:
+				continue
+			# smoothstep blend: 1.0 inside, transitions to 0.0 over feather distance
+			var t := clampf(outside / feather, 0.0, 1.0)
+			var blend := 1.0 - t * t * (3.0 - 2.0 * t)
+			if blend <= 0.0:
+				continue
+			var idx := zi * _hm_width + xi
+			var orig_h := float(_hm_data[idx])
+			if orig_h > floor_h:
+				_hm_data[idx] = lerpf(orig_h, floor_h, blend)
+				cells += 1
+	print("  Terrain void '%s': %d cells carved (%.0f x %.0f m)" % [
+		label, cells, x_max - x_min, z_max - z_min])
 
 
 # ---------------------------------------------------------------------------
@@ -1459,6 +1530,12 @@ func _setup_ground() -> void:
 			_terrain_mat.set_shader_parameter("shore_rough",  s_rgh)
 			_terrain_mat.set_shader_parameter("shore_tile_m", 3.0)
 		print("Ground: textured grass shader + meadow blend + rock slopes + dirt zones + shore")
+
+	# Terrain void zones — GPU vertex displacement matching heightmap carve
+	if not _void_bethesda.is_empty():
+		_terrain_mat.set_shader_parameter("void_rect", _void_bethesda["rect"])
+		_terrain_mat.set_shader_parameter("void_floor", _void_bethesda["floor"])
+		_terrain_mat.set_shader_parameter("void_feather", _void_bethesda["feather"])
 
 	if _hm_data.is_empty():
 		# Flat fallback
