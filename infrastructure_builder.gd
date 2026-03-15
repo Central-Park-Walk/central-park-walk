@@ -1283,7 +1283,7 @@ func _build_meadow_labels() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Bethesda Terrace — place the pre-built GLB model in the terrain void
+# Bethesda Terrace — place the pre-built GLB model south of Bethesda Fountain
 # ---------------------------------------------------------------------------
 func _build_bethesda_terrace() -> void:
 	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_bethesda_terrace.glb")
@@ -1300,22 +1300,19 @@ func _build_bethesda_terrace() -> void:
 	if root == null:
 		return
 
-	# Position from park_data.json path footprints:
-	#   Main terrace paths: X[-499,-452] Z[995,1019] center(-476,1007)
-	#   Lower terrace paths: X[-486,-453] Z[975,992] center(-468,982)
-	#   Combined structure center ≈ (-476, 997)
-	# Position: arcade center from heightmap measurements
-	# Arcade opening at Z=997: X=[-476,-461], center X ≈ -469
-	# Model origin = arcade floor center, dimensions from heightmap
-	var tx := -469.0
-	var tz := 998.0    # north face of arcade (Z=998 transition in heightmap)
-	var upper_h: float = _loader._terrain_y(tx, tz + 20.0)  # road level south of arcade
-	var model_y: float = upper_h - 6.0  # level drop measured from heightmap: 6.0m
+	# Position aligned to DSM terrain grade change (the real staircase location).
+	# Terrain N-S profile at X=-457 shows arcade passage center at Z≈995,
+	# upper terrace at Z≈1002, lower terrace (fountain) at Z≈975.
+	# 72nd St transverse runs slightly NW-SE, so terrace faces ~4° east of south.
+	var tx := -457.0
+	var tz := 995.0
+	var ty: float = _loader._terrain_y(tx, tz)
 
-	root.position = Vector3(tx, model_y, tz)
-	root.rotation.y = 2.823  # PCA major axis direction
-	# No artificial scaling — model built at correct dimensions from data
-	root.scale = Vector3(1.0, 1.0, 1.0)
+	root.position = Vector3(tx, ty, tz)
+	root.rotation.y = PI + 0.07  # ~4° to match transverse road angle
+	# Scale X to match real terrace width — model is 50m but real terrace
+	# spans ~61m (200ft). DSM terrain shows staircases wider apart than model.
+	root.scale.x = 1.24
 	root.name = "BethesdaTerrace"
 
 	# Apply stone material to all mesh surfaces
@@ -1323,6 +1320,7 @@ func _build_bethesda_terrace() -> void:
 	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
 	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 
+	# Material lookup by Blender material name
 	var mat_map: Dictionary = {}
 	mat_map["Sandstone"] = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
 		Color(0.72, 0.65, 0.52))
@@ -1332,6 +1330,7 @@ func _build_bethesda_terrace() -> void:
 		Color(0.82, 0.72, 0.55))
 	mat_map["StairStone"] = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
 		Color(0.60, 0.56, 0.48))
+	# Default sandstone fallback
 	var default_mat: Material = mat_map["Sandstone"]
 
 	var stack: Array = [root]
@@ -1356,59 +1355,7 @@ func _build_bethesda_terrace() -> void:
 			stack.append(c)
 
 	_loader.add_child(root)
-
-	# --- Collision shapes for walkable surfaces ---
-	# The terrain heightmap is carved below the model, so the player needs
-	# collision from the model's surfaces (floor, stairs, upper platform).
-	var body := StaticBody3D.new()
-	body.name = "BethesdaTerraceCollision"
-	body.position = root.position
-	body.rotation.y = root.rotation.y
-	body.scale = Vector3.ONE  # model at 1:1 data-measured dimensions
-
-	# Collision dimensions match model (built from heightmap measurements)
-	# Arcade floor (ARCADE_W=15m wide, ARCADE_L=12m deep)
-	var floor_col := CollisionShape3D.new()
-	var floor_box := BoxShape3D.new()
-	floor_box.size = Vector3(16.6, 0.4, 12.0)  # arcade + walls
-	floor_col.shape = floor_box
-	floor_col.position = Vector3(0, -0.2, 0)
-	body.add_child(floor_col)
-
-	# Upper platform (TERRACE_W=63m, ARCADE_L=12m + south wing)
-	var plat_col := CollisionShape3D.new()
-	var plat_box := BoxShape3D.new()
-	plat_box.size = Vector3(63.0, 0.5, 40.0)
-	plat_col.shape = plat_box
-	plat_col.position = Vector3(0, 5.75, -8.0)  # shifted south (GLTF -Z = Blender +Y = south)
-	body.add_child(plat_col)
-
-	# Lower terrace (LOWER_W=30m, LOWER_D=6m, north of stairs)
-	# GLTF Z = stair_bot (Blender Y = stair_bot_y → GLTF Z = -stair_bot_y = +20)
-	var lower_col := CollisionShape3D.new()
-	var lower_box := BoxShape3D.new()
-	lower_box.size = Vector3(30.0, 0.4, 6.0)
-	lower_col.shape = lower_box
-	lower_col.position = Vector3(0, -0.2, 23.0)
-	body.add_child(lower_col)
-
-	# Staircase ramps — positions from heightmap measurements
-	# West stair: model local X = -21, East stair: model local X = +9
-	# GLTF Z: arcade face at +6, stair bottom at +20 → center at +13
-	# Stair slope: 6.0m rise / 14.0m run = 23.2° = 0.405 rad
-	var stair_angle := 0.405
-	for stair_x in [-21.0, 9.0]:
-		var stair_col := CollisionShape3D.new()
-		var stair_box := BoxShape3D.new()
-		stair_box.size = Vector3(6.0, 2.8, 15.0)
-		stair_col.shape = stair_box
-		stair_col.position = Vector3(stair_x, 1.2, 13.0)
-		stair_col.rotation.x = stair_angle
-		body.add_child(stair_col)
-
-	_loader.add_child(body)
-	print("ParkLoader: Bethesda Terrace placed at (%.0f, %.1f, %.0f) upper=%.1f" % [
-		tx, model_y, tz, upper_h])
+	print("ParkLoader: Bethesda Terrace placed at (%.0f, %.1f, %.0f)" % [tx, ty, tz])
 
 
 # ---------------------------------------------------------------------------
