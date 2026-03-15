@@ -466,10 +466,11 @@ func _carve_terrain_voids() -> void:
 	if _hm_data.is_empty():
 		return
 	# Bethesda Terrace — arcade tunnel beneath 72nd St Transverse
-	# Coordinates from park_data.json Bethesda Arcade path:
-	#   south entrance (-479.6, Y=23.5, Z=1025) to north (-472.7, Y=18.7, Z=999)
+	# Coordinates from park_data.json path footprints:
+	#   Main terrace: X[-499,-452] Z[995,1019], Lower: X[-486,-453] Z[975,992]
+	#   Combined structure: X[-499,-452] Z[975,1019] = 47m × 44m
 	var bt_x := -476.0
-	var bt_z := 1012.0
+	var bt_z := 1000.0
 	# Sample terrain south of terrace (Mall approach, outside carve zone)
 	var upper_h := _terrain_height(bt_x, bt_z + 20.0)
 	# Arcade floor = upper terrace minus 5.75m level drop, minus 0.5m clearance

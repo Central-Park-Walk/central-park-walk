@@ -1300,11 +1300,12 @@ func _build_bethesda_terrace() -> void:
 	if root == null:
 		return
 
-	# Position from park_data.json Bethesda Arcade path:
-	#   south entrance (-479.6, Y=23.5, Z=1025) to north (-472.7, Y=18.7, Z=999)
-	#   center ≈ (-476, 1012), arcade runs ~15° east of due north
+	# Position from park_data.json path footprints:
+	#   Main terrace paths: X[-499,-452] Z[995,1019] center(-476,1007)
+	#   Lower terrace paths: X[-486,-453] Z[975,992] center(-468,982)
+	#   Combined structure center ≈ (-476, 997)
 	var tx := -476.0
-	var tz := 1012.0
+	var tz := 1000.0  # between arcade center (1012) and structure center (997)
 	# Sample terrain south of terrace (Mall approach, outside carve zone) for road level
 	var upper_h: float = _loader._terrain_y(tx, tz + 25.0)
 	var model_y: float = upper_h - 5.75  # arcade floor = road level minus level drop
