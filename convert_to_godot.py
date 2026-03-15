@@ -2406,11 +2406,14 @@ def main() -> None:
     prebake_boundary_mask(boundary_pts)
     prebake_water_grids(water_out, terrain, boundary_pts)
     if have_terrain:
-        # --- DEM/DSM hybrid terrain ---
-        # Rock outcrops, retaining walls, natural stone steps are captured by DSM
-        # but smoothed away by bare-earth DEM. Blend both: DEM under buildings/bridges
-        # (where 3D models provide geometry), DSM everywhere else.
-        if os.path.exists(LIDAR_DSM) and surface_arr is not None:
+        # --- DEM-only terrain (AAA approach) ---
+        # Use bare-earth DEM everywhere. Buildings are separate 3D models.
+        # The DSM hybrid was causing stalagmites (building heights baked into
+        # terrain mesh as rocky spikes). AAA studios never put building heights
+        # in terrain — the terrain is always bare ground.
+        # Rock outcrops lost from terrain can be added back later as targeted
+        # DSM blends in verified natural areas (Ramble, North Woods).
+        if False and os.path.exists(LIDAR_DSM) and surface_arr is not None:
             import numpy as np
             from scipy.ndimage import binary_dilation, gaussian_filter
             print("\n--- DEM/DSM hybrid terrain ---")
