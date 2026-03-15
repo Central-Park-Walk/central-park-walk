@@ -466,19 +466,22 @@ func _carve_terrain_voids() -> void:
 	if _hm_data.is_empty():
 		return
 	# Bethesda Terrace — arcade tunnel beneath 72nd St Transverse
-	# The arcade + grand staircases are carved into the hillside.
-	# Terrain must be depressed so the 3D model sits inside the void.
-	var bt_x := -457.0
-	var bt_z := 995.0
+	# Coordinates from park_data.json Bethesda Arcade path:
+	#   south entrance (-479.6, Y=23.5, Z=1025) to north (-472.7, Y=18.7, Z=999)
+	var bt_x := -476.0
+	var bt_z := 1012.0
 	# Sample terrain south of terrace (Mall approach, outside carve zone)
 	var upper_h := _terrain_height(bt_x, bt_z + 20.0)
 	# Arcade floor = upper terrace minus 5.75m level drop, minus 0.5m clearance
 	var floor_h := upper_h - 6.25
-	var x_min := bt_x - 20.0  # wider to clear stair outer walls + margin
-	var x_max := bt_x + 20.0
-	var z_min := bt_z - 28.0  # extend north for fountain approach
-	var z_max := bt_z + 9.0   # past arcade south entrance
-	var feather := 8.0  # 8m feather → ~38° embankment slope
+	# Void must cover the ENTIRE LiDAR footprint of the real terrace.
+	# DSM captured stairs, walls, parapets — all must be removed so the
+	# 3D model is the sole source of terrace geometry.
+	var x_min := bt_x - 36.0  # covers full 62m model width + margin
+	var x_max := bt_x + 36.0
+	var z_min := bt_z - 30.0  # lower terrace + fountain approach
+	var z_max := bt_z + 15.0  # upper terrace + Mall approach
+	var feather := 10.0  # 10m feather → gentle ~32° embankment slopes
 	_carve_rect(x_min, x_max, z_min, z_max, floor_h, feather, "bethesda_tunnel")
 	_void_bethesda = {
 		"rect": Vector4(x_min, z_min, x_max, z_max),
