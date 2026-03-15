@@ -148,6 +148,17 @@ void vertex() {
 }
 
 void fragment() {
+	// Discard terrain inside void zone — model provides all visual surfaces there.
+	// Vertex displacement creates the sloped embankment outside the rectangle;
+	// inside, stretched triangles would clip through the arcade ceiling/walls.
+	if (void_rect.z > void_rect.x) {
+		float vdx = max(void_rect.x - world_pos.x, world_pos.x - void_rect.z);
+		float vdz = max(void_rect.y - world_pos.z, world_pos.z - void_rect.w);
+		if (max(vdx, vdz) < 1.0) {  // 1m margin into feather to hide wall clipping
+			discard;
+		}
+	}
+
 	// Per-pixel terrain normal from heightmap — eliminates mesh triangle artifacts
 	vec2 hm_uv = (world_pos.xz + world_size * 0.5) / world_size;
 	float htexel = 1.0 / float(textureSize(heightmap_tex, 0).x);
