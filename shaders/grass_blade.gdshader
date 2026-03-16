@@ -121,9 +121,53 @@ void fragment() {
 	// up at blade tips for sharp specular highlights.
 	NORMAL = mix(NORMAL, vec3(0.0, 1.0, 0.0), blade_t);
 
-	// --- Color tied to size (hexaquo) ---
-	vec3 color_small = vec3(0.12, 0.28, 0.06);  // deep fresh green
-	vec3 color_large = vec3(0.30, 0.40, 0.12);  // older yellow-green
+	// --- Color tied to size + zone type (hexaquo) ---
+	// Each grass type gets its own color pair for visual identity.
+	vec3 color_small = vec3(0.12, 0.28, 0.06);  // default: deep fresh green
+	vec3 color_large = vec3(0.28, 0.38, 0.12);  // default: older yellow-green
+
+	if (v_grass_type < 0.5) {
+		// SheepMeadow: bright Kentucky bluegrass
+		color_small = vec3(0.10, 0.30, 0.07);
+		color_large = vec3(0.22, 0.38, 0.10);
+	} else if (v_grass_type < 1.5) {
+		// GreatLawn: rich deep green, well-maintained
+		color_small = vec3(0.08, 0.26, 0.06);
+		color_large = vec3(0.20, 0.34, 0.10);
+	} else if (v_grass_type < 2.5) {
+		// NorthMeadow: open meadow, slightly warmer
+		color_small = vec3(0.12, 0.26, 0.06);
+		color_large = vec3(0.30, 0.36, 0.10);
+	} else if (v_grass_type < 3.5) {
+		// FormalGarden: manicured, uniform, desaturated
+		color_small = vec3(0.10, 0.24, 0.08);
+		color_large = vec3(0.18, 0.30, 0.10);
+	} else if (v_grass_type < 4.5) {
+		// SportsTurf: vivid athletic green
+		color_small = vec3(0.06, 0.28, 0.04);
+		color_large = vec3(0.14, 0.36, 0.08);
+	} else if (v_grass_type < 5.5) {
+		// NorthWoods: shade-adapted, dark blue-green
+		color_small = vec3(0.06, 0.18, 0.08);
+		color_large = vec3(0.14, 0.24, 0.10);
+	} else if (v_grass_type < 6.5) {
+		// Ramble: moderate woodland, warm understory
+		color_small = vec3(0.08, 0.20, 0.06);
+		color_large = vec3(0.18, 0.26, 0.08);
+	} else if (v_grass_type < 7.5) {
+		// Waterside: lush dark green, moisture-rich
+		color_small = vec3(0.06, 0.24, 0.08);
+		color_large = vec3(0.16, 0.32, 0.12);
+	} else if (v_grass_type < 8.5) {
+		// WildMeadow: tall, golden-green, dramatic
+		color_small = vec3(0.16, 0.26, 0.05);
+		color_large = vec3(0.38, 0.40, 0.10);
+	} else {
+		// OpenLawn: standard maintained grass
+		color_small = vec3(0.12, 0.28, 0.06);
+		color_large = vec3(0.26, 0.36, 0.11);
+	}
+
 	vec3 col = mix(color_small, color_large, v_patch_factor);
 
 	// Base-to-tip gradient: dark base (shadowed by surrounding grass),
