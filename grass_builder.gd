@@ -3,29 +3,32 @@
 # instance. Patchiness, color, wind, AO all driven by the shader.
 #
 # Blades are scattered uniformly within each chunk, filtered by the world
-# atlas (surface==1 = grass). No grid expansion — positions are truly
-# random, eliminating grid artifacts. Type and path proximity come from
+# atlas (surface==1 = grass). Type and path proximity come from
 # the pre-baked cell lookup.
 #
-# 4 blade meshes: Lawn (4 tris), Wild (8), Shade (6), Sedge (6).
+# Queue-based chunk loading: chunks build 1 per frame, closest first,
+# so grass appears gradually instead of in 10m blocks.
 
 var _loader
 var _blade_meshes: Array = []
 var _grass_shader: Shader
 var _positions_by_chunk: Dictionary = {}  # "cx|cz" -> Array of pos dicts
 var _active_chunks: Dictionary = {}       # "bt|cx|cz" -> MultiMeshInstance3D
-var _last_camera_chunk := Vector2i(-9999, -9999)
+var _last_update_pos := Vector3(-99999, 0, -99999)
+var _build_queue: Array = []              # [ck: String] — chunks waiting to build
+var _queued_set: Dictionary = {}          # ck -> true — fast lookup for queue
 
 const CHUNK := 10.0
-const BLADES_PER_M2 := 600.0      # higher density for short lawn grass
-const CELL_SIZE := 1.22            # grid cell size from pipeline (stride 2)
+const BLADES_PER_M2 := 600.0
+const CELL_SIZE := 1.22
+const MAX_BLADES_PER_CHUNK := 40000  # cap to keep build time reasonable
 const VIS_RANGE := 18.0
-const LOAD_RANGE := 25.0
-const UNLOAD_RANGE := 35.0
+const LOAD_RANGE := 30.0             # pre-load further ahead
+const UNLOAD_RANGE := 40.0
+const UPDATE_DIST := 3.0             # re-check chunks every 3m moved
 
 const BLADE_NAMES: Array = ["Blade_Lawn", "Blade_Wild", "Blade_Shade", "Blade_Sedge"]
 
-# Grass type (0-9) -> blade mesh index
 const TYPE_TO_BLADE: Array = [
 	0, 0, 0, 0, 0,  # types 0-4 -> Lawn
 	2, 2,            # types 5-6 -> Shade
@@ -44,7 +47,6 @@ func _build_grass() -> void:
 
 	_grass_shader = _loader._get_shader("grass_blade", "res://shaders/grass_blade.gdshader")
 
-	# Load blade meshes
 	for bname in BLADE_NAMES:
 		var mesh: Mesh = _load_blade_model(bname)
 		_blade_meshes.append(mesh)
@@ -57,7 +59,6 @@ func _build_grass() -> void:
 		print("Grass: no blade meshes — run make_blade_mesh.py in Blender")
 		return
 
-	# Load prebaked positions (used as type/prox lookup, not blade placement)
 	var instances: Array = _load_binary("res://ground_cover_instances.bin", 0x47524332)
 	if instances.is_empty():
 		print("Grass: no ground cover instances — run convert_to_godot.py")
@@ -83,21 +84,26 @@ func _build_grass() -> void:
 	print("Grass: %d cell positions in %d chunks (%.0fms)" % [
 		x_arr.size(), _positions_by_chunk.size(), Time.get_ticks_msec() - t0])
 
-	_update_chunks_near(Vector3(-480, 0, 1020))
+	# Build initial chunks synchronously (at spawn, no queue delay)
+	var spawn := Vector3(-480, 0, 1020)
+	_last_update_pos = spawn
+	_update_chunks_near(spawn)
+	_flush_queue(spawn)
 
 
 func update_camera(camera_pos: Vector3) -> void:
-	var cam_cx := int(floorf(camera_pos.x / CHUNK))
-	var cam_cz := int(floorf(camera_pos.z / CHUNK))
-	if cam_cx == _last_camera_chunk.x and cam_cz == _last_camera_chunk.y:
-		return
-	_last_camera_chunk = Vector2i(cam_cx, cam_cz)
-	_update_chunks_near(camera_pos)
+	# Re-check which chunks are needed every UPDATE_DIST meters
+	if camera_pos.distance_to(_last_update_pos) > UPDATE_DIST:
+		_last_update_pos = camera_pos
+		_update_chunks_near(camera_pos)
+
+	# Build 1 queued chunk per frame (closest first)
+	if not _build_queue.is_empty():
+		_process_queue(camera_pos)
 
 
 func _update_chunks_near(pos: Vector3) -> void:
 	var load_chunks := int(ceili(LOAD_RANGE / CHUNK))
-
 	var cam_cx := int(floorf(pos.x / CHUNK))
 	var cam_cz := int(floorf(pos.z / CHUNK))
 	var needed: Dictionary = {}
@@ -125,21 +131,63 @@ func _update_chunks_near(pos: Vector3) -> void:
 	for key in to_remove:
 		_active_chunks.erase(key)
 
-	# Load new chunks
-	var built := 0
+	# Queue chunks that need building
 	for ck in needed:
-		var any_loaded := false
-		for bt in BLADE_NAMES.size():
-			if _active_chunks.has("%d|%s" % [bt, ck]):
-				any_loaded = true
-				break
-		if any_loaded:
+		if _chunk_is_loaded(ck) or _queued_set.has(ck):
 			continue
-		_build_chunk(ck)
-		built += 1
+		_build_queue.append(ck)
+		_queued_set[ck] = true
 
-	if built > 0 or to_remove.size() > 0:
-		print("Grass chunks: +%d -%d (active: %d)" % [built, to_remove.size(), _active_chunks.size()])
+	# Remove queued chunks that are no longer needed
+	var new_queue: Array = []
+	for ck in _build_queue:
+		if needed.has(ck):
+			new_queue.append(ck)
+		else:
+			_queued_set.erase(ck)
+	_build_queue = new_queue
+
+
+func _process_queue(pos: Vector3) -> void:
+	# Find closest queued chunk and build it
+	var best_idx := -1
+	var best_dist := 999999.0
+	for i in _build_queue.size():
+		var ck: String = _build_queue[i]
+		var parts: PackedStringArray = ck.split("|")
+		var center := Vector3((float(parts[0]) + 0.5) * CHUNK, 0, (float(parts[1]) + 0.5) * CHUNK)
+		var d := center.distance_to(pos)
+		if d < best_dist:
+			best_dist = d
+			best_idx = i
+
+	if best_idx < 0:
+		return
+
+	var ck: String = _build_queue[best_idx]
+	_build_queue.remove_at(best_idx)
+	_queued_set.erase(ck)
+
+	if _chunk_is_loaded(ck):
+		return
+	if not _positions_by_chunk.has(ck):
+		return
+
+	_build_chunk(ck)
+
+
+func _flush_queue(pos: Vector3) -> void:
+	# Build all queued chunks immediately (used at startup)
+	while not _build_queue.is_empty():
+		_process_queue(pos)
+	print("Grass: initial chunks built (active: %d)" % _active_chunks.size())
+
+
+func _chunk_is_loaded(ck: String) -> bool:
+	for bt in BLADE_NAMES.size():
+		if _active_chunks.has("%d|%s" % [bt, ck]):
+			return true
+	return false
 
 
 func _build_chunk(ck: String) -> void:
@@ -151,42 +199,37 @@ func _build_chunk(ck: String) -> void:
 	var chunk_x: float = float(ck_parts[0]) * CHUNK
 	var chunk_z: float = float(ck_parts[1]) * CHUNK
 
-	# Build cell lookup: cell_key -> {type, prox}
-	# Used for type/prox only — blade positions are NOT derived from this.
+	# Cell lookup for type/prox
 	var cell_lookup: Dictionary = {}
 	for p in positions:
 		var lx: int = int((p["x"] - chunk_x) / CELL_SIZE)
 		var lz: int = int((p["z"] - chunk_z) / CELL_SIZE)
 		cell_lookup[lx * 256 + lz] = p
 
-	# Target blade count based on grass coverage in this chunk
+	# Target blade count, capped for build performance
 	var grass_area: float = positions.size() * CELL_SIZE * CELL_SIZE
-	var target: int = int(grass_area * BLADES_PER_M2)
+	var target: int = mini(int(grass_area * BLADES_PER_M2), MAX_BLADES_PER_CHUNK)
 
-	# Deterministic RNG per chunk
 	var rng := RandomNumberGenerator.new()
 	rng.seed = (int(ck_parts[0]) * 73856093 + int(ck_parts[1]) * 19349669) & 0x7FFFFFFF
 
 	var by_type: Dictionary = {}
 	var placed := 0
 
-	# Scatter uniformly across chunk, filter by world atlas
-	for _i in int(target * 1.5):  # oversample to compensate for rejection
+	for _i in int(target * 1.5):
 		if placed >= target:
 			break
 		var bx: float = chunk_x + rng.randf() * CHUNK
 		var bz: float = chunk_z + rng.randf() * CHUNK
 
-		# Atlas check: only place on grass (surface type 1)
 		if _loader._atlas_surface(bx, bz) != 1:
 			continue
 
-		# Look up type and path_prox from nearest cell
 		var lx: int = int((bx - chunk_x) / CELL_SIZE)
 		var lz: int = int((bz - chunk_z) / CELL_SIZE)
 		var cell_key: int = lx * 256 + lz
 
-		var orig_type: int = 9  # default: OpenLawn
+		var orig_type: int = 9
 		var path_prox: float = 0.0
 		if cell_lookup.has(cell_key):
 			orig_type = cell_lookup[cell_key]["type"]
@@ -198,7 +241,6 @@ func _build_chunk(ck: String) -> void:
 		if blade_type >= _blade_meshes.size() or _blade_meshes[blade_type] == null:
 			continue
 
-		# Height from heightmap (exact terrain match)
 		var wy: float = _loader._terrain_y(bx, bz)
 
 		var y_rot: float = rng.randf() * TAU
@@ -214,7 +256,6 @@ func _build_chunk(ck: String) -> void:
 		by_type[blade_type]["cd"].append(Color(float(orig_type), rng.randf(), path_prox, 0.0))
 		placed += 1
 
-	# Create MultiMesh per blade type
 	for blade_type in by_type:
 		var data: Dictionary = by_type[blade_type]
 		var xf_list: Array = data["xf"]
@@ -224,7 +265,6 @@ func _build_chunk(ck: String) -> void:
 
 		var mesh: Mesh = _blade_meshes[blade_type]
 
-		# Chunk center for local coordinates
 		var sx := 0.0; var sy := 0.0; var sz := 0.0
 		for tf: Transform3D in xf_list:
 			sx += tf.origin.x; sy += tf.origin.y; sz += tf.origin.z
