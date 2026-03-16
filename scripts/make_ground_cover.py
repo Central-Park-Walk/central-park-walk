@@ -51,10 +51,11 @@ def make_blade(bm, color_layer, uv_layer,
     tip_z = bz + dz * lean
     thw = hw * 0.3  # tip tapers to 30% of base width
 
-    v0 = bm.verts.new((bx + px * hw, 0.0, bz + pz * hw))
-    v1 = bm.verts.new((bx - px * hw, 0.0, bz - pz * hw))
-    v2 = bm.verts.new((tip_x - px * thw, height, tip_z - pz * thw))
-    v3 = bm.verts.new((tip_x + px * thw, height, tip_z + pz * thw))
+    # Blender is Z-up. Height goes along Z, horizontal plane is XY.
+    v0 = bm.verts.new((bx + px * hw, bz + pz * hw, 0.0))
+    v1 = bm.verts.new((bx - px * hw, bz - pz * hw, 0.0))
+    v2 = bm.verts.new((tip_x - px * thw, tip_z - pz * thw, height))
+    v3 = bm.verts.new((tip_x + px * thw, tip_z + pz * thw, height))
 
     try:
         face = bm.faces.new([v0, v1, v2, v3])
