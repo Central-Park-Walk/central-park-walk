@@ -9,7 +9,6 @@ global uniform float snow_cover;
 global uniform float rain_wetness;
 global uniform float dew_amount;
 global uniform vec3 sky_reflect_color;
-global uniform vec3 player_pos;
 
 uniform sampler2D canopy_map : filter_linear, repeat_disable;
 uniform float hm_world_size = 5000.0;
@@ -88,23 +87,6 @@ void vertex() {
 	float flutter = sin(TIME * 5.5 + VERTEX.x * 14.0 + VERTEX.z * 10.0) * 0.015 * rustle;
 	flutter += sin(TIME * 8.0 + VERTEX.z * 18.0) * 0.008 * gust_str;
 	VERTEX.y += flutter * sway;
-
-	// --- Player displacement (hexaquo Part 3) ---
-	// Grass gently leans away from the player's feet.
-	{
-		float disp_radius = 0.8;
-		float obj_dist = distance(player_pos.xz, blade_origin.xz);
-		float bend_str = max(disp_radius - obj_dist, 0.0) / disp_radius;
-		bend_str *= bend_str;
-		if (bend_str > 0.001) {
-			vec2 bend_dir = normalize(blade_origin.xz - player_pos.xz);
-			mat4 inv_model = inverse(MODEL_MATRIX);
-			vec2 local_dir = (inv_model * vec4(bend_dir.x, 0.0, bend_dir.y, 0.0)).xz;
-			float btt = v_bottom_to_top;  // tips move, base stays rooted
-			VERTEX.xz += local_dir * bend_str * btt * 0.04;
-			VERTEX.y -= bend_str * btt * 0.015;
-		}
-	}
 
 	// Winter dormancy
 	float winter_t = smoothstep(3.0, 3.5, season_t);
