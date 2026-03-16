@@ -25,7 +25,7 @@ const MAX_BLADES_PER_CHUNK := 40000  # cap to keep build time reasonable
 const VIS_RANGE := 18.0
 const LOAD_RANGE := 30.0             # pre-load further ahead
 const UNLOAD_RANGE := 40.0
-const UPDATE_DIST := 3.0             # re-check chunks every 3m moved
+const UPDATE_DIST := 1.0             # re-check chunks every 1m moved
 
 const BLADE_NAMES: Array = ["Blade_Lawn", "Blade_Wild", "Blade_Shade", "Blade_Sedge"]
 
@@ -92,14 +92,12 @@ func _build_grass() -> void:
 
 
 func update_camera(camera_pos: Vector3) -> void:
-	# Re-check which chunks are needed every UPDATE_DIST meters
+	# Every 1m moved: re-check needed chunks and build closest queued chunk
 	if camera_pos.distance_to(_last_update_pos) > UPDATE_DIST:
 		_last_update_pos = camera_pos
 		_update_chunks_near(camera_pos)
-
-	# Build 1 queued chunk per frame (closest first)
-	if not _build_queue.is_empty():
-		_process_queue(camera_pos)
+		if not _build_queue.is_empty():
+			_process_queue(camera_pos)
 
 
 func _update_chunks_near(pos: Vector3) -> void:
@@ -149,7 +147,8 @@ func _update_chunks_near(pos: Vector3) -> void:
 
 
 func _process_queue(pos: Vector3) -> void:
-	# Find closest queued chunk and build it
+	# Build only the single closest queued chunk per call.
+	# Combined with UPDATE_DIST=1m, this means at most ~1m of new grass per meter walked.
 	var best_idx := -1
 	var best_dist := 999999.0
 	for i in _build_queue.size():
