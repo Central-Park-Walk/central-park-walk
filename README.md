@@ -7,7 +7,7 @@ Central Park Walk is a real-time 3D walking simulation of all 843 acres of New Y
 Every tree has a real measured height. Every path follows its real-world geometry. Every building has its actual footprint and construction year. The terrain is accurate to one foot. The data has gaps, and we leave them visible — gaps tell us what humans haven't yet measured or mapped.
 
 ![Summer Golden Hour — Literary Walk](screenshots/literary_walk_summer_golden.png)
-*Golden hour on the Literary Walk. American elms line the promenade with dappled canopy shade on 762K grass tiles.*
+*Golden hour on the Literary Walk. American elms line the promenade with dappled canopy shade on three-layer grass.*
 
 ![Rain — Conservatory Water](screenshots/conservatory_rain_afternoon.png)
 *Rain on the Conservatory Water. Real-time weather with animated surface ripples, atmospheric fog, and city silhouette.*
@@ -96,7 +96,7 @@ python3 convert_to_godot.py
 | Statues | 106 positions | 4 photogrammetry scans + 32 named Blender GLBs (Cleopatra's Needle, Balto, Shakespeare, Burns, Scott, Halleck, Indian Hunter, Hamilton, Columbus, 107th Infantry, 7th Regiment, Humboldt, Still Hunt, Bolívar, Jagiello, Ellington, Falconer, Morse, Martí, San Martín, Bears, Romeo & Juliet, Joan of Arc, Beethoven, Webster, Pilgrim, Mazzini, Verdi, Women's Rights, Eagles & Prey, Hans Christian Andersen, Alice in Wonderland) + stone pedestals, rest labeled |
 | Playgrounds | 21 equipped | Swing sets + climbing structures from OSM playground polygons |
 | Sports fields | 147 | Tennis (54 nets), basketball (72 hoops), baseball (30 backstops), soccer (22 goals), handball (4 walls) |
-| Grass | ~762K tiles | 10 CPC-data-driven types with narrow 3D blades (8–15mm), wildflowers, clover. Mowed=1-segment spikes, woodland=2-segment curves, meadow=3-segment arches. Mowing stripes on formal lawns, path-edge wear (shorter/browner near paths), multi-scale color variation (5 scales from field-level drainage to per-clump species mix), dandelion + clover weeds in maintained lawns, winter dormancy. Soft tile-edge fade (dithered alpha), Lambertian shading (no specular), distance darkening |
+| Grass | Three-layer system | Green terrain base (zone-aware grass texture + 55% procedural green) + ground cover carpet (4 turf types, outward-leaning blades, stride 2) + detail blades (10 CPC types, stride 2-8). Wildflowers, clover, mowing stripes, path-edge wear, multi-scale color variation (5 scales), winter dormancy. Shared grass blade shader with wind, seasons, canopy shade |
 | Seasons | 4 | Per-species phenology, cherry/callery pear/magnolia spring blossoms, spring cherry blossom petal drift, autumn falling leaf particles, leaf scatter, water color, atmosphere |
 | Weather | 5 modes | Rain, thunderstorm, snow, fog, clear — with surface response |
 | Day/night | Full cycle | 48-lamp pool (45m range, 110 energy), lit windows, NYC warm ambient light pollution, moon, atmospheric haze, aerial perspective (distance desaturation + blue shift) |
