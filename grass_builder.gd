@@ -291,8 +291,8 @@ func _build_chunk(ck: String) -> void:
 		if bt >= _blade_meshes.size() or _blade_meshes[bt] == null: continue
 
 		# Flowers in unmowed grass: 2=NorthMeadow, 7=Waterside, 8=WildMeadow, 9=OpenLawn
-		var _flower_eligible := (ot == 2 or ot == 7 or ot == 8 or ot == 9)
-		if _flower_eligible:
+		var flower_eligible := (ot == 2 or ot == 7 or ot == 8 or ot == 9)
+		if flower_eligible:
 			var active: Array = []
 			if summer_active: active.append_array([0, 1, 2, 3])
 			if spring_active: active.append_array([4, 5])

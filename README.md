@@ -63,6 +63,7 @@ python3 convert_to_godot.py
 | H | Toggle HUD |
 | F11 | Toggle fullscreen |
 | M | Toggle audio mute |
+| F10 | Grass tour (teleport through grass types + auto-screenshot) |
 | F12 | Screenshot (saves to screenshots/) |
 
 **Xbox/gamepad**: left stick walk, right stick look, right trigger fly mode.
@@ -96,7 +97,7 @@ python3 convert_to_godot.py
 | Statues | 106 positions | 4 photogrammetry scans + 32 named Blender GLBs (Cleopatra's Needle, Balto, Shakespeare, Burns, Scott, Halleck, Indian Hunter, Hamilton, Columbus, 107th Infantry, 7th Regiment, Humboldt, Still Hunt, Bolívar, Jagiello, Ellington, Falconer, Morse, Martí, San Martín, Bears, Romeo & Juliet, Joan of Arc, Beethoven, Webster, Pilgrim, Mazzini, Verdi, Women's Rights, Eagles & Prey, Hans Christian Andersen, Alice in Wonderland) + stone pedestals, rest labeled |
 | Playgrounds | 21 equipped | Swing sets + climbing structures from OSM playground polygons |
 | Sports fields | 147 | Tennis (54 nets), basketball (72 hoops), baseball (30 backstops), soccer (22 goals), handball (4 walls) |
-| Grass | Three-layer system | Green terrain base (zone-aware grass texture + 55% procedural green) + ground cover carpet (4 turf types, outward-leaning blades, stride 2) + detail blades (10 CPC types, stride 2-8). Wildflowers, clover, mowing stripes, path-edge wear, multi-scale color variation (5 scales), winter dormancy. Shared grass blade shader with wind, seasons, canopy shade |
+| Grass & Flowers | Hexaquo method | Individual blade geometry at 600/m² via MultiMesh (hexaquo full-geometry approach). 4 blade meshes (Lawn/Wild/Shade/Sedge), 10 zone-specific color palettes (SheepMeadow bluegrass, GreatLawn emerald, NorthMeadow warm, SportsTurf vivid, WildMeadow golden, Waterside dark lush, woodland blue-green). Terrain impostor shader matches blade patchiness/colors for seamless LOD. Per-blade alpha hash crossfade at distance. Queue-based chunk loading (1/frame, closest first). 8 wildflower models (clover, dandelion, violet, buttercup + seasonal crocus, daffodil, goldenrod, aster) with position-based clustering in unmowed zones. Woodland understory (100/m² sparse shade grass). Per-blade hue variation, base-to-tip gradient, 12m broad meadow patches, dry tips. Wind (sway + gusts + flutter), canopy shade, path-edge wear, seasonal color, winter dormancy. 20 custom GLSL shaders |
 | Seasons | 4 | Per-species phenology, cherry/callery pear/magnolia spring blossoms, spring cherry blossom petal drift, autumn falling leaf particles, leaf scatter, water color, atmosphere |
 | Weather | 5 modes | Rain, thunderstorm, snow, fog, clear — with surface response |
 | Day/night | Full cycle | 48-lamp pool (45m range, 110 energy), lit windows, NYC warm ambient light pollution, moon, atmospheric haze, aerial perspective (distance desaturation + blue shift) |
@@ -153,7 +154,7 @@ See [FUNDING.md](FUNDING.md) for details on how funds are used.
 | Engine | Godot 4.6.1 (Forward+, GDScript) |
 | Data pipeline | Python (GDAL, numpy/scipy, Pillow) |
 | 3D modeling | Blender 3.0.1 (headless scripts) |
-| Rendering | 19 custom GLSL shaders (terrain, water, water mist, stream, facade, stone, tree leaf/bark, grass, hedge, wood, cast iron, roof, sky, path, curb, weather), MultiMesh instancing, 8K prebaked terrain mesh, 3D path mesh extrusion |
+| Rendering | 20 custom GLSL shaders (terrain with hexaquo grass impostor, water, water mist, stream, facade, stone, tree leaf/bark, grass blade, hedge, wood, cast iron, roof, sky, path, curb, weather), MultiMesh instancing, buffer-based grass (600/m²), 8K prebaked terrain mesh, 3D path mesh extrusion |
 
 ## License
 
