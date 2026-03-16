@@ -174,6 +174,7 @@ func _ready() -> void:
 	RenderingServer.global_shader_parameter_add("season_t", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, _season_t)
 	RenderingServer.global_shader_parameter_add("lightning_flash", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	RenderingServer.global_shader_parameter_add("dew_amount", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
+	RenderingServer.global_shader_parameter_add("player_pos", RenderingServer.GLOBAL_VAR_TYPE_VEC3, Vector3.ZERO)
 	print("main: environment: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	if not _terrain_only:
 		_setup_park()
@@ -602,6 +603,10 @@ func _process(delta: float) -> void:
 	if _season_speed > 0.0:
 		_season_t = fmod(_season_t + _season_speed * delta, 4.0)
 		RenderingServer.global_shader_parameter_set("season_t", _season_t)
+
+	# Player position for grass displacement shader
+	if _player:
+		RenderingServer.global_shader_parameter_set("player_pos", _player.global_position)
 
 	# Dynamic grass chunk loading — load/unload near camera
 	if _player and _park_loader and _park_loader._grass_builder:
