@@ -117,25 +117,15 @@ void fragment() {
 		if (ad < aerial_discard) discard;
 	}
 
-	// Vertex colors from Blender model provide base albedo
+	// Vertex colors from Blender model ARE the data — display faithfully.
+	// Different turf types have different colors baked in the model.
 	vec3 col = COLOR.rgb;
 
-	// --- Base color toning: match terrain shader for seamless blending ---
-	// CP Conservancy Class A lawns are lush green, not olive. Keep more saturation
-	// and push green-dominant to match the richer terrain grass color.
-	float base_lum = dot(col, vec3(0.299, 0.587, 0.114));
-	col = mix(vec3(base_lum), col, 0.72);  // 28% desaturation (was 40%) — preserve green character
-	// Darken to PBR range but keep green dominant over red (no olive shift)
-	col *= vec3(0.58, 0.68, 0.48);  // green channel preserved, red reduced → distinctly green
-
-	// --- Height-based shading: darker at base, brighter at tip ---
-	// UV.y from Blender: 0.0 at base, 1.0 at tip (set in make_grass_patch.py)
+	// Height-based AO: blade bases are darker (self-shadowing in grass carpet).
+	// This is a lighting/rendering effect, not data override.
 	float blade_t = clamp(UV.y, 0.0, 1.0);
-	// Ambient occlusion at blade base — creates depth in the grass carpet
-	float ao = mix(0.55, 1.0, smoothstep(0.0, 0.4, blade_t));
+	float ao = mix(0.65, 1.0, smoothstep(0.0, 0.4, blade_t));
 	col *= ao;
-	// Tip brightening: sun catches blade tips, not shaded bases
-	col *= mix(1.0, 1.12, smoothstep(0.5, 1.0, blade_t));
 
 	// --- Seasonal colour modulation ---
 	// Seasonal ramps MUST match terrain.gdshader exactly to prevent grass tile grid

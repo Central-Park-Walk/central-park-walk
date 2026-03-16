@@ -3240,6 +3240,24 @@ def prebake_grass_instances(landuse_zones):
         y_arr = (h00 * (1 - fx) * (1 - fz) + h10 * fx * (1 - fz) +
                  h01 * (1 - fx) * fz + h11 * fx * fz + 0.002).astype(np.float32)
         print(f"    Pre-computed Y from heightmap ({hm_w}×{hm_h})")
+
+        # --- Slope filtering: skip instances on steep terrain ---
+        # Terrain shader blends to rock on slopes > ~22° (smoothstep 0.10-0.25).
+        # Compute slope as height gradient magnitude at each instance position.
+        hm_cell = hm_world_size / (hm_w - 1)
+        dhdx = (h10 - h00) / hm_cell  # approximate gradient at instance
+        dhdz = (h01 - h00) / hm_cell
+        grad_mag = np.sqrt(dhdx**2 + dhdz**2)
+        steep = grad_mag > 0.40  # ~22° slope, matches terrain shader rock threshold
+        n_steep = int(np.sum(steep))
+        if n_steep > 0:
+            keep_slope = ~steep
+            x_arr = x_arr[keep_slope]; z_arr = z_arr[keep_slope]
+            type_arr = type_arr[keep_slope]; y_arr = y_arr[keep_slope]
+            path_prox_u8 = path_prox_u8[keep_slope]
+            ix = ix[keep_slope]; iz = iz[keep_slope]
+            count = len(x_arr)
+            print(f"    Filtered {n_steep} instances on steep slopes (>{0.40:.0%} grade)")
     else:
         print("    WARNING: heightmap.bin not found — Y values will be 0")
         y_arr = np.full(count, 0.002, dtype=np.float32)
@@ -3275,10 +3293,14 @@ def prebake_grass_instances(landuse_zones):
     gx_idx = np.arange(1, RES, gc_stride)
     gz_g, gx_g = np.meshgrid(gz_idx, gx_idx, indexing='ij')
 
-    valid = type_grid[gz_g, gx_g] < 255
+    # Skip woodland types (5=NorthWoods, 6=Ramble) — terrain shader shows
+    # brown leaf litter floor there, not green lawn. Dense turf tiles on
+    # woodland floor look like weeds.
+    gc_tg = type_grid[gz_g, gx_g]
+    valid = (gc_tg < 255) & (gc_tg != 5) & (gc_tg != 6)
     gz_sel = gz_g[valid].astype(np.float32)
     gx_sel = gx_g[valid].astype(np.float32)
-    gc_types = type_grid[gz_g[valid], gx_g[valid]]
+    gc_types = gc_tg[valid]
 
     gc_x = gx_sel * cell_m - HALF
     gc_z = gz_sel * cell_m - HALF
@@ -3333,6 +3355,19 @@ def prebake_grass_instances(landuse_zones):
         gc_y = (hm_data[zi0, xi0] * (1-fx)*(1-fz) + hm_data[zi0, xi0+1] * fx*(1-fz) +
                 hm_data[zi0+1, xi0] * (1-fx)*fz + hm_data[zi0+1, xi0+1] * fx*fz +
                 0.002).astype(np.float32)
+
+        # Slope filtering — no grass on steep rock
+        gc_dhdx = (hm_data[zi0, xi0+1] - hm_data[zi0, xi0]) / (hm_world_size / (hm_w - 1))
+        gc_dhdz = (hm_data[zi0+1, xi0] - hm_data[zi0, xi0]) / (hm_world_size / (hm_w - 1))
+        gc_grad = np.sqrt(gc_dhdx**2 + gc_dhdz**2)
+        gc_steep = gc_grad > 0.40
+        n_gc_steep = int(np.sum(gc_steep))
+        if n_gc_steep > 0:
+            gc_flat = ~gc_steep
+            gc_x = gc_x[gc_flat]; gc_z = gc_z[gc_flat]; gc_type = gc_type[gc_flat]
+            gc_y = gc_y[gc_flat]; gc_prox_u8 = gc_prox_u8[gc_flat]
+            gc_count = len(gc_x)
+            print(f"    Filtered {n_gc_steep} ground cover on steep slopes")
     else:
         gc_y = np.full(gc_count, 0.002, dtype=np.float32)
 
