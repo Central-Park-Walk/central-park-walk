@@ -70,11 +70,12 @@ const TYPE_TO_TURF: Array = [
 
 # Ground cover visibility — needs to be far enough that pop-in isn't obvious,
 # with a generous fade margin for smooth transition.
+# Full detail up close, taper to terrain at distance.
 const TURF_VIS_RANGES: Array = [
-	40.0,  # lawn
-	35.0,  # wild
-	25.0,  # shade
-	30.0,  # sedge
+	35.0,  # lawn
+	30.0,  # wild
+	20.0,  # shade
+	25.0,  # sedge
 ]
 
 
@@ -273,7 +274,7 @@ func _emit_multimeshes(chunks: Dictionary, meshes: Array, vis_ranges: Array, pre
 		mmi.position = chunk_origin
 		mmi.name = "%s_%s" % [prefix, ck.replace("|", "_")]
 		mmi.visibility_range_end = vis_end
-		mmi.visibility_range_end_margin = vis_end * 0.15
+		mmi.visibility_range_end_margin = vis_end * 0.40  # 40% fade for smooth taper
 		mmi.visibility_range_begin = 0.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

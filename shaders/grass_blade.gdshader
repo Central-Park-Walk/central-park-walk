@@ -27,9 +27,19 @@ void vertex() {
 	vec3 origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	v_world_pos = origin;
 
-	// Edge fade disabled — tiles are square and grid-aligned with overlap.
-	// The old circular edge fade was cutting square tiles into circles.
 	v_edge_fade = 0.0;
+
+	// --- Per-instance variation from world-space noise ---
+	// Nature: every grass patch IS different. Continuous noise across tile
+	// boundaries eliminates visible grid. This is the industry-standard
+	// approach (GodotGrass, hexaquo, SimpleGrassTextured all do this).
+	float inst_h = vnoise(origin.xz * 0.5);                    // height variation
+	float inst_clump = vnoise(origin.xz * 0.3 + vec2(42.0));   // clumping density
+	// Height: ±15% — adjacent tiles get nearly the same value (smooth field)
+	VERTEX.y *= 0.85 + inst_h * 0.30;
+	// Clumping: thin out sparse areas by scaling down some instances
+	float clump_scale = smoothstep(0.15, 0.45, inst_clump);
+	VERTEX.xyz *= mix(0.6, 1.0, clump_scale);
 
 	// Height-based sway: model-space VERTEX.y (0 at base, tip varies by type)
 	float sway = max(VERTEX.y, 0.0);
@@ -113,12 +123,18 @@ void fragment() {
 		if (ad < aerial_discard) discard;
 	}
 
-	// Vertex colors from Blender model ARE the data — display faithfully.
-	// Different turf types have different colors baked in the model.
+	// Vertex colors from Blender model are the base — type determines color.
 	vec3 col = COLOR.rgb;
 
-	// Height-based AO: blade bases are darker (self-shadowing in grass carpet).
-	// This is a lighting/rendering effect, not data override.
+	// Per-instance color variation from world-space noise — nature.
+	// Smooth across tile boundaries, eliminates uniform tiling.
+	float col_var = vnoise(v_world_pos.xz * 0.4 + vec2(17.0, 33.0));
+	col *= 0.90 + col_var * 0.20;  // ±10% brightness
+	// Subtle warm/cool shift — some patches greener, some yellower
+	float hue_var = vnoise(v_world_pos.xz * 0.25 + vec2(71.0, 13.0));
+	col *= vec3(1.0 + hue_var * 0.06, 1.0, 1.0 - hue_var * 0.04);
+
+	// Height-based AO: blade bases are darker (lighting effect).
 	float blade_t = clamp(UV.y, 0.0, 1.0);
 	float ao = mix(0.80, 1.0, smoothstep(0.0, 0.4, blade_t));
 	col *= ao;
