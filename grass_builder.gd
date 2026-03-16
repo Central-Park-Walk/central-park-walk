@@ -183,17 +183,10 @@ func _build_layer(instances: Array, meshes: Array, vis_ranges: Array, prefix: St
 			path_prox = 0.0
 
 		var y_rot := rng.randf() * TAU
-		var s_xz := rng.randf_range(1.0, 1.45)
-		# Detail blades are accent on green terrain, not the primary green source.
-		# Mowed lawns (0-4, 9): squash to ~50% — just peek above ground cover carpet.
-		# Wild/woodland (5-8): keep taller for visual character.
-		var s_y: float
-		if gtype <= 4 or gtype == 9:
-			s_y = rng.randf_range(0.45, 0.65)  # mowed: subtle
-		elif gtype == 8:
-			s_y = rng.randf_range(0.75, 1.05)   # wild meadow: dramatic
-		else:
-			s_y = rng.randf_range(0.60, 0.85)   # woodland/water: moderate
+		# Heights come from CPC data baked into Blender models — don't override.
+		# Tiny natural variation only (±3%), not random scaling.
+		var s_xz := rng.randf_range(0.95, 1.05)
+		var s_y := rng.randf_range(0.97, 1.03)
 		if path_prox > 0.1:
 			s_y *= lerpf(1.0, 0.55, path_prox)
 		var basis := Basis(Vector3.UP, y_rot).scaled(Vector3(s_xz, s_y, s_xz))

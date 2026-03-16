@@ -3182,6 +3182,17 @@ def prebake_grass_instances(landuse_zones):
     iz = iz[keep]
     count = len(x_arr)
 
+    # --- Post-jitter surface check: discard instances that jittered onto non-grass ---
+    # Jitter can push grass instances from grass cells onto adjacent paths/pavement/rock.
+    # Only keep instances whose jittered position is still on grass (surface == 1).
+    on_grass = surface[iz, ix] == 1
+    n_off_grass = int(np.sum(~on_grass))
+    if n_off_grass > 0:
+        x_arr = x_arr[on_grass]; z_arr = z_arr[on_grass]; type_arr = type_arr[on_grass]
+        ix = ix[on_grass]; iz = iz[on_grass]
+        count = len(x_arr)
+        print(f"    Filtered {n_off_grass} instances that jittered onto non-grass surfaces")
+
     # --- Pre-compute path proximity (vectorized) ---
     # Surface types 2 (paved_path) and 3 (unpaved_path)
     s0 = surface[iz, ix]
@@ -3300,6 +3311,15 @@ def prebake_grass_instances(landuse_zones):
     gc_x = gc_x[gc_keep]; gc_z = gc_z[gc_keep]; gc_type = gc_type[gc_keep]
     gc_ix = gc_ix[gc_keep]; gc_iz = gc_iz[gc_keep]
     gc_count = len(gc_x)
+
+    # Post-jitter surface check — only keep instances on grass
+    gc_on_grass = surface[gc_iz, gc_ix] == 1
+    gc_off = int(np.sum(~gc_on_grass))
+    if gc_off > 0:
+        gc_x = gc_x[gc_on_grass]; gc_z = gc_z[gc_on_grass]; gc_type = gc_type[gc_on_grass]
+        gc_ix = gc_ix[gc_on_grass]; gc_iz = gc_iz[gc_on_grass]
+        gc_count = len(gc_x)
+        print(f"    Filtered {gc_off} ground cover instances off grass")
 
     # Path proximity
     gc_s0 = surface[gc_iz, gc_ix]
