@@ -33,13 +33,9 @@ void vertex() {
 	// Sample at each blade's world XZ position (not tile center).
 	// Continuous across tile boundaries — no visible grid.
 	vec2 blade_world_xz = origin.xz + VERTEX.xz;
-	float blade_h_noise = vnoise(blade_world_xz * 0.5);
-	float blade_clump = vnoise(blade_world_xz * 0.25 + vec2(42.0));
-	// Height: ±20% per blade
-	VERTEX.y *= 0.80 + blade_h_noise * 0.40;
-	// Clumping: thin out blades in sparse noise areas
-	float clump_scale = smoothstep(0.10, 0.40, blade_clump);
-	VERTEX.xyz *= mix(0.5, 1.0, clump_scale);
+	float blade_h_noise = vnoise(blade_world_xz * 0.8);
+	// Height: ±10% per blade — subtle, natural undulation
+	VERTEX.y *= 0.90 + blade_h_noise * 0.20;
 
 	// Height-based sway: model-space VERTEX.y (0 at base, tip varies by type)
 	float sway = max(VERTEX.y, 0.0);
