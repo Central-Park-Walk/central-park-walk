@@ -150,30 +150,24 @@ void fragment() {
 	// Atlas UV for landuse, boundary, shore distance lookups
 	vec2 splat_uv = (world_pos.xz + world_size * 0.5) / world_size;
 
-	// --- Grass shading (textureNoTile — Inigo Quilez anti-tiling) ---
-	vec2 uv  = world_pos.xz / tile_m;
+	// --- Base surface: bare earth (AAA approach) ---
+	// The terrain surface is dirt/soil. 3D grass tile patches provide all
+	// the green vegetation. This prevents the "painted green carpet" look
+	// where the terrain texture dominates and grass blades look like weeds.
+	vec2 uv  = world_pos.xz / dirt_tile_m;
 	float cam_dist = length(world_pos - INV_VIEW_MATRIX[3].xyz);
-	vec3 grass_alb = textureNoTile_c(grass_albedo, uv);
-	// Aerial texture fade — at distance, the 3m texture tile creates visible
-	// anti-tiling cell boundaries from above. Use camera height to detect aerial
-	// views (looking down) vs ground views (looking across). From ground level
-	// texture stays sharp even at distance; from aerial, flatten aggressively.
+	vec3 grass_alb = textureNoTile_c(dirt_albedo, uv);
 	float cam_height = INV_VIEW_MATRIX[3].y - world_pos.y;
 	float tex_fade = max(
-		smoothstep(15.0, 50.0, cam_height),          // aerial: aggressive fade from height
-		smoothstep(100.0, 250.0, cam_dist)            // ground: gentle fade at extreme distance
+		smoothstep(15.0, 50.0, cam_height),
+		smoothstep(100.0, 250.0, cam_dist)
 	);
 	{
 		float avg_g = dot(grass_alb, vec3(0.299, 0.587, 0.114));
 		grass_alb = mix(grass_alb, vec3(avg_g), tex_fade);
 	}
-	// Summer lawn: rich green — CP Conservancy Class A lawns are genuinely lush.
-	// Kentucky bluegrass + perennial ryegrass = deep green, not olive.
-	float grass_lum = dot(grass_alb, vec3(0.299, 0.587, 0.114));
-	grass_alb = mix(vec3(grass_lum), grass_alb, 0.82);  // 18% desaturation — preserve green character
-	grass_alb *= 0.80;  // real grass albedo is quite dark in linear space (~0.04-0.10 green channel)
-	grass_alb.r *= 0.88;  // stronger red reduction — push firmly toward green, away from olive
-	grass_alb.b *= 0.82;  // reduce blue slightly — earthy green, not teal
+	// Darken slightly for rich soil color
+	grass_alb *= 0.75;
 
 	// Multi-scale grass color variation — real lawns are never uniform.
 	// Aerial imagery of Central Park shows a patchwork of greens, olives, browns.
