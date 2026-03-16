@@ -146,33 +146,12 @@ func _add_fountain_spray(x: float, y: float, z: float,
 	_loader.add_child(particles)
 
 
-# -- Bethesda Fountain: photogrammetry GLB ------
+# -- Bethesda Fountain: placeholder for future photogrammetry data --
+# The Angel of the Waters statue needs close-range scanning data
+# (drone photogrammetry or terrestrial LiDAR) to model accurately.
 func _build_bethesda_fountain(cx: float, cz: float, base_y: float, pool_r: float,
 							  alb: ImageTexture, nrm: ImageTexture, rgh: ImageTexture) -> void:
-	var glb_path := ProjectSettings.globalize_path("res://models/bethesda_fountain_photogrammetry.glb")
-	if FileAccess.file_exists("res://models/bethesda_fountain_photogrammetry.glb") or FileAccess.file_exists(glb_path):
-		var gltf_doc := GLTFDocument.new()
-		var gltf_state := GLTFState.new()
-		var err := gltf_doc.append_from_file(glb_path, gltf_state)
-		if err == OK:
-			var scene: Node = gltf_doc.generate_scene(gltf_state)
-			if scene:
-				var node3d := Node3D.new()
-				node3d.name = "Bethesda_Photogrammetry"
-				var glb_scale := 5.0
-				node3d.scale = Vector3(glb_scale, glb_scale, glb_scale)
-				node3d.position = Vector3(cx, base_y + 0.45, cz)
-				var children: Array = []
-				for c in scene.get_children():
-					children.append(c)
-				for c in children:
-					scene.remove_child(c)
-					node3d.add_child(c)
-				scene.queue_free()
-				_loader.add_child(node3d)
-				print("ParkLoader: Bethesda Fountain photogrammetry placed at (%.0f, %.0f)" % [cx, cz])
-		else:
-			print("WARNING: failed to load Bethesda GLB: error %d" % err)
+	pass  # awaiting proper scan data
 
 
 
