@@ -3130,17 +3130,11 @@ def prebake_grass_instances(landuse_zones):
         if len(gz_sel) == 0:
             continue
 
-        # Deterministic jitter per cell — scale with stride to break grid
-        # ±40% of grid spacing in each axis fully eliminates visible rows
-        n = len(gz_sel)
-        seed = 73856093 * stride_val + 19349663
-        jrng = np.random.RandomState(seed)
-        jitter_range = 0.4 * stride_val * cell_m
-        jx = jrng.uniform(-jitter_range, jitter_range, n).astype(np.float32)
-        jz = jrng.uniform(-jitter_range, jitter_range, n).astype(np.float32)
-
-        wx = gx_sel * cell_m - HALF + jx
-        wz = gz_sel * cell_m - HALF + jz
+        # No jitter — grid positions only. The per-instance random rotation
+        # in grass_builder.gd provides visual variety without pushing
+        # instances onto adjacent non-grass surfaces.
+        wx = gx_sel * cell_m - HALF
+        wz = gz_sel * cell_m - HALF
 
         xs.extend(wx.tolist())
         zs.extend(wz.tolist())
@@ -3275,8 +3269,6 @@ def prebake_grass_instances(landuse_zones):
     print("\n  Pre-baking ground cover instances (uniform stride 2)...")
 
     gc_stride = 2
-    gc_seed = 99371027
-    gc_rng = np.random.RandomState(gc_seed)
 
     # Sample at uniform stride 2, offset by 1 to interleave with detail grass
     gz_idx = np.arange(1, RES, gc_stride)
@@ -3288,13 +3280,8 @@ def prebake_grass_instances(landuse_zones):
     gx_sel = gx_g[valid].astype(np.float32)
     gc_types = type_grid[gz_g[valid], gx_g[valid]]
 
-    n_gc = len(gz_sel)
-    jitter_range = 0.4 * gc_stride * cell_m
-    jx = gc_rng.uniform(-jitter_range, jitter_range, n_gc).astype(np.float32)
-    jz = gc_rng.uniform(-jitter_range, jitter_range, n_gc).astype(np.float32)
-
-    gc_x = gx_sel * cell_m - HALF + jx
-    gc_z = gz_sel * cell_m - HALF + jz
+    gc_x = gx_sel * cell_m - HALF
+    gc_z = gz_sel * cell_m - HALF
     gc_type = gc_types.astype(np.uint8)
     gc_count = len(gc_x)
     print(f"    {gc_count} raw instances")
