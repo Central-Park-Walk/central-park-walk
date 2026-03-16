@@ -95,15 +95,20 @@ func _build_grass() -> void:
 	var spawn := Vector3(350, 0, -1100)
 	_last_update_pos = spawn
 	_update_chunks_near(spawn)
-	_flush_queue(spawn)
+	# Don't flush queue at startup — let chunks build gradually
+	# to avoid VRAM spike during terrain mesh load
+	print("Grass: %d chunks queued for gradual loading" % _build_queue.size())
 
 
 func update_camera(camera_pos: Vector3) -> void:
-	if camera_pos.distance_to(_last_update_pos) > UPDATE_DIST:
+	var moved := camera_pos.distance_to(_last_update_pos) > UPDATE_DIST
+	if moved:
 		_last_update_pos = camera_pos
 		_update_chunks_near(camera_pos)
-		if not _build_queue.is_empty():
-			_process_queue(camera_pos)
+
+	# Build 1 queued chunk per frame (always, not just on movement)
+	if not _build_queue.is_empty():
+		_process_queue(camera_pos)
 
 
 func _update_chunks_near(pos: Vector3) -> void:
