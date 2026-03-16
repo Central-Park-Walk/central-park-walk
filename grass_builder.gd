@@ -48,11 +48,11 @@ const VIS_RANGES: Array = [
 ]
 
 # --- Ground cover layer (4 types × 5 variants) ---
-# 5 variants per type with different blade arrangements but identical
-# statistics. Adjacent tiles get randomly different variants — boundaries
-# are invisible because density/height/color are the same across variants.
-const TURF_BASE_NAMES: Array = ["Turf_Lawn", "Turf_Wild", "Turf_Shade", "Turf_Sedge"]
-const TURF_VARIANT_COUNT := 5
+# One edge-wrapped mesh per type — tiles seamlessly like a tileable texture.
+# No variants needed: edge wrapping makes each tile's pattern wrap at
+# boundaries. All tiles identical = no seams. 3000+ random blades per tile
+# = too fine-grained for the eye to detect 1.22m repetition.
+const TURF_NAMES: Array = ["Turf_Lawn_v0", "Turf_Wild_v0", "Turf_Shade_v0", "Turf_Sedge_v0"]
 
 # Map detail type (0-9) → turf type (0-3)
 const TYPE_TO_TURF: Array = [
@@ -87,18 +87,14 @@ func _build_grass() -> void:
 
 	var grass_shader: Shader = _loader._get_shader("grass_blade", "res://shaders/grass_blade.gdshader")
 
-	# --- Load ground cover models (4 types × 5 variants) ---
-	# turf_meshes[type_idx][variant_idx]
+	# --- Load ground cover models (4 types) ---
 	var turf_meshes: Array = []
 	var turf_loaded := 0
-	for base_name in TURF_BASE_NAMES:
-		var variants: Array = []
-		for v in TURF_VARIANT_COUNT:
-			var mesh: Mesh = _load_tile_model("%s_v%d" % [base_name, v], grass_shader)
-			variants.append(mesh)
-			if mesh != null:
-				turf_loaded += 1
-		turf_meshes.append(variants)
+	for tname in TURF_NAMES:
+		var mesh: Mesh = _load_tile_model(tname, grass_shader)
+		turf_meshes.append(mesh)
+		if mesh != null:
+			turf_loaded += 1
 
 	if turf_loaded == 0:
 		print("Grass: no turf models found — skipping (run make_ground_cover.py in Blender)")
@@ -202,17 +198,11 @@ func _build_layer_mapped(instances: Array, meshes: Array, vis_ranges: Array,
 		var wz: float = z_arr[i]
 		var orig_type: int = type_arr[i]
 
-		# Map to mesh type + pick variant by position hash
+		# Map to mesh type
 		var mesh_type: int = 0
 		if orig_type < type_map.size():
 			mesh_type = type_map[orig_type]
-		if mesh_type >= meshes.size():
-			continue
-		var variant: int = (int(abs(wx) * 73.0 + abs(wz) * 37.0) & 0x7FFFFFFF) % TURF_VARIANT_COUNT
-		var type_variants: Array = meshes[mesh_type]
-		if variant >= type_variants.size() or type_variants[variant] == null:
-			variant = 0
-		if type_variants[variant] == null:
+		if mesh_type >= meshes.size() or meshes[mesh_type] == null:
 			continue
 
 		rng.seed = int(wx * 99371.0 + wz * 27183.0) & 0x7FFFFFFF
@@ -235,15 +225,14 @@ func _build_layer_mapped(instances: Array, meshes: Array, vis_ranges: Array,
 
 		var cx := int(floorf(wx / CHUNK))
 		var cz := int(floorf(wz / CHUNK))
-		# Group by type + variant — each needs its own MultiMesh (different mesh)
-		var ck := "%d_%d|%d|%d" % [mesh_type, variant, cx, cz]
+		var ck := "%d|%d|%d" % [mesh_type, cx, cz]
 		if not chunks.has(ck):
-			chunks[ck] = {"type": mesh_type, "variant": variant, "xf": [], "cd": []}
+			chunks[ck] = {"type": mesh_type, "xf": [], "cd": []}
 		chunks[ck]["xf"].append(tf)
 		chunks[ck]["cd"].append(Color(float(orig_type), rng.randf(), path_prox, 0.0))
 		total += 1
 
-	var chunk_count := _emit_multimeshes_2d(chunks, meshes, vis_ranges, prefix)
+	var chunk_count := _emit_multimeshes(chunks, meshes, vis_ranges, prefix)
 	return [total, chunk_count]
 
 
