@@ -123,11 +123,10 @@ def build_turf_tile(cfg, seed):
     distribution = cfg.get("distribution", "lawn")
 
     for _ in range(blade_count):
-        # Distribute blades uniformly in circle
-        r = radius * math.sqrt(rng.random())
-        theta = rng.random() * 2 * math.pi
-        bx = r * math.cos(theta)
-        bz = r * math.sin(theta)
+        # Distribute blades uniformly in square — matches the grid placement.
+        # Square tiles on a square grid tile perfectly with no gaps.
+        bx = rng.uniform(-radius, radius)
+        bz = rng.uniform(-radius, radius)
 
         # Fully random blade direction — with 1000+ blades, density
         # provides coverage without needing outward-lean patterns.
@@ -169,8 +168,8 @@ TURF_TYPES = [
     #    ryegrass blend. Dense, uniform, narrow blades.
     {
         "name": "Turf_Lawn",
-        "blade_count": 1500,
-        "radius": 0.45,
+        "blade_count": 2500,                    # dense carpet — ~1680 blades/m²
+        "radius": 0.61,                      # half grid spacing (stride 2 × 0.61m)
         "height_range": (0.065, 0.10),     # 6.5cm (fresh cut) to 10cm (regrowth)
         "width_range": (0.007, 0.014),      # 7-14mm — KBG/ryegrass blades
         "lean_range": (0.01, 0.03),         # minimal lean — upright mowed grass
@@ -185,8 +184,8 @@ TURF_TYPES = [
     #    goldenrod. Full height range from seedlings to mature.
     {
         "name": "Turf_Wild",
-        "blade_count": 1000,
-        "radius": 0.55,
+        "blade_count": 1800,
+        "radius": 0.61,
         "height_range": (0.08, 0.40),       # 8cm seedlings to 40cm mature
         "width_range": (0.008, 0.018),       # wider, more varied
         "lean_range": (0.03, 0.12),          # dramatic lean on tall blades
@@ -201,8 +200,8 @@ TURF_TYPES = [
     #    clumps in dappled light. Some taller stems reaching for light.
     {
         "name": "Turf_Shade",
-        "blade_count": 800,
-        "radius": 0.45,
+        "blade_count": 1400,
+        "radius": 0.61,
         "height_range": (0.05, 0.18),        # 5-18cm — reaching for light
         "width_range": (0.006, 0.014),
         "lean_range": (0.02, 0.06),
@@ -217,8 +216,8 @@ TURF_TYPES = [
     #    triangular stems, taller than lawn grass.
     {
         "name": "Turf_Sedge",
-        "blade_count": 900,
-        "radius": 0.50,
+        "blade_count": 1600,
+        "radius": 0.61,
         "height_range": (0.08, 0.25),        # 8-25cm — upright sedges
         "width_range": (0.006, 0.014),
         "lean_range": (0.02, 0.05),

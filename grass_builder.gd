@@ -69,13 +69,13 @@ const TYPE_TO_TURF: Array = [
 	0,  # OpenLawn      → Turf_Lawn
 ]
 
-# Ground cover: close-range depth only. Terrain shader carries the green
-# beyond this range. Tiles should be invisible at medium distance.
+# Ground cover visibility — needs to be far enough that pop-in isn't obvious,
+# with a generous fade margin for smooth transition.
 const TURF_VIS_RANGES: Array = [
-	15.0,  # lawn
-	15.0,  # wild
-	12.0,  # shade
-	12.0,  # sedge
+	40.0,  # lawn
+	35.0,  # wild
+	25.0,  # shade
+	30.0,  # sedge
 ]
 
 
