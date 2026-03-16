@@ -17,12 +17,14 @@ varying float v_grass_type;
 varying float v_bottom_to_top;  // 0 at base, 1 at tip
 varying vec3 v_world_blade;     // per-BLADE world position (not tile center)
 varying float v_path_prox;
+varying float v_blade_seed;     // per-blade random (0-1) for hue variation
 varying float v_wind_bend;      // current wind bend amount (for AO in fragment)
 varying float v_patch_factor;   // 0=small/young, 1=tall/old — ties size to color
 
 void vertex() {
 	v_grass_type = INSTANCE_CUSTOM.r;
 	v_path_prox = INSTANCE_CUSTOM.b;
+	v_blade_seed = INSTANCE_CUSTOM.g;
 
 	// Each blade is its own MultiMesh instance. MODEL_MATRIX origin
 	// gives the true per-blade world position.
@@ -114,7 +116,7 @@ void fragment() {
 	}
 
 	float blade_t = v_bottom_to_top;
-	float blade_seed = INSTANCE_CUSTOM.g;  // per-blade random (0-1)
+	float blade_seed = v_blade_seed;
 
 	// Blade roundness is baked into custom split normals from Blender
 	// (cylinder Data Transfer technique). Tips blend toward up for
