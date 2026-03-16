@@ -2,8 +2,11 @@
 # Full-geometry grass (hexaquo method). Each blade is its own MultiMesh
 # instance. Patchiness, color, wind, AO all driven by the shader.
 #
-# Single layer of individual blades at 400/m² (hexaquo density).
-# Positions from ground_cover_instances.bin, expanded to blades per chunk.
+# Blades are scattered uniformly within each chunk, filtered by the world
+# atlas (surface==1 = grass). No grid expansion — positions are truly
+# random, eliminating grid artifacts. Type and path proximity come from
+# the pre-baked cell lookup.
+#
 # 4 blade meshes: Lawn (4 tris), Wild (8), Shade (6), Sedge (6).
 
 var _loader
@@ -14,8 +17,8 @@ var _active_chunks: Dictionary = {}       # "bt|cx|cz" -> MultiMeshInstance3D
 var _last_camera_chunk := Vector2i(-9999, -9999)
 
 const CHUNK := 10.0
-const BLADES_PER_M2 := 400.0
-const CELL_HALF := 0.61             # half grid spacing (stride 2 × 0.6104m cell)
+const BLADES_PER_M2 := 600.0      # higher density for short lawn grass
+const CELL_SIZE := 1.22            # grid cell size from pipeline (stride 2)
 const VIS_RANGE := 18.0
 const LOAD_RANGE := 25.0
 const UNLOAD_RANGE := 35.0
@@ -54,7 +57,7 @@ func _build_grass() -> void:
 		print("Grass: no blade meshes — run make_blade_mesh.py in Blender")
 		return
 
-	# Load prebaked positions and organize by chunk
+	# Load prebaked positions (used as type/prox lookup, not blade placement)
 	var instances: Array = _load_binary("res://ground_cover_instances.bin", 0x47524332)
 	if instances.is_empty():
 		print("Grass: no ground cover instances — run convert_to_godot.py")
@@ -77,10 +80,9 @@ func _build_grass() -> void:
 			"type": type_arr[i], "prox": prox_arr[i]
 		})
 
-	print("Grass: %d positions in %d chunks (%.0fms)" % [
+	print("Grass: %d cell positions in %d chunks (%.0fms)" % [
 		x_arr.size(), _positions_by_chunk.size(), Time.get_ticks_msec() - t0])
 
-	# Build initial chunks near spawn
 	_update_chunks_near(Vector3(-480, 0, 1020))
 
 
@@ -145,20 +147,50 @@ func _build_chunk(ck: String) -> void:
 	if positions.is_empty():
 		return
 
-	var grid_area: float = positions.size() * 1.49  # each grid pos covers ~1.49m²
-	var target_blades := int(grid_area * BLADES_PER_M2 / positions.size())
-	var blades_per_pos := clampi(target_blades, 10, 800)
+	var ck_parts: PackedStringArray = ck.split("|")
+	var chunk_x: float = float(ck_parts[0]) * CHUNK
+	var chunk_z: float = float(ck_parts[1]) * CHUNK
+
+	# Build cell lookup: cell_key -> {type, prox}
+	# Used for type/prox only — blade positions are NOT derived from this.
+	var cell_lookup: Dictionary = {}
+	for p in positions:
+		var lx: int = int((p["x"] - chunk_x) / CELL_SIZE)
+		var lz: int = int((p["z"] - chunk_z) / CELL_SIZE)
+		cell_lookup[lx * 256 + lz] = p
+
+	# Target blade count based on grass coverage in this chunk
+	var grass_area: float = positions.size() * CELL_SIZE * CELL_SIZE
+	var target: int = int(grass_area * BLADES_PER_M2)
+
+	# Deterministic RNG per chunk
+	var rng := RandomNumberGenerator.new()
+	rng.seed = (int(ck_parts[0]) * 73856093 + int(ck_parts[1]) * 19349669) & 0x7FFFFFFF
 
 	var by_type: Dictionary = {}
-	var rng := RandomNumberGenerator.new()
+	var placed := 0
 
-	for pos_data in positions:
-		var wx: float = pos_data["x"]
-		var wz: float = pos_data["z"]
-		var wy: float = pos_data["y"]
-		var orig_type: int = pos_data["type"]
-		var prox: int = pos_data["prox"]
-		var path_prox: float = float(prox) / 255.0
+	# Scatter uniformly across chunk, filter by world atlas
+	for _i in int(target * 1.5):  # oversample to compensate for rejection
+		if placed >= target:
+			break
+		var bx: float = chunk_x + rng.randf() * CHUNK
+		var bz: float = chunk_z + rng.randf() * CHUNK
+
+		# Atlas check: only place on grass (surface type 1)
+		if _loader._atlas_surface(bx, bz) != 1:
+			continue
+
+		# Look up type and path_prox from nearest cell
+		var lx: int = int((bx - chunk_x) / CELL_SIZE)
+		var lz: int = int((bz - chunk_z) / CELL_SIZE)
+		var cell_key: int = lx * 256 + lz
+
+		var orig_type: int = 9  # default: OpenLawn
+		var path_prox: float = 0.0
+		if cell_lookup.has(cell_key):
+			orig_type = cell_lookup[cell_key]["type"]
+			path_prox = float(cell_lookup[cell_key]["prox"]) / 255.0
 
 		var blade_type: int = 0
 		if orig_type < TYPE_TO_BLADE.size():
@@ -166,25 +198,23 @@ func _build_chunk(ck: String) -> void:
 		if blade_type >= _blade_meshes.size() or _blade_meshes[blade_type] == null:
 			continue
 
-		rng.seed = int(abs(wx) * 73856.0 + abs(wz) * 19349.0) & 0x7FFFFFFF
+		# Height from heightmap (exact terrain match)
+		var wy: float = _loader._terrain_y(bx, bz)
+
+		var y_rot: float = rng.randf() * TAU
+		var h_scale: float = rng.randf_range(0.7, 1.3)
+		if path_prox > 0.1:
+			h_scale *= lerpf(1.0, 0.4, path_prox)
 
 		if not by_type.has(blade_type):
 			by_type[blade_type] = {"xf": [], "cd": []}
 
-		for _b in blades_per_pos:
-			var bx: float = wx + rng.randf_range(-CELL_HALF, CELL_HALF)
-			var bz: float = wz + rng.randf_range(-CELL_HALF, CELL_HALF)
-			var y_rot: float = rng.randf() * TAU
-			var h_scale: float = rng.randf_range(0.7, 1.3)
-			if path_prox > 0.1:
-				h_scale *= lerpf(1.0, 0.4, path_prox)
+		var basis := Basis(Vector3.UP, y_rot).scaled(Vector3(1.0, h_scale, 1.0))
+		by_type[blade_type]["xf"].append(Transform3D(basis, Vector3(bx, wy, bz)))
+		by_type[blade_type]["cd"].append(Color(float(orig_type), rng.randf(), path_prox, 0.0))
+		placed += 1
 
-			var basis := Basis(Vector3.UP, y_rot).scaled(Vector3(1.0, h_scale, 1.0))
-			var tf := Transform3D(basis, Vector3(bx, wy, bz))
-
-			by_type[blade_type]["xf"].append(tf)
-			by_type[blade_type]["cd"].append(Color(float(orig_type), rng.randf(), path_prox, 0.0))
-
+	# Create MultiMesh per blade type
 	for blade_type in by_type:
 		var data: Dictionary = by_type[blade_type]
 		var xf_list: Array = data["xf"]
