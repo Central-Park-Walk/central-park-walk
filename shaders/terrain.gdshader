@@ -183,16 +183,57 @@ void fragment() {
 		grass_alb *= 0.75;
 	}
 
-	// Terrain under grass is dark — shadowed by the blades above (hexaquo).
-	// This matches the self-shadowed grass blade bases so the visibility
-	// boundary between 3D grass and terrain is invisible.
-	vec3 grass_ground = vec3(0.02, 0.04, 0.02);  // dark shadowed ground under grass
-	vec3 lawn_green = vec3(0.05, 0.12, 0.04);    // mid-distance green (impostor)
-	// Close up: dark ground shows between blades. At distance: green impostor.
-	float impostor_t = smoothstep(8.0, 20.0, cam_dist);
-	vec3 grass_target = mix(grass_ground, lawn_green, impostor_t);
-	float green_blend = is_grass_zone ? 0.80 : (is_woodland ? 0.50 : 0.10);
-	grass_alb = mix(grass_alb, grass_target, green_blend);
+	// --- Hexaquo grass impostor ---
+	// Replicates the blade shader's appearance on the terrain surface so
+	// chunks loading/unloading on top is invisible. Same noise functions,
+	// color palette, and wind logic as grass_blade.gdshader.
+	vec3 grass_ground = vec3(0.02, 0.04, 0.02);  // dark ground between blade bases
+	float green_blend = is_grass_zone ? 0.85 : (is_woodland ? 0.55 : 0.10);
+
+	if (is_grass_zone || is_woodland) {
+		// Patchiness: same world-space noise and colors as blade shader
+		float patch = vnoise(world_pos.xz / 3.0);
+		vec3 color_small = vec3(0.12, 0.28, 0.06);  // deep fresh green (match blade shader)
+		vec3 color_large = vec3(0.30, 0.40, 0.12);  // older yellow-green (match blade shader)
+		vec3 imp_col = mix(color_small, color_large, patch);
+
+		// View angle: steep = see blade tips (brighter), top-down = see ground (darker)
+		vec3 view_dir = normalize(INV_VIEW_MATRIX[3].xyz - world_pos);
+		float normal_to_view = 1.0 - max(dot(view_dir, terrain_n), 0.0);
+		imp_col = mix(imp_col, color_large, normal_to_view * 0.4);
+
+		// Wind AO: gusts darken the impostor (same wind_vec as blade shader)
+		float wind_str = length(wind_vec);
+		vec2 wind_pos = world_pos.xz * 0.1 - wind_vec * TIME * 0.1;
+		float wind_bend = vnoise(wind_pos) * wind_str;
+
+		// AO simulation: high-frequency noise mimics blade self-shadowing
+		float ao_noise = vnoise(world_pos.xz * 0.8);
+		float btt_sim = ao_noise + smoothstep(0.6, 1.0, normal_to_view) * 0.4;
+		float ao = mix(0.5, 1.0, btt_sim) - wind_bend * 0.3;
+		imp_col *= clamp(ao, 0.3, 1.0);
+
+		// Ground spots: from above, bare ground shows between blades
+		float spots = vnoise(world_pos.xz * 2.0);
+		float spottiness = (1.0 - normal_to_view) * 0.5 - patch * 0.2;
+		float ground_show = smoothstep(spottiness + 0.1, spottiness - 0.1, spots);
+		imp_col = mix(imp_col, grass_ground, ground_show);
+
+		// Woodland: darker, browner floor
+		if (is_woodland) {
+			imp_col *= vec3(0.6, 0.7, 0.5);
+		}
+
+		// Distance blend: dark ground close (under blades) → impostor at distance
+		float impostor_t = smoothstep(8.0, 20.0, cam_dist);
+		vec3 grass_target = mix(grass_ground, imp_col, impostor_t);
+		grass_alb = mix(grass_alb, grass_target, green_blend);
+	} else {
+		// Non-grass zones: minimal green blend
+		float impostor_t = smoothstep(8.0, 20.0, cam_dist);
+		vec3 grass_target = mix(grass_ground, vec3(0.05, 0.12, 0.04), impostor_t);
+		grass_alb = mix(grass_alb, grass_target, green_blend);
+	}
 
 	// Distance-based darkening + aerial perspective.
 	// Far grass darkens (blade highlights average out, self-shadowing).
@@ -667,6 +708,15 @@ void fragment() {
 	ROUGHNESS       = grass_rgh;
 	SPECULAR        = max(0.15, rock_specular);
 	METALLIC        = 0.0;
+
+	// Grass impostor material: blend toward blade shader values at distance
+	// so the transition from 3D blades to impostor terrain is seamless
+	if (is_grass_zone) {
+		float imp_mat_t = smoothstep(15.0, 25.0, cam_dist) * green_blend;
+		ROUGHNESS = mix(ROUGHNESS, 0.4, imp_mat_t);
+		SPECULAR = mix(SPECULAR, 0.2, imp_mat_t);
+		BACKLIGHT = vec3(0.2) * imp_mat_t;  // blade translucency
+	}
 
 	// --- Rain wetness: darken surfaces, lower roughness, increase specular ---
 	if (rain_wetness > 0.01) {
