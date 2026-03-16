@@ -13,7 +13,7 @@ Every tree has a real measured height. Every path follows its real-world geometr
 *Rain on the Conservatory Water. Real-time weather with animated surface ripples, atmospheric fog, and city silhouette.*
 
 ![Winter Snow — Sheep Meadow](screenshots/sheep_meadow_winter_noon.png)
-*Sheep Meadow under snow. Full day/night cycle with seasonal atmosphere and DEM/DSM hybrid terrain at 0.61m resolution.*
+*Sheep Meadow under snow. Full day/night cycle with seasonal atmosphere and LiDAR DEM terrain at 0.61m resolution.*
 
 ![Autumn Dusk — Under the Canopy](screenshots/skyline_autumn_dusk.png)
 *Autumn dusk beneath the elms. Per-species fall colors, dappled canopy shade, and the Manhattan skyline through 6,557 buildings.*
@@ -83,14 +83,14 @@ python3 convert_to_godot.py
 
 | Feature | Count | Source |
 |---------|-------|--------|
-| Terrain | 8192×8192 mesh (14M verts) | DEM/DSM hybrid LiDAR 2017 (1ft resolution, 0.61m cells) — bare earth DEM under buildings/bridges, structure-enhanced DSM elsewhere reveals rock outcrops, retaining walls, natural stone steps. 3D path mesh strips from OSM polylines (2,624 paths). Granite curb faces along 2,173 paved path edges (316K verts) — height from LiDAR grade change. 250 stone staircases with iron handrails. 1,909 retaining wall segments along steep grade changes. Dappled canopy shade from tree census crown data (2K coverage map, wind-animated) |
+| Terrain | 8192×8192 mesh (14M verts) | LiDAR DEM bare earth 2017 (1ft resolution, 0.61m cells). Buildings are separate 3D models — terrain is pure ground surface with no structure heights (AAA approach). Terrain mesh holes at terrain-integrated structures (Bethesda Terrace) filled by dedicated 3D models. 3D path mesh strips from OSM polylines (2,624 paths). Granite curb faces along 2,173 paved path edges (316K verts) — height from LiDAR grade change. 1,909 retaining wall segments along steep grade changes. Dappled canopy shade from tree census crown data (2K coverage map, wind-animated) |
 | Trees | ~9,300 | NYC Tree Census + OSM + woodland scatter in 12 ecological zones. 17 custom Blender models: 15 species (oak, elm, maple, birch, cherry, ginkgo, honeylocust, linden, london plane, callery pear, pine, willow, magnolia) + generic deciduous + standing dead snag. Per-species summer leaf colors + fall colors + phenology. Cherry blossom + callery pear + magnolia spring bloom. 5 species-specific bark textures (birch lenticels, london plane mottled exfoliation, pine scaled plates). Frost sparkle, morning dew |
 | Water | 23 bodies + 10 streams | OpenStreetMap polygons. Dappled canopy shade on water under trees. Stone coping on formal water bodies (Conservatory Water, Harlem Meer, Turtle Pond). Dawn/dusk mist (8 localized fog volumes) |
 | Buildings | 6,557 | NYC Building Footprints + LiDAR heights. 5 facade material types (limestone, brick, concrete, glass/granite, cream) with per-building hash variation, floor-height-accurate windows, cornice bands, awnings, grime weathering |
 | Bridges & Arches | 17 models | Custom Blender models for all named structures: Bow Bridge (cast iron), Gapstow (schist), Huddlestone (cyclopean boulders), Glen Span (tall gneiss), Trefoil (dual Gothic/round profile), Oak Bridge (steel+oak), Eaglevale (double arch), Winterdale (largest stone span), plus 9 more. Each modeled from documented dimensions and materials |
 | Perimeter | 4.8 km wall + 19 gates | Manhattan schist wall (1.17m×0.45m, batted cap) from boundary polygon. Gate openings where paths cross boundary. Paired dressed granite pillars (2.4m, capstone) at each gate. Named gate labels (Merchants', Scholars', Engineers', etc.) |
 | Barriers | 364 features | Stone walls, iron fence panels (MultiMesh + cast iron shader), hedges (seasonal foliage shader), Reservoir perimeter fence (864 sections), bridle path posts (2,990). ConcavePolygonShape3D collision |
-| Landmarks | 39 models | Bethesda Terrace + Arcade, Belvedere Castle, Swedish Cottage, The Dairy, Chess & Checkers House, Loeb Boathouse, Delacorte Theater, Tavern on the Green, Wollman Rink, Dana Discovery Center, Gate Houses, SummerStage, Carousel, Blockhouse No. 1, Cop Cot, Arsenal, Central Park Zoo, Naumburg Bandshell, Lasker Rink, Vanderbilt Gate, Wisteria Pergola, Mineral Springs Pavilion, Central Park Precinct, Fort Clinton, Ladies' Pavilion, Cherry Hill Fountain, North Meadow Rec Center, Summerhouse, Kerbs Model Boathouse, Imagine Mosaic, Columbus Circle Kiosk, Tennis House, Maintenance Yard, Dana Pier, Delacorte Musical Clock, 4 stone weirs, 6 rustic bridges, 3 boat landings, 30 comfort stations |
+| Landmarks | 39 models | Bethesda Terrace (terrain-integrated tunnel with arcade vault, grand staircases, facades — built from LiDAR heightmap measurements and OSM path data), Belvedere Castle, Swedish Cottage, The Dairy, Chess & Checkers House, Loeb Boathouse, Delacorte Theater, Tavern on the Green, Wollman Rink, Dana Discovery Center, Gate Houses, SummerStage, Carousel, Blockhouse No. 1, Cop Cot, Arsenal, Central Park Zoo, Naumburg Bandshell, Lasker Rink, Vanderbilt Gate, Wisteria Pergola, Mineral Springs Pavilion, Central Park Precinct, Fort Clinton, Ladies' Pavilion, Cherry Hill Fountain, North Meadow Rec Center, Summerhouse, Kerbs Model Boathouse, Imagine Mosaic, Columbus Circle Kiosk, Tennis House, Maintenance Yard, Dana Pier, Delacorte Musical Clock, 4 stone weirs, 6 rustic bridges, 3 boat landings, 30 comfort stations |
 | Dog runs | 3 fenced areas | Chain-link fence sections (241 panels) around Bull Moose, West 87th St, and East Side dog runs from OSM polygons |
 | Furniture | 2,000+ | Lampposts (201), benches (610), trash cans (166), drive waste bins (291), drinking fountains (95), decorative fountains (Untermyer, Burnett), flagpoles (18), water towers (45), iron fences (207 segments), park signs (80), garden borders (28), bollards (75), emergency call boxes (133), info kiosks (13), mile markers (366), fitness stations (12), balustrades (37) |
 | Statues | 106 positions | 4 photogrammetry scans + 32 named Blender GLBs (Cleopatra's Needle, Balto, Shakespeare, Burns, Scott, Halleck, Indian Hunter, Hamilton, Columbus, 107th Infantry, 7th Regiment, Humboldt, Still Hunt, Bolívar, Jagiello, Ellington, Falconer, Morse, Martí, San Martín, Bears, Romeo & Juliet, Joan of Arc, Beethoven, Webster, Pilgrim, Mazzini, Verdi, Women's Rights, Eagles & Prey, Hans Christian Andersen, Alice in Wonderland) + stone pedestals, rest labeled |
@@ -113,7 +113,7 @@ All data is freely available. No paid APIs. No API keys.
 
 | Source | What It Provides | License |
 |--------|-----------------|---------|
-| [NYC LiDAR (2017)](https://gis.ny.gov/elevation/lidar-coverage) | 1ft terrain elevation | Public Domain |
+| [NYC LiDAR (2017)](https://gis.ny.gov/elevation/lidar-coverage) | 1ft terrain elevation (DEM bare earth) | Public Domain |
 | [NYC 6M Trees](https://data.cityofnewyork.us/Environment/2015-Street-Tree-Census-Tree-Data/uvpi-gqnh) | Tree positions, heights, crown areas | Public Domain |
 | [OpenStreetMap](https://www.openstreetmap.org/) | Paths, water, buildings, bridges, furniture | ODbL |
 | [NYC Tree Census](https://data.cityofnewyork.us/) | Species, diameter for park trees | Public Domain |
@@ -125,7 +125,7 @@ All data is freely available. No paid APIs. No API keys.
 
 This project grows with human attention.
 
-**No coding required**: Map furniture in OSM (only ~10% of real lampposts/benches are mapped). Take photogrammetry scans of statues (4 of 106 scanned). Record field audio. Photograph landmarks and materials. Map rock outcrops (~170 named, 1 in OSM).
+**No coding required**: Map furniture in OSM (only ~10% of real lampposts/benches are mapped). Take photogrammetry scans of statues (4 of 106 scanned) or landmarks (Bethesda Terrace, Bow Bridge, Belvedere Castle). Record field audio. Photograph landmarks and materials. Map rock outcrops (~170 named, 1 in OSM). Close-range drone or terrestrial LiDAR of architectural detail is especially valuable — the city-wide 2017 capture at 8 pts/m² gives terrain but can't resolve ironwork, carved stone, or arcade interiors.
 
 **Technical**: 17 custom Blender tree models (all species-specific). Interior spaces. Performance profiling. Cross-platform support.
 
