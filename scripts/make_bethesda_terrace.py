@@ -41,6 +41,8 @@ sandstone  = make_mat("Sandstone",  (0.72, 0.65, 0.52), 0.85)
 vault_tile = make_mat("VaultTile",  (0.82, 0.72, 0.55), 0.55)
 stair_mat  = make_mat("StairStone", (0.60, 0.56, 0.48), 0.82)
 brownstone = make_mat("Brownstone", (0.42, 0.32, 0.24), 0.80)
+# Surface material — matches grass terrain color for blending at hole edges
+grass_mat  = make_mat("GrassSurface", (0.12, 0.18, 0.06), 0.95)
 
 # ══════════════════════════════════════════════════════════════════
 # LOAD HEIGHTMAP — DEM bare earth for edge matching
@@ -167,7 +169,7 @@ surface_mesh.from_pydata(surface_verts, [], surface_faces)
 surface_mesh.update()
 surface_obj = bpy.data.objects.new("TerraceSurface", surface_mesh)
 bpy.context.collection.objects.link(surface_obj)
-surface_obj.data.materials.append(sandstone)
+surface_obj.data.materials.append(grass_mat)
 
 print(f"  Surface: {len(surface_verts)} verts, {len(surface_faces)} faces")
 
@@ -291,6 +293,88 @@ slab_top = 6.0  # level drop
 if slab_top > slab_bot:
     box("road_slab", arcade_cx, arcade_cy, (slab_bot + slab_top) / 2,
         half_aw + 0.8, hl, (slab_top - slab_bot) / 2, sandstone)
+
+# ══════════════════════════════════════════════════════════════════
+# FACADE WALLS — north (3 through-arches) and south (5 bays)
+# These are the defining visual features of Bethesda Terrace
+# ══════════════════════════════════════════════════════════════════
+
+# Arcade direction: perpendicular to the wall-to-wall line
+# Wall peaks: west (-484, 997), east (-462, 1004)
+# The arcade runs PERPENDICULAR to this line
+wall_dx = arcade_e_bx - arcade_w_bx
+wall_dy = arcade_e_by - arcade_w_by
+# Perpendicular direction (arcade tunnel direction) in Blender
+tunnel_dx = -wall_dy / arcade_width  # normalized perpendicular
+tunnel_dy = wall_dx / arcade_width
+
+# North facade (fountain side) — 3 through-arches
+# Position: arcade_cy - hl (north end of tunnel)
+n_face_y = arcade_cy - hl
+FACADE_T = 0.8  # wall thickness
+
+# Build north facade as solid wall, then we'd cut arches (simplified: just piers between arches)
+# 3 arches: center wider, two sides narrower
+# Arch positions along the wall (in wall-direction, i.e. model X roughly)
+# Center arch: center_r * 2 = CENTER_W wide
+# Side arches: side_vr * 2 = SIDE_VW wide
+# Piers between: COL_R * 2 + 0.3 ≈ 0.7m
+
+pier_positions_x = [
+    arcade_cx - half_aw,                              # far left pier
+    arcade_cx - (center_r + COL_R + 0.15),            # left of center
+    arcade_cx + (center_r + COL_R + 0.15),            # right of center
+    arcade_cx + half_aw,                              # far right pier
+]
+
+for face_side, face_y in [(-1, n_face_y), (1, arcade_cy + hl)]:
+    face_label = "north" if face_side == -1 else "south"
+    # Wall above the arches (spandrel)
+    spandrel_bot = VAULT_H * 0.85  # above arch crowns
+    spandrel_top = 6.0
+    if spandrel_top > spandrel_bot:
+        box(f"spandrel_{face_label}", arcade_cx, face_y, (spandrel_bot + spandrel_top) / 2,
+            half_aw + 0.8, FACADE_T / 2, (spandrel_top - spandrel_bot) / 2, sandstone)
+
+    # Piers between arches
+    pier_h = VAULT_H * 0.7  # pier height (up to where arches spring)
+    for pi, px in enumerate(pier_positions_x):
+        box(f"pier_{face_label}_{pi}", px, face_y, pier_h / 2,
+            0.35, FACADE_T / 2, pier_h / 2, brownstone)
+        # Pier capital
+        box(f"cap_{face_label}_{pi}", px, face_y, pier_h + 0.08,
+            0.42, FACADE_T / 2 + 0.05, 0.08, brownstone)
+
+    # Cornice band at springing line
+    box(f"cornice_{face_label}", arcade_cx, face_y, pier_h + 0.16,
+        half_aw + 1.0, FACADE_T / 2 + 0.1, 0.06, brownstone)
+
+# ══════════════════════════════════════════════════════════════════
+# BALUSTRADE on upper platform edges (north and south)
+# ══════════════════════════════════════════════════════════════════
+BAL_H = 0.9
+BAL_RAIL = 0.08
+upper_z = 6.0
+
+# North balustrade (looking over the stairs/arcade)
+# Extends across the full terrace width, with gaps for stairs
+n_bal_y = arcade_cy - hl - 0.5  # just north of arcade
+box("bal_north_rail", arcade_cx, n_bal_y, upper_z + BAL_H - BAL_RAIL / 2,
+    half_aw + 2.0, BAL_RAIL, BAL_RAIL / 2, sandstone)
+# Balustrade posts
+for bi in range(12):
+    bx = arcade_cx - half_aw - 1.5 + bi * (arcade_width + 3.0) / 11
+    box(f"bal_n_post_{bi}", bx, n_bal_y, upper_z + BAL_H / 2,
+        0.1, 0.08, BAL_H / 2, brownstone)
+
+# South balustrade
+s_bal_y = arcade_cy + hl + 0.5
+box("bal_south_rail", arcade_cx, s_bal_y, upper_z + BAL_H - BAL_RAIL / 2,
+    half_aw + 2.0, BAL_RAIL, BAL_RAIL / 2, sandstone)
+for bi in range(12):
+    bx = arcade_cx - half_aw - 1.5 + bi * (arcade_width + 3.0) / 11
+    box(f"bal_s_post_{bi}", bx, s_bal_y, upper_z + BAL_H / 2,
+        0.1, 0.08, BAL_H / 2, brownstone)
 
 # ══════════════════════════════════════════════════════════════════
 # FINALIZE
