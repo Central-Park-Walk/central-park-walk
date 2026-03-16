@@ -18,7 +18,6 @@ varying float v_bottom_to_top;  // 0 at base, 1 at tip
 varying vec3 v_world_blade;     // per-BLADE world position (not tile center)
 varying float v_path_prox;
 varying float v_blade_seed;     // per-blade random (0-1) for hue variation
-varying float v_flower;         // 0=grass, 0.1=clover, 0.2=dandelion, 0.3=violet, 0.4=buttercup
 varying float v_wind_bend;      // current wind bend amount (for AO in fragment)
 varying float v_patch_factor;   // 0=small/young, 1=tall/old — ties size to color
 
@@ -26,7 +25,6 @@ void vertex() {
 	v_grass_type = INSTANCE_CUSTOM.r;
 	v_path_prox = INSTANCE_CUSTOM.b;
 	v_blade_seed = INSTANCE_CUSTOM.g;
-	v_flower = INSTANCE_CUSTOM.a;
 
 	// Each blade is its own MultiMesh instance. MODEL_MATRIX origin
 	// gives the true per-blade world position.
@@ -188,20 +186,6 @@ void fragment() {
 	// Dry blade tips: ~30% of blades get subtle yellowed tips
 	float dry_tip = smoothstep(0.75, 1.0, blade_t) * step(0.7, blade_seed);
 	col = mix(col, col * vec3(1.08, 1.02, 0.80), dry_tip * 0.15);
-
-	// --- Wildflowers: override blade tip color for flower blades ---
-	// Only the upper half of the blade shows flower color (base stays green)
-	if (v_flower > 0.05 && blade_t > 0.4) {
-		float flower_t = smoothstep(0.4, 0.7, blade_t);  // gradual green→flower
-		vec3 flower_col = vec3(0.85, 0.88, 0.82);  // default: white clover
-		if (v_flower > 0.15) flower_col = vec3(0.90, 0.78, 0.15);  // dandelion yellow
-		if (v_flower > 0.25) flower_col = vec3(0.45, 0.25, 0.65);  // violet purple
-		if (v_flower > 0.35) flower_col = vec3(0.92, 0.82, 0.12);  // buttercup gold
-
-		// Spring/summer only — flowers die off in autumn
-		float flower_season = smoothstep(0.3, 0.8, season_t) * (1.0 - smoothstep(2.2, 2.8, season_t));
-		col = mix(col, flower_col, flower_t * flower_season);
-	}
 
 	// --- AO: self-shadowing + wind darkening (hexaquo) ---
 	float ao = blade_t - v_wind_bend * 0.3;

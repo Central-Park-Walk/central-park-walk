@@ -7,6 +7,7 @@
 
 var _loader
 var _blade_meshes: Array = []
+var _flower_meshes: Array = []   # [Clover, Dandelion, Violet, Buttercup]
 var _grass_shader: Shader
 # Flat arrays from binary file (~10MB total vs 429MB of per-position Dicts)
 var _pos_x: PackedFloat32Array
@@ -40,6 +41,8 @@ const UNLOAD_RANGE := 50.0
 const UPDATE_DIST := 1.0
 
 const BLADE_NAMES: Array = ["Blade_Lawn", "Blade_Wild", "Blade_Shade", "Blade_Sedge"]
+const FLOWER_NAMES: Array = ["Flower_Clover", "Flower_Dandelion", "Flower_Violet", "Flower_Buttercup"]
+const FLOWER_CHANCE := 0.03        # 3% of lawn blades become flowers
 const TYPE_TO_BLADE: Array = [0, 0, 0, 0, 0, 2, 2, 3, 1, 0]
 
 
@@ -53,12 +56,19 @@ func _build_grass() -> void:
 
 	for bname in BLADE_NAMES:
 		_blade_meshes.append(_load_blade_model(bname))
+	for fname in FLOWER_NAMES:
+		_flower_meshes.append(_load_blade_model(fname))
 
 	var loaded := 0
 	for m in _blade_meshes:
 		if m != null: loaded += 1
 	if loaded == 0:
 		print("Grass: no blade meshes"); return
+	var flowers_loaded := 0
+	for m in _flower_meshes:
+		if m != null: flowers_loaded += 1
+	print("Grass: %d/%d blade meshes, %d/%d flower meshes" % [
+		loaded, BLADE_NAMES.size(), flowers_loaded, FLOWER_NAMES.size()])
 
 	# Cache atlas/heightmap refs for inline lookups
 	_atlas_data = _loader._atlas_data
@@ -173,7 +183,7 @@ func _flush_queue(pos: Vector3) -> void:
 
 
 func _chunk_loaded(ck: String) -> bool:
-	for bt in BLADE_NAMES.size():
+	for bt in 8:  # 0-3 blades, 4-7 flowers
 		if _active_chunks.has("%d|%s" % [bt, ck]): return true
 	return false
 
@@ -198,15 +208,15 @@ func _build_chunk(ck: String) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = (int(ck_p[0]) * 73856093 + int(ck_p[1]) * 19349669) & 0x7FFFFFFF
 
-	# Pre-allocate buffers per blade type (16 floats per instance: 12 transform + 4 custom)
+	# Pre-allocate buffers: 4 blade types + 4 flower types (16 floats per instance)
 	var bufs: Array = []
 	var cnts: Array = []
 	var sum_x: Array = []
 	var sum_y: Array = []
 	var sum_z: Array = []
-	for _bt in 4:
+	for _bt in 8:  # 0-3 = blades, 4-7 = flowers
 		var b := PackedFloat32Array()
-		b.resize(target * 16)
+		b.resize(target * 16 if _bt < 4 else int(target * FLOWER_CHANCE * 2) * 16)
 		bufs.append(b)
 		cnts.append(0)
 		sum_x.append(0.0); sum_y.append(0.0); sum_z.append(0.0)
@@ -244,8 +254,17 @@ func _build_chunk(ck: String) -> void:
 			ot = _pos_type[ci]
 			pp = float(_pos_prox[ci]) / 255.0
 
+		# Determine if this is a flower or a grass blade
+		var is_flower := false
 		var bt: int = TYPE_TO_BLADE[ot] if ot < TYPE_TO_BLADE.size() else 0
 		if bt >= _blade_meshes.size() or _blade_meshes[bt] == null: continue
+
+		# 3% of lawn-type blades become flowers (spring/summer handled in shader)
+		if (ot <= 4 or ot == 9) and rng.randf() < FLOWER_CHANCE:
+			var fi: int = rng.randi_range(0, 3)  # random flower type
+			if fi < _flower_meshes.size() and _flower_meshes[fi] != null:
+				bt = 4 + fi  # flower buffer index (4-7)
+				is_flower = true
 
 		# Inline heightmap (barycentric)
 		var xi: float = (bx + hh) / hws * (hw - 1)
@@ -265,14 +284,6 @@ func _build_chunk(ck: String) -> void:
 		if pp > 0.1: hs *= lerpf(1.0, 0.4, pp)
 		var rs: float = rng.randf()
 
-		# Wildflower flag: ~3% of lawn blades become flowers
-		# 0.0=grass, 0.1=white clover, 0.2=dandelion, 0.3=violet, 0.4=buttercup
-		var flower: float = 0.0
-		if ot <= 4 or ot == 9:  # lawn types only
-			if rs < 0.03:  # 3% chance (rs is the blade seed)
-				var ftype: float = fmod(rs * 1000.0, 4.0)
-				flower = (floorf(ftype) + 1.0) * 0.1  # 0.1, 0.2, 0.3, or 0.4
-
 		# Direct buffer write (no Transform3D/Color objects)
 		var cr: float = cos(yr)
 		var sr: float = sin(yr)
@@ -282,16 +293,22 @@ func _build_chunk(ck: String) -> void:
 		buf[o] = cr; buf[o+1] = 0.0; buf[o+2] = sr; buf[o+3] = bx
 		buf[o+4] = 0.0; buf[o+5] = hs; buf[o+6] = 0.0; buf[o+7] = wy
 		buf[o+8] = -sr; buf[o+9] = 0.0; buf[o+10] = cr; buf[o+11] = bz
-		buf[o+12] = float(ot); buf[o+13] = rs; buf[o+14] = pp; buf[o+15] = flower
+		buf[o+12] = float(ot); buf[o+13] = rs; buf[o+14] = pp; buf[o+15] = 0.0
 		cnts[bt] = idx + 1
 		sum_x[bt] += bx; sum_y[bt] += wy; sum_z[bt] += bz
 		placed += 1
 
-	# Create MultiMesh per blade type
-	for bt in 4:
+	# Create MultiMesh per type (0-3 = blades, 4-7 = flowers)
+	for bt in 8:
 		var c: int = cnts[bt]
 		if c == 0: continue
-		if _blade_meshes[bt] == null: continue
+		var mesh: Mesh
+		if bt < 4:
+			if _blade_meshes[bt] == null: continue
+			mesh = _blade_meshes[bt]
+		else:
+			if _flower_meshes[bt - 4] == null: continue
+			mesh = _flower_meshes[bt - 4]
 
 		var buf: PackedFloat32Array = bufs[bt]
 		var ox: float = sum_x[bt] / float(c)
@@ -307,7 +324,7 @@ func _build_chunk(ck: String) -> void:
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.use_custom_data = true
-		mm.mesh = _blade_meshes[bt]
+		mm.mesh = mesh
 		mm.instance_count = c
 		mm.buffer = buf  # bulk set — much faster than per-instance calls
 
