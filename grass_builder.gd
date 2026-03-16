@@ -218,8 +218,10 @@ func _build_layer_mapped(instances: Array, meshes: Array, vis_ranges: Array,
 			path_prox = 0.0
 
 		var y_rot := rng.randf() * TAU
-		var s_xz := rng.randf_range(0.85, 1.25)  # less scale variation for carpet
-		var s_y := rng.randf_range(0.80, 1.10)
+		// Tiles are grid-matched squares — scale must stay near 1.0 or
+		// gaps/overlaps make tile boundaries visible.
+		var s_xz := rng.randf_range(0.97, 1.03)
+		var s_y := rng.randf_range(0.97, 1.03)
 		if path_prox > 0.1:
 			s_y *= lerpf(1.0, 0.40, path_prox)  # more trampled near paths
 		var basis := Basis(Vector3.UP, y_rot).scaled(Vector3(s_xz, s_y, s_xz))
