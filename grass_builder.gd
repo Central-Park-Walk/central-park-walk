@@ -45,7 +45,7 @@ const BLADE_NAMES: Array = ["Blade_Lawn", "Blade_Wild", "Blade_Shade", "Blade_Se
 const FLOWER_NAMES: Array = [
 	"Flower_Clover", "Flower_Dandelion", "Flower_Violet", "Flower_Buttercup",
 	"Flower_Crocus", "Flower_Daffodil", "Flower_Goldenrod", "Flower_Aster"]
-const FLOWER_CHANCE := 0.03        # 3% of lawn blades become flowers
+const FLOWER_CHANCE := 0.06        # base chance, modulated by clustering noise
 const TYPE_TO_BLADE: Array = [0, 0, 0, 0, 0, 2, 2, 3, 1, 0]
 
 
@@ -271,20 +271,26 @@ func _build_chunk(ck: String) -> void:
 		var bt: int = TYPE_TO_BLADE[ot] if ot < TYPE_TO_BLADE.size() else 0
 		if bt >= _blade_meshes.size() or _blade_meshes[bt] == null: continue
 
-		# 3% of lawn-type blades become flowers
-		if (ot <= 4 or ot == 9) and rng.randf() < FLOWER_CHANCE:
-			# Build list of active flower types for current season
+		# Flowers cluster in patches via position-based hash noise.
+		# Only in unmowed/less-maintained grass — not on mowed lawns or sports turf.
+		# Types: 2=NorthMeadow, 7=Waterside, 8=WildMeadow, 9=OpenLawn
+		if ot == 2 or ot == 7 or ot == 8 or ot == 9:
 			var active: Array = []
-			if summer_active:
-				active.append_array([0, 1, 2, 3])  # clover, dandelion, violet, buttercup
-			if spring_active:
-				active.append_array([4, 5])  # crocus, daffodil
-			if fall_active:
-				active.append_array([6, 7])  # goldenrod, aster
+			if summer_active: active.append_array([0, 1, 2, 3])
+			if spring_active: active.append_array([4, 5])
+			if fall_active: active.append_array([6, 7])
 			if not active.is_empty():
-				var fi: int = active[rng.randi_range(0, active.size() - 1)]
-				if fi < _flower_meshes.size() and _flower_meshes[fi] != null:
-					bt = 4 + fi  # flower buffer index
+				# Pick which flower type this position "belongs to"
+				# based on hashed world position — creates stable patches
+				var px_hash: float = fmod(abs(bx * 7.31 + bz * 13.97), float(active.size()))
+				var fi: int = active[int(px_hash)]
+				# Cluster noise: each type clusters at ~4m scale
+				var cn: float = sin(bx * 0.8 + float(fi) * 17.3) * cos(bz * 0.9 + float(fi) * 23.7)
+				cn = cn * 0.5 + 0.5  # 0-1
+				# In cluster centers (cn > 0.6), high flower chance; outside, very low
+				var chance: float = FLOWER_CHANCE * smoothstep(0.5, 0.85, cn)
+				if rng.randf() < chance and fi < _flower_meshes.size() and _flower_meshes[fi] != null:
+					bt = 4 + fi
 					is_flower = true
 
 		# Inline heightmap (barycentric)
