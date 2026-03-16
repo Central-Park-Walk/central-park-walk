@@ -47,13 +47,16 @@ const VIS_RANGES: Array = [
 	70.0,  # open_lawn
 ]
 
-# --- Ground cover layer (4 turf types) ---
+# --- Ground cover layer (4 types × 3 variants each) ---
+# Multiple variants per type with different blade arrangements break repetition.
+# Tiles sit aligned to grid (no rotation) — variety comes from variant mixing.
 const TURF_NAMES: Array = [
 	"Turf_Lawn",    # 0 — mowed lawn carpet
 	"Turf_Wild",    # 1 — wild meadow ground cover
 	"Turf_Shade",   # 2 — woodland floor cover
 	"Turf_Sedge",   # 3 — waterside ground cover
 ]
+const TURF_VARIANTS := 3
 
 # Map detail type (0-9) → turf type (0-3)
 const TYPE_TO_TURF: Array = [
@@ -88,14 +91,18 @@ func _build_grass() -> void:
 
 	var grass_shader: Shader = _loader._get_shader("grass_blade", "res://shaders/grass_blade.gdshader")
 
-	# --- Load ground cover models (4 types) ---
+	# --- Load ground cover models (4 types × 3 variants) ---
+	# turf_meshes[type][variant] — 2D array
 	var turf_meshes: Array = []
 	var turf_loaded := 0
 	for tname in TURF_NAMES:
-		var mesh: Mesh = _load_tile_model(tname, grass_shader)
-		turf_meshes.append(mesh)
-		if mesh != null:
-			turf_loaded += 1
+		var variants: Array = []
+		for v in TURF_VARIANTS:
+			var mesh: Mesh = _load_tile_model("%s_v%d" % [tname, v], grass_shader)
+			variants.append(mesh)
+			if mesh != null:
+				turf_loaded += 1
+		turf_meshes.append(variants)
 
 	if turf_loaded == 0:
 		print("Grass: no turf models found — skipping (run make_ground_cover.py in Blender)")
@@ -199,12 +206,19 @@ func _build_layer_mapped(instances: Array, meshes: Array, vis_ranges: Array,
 		var wz: float = z_arr[i]
 		var orig_type: int = type_arr[i]
 
-		# Map to mesh type
+		# Map to mesh type and pick variant by position hash
 		var mesh_type: int = 0
 		if orig_type < type_map.size():
 			mesh_type = type_map[orig_type]
-		if mesh_type >= meshes.size() or meshes[mesh_type] == null:
+		if mesh_type >= meshes.size():
 			continue
+		# Pick variant by position hash — breaks repetition
+		var variant: int = (int(wx * 73.0 + wz * 37.0) & 0x7FFFFFFF) % TURF_VARIANTS
+		var variant_meshes: Array = meshes[mesh_type]
+		if variant >= variant_meshes.size() or variant_meshes[variant] == null:
+			variant = 0
+			if variant_meshes[0] == null:
+				continue
 
 		rng.seed = int(wx * 99371.0 + wz * 27183.0) & 0x7FFFFFFF
 
@@ -217,27 +231,24 @@ func _build_layer_mapped(instances: Array, meshes: Array, vis_ranges: Array,
 			wy = _loader._terrain_y(wx, wz) + 0.002
 			path_prox = 0.0
 
-		var y_rot := rng.randf() * TAU
-		# Tiles are grid-matched squares — scale near 1.0 to avoid gaps/overlaps
-		var s_xz := rng.randf_range(0.97, 1.03)
+		# No rotation — tiles are grid-aligned squares. Variant mixing provides variety.
 		var s_y := rng.randf_range(0.97, 1.03)
 		if path_prox > 0.1:
-			s_y *= lerpf(1.0, 0.40, path_prox)  # more trampled near paths
-		var basis := Basis(Vector3.UP, y_rot).scaled(Vector3(s_xz, s_y, s_xz))
+			s_y *= lerpf(1.0, 0.40, path_prox)
+		var basis := Basis().scaled(Vector3(1.0, s_y, 1.0))
 		var tf := Transform3D(basis, Vector3(wx, wy, wz))
 
 		var cx := int(floorf(wx / CHUNK))
 		var cz := int(floorf(wz / CHUNK))
-		# Group by mesh_type for rendering, not orig_type
-		var ck := "%d|%d|%d" % [mesh_type, cx, cz]
+		# Group by mesh_type AND variant for rendering
+		var ck := "%d_%d|%d|%d" % [mesh_type, variant, cx, cz]
 		if not chunks.has(ck):
-			chunks[ck] = {"type": mesh_type, "xf": [], "cd": []}
+			chunks[ck] = {"type": mesh_type, "variant": variant, "xf": [], "cd": []}
 		chunks[ck]["xf"].append(tf)
-		# Store original type in custom data so shader colors correctly
 		chunks[ck]["cd"].append(Color(float(orig_type), rng.randf(), path_prox, 0.0))
 		total += 1
 
-	var chunk_count := _emit_multimeshes(chunks, meshes, vis_ranges, prefix)
+	var chunk_count := _emit_multimeshes_variants(chunks, meshes, vis_ranges, prefix)
 	return [total, chunk_count]
 
 
@@ -279,6 +290,58 @@ func _emit_multimeshes(chunks: Dictionary, meshes: Array, vis_ranges: Array, pre
 		mmi.name = "%s_%s" % [prefix, ck.replace("|", "_")]
 		mmi.visibility_range_end = vis_end
 		mmi.visibility_range_end_margin = vis_end * 0.15
+		mmi.visibility_range_begin = 0.0
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_loader.add_child(mmi)
+		chunk_count += 1
+
+	return chunk_count
+
+
+func _emit_multimeshes_variants(chunks: Dictionary, meshes: Array, vis_ranges: Array, prefix: String) -> int:
+	"""Create MultiMeshInstance3D nodes — meshes is 2D [type][variant]."""
+	var chunk_count := 0
+	for ck in chunks:
+		var info: Dictionary = chunks[ck]
+		var gtype: int = info["type"]
+		var variant: int = info["variant"]
+		var xf_list: Array = info["xf"]
+		var cd_list: Array = info["cd"]
+		if xf_list.is_empty():
+			continue
+
+		var mesh: Mesh = meshes[gtype][variant]
+		if mesh == null:
+			mesh = meshes[gtype][0]
+		if mesh == null:
+			continue
+		var vis_end: float = vis_ranges[gtype] if gtype < vis_ranges.size() else 40.0
+
+		var sx := 0.0; var sy := 0.0; var sz := 0.0
+		for tf: Transform3D in xf_list:
+			sx += tf.origin.x
+			sy += tf.origin.y
+			sz += tf.origin.z
+		var n := float(xf_list.size())
+		var chunk_origin := Vector3(sx / n, sy / n, sz / n)
+
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_custom_data = true
+		mm.mesh = mesh
+		mm.instance_count = xf_list.size()
+		for i in xf_list.size():
+			var tf: Transform3D = xf_list[i]
+			mm.set_instance_transform(i, Transform3D(tf.basis, tf.origin - chunk_origin))
+			mm.set_instance_custom_data(i, cd_list[i])
+
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.position = chunk_origin
+		mmi.name = "%s_%s" % [prefix, ck.replace("|", "_")]
+		mmi.visibility_range_end = vis_end
+		mmi.visibility_range_end_margin = vis_end * 0.30  # 30% fade margin
 		mmi.visibility_range_begin = 0.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

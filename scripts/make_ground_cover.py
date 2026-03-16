@@ -297,21 +297,28 @@ for block in bpy.data.meshes:
     if block.users == 0:
         bpy.data.meshes.remove(block)
 
+VARIANTS = 3  # different blade arrangements per type — breaks repetition
+
 print("=" * 60)
-print("Building 4 ground cover tiles — dense AAA blades")
+print(f"Building {len(TURF_TYPES)} × {VARIANTS} ground cover tiles")
 print("=" * 60)
 
 mat = make_turf_material("TurfBlade")
+total = 0
 
 for i, cfg in enumerate(TURF_TYPES):
-    name = cfg["name"]
-    seed = cfg["seed"]
+    base_name = cfg["name"]
+    base_seed = cfg["seed"]
     blades = cfg["blade_count"]
     h_lo, h_hi = cfg["height_range"]
-    print(f"\n[{i+1}/{len(TURF_TYPES)}] {name} ({blades} blades, "
-          f"h={h_lo*100:.1f}-{h_hi*100:.1f}cm, r={cfg['radius']}m)...")
 
-    bm = build_turf_tile(cfg, seed)
-    export_tile(bm, name, mat, cfg)
+    for v in range(VARIANTS):
+        name = f"{base_name}_v{v}"
+        seed = base_seed + v * 1000  # different seed per variant
+        print(f"\n[{total+1}/{len(TURF_TYPES)*VARIANTS}] {name} ({blades} blades)...")
 
-print(f"\nDone. {len(TURF_TYPES)} ground cover tiles exported.")
+        bm = build_turf_tile(cfg, seed)
+        export_tile(bm, name, mat, cfg)
+        total += 1
+
+print(f"\nDone. {total} ground cover tiles exported.")
