@@ -29,17 +29,17 @@ void vertex() {
 
 	v_edge_fade = 0.0;
 
-	// --- Per-instance variation from world-space noise ---
-	// Nature: every grass patch IS different. Continuous noise across tile
-	// boundaries eliminates visible grid. This is the industry-standard
-	// approach (GodotGrass, hexaquo, SimpleGrassTextured all do this).
-	float inst_h = vnoise(origin.xz * 0.5);                    // height variation
-	float inst_clump = vnoise(origin.xz * 0.3 + vec2(42.0));   // clumping density
-	// Height: ±15% — adjacent tiles get nearly the same value (smooth field)
-	VERTEX.y *= 0.85 + inst_h * 0.30;
-	// Clumping: thin out sparse areas by scaling down some instances
-	float clump_scale = smoothstep(0.15, 0.45, inst_clump);
-	VERTEX.xyz *= mix(0.6, 1.0, clump_scale);
+	// --- Per-BLADE variation from world-space noise ---
+	// Sample at each blade's world XZ position (not tile center).
+	// Continuous across tile boundaries — no visible grid.
+	vec2 blade_world_xz = origin.xz + VERTEX.xz;
+	float blade_h_noise = vnoise(blade_world_xz * 0.5);
+	float blade_clump = vnoise(blade_world_xz * 0.25 + vec2(42.0));
+	// Height: ±20% per blade
+	VERTEX.y *= 0.80 + blade_h_noise * 0.40;
+	// Clumping: thin out blades in sparse noise areas
+	float clump_scale = smoothstep(0.10, 0.40, blade_clump);
+	VERTEX.xyz *= mix(0.5, 1.0, clump_scale);
 
 	// Height-based sway: model-space VERTEX.y (0 at base, tip varies by type)
 	float sway = max(VERTEX.y, 0.0);
@@ -126,12 +126,12 @@ void fragment() {
 	// Vertex colors from Blender model are the base — type determines color.
 	vec3 col = COLOR.rgb;
 
-	// Per-instance color variation from world-space noise — nature.
-	// Smooth across tile boundaries, eliminates uniform tiling.
-	float col_var = vnoise(v_world_pos.xz * 0.4 + vec2(17.0, 33.0));
-	col *= 0.90 + col_var * 0.20;  // ±10% brightness
-	// Subtle warm/cool shift — some patches greener, some yellower
-	float hue_var = vnoise(v_world_pos.xz * 0.25 + vec2(71.0, 13.0));
+	// Per-blade color variation from world-space noise.
+	// Uses actual blade world position (v_world_pos + fragment XZ offset).
+	vec2 frag_world_xz = v_world_pos.xz + VERTEX.xz;
+	float col_var = vnoise(frag_world_xz * 0.4 + vec2(17.0, 33.0));
+	col *= 0.90 + col_var * 0.20;
+	float hue_var = vnoise(frag_world_xz * 0.2 + vec2(71.0, 13.0));
 	col *= vec3(1.0 + hue_var * 0.06, 1.0, 1.0 - hue_var * 0.04);
 
 	// Height-based AO: blade bases are darker (lighting effect).
