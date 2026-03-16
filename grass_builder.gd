@@ -34,7 +34,7 @@ var _hm_half: float
 const CHUNK := 10.0
 const BLADES_PER_M2 := 600.0
 const CELL_SIZE := 1.22
-const MAX_BLADES := 40000
+const MAX_BLADES := 20000  # capped for build performance; impostor covers any gaps
 const VIS_RANGE := 25.0
 const LOAD_RANGE := 40.0
 const UNLOAD_RANGE := 50.0
