@@ -607,6 +607,9 @@ func _process(delta: float) -> void:
 	if _player and _park_loader and _park_loader._grass_builder:
 		_park_loader._grass_builder.update_camera(_player.global_position)
 
+	# Grass tour auto-teleport + screenshot
+	_grass_tour_process(delta)
+
 	# Particles follow player — wind deflects rain/snow
 	if _rain_particles and _player:
 		_rain_particles.global_position = _player.global_position + Vector3(0, 14, 0)
@@ -920,6 +923,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		print("Season: %s (%.1f)" % [season_name, _season_t])
 	elif event.keycode == KEY_F12:
 		_take_screenshot()
+	elif event.keycode == KEY_F10:
+		_start_grass_tour()
 	elif event.keycode == KEY_M:
 		if _audio_manager:
 			_audio_manager.toggle_mute()
@@ -931,6 +936,64 @@ func _season_name(t: float) -> String:
 	if t < 3.0: return "Autumn"
 	return "Winter"
 
+
+# --- Grass tour: F10 visits all grass type locations + screenshots ---
+var _grass_tour_spots := [
+	{"name": "WildMeadow", "x": -801.0, "z": 1803.0, "yaw": 0.0, "pitch": -12.0},
+	{"name": "NorthMeadow", "x": 626.0, "z": -1093.0, "yaw": 45.0, "pitch": -12.0},
+	{"name": "OpenLawn", "x": -538.0, "z": 964.0, "yaw": -30.0, "pitch": -12.0},
+	{"name": "Waterside", "x": 27.0, "z": 70.0, "yaw": 90.0, "pitch": -12.0},
+	{"name": "SheepMeadow", "x": -750.0, "z": 1800.0, "yaw": 180.0, "pitch": -12.0},
+	{"name": "GreatLawn", "x": -99.0, "z": 173.0, "yaw": 0.0, "pitch": -12.0},
+	{"name": "SportsTurf", "x": 137.0, "z": -317.0, "yaw": 60.0, "pitch": -12.0},
+	{"name": "FormalGarden", "x": -69.0, "z": 727.0, "yaw": -45.0, "pitch": -12.0},
+]
+var _grass_tour_active := false
+var _grass_tour_idx := 0
+var _grass_tour_timer := 0.0
+
+func _start_grass_tour() -> void:
+	_grass_tour_active = true
+	_grass_tour_idx = 0
+	_grass_tour_timer = 0.0
+	print("Grass tour: starting (F10) — %d locations" % _grass_tour_spots.size())
+	_grass_tour_teleport()
+
+func _grass_tour_teleport() -> void:
+	var spot: Dictionary = _grass_tour_spots[_grass_tour_idx]
+	var x: float = spot["x"]
+	var z: float = spot["z"]
+	_player.global_position = Vector3(x, _terrain_height(x, z) + 1.8, z)
+	_player.velocity = Vector3.ZERO
+	_player.rotation_degrees.y = spot["yaw"]
+	var head: Node3D = _player.get_node("Head")
+	if head:
+		head.rotation_degrees.x = spot["pitch"]
+	print("Grass tour: %s at (%.0f, %.0f)" % [spot["name"], x, z])
+	_grass_tour_timer = 0.0
+
+func _grass_tour_process(delta: float) -> void:
+	if not _grass_tour_active:
+		return
+	_grass_tour_timer += delta
+	# Wait 4 seconds for grass chunks to load, then screenshot
+	if _grass_tour_timer > 4.0 and _grass_tour_timer < 4.1:
+		var spot: Dictionary = _grass_tour_spots[_grass_tour_idx]
+		var dir_path := ProjectSettings.globalize_path("res://screenshots")
+		DirAccess.make_dir_recursive_absolute(dir_path)
+		var img := get_viewport().get_texture().get_image()
+		if img:
+			var path := "%s/grass_%s.png" % [dir_path, spot["name"]]
+			img.save_png(path)
+			print("Grass tour: saved %s" % path)
+	# After 5 seconds, move to next
+	if _grass_tour_timer > 5.0:
+		_grass_tour_idx += 1
+		if _grass_tour_idx >= _grass_tour_spots.size():
+			_grass_tour_active = false
+			print("Grass tour: done — %d screenshots" % _grass_tour_spots.size())
+			return
+		_grass_tour_teleport()
 
 func _take_screenshot() -> void:
 	var dir_path := ProjectSettings.globalize_path("res://screenshots")
