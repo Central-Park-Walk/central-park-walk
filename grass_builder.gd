@@ -105,7 +105,7 @@ func _build_grass() -> void:
 	print("Grass: %d cells in %d chunks (%.0fms)" % [
 		_pos_x.size(), _chunk_indices.size(), Time.get_ticks_msec() - t0])
 
-	var spawn := Vector3(350, 0, -1100)
+	var spawn := Vector3(-480, 0, 1020)
 	_last_update_pos = spawn
 	_update_chunks_near(spawn)
 	# Don't flush queue at startup — let chunks build gradually
@@ -122,6 +122,11 @@ func update_camera(camera_pos: Vector3) -> void:
 	# Build 1 queued chunk per frame (always, not just on movement)
 	if not _build_queue.is_empty():
 		_process_queue(camera_pos)
+	elif _build_queue.is_empty() and not _active_chunks.is_empty():
+		pass  # all built
+	# Debug first call
+	if _last_update_pos.distance_to(Vector3(-99999,0,-99999)) < 1.0:
+		print("Grass: first update_camera at (%.0f, %.0f)" % [camera_pos.x, camera_pos.z])
 
 
 func _update_chunks_near(pos: Vector3) -> void:
@@ -292,7 +297,8 @@ func _build_chunk(ck: String) -> void:
 		if bt >= _blade_meshes.size() or _blade_meshes[bt] == null: continue
 
 		# Flowers in unmowed grass: 2=NorthMeadow, 7=Waterside, 8=WildMeadow, 9=OpenLawn
-		if ot == 2 or ot == 7 or ot == 8 or ot == 9:
+		var _flower_eligible := (ot == 2 or ot == 7 or ot == 8 or ot == 9)
+		if _flower_eligible:
 			var active: Array = []
 			if summer_active: active.append_array([0, 1, 2, 3])
 			if spring_active: active.append_array([4, 5])
@@ -338,6 +344,18 @@ func _build_chunk(ck: String) -> void:
 		cnts[bt] = idx + 1
 		sum_x[bt] += bx; sum_y[bt] += wy; sum_z[bt] += bz
 		placed += 1
+
+	# Debug: count flowers and types
+	var blade_total := 0
+	var flower_total := 0
+	var type_counts: Dictionary = {}
+	for i in 4:
+		blade_total += cnts[i]
+	for fi in range(4, n_types):
+		flower_total += cnts[fi]
+	# Log first 5 chunks with their type breakdown
+	if placed > 0:
+		print("  Chunk %s: %d blades, %d flowers, ot_sample=%d, summer=%s" % [ck, blade_total, flower_total, _pos_type[_chunk_indices[ck][0]] if _chunk_indices.has(ck) and not _chunk_indices[ck].is_empty() else -1, str(summer_active)])
 
 	# Create MultiMesh per type (0-3 = blades, 4-11 = flowers)
 	for bt in n_types:
