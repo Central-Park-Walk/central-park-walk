@@ -68,11 +68,14 @@ def make_blade(bm, color_layer, uv_layer,
 
 
 def sample_height(rng, h_min, h_max, distribution="lawn"):
-    """Sample a blade height with realistic non-uniform distribution."""
-    t = rng.random()
+    """Sample blade height. Mowed lawns are uniform (data-accurate: CPC cuts
+    to 3 inches). Unmowed types have natural variation."""
     if distribution == "lawn":
-        t = t ** 2.0
-    elif distribution == "wild":
+        # Mowed lawn: uniform height. CPC mows 2x/week to 3 inches (7.6cm).
+        # No random variation — that's what the data says.
+        return h_min
+    t = rng.random()
+    if distribution == "wild":
         t = (rng.random() + rng.random()) * 0.5
     elif distribution == "shade":
         t = t ** 2.5
@@ -142,7 +145,7 @@ TURF_TYPES = [
         "name": "Turf_Lawn",
         "blade_count": 3000,
         "radius": 0.61,
-        "height_range": (0.065, 0.10),
+        "height_range": (0.076, 0.076),     # 3 inches — CPC mow height, uniform
         "width_range": (0.010, 0.018),      # wider for oblique coverage
         "lean_range": (0.01, 0.03),
         "base_rgb": (0.15, 0.35, 0.06),
