@@ -150,24 +150,38 @@ void fragment() {
 	// Atlas UV for landuse, boundary, shore distance lookups
 	vec2 splat_uv = (world_pos.xz + world_size * 0.5) / world_size;
 
-	// --- Base surface: bare earth (AAA approach) ---
-	// The terrain surface is dirt/soil. 3D grass tile patches provide all
-	// the green vegetation. This prevents the "painted green carpet" look
-	// where the terrain texture dominates and grass blades look like weeds.
-	vec2 uv  = world_pos.xz / dirt_tile_m;
+	// --- Zone lookup (needed for base surface selection) ---
+	float zone_val = texture(landuse_map, splat_uv).r * 255.0;
+	int zone_id = int(zone_val + 0.5);
+	bool is_woodland = (zone_id == 5 || zone_id == 10 || zone_id == 11);
+	// Grass zones: lawns, gardens, sports — anything that should read as green ground
+	bool is_grass_zone = (zone_id == 0 || zone_id == 1 || zone_id == 2
+	                   || zone_id == 3 || zone_id == 7);
+
+	// --- Base surface: zone-aware ---
+	// Grass zones use grass texture — terrain carries the green at distance.
+	// 3D grass blades are detail on top, not the sole source of green.
 	float cam_dist = length(world_pos - INV_VIEW_MATRIX[3].xyz);
-	vec3 grass_alb = textureNoTile_c(dirt_albedo, uv);
 	float cam_height = INV_VIEW_MATRIX[3].y - world_pos.y;
 	float tex_fade = max(
 		smoothstep(15.0, 50.0, cam_height),
 		smoothstep(100.0, 250.0, cam_dist)
 	);
-	{
+	vec2 uv;
+	vec3 grass_alb;
+	if (is_grass_zone || is_woodland) {
+		uv = world_pos.xz / tile_m;
+		grass_alb = textureNoTile_c(grass_albedo, uv);
 		float avg_g = dot(grass_alb, vec3(0.299, 0.587, 0.114));
 		grass_alb = mix(grass_alb, vec3(avg_g), tex_fade);
+		grass_alb *= 0.85;
+	} else {
+		uv = world_pos.xz / dirt_tile_m;
+		grass_alb = textureNoTile_c(dirt_albedo, uv);
+		float avg_g = dot(grass_alb, vec3(0.299, 0.587, 0.114));
+		grass_alb = mix(grass_alb, vec3(avg_g), tex_fade);
+		grass_alb *= 0.75;
 	}
-	// Darken slightly for rich soil color
-	grass_alb *= 0.75;
 
 	// Multi-scale grass color variation — real lawns are never uniform.
 	// Aerial imagery of Central Park shows a patchwork of greens, olives, browns.
@@ -184,7 +198,11 @@ void fragment() {
 	// Mix between lush and medium at field scale — visible from 100m but subtle.
 	// CP lawns are well-irrigated so the variation is green-to-green, not green-to-olive.
 	vec3 field_tone = mix(lush_green, med_green, field_cond);
-	grass_alb = mix(grass_alb, field_tone, 0.22);
+	// Grass zones: strong green base so terrain reads as lawn at all distances
+	// Woodland: moderate green (meadow texture overrides most of it anyway)
+	// Non-grass: minimal green (dirt/track/pool — overrides handle these)
+	float green_blend = is_grass_zone ? 0.55 : (is_woodland ? 0.40 : 0.15);
+	grass_alb = mix(grass_alb, field_tone, green_blend);
 
 	// Scale 2: large patches (25-40m) — drainage, irrigation, sun/shade
 	float lawn_large = fbm(world_pos.xz * 0.006, 3);
@@ -278,12 +296,7 @@ void fragment() {
 	m_nrm = mix(m_nrm, vec3(0.5, 0.5, 1.0), tex_fade);  // flatten at distance
 	float m_rgh = clamp(texture(meadow_rough, muv).r * 0.20 + 0.65, 0.0, 1.0);
 
-	// Landuse lookup: woodland zones get meadow texture, everything else is mowed lawn
-	// Most of Central Park is maintained lawn — only marked woodland areas get wild texture
-	float zone_val = texture(landuse_map, splat_uv).r * 255.0;
-	int zone_id = int(zone_val + 0.5);
-	// Woodland zones: nature_reserve(5), wood(10), forest(11) → meadow texture
-	bool is_woodland = (zone_id == 5 || zone_id == 10 || zone_id == 11);
+	// Woodland zones get meadow texture (zone_id, is_woodland computed above)
 	float meadow_base = is_woodland ? 1.0 : 0.0;
 	// Add FBM edge softening so zone boundaries don't look razor-sharp
 	float edge_noise = fbm(world_pos.xz * 0.012, 2) * 0.15;
