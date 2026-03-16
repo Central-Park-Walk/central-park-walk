@@ -332,10 +332,10 @@ func _build_chunk(ck: String) -> void:
 		mmi.multimesh = mm
 		mmi.position = Vector3(ox, oy, oz)
 		mmi.name = "Grass_%d_%s" % [bt, ck]
-		mmi.visibility_range_end = VIS_RANGE
-		mmi.visibility_range_end_margin = VIS_RANGE * 0.40
+		# No visibility_range — shader handles per-blade alpha hash fade.
+		# But still set a hard cutoff past fade_end to save GPU work.
+		mmi.visibility_range_end = 30.0
 		mmi.visibility_range_begin = 0.0
-		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_loader.add_child(mmi)
 		_active_chunks["%d|%s" % [bt, ck]] = mmi

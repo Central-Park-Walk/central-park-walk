@@ -272,4 +272,19 @@ void fragment() {
 		SPECULAR = mix(SPECULAR, 0.30, dew * 0.3);
 		ALBEDO *= mix(1.0, 1.06, dew * 0.3);
 	}
+
+	// --- Hexaquo LOD crossfade: alpha hash at distance ---
+	// Blades dither out near the vis boundary, revealing the impostor
+	// terrain underneath. Per-blade fade (not per-chunk) eliminates
+	// visible chunk rectangles.
+	float cam_dist = length(v_world_blade - INV_VIEW_MATRIX[3].xyz);
+	float fade_start = 20.0;  // start fading
+	float fade_end = 25.0;    // fully transparent
+	float alpha = 1.0 - smoothstep(fade_start, fade_end, cam_dist);
+	// Also reduce AO harshness as blades fade (hexaquo trick)
+	AO_LIGHT_AFFECT = mix(0.3, 1.0, alpha);
+	// Flatten normals as blades fade (reduces noise at distance)
+	NORMAL = mix(NORMAL, vec3(0.0, 1.0, 0.0), 1.0 - alpha);
+	ALPHA = alpha;
+	ALPHA_HASH_SCALE = 1.0;
 }
