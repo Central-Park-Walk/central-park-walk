@@ -127,22 +127,19 @@ void fragment() {
 	vec3 col = mix(color_small, color_large, v_patch_factor);
 
 	// Base-to-tip gradient: dark base (shadowed by surrounding grass),
-	// lighter warm tip (sun-exposed, slightly older tissue)
-	col *= mix(0.65, 1.0, blade_t);
-	col = mix(col, col * vec3(1.12, 1.02, 0.82), blade_t * 0.3);
+	// slightly lighter tip (sun-exposed)
+	col *= mix(0.70, 1.0, blade_t);
 
-	// Per-blade hue variation: some blades cooler (blue-green),
-	// some warmer (yellow-green). Breaks up uniform color.
-	col *= mix(vec3(0.96, 1.02, 1.06), vec3(1.06, 0.98, 0.90), blade_seed);
+	// Per-blade hue variation: subtle cool↔warm shift per blade
+	col *= mix(vec3(0.97, 1.01, 1.03), vec3(1.03, 0.99, 0.95), blade_seed);
 
-	// Broad meadow variation (12m scale) — large gentle color shifts
-	// across the field, independent of the 3m patchiness
+	// Broad meadow variation (12m scale) — gentle brightness shifts
 	float broad_patch = vnoise(v_world_blade.xz / 12.0);
-	col *= mix(0.88, 1.12, broad_patch);
+	col *= mix(0.92, 1.08, broad_patch);
 
-	// Dry blade tips: some tips slightly yellowed (real maintained grass)
-	float dry_tip = smoothstep(0.7, 1.0, blade_t) * step(0.7, blade_seed);
-	col = mix(col, col * vec3(1.15, 1.05, 0.65), dry_tip * 0.2);
+	// Dry blade tips: ~30% of blades get subtle yellowed tips
+	float dry_tip = smoothstep(0.75, 1.0, blade_t) * step(0.7, blade_seed);
+	col = mix(col, col * vec3(1.08, 1.02, 0.80), dry_tip * 0.15);
 
 	// --- AO: self-shadowing + wind darkening (hexaquo) ---
 	float ao = blade_t - v_wind_bend * 0.3;
