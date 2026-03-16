@@ -939,13 +939,13 @@ func _season_name(t: float) -> String:
 
 # --- Grass tour: F10 visits all grass type locations + screenshots ---
 var _grass_tour_spots := [
-	{"name": "WildMeadow", "x": -786.0, "z": 1850.0, "yaw": 0.0, "pitch": -15.0},
-	{"name": "NorthMeadow", "x": 905.0, "z": -1024.0, "yaw": 45.0, "pitch": -15.0},
-	{"name": "OpenLawn", "x": -571.0, "z": 1202.0, "yaw": -30.0, "pitch": -15.0},
-	{"name": "Waterside", "x": -210.0, "z": 417.0, "yaw": 90.0, "pitch": -15.0},
-	{"name": "SheepMeadow", "x": -894.0, "z": 1191.0, "yaw": 180.0, "pitch": -15.0},
-	{"name": "GreatLawn", "x": 780.0, "z": -800.0, "yaw": 0.0, "pitch": -15.0},
-	{"name": "SportsTurf", "x": -997.0, "z": 1398.0, "yaw": 60.0, "pitch": -15.0},
+	{"name": "WildMeadow", "x": -786.0, "z": 1850.0, "yaw": 0.0, "pitch": -25.0},
+	{"name": "NorthMeadow", "x": 905.0, "z": -1024.0, "yaw": 45.0, "pitch": -25.0},
+	{"name": "OpenLawn", "x": -571.0, "z": 1202.0, "yaw": -30.0, "pitch": -25.0},
+	{"name": "Waterside", "x": -210.0, "z": 417.0, "yaw": 90.0, "pitch": -25.0},
+	{"name": "SheepMeadow", "x": -894.0, "z": 1191.0, "yaw": 180.0, "pitch": -25.0},
+	{"name": "GreatLawn", "x": 780.0, "z": -800.0, "yaw": 0.0, "pitch": -25.0},
+	{"name": "SportsTurf", "x": -997.0, "z": 1398.0, "yaw": 60.0, "pitch": -25.0},
 ]
 var _grass_tour_active := false
 var _grass_tour_idx := 0
@@ -962,7 +962,7 @@ func _grass_tour_teleport() -> void:
 	var spot: Dictionary = _grass_tour_spots[_grass_tour_idx]
 	var x: float = spot["x"]
 	var z: float = spot["z"]
-	_player.global_position = Vector3(x, _terrain_height(x, z) + 1.8, z)
+	_player.global_position = Vector3(x, _terrain_height(x, z) + 0.7, z)
 	_player.velocity = Vector3.ZERO
 	_player.rotation_degrees.y = spot["yaw"]
 	var head: Node3D = _player.get_node("Head")
@@ -1964,7 +1964,7 @@ func _setup_player() -> CharacterBody3D:
 		if _cli_height > 5.0:
 			p.set_physics_process(false)  # disable gravity for elevated shots
 	else:
-		p.position = Vector3(-480.0, _terrain_height(-480.0, 1020.0) + 1.8, 1020.0)
+		p.position = Vector3(-480.0, _terrain_height(-480.0, 1020.0) + 0.7, 1020.0)
 	if not _cli_pos_set:
 		p.rotation_degrees.y = 30.0
 	p.terrain_height_fn = Callable(self, "_terrain_height")
