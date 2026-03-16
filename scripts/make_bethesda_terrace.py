@@ -360,14 +360,24 @@ n_steps = round(LEVEL_DROP / STEP_RISE)
 STEP_RISE = LEVEL_DROP / n_steps
 TREAD_THICK = 0.06  # thin tread overlay
 
+# Stair endpoints from park_data.json OSM steps paths (hw=steps):
+#   West: (-486.2, Y=17.6, Z=982.0) bottom → (-491.0, Y=22.3, Z=998.5) top
+#   East: (-452.7, Y=17.6, Z=992.0) bottom → (-457.3, Y=22.6, Z=1009.2) top
+# These run DIAGONALLY, not straight N-S.
 stair_defs = [
-    {"label": "west", "world_x": -490, "world_z_top": 1000, "world_z_bot": 986, "width": 6.0},
-    {"label": "east", "world_x": -460, "world_z_top": 1004, "world_z_bot": 990, "width": 6.0},
+    {"label": "west",
+     "top_wx": -491.0, "top_wz": 998.5,   # upper level
+     "bot_wx": -486.2, "bot_wz": 982.0,   # lower level
+     "width": 6.0},
+    {"label": "east",
+     "top_wx": -457.3, "top_wz": 1009.2,
+     "bot_wx": -452.7, "bot_wz": 992.0,
+     "width": 6.0},
 ]
 
 for sd in stair_defs:
-    top_bx, top_by = world_to_blender(float(sd["world_x"]), float(sd["world_z_top"]))
-    bot_bx, bot_by = world_to_blender(float(sd["world_x"]), float(sd["world_z_bot"]))
+    top_bx, top_by = world_to_blender(sd["top_wx"], sd["top_wz"])
+    bot_bx, bot_by = world_to_blender(sd["bot_wx"], sd["bot_wz"])
     stair_run = math.sqrt((bot_bx - top_bx)**2 + (bot_by - top_by)**2)
     STEP_RUN = stair_run / n_steps
     dir_x = (bot_bx - top_bx) / stair_run
