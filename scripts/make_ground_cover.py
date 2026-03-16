@@ -147,8 +147,13 @@ def build_turf_tile(cfg, seed):
             positions.append((bx + tile_w, bz + tile_w))
 
         for px, pz in positions:
+            # Crossed quads: 2 quads at 90° per blade position.
+            # Flat quads are invisible edge-on — crossing guarantees
+            # a visible face from every viewing angle.
             make_blade(bm, color_layer, uv_layer,
                        px, pz, h, w, rot, lean, b_rgb, t_rgb)
+            make_blade(bm, color_layer, uv_layer,
+                       px, pz, h, w, rot + math.pi * 0.5, lean, b_rgb, t_rgb)
 
     return bm
 
