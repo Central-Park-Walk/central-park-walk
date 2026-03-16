@@ -22,9 +22,9 @@ const CHUNK := 10.0
 const BLADES_PER_M2 := 600.0
 const CELL_SIZE := 1.22
 const MAX_BLADES_PER_CHUNK := 40000  # cap to keep build time reasonable
-const VIS_RANGE := 18.0
-const LOAD_RANGE := 30.0             # pre-load further ahead
-const UNLOAD_RANGE := 40.0
+const VIS_RANGE := 25.0
+const LOAD_RANGE := 40.0             # pre-load further ahead
+const UNLOAD_RANGE := 50.0
 const UPDATE_DIST := 1.0             # re-check chunks every 1m moved
 
 const BLADE_NAMES: Array = ["Blade_Lawn", "Blade_Wild", "Blade_Shade", "Blade_Sedge"]
