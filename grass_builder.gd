@@ -13,7 +13,7 @@
 var _loader
 
 const CHUNK := 40.0
-const BLADES_PER_POSITION := 12  # individual blades per prebaked grid position
+const BLADES_PER_POSITION := 30  # individual blades per prebaked grid position (~20/m²)
 
 # Blade meshes — one curved blade per type
 const BLADE_NAMES: Array = [

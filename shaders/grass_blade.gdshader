@@ -24,10 +24,12 @@ void vertex() {
 	v_grass_type = INSTANCE_CUSTOM.r;
 	v_path_prox = INSTANCE_CUSTOM.b;
 
-	// Each blade is its own MultiMesh instance — NODE_POSITION_WORLD
-	// gives the true per-blade world position. No approximation needed.
-	vec2 blade_world_xz = NODE_POSITION_WORLD.xz;
-	v_world_blade = NODE_POSITION_WORLD;
+	// Each blade is its own MultiMesh instance. MODEL_MATRIX origin
+	// gives the true per-blade world position (not NODE_POSITION_WORLD
+	// which is the chunk node position, same for all instances).
+	vec3 blade_origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	vec2 blade_world_xz = blade_origin.xz;
+	v_world_blade = blade_origin;
 
 	// Bottom-to-top from UV (0 at base, 1 at tip — set in Blender)
 	v_bottom_to_top = clamp(UV.y, 0.0, 1.0);
