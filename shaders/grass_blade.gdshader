@@ -90,19 +90,19 @@ void vertex() {
 	VERTEX.y += flutter * sway;
 
 	// --- Player displacement (hexaquo Part 3) ---
-	// Grass bends away from the player's feet, creating a subtle wake.
+	// Grass gently leans away from the player's feet.
 	{
-		float disp_radius = 1.2;
+		float disp_radius = 0.8;
 		float obj_dist = distance(player_pos.xz, blade_origin.xz);
 		float bend_str = max(disp_radius - obj_dist, 0.0) / disp_radius;
-		bend_str *= bend_str;  // quadratic falloff for natural feel
+		bend_str *= bend_str;
 		if (bend_str > 0.001) {
 			vec2 bend_dir = normalize(blade_origin.xz - player_pos.xz);
-			// Transform world bend direction to model space
 			mat4 inv_model = inverse(MODEL_MATRIX);
 			vec2 local_dir = (inv_model * vec4(bend_dir.x, 0.0, bend_dir.y, 0.0)).xz;
-			VERTEX.xz += local_dir * bend_str * sway * 1.5;
-			VERTEX.y -= bend_str * sway * 0.5;  // push down toward ground
+			float btt = v_bottom_to_top;  // tips move, base stays rooted
+			VERTEX.xz += local_dir * bend_str * btt * 0.04;
+			VERTEX.y -= bend_str * btt * 0.015;
 		}
 	}
 
