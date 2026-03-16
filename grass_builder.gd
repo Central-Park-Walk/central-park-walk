@@ -47,14 +47,12 @@ const VIS_RANGES: Array = [
 	70.0,  # open_lawn
 ]
 
-# --- Ground cover layer (4 types) ---
-# One mesh per type — identical tiles tile seamlessly on the grid.
-const TURF_NAMES: Array = [
-	"Turf_Lawn_v0",    # 0 — mowed lawn carpet
-	"Turf_Wild_v0",    # 1 — wild meadow ground cover
-	"Turf_Shade_v0",   # 2 — woodland floor cover
-	"Turf_Sedge_v0",   # 3 — waterside ground cover
-]
+# --- Ground cover layer (4 types × 5 variants) ---
+# 5 variants per type with different blade arrangements but identical
+# statistics. Adjacent tiles get randomly different variants — boundaries
+# are invisible because density/height/color are the same across variants.
+const TURF_BASE_NAMES: Array = ["Turf_Lawn", "Turf_Wild", "Turf_Shade", "Turf_Sedge"]
+const TURF_VARIANT_COUNT := 5
 
 # Map detail type (0-9) → turf type (0-3)
 const TYPE_TO_TURF: Array = [
@@ -89,14 +87,18 @@ func _build_grass() -> void:
 
 	var grass_shader: Shader = _loader._get_shader("grass_blade", "res://shaders/grass_blade.gdshader")
 
-	# --- Load ground cover models (4 types) ---
+	# --- Load ground cover models (4 types × 5 variants) ---
+	# turf_meshes[type_idx][variant_idx]
 	var turf_meshes: Array = []
 	var turf_loaded := 0
-	for tname in TURF_NAMES:
-		var mesh: Mesh = _load_tile_model(tname, grass_shader)
-		turf_meshes.append(mesh)
-		if mesh != null:
-			turf_loaded += 1
+	for base_name in TURF_BASE_NAMES:
+		var variants: Array = []
+		for v in TURF_VARIANT_COUNT:
+			var mesh: Mesh = _load_tile_model("%s_v%d" % [base_name, v], grass_shader)
+			variants.append(mesh)
+			if mesh != null:
+				turf_loaded += 1
+		turf_meshes.append(variants)
 
 	if turf_loaded == 0:
 		print("Grass: no turf models found — skipping (run make_ground_cover.py in Blender)")
@@ -200,11 +202,17 @@ func _build_layer_mapped(instances: Array, meshes: Array, vis_ranges: Array,
 		var wz: float = z_arr[i]
 		var orig_type: int = type_arr[i]
 
-		# Map to mesh type
+		# Map to mesh type + pick variant by position hash
 		var mesh_type: int = 0
 		if orig_type < type_map.size():
 			mesh_type = type_map[orig_type]
-		if mesh_type >= meshes.size() or meshes[mesh_type] == null:
+		if mesh_type >= meshes.size():
+			continue
+		var variant: int = (int(abs(wx) * 73.0 + abs(wz) * 37.0) & 0x7FFFFFFF) % TURF_VARIANT_COUNT
+		var type_variants: Array = meshes[mesh_type]
+		if variant >= type_variants.size() or type_variants[variant] == null:
+			variant = 0
+		if type_variants[variant] == null:
 			continue
 
 		rng.seed = int(wx * 99371.0 + wz * 27183.0) & 0x7FFFFFFF
@@ -218,8 +226,7 @@ func _build_layer_mapped(instances: Array, meshes: Array, vis_ranges: Array,
 			wy = _loader._terrain_y(wx, wz) + 0.002
 			path_prox = 0.0
 
-		# Identical tiles on a grid tile seamlessly — no rotation, no scale variation.
-		# Path proximity is the only per-instance height adjustment (data-driven).
+		# No rotation, no scale — variant mixing provides variety.
 		var s_y := 1.0
 		if path_prox > 0.1:
 			s_y = lerpf(1.0, 0.40, path_prox)
@@ -228,14 +235,15 @@ func _build_layer_mapped(instances: Array, meshes: Array, vis_ranges: Array,
 
 		var cx := int(floorf(wx / CHUNK))
 		var cz := int(floorf(wz / CHUNK))
-		var ck := "%d|%d|%d" % [mesh_type, cx, cz]
+		# Group by type + variant — each needs its own MultiMesh (different mesh)
+		var ck := "%d_%d|%d|%d" % [mesh_type, variant, cx, cz]
 		if not chunks.has(ck):
-			chunks[ck] = {"type": mesh_type, "xf": [], "cd": []}
+			chunks[ck] = {"type": mesh_type, "variant": variant, "xf": [], "cd": []}
 		chunks[ck]["xf"].append(tf)
 		chunks[ck]["cd"].append(Color(float(orig_type), rng.randf(), path_prox, 0.0))
 		total += 1
 
-	var chunk_count := _emit_multimeshes(chunks, meshes, vis_ranges, prefix)
+	var chunk_count := _emit_multimeshes_2d(chunks, meshes, vis_ranges, prefix)
 	return [total, chunk_count]
 
 
@@ -286,7 +294,7 @@ func _emit_multimeshes(chunks: Dictionary, meshes: Array, vis_ranges: Array, pre
 	return chunk_count
 
 
-func _emit_multimeshes_variants(chunks: Dictionary, meshes: Array, vis_ranges: Array, prefix: String) -> int:
+func _emit_multimeshes_2d(chunks: Dictionary, meshes: Array, vis_ranges: Array, prefix: String) -> int:
 	"""Create MultiMeshInstance3D nodes — meshes is 2D [type][variant]."""
 	var chunk_count := 0
 	for ck in chunks:
