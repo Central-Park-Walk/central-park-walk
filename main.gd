@@ -362,14 +362,14 @@ func _build_showcase_shots() -> void:
 # README shots — exactly the 4 images referenced in README.md
 # Saves to screenshots/ (not /tmp/tour/) so they land in the repo directly.
 const README_SHOTS: Array = [
-	# Autumn dusk on Literary Walk looking west toward CPW skyline
-	{"name": "cpw_skyline_autumn_dusk", "x": -600.0, "z": 1420.0, "yaw": 90.0, "pitch": 0.0, "hour": 19.0, "season": 2.5, "weather": "clear"},
+	# Summer golden hour on Literary Walk — grass + canopy shade showcase
+	{"name": "literary_walk_summer_golden", "x": -600.0, "z": 1420.0, "yaw": 90.0, "pitch": -5.0, "hour": 18.5, "season": 1.5, "weather": "clear"},
 	# Rain at Conservatory Water — atmosphere + weather showcase
 	{"name": "conservatory_rain_afternoon", "x": -152.0, "z": 958.0, "yaw": 270.0, "pitch": 0.0, "hour": 15.0, "season": 2.0, "weather": "rain"},
 	# Winter snow at Sheep Meadow
 	{"name": "sheep_meadow_winter_noon", "x": -700.0, "z": 1600.0, "yaw": 270.0, "pitch": 0.0, "hour": 12.0, "season": 3.5, "weather": "snow"},
-	# North Woods winter morning — snow + woodland
-	{"name": "north_woods_snow_morning", "x": 600.0, "z": -1315.0, "yaw": 180.0, "pitch": 0.0, "hour": 9.0, "season": 3.5, "weather": "snow"},
+	# Autumn dusk — skyline through trees
+	{"name": "skyline_autumn_dusk", "x": -600.0, "z": 1420.0, "yaw": 90.0, "pitch": 0.0, "hour": 19.0, "season": 2.5, "weather": "clear"},
 ]
 
 func _build_readme_shots() -> void:
