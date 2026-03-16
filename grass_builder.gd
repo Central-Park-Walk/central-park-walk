@@ -231,11 +231,13 @@ func _build_layer_mapped(instances: Array, meshes: Array, vis_ranges: Array,
 			wy = _loader._terrain_y(wx, wz) + 0.002
 			path_prox = 0.0
 
-		# No rotation — tiles are grid-aligned squares. Variant mixing provides variety.
+		# Small random rotation (±20°) breaks grid alignment without creating
+		# significant gaps. Full 0-360° created huge corner gaps on square tiles.
+		var y_rot := rng.randf_range(-0.35, 0.35)  # ±20° in radians
 		var s_y := rng.randf_range(0.97, 1.03)
 		if path_prox > 0.1:
 			s_y *= lerpf(1.0, 0.40, path_prox)
-		var basis := Basis().scaled(Vector3(1.0, s_y, 1.0))
+		var basis := Basis(Vector3.UP, y_rot).scaled(Vector3(1.0, s_y, 1.0))
 		var tf := Transform3D(basis, Vector3(wx, wy, wz))
 
 		var cx := int(floorf(wx / CHUNK))
