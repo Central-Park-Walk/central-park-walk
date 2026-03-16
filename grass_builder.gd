@@ -41,7 +41,10 @@ const UNLOAD_RANGE := 50.0
 const UPDATE_DIST := 1.0
 
 const BLADE_NAMES: Array = ["Blade_Lawn", "Blade_Wild", "Blade_Shade", "Blade_Sedge"]
-const FLOWER_NAMES: Array = ["Flower_Clover", "Flower_Dandelion", "Flower_Violet", "Flower_Buttercup"]
+# Flowers: 0-3 = year-round lawn, 4-5 = spring only, 6-7 = fall only
+const FLOWER_NAMES: Array = [
+	"Flower_Clover", "Flower_Dandelion", "Flower_Violet", "Flower_Buttercup",
+	"Flower_Crocus", "Flower_Daffodil", "Flower_Goldenrod", "Flower_Aster"]
 const FLOWER_CHANCE := 0.03        # 3% of lawn blades become flowers
 const TYPE_TO_BLADE: Array = [0, 0, 0, 0, 0, 2, 2, 3, 1, 0]
 
@@ -183,7 +186,7 @@ func _flush_queue(pos: Vector3) -> void:
 
 
 func _chunk_loaded(ck: String) -> bool:
-	for bt in 8:  # 0-3 blades, 4-7 flowers
+	for bt in 4 + FLOWER_NAMES.size():
 		if _active_chunks.has("%d|%s" % [bt, ck]): return true
 	return false
 
@@ -208,18 +211,27 @@ func _build_chunk(ck: String) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = (int(ck_p[0]) * 73856093 + int(ck_p[1]) * 19349669) & 0x7FFFFFFF
 
-	# Pre-allocate buffers: 4 blade types + 4 flower types (16 floats per instance)
+	# Pre-allocate buffers: 4 blade types + 8 flower types (16 floats per instance)
+	var n_types := 4 + FLOWER_NAMES.size()  # 12
 	var bufs: Array = []
 	var cnts: Array = []
 	var sum_x: Array = []
 	var sum_y: Array = []
 	var sum_z: Array = []
-	for _bt in 8:  # 0-3 = blades, 4-7 = flowers
+	for _bt in n_types:
 		var b := PackedFloat32Array()
 		b.resize(target * 16 if _bt < 4 else int(target * FLOWER_CHANCE * 2) * 16)
 		bufs.append(b)
 		cnts.append(0)
 		sum_x.append(0.0); sum_y.append(0.0); sum_z.append(0.0)
+
+	# Determine which seasonal flowers are active (read season from global)
+	var season: float = RenderingServer.global_shader_parameter_get("season_t")
+	if typeof(season) != TYPE_FLOAT:
+		season = 1.5  # default summer
+	var spring_active: bool = season < 1.2  # crocuses, daffodils
+	var summer_active: bool = season > 0.5 and season < 2.5  # clover, dandelion, etc.
+	var fall_active: bool = season > 1.8 and season < 2.8  # goldenrod, aster
 
 	var placed := 0
 	var ar: int = _atlas_res
@@ -259,12 +271,21 @@ func _build_chunk(ck: String) -> void:
 		var bt: int = TYPE_TO_BLADE[ot] if ot < TYPE_TO_BLADE.size() else 0
 		if bt >= _blade_meshes.size() or _blade_meshes[bt] == null: continue
 
-		# 3% of lawn-type blades become flowers (spring/summer handled in shader)
+		# 3% of lawn-type blades become flowers
 		if (ot <= 4 or ot == 9) and rng.randf() < FLOWER_CHANCE:
-			var fi: int = rng.randi_range(0, 3)  # random flower type
-			if fi < _flower_meshes.size() and _flower_meshes[fi] != null:
-				bt = 4 + fi  # flower buffer index (4-7)
-				is_flower = true
+			# Build list of active flower types for current season
+			var active: Array = []
+			if summer_active:
+				active.append_array([0, 1, 2, 3])  # clover, dandelion, violet, buttercup
+			if spring_active:
+				active.append_array([4, 5])  # crocus, daffodil
+			if fall_active:
+				active.append_array([6, 7])  # goldenrod, aster
+			if not active.is_empty():
+				var fi: int = active[rng.randi_range(0, active.size() - 1)]
+				if fi < _flower_meshes.size() and _flower_meshes[fi] != null:
+					bt = 4 + fi  # flower buffer index
+					is_flower = true
 
 		# Inline heightmap (barycentric)
 		var xi: float = (bx + hh) / hws * (hw - 1)
@@ -298,8 +319,8 @@ func _build_chunk(ck: String) -> void:
 		sum_x[bt] += bx; sum_y[bt] += wy; sum_z[bt] += bz
 		placed += 1
 
-	# Create MultiMesh per type (0-3 = blades, 4-7 = flowers)
-	for bt in 8:
+	# Create MultiMesh per type (0-3 = blades, 4-11 = flowers)
+	for bt in n_types:
 		var c: int = cnts[bt]
 		if c == 0: continue
 		var mesh: Mesh
