@@ -265,6 +265,14 @@ func _build_chunk(ck: String) -> void:
 		if pp > 0.1: hs *= lerpf(1.0, 0.4, pp)
 		var rs: float = rng.randf()
 
+		# Wildflower flag: ~3% of lawn blades become flowers
+		# 0.0=grass, 0.1=white clover, 0.2=dandelion, 0.3=violet, 0.4=buttercup
+		var flower: float = 0.0
+		if ot <= 4 or ot == 9:  # lawn types only
+			if rs < 0.03:  # 3% chance (rs is the blade seed)
+				var ftype: float = fmod(rs * 1000.0, 4.0)
+				flower = (floorf(ftype) + 1.0) * 0.1  # 0.1, 0.2, 0.3, or 0.4
+
 		# Direct buffer write (no Transform3D/Color objects)
 		var cr: float = cos(yr)
 		var sr: float = sin(yr)
@@ -274,7 +282,7 @@ func _build_chunk(ck: String) -> void:
 		buf[o] = cr; buf[o+1] = 0.0; buf[o+2] = sr; buf[o+3] = bx
 		buf[o+4] = 0.0; buf[o+5] = hs; buf[o+6] = 0.0; buf[o+7] = wy
 		buf[o+8] = -sr; buf[o+9] = 0.0; buf[o+10] = cr; buf[o+11] = bz
-		buf[o+12] = float(ot); buf[o+13] = rs; buf[o+14] = pp; buf[o+15] = 0.0
+		buf[o+12] = float(ot); buf[o+13] = rs; buf[o+14] = pp; buf[o+15] = flower
 		cnts[bt] = idx + 1
 		sum_x[bt] += bx; sum_y[bt] += wy; sum_z[bt] += bz
 		placed += 1
