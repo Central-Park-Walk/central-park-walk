@@ -90,7 +90,7 @@ func _build_grass() -> void:
 	print("Grass: %d cells in %d chunks (%.0fms)" % [
 		x_arr.size(), _positions_by_chunk.size(), Time.get_ticks_msec() - t0])
 
-	var spawn := Vector3(-480, 0, 1020)
+	var spawn := Vector3(350, 0, -1100)
 	_last_update_pos = spawn
 	_update_chunks_near(spawn)
 	_flush_queue(spawn)

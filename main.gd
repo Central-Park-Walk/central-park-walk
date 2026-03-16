@@ -1902,7 +1902,8 @@ func _setup_player() -> CharacterBody3D:
 		if _cli_height > 5.0:
 			p.set_physics_process(false)  # disable gravity for elevated shots
 	else:
-		p.position = Vector3(-400.0, _terrain_height(-400.0, 600.0) + 1.8, 600.0)
+		# North Meadow: SportsTurf, NorthMeadow, OpenLawn all adjacent
+		p.position = Vector3(350.0, _terrain_height(350.0, -1100.0) + 1.8, -1100.0)
 	if not _cli_pos_set:
 		p.rotation_degrees.y = 30.0
 	p.terrain_height_fn = Callable(self, "_terrain_height")
