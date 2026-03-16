@@ -1,20 +1,17 @@
-"""Build ground cover (turf carpet) tiles for Central Park Walk.
+"""Build ground cover turf tiles for Central Park Walk.
 
-Dense grass tiles with 3000+ blades, 5 variants per type for variety.
-Heights follow CPC data — mow height is minimum, blades grow to species
-maximum. Wider blades (10-18mm) for visual coverage from oblique angles.
-
-5 variants per type: same parameters, different random seeds. Adjacent
-tiles get randomly different variants but all have identical statistics
-(density, height distribution, color), so boundaries are invisible.
+Curved multi-segment grass blades (like hexaquo's approach). Blade
+curvature depends on height — short mowed grass is straight, tall
+meadow grass arcs dramatically. Fewer blades than before (~600/tile)
+but each blade has 2-5 segments for natural shape.
 
 Types match Central Park zone categories:
-  0. Turf_Lawn   — mowed KBG/ryegrass, 6.5-10cm
-  1. Turf_Wild   — unmowed meadow, 8-40cm
-  2. Turf_Shade  — woodland floor fescue, 5-18cm
-  3. Turf_Sedge  — waterside rushes/sedges, 8-25cm
+  0. Turf_Lawn   — mowed KBG/ryegrass, 7.6cm, 2 segments (straight)
+  1. Turf_Wild   — unmowed meadow, 8-40cm, 4 segments (dramatic arc)
+  2. Turf_Shade  — woodland fescue, 5-18cm, 3 segments (gentle curve)
+  3. Turf_Sedge  — waterside rushes, 8-25cm, 3 segments (lean, not curve)
 
-Exports to models/vegetation/Turf_*_v{0-4}.glb (20 files total)
+Exports to models/vegetation/Turf_*_v{0-4}.glb (20 files)
 """
 
 import bpy
@@ -32,48 +29,69 @@ VARIANTS = 5
 
 
 def make_blade(bm, color_layer, uv_layer,
-               bx, bz, height, width, rot, lean,
+               bx, bz, height, width, rot, arch, segments,
                base_rgb, tip_rgb):
-    """Create one grass blade as a single quad."""
+    """Create a curved grass blade with N segments.
+
+    Segments=1: single quad (flat). Segments=2+: curved strip.
+    The curvature comes from 'arch' — horizontal extension in the
+    facing direction, applied quadratically so the tip arcs over.
+    Blender Z-up: XY is horizontal, Z is height.
+    """
     dx = math.cos(rot)
     dz = math.sin(rot)
     px = -math.sin(rot)
     pz = math.cos(rot)
 
-    hw = width * 0.5
-    tip_x = bx + dx * lean
-    tip_z = bz + dz * lean
-    thw = hw * 0.3
+    # Build vertex pairs from base to tip
+    vert_pairs = []
+    for si in range(segments + 1):
+        t = si / segments
+        # Height with slight deceleration at top
+        seg_z = height * (t - 0.12 * t * t)
+        # Arch: quadratic — tip extends more than middle
+        extend = arch * t * t
+        # Width tapers toward tip
+        seg_w = width * (1.0 - t * 0.65) * 0.5
 
-    # Blender is Z-up. Height along Z, horizontal plane is XY.
-    v0 = bm.verts.new((bx + px * hw, bz + pz * hw, 0.0))
-    v1 = bm.verts.new((bx - px * hw, bz - pz * hw, 0.0))
-    v2 = bm.verts.new((tip_x - px * thw, tip_z - pz * thw, height))
-    v3 = bm.verts.new((tip_x + px * thw, tip_z + pz * thw, height))
+        cx = bx + dx * extend
+        cy = bz + dz * extend
 
-    try:
-        face = bm.faces.new([v0, v1, v2, v3])
-    except ValueError:
-        return
+        # Color interpolation
+        r = base_rgb[0] + (tip_rgb[0] - base_rgb[0]) * t
+        g = base_rgb[1] + (tip_rgb[1] - base_rgb[1]) * t
+        b = base_rgb[2] + (tip_rgb[2] - base_rgb[2]) * t
 
-    base_col = (base_rgb[0], base_rgb[1], base_rgb[2], 1.0)
-    tip_col = (tip_rgb[0], tip_rgb[1], tip_rgb[2], 1.0)
-    for loop in face.loops:
-        if loop.vert in (v0, v1):
-            loop[color_layer] = base_col
-            loop[uv_layer].uv = (0.5, 0.0)
-        else:
-            loop[color_layer] = tip_col
-            loop[uv_layer].uv = (0.5, 1.0)
+        vl = bm.verts.new((cx + px * seg_w, cy + pz * seg_w, seg_z))
+        vr = bm.verts.new((cx - px * seg_w, cy - pz * seg_w, seg_z))
+        vert_pairs.append((vl, vr, (r, g, b, 1.0), t))
+
+    for si in range(segments):
+        vl0, vr0, c0, t0 = vert_pairs[si]
+        vl1, vr1, c1, t1 = vert_pairs[si + 1]
+        try:
+            face = bm.faces.new([vl0, vr0, vr1, vl1])
+        except ValueError:
+            continue
+        for loop in face.loops:
+            if loop.vert == vl0:
+                loop[color_layer] = c0
+                loop[uv_layer].uv = (0.0, t0)
+            elif loop.vert == vr0:
+                loop[color_layer] = c0
+                loop[uv_layer].uv = (1.0, t0)
+            elif loop.vert == vr1:
+                loop[color_layer] = c1
+                loop[uv_layer].uv = (1.0, t1)
+            elif loop.vert == vl1:
+                loop[color_layer] = c1
+                loop[uv_layer].uv = (0.0, t1)
 
 
 def sample_height(rng, h_min, h_max, distribution="lawn"):
-    """Sample blade height. Mowed lawns are uniform (data-accurate: CPC cuts
-    to 3 inches). Unmowed types have natural variation."""
+    """Sample blade height — mowed lawns are uniform, others vary."""
     if distribution == "lawn":
-        # Mowed lawn: uniform height. CPC mows 2x/week to 3 inches (7.6cm).
-        # No random variation — that's what the data says.
-        return h_min
+        return h_min  # CPC mows to uniform 3 inches
     t = rng.random()
     if distribution == "wild":
         t = (rng.random() + rng.random()) * 0.5
@@ -85,7 +103,7 @@ def sample_height(rng, h_min, h_max, distribution="lawn"):
 
 
 def build_turf_tile(cfg, seed):
-    """Build a dense ground cover tile with blades at varied heights."""
+    """Build a turf tile with curved multi-segment blades."""
     rng = random.Random(seed)
     bm = bmesh.new()
     color_layer = bm.loops.layers.color.new("Color")
@@ -95,16 +113,12 @@ def build_turf_tile(cfg, seed):
     blade_count = cfg["blade_count"]
     h_min, h_max = cfg["height_range"]
     w_lo, w_hi = cfg["width_range"]
-    lean_lo, lean_hi = cfg["lean_range"]
+    arch_lo, arch_hi = cfg["arch_range"]
+    segments = cfg["segments"]
     base_rgb = cfg["base_rgb"]
     tip_rgb = cfg["tip_rgb"]
     color_var = cfg.get("color_var", 0.04)
     distribution = cfg.get("distribution", "lawn")
-
-    # Edge bleed distance — blades near edges get copies on opposite side
-    # so the tile wraps seamlessly (like a tileable texture).
-    bleed = 0.04  # 4cm — slightly larger than average blade spacing
-    tile_w = radius * 2.0  # full tile width
 
     for _ in range(blade_count):
         bx = rng.uniform(-radius, radius)
@@ -113,8 +127,9 @@ def build_turf_tile(cfg, seed):
 
         h = sample_height(rng, h_min, h_max, distribution)
         w = rng.uniform(w_lo, w_hi)
+        # Arch proportional to height — short blades don't curve
         h_frac = (h - h_min) / max(h_max - h_min, 0.01)
-        lean = rng.uniform(lean_lo, lean_hi) * (0.5 + h_frac * 0.5)
+        arch = rng.uniform(arch_lo, arch_hi) * (0.3 + h_frac * 0.7)
 
         cv = rng.uniform(-color_var, color_var)
         dark_factor = 0.85 + 0.15 * h_frac
@@ -129,67 +144,67 @@ def build_turf_tile(cfg, seed):
             min(0.95, tip_rgb[2] + cv * 0.3),
         )
 
-        # Crossed quads: 2 quads at 90° per blade position.
-        # Guarantees a visible face from every viewing angle.
         make_blade(bm, color_layer, uv_layer,
-                   bx, bz, h, w, rot, lean, b_rgb, t_rgb)
-        make_blade(bm, color_layer, uv_layer,
-                   bx, bz, h, w, rot + math.pi * 0.5, lean, b_rgb, t_rgb)
+                   bx, bz, h, w, rot, arch, segments, b_rgb, t_rgb)
 
     return bm
 
 
 TURF_TYPES = [
-    # 0: Lawn — mowed 2x/week at 3 inches (7.6cm)
+    # 0: Lawn — mowed 2x/week, 3 inches. Straight, stiff blades.
     {
         "name": "Turf_Lawn",
-        "blade_count": 3000,
+        "blade_count": 600,
         "radius": 0.61,
-        "height_range": (0.076, 0.076),     # 3 inches — CPC mow height, uniform
-        "width_range": (0.010, 0.018),      # wider for oblique coverage
-        "lean_range": (0.01, 0.03),
+        "height_range": (0.076, 0.076),    # uniform mow height
+        "width_range": (0.008, 0.016),
+        "arch_range": (0.002, 0.008),       # nearly straight
+        "segments": 2,
         "base_rgb": (0.15, 0.35, 0.06),
         "tip_rgb": (0.35, 0.55, 0.18),
         "color_var": 0.03,
         "distribution": "lawn",
         "seed": 501,
     },
-    # 1: Wild — nature reserve, never mowed
+    # 1: Wild — unmowed meadow, dramatic arcing blades
     {
         "name": "Turf_Wild",
-        "blade_count": 2200,
+        "blade_count": 500,
         "radius": 0.61,
         "height_range": (0.08, 0.40),
         "width_range": (0.010, 0.020),
-        "lean_range": (0.03, 0.12),
+        "arch_range": (0.04, 0.15),         # strong arc on tall blades
+        "segments": 4,
         "base_rgb": (0.12, 0.28, 0.04),
         "tip_rgb": (0.40, 0.42, 0.16),
         "color_var": 0.06,
         "distribution": "wild",
         "seed": 503,
     },
-    # 2: Shade — woodland floor fescue
+    # 2: Shade — woodland fescue, gentle curve
     {
         "name": "Turf_Shade",
-        "blade_count": 1800,
+        "blade_count": 500,
         "radius": 0.61,
         "height_range": (0.05, 0.18),
-        "width_range": (0.008, 0.016),
-        "lean_range": (0.02, 0.06),
+        "width_range": (0.007, 0.014),
+        "arch_range": (0.01, 0.05),         # gentle arc
+        "segments": 3,
         "base_rgb": (0.06, 0.18, 0.03),
         "tip_rgb": (0.16, 0.30, 0.10),
         "color_var": 0.04,
         "distribution": "shade",
         "seed": 507,
     },
-    # 3: Sedge — waterside Carex and Juncus
+    # 3: Sedge — rigid triangular stems, lean not curve
     {
         "name": "Turf_Sedge",
-        "blade_count": 2000,
+        "blade_count": 550,
         "radius": 0.61,
         "height_range": (0.08, 0.25),
-        "width_range": (0.008, 0.016),
-        "lean_range": (0.02, 0.05),
+        "width_range": (0.006, 0.012),
+        "arch_range": (0.02, 0.06),         # lean, not dramatic arc
+        "segments": 3,
         "base_rgb": (0.10, 0.26, 0.05),
         "tip_rgb": (0.24, 0.40, 0.14),
         "color_var": 0.04,
@@ -247,12 +262,10 @@ def export_tile(bm, name, material, cfg):
 
     vc = len(mesh.vertices)
     fc = len(mesh.polygons)
-    print(f"  {name}: {vc} verts, {fc} faces")
+    print(f"  {name}: {vc} verts, {fc} faces ({cfg['segments']} seg/blade)")
     bpy.ops.object.delete(use_global=False)
 
 
-# ---------------------------------------------------------------------------
-# Main
 # ---------------------------------------------------------------------------
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
@@ -263,6 +276,7 @@ for block in bpy.data.meshes:
 total_files = len(TURF_TYPES) * VARIANTS
 print("=" * 60)
 print(f"Building {len(TURF_TYPES)} types × {VARIANTS} variants = {total_files} tiles")
+print(f"Curved multi-segment blades — fewer blades, better shape")
 print("=" * 60)
 
 mat = make_turf_material("TurfBlade")
@@ -273,8 +287,9 @@ for cfg in TURF_TYPES:
         name = f"{cfg['name']}_v{v}"
         seed = cfg["seed"] + v * 1000
         count += 1
-        print(f"\n[{count}/{total_files}] {name} ({cfg['blade_count']} blades)...")
+        print(f"\n[{count}/{total_files}] {name} ({cfg['blade_count']} blades, "
+              f"{cfg['segments']} segments)...")
         bm = build_turf_tile(cfg, seed)
         export_tile(bm, name, mat, cfg)
 
-print(f"\nDone. {count} ground cover tiles exported.")
+print(f"\nDone. {count} tiles exported.")
