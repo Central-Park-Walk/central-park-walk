@@ -15,7 +15,7 @@ var _last_camera_chunk := Vector2i(-9999, -9999)
 
 const CHUNK := 10.0
 const BLADES_PER_M2 := 400.0
-const BLADE_SPREAD := 0.55
+const CELL_HALF := 0.61             # half grid spacing (stride 2 × 0.6104m cell)
 const VIS_RANGE := 18.0
 const LOAD_RANGE := 25.0
 const UNLOAD_RANGE := 35.0
@@ -172,8 +172,8 @@ func _build_chunk(ck: String) -> void:
 			by_type[blade_type] = {"xf": [], "cd": []}
 
 		for _b in blades_per_pos:
-			var bx: float = wx + rng.randf_range(-BLADE_SPREAD, BLADE_SPREAD)
-			var bz: float = wz + rng.randf_range(-BLADE_SPREAD, BLADE_SPREAD)
+			var bx: float = wx + rng.randf_range(-CELL_HALF, CELL_HALF)
+			var bz: float = wz + rng.randf_range(-CELL_HALF, CELL_HALF)
 			var y_rot: float = rng.randf() * TAU
 			var h_scale: float = rng.randf_range(0.7, 1.3)
 			if path_prox > 0.1:
