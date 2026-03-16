@@ -128,12 +128,9 @@ def build_turf_tile(cfg, seed):
         bx = r * math.cos(theta)
         bz = r * math.sin(theta)
 
-        # Direction: mostly outward from center, some random
-        if rng.random() < outward_pct and r > 0.05:
-            outward_angle = math.atan2(bz, bx)
-            rot = outward_angle + rng.gauss(0, 0.3)
-        else:
-            rot = rng.random() * 2 * math.pi
+        # Fully random blade direction — with 1000+ blades, density
+        # provides coverage without needing outward-lean patterns.
+        rot = rng.random() * 2 * math.pi
 
         h = sample_height(rng, h_min, h_max, distribution)
         w = rng.uniform(w_lo, w_hi)
@@ -174,7 +171,7 @@ TURF_TYPES = [
         "blade_count": 1500,
         "radius": 0.45,
         "height_range": (0.065, 0.10),     # 6.5cm (fresh cut) to 10cm (regrowth)
-        "width_range": (0.005, 0.010),      # 5-10mm — narrow KBG blades
+        "width_range": (0.007, 0.014),      # 7-14mm — KBG/ryegrass blades
         "lean_range": (0.01, 0.03),         # minimal lean — upright mowed grass
         "base_rgb": (0.15, 0.35, 0.06),
         "tip_rgb": (0.35, 0.55, 0.18),
