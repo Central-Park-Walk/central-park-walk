@@ -350,85 +350,63 @@ for face_side, face_y in [(-1, n_face_y), (1, arcade_cy + hl)]:
         half_aw + 1.0, FACADE_T / 2 + 0.1, 0.06, brownstone)
 
 # ══════════════════════════════════════════════════════════════════
-# GRAND STAIRCASES — east and west, from heightmap measurements
-# West stair: world (-490, Z=986-1000), 14m run, 6m rise
-# East stair: world (-460, Z=990-1004), 14m run, 6m rise
-# In Blender coords (PI mirrors X): west=+X, east=-X
+# GRAND STAIRCASES — thin step treads overlaid on the DEM surface
+# The DEM already has the ramp (earthwork grading). Steps are thin
+# horizontal slabs snapped to step height increments on that ramp.
 # ══════════════════════════════════════════════════════════════════
 LEVEL_DROP = 6.0
 STEP_RISE = 0.17
 n_steps = round(LEVEL_DROP / STEP_RISE)
 STEP_RISE = LEVEL_DROP / n_steps
+TREAD_THICK = 0.06  # thin tread overlay
 
-# Stair positions in world coords → Blender coords
 stair_defs = [
     {"label": "west", "world_x": -490, "world_z_top": 1000, "world_z_bot": 986, "width": 6.0},
     {"label": "east", "world_x": -460, "world_z_top": 1004, "world_z_bot": 990, "width": 6.0},
 ]
 
 for sd in stair_defs:
-    # Convert world stair endpoints to Blender coords
     top_bx, top_by = world_to_blender(float(sd["world_x"]), float(sd["world_z_top"]))
     bot_bx, bot_by = world_to_blender(float(sd["world_x"]), float(sd["world_z_bot"]))
-
-    # Stair runs from top (upper_z) to bottom (0) along Blender Y
     stair_run = math.sqrt((bot_bx - top_bx)**2 + (bot_by - top_by)**2)
     STEP_RUN = stair_run / n_steps
-
-    # Direction vector along the stair
     dir_x = (bot_bx - top_bx) / stair_run
     dir_y = (bot_by - top_by) / stair_run
-    # Perpendicular (width direction)
     perp_x = -dir_y
     perp_y = dir_x
-
     hw = sd["width"] / 2.0
 
-    # Build stepped profile as extruded cross-section
-    profile_verts = []
+    # Place thin treads along the stair run, sampling DEM for height
+    tread_verts = []
+    tread_faces = []
     for si in range(n_steps):
-        # Each step: tread front, tread back, riser bottom
-        t = si / n_steps  # parametric position along stair
-        sy = top_by + dir_y * si * STEP_RUN
-        sx = top_bx + dir_x * si * STEP_RUN
-        sz_top = LEVEL_DROP - si * STEP_RISE
-        sz_bot = sz_top - STEP_RISE
+        # Position along stair run
+        t = (si + 0.5) / n_steps
+        cx = top_bx + dir_x * (si + 0.5) * STEP_RUN
+        cy = top_by + dir_y * (si + 0.5) * STEP_RUN
+        # World position for height sampling
+        wx, wz = blender_to_world(cx, cy)
+        dem_h = terrain_h(wx, wz) - MODEL_Y
+        # Snap to step increment (round up to next step)
+        step_h = LEVEL_DROP - si * STEP_RISE
+        # Use whichever is higher: DEM surface or step height
+        tread_z = max(dem_h, step_h) + TREAD_THICK / 2
 
-        # Tread (horizontal surface)
-        for wx in [-hw, hw]:
-            profile_verts.append((sx + perp_x * wx, sy + perp_y * wx, sz_top))
-        # Next tread front edge
-        sy2 = top_by + dir_y * (si + 1) * STEP_RUN
-        sx2 = top_bx + dir_x * (si + 1) * STEP_RUN
-        for wx in [-hw, hw]:
-            profile_verts.append((sx2 + perp_x * wx, sy2 + perp_y * wx, sz_top))
-        # Riser (vertical face) — bottom of this step
-        for wx in [-hw, hw]:
-            profile_verts.append((sx2 + perp_x * wx, sy2 + perp_y * wx, sz_bot))
-
-    # Bottom landing
-    sy_end = bot_by
-    sx_end = bot_bx
-    for wx in [-hw, hw]:
-        profile_verts.append((sx_end + perp_x * wx, sy_end + perp_y * wx, 0.0))
-
-    # Build faces from the vertex strips
-    # Each step has 6 verts (2 tread front + 2 tread back + 2 riser bottom)
-    stair_faces = []
-    for si in range(n_steps):
-        base = si * 6
-        # Tread face (horizontal quad)
-        stair_faces.append((base, base+1, base+3, base+2))
-        # Riser face (vertical quad)
-        stair_faces.append((base+2, base+3, base+5, base+4))
-
-    # Side walls (connect first to last along each edge)
-    # Left side
-    left_verts = [i * 6 for i in range(n_steps)] + [len(profile_verts) - 2]
-    right_verts = [i * 6 + 1 for i in range(n_steps)] + [len(profile_verts) - 1]
+        # 4 corners of tread
+        vi = len(tread_verts)
+        for dx_sign in [-1, 1]:
+            for dy_sign in [0, 1]:
+                vx = cx + perp_x * hw * dx_sign + dir_x * STEP_RUN * dy_sign * 0.5
+                vy = cy + perp_y * hw * dx_sign + dir_y * STEP_RUN * dy_sign * 0.5
+                tread_verts.append((vx, vy, tread_z))
+                tread_verts.append((vx, vy, tread_z - TREAD_THICK))
+        # Top face
+        tread_faces.append((vi, vi+2, vi+6, vi+4))
+        # Front riser face
+        tread_faces.append((vi, vi+4, vi+5, vi+1))
 
     smesh = bpy.data.meshes.new(f"stair_{sd['label']}")
-    smesh.from_pydata(profile_verts, [], stair_faces)
+    smesh.from_pydata(tread_verts, [], tread_faces)
     smesh.update()
     sobj = bpy.data.objects.new(f"Staircase_{sd['label']}", smesh)
     bpy.context.collection.objects.link(sobj)
@@ -447,7 +425,7 @@ for sd in stair_defs:
             cx, cy, cheek_h / 2,
             0.35, cheek_len, cheek_h / 2, sandstone)
 
-    print(f"  Staircase {sd['label']}: {n_steps} steps, {stair_run:.1f}m run")
+    print(f"  Staircase {sd['label']}: {n_steps} treads on DEM surface")
 
 # ══════════════════════════════════════════════════════════════════
 # BALUSTRADE on upper platform edges (north and south)
