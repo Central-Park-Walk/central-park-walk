@@ -2,40 +2,40 @@
 # Full-geometry grass (hexaquo method). Each blade is its own MultiMesh
 # instance. Patchiness, color, wind, AO all driven by the shader.
 #
-# Blades are scattered uniformly within each chunk, filtered by the world
-# atlas (surface==1 = grass). Type and path proximity come from
-# the pre-baked cell lookup.
-#
-# Queue-based chunk loading: chunks build 1 per frame, closest first,
-# so grass appears gradually instead of in 10m blocks.
+# Optimized: 5m chunks, inlined atlas/heightmap lookups, buffer-based
+# MultiMesh creation. Queue loads 1 chunk per meter walked, closest first.
 
 var _loader
 var _blade_meshes: Array = []
 var _grass_shader: Shader
-var _positions_by_chunk: Dictionary = {}  # "cx|cz" -> Array of pos dicts
-var _active_chunks: Dictionary = {}       # "bt|cx|cz" -> MultiMeshInstance3D
+var _positions_by_chunk: Dictionary = {}
+var _active_chunks: Dictionary = {}
 var _last_update_pos := Vector3(-99999, 0, -99999)
-var _build_queue: Array = []              # [ck: String] — chunks waiting to build
-var _queued_set: Dictionary = {}          # ck -> true — fast lookup for queue
+var _build_queue: Array = []
+var _queued_set: Dictionary = {}
 
-const CHUNK := 10.0
+# Cached atlas/heightmap for inline lookups (set in _build_grass)
+var _atlas_data: PackedByteArray
+var _atlas_res: int
+var _atlas_scale: float
+var _atlas_half: float
+var _hm_data: Array
+var _hm_w: int
+var _hm_d: int
+var _hm_ws: float
+var _hm_half: float
+
+const CHUNK := 5.0
 const BLADES_PER_M2 := 600.0
 const CELL_SIZE := 1.22
-const MAX_BLADES_PER_CHUNK := 40000  # cap to keep build time reasonable
+const MAX_BLADES := 15000
 const VIS_RANGE := 25.0
-const LOAD_RANGE := 40.0             # pre-load further ahead
+const LOAD_RANGE := 40.0
 const UNLOAD_RANGE := 50.0
-const UPDATE_DIST := 1.0             # re-check chunks every 1m moved
+const UPDATE_DIST := 1.0
 
 const BLADE_NAMES: Array = ["Blade_Lawn", "Blade_Wild", "Blade_Shade", "Blade_Sedge"]
-
-const TYPE_TO_BLADE: Array = [
-	0, 0, 0, 0, 0,  # types 0-4 -> Lawn
-	2, 2,            # types 5-6 -> Shade
-	3,               # type 7 -> Sedge
-	1,               # type 8 -> Wild
-	0,               # type 9 -> Lawn
-]
+const TYPE_TO_BLADE: Array = [0, 0, 0, 0, 0, 2, 2, 3, 1, 0]
 
 
 func _init(loader) -> void:
@@ -44,25 +44,31 @@ func _init(loader) -> void:
 
 func _build_grass() -> void:
 	var t0 := Time.get_ticks_msec()
-
 	_grass_shader = _loader._get_shader("grass_blade", "res://shaders/grass_blade.gdshader")
 
 	for bname in BLADE_NAMES:
-		var mesh: Mesh = _load_blade_model(bname)
-		_blade_meshes.append(mesh)
+		_blade_meshes.append(_load_blade_model(bname))
 
 	var loaded := 0
 	for m in _blade_meshes:
-		if m != null:
-			loaded += 1
+		if m != null: loaded += 1
 	if loaded == 0:
-		print("Grass: no blade meshes — run make_blade_mesh.py in Blender")
-		return
+		print("Grass: no blade meshes"); return
+
+	# Cache atlas/heightmap refs for inline lookups
+	_atlas_data = _loader._atlas_data
+	_atlas_res = _loader._atlas_res
+	_atlas_scale = float(_atlas_res) / _loader._hm_world_size
+	_atlas_half = _loader._hm_world_size * 0.5
+	_hm_data = _loader._hm_data
+	_hm_w = _loader._hm_width
+	_hm_d = _loader._hm_depth
+	_hm_ws = _loader._hm_world_size
+	_hm_half = _hm_ws * 0.5
 
 	var instances: Array = _load_binary("res://ground_cover_instances.bin", 0x47524332)
 	if instances.is_empty():
-		print("Grass: no ground cover instances — run convert_to_godot.py")
-		return
+		print("Grass: no ground cover instances"); return
 
 	var x_arr: PackedFloat32Array = instances[0]
 	var z_arr: PackedFloat32Array = instances[1]
@@ -81,10 +87,9 @@ func _build_grass() -> void:
 			"type": type_arr[i], "prox": prox_arr[i]
 		})
 
-	print("Grass: %d cell positions in %d chunks (%.0fms)" % [
+	print("Grass: %d cells in %d chunks (%.0fms)" % [
 		x_arr.size(), _positions_by_chunk.size(), Time.get_ticks_msec() - t0])
 
-	# Build initial chunks synchronously (at spawn, no queue delay)
 	var spawn := Vector3(-480, 0, 1020)
 	_last_update_pos = spawn
 	_update_chunks_near(spawn)
@@ -92,7 +97,6 @@ func _build_grass() -> void:
 
 
 func update_camera(camera_pos: Vector3) -> void:
-	# Every 1m moved: re-check needed chunks and build closest queued chunk
 	if camera_pos.distance_to(_last_update_pos) > UPDATE_DIST:
 		_last_update_pos = camera_pos
 		_update_chunks_near(camera_pos)
@@ -101,245 +105,249 @@ func update_camera(camera_pos: Vector3) -> void:
 
 
 func _update_chunks_near(pos: Vector3) -> void:
-	var load_chunks := int(ceili(LOAD_RANGE / CHUNK))
+	var load_r := int(ceili(LOAD_RANGE / CHUNK))
 	var cam_cx := int(floorf(pos.x / CHUNK))
 	var cam_cz := int(floorf(pos.z / CHUNK))
 	var needed: Dictionary = {}
 
-	for dx in range(-load_chunks, load_chunks + 1):
-		for dz in range(-load_chunks, load_chunks + 1):
+	for dx in range(-load_r, load_r + 1):
+		for dz in range(-load_r, load_r + 1):
 			var cx := cam_cx + dx
 			var cz := cam_cz + dz
-			var chunk_center := Vector3((cx + 0.5) * CHUNK, 0, (cz + 0.5) * CHUNK)
-			if chunk_center.distance_to(pos) > LOAD_RANGE:
-				continue
+			var cc := Vector3((cx + 0.5) * CHUNK, 0, (cz + 0.5) * CHUNK)
+			if cc.distance_to(pos) > LOAD_RANGE: continue
 			var ck := "%d|%d" % [cx, cz]
 			if _positions_by_chunk.has(ck):
 				needed[ck] = true
 
-	# Unload distant chunks
 	var to_remove: Array = []
 	for key: String in _active_chunks:
-		var parts: PackedStringArray = key.split("|")
-		var ck: String = "%s|%s" % [parts[1], parts[2]]
+		var p: PackedStringArray = key.split("|")
+		var ck: String = "%s|%s" % [p[1], p[2]]
 		if not needed.has(ck):
-			var mmi: MultiMeshInstance3D = _active_chunks[key]
-			mmi.queue_free()
+			_active_chunks[key].queue_free()
 			to_remove.append(key)
 	for key in to_remove:
 		_active_chunks.erase(key)
 
-	# Queue chunks that need building
 	for ck in needed:
-		if _chunk_is_loaded(ck) or _queued_set.has(ck):
+		if _chunk_loaded(ck) or _queued_set.has(ck):
 			continue
 		_build_queue.append(ck)
 		_queued_set[ck] = true
 
-	# Remove queued chunks that are no longer needed
-	var new_queue: Array = []
+	var nq: Array = []
 	for ck in _build_queue:
-		if needed.has(ck):
-			new_queue.append(ck)
-		else:
-			_queued_set.erase(ck)
-	_build_queue = new_queue
+		if needed.has(ck): nq.append(ck)
+		else: _queued_set.erase(ck)
+	_build_queue = nq
 
 
 func _process_queue(pos: Vector3) -> void:
-	# Build only the single closest queued chunk per call.
-	# Combined with UPDATE_DIST=1m, this means at most ~1m of new grass per meter walked.
-	var best_idx := -1
-	var best_dist := 999999.0
+	var best_i := -1
+	var best_d := 999999.0
 	for i in _build_queue.size():
 		var ck: String = _build_queue[i]
-		var parts: PackedStringArray = ck.split("|")
-		var center := Vector3((float(parts[0]) + 0.5) * CHUNK, 0, (float(parts[1]) + 0.5) * CHUNK)
-		var d := center.distance_to(pos)
-		if d < best_dist:
-			best_dist = d
-			best_idx = i
-
-	if best_idx < 0:
-		return
-
-	var ck: String = _build_queue[best_idx]
-	_build_queue.remove_at(best_idx)
+		var p: PackedStringArray = ck.split("|")
+		var d := Vector3((float(p[0]) + 0.5) * CHUNK, 0, (float(p[1]) + 0.5) * CHUNK).distance_to(pos)
+		if d < best_d: best_d = d; best_i = i
+	if best_i < 0: return
+	var ck: String = _build_queue[best_i]
+	_build_queue.remove_at(best_i)
 	_queued_set.erase(ck)
-
-	if _chunk_is_loaded(ck):
-		return
-	if not _positions_by_chunk.has(ck):
-		return
-
-	_build_chunk(ck)
+	if not _chunk_loaded(ck) and _positions_by_chunk.has(ck):
+		_build_chunk(ck)
 
 
 func _flush_queue(pos: Vector3) -> void:
-	# Build all queued chunks immediately (used at startup)
 	while not _build_queue.is_empty():
 		_process_queue(pos)
-	print("Grass: initial chunks built (active: %d)" % _active_chunks.size())
+	print("Grass: initial build done (active: %d)" % _active_chunks.size())
 
 
-func _chunk_is_loaded(ck: String) -> bool:
+func _chunk_loaded(ck: String) -> bool:
 	for bt in BLADE_NAMES.size():
-		if _active_chunks.has("%d|%s" % [bt, ck]):
-			return true
+		if _active_chunks.has("%d|%s" % [bt, ck]): return true
 	return false
 
 
 func _build_chunk(ck: String) -> void:
 	var positions: Array = _positions_by_chunk[ck]
-	if positions.is_empty():
-		return
+	if positions.is_empty(): return
 
-	var ck_parts: PackedStringArray = ck.split("|")
-	var chunk_x: float = float(ck_parts[0]) * CHUNK
-	var chunk_z: float = float(ck_parts[1]) * CHUNK
+	var ck_p: PackedStringArray = ck.split("|")
+	var cx: float = float(ck_p[0]) * CHUNK
+	var cz: float = float(ck_p[1]) * CHUNK
 
 	# Cell lookup for type/prox
-	var cell_lookup: Dictionary = {}
+	var cells: Dictionary = {}
 	for p in positions:
-		var lx: int = int((p["x"] - chunk_x) / CELL_SIZE)
-		var lz: int = int((p["z"] - chunk_z) / CELL_SIZE)
-		cell_lookup[lx * 256 + lz] = p
+		var lx: int = int((p["x"] - cx) / CELL_SIZE)
+		var lz: int = int((p["z"] - cz) / CELL_SIZE)
+		cells[lx * 256 + lz] = p
 
-	# Target blade count, capped for build performance
-	var grass_area: float = positions.size() * CELL_SIZE * CELL_SIZE
-	var target: int = mini(int(grass_area * BLADES_PER_M2), MAX_BLADES_PER_CHUNK)
+	var target: int = mini(int(positions.size() * CELL_SIZE * CELL_SIZE * BLADES_PER_M2), MAX_BLADES)
 
 	var rng := RandomNumberGenerator.new()
-	rng.seed = (int(ck_parts[0]) * 73856093 + int(ck_parts[1]) * 19349669) & 0x7FFFFFFF
+	rng.seed = (int(ck_p[0]) * 73856093 + int(ck_p[1]) * 19349669) & 0x7FFFFFFF
 
-	var by_type: Dictionary = {}
+	# Pre-allocate buffers per blade type (16 floats per instance: 12 transform + 4 custom)
+	var bufs: Array = []
+	var cnts: Array = []
+	var sum_x: Array = []
+	var sum_y: Array = []
+	var sum_z: Array = []
+	for _bt in 4:
+		var b := PackedFloat32Array()
+		b.resize(target * 16)
+		bufs.append(b)
+		cnts.append(0)
+		sum_x.append(0.0); sum_y.append(0.0); sum_z.append(0.0)
+
 	var placed := 0
+	var ar: int = _atlas_res
+	var asc: float = _atlas_scale
+	var ah: float = _atlas_half
+	var ad: PackedByteArray = _atlas_data
+	var hd: Array = _hm_data
+	var hw: int = _hm_w
+	var hde: int = _hm_d
+	var hws: float = _hm_ws
+	var hh: float = _hm_half
 
 	for _i in int(target * 1.5):
-		if placed >= target:
-			break
-		var bx: float = chunk_x + rng.randf() * CHUNK
-		var bz: float = chunk_z + rng.randf() * CHUNK
+		if placed >= target: break
+		var bx: float = cx + rng.randf() * CHUNK
+		var bz: float = cz + rng.randf() * CHUNK
 
-		if _loader._atlas_surface(bx, bz) != 1:
-			continue
+		# Inline atlas check
+		var apx: int = int((bx + ah) * asc)
+		var apz: int = int((bz + ah) * asc)
+		if apx < 0 or apx >= ar or apz < 0 or apz >= ar: continue
+		if ad[(apz * ar + apx) * 2] != 1: continue
 
-		var lx: int = int((bx - chunk_x) / CELL_SIZE)
-		var lz: int = int((bz - chunk_z) / CELL_SIZE)
-		var cell_key: int = lx * 256 + lz
+		# Cell lookup
+		var lx: int = int((bx - cx) / CELL_SIZE)
+		var lz: int = int((bz - cz) / CELL_SIZE)
+		var ck_key: int = lx * 256 + lz
+		var ot: int = 9
+		var pp: float = 0.0
+		if cells.has(ck_key):
+			ot = cells[ck_key]["type"]
+			pp = float(cells[ck_key]["prox"]) / 255.0
 
-		var orig_type: int = 9
-		var path_prox: float = 0.0
-		if cell_lookup.has(cell_key):
-			orig_type = cell_lookup[cell_key]["type"]
-			path_prox = float(cell_lookup[cell_key]["prox"]) / 255.0
+		var bt: int = TYPE_TO_BLADE[ot] if ot < TYPE_TO_BLADE.size() else 0
+		if bt >= _blade_meshes.size() or _blade_meshes[bt] == null: continue
 
-		var blade_type: int = 0
-		if orig_type < TYPE_TO_BLADE.size():
-			blade_type = TYPE_TO_BLADE[orig_type]
-		if blade_type >= _blade_meshes.size() or _blade_meshes[blade_type] == null:
-			continue
+		# Inline heightmap (barycentric)
+		var xi: float = (bx + hh) / hws * (hw - 1)
+		var zi: float = (bz + hh) / hws * (hde - 1)
+		var xi0: int = clampi(int(xi), 0, hw - 2)
+		var zi0: int = clampi(int(zi), 0, hde - 2)
+		var fx: float = xi - xi0
+		var fz: float = zi - zi0
+		var h00: float = float(hd[zi0 * hw + xi0])
+		var h10: float = float(hd[zi0 * hw + xi0 + 1])
+		var h01: float = float(hd[(zi0 + 1) * hw + xi0])
+		var h11: float = float(hd[(zi0 + 1) * hw + xi0 + 1])
+		var wy: float = h00 + (h10 - h00) * fx + (h11 - h10) * fz if fz <= fx else h00 + (h11 - h01) * fx + (h01 - h00) * fz
 
-		var wy: float = _loader._terrain_y(bx, bz)
+		var yr: float = rng.randf() * TAU
+		var hs: float = rng.randf_range(0.7, 1.3)
+		if pp > 0.1: hs *= lerpf(1.0, 0.4, pp)
+		var rs: float = rng.randf()
 
-		var y_rot: float = rng.randf() * TAU
-		var h_scale: float = rng.randf_range(0.7, 1.3)
-		if path_prox > 0.1:
-			h_scale *= lerpf(1.0, 0.4, path_prox)
-
-		if not by_type.has(blade_type):
-			by_type[blade_type] = {"xf": [], "cd": []}
-
-		var basis := Basis(Vector3.UP, y_rot).scaled(Vector3(1.0, h_scale, 1.0))
-		by_type[blade_type]["xf"].append(Transform3D(basis, Vector3(bx, wy, bz)))
-		by_type[blade_type]["cd"].append(Color(float(orig_type), rng.randf(), path_prox, 0.0))
+		# Direct buffer write (no Transform3D/Color objects)
+		var cr: float = cos(yr)
+		var sr: float = sin(yr)
+		var buf: PackedFloat32Array = bufs[bt]
+		var idx: int = cnts[bt]
+		var o: int = idx * 16
+		buf[o] = cr; buf[o+1] = 0.0; buf[o+2] = sr; buf[o+3] = bx
+		buf[o+4] = 0.0; buf[o+5] = hs; buf[o+6] = 0.0; buf[o+7] = wy
+		buf[o+8] = -sr; buf[o+9] = 0.0; buf[o+10] = cr; buf[o+11] = bz
+		buf[o+12] = float(ot); buf[o+13] = rs; buf[o+14] = pp; buf[o+15] = 0.0
+		cnts[bt] = idx + 1
+		sum_x[bt] += bx; sum_y[bt] += wy; sum_z[bt] += bz
 		placed += 1
 
-	for blade_type in by_type:
-		var data: Dictionary = by_type[blade_type]
-		var xf_list: Array = data["xf"]
-		var cd_list: Array = data["cd"]
-		if xf_list.is_empty():
-			continue
+	# Create MultiMesh per blade type
+	for bt in 4:
+		var c: int = cnts[bt]
+		if c == 0: continue
+		if _blade_meshes[bt] == null: continue
 
-		var mesh: Mesh = _blade_meshes[blade_type]
+		var buf: PackedFloat32Array = bufs[bt]
+		var ox: float = sum_x[bt] / float(c)
+		var oy: float = sum_y[bt] / float(c)
+		var oz: float = sum_z[bt] / float(c)
 
-		var sx := 0.0; var sy := 0.0; var sz := 0.0
-		for tf: Transform3D in xf_list:
-			sx += tf.origin.x; sy += tf.origin.y; sz += tf.origin.z
-		var n := float(xf_list.size())
-		var origin := Vector3(sx / n, sy / n, sz / n)
+		# Relocate to local space
+		for j in c:
+			var o: int = j * 16
+			buf[o+3] -= ox; buf[o+7] -= oy; buf[o+11] -= oz
+		buf.resize(c * 16)
 
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.use_custom_data = true
-		mm.mesh = mesh
-		mm.instance_count = xf_list.size()
-		for j in xf_list.size():
-			var tf: Transform3D = xf_list[j]
-			mm.set_instance_transform(j, Transform3D(tf.basis, tf.origin - origin))
-			mm.set_instance_custom_data(j, cd_list[j])
+		mm.mesh = _blade_meshes[bt]
+		mm.instance_count = c
+		mm.buffer = buf  # bulk set — much faster than per-instance calls
 
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
-		mmi.position = origin
-		mmi.name = "Grass_%d_%s" % [blade_type, ck]
+		mmi.position = Vector3(ox, oy, oz)
+		mmi.name = "Grass_%d_%s" % [bt, ck]
 		mmi.visibility_range_end = VIS_RANGE
 		mmi.visibility_range_end_margin = VIS_RANGE * 0.40
 		mmi.visibility_range_begin = 0.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_loader.add_child(mmi)
-		_active_chunks["%d|%s" % [blade_type, ck]] = mmi
+		_active_chunks["%d|%s" % [bt, ck]] = mmi
 
 
 func _load_blade_model(bname: String) -> Mesh:
 	var abs_path := ProjectSettings.globalize_path("res://models/vegetation/%s.glb" % bname)
-	if not FileAccess.file_exists(abs_path):
-		return null
+	if not FileAccess.file_exists(abs_path): return null
 	var meshes: Dictionary = _loader._load_glb_meshes(abs_path)
-	if meshes.is_empty():
-		return null
+	if meshes.is_empty(): return null
 	var mesh: Mesh = meshes.values()[0]
 	for si in mesh.get_surface_count():
-		var new_mat := ShaderMaterial.new()
-		new_mat.shader = _grass_shader
+		var mat := ShaderMaterial.new()
+		mat.shader = _grass_shader
 		if _loader._canopy_texture:
-			new_mat.set_shader_parameter("canopy_map", _loader._canopy_texture)
-		new_mat.set_shader_parameter("hm_world_size", _loader._hm_world_size)
-		mesh.surface_set_material(si, new_mat)
+			mat.set_shader_parameter("canopy_map", _loader._canopy_texture)
+		mat.set_shader_parameter("hm_world_size", _loader._hm_world_size)
+		mesh.surface_set_material(si, mat)
 	return mesh
 
 
 func _load_binary(res_path: String, expected_magic: int) -> Array:
 	var abs_path := ProjectSettings.globalize_path(res_path)
 	var f := FileAccess.open(abs_path, FileAccess.READ)
-	if f == null:
-		f = FileAccess.open(res_path, FileAccess.READ)
-	if f == null:
-		return []
+	if f == null: f = FileAccess.open(res_path, FileAccess.READ)
+	if f == null: return []
 	var magic: int = f.get_32()
 	var magic_rev: int = ((magic & 0xFF) << 24) | ((magic & 0xFF00) << 8) | ((magic & 0xFF0000) >> 8) | ((magic & 0xFF000000) >> 24)
-	if magic != expected_magic and magic_rev != expected_magic:
-		return []
+	if magic != expected_magic and magic_rev != expected_magic: return []
 	var cnt: int = f.get_32()
-	if cnt == 0:
-		return []
-	var x_bytes := f.get_buffer(cnt * 4)
-	var y_bytes := f.get_buffer(cnt * 4)
-	var z_bytes := f.get_buffer(cnt * 4)
-	var t_bytes := f.get_buffer(cnt)
-	var pp_bytes := f.get_buffer(cnt)
-	var x_a := PackedFloat32Array(); x_a.resize(cnt)
-	var y_a := PackedFloat32Array(); y_a.resize(cnt)
-	var z_a := PackedFloat32Array(); z_a.resize(cnt)
-	var type_a := PackedByteArray(); type_a.resize(cnt)
-	var prox_a := PackedByteArray(); prox_a.resize(cnt)
+	if cnt == 0: return []
+	var xb := f.get_buffer(cnt * 4)
+	var yb := f.get_buffer(cnt * 4)
+	var zb := f.get_buffer(cnt * 4)
+	var tb := f.get_buffer(cnt)
+	var pb := f.get_buffer(cnt)
+	var xa := PackedFloat32Array(); xa.resize(cnt)
+	var ya := PackedFloat32Array(); ya.resize(cnt)
+	var za := PackedFloat32Array(); za.resize(cnt)
+	var ta := PackedByteArray(); ta.resize(cnt)
+	var pa := PackedByteArray(); pa.resize(cnt)
 	for j in cnt:
-		x_a[j] = x_bytes.decode_float(j * 4)
-		y_a[j] = y_bytes.decode_float(j * 4)
-		z_a[j] = z_bytes.decode_float(j * 4)
-		type_a[j] = t_bytes[j]
-		prox_a[j] = pp_bytes[j]
-	print("  Grass: %d prebaked positions loaded" % cnt)
-	return [x_a, z_a, type_a, y_a, prox_a]
+		xa[j] = xb.decode_float(j * 4)
+		ya[j] = yb.decode_float(j * 4)
+		za[j] = zb.decode_float(j * 4)
+		ta[j] = tb[j]; pa[j] = pb[j]
+	print("  Grass: %d positions loaded" % cnt)
+	return [xa, za, ta, ya, pa]
