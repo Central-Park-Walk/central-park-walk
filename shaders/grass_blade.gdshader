@@ -114,6 +114,7 @@ void fragment() {
 	}
 
 	float blade_t = v_bottom_to_top;
+	float blade_seed = INSTANCE_CUSTOM.g;  // per-blade random (0-1)
 
 	// Blade roundness is baked into custom split normals from Blender
 	// (cylinder Data Transfer technique). The tip trick blends toward
@@ -121,14 +122,29 @@ void fragment() {
 	NORMAL = mix(NORMAL, vec3(0.0, 1.0, 0.0), blade_t);
 
 	// --- Color tied to size (hexaquo) ---
-	// Small/young blades: deep green. Large/old blades: yellow-green.
-	// patch_factor from vertex shader ties size and color together.
 	vec3 color_small = vec3(0.12, 0.28, 0.06);  // deep fresh green
 	vec3 color_large = vec3(0.30, 0.40, 0.12);  // older yellow-green
 	vec3 col = mix(color_small, color_large, v_patch_factor);
 
+	// Base-to-tip gradient: dark base (shadowed by surrounding grass),
+	// lighter warm tip (sun-exposed, slightly older tissue)
+	col *= mix(0.65, 1.0, blade_t);
+	col = mix(col, col * vec3(1.12, 1.02, 0.82), blade_t * 0.3);
+
+	// Per-blade hue variation: some blades cooler (blue-green),
+	// some warmer (yellow-green). Breaks up uniform color.
+	col *= mix(vec3(0.96, 1.02, 1.06), vec3(1.06, 0.98, 0.90), blade_seed);
+
+	// Broad meadow variation (12m scale) — large gentle color shifts
+	// across the field, independent of the 3m patchiness
+	float broad_patch = vnoise(v_world_blade.xz / 12.0);
+	col *= mix(0.88, 1.12, broad_patch);
+
+	// Dry blade tips: some tips slightly yellowed (real maintained grass)
+	float dry_tip = smoothstep(0.7, 1.0, blade_t) * step(0.7, blade_seed);
+	col = mix(col, col * vec3(1.15, 1.05, 0.65), dry_tip * 0.2);
+
 	// --- AO: self-shadowing + wind darkening (hexaquo) ---
-	// Tips bright, bases dark. Wind gusts darken where they bend grass.
 	float ao = blade_t - v_wind_bend * 0.3;
 	AO = clamp(ao, 0.0, 1.0);
 	AO_LIGHT_AFFECT = 1.0;
