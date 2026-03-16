@@ -45,7 +45,10 @@ void vertex() {
 	} else if (v_grass_type > 4.5 && v_grass_type < 7.5) {
 		size_lo = 0.4; size_hi = 1.0;   // woodland/water
 	}
-	VERTEX *= mix(size_lo, size_hi, v_patch_factor);
+	// Flowers keep natural size — don't shrink with grass patchiness
+	if (v_is_flower < 0.5) {
+		VERTEX *= mix(size_lo, size_hi, v_patch_factor);
+	}
 
 	// Sway amount: only tips move, base is rooted
 	float sway = max(VERTEX.y, 0.0);

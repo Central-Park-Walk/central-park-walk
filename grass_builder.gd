@@ -322,6 +322,7 @@ func _build_chunk(ck: String) -> void:
 		var yr: float = rng.randf() * TAU
 		var hs: float = rng.randf_range(0.7, 1.3)
 		if pp > 0.1: hs *= lerpf(1.0, 0.4, pp)
+		if is_flower: hs = rng.randf_range(0.9, 1.2)  # flowers stay near natural size
 		var rs: float = rng.randf()
 
 		# Direct buffer write (no Transform3D/Color objects)
