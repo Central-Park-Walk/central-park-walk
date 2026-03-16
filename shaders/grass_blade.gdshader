@@ -124,7 +124,7 @@ void fragment() {
 	// Height-based AO: blade bases are darker (self-shadowing in grass carpet).
 	// This is a lighting/rendering effect, not data override.
 	float blade_t = clamp(UV.y, 0.0, 1.0);
-	float ao = mix(0.65, 1.0, smoothstep(0.0, 0.4, blade_t));
+	float ao = mix(0.80, 1.0, smoothstep(0.0, 0.4, blade_t));
 	col *= ao;
 
 	// --- Seasonal colour modulation ---
