@@ -23,27 +23,41 @@ varying float v_patch_factor;   // 0=small/young, 1=tall/old — ties size to co
 void vertex() {
 	v_grass_type = INSTANCE_CUSTOM.r;
 	v_path_prox = INSTANCE_CUSTOM.b;
+	float is_tile = INSTANCE_CUSTOM.a;  // 1.0 = turf tile, 0.0 = individual blade
 
-	// Each blade is its own MultiMesh instance. MODEL_MATRIX origin
-	// gives the true per-blade world position (not NODE_POSITION_WORLD
-	// which is the chunk node position, same for all instances).
+	// Instance origin (tile center or blade position)
 	vec3 blade_origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-	vec2 blade_world_xz = blade_origin.xz;
-	v_world_blade = blade_origin;
+	// World vertex position (differs from origin for turf tiles)
+	vec3 world_vert = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+
+	// For fragment: per-pixel world position for tiles, per-instance for blades
+	v_world_blade = mix(blade_origin, world_vert, is_tile);
 
 	// Bottom-to-top from UV (0 at base, 1 at tip — set in Blender)
 	v_bottom_to_top = clamp(UV.y, 0.0, 1.0);
 
-	// --- Full patchiness (hexaquo) — now possible with individual instances ---
-	// Each blade is its own instance, so scaling moves the tip but base stays put.
-	v_patch_factor = vnoise(blade_world_xz / 3.0);
+	// --- Patchiness (hexaquo): world-space noise ties size to color ---
+	// Per-instance for both layers (tile = uniform per-tile, blade = per-blade)
+	v_patch_factor = vnoise(blade_origin.xz / 3.0);
 	float size_lo = 0.6; float size_hi = 1.0;
 	if (v_grass_type > 7.5) {
 		size_lo = 0.3; size_hi = 1.0;   // wild meadow: dramatic
 	} else if (v_grass_type > 4.5 && v_grass_type < 7.5) {
 		size_lo = 0.4; size_hi = 1.0;   // woodland/water
 	}
-	VERTEX *= mix(size_lo, size_hi, v_patch_factor);
+	float patch_scale = mix(size_lo, size_hi, v_patch_factor);
+
+	// Turf tiles: scale Y only (preserve coverage area). Blades: scale uniformly.
+	if (is_tile > 0.5) {
+		// Path wear for tiles (shader-side, not in transform)
+		float tile_h = patch_scale;
+		if (v_path_prox > 0.1) {
+			tile_h *= mix(1.0, 0.5, v_path_prox);
+		}
+		VERTEX.y *= tile_h;
+	} else {
+		VERTEX *= patch_scale;
+	}
 
 	// Sway amount: only tips move, base is rooted
 	float sway = max(VERTEX.y, 0.0);
@@ -62,10 +76,11 @@ void vertex() {
 	}
 	float rustle = (0.2 + wind_str * 0.8) * flex;
 
-	// --- Wind: per-BLADE position for phase (not tile center) ---
-	// This makes blades within a tile sway independently, hiding tile boundaries.
-	float px = blade_world_xz.x * 0.15 + blade_world_xz.y * 0.22;
-	float pz = blade_world_xz.y * 0.18 + blade_world_xz.x * 0.12;
+	// Wind phase position: world vertex for tiles (per-blade-within-tile variation),
+	// instance origin for individual blades (already per-blade).
+	vec2 wind_xz = mix(blade_origin.xz, world_vert.xz, is_tile);
+	float px = wind_xz.x * 0.15 + wind_xz.y * 0.22;
+	float pz = wind_xz.y * 0.18 + wind_xz.x * 0.12;
 	VERTEX.x += sin(TIME * 1.8 + px) * 0.12 * sway * rustle;
 	VERTEX.z += sin(TIME * 2.3 + pz) * 0.08 * sway * rustle;
 
@@ -73,8 +88,8 @@ void vertex() {
 	VERTEX.x += wind_vec.x * sway * 0.4 * flex;
 	VERTEX.z += wind_vec.y * sway * 0.4 * flex;
 
-	// Traveling wind gusts — per-blade phase
-	float gust_phase = blade_world_xz.x * 0.04 + blade_world_xz.y * 0.05;
+	// Traveling wind gusts
+	float gust_phase = wind_xz.x * 0.04 + wind_xz.y * 0.05;
 	float gust = sin(TIME * 0.5 + gust_phase) * 0.5 + 0.5;
 	gust = gust * gust * gust;
 	float gust_str = gust * wind_str * 0.5 * flex;
