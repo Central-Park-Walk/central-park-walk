@@ -247,9 +247,8 @@ func _build_chunk(ck: String) -> void:
 		sum_x.append(0.0); sum_y.append(0.0); sum_z.append(0.0)
 
 	# Determine which seasonal flowers are active (read season from global)
-	var season: float = RenderingServer.global_shader_parameter_get("season_t")
-	if typeof(season) != TYPE_FLOAT:
-		season = 1.5  # default summer
+	var season_val = RenderingServer.global_shader_parameter_get("season_t")
+	var season: float = float(season_val) if season_val != null else 1.5
 	var spring_active: bool = season < 1.2  # crocuses, daffodils
 	var summer_active: bool = season > 0.5 and season < 2.5  # clover, dandelion, etc.
 	var fall_active: bool = season > 1.8 and season < 2.8  # goldenrod, aster
