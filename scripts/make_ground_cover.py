@@ -169,7 +169,7 @@ TURF_TYPES = [
     {
         "name": "Turf_Lawn",
         "blade_count": 2500,                    # dense carpet — ~1680 blades/m²
-        "radius": 0.72,                      # 18% larger than grid half-spacing — overlap hides seams
+        "radius": 0.61,                      # 18% larger than grid half-spacing — overlap hides seams
         "height_range": (0.065, 0.10),     # 6.5cm (fresh cut) to 10cm (regrowth)
         "width_range": (0.007, 0.014),      # 7-14mm — KBG/ryegrass blades
         "lean_range": (0.01, 0.03),         # minimal lean — upright mowed grass
@@ -185,7 +185,7 @@ TURF_TYPES = [
     {
         "name": "Turf_Wild",
         "blade_count": 1800,
-        "radius": 0.72,
+        "radius": 0.61,
         "height_range": (0.08, 0.40),       # 8cm seedlings to 40cm mature
         "width_range": (0.008, 0.018),       # wider, more varied
         "lean_range": (0.03, 0.12),          # dramatic lean on tall blades
@@ -201,7 +201,7 @@ TURF_TYPES = [
     {
         "name": "Turf_Shade",
         "blade_count": 1400,
-        "radius": 0.72,
+        "radius": 0.61,
         "height_range": (0.05, 0.18),        # 5-18cm — reaching for light
         "width_range": (0.006, 0.014),
         "lean_range": (0.02, 0.06),
@@ -217,7 +217,7 @@ TURF_TYPES = [
     {
         "name": "Turf_Sedge",
         "blade_count": 1600,
-        "radius": 0.72,
+        "radius": 0.61,
         "height_range": (0.08, 0.25),        # 8-25cm — upright sedges
         "width_range": (0.006, 0.014),
         "lean_range": (0.02, 0.05),
