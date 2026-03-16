@@ -184,9 +184,10 @@ void fragment() {
 	}
 
 	// Zone-based grass color — data-driven, no procedural noise.
-	// The grass PBR texture provides micro-detail. Zone determines tone.
+	// The terrain shader IS the grass at distance. Strong green tint ensures
+	// lawn zones read as grass from any distance. Texture provides micro-detail.
 	vec3 lawn_green = vec3(0.05, 0.12, 0.04);  // maintained lawn baseline
-	float green_blend = is_grass_zone ? 0.55 : (is_woodland ? 0.40 : 0.15);
+	float green_blend = is_grass_zone ? 0.75 : (is_woodland ? 0.50 : 0.10);
 	grass_alb = mix(grass_alb, lawn_green, green_blend);
 
 	// Distance-based darkening + aerial perspective.
@@ -259,26 +260,30 @@ void fragment() {
 	grass_nrm = mix(grass_nrm, m_nrm, meadow_blend);
 	grass_rgh = mix(grass_rgh, m_rgh, meadow_blend);
 
-	// --- Olmsted Landscape Modes: subtle color modulation by design intent ---
-	// Pastoral (open meadows): warm golden-green, brighter — "soothe and restore"
-	// Picturesque (Ramble, North Woods): cool blue-green, deeper shade — "sense of mystery"
-	// Formal (Mall, Bethesda, Conservatory Garden): crisp, slightly desaturated
+	// --- Olmsted Landscape Modes: zone-based color from data ---
+	// Each zone gets a distinct tone so different areas are visually identifiable.
+	// These are strong enough to be clearly different, faithful to Olmsted's design.
 	if (is_woodland) {
-		// Picturesque: cooler, deeper, more mysterious
-		grass_alb.r *= 0.88;
-		grass_alb.g *= 1.04;
-		grass_alb.b *= 1.10;
-		grass_alb *= 0.88;  // deeper shade under canopy
+		// Picturesque (Ramble, North Woods): dark forest floor — leaf litter, shade
+		grass_alb = mix(grass_alb, vec3(0.04, 0.06, 0.03), 0.5);  // much darker, earthy
 	} else if (zone_id == 1) {
-		// Garden zones → Formal: crisp, slightly desaturated manicured look
+		// Formal (Conservatory Garden): pristine manicured bright green
+		grass_alb *= 1.15;
 		float sat = dot(grass_alb, vec3(0.299, 0.587, 0.114));
-		grass_alb = mix(vec3(sat), grass_alb, 0.85);  // 15% desaturation
-		grass_alb *= 1.05;  // slightly brighter, well-maintained
-	} else if (zone_id == 8) {
-		// Grass/pitch → Pastoral: warm, golden Kentucky bluegrass
-		grass_alb.r *= 1.06;
-		grass_alb.g *= 1.02;
-		grass_alb.b *= 0.90;
+		grass_alb = mix(vec3(sat), grass_alb, 0.80);  // 20% desaturation — crisp
+	} else if (zone_id == 2) {
+		// Maintained grass (Sheep Meadow): warm lush green
+		grass_alb.r *= 1.08;
+		grass_alb.g *= 1.06;
+		grass_alb.b *= 0.85;
+	} else if (zone_id == 3 || zone_id == 7) {
+		// Sports turf: vivid, well-irrigated athletic green
+		grass_alb.g *= 1.12;
+		grass_alb *= 1.08;
+	} else if (zone_id == 5) {
+		// Nature reserve: warm wild meadow with golden undertone
+		grass_alb.r *= 1.12;
+		grass_alb.b *= 0.80;
 	}
 
 	// Dirt/mulch for playgrounds(4), dog_parks(6)
