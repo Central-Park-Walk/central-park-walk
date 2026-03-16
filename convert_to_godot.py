@@ -3208,6 +3208,9 @@ def prebake_grass_instances(landuse_zones):
 
     # --- Pre-compute terrain Y (vectorized) ---
     # Load heightmap.bin (written earlier in pipeline)
+    hm_data = None
+    hm_w = hm_h = 0
+    hm_world_size = WORLD_SIZE
     hm_path = "heightmap.bin"
     if os.path.exists(hm_path):
         with open(hm_path, 'rb') as hf:
@@ -3254,6 +3257,93 @@ def prebake_grass_instances(landuse_zones):
     breakdown = ", ".join(f"{names[i]}={int(np.sum(type_arr==i))}" for i in range(10) if np.sum(type_arr==i) > 0)
     print(f"  Grass: {count} instances (v2 format) → {size_mb:.1f} MB")
     print(f"    {breakdown}")
+
+    # --- Ground cover pass: dense turf carpet layer ---
+    # Same zones/types but uniform stride 2 for dense, low ground-hugging coverage.
+    # Grid offset by 1 cell to interleave with detail grass positions.
+    print("\n  Pre-baking ground cover instances (uniform stride 2)...")
+
+    gc_stride = 2
+    gc_seed = 99371027
+    gc_rng = np.random.RandomState(gc_seed)
+
+    # Sample at uniform stride 2, offset by 1 to interleave with detail grass
+    gz_idx = np.arange(1, RES, gc_stride)
+    gx_idx = np.arange(1, RES, gc_stride)
+    gz_g, gx_g = np.meshgrid(gz_idx, gx_idx, indexing='ij')
+
+    valid = type_grid[gz_g, gx_g] < 255
+    gz_sel = gz_g[valid].astype(np.float32)
+    gx_sel = gx_g[valid].astype(np.float32)
+    gc_types = type_grid[gz_g[valid], gx_g[valid]]
+
+    n_gc = len(gz_sel)
+    jitter_range = 0.4 * gc_stride * cell_m
+    jx = gc_rng.uniform(-jitter_range, jitter_range, n_gc).astype(np.float32)
+    jz = gc_rng.uniform(-jitter_range, jitter_range, n_gc).astype(np.float32)
+
+    gc_x = gx_sel * cell_m - HALF + jx
+    gc_z = gz_sel * cell_m - HALF + jz
+    gc_type = gc_types.astype(np.uint8)
+    gc_count = len(gc_x)
+    print(f"    {gc_count} raw instances")
+
+    # Water filter
+    gc_ix = np.clip(((gc_x + HALF) / WORLD_SIZE * RES).astype(np.int32), 0, RES - 1)
+    gc_iz = np.clip(((gc_z + HALF) / WORLD_SIZE * RES).astype(np.int32), 0, RES - 1)
+    gc_water = surface[gc_iz, gc_ix] == 4
+    for dx, dz in [(1,0),(-1,0),(0,1),(0,-1),(2,0),(-2,0),(0,2),(0,-2)]:
+        nix = np.clip(gc_ix + dx, 0, RES - 1)
+        niz = np.clip(gc_iz + dz, 0, RES - 1)
+        gc_water |= (surface[niz, nix] == 4)
+    gc_keep = ~gc_water
+    gc_x = gc_x[gc_keep]; gc_z = gc_z[gc_keep]; gc_type = gc_type[gc_keep]
+    gc_ix = gc_ix[gc_keep]; gc_iz = gc_iz[gc_keep]
+    gc_count = len(gc_x)
+
+    # Path proximity
+    gc_s0 = surface[gc_iz, gc_ix]
+    gc_prox = np.zeros(gc_count, dtype=np.float32)
+    gc_prox[np.isin(gc_s0, [2, 3])] = 1.0
+    for dx, dz in [(1,0),(-1,0),(0,1),(0,-1)]:
+        nix = np.clip(gc_ix + dx, 0, RES - 1)
+        niz = np.clip(gc_iz + dz, 0, RES - 1)
+        gc_prox = np.maximum(gc_prox, np.where(np.isin(surface[niz, nix], [2, 3]), 0.8, 0.0))
+    for dx, dz in [(2,0),(-2,0),(0,2),(0,-2)]:
+        nix = np.clip(gc_ix + dx, 0, RES - 1)
+        niz = np.clip(gc_iz + dz, 0, RES - 1)
+        gc_prox = np.maximum(gc_prox, np.where(np.isin(surface[niz, nix], [2, 3]), 0.4, 0.0))
+    gc_prox_u8 = np.clip((gc_prox * 255.0).astype(np.uint8), 0, 255)
+
+    # Heightmap Y
+    if hm_data is not None:
+        u = (gc_x + hm_world_size * 0.5) / hm_world_size
+        v = (gc_z + hm_world_size * 0.5) / hm_world_size
+        xi_f = u * (hm_w - 1); zi_f = v * (hm_h - 1)
+        xi0 = np.clip(xi_f.astype(np.int32), 0, hm_w - 2)
+        zi0 = np.clip(zi_f.astype(np.int32), 0, hm_h - 2)
+        fx = xi_f - xi0; fz = zi_f - zi0
+        gc_y = (hm_data[zi0, xi0] * (1-fx)*(1-fz) + hm_data[zi0, xi0+1] * fx*(1-fz) +
+                hm_data[zi0+1, xi0] * (1-fx)*fz + hm_data[zi0+1, xi0+1] * fx*fz +
+                0.002).astype(np.float32)
+    else:
+        gc_y = np.full(gc_count, 0.002, dtype=np.float32)
+
+    # Write ground_cover_instances.bin (v2 format, magic "GRC2")
+    gc_path = "ground_cover_instances.bin"
+    with open(gc_path, 'wb') as f:
+        f.write(struct.pack('<I', 0x47524332))  # "GRC2"
+        f.write(struct.pack('<I', gc_count))
+        f.write(gc_x.tobytes())
+        f.write(gc_y.tobytes())
+        f.write(gc_z.tobytes())
+        f.write(gc_type.tobytes())
+        f.write(gc_prox_u8.tobytes())
+
+    gc_size = os.path.getsize(gc_path) / (1024 * 1024)
+    gc_bd = ", ".join(f"{names[i]}={int(np.sum(gc_type==i))}" for i in range(10) if np.sum(gc_type==i) > 0)
+    print(f"  Ground cover: {gc_count} instances → {gc_size:.1f} MB")
+    print(f"    {gc_bd}")
 
 
 def prebake_landuse_map(landuse_zones, water_bodies):

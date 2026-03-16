@@ -1,26 +1,26 @@
 # grass_builder.gd
-# Data-driven grass system — 10 area-specific types from Conservancy data.
+# Two-layer grass system: ground cover (turf carpet) + detail blades.
 #
-# Type  Model                  Area                  Blades  Stride
-# ──────────────────────────────────────────────────────────────────
-#  0    Grass_Tile_SheepMeadow Sheep Meadow lawns     150     2
-#  1    Grass_Tile_GreatLawn   Great Lawn              140     2
-#  2    Grass_Tile_NorthMeadow North Meadow            120     3
-#  3    Grass_Tile_FormalGarden Conservatory Garden     130     3
-#  4    Grass_Tile_SportsTurf  Tennis/baseball/etc      160     2
-#  5    Grass_Tile_NorthWoods  North Woods floor        30     7
-#  6    Grass_Tile_Ramble      Ramble/Dene floor        50     5
-#  7    Grass_Tile_Waterside   Lake/pond shores          80     3
-#  8    Grass_Tile_WildMeadow  Nature reserves           60     4
-#  9    Grass_Tile_OpenLawn    Default maintained       130     3
+# Layer 1: Ground cover — low, outward-leaning turf tiles that carpet the
+#   terrain. Dense placement (stride 2). Provides continuous green mass.
+#   4 turf types: Lawn, Wild, Shade, Sedge.
 #
-# Positions prebaked in convert_to_godot.py → grass_instances.bin.
+# Layer 2: Detail blades — taller individual grass tiles for visual depth,
+#   wind animation, wildflowers. Sparser placement (stride 2-8).
+#   10 types from Conservancy ABCD lawn data.
+#
+# Both layers use the same grass_blade shader and share type-based coloring.
+# The green terrain shader base carries color beyond visibility range.
+#
+# Positions prebaked in convert_to_godot.py:
+#   grass_instances.bin        — detail blade positions
+#   ground_cover_instances.bin — ground cover positions
 
 var _loader  # Reference to park_loader for shared utilities
 
 const CHUNK := 40.0       # spatial chunk size in metres
 
-# Model names indexed by type ID
+# --- Detail blade layer (10 types) ---
 const MODEL_NAMES: Array = [
 	"Grass_Tile_SheepMeadow",   # 0
 	"Grass_Tile_GreatLawn",     # 1
@@ -34,7 +34,6 @@ const MODEL_NAMES: Array = [
 	"Grass_Tile_OpenLawn",      # 9
 ]
 
-# Visibility range per type (dense lawn=far, sparse woodland=near)
 const VIS_RANGES: Array = [
 	80.0,  # sheep_meadow
 	80.0,  # great_lawn
@@ -48,6 +47,36 @@ const VIS_RANGES: Array = [
 	70.0,  # open_lawn
 ]
 
+# --- Ground cover layer (4 turf types) ---
+const TURF_NAMES: Array = [
+	"Turf_Lawn",    # 0 — mowed lawn carpet
+	"Turf_Wild",    # 1 — wild meadow ground cover
+	"Turf_Shade",   # 2 — woodland floor cover
+	"Turf_Sedge",   # 3 — waterside ground cover
+]
+
+# Map detail type (0-9) → turf type (0-3)
+const TYPE_TO_TURF: Array = [
+	0,  # SheepMeadow   → Turf_Lawn
+	0,  # GreatLawn     → Turf_Lawn
+	0,  # NorthMeadow   → Turf_Lawn
+	0,  # FormalGarden   → Turf_Lawn
+	0,  # SportsTurf    → Turf_Lawn
+	2,  # NorthWoods    → Turf_Shade
+	2,  # Ramble        → Turf_Shade
+	3,  # Waterside     → Turf_Sedge
+	1,  # WildMeadow    → Turf_Wild
+	0,  # OpenLawn      → Turf_Lawn
+]
+
+# Ground cover visibility: shorter range since terrain carries green beyond
+const TURF_VIS_RANGES: Array = [
+	50.0,  # lawn — moderate range, terrain matches well
+	45.0,  # wild
+	35.0,  # shade — short range, dark under canopy
+	40.0,  # sedge
+]
+
 
 func _init(loader) -> void:
 	_loader = loader
@@ -58,7 +87,7 @@ func _build_grass() -> void:
 
 	var grass_shader: Shader = _loader._get_shader("grass_blade", "res://shaders/grass_blade.gdshader")
 
-	# Load all 10 tile models
+	# --- Load detail blade models (10 types) ---
 	var meshes: Array = []
 	var loaded := 0
 	for mname in MODEL_NAMES:
@@ -68,28 +97,59 @@ func _build_grass() -> void:
 			loaded += 1
 
 	if loaded == 0:
-		# Fallback: try old model names
 		var old_mesh: Mesh = _load_tile_model("Grass_Patch_Lawn", grass_shader)
 		if old_mesh == null:
 			print("Grass: no tile models loaded — skipping")
 			return
-		# Use old model for all types
 		for i in meshes.size():
 			if meshes[i] == null:
 				meshes[i] = old_mesh
 
-	# Read prebaked instance positions
-	var instances: Array = _load_instances()
-	if instances.is_empty():
-		print("Grass: no prebaked instances — skipping")
-		return
+	# --- Load ground cover models (4 types) ---
+	var turf_meshes: Array = []
+	var turf_loaded := 0
+	for tname in TURF_NAMES:
+		var mesh: Mesh = _load_tile_model(tname, grass_shader)
+		turf_meshes.append(mesh)
+		if mesh != null:
+			turf_loaded += 1
 
+	# --- Build detail blade layer ---
+	var instances: Array = _load_binary("res://grass_instances.bin", 0x47525332)  # "GRS2"
+	var detail_total := 0
+	var detail_chunks := 0
+	if not instances.is_empty():
+		var result := _build_layer(instances, meshes, VIS_RANGES, "Grass")
+		detail_total = result[0]
+		detail_chunks = result[1]
+
+	# --- Build ground cover layer ---
+	var gc_total := 0
+	var gc_chunks := 0
+	if turf_loaded > 0:
+		var gc_instances: Array = _load_binary("res://ground_cover_instances.bin", 0x47524332)  # "GRC2"
+		if not gc_instances.is_empty():
+			# Remap types: detail type (0-9) → turf type (0-3) for mesh selection
+			# but keep original type in custom data for shader coloring
+			var result := _build_layer_mapped(gc_instances, turf_meshes, TURF_VIS_RANGES, TYPE_TO_TURF, "Turf")
+			gc_total = result[0]
+			gc_chunks = result[1]
+	elif not instances.is_empty():
+		print("  Ground cover: no turf models found — skipping (run make_ground_cover.py in Blender)")
+
+	var elapsed := Time.get_ticks_msec() - t0
+	print("Grass: %d detail + %d cover = %d tiles (%d chunks) in %.0fms" % [
+		detail_total, gc_total, detail_total + gc_total,
+		detail_chunks + gc_chunks, elapsed])
+
+
+func _build_layer(instances: Array, meshes: Array, vis_ranges: Array, prefix: String) -> Array:
+	"""Build MultiMesh chunks for a grass layer where type maps directly to mesh index."""
 	var x_arr: PackedFloat32Array = instances[0]
 	var z_arr: PackedFloat32Array = instances[1]
 	var type_arr: PackedByteArray = instances[2]
 	var count: int = x_arr.size()
 
-	# v2 format has pre-baked Y + path proximity (no atlas lookups needed)
 	var has_v2 := instances.size() >= 5
 	var y_arr: PackedFloat32Array
 	var prox_arr: PackedByteArray
@@ -97,12 +157,8 @@ func _build_grass() -> void:
 		y_arr = instances[3]
 		prox_arr = instances[4]
 
-	# Build transforms and group by type + spatial chunk
 	var chunks: Dictionary = {}
 	var total := 0
-	var type_counts: Array = []
-	type_counts.resize(MODEL_NAMES.size())
-	type_counts.fill(0)
 	var rng := RandomNumberGenerator.new()
 
 	for i in count:
@@ -111,48 +167,20 @@ func _build_grass() -> void:
 		var gtype: int = type_arr[i]
 
 		if gtype >= meshes.size():
-			gtype = 9  # fallback to open_lawn
+			gtype = meshes.size() - 1
 		if meshes[gtype] == null:
-			gtype = 9  # fallback
-			if meshes[gtype] == null:
-				continue
+			continue
 
 		rng.seed = int(wx * 73856.0 + wz * 19349.0) & 0x7FFFFFFF
 
 		var wy: float
 		var path_prox: float
 		if has_v2:
-			# v2: Y and path_prox pre-baked in Python, water already filtered
 			wy = y_arr[i]
 			path_prox = float(prox_arr[i]) / 255.0
 		else:
-			# v1 fallback: runtime lookups (slow — re-bake to get v2)
-			var jx: float = wx + rng.randf_range(-0.9, 0.9)
-			var jz: float = wz + rng.randf_range(-0.9, 0.9)
-			wy = _loader._terrain_y(jx, jz) + 0.002
-			var _s0: int = _loader._atlas_surface(jx, jz)
-			if _s0 == 4:
-				continue
-			var near_water := false
-			for _woff in [Vector2(1,0), Vector2(-1,0), Vector2(0,1), Vector2(0,-1),
-						   Vector2(1.5,0), Vector2(-1.5,0), Vector2(0,1.5), Vector2(0,-1.5)]:
-				if _loader._atlas_surface(jx + _woff.x, jz + _woff.y) == 4:
-					near_water = true
-					break
-			if near_water:
-				continue
+			wy = _loader._terrain_y(wx, wz) + 0.002
 			path_prox = 0.0
-			if _s0 == 2 or _s0 == 3:
-				path_prox = 1.0
-			else:
-				for _off in [Vector2(1,0), Vector2(-1,0), Vector2(0,1), Vector2(0,-1)]:
-					var s1: int = _loader._atlas_surface(jx + _off.x, jz + _off.y)
-					if s1 == 2 or s1 == 3:
-						path_prox = maxf(path_prox, 0.8)
-					else:
-						var s2: int = _loader._atlas_surface(jx + _off.x * 2.0, jz + _off.y * 2.0)
-						if s2 == 2 or s2 == 3:
-							path_prox = maxf(path_prox, 0.4)
 
 		var y_rot := rng.randf() * TAU
 		var s_xz := rng.randf_range(1.0, 1.45)
@@ -170,9 +198,79 @@ func _build_grass() -> void:
 		chunks[ck]["xf"].append(tf)
 		chunks[ck]["cd"].append(Color(float(gtype), rng.randf(), path_prox, 0.0))
 		total += 1
-		type_counts[gtype] += 1
 
-	# Build MultiMesh per chunk
+	var chunk_count := _emit_multimeshes(chunks, meshes, vis_ranges, prefix)
+	return [total, chunk_count]
+
+
+func _build_layer_mapped(instances: Array, meshes: Array, vis_ranges: Array,
+						  type_map: Array, prefix: String) -> Array:
+	"""Build MultiMesh chunks where instance type is remapped via type_map for mesh selection,
+	   but original type is preserved in custom data for shader coloring."""
+	var x_arr: PackedFloat32Array = instances[0]
+	var z_arr: PackedFloat32Array = instances[1]
+	var type_arr: PackedByteArray = instances[2]
+	var count: int = x_arr.size()
+
+	var has_v2 := instances.size() >= 5
+	var y_arr: PackedFloat32Array
+	var prox_arr: PackedByteArray
+	if has_v2:
+		y_arr = instances[3]
+		prox_arr = instances[4]
+
+	var chunks: Dictionary = {}
+	var total := 0
+	var rng := RandomNumberGenerator.new()
+
+	for i in count:
+		var wx: float = x_arr[i]
+		var wz: float = z_arr[i]
+		var orig_type: int = type_arr[i]
+
+		# Map to mesh type
+		var mesh_type: int = 0
+		if orig_type < type_map.size():
+			mesh_type = type_map[orig_type]
+		if mesh_type >= meshes.size() or meshes[mesh_type] == null:
+			continue
+
+		rng.seed = int(wx * 99371.0 + wz * 27183.0) & 0x7FFFFFFF
+
+		var wy: float
+		var path_prox: float
+		if has_v2:
+			wy = y_arr[i]
+			path_prox = float(prox_arr[i]) / 255.0
+		else:
+			wy = _loader._terrain_y(wx, wz) + 0.002
+			path_prox = 0.0
+
+		var y_rot := rng.randf() * TAU
+		var s_xz := rng.randf_range(0.85, 1.25)  # less scale variation for carpet
+		var s_y := rng.randf_range(0.80, 1.10)
+		if path_prox > 0.1:
+			s_y *= lerpf(1.0, 0.40, path_prox)  # more trampled near paths
+		var basis := Basis(Vector3.UP, y_rot).scaled(Vector3(s_xz, s_y, s_xz))
+		var tf := Transform3D(basis, Vector3(wx, wy, wz))
+
+		var cx := int(floorf(wx / CHUNK))
+		var cz := int(floorf(wz / CHUNK))
+		# Group by mesh_type for rendering, not orig_type
+		var ck := "%d|%d|%d" % [mesh_type, cx, cz]
+		if not chunks.has(ck):
+			chunks[ck] = {"type": mesh_type, "xf": [], "cd": []}
+		chunks[ck]["xf"].append(tf)
+		# Store original type in custom data so shader colors correctly
+		chunks[ck]["cd"].append(Color(float(orig_type), rng.randf(), path_prox, 0.0))
+		total += 1
+
+	var chunk_count := _emit_multimeshes(chunks, meshes, vis_ranges, prefix)
+	return [total, chunk_count]
+
+
+func _emit_multimeshes(chunks: Dictionary, meshes: Array, vis_ranges: Array, prefix: String) -> int:
+	"""Create MultiMeshInstance3D nodes from chunk data."""
 	var chunk_count := 0
 	for ck in chunks:
 		var info: Dictionary = chunks[ck]
@@ -183,7 +281,7 @@ func _build_grass() -> void:
 			continue
 
 		var mesh: Mesh = meshes[gtype]
-		var vis_end: float = VIS_RANGES[gtype] if gtype < VIS_RANGES.size() else 60.0
+		var vis_end: float = vis_ranges[gtype] if gtype < vis_ranges.size() else 50.0
 
 		var sx := 0.0; var sy := 0.0; var sz := 0.0
 		for tf: Transform3D in xf_list:
@@ -206,29 +304,22 @@ func _build_grass() -> void:
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		mmi.position = chunk_origin
-		mmi.name = "Grass_%s" % ck.replace("|", "_")
+		mmi.name = "%s_%s" % [prefix, ck.replace("|", "_")]
 		mmi.visibility_range_end = vis_end
-		mmi.visibility_range_end_margin = vis_end * 0.15  # 15% fade margin for smooth pop-in
+		mmi.visibility_range_end_margin = vis_end * 0.15
 		mmi.visibility_range_begin = 0.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_loader.add_child(mmi)
 		chunk_count += 1
 
-	# Print per-type counts
-	var type_str := ""
-	for i in MODEL_NAMES.size():
-		if type_counts[i] > 0:
-			type_str += "%s:%d " % [MODEL_NAMES[i].replace("Grass_Tile_", ""), type_counts[i]]
-	print("Grass: %d tiles (%d chunks) in %.0fms" % [total, chunk_count, Time.get_ticks_msec() - t0])
-	print("  Types: %s" % type_str)
+	return chunk_count
 
 
 func _load_tile_model(mname: String, shader: Shader) -> Mesh:
 	var abs_path := ProjectSettings.globalize_path("res://models/vegetation/%s.glb" % mname)
 	if not FileAccess.file_exists(abs_path):
 		return null
-	# Use shared GLB loader with .res caching (much faster on repeat loads)
 	var meshes: Dictionary = _loader._load_glb_meshes(abs_path)
 	if meshes.is_empty():
 		return null
@@ -236,7 +327,6 @@ func _load_tile_model(mname: String, shader: Shader) -> Mesh:
 	for si in mesh.get_surface_count():
 		var new_mat := ShaderMaterial.new()
 		new_mat.shader = shader
-		# Per-material uniforms: canopy map + world size for dappled shade
 		if _loader._canopy_texture:
 			new_mat.set_shader_parameter("canopy_map", _loader._canopy_texture)
 		new_mat.set_shader_parameter("hm_world_size", _loader._hm_world_size)
@@ -244,42 +334,21 @@ func _load_tile_model(mname: String, shader: Shader) -> Mesh:
 	return mesh
 
 
-func _load_instances() -> Array:
-	for path in ["res://grass_instances.bin"]:
-		var abs_path := ProjectSettings.globalize_path(path)
-		var f := FileAccess.open(abs_path, FileAccess.READ)
-		if f == null:
-			f = FileAccess.open(path, FileAccess.READ)
-		if f == null:
-			print("WARNING: grass_instances.bin not found")
-			return []
+func _load_binary(res_path: String, expected_magic: int) -> Array:
+	"""Load a grass/ground-cover binary file (v2 format with magic header)."""
+	var abs_path := ProjectSettings.globalize_path(res_path)
+	var f := FileAccess.open(abs_path, FileAccess.READ)
+	if f == null:
+		f = FileAccess.open(res_path, FileAccess.READ)
+	if f == null:
+		return []
 
-		var magic: int = f.get_32()
-		if magic == 0x47525332 or magic == 0x32535247:  # "GRS2" — v2 format (either byte order)
-			var cnt: int = f.get_32()
-			if cnt == 0:
-				return []
-			var x_bytes := f.get_buffer(cnt * 4)
-			var y_bytes := f.get_buffer(cnt * 4)
-			var z_bytes := f.get_buffer(cnt * 4)
-			var t_bytes := f.get_buffer(cnt)
-			var pp_bytes := f.get_buffer(cnt)
-
-			var x_arr := PackedFloat32Array(); x_arr.resize(cnt)
-			var y_arr := PackedFloat32Array(); y_arr.resize(cnt)
-			var z_arr := PackedFloat32Array(); z_arr.resize(cnt)
-			var type_arr := PackedByteArray(); type_arr.resize(cnt)
-			var prox_arr := PackedByteArray(); prox_arr.resize(cnt)
-			for j in cnt:
-				x_arr[j] = x_bytes.decode_float(j * 4)
-				y_arr[j] = y_bytes.decode_float(j * 4)
-				z_arr[j] = z_bytes.decode_float(j * 4)
-				type_arr[j] = t_bytes[j]
-				prox_arr[j] = pp_bytes[j]
-			print("Grass: loaded %d prebaked instances (v2 — Y + path_prox pre-baked)" % cnt)
-			return [x_arr, z_arr, type_arr, y_arr, prox_arr]
-		else:
-			# v1 format — magic was actually the count
+	var magic: int = f.get_32()
+	# Check for expected magic in either byte order
+	var magic_rev: int = ((magic & 0xFF) << 24) | ((magic & 0xFF00) << 8) | ((magic & 0xFF0000) >> 8) | ((magic & 0xFF000000) >> 24)
+	if magic != expected_magic and magic_rev != expected_magic:
+		# v1 format fallback (magic was count) — only for grass_instances
+		if expected_magic == 0x47525332:
 			var cnt: int = magic
 			if cnt == 0:
 				return []
@@ -293,7 +362,29 @@ func _load_instances() -> Array:
 				x_arr[j] = x_bytes.decode_float(j * 4)
 				z_arr[j] = z_bytes.decode_float(j * 4)
 				type_arr[j] = t_bytes[j]
-			print("Grass: loaded %d prebaked instances (v1 — needs re-bake)" % cnt)
+			print("  %s: %d instances (v1 — needs re-bake)" % [res_path, cnt])
 			return [x_arr, z_arr, type_arr]
+		return []
 
-	return []
+	var cnt: int = f.get_32()
+	if cnt == 0:
+		return []
+	var x_bytes := f.get_buffer(cnt * 4)
+	var y_bytes := f.get_buffer(cnt * 4)
+	var z_bytes := f.get_buffer(cnt * 4)
+	var t_bytes := f.get_buffer(cnt)
+	var pp_bytes := f.get_buffer(cnt)
+
+	var x_arr := PackedFloat32Array(); x_arr.resize(cnt)
+	var y_arr := PackedFloat32Array(); y_arr.resize(cnt)
+	var z_arr := PackedFloat32Array(); z_arr.resize(cnt)
+	var type_arr := PackedByteArray(); type_arr.resize(cnt)
+	var prox_arr := PackedByteArray(); prox_arr.resize(cnt)
+	for j in cnt:
+		x_arr[j] = x_bytes.decode_float(j * 4)
+		y_arr[j] = y_bytes.decode_float(j * 4)
+		z_arr[j] = z_bytes.decode_float(j * 4)
+		type_arr[j] = t_bytes[j]
+		prox_arr[j] = pp_bytes[j]
+	print("  %s: %d instances (v2)" % [res_path, cnt])
+	return [x_arr, z_arr, type_arr, y_arr, prox_arr]
