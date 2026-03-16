@@ -1,17 +1,20 @@
 """Build ground cover (turf carpet) tiles for Central Park Walk — 4 zone types.
 
-Ground cover provides dense, low, ground-hugging vegetation that fills
-the space between taller detail grass blades. Combined with the green
-terrain shader base, this creates seamless grass coverage at all distances.
+Dense grass tiles with 1000-2000 blades each, all at different heights.
+Mow height is the MINIMUM blade height for mowed lawns — blades range
+from mow height up to max growth since last cut. Unmowed areas have
+full height distribution from ground level to species maximum.
 
-Blades lean OUTWARD from tile center to maximize ground coverage from above.
-This is the key difference from detail blades (which are mostly vertical).
+This is the AAA approach: each tile is a dense carpet of varied-height
+blades that reads as continuous grass from the player's perspective.
+The terrain shader carries the color at distance; these tiles provide
+3D parallax depth within 12-15m.
 
 Types match Central Park zone categories:
-  0. Turf_Lawn   — mowed lawn carpet (A/B/C lawns), 2.5-4.5cm
-  1. Turf_Wild   — wild meadow ground cover (nature reserves), 4-10cm
-  2. Turf_Shade  — woodland floor cover (Ramble, North Woods), 3-7cm
-  3. Turf_Sedge  — waterside ground cover (shorelines), 4-9cm
+  0. Turf_Lawn   — mowed KBG/ryegrass, 7.5-10cm (CPC 3-inch mow + regrowth)
+  1. Turf_Wild   — unmowed meadow, 8-40cm (full species range)
+  2. Turf_Shade  — woodland floor fescue, 5-18cm (shade-tolerant)
+  3. Turf_Sedge  — waterside rushes/sedges, 8-25cm (moisture-loving)
 
 Exports to models/vegetation/Turf_*.glb
 """
@@ -32,28 +35,21 @@ os.makedirs(OUT_DIR, exist_ok=True)
 
 
 # ---------------------------------------------------------------------------
-# Grass blade — single quad, leaning outward from tile center
+# Grass blade — single quad, optionally leaning outward
 # ---------------------------------------------------------------------------
 def make_blade(bm, color_layer, uv_layer,
                bx, bz, height, width, rot, lean,
                base_rgb, tip_rgb):
-    """Create one grass blade as a single quad at position (bx, bz).
-
-    Unlike detail blades which are mostly vertical, ground cover blades
-    lean outward (controlled by 'lean' = horizontal extension in facing
-    direction), covering ground area when viewed from above.
-    """
+    """Create one grass blade as a single quad at position (bx, bz)."""
     dx = math.cos(rot)
     dz = math.sin(rot)
     px = -math.sin(rot)
     pz = math.cos(rot)
 
     hw = width * 0.5
-    # Tip position: extends outward (lean) and upward (height)
     tip_x = bx + dx * lean
     tip_z = bz + dz * lean
-    # Width tapers at tip (30% of base width)
-    thw = hw * 0.3
+    thw = hw * 0.3  # tip tapers to 30% of base width
 
     v0 = bm.verts.new((bx + px * hw, 0.0, bz + pz * hw))
     v1 = bm.verts.new((bx - px * hw, 0.0, bz - pz * hw))
@@ -77,10 +73,38 @@ def make_blade(bm, color_layer, uv_layer,
 
 
 # ---------------------------------------------------------------------------
-# Turf tile builder — blades fan outward from center
+# Height distribution — not uniform. Biased toward typical for that zone.
+# ---------------------------------------------------------------------------
+def sample_height(rng, h_min, h_max, distribution="lawn"):
+    """Sample a blade height with realistic distribution.
+
+    lawn:  most blades near mow height (h_min), tapering off toward h_max
+    wild:  full range, slight bias toward mid-height
+    shade: most blades short, occasional tall
+    sedge: biased toward tall
+    """
+    t = rng.random()
+    if distribution == "lawn":
+        # Most blades near mow height, few taller (exponential decay above mow)
+        # 70% within first 30% of range, rest spread across upper 70%
+        t = t ** 2.0  # squares bunch toward 0 = near h_min
+    elif distribution == "wild":
+        # Full range, slight bias toward mid-height (bell-ish)
+        t = (rng.random() + rng.random()) * 0.5  # triangle distribution
+    elif distribution == "shade":
+        # Mostly short with occasional tall outlier
+        t = t ** 2.5
+    elif distribution == "sedge":
+        # Biased toward taller — sedges grow upright
+        t = 1.0 - (1.0 - t) ** 1.8
+    return h_min + t * (h_max - h_min)
+
+
+# ---------------------------------------------------------------------------
+# Turf tile builder
 # ---------------------------------------------------------------------------
 def build_turf_tile(cfg, seed):
-    """Build a ground cover tile with blades leaning outward from center."""
+    """Build a dense ground cover tile with blades at varied heights."""
     rng = random.Random(seed)
     bm = bmesh.new()
     color_layer = bm.loops.layers.color.new("Color")
@@ -88,38 +112,43 @@ def build_turf_tile(cfg, seed):
 
     radius = cfg["radius"]
     blade_count = cfg["blade_count"]
-    h_lo, h_hi = cfg["height_range"]
+    h_min, h_max = cfg["height_range"]
     w_lo, w_hi = cfg["width_range"]
     lean_lo, lean_hi = cfg["lean_range"]
     base_rgb = cfg["base_rgb"]
     tip_rgb = cfg["tip_rgb"]
     color_var = cfg.get("color_var", 0.04)
     outward_pct = cfg.get("outward_pct", 0.7)
+    distribution = cfg.get("distribution", "lawn")
 
     for _ in range(blade_count):
-        # Distribute blades uniformly in circle (sqrt for even area density)
+        # Distribute blades uniformly in circle
         r = radius * math.sqrt(rng.random())
         theta = rng.random() * 2 * math.pi
         bx = r * math.cos(theta)
         bz = r * math.sin(theta)
 
-        # Direction: mostly outward from center, some random for natural look
+        # Direction: mostly outward from center, some random
         if rng.random() < outward_pct and r > 0.05:
             outward_angle = math.atan2(bz, bx)
-            rot = outward_angle + rng.gauss(0, 0.3)  # ±17° scatter
+            rot = outward_angle + rng.gauss(0, 0.3)
         else:
             rot = rng.random() * 2 * math.pi
 
-        h = rng.uniform(h_lo, h_hi)
+        h = sample_height(rng, h_min, h_max, distribution)
         w = rng.uniform(w_lo, w_hi)
-        lean = rng.uniform(lean_lo, lean_hi)
+        # Lean proportional to height — taller blades lean more
+        h_frac = (h - h_min) / max(h_max - h_min, 0.01)
+        lean = rng.uniform(lean_lo, lean_hi) * (0.5 + h_frac * 0.5)
 
         # Per-blade color variation
         cv = rng.uniform(-color_var, color_var)
+        # Shorter blades slightly darker (closer to base/soil)
+        dark_factor = 0.85 + 0.15 * h_frac
         b_rgb = (
-            max(0.01, base_rgb[0] + cv * 0.8),
-            max(0.01, base_rgb[1] + cv * 0.6),
-            max(0.01, base_rgb[2] + cv * 0.4),
+            max(0.01, (base_rgb[0] + cv * 0.8) * dark_factor),
+            max(0.01, (base_rgb[1] + cv * 0.6) * dark_factor),
+            max(0.01, (base_rgb[2] + cv * 0.4) * dark_factor),
         )
         t_rgb = (
             min(0.95, tip_rgb[0] + cv * 0.6),
@@ -134,70 +163,79 @@ def build_turf_tile(cfg, seed):
 
 
 # ---------------------------------------------------------------------------
-# 4 turf types — ground cover for each Central Park zone category
+# 4 turf types — CPC data-driven
 # ---------------------------------------------------------------------------
 TURF_TYPES = [
-    # 0: Lawn — mowed KBG/ryegrass carpet, dense and uniform
+    # 0: Lawn — mowed 2x/week at 3 inches (7.6cm). Blades range from mow
+    #    height to ~10cm (3-5 days regrowth). Kentucky bluegrass / perennial
+    #    ryegrass blend. Dense, uniform, narrow blades.
     {
         "name": "Turf_Lawn",
-        "blade_count": 100,
+        "blade_count": 1500,
         "radius": 0.45,
-        "height_range": (0.025, 0.045),    # 2.5-4.5cm — below mow height
-        "width_range": (0.015, 0.025),      # 15-25mm — wider than detail for coverage
-        "lean_range": (0.02, 0.05),         # 2-5cm outward lean
-        "base_rgb": (0.18, 0.38, 0.07),
-        "tip_rgb": (0.40, 0.58, 0.22),
-        "color_var": 0.04,
-        "outward_pct": 0.75,
+        "height_range": (0.065, 0.10),     # 6.5cm (fresh cut) to 10cm (regrowth)
+        "width_range": (0.005, 0.010),      # 5-10mm — narrow KBG blades
+        "lean_range": (0.01, 0.03),         # minimal lean — upright mowed grass
+        "base_rgb": (0.15, 0.35, 0.06),
+        "tip_rgb": (0.35, 0.55, 0.18),
+        "color_var": 0.03,
+        "outward_pct": 0.40,               # less outward — mowed grass is upright
+        "distribution": "lawn",
         "seed": 501,
     },
-    # 1: Wild — unmowed meadow ground cover, taller and looser
+    # 1: Wild — nature reserve, never mowed. Big bluestem, switchgrass,
+    #    goldenrod. Full height range from seedlings to mature.
     {
         "name": "Turf_Wild",
-        "blade_count": 70,
-        "radius": 0.50,
-        "height_range": (0.04, 0.10),       # 4-10cm — unmowed understory
-        "width_range": (0.015, 0.028),
-        "lean_range": (0.03, 0.08),          # more dramatic lean
-        "base_rgb": (0.14, 0.30, 0.05),
-        "tip_rgb": (0.38, 0.42, 0.18),      # warm golden tips
+        "blade_count": 1000,
+        "radius": 0.55,
+        "height_range": (0.08, 0.40),       # 8cm seedlings to 40cm mature
+        "width_range": (0.008, 0.018),       # wider, more varied
+        "lean_range": (0.03, 0.12),          # dramatic lean on tall blades
+        "base_rgb": (0.12, 0.28, 0.04),
+        "tip_rgb": (0.40, 0.42, 0.16),      # warm golden-green tips
         "color_var": 0.06,
-        "outward_pct": 0.60,                 # more random, less manicured
+        "outward_pct": 0.55,
+        "distribution": "wild",
         "seed": 503,
     },
-    # 2: Shade — woodland floor fescue, sparse and dark
+    # 2: Shade — woodland floor, shade fescue (Festuca rubra). Sparse
+    #    clumps in dappled light. Some taller stems reaching for light.
     {
         "name": "Turf_Shade",
-        "blade_count": 50,
-        "radius": 0.40,
-        "height_range": (0.03, 0.07),        # 3-7cm
-        "width_range": (0.012, 0.020),
-        "lean_range": (0.02, 0.04),
-        "base_rgb": (0.08, 0.22, 0.04),     # deep shade green
-        "tip_rgb": (0.20, 0.36, 0.12),
-        "color_var": 0.05,
-        "outward_pct": 0.50,                 # more random under canopy
+        "blade_count": 800,
+        "radius": 0.45,
+        "height_range": (0.05, 0.18),        # 5-18cm — reaching for light
+        "width_range": (0.006, 0.014),
+        "lean_range": (0.02, 0.06),
+        "base_rgb": (0.06, 0.18, 0.03),     # very dark shade green
+        "tip_rgb": (0.16, 0.30, 0.10),
+        "color_var": 0.04,
+        "outward_pct": 0.45,
+        "distribution": "shade",
         "seed": 507,
     },
-    # 3: Sedge — waterside ground cover, reedy
+    # 3: Sedge — waterside Carex and Juncus. Upright growth habit,
+    #    triangular stems, taller than lawn grass.
     {
         "name": "Turf_Sedge",
-        "blade_count": 60,
-        "radius": 0.45,
-        "height_range": (0.04, 0.09),        # 4-9cm
-        "width_range": (0.012, 0.022),
-        "lean_range": (0.03, 0.06),
-        "base_rgb": (0.12, 0.30, 0.06),
-        "tip_rgb": (0.28, 0.45, 0.16),
-        "color_var": 0.05,
-        "outward_pct": 0.65,
+        "blade_count": 900,
+        "radius": 0.50,
+        "height_range": (0.08, 0.25),        # 8-25cm — upright sedges
+        "width_range": (0.006, 0.014),
+        "lean_range": (0.02, 0.05),
+        "base_rgb": (0.10, 0.26, 0.05),
+        "tip_rgb": (0.24, 0.40, 0.14),
+        "color_var": 0.04,
+        "outward_pct": 0.35,                 # more upright — sedge growth habit
+        "distribution": "sedge",
         "seed": 509,
     },
 ]
 
 
 # ---------------------------------------------------------------------------
-# Material & export (same pattern as make_grass_patch.py)
+# Material & export
 # ---------------------------------------------------------------------------
 def make_turf_material(name):
     mat = bpy.data.materials.new(name=name)
@@ -222,7 +260,7 @@ def make_turf_material(name):
     return mat
 
 
-def export_tile(bm, name, material):
+def export_tile(bm, name, material, cfg):
     mesh = bpy.data.meshes.new(name)
     bm.to_mesh(mesh)
     bm.free()
@@ -247,7 +285,9 @@ def export_tile(bm, name, material):
 
     vc = len(mesh.vertices)
     fc = len(mesh.polygons)
-    print(f"  {name}: {vc} verts, {fc} faces ({cfg['blade_count']} blades)")
+    h_lo, h_hi = cfg["height_range"]
+    print(f"  {name}: {vc} verts, {fc} faces ({cfg['blade_count']} blades, "
+          f"h={h_lo*100:.1f}-{h_hi*100:.1f}cm, dist={cfg.get('distribution','lawn')})")
     bpy.ops.object.delete(use_global=False)
 
 
@@ -261,7 +301,7 @@ for block in bpy.data.meshes:
         bpy.data.meshes.remove(block)
 
 print("=" * 60)
-print("Building 4 ground cover (turf) tiles — outward-lean blades")
+print("Building 4 ground cover tiles — dense AAA blades")
 print("=" * 60)
 
 mat = make_turf_material("TurfBlade")
@@ -270,11 +310,11 @@ for i, cfg in enumerate(TURF_TYPES):
     name = cfg["name"]
     seed = cfg["seed"]
     blades = cfg["blade_count"]
+    h_lo, h_hi = cfg["height_range"]
     print(f"\n[{i+1}/{len(TURF_TYPES)}] {name} ({blades} blades, "
-          f"r={cfg['radius']}m, h={cfg['height_range'][0]*100:.1f}-"
-          f"{cfg['height_range'][1]*100:.1f}cm)...")
+          f"h={h_lo*100:.1f}-{h_hi*100:.1f}cm, r={cfg['radius']}m)...")
 
     bm = build_turf_tile(cfg, seed)
-    export_tile(bm, name, mat)
+    export_tile(bm, name, mat, cfg)
 
 print(f"\nDone. {len(TURF_TYPES)} ground cover tiles exported.")
