@@ -98,6 +98,11 @@ def build_turf_tile(cfg, seed):
     color_var = cfg.get("color_var", 0.04)
     distribution = cfg.get("distribution", "lawn")
 
+    # Edge bleed distance — blades near edges get copies on opposite side
+    # so the tile wraps seamlessly (like a tileable texture).
+    bleed = 0.04  # 4cm — slightly larger than average blade spacing
+    tile_w = radius * 2.0  # full tile width
+
     for _ in range(blade_count):
         bx = rng.uniform(-radius, radius)
         bz = rng.uniform(-radius, radius)
@@ -121,8 +126,29 @@ def build_turf_tile(cfg, seed):
             min(0.95, tip_rgb[2] + cv * 0.3),
         )
 
-        make_blade(bm, color_layer, uv_layer,
-                   bx, bz, h, w, rot, lean, b_rgb, t_rgb)
+        # Place blade + wrapped copies at tile edges for seamless tiling
+        positions = [(bx, bz)]
+        if bx > radius - bleed:
+            positions.append((bx - tile_w, bz))
+        if bx < -radius + bleed:
+            positions.append((bx + tile_w, bz))
+        if bz > radius - bleed:
+            positions.append((bx, bz - tile_w))
+        if bz < -radius + bleed:
+            positions.append((bx, bz + tile_w))
+        # Corners: wrap both axes
+        if bx > radius - bleed and bz > radius - bleed:
+            positions.append((bx - tile_w, bz - tile_w))
+        if bx > radius - bleed and bz < -radius + bleed:
+            positions.append((bx - tile_w, bz + tile_w))
+        if bx < -radius + bleed and bz > radius - bleed:
+            positions.append((bx + tile_w, bz - tile_w))
+        if bx < -radius + bleed and bz < -radius + bleed:
+            positions.append((bx + tile_w, bz + tile_w))
+
+        for px, pz in positions:
+            make_blade(bm, color_layer, uv_layer,
+                       px, pz, h, w, rot, lean, b_rgb, t_rgb)
 
     return bm
 
