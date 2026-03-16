@@ -31,11 +31,11 @@ VARIANTS = 5
 def make_blade(bm, color_layer, uv_layer,
                bx, bz, height, width, rot, arch, segments,
                base_rgb, tip_rgb):
-    """Create a curved grass blade with N segments.
+    """Create a curved grass blade with N segments and cylinder-derived normals.
 
-    Segments=1: single quad (flat). Segments=2+: curved strip.
-    The curvature comes from 'arch' — horizontal extension in the
-    facing direction, applied quadratically so the tip arcs over.
+    Normals are computed as if the blade were a cylinder (Data Transfer
+    technique from hexaquo). Left-edge normals point left, right-edge
+    point right, implying roundness. Tips blend toward straight up.
     Blender Z-up: XY is horizontal, Z is height.
     """
     dx = math.cos(rot)
@@ -47,17 +47,13 @@ def make_blade(bm, color_layer, uv_layer,
     vert_pairs = []
     for si in range(segments + 1):
         t = si / segments
-        # Height with slight deceleration at top
         seg_z = height * (t - 0.12 * t * t)
-        # Arch: quadratic — tip extends more than middle
         extend = arch * t * t
-        # Width tapers toward tip
         seg_w = width * (1.0 - t * 0.65) * 0.5
 
         cx = bx + dx * extend
         cy = bz + dz * extend
 
-        # Color interpolation
         r = base_rgb[0] + (tip_rgb[0] - base_rgb[0]) * t
         g = base_rgb[1] + (tip_rgb[1] - base_rgb[1]) * t
         b = base_rgb[2] + (tip_rgb[2] - base_rgb[2]) * t
@@ -65,6 +61,11 @@ def make_blade(bm, color_layer, uv_layer,
         vl = bm.verts.new((cx + px * seg_w, cy + pz * seg_w, seg_z))
         vr = bm.verts.new((cx - px * seg_w, cy - pz * seg_w, seg_z))
         vert_pairs.append((vl, vr, (r, g, b, 1.0), t))
+
+    # Store normal data per loop for later application as custom split normals.
+    # Cylinder-derived: left edge points (+px,+pz), right edge points (-px,-pz).
+    # Blend toward up (0,0,1) at blade tip (t→1).
+    loop_normals = []
 
     for si in range(segments):
         vl0, vr0, c0, t0 = vert_pairs[si]
@@ -77,15 +78,42 @@ def make_blade(bm, color_layer, uv_layer,
             if loop.vert == vl0:
                 loop[color_layer] = c0
                 loop[uv_layer].uv = (0.0, t0)
+                # Left edge, base-side: normal points left + slight up
+                up_blend = t0
+                nx = px * (1.0 - up_blend * 0.8)
+                ny = pz * (1.0 - up_blend * 0.8)
+                nz = up_blend * 0.8
+                ln = math.sqrt(nx*nx + ny*ny + nz*nz) or 1.0
+                loop_normals.append((loop, (nx/ln, ny/ln, nz/ln)))
             elif loop.vert == vr0:
                 loop[color_layer] = c0
                 loop[uv_layer].uv = (1.0, t0)
+                up_blend = t0
+                nx = -px * (1.0 - up_blend * 0.8)
+                ny = -pz * (1.0 - up_blend * 0.8)
+                nz = up_blend * 0.8
+                ln = math.sqrt(nx*nx + ny*ny + nz*nz) or 1.0
+                loop_normals.append((loop, (nx/ln, ny/ln, nz/ln)))
             elif loop.vert == vr1:
                 loop[color_layer] = c1
                 loop[uv_layer].uv = (1.0, t1)
+                up_blend = t1
+                nx = -px * (1.0 - up_blend * 0.8)
+                ny = -pz * (1.0 - up_blend * 0.8)
+                nz = up_blend * 0.8
+                ln = math.sqrt(nx*nx + ny*ny + nz*nz) or 1.0
+                loop_normals.append((loop, (nx/ln, ny/ln, nz/ln)))
             elif loop.vert == vl1:
                 loop[color_layer] = c1
                 loop[uv_layer].uv = (0.0, t1)
+                up_blend = t1
+                nx = px * (1.0 - up_blend * 0.8)
+                ny = pz * (1.0 - up_blend * 0.8)
+                nz = up_blend * 0.8
+                ln = math.sqrt(nx*nx + ny*ny + nz*nz) or 1.0
+                loop_normals.append((loop, (nx/ln, ny/ln, nz/ln)))
+
+    return loop_normals
 
 
 def sample_height(rng, h_min, h_max, distribution="lawn"):
@@ -119,6 +147,7 @@ def build_turf_tile(cfg, seed):
     tip_rgb = cfg["tip_rgb"]
     color_var = cfg.get("color_var", 0.04)
     distribution = cfg.get("distribution", "lawn")
+    all_normals = []
 
     for _ in range(blade_count):
         bx = rng.uniform(-radius, radius)
@@ -144,10 +173,11 @@ def build_turf_tile(cfg, seed):
             min(0.95, tip_rgb[2] + cv * 0.3),
         )
 
-        make_blade(bm, color_layer, uv_layer,
-                   bx, bz, h, w, rot, arch, segments, b_rgb, t_rgb)
+        blade_normals = make_blade(bm, color_layer, uv_layer,
+                                    bx, bz, h, w, rot, arch, segments, b_rgb, t_rgb)
+        all_normals.extend(blade_normals)
 
-    return bm
+    return bm, all_normals
 
 
 TURF_TYPES = [
@@ -237,9 +267,30 @@ def make_turf_material(name):
     return mat
 
 
-def export_tile(bm, name, material, cfg):
+def export_tile(bm, all_normals, name, material, cfg):
     mesh = bpy.data.meshes.new(name)
     bm.to_mesh(mesh)
+
+    # Apply cylinder-derived custom split normals (hexaquo Data Transfer technique).
+    # Build a mapping from bmesh loop index to normal vector.
+    # bmesh loops and mesh loops are in the same order after to_mesh().
+    normals_by_loop_idx = {}
+    for loop, nrm in all_normals:
+        normals_by_loop_idx[loop.index] = nrm
+
+    # Enable custom split normals on the mesh
+    mesh.use_auto_smooth = True
+    mesh.auto_smooth_angle = math.pi  # accept all angles
+
+    # Build the normals list in mesh loop order
+    custom_normals = []
+    for li in range(len(mesh.loops)):
+        if li in normals_by_loop_idx:
+            custom_normals.append(normals_by_loop_idx[li])
+        else:
+            custom_normals.append((0.0, 0.0, 1.0))  # fallback: up
+    mesh.normals_split_custom_set(custom_normals)
+
     bm.free()
 
     obj = bpy.data.objects.new(name, mesh)
@@ -289,7 +340,7 @@ for cfg in TURF_TYPES:
         count += 1
         print(f"\n[{count}/{total_files}] {name} ({cfg['blade_count']} blades, "
               f"{cfg['segments']} segments)...")
-        bm = build_turf_tile(cfg, seed)
-        export_tile(bm, name, mat, cfg)
+        bm, all_normals = build_turf_tile(cfg, seed)
+        export_tile(bm, all_normals, name, mat, cfg)
 
 print(f"\nDone. {count} tiles exported.")

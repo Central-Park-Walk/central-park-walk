@@ -18,6 +18,7 @@ varying float v_bottom_to_top;  // 0 at base, 1 at tip
 varying vec3 v_world_blade;     // per-BLADE world position (not tile center)
 varying float v_path_prox;
 varying float v_wind_bend;      // current wind bend amount (for AO in fragment)
+varying float v_patch_factor;   // 0=small/young, 1=tall/old — ties size to color
 
 void vertex() {
 	v_grass_type = INSTANCE_CUSTOM.r;
@@ -33,9 +34,18 @@ void vertex() {
 	// Bottom-to-top from UV (0 at base, 1 at tip — set in Blender)
 	v_bottom_to_top = clamp(UV.y, 0.0, 1.0);
 
-	// Per-blade height variation from world noise (±10%)
-	float h_noise = vnoise(blade_world_xz * 0.8);
-	VERTEX.y *= 0.90 + h_noise * 0.20;
+	// --- Size patchiness (hexaquo core technique) ---
+	// World-space noise determines blade size. Creates natural tufts:
+	// tall old yellow-green blades next to short young deep-green ones.
+	v_patch_factor = vnoise(blade_world_xz / 3.0);
+	// Size range depends on zone type
+	float size_lo = 0.7; float size_hi = 1.0;  // mowed lawn default
+	if (v_grass_type > 7.5) {
+		size_lo = 0.3; size_hi = 1.0;  // wild meadow: dramatic variation
+	} else if (v_grass_type > 4.5 && v_grass_type < 7.5) {
+		size_lo = 0.4; size_hi = 1.0;  // woodland/water
+	}
+	VERTEX *= mix(size_lo, size_hi, v_patch_factor);
 
 	// Sway amount: only tips move, base is rooted
 	float sway = max(VERTEX.y, 0.0);
@@ -110,21 +120,17 @@ void fragment() {
 
 	float blade_t = v_bottom_to_top;
 
-	// --- Normal tip trick (hexaquo) ---
-	// Bend normal toward straight up at blade tips. Creates sharp specular
-	// highlights where blades catch sunlight — the single biggest visual
-	// trick for realistic grass.
+	// Blade roundness is baked into custom split normals from Blender
+	// (cylinder Data Transfer technique). The tip trick blends toward
+	// up at blade tips for sharp specular highlights.
 	NORMAL = mix(NORMAL, vec3(0.0, 1.0, 0.0), blade_t);
 
-	// Vertex colors from Blender model — type determines base color
-	vec3 col = COLOR.rgb;
-
-	// Per-blade color variation from world noise
-	vec2 frag_xz = v_world_blade.xz;
-	float col_var = vnoise(frag_xz * 0.4 + vec2(17.0, 33.0));
-	col *= 0.90 + col_var * 0.20;
-	float hue_var = vnoise(frag_xz * 0.2 + vec2(71.0, 13.0));
-	col *= vec3(1.0 + hue_var * 0.06, 1.0, 1.0 - hue_var * 0.04);
+	// --- Color tied to size (hexaquo) ---
+	// Small/young blades: deep green. Large/old blades: yellow-green.
+	// patch_factor from vertex shader ties size and color together.
+	vec3 color_small = vec3(0.12, 0.28, 0.06);  // deep fresh green
+	vec3 color_large = vec3(0.30, 0.40, 0.12);  // older yellow-green
+	vec3 col = mix(color_small, color_large, v_patch_factor);
 
 	// --- AO: self-shadowing + wind darkening (hexaquo) ---
 	// Tips bright, bases dark. Wind gusts darken where they bend grass.
