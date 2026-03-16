@@ -350,8 +350,7 @@ void fragment() {
 		// Underwater/waterside silt: sandy brown sediment, not pitch black.
 		// Real Central Park pond bottoms are silty sand with organic matter,
 		// visible in shallow areas and through water alpha near shores.
-		float mud_noise = vnoise(world_pos.xz * 0.3);
-		vec3 mud_col = vec3(0.16, 0.13, 0.09) + mud_noise * vec3(0.04, 0.03, 0.02);
+		vec3 mud_col = vec3(0.16, 0.13, 0.09);
 		grass_alb = mix(grass_alb, mud_col, clamp(water_near, 0.0, 1.0));
 		grass_rgh = mix(grass_rgh, 0.92, clamp(water_near, 0.0, 1.0));
 	}
@@ -359,8 +358,8 @@ void fragment() {
 	// Rock on steep slopes — Manhattan schist outcrops
 	// Schist: gray base + mica sparkle (slight specular) + rusty weathering patches
 	// LiDAR at 2.4m/cell smooths real slopes significantly, so use low thresholds.
-	float rock_noise = fbm(world_pos.xz * 0.05, 2) * 0.06;
-	float rock_blend = smoothstep(0.10, 0.25, slope + rock_noise);
+	// Rock from DEM slope only — no procedural noise. Data is the ground truth.
+	float rock_blend = smoothstep(0.10, 0.25, slope);
 	// Suppress natural rock where structure mask is active — built structures
 	// (Bethesda Terrace, bridges, retaining walls) have their own stone/concrete
 	// materials and should NOT be painted as Manhattan schist rock outcrops
@@ -376,61 +375,14 @@ void fragment() {
 		// Remap: dark gray base + texture detail, slight blue cool shift
 		vec3 schist_gray = vec3(0.13, 0.14, 0.16) + vec3(0.30, 0.30, 0.32) * r_lum;
 		r_alb = mix(r_alb, schist_gray, 0.70);  // 70% schist, 30% original detail
-		// Rusty weathering patches — iron oxide staining in crevices
-		float rust_noise = fbm(world_pos.xz * 0.08, 2);
-		vec3 rust_tint = mix(r_alb, r_alb * vec3(1.12, 0.88, 0.72), smoothstep(0.5, 0.7, rust_noise) * 0.25);
-		r_alb = rust_tint;
 		vec3 r_nrm = textureNoTile_n(rock_normal, ruv);
 		float r_rgh = clamp(textureNoTile_r(rock_rough, ruv) * 0.15 + 0.70, 0.0, 1.0);
-		// Glacial striations on flat exposed rock (Wisconsin ice age, ~15° E of N)
-		if (terrain_n.y > 0.8) {
-			float sa = 0.259; float ca = 0.966;
-			float glacial_u = world_pos.x * ca + world_pos.z * sa;
-			float groove = sin(glacial_u * 180.0 + vnoise(world_pos.xz * 8.0) * 3.0);
-			groove = smoothstep(0.3, 0.8, groove);
-			float striation = smoothstep(0.8, 0.95, terrain_n.y) * 0.06;
-			r_alb *= (1.0 - groove * striation);
-			r_rgh += groove * striation * 0.5;
-		}
-		// --- Lichen colonies on Manhattan schist ---
-		// Three dominant types in Central Park: green foliose (shield lichen),
-		// orange crustose (Xanthoria), gray-white crustose (Lecanora).
-		// Lichen prefers north-facing + shaded aspects and sheltered crevices.
-		float lichen_aspect = smoothstep(-0.2, 0.3, -terrain_n.z);  // north-facing bias
-		float lichen_shelter = smoothstep(0.15, 0.40, slope);  // more on vertical faces
-		float lichen_base = lichen_aspect * 0.5 + lichen_shelter * 0.5;
-		// Large patchy distribution — colonies are irregular, 0.5-3m patches
-		float lic_n1 = fbm(world_pos.xz * 0.7, 2);
-		float lic_n2 = vnoise(world_pos.xz * 1.8);
-		// Green foliose lichen — largest colonies, mid-tone green on shaded rock
-		float green_lic = smoothstep(0.45, 0.65, lic_n1) * lichen_base;
-		green_lic *= smoothstep(0.3, 0.6, vnoise(world_pos.xz * 3.2));  // sub-patch breakup
-		vec3 green_lichen_col = mix(vec3(0.22, 0.28, 0.12), vec3(0.30, 0.38, 0.15), lic_n2);
-		r_alb = mix(r_alb, green_lichen_col, green_lic * 0.65);
-		r_rgh = mix(r_rgh, 0.88, green_lic * 0.5);  // lichen is matte
-		// Orange Xanthoria — small bright patches, scattered, sun-tolerant
-		float orange_lic = smoothstep(0.60, 0.78, lic_n2 * 0.7 + vnoise(world_pos.xz * 5.0) * 0.3);
-		orange_lic *= (1.0 - lichen_aspect * 0.4);  // slightly less north-bias than green
-		orange_lic *= smoothstep(0.02, 0.12, slope);  // needs some slope
-		vec3 orange_lichen_col = vec3(0.72, 0.45, 0.08);
-		r_alb = mix(r_alb, orange_lichen_col, orange_lic * 0.35);
-		r_rgh = mix(r_rgh, 0.92, orange_lic * 0.3);
-		// Gray-white Lecanora — tiny pale discs, crustose, on exposed flat tops
-		float gray_lic = smoothstep(0.55, 0.72, vnoise(world_pos.xz * 4.5 + 17.3));
-		gray_lic *= smoothstep(0.75, 0.90, terrain_n.y);  // prefers flat exposed surfaces
-		vec3 gray_lichen_col = vec3(0.68, 0.67, 0.62);
-		r_alb = mix(r_alb, gray_lichen_col, gray_lic * 0.30);
-		r_rgh = mix(r_rgh, 0.85, gray_lic * 0.2);
-		// Darken lichen when wet (rain absorbs into thallus)
-		float lichen_total = min(green_lic + orange_lic * 0.5 + gray_lic * 0.3, 1.0);
-		r_alb *= mix(1.0, 0.70, lichen_total * rain_wetness);
-
+		// Rock detail (lichen, rust, striations) should come from rock texture,
+		// not procedural noise. The PBR rock texture IS the data.
 		grass_alb = mix(grass_alb, r_alb, rock_blend);
 		grass_nrm = mix(grass_nrm, r_nrm, rock_blend);
 		grass_rgh = mix(grass_rgh, r_rgh, rock_blend);
-		// Mica sparkle: slight specular on rock surfaces (reduced where lichen covers)
-		float mica = hash2(floor(world_pos.xz * 20.0));
-		rock_specular = rock_blend * mix(0.25, 0.55, step(0.92, mica)) * (1.0 - lichen_total * 0.7);
+		rock_specular = rock_blend * 0.30;
 	}
 
 	// --- Structure mask: LiDAR-detected built features get stone/concrete texture ---
@@ -443,8 +395,8 @@ void fragment() {
 		float struct_h = struct_val;  // half-feet (val 2 = 1ft, val 20 = 10ft)
 		// Use terrain slope to pick material: steep = wall stone, flat = pavement/deck
 		float struct_slope = 1.0 - terrain_n.y;  // 0=flat, 1=vertical
-		// Large-scale warm/cool variation — some areas sandstone-warm, others schist-gray
-		float warmth = fbm(world_pos.xz * 0.004, 2);
+		// Default neutral — named location overrides set actual warmth from data
+		float warmth = 0.5;
 		// Steep slopes are Manhattan schist — always cool gray
 		if (struct_slope > 0.35) warmth = mix(warmth, 0.15, struct_slope);
 		// Named structure overrides — force warmth for known materials
@@ -474,13 +426,8 @@ void fragment() {
 		if (struct_slope > 0.35) {
 			// Steep face: stone walls
 			tex_layer = 2.0;  // PavingStones as base
-			float weather = fbm(world_pos.xz * 0.15, 2);
-			vec3 cool_base = mix(vec3(0.32, 0.33, 0.35),  // dark gray schist
-			                     vec3(0.38, 0.34, 0.30),   // rusty weathering
-			                     smoothstep(0.35, 0.65, weather));
-			vec3 warm_base = mix(vec3(0.52, 0.47, 0.35),  // New Brunswick sandstone
-			                     vec3(0.56, 0.44, 0.30),   // weathered sandstone
-			                     smoothstep(0.35, 0.65, weather));
+			vec3 cool_base = vec3(0.32, 0.33, 0.35);  // Manhattan schist
+			vec3 warm_base = vec3(0.52, 0.47, 0.35);  // New Brunswick sandstone
 			s_tint = mix(cool_base, warm_base, smoothstep(0.4, 0.6, warmth));
 		} else if (struct_slope > 0.08) {
 			// Moderate slope: dressed stone / granite steps
@@ -522,9 +469,7 @@ void fragment() {
 		vec3 brick_col = mix(vec3(0.63, 0.32, 0.18), vec3(0.55, 0.28, 0.15), herring);
 		// Mortar lines: lighter
 		brick_col = mix(vec3(0.72, 0.68, 0.62), brick_col, mortar);
-		// Weathering variation
-		float wear = fbm(world_pos.xz * 0.3, 2) * 0.15;
-		brick_col *= (0.9 + wear);
+		// Brick color from texture, not procedural weathering
 		float beth_blend = smoothstep(35.0, 28.0, d_beth);
 		grass_alb = mix(grass_alb, brick_col, beth_blend);
 		grass_rgh = mix(grass_rgh, 0.78, beth_blend);
@@ -792,58 +737,7 @@ void fragment() {
 		}
 	}
 
-	// --- Seasonal wildflower color patches ---
-	// Central Park meadows bloom with distinct wildflowers throughout the year:
-	// Spring: purple violets, white clover | Summer: yellow buttercups, pink clover
-	// Late summer: goldenrod, purple asters | Fall: dried seed heads (handled by leaf scatter)
-	{
-		float spring_bloom = smoothstep(0.0, 0.5, season_t) * smoothstep(1.2, 0.7, season_t);
-		float summer_bloom = smoothstep(0.5, 1.0, season_t) * smoothstep(2.3, 1.8, season_t);
-		float late_summer = smoothstep(1.3, 1.8, season_t) * smoothstep(2.5, 2.0, season_t);
-		float any_bloom = max(spring_bloom, max(summer_bloom, late_summer));
-		if (any_bloom > 0.01 && slope < 0.15 && !is_dirt) {
-			// Wildflowers prefer meadows, woodland edges, and unmowed areas
-			float flower_zone = is_woodland ? 0.30 : (meadow_blend > 0.3 ? 0.60 : 0.15);
-			// Noise determines where flowers appear (patchy, natural distribution)
-			// Use continuous noise (not hash grid) to avoid visible rectangular cells
-			float f_noise = vnoise(world_pos.xz * 0.25 + vec2(55.0, 88.0));
-			float f_detail = vnoise(world_pos.xz * 1.5 + vec2(17.0, 41.0));
-			float f_mask = smoothstep(0.35, 0.65, f_noise) * smoothstep(0.45, 0.70, f_detail) * flower_zone;
-			if (f_mask > 0.01) {
-				// Species selection: deterministic per-patch
-				float sp_hash = hash2(floor(world_pos.xz * 0.5 + vec2(33.0)));
-				vec3 flower_col;
-				if (spring_bloom > 0.1 && sp_hash < 0.35) {
-					// Purple violets (Viola sororia) — early spring
-					flower_col = vec3(0.35, 0.18, 0.50);
-					f_mask *= spring_bloom;
-				} else if (spring_bloom > 0.1 && sp_hash < 0.60) {
-					// White clover (Trifolium repens) — spring into summer
-					flower_col = vec3(0.82, 0.80, 0.75);
-					f_mask *= max(spring_bloom, summer_bloom * 0.5);
-				} else if (summer_bloom > 0.1 && sp_hash < 0.75) {
-					// Yellow buttercups (Ranunculus) — late spring/summer
-					flower_col = vec3(0.85, 0.78, 0.15);
-					f_mask *= summer_bloom;
-				} else if (late_summer > 0.1 && sp_hash < 0.88) {
-					// Goldenrod (Solidago) — late summer
-					flower_col = vec3(0.80, 0.70, 0.12);
-					f_mask *= late_summer;
-				} else if (late_summer > 0.1) {
-					// Purple asters (Symphyotrichum) — late summer/early fall
-					flower_col = vec3(0.52, 0.28, 0.60);
-					f_mask *= late_summer;
-				} else {
-					f_mask = 0.0;
-					flower_col = vec3(0.0);
-				}
-				// Wildflower patches: visible clusters of color in grass
-				ALBEDO = mix(ALBEDO, flower_col, f_mask * 0.50);
-				// Flower petals are smoother than grass blades
-				ROUGHNESS = mix(ROUGHNESS, ROUGHNESS * 0.75, f_mask * 0.35);
-			}
-		}
-	}
+	// Wildflowers removed from terrain shader — should be in 3D models (Blender tiles).
 
 	// --- Spring/summer morning dew: grass glistens with tiny water droplets ---
 	// Dew appears when rain is recent (wetness > 0) on grass in spring/summer
