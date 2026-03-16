@@ -188,7 +188,7 @@ void fragment() {
 	// chunks loading/unloading on top is invisible. Same noise functions,
 	// color palette, and wind logic as grass_blade.gdshader.
 	vec3 grass_ground = vec3(0.02, 0.04, 0.02);  // dark ground between blade bases
-	float green_blend = is_grass_zone ? 0.85 : (is_woodland ? 0.55 : 0.10);
+	float green_blend = is_grass_zone ? 0.85 : (is_woodland ? 0.55 : 0.0);
 
 	if (is_grass_zone || is_woodland) {
 		// Patchiness: same world-space noise and colors as blade shader
@@ -227,11 +227,6 @@ void fragment() {
 		// Distance blend: dark ground close (under blades) → impostor at distance
 		float impostor_t = smoothstep(8.0, 20.0, cam_dist);
 		vec3 grass_target = mix(grass_ground, imp_col, impostor_t);
-		grass_alb = mix(grass_alb, grass_target, green_blend);
-	} else {
-		// Non-grass zones: minimal green blend
-		float impostor_t = smoothstep(8.0, 20.0, cam_dist);
-		vec3 grass_target = mix(grass_ground, vec3(0.05, 0.12, 0.04), impostor_t);
 		grass_alb = mix(grass_alb, grass_target, green_blend);
 	}
 
