@@ -30,10 +30,10 @@ var _hm_d: int
 var _hm_ws: float
 var _hm_half: float
 
-const CHUNK := 5.0
+const CHUNK := 10.0
 const BLADES_PER_M2 := 600.0
 const CELL_SIZE := 1.22
-const MAX_BLADES := 15000
+const MAX_BLADES := 40000
 const VIS_RANGE := 25.0
 const LOAD_RANGE := 40.0
 const UNLOAD_RANGE := 50.0
