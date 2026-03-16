@@ -18,6 +18,7 @@ varying float v_bottom_to_top;  // 0 at base, 1 at tip
 varying vec3 v_world_blade;     // per-BLADE world position (not tile center)
 varying float v_path_prox;
 varying float v_blade_seed;     // per-blade random (0-1) for hue variation
+varying float v_is_flower;      // >0 = flower (use vertex color instead of grass color)
 varying float v_wind_bend;      // current wind bend amount (for AO in fragment)
 varying float v_patch_factor;   // 0=small/young, 1=tall/old — ties size to color
 
@@ -25,6 +26,7 @@ void vertex() {
 	v_grass_type = INSTANCE_CUSTOM.r;
 	v_path_prox = INSTANCE_CUSTOM.b;
 	v_blade_seed = INSTANCE_CUSTOM.g;
+	v_is_flower = INSTANCE_CUSTOM.a;
 
 	// Each blade is its own MultiMesh instance. MODEL_MATRIX origin
 	// gives the true per-blade world position.
@@ -124,57 +126,56 @@ void fragment() {
 	NORMAL = mix(NORMAL, vec3(0.0, 1.0, 0.0), blade_t * 0.6);
 
 	// --- Color tied to size + zone type (hexaquo) ---
-	// Each grass type gets its own color pair for visual identity.
-	vec3 color_small = vec3(0.12, 0.28, 0.06);  // default: deep fresh green
-	vec3 color_large = vec3(0.28, 0.38, 0.12);  // default: older yellow-green
+	// Each grass type gets a visually distinct color pair.
+	// Values are pushed apart so zones read differently at a glance.
+	vec3 color_small, color_large;
 
 	if (v_grass_type < 0.5) {
-		// SheepMeadow: bright Kentucky bluegrass
-		color_small = vec3(0.10, 0.30, 0.07);
-		color_large = vec3(0.22, 0.38, 0.10);
+		// SheepMeadow: cool blue-green Kentucky bluegrass
+		color_small = vec3(0.06, 0.30, 0.10);
+		color_large = vec3(0.15, 0.40, 0.14);
 	} else if (v_grass_type < 1.5) {
-		// GreatLawn: rich deep green, well-maintained
-		color_small = vec3(0.08, 0.26, 0.06);
-		color_large = vec3(0.20, 0.34, 0.10);
+		// GreatLawn: deep rich emerald
+		color_small = vec3(0.05, 0.25, 0.05);
+		color_large = vec3(0.12, 0.35, 0.08);
 	} else if (v_grass_type < 2.5) {
-		// NorthMeadow: open meadow, slightly warmer
-		color_small = vec3(0.12, 0.26, 0.06);
-		color_large = vec3(0.30, 0.36, 0.10);
+		// NorthMeadow: warm open meadow, noticeably yellower
+		color_small = vec3(0.14, 0.28, 0.04);
+		color_large = vec3(0.35, 0.42, 0.08);
 	} else if (v_grass_type < 3.5) {
-		// FormalGarden: manicured, uniform, desaturated
-		color_small = vec3(0.10, 0.24, 0.08);
-		color_large = vec3(0.18, 0.30, 0.10);
+		// FormalGarden: uniform bright green, low contrast
+		color_small = vec3(0.10, 0.32, 0.08);
+		color_large = vec3(0.16, 0.36, 0.10);
 	} else if (v_grass_type < 4.5) {
-		// SportsTurf: vivid athletic green
-		color_small = vec3(0.06, 0.28, 0.04);
-		color_large = vec3(0.14, 0.36, 0.08);
+		// SportsTurf: vivid saturated green (fertilized)
+		color_small = vec3(0.04, 0.32, 0.03);
+		color_large = vec3(0.10, 0.42, 0.06);
 	} else if (v_grass_type < 5.5) {
-		// NorthWoods: shade-adapted, dark blue-green
-		color_small = vec3(0.06, 0.18, 0.08);
-		color_large = vec3(0.14, 0.24, 0.10);
+		// NorthWoods: dark blue-green shade grass
+		color_small = vec3(0.04, 0.14, 0.06);
+		color_large = vec3(0.08, 0.20, 0.10);
 	} else if (v_grass_type < 6.5) {
-		// Ramble: moderate woodland, warm understory
-		color_small = vec3(0.08, 0.20, 0.06);
-		color_large = vec3(0.18, 0.26, 0.08);
+		// Ramble: warm brown-green woodland understory
+		color_small = vec3(0.08, 0.16, 0.04);
+		color_large = vec3(0.16, 0.22, 0.06);
 	} else if (v_grass_type < 7.5) {
-		// Waterside: lush dark green, moisture-rich
-		color_small = vec3(0.06, 0.24, 0.08);
-		color_large = vec3(0.16, 0.32, 0.12);
+		// Waterside: dark lush green, very saturated
+		color_small = vec3(0.04, 0.22, 0.08);
+		color_large = vec3(0.10, 0.34, 0.14);
 	} else if (v_grass_type < 8.5) {
-		// WildMeadow: tall, golden-green, dramatic
-		color_small = vec3(0.16, 0.26, 0.05);
-		color_large = vec3(0.38, 0.40, 0.10);
+		// WildMeadow: golden-green, dramatic warm tones
+		color_small = vec3(0.18, 0.24, 0.03);
+		color_large = vec3(0.45, 0.42, 0.08);
 	} else {
-		// OpenLawn: standard maintained grass
-		color_small = vec3(0.12, 0.28, 0.06);
-		color_large = vec3(0.26, 0.36, 0.11);
+		// OpenLawn: standard mid-green
+		color_small = vec3(0.10, 0.26, 0.06);
+		color_large = vec3(0.24, 0.36, 0.10);
 	}
 
 	vec3 col = mix(color_small, color_large, v_patch_factor);
 
-	// Base-to-tip gradient: dark base (shadowed by surrounding grass),
-	// slightly lighter tip (sun-exposed)
-	col *= mix(0.70, 1.0, blade_t);
+	// Base-to-tip gradient: slightly darker base, full color at tip
+	col *= mix(0.82, 1.0, blade_t);
 
 	// Per-blade hue variation: subtle cool↔warm shift per blade
 	col *= mix(vec3(0.97, 1.01, 1.03), vec3(1.03, 0.99, 0.95), blade_seed);
@@ -186,6 +187,11 @@ void fragment() {
 	// Dry blade tips: ~30% of blades get subtle yellowed tips
 	float dry_tip = smoothstep(0.75, 1.0, blade_t) * step(0.7, blade_seed);
 	col = mix(col, col * vec3(1.08, 1.02, 0.80), dry_tip * 0.15);
+
+	// Flowers: use baked vertex color instead of computed grass color
+	if (v_is_flower > 0.5) {
+		col = COLOR.rgb;
+	}
 
 	// --- AO: self-shadowing + wind darkening (hexaquo) ---
 	float ao = blade_t - v_wind_bend * 0.3;

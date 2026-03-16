@@ -939,14 +939,13 @@ func _season_name(t: float) -> String:
 
 # --- Grass tour: F10 visits all grass type locations + screenshots ---
 var _grass_tour_spots := [
-	{"name": "WildMeadow", "x": -801.0, "z": 1803.0, "yaw": 0.0, "pitch": -12.0},
-	{"name": "NorthMeadow", "x": 626.0, "z": -1093.0, "yaw": 45.0, "pitch": -12.0},
-	{"name": "OpenLawn", "x": -538.0, "z": 964.0, "yaw": -30.0, "pitch": -12.0},
-	{"name": "Waterside", "x": 27.0, "z": 70.0, "yaw": 90.0, "pitch": -12.0},
-	{"name": "SheepMeadow", "x": -750.0, "z": 1800.0, "yaw": 180.0, "pitch": -12.0},
-	{"name": "GreatLawn", "x": -99.0, "z": 173.0, "yaw": 0.0, "pitch": -12.0},
-	{"name": "SportsTurf", "x": 137.0, "z": -317.0, "yaw": 60.0, "pitch": -12.0},
-	{"name": "FormalGarden", "x": -69.0, "z": 727.0, "yaw": -45.0, "pitch": -12.0},
+	{"name": "WildMeadow", "x": -786.0, "z": 1850.0, "yaw": 0.0, "pitch": -15.0},
+	{"name": "NorthMeadow", "x": 905.0, "z": -1024.0, "yaw": 45.0, "pitch": -15.0},
+	{"name": "OpenLawn", "x": -571.0, "z": 1202.0, "yaw": -30.0, "pitch": -15.0},
+	{"name": "Waterside", "x": -210.0, "z": 417.0, "yaw": 90.0, "pitch": -15.0},
+	{"name": "SheepMeadow", "x": -894.0, "z": 1191.0, "yaw": 180.0, "pitch": -15.0},
+	{"name": "GreatLawn", "x": 780.0, "z": -800.0, "yaw": 0.0, "pitch": -15.0},
+	{"name": "SportsTurf", "x": -997.0, "z": 1398.0, "yaw": 60.0, "pitch": -15.0},
 ]
 var _grass_tour_active := false
 var _grass_tour_idx := 0

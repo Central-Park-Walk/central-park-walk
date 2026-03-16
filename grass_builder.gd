@@ -291,25 +291,18 @@ func _build_chunk(ck: String) -> void:
 		var bt: int = TYPE_TO_BLADE[ot] if ot < TYPE_TO_BLADE.size() else 0
 		if bt >= _blade_meshes.size() or _blade_meshes[bt] == null: continue
 
-		# Flowers cluster in patches via position-based hash noise.
-		# Only in unmowed/less-maintained grass — not on mowed lawns or sports turf.
-		# Types: 2=NorthMeadow, 7=Waterside, 8=WildMeadow, 9=OpenLawn
+		# Flowers in unmowed grass: 2=NorthMeadow, 7=Waterside, 8=WildMeadow, 9=OpenLawn
 		if ot == 2 or ot == 7 or ot == 8 or ot == 9:
 			var active: Array = []
 			if summer_active: active.append_array([0, 1, 2, 3])
 			if spring_active: active.append_array([4, 5])
 			if fall_active: active.append_array([6, 7])
-			if not active.is_empty():
-				# Pick which flower type this position "belongs to"
-				# based on hashed world position — creates stable patches
-				var px_hash: float = fmod(abs(bx * 7.31 + bz * 13.97), float(active.size()))
-				var fi: int = active[int(px_hash)]
-				# Cluster noise: each type clusters at ~4m scale
-				var cn: float = sin(bx * 0.8 + float(fi) * 17.3) * cos(bz * 0.9 + float(fi) * 23.7)
-				cn = cn * 0.5 + 0.5  # 0-1
-				# In cluster centers (cn > 0.6), high flower chance; outside, very low
-				var chance: float = FLOWER_CHANCE * smoothstep(0.5, 0.85, cn)
-				if rng.randf() < chance and fi < _flower_meshes.size() and _flower_meshes[fi] != null:
+			if not active.is_empty() and rng.randf() < FLOWER_CHANCE:
+				# Simple hash picks flower type — each type dominates in
+				# different ~5m patches based on world position
+				var cell_hash: int = int(abs(bx * 3.1 + bz * 7.3)) % active.size()
+				var fi: int = active[cell_hash]
+				if fi < _flower_meshes.size() and _flower_meshes[fi] != null:
 					bt = 4 + fi
 					is_flower = true
 
@@ -340,7 +333,7 @@ func _build_chunk(ck: String) -> void:
 		buf[o] = cr; buf[o+1] = 0.0; buf[o+2] = sr; buf[o+3] = bx
 		buf[o+4] = 0.0; buf[o+5] = hs; buf[o+6] = 0.0; buf[o+7] = wy
 		buf[o+8] = -sr; buf[o+9] = 0.0; buf[o+10] = cr; buf[o+11] = bz
-		buf[o+12] = float(ot); buf[o+13] = rs; buf[o+14] = pp; buf[o+15] = 0.0
+		buf[o+12] = float(ot); buf[o+13] = rs; buf[o+14] = pp; buf[o+15] = 1.0 if is_flower else 0.0
 		cnts[bt] = idx + 1
 		sum_x[bt] += bx; sum_y[bt] += wy; sum_z[bt] += bz
 		placed += 1
