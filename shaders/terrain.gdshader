@@ -183,47 +183,11 @@ void fragment() {
 		grass_alb *= 0.75;
 	}
 
-	// Multi-scale grass color variation — real lawns are never uniform.
-	// Aerial imagery of Central Park shows a patchwork of greens, olives, browns.
-
-	// Define grass color targets (linear space values — these blend with PBR texture)
-	// CP lawns are well-maintained — lush is the baseline, not the exception.
-	vec3 lush_green    = vec3(0.05, 0.12, 0.04);  // deep rich green — baseline maintained lawn
-	vec3 med_green     = vec3(0.07, 0.11, 0.04);  // slightly less vibrant but still green
-	vec3 yellow_stress = vec3(0.12, 0.11, 0.04);  // subtle yellow-green — light drought stress
-	vec3 brown_dirt    = vec3(0.10, 0.07, 0.04);  // exposed soil/thatch
-
-	// Scale 1: very large (100-200m) — whole-field condition (visible from aerial)
-	float field_cond = vnoise(world_pos.xz * 0.003 + vec2(50.0, 23.0));
-	// Mix between lush and medium at field scale — visible from 100m but subtle.
-	// CP lawns are well-irrigated so the variation is green-to-green, not green-to-olive.
-	vec3 field_tone = mix(lush_green, med_green, field_cond);
-	// Grass zones: strong green base so terrain reads as lawn at all distances
-	// Woodland: moderate green (meadow texture overrides most of it anyway)
-	// Non-grass: minimal green (dirt/track/pool — overrides handle these)
+	// Zone-based grass color — data-driven, no procedural noise.
+	// The grass PBR texture provides micro-detail. Zone determines tone.
+	vec3 lawn_green = vec3(0.05, 0.12, 0.04);  // maintained lawn baseline
 	float green_blend = is_grass_zone ? 0.55 : (is_woodland ? 0.40 : 0.15);
-	grass_alb = mix(grass_alb, field_tone, green_blend);
-
-	// Scale 2: large patches (25-40m) — drainage, irrigation, sun/shade
-	float lawn_large = fbm(world_pos.xz * 0.006, 3);
-	grass_alb *= 0.85 + lawn_large * 0.30;  // gentle brightness variation
-
-	// Scale 3: medium patches (8-15m) — mowing age, species dominance
-	float lawn_med = fbm(world_pos.xz * 0.025 + 37.0, 2);
-	// Yellow stress patches where grass is thin — kept subtle on maintained CP lawns
-	float stress_mask = smoothstep(0.55, 0.80, lawn_med);
-	grass_alb = mix(grass_alb, yellow_stress, stress_mask * 0.08);
-	grass_alb *= 0.94 + lawn_med * 0.12;
-
-	// Scale 4: warm/cool hue patches — Kentucky bluegrass vs perennial ryegrass
-	float temp_shift = fbm(world_pos.xz * 0.01 + 91.0, 2) - 0.5;
-	grass_alb *= vec3(1.0 + temp_shift * 0.10, 1.0, 1.0 - temp_shift * 0.08);
-
-	// Scale 5: small-scale thinning (2-4m) — bare spots, compaction, foot traffic
-	// Bare spots from foot traffic — very subtle on maintained CP lawns
-	float thin_noise = vnoise(world_pos.xz * 0.15);
-	float thin_patch = smoothstep(0.55, 0.75, thin_noise);
-	grass_alb = mix(grass_alb, brown_dirt, thin_patch * 0.08);
+	grass_alb = mix(grass_alb, lawn_green, green_blend);
 
 	// Distance-based darkening + aerial perspective.
 	// Far grass darkens (blade highlights average out, self-shadowing).
@@ -249,16 +213,8 @@ void fragment() {
 		// Autumn: golden-amber — use flat target color to prevent texture noise
 		// amplification that creates visible squares from aerial views.
 		// Real autumn lawns are uniformly golden with only gentle large-scale variation.
-		vec3 autumn_target = vec3(0.16, 0.12, 0.04);  // golden-brown autumn lawn
-		float autumn_var = vnoise(world_pos.xz * 0.008) * 0.04;  // large-scale variation only
-		vec3 autumn_grass = autumn_target + autumn_var;
-		// Winter: dormant brown — nearly flat color to eliminate tiling artifacts.
-		// Real dormant grass is uniformly straw-brown, very little texture contrast.
-		float g_lum = dot(grass_alb, vec3(0.299, 0.587, 0.114));
-		// Flat dormant brown with only slight noise variation (not from texture)
-		vec3 dormant_brown = vec3(0.12, 0.10, 0.06);
-		float w_noise = vnoise(world_pos.xz * 0.04) * 0.03;
-		vec3 winter_grass = dormant_brown + w_noise;
+		vec3 autumn_grass = vec3(0.16, 0.12, 0.04);  // golden-brown autumn lawn
+		vec3 winter_grass = vec3(0.12, 0.10, 0.06);  // dormant brown
 		grass_alb = mix(grass_alb, spring_grass, spring_t * 0.6);
 		grass_alb = mix(grass_alb, autumn_grass, autumn_t * 0.7);
 		grass_alb = mix(grass_alb, winter_grass, winter_t);
@@ -297,10 +253,8 @@ void fragment() {
 	float m_rgh = clamp(texture(meadow_rough, muv).r * 0.20 + 0.65, 0.0, 1.0);
 
 	// Woodland zones get meadow texture (zone_id, is_woodland computed above)
-	float meadow_base = is_woodland ? 1.0 : 0.0;
-	// Add FBM edge softening so zone boundaries don't look razor-sharp
-	float edge_noise = fbm(world_pos.xz * 0.012, 2) * 0.15;
-	float meadow_blend = clamp(meadow_base + edge_noise - 0.07, 0.0, 1.0);
+	float meadow_blend = is_woodland ? 1.0 : 0.0;
+	float edge_noise = 0.0;  // no procedural edge softening
 	grass_alb = mix(grass_alb, m_alb, meadow_blend);
 	grass_nrm = mix(grass_nrm, m_nrm, meadow_blend);
 	grass_rgh = mix(grass_rgh, m_rgh, meadow_blend);
@@ -320,14 +274,6 @@ void fragment() {
 		float sat = dot(grass_alb, vec3(0.299, 0.587, 0.114));
 		grass_alb = mix(vec3(sat), grass_alb, 0.85);  // 15% desaturation
 		grass_alb *= 1.05;  // slightly brighter, well-maintained
-		// Mowing stripes: alternating lighter/darker bands from reel mower passes
-		// Visible on formal lawns and gardens — Conservatory Garden, Great Lawn
-		float stripe = sin(world_pos.z * 0.85);  // ~3.7m stripe width (realistic)
-		grass_alb *= 1.0 + stripe * 0.04;  // very subtle ±4% stripe
-	} else if (zone_id == 2 || zone_id == 3) {
-		// Maintained grass/pitch: mowing stripes more prominent on sports turf
-		float stripe = sin(world_pos.z * 1.1);  // ~2.9m stripe width
-		grass_alb *= 1.0 + stripe * 0.06;  // ±6% stripe on maintained turf
 	} else if (zone_id == 8) {
 		// Grass/pitch → Pastoral: warm, golden Kentucky bluegrass
 		grass_alb.r *= 1.06;

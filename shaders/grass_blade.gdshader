@@ -16,7 +16,6 @@ uniform float hm_world_size = 5000.0;
 
 varying float v_grass_type;
 varying vec3 v_world_pos;
-varying float v_mow_stripe;  // -1 to +1: mowing stripe lean direction (mowed lawns only)
 varying float v_path_prox;   // 0-1: proximity to nearest path (for edge wear)
 varying float v_edge_fade;   // 0-1: soft fade at tile edge (0=center, 1=perimeter)
 
@@ -58,26 +57,7 @@ void vertex() {
 	}
 	float rustle = (0.2 + wind_str * 0.8) * flex;
 
-	// --- Mowing stripes on formal lawns (types 0-4, 9) ---
-	// Central Park Conservancy mows with riding mowers creating ~1.5m alternating
-	// stripe passes. Blades lean in opposite directions in adjacent stripes.
-	// The stripe direction rotates slightly per area (hash on coarse grid).
-	v_mow_stripe = 0.0;
-	bool is_mowed = v_grass_type < 4.5 || (v_grass_type > 8.5 && v_grass_type < 9.5);
-	if (is_mowed) {
-		// Per-area mow angle: rotates stripe direction by field so they don't all align
-		float area_hash = hash2(floor(origin.xz * 0.005));
-		float mow_angle = area_hash * 3.14159;  // 0 to PI rotation per meadow
-		// Project world position onto the mow direction perpendicular
-		float stripe_pos = origin.x * cos(mow_angle) + origin.z * sin(mow_angle);
-		// 1.5m stripe width (riding mower deck)
-		float stripe_phase = sin(stripe_pos * (3.14159 * 2.0 / 1.5));
-		v_mow_stripe = stripe_phase;
-		// Lean blade tips in stripe direction (subtle, ~0.015m offset at tip)
-		float lean = stripe_phase * sway * 0.015;
-		VERTEX.x += lean * cos(mow_angle);
-		VERTEX.z += lean * sin(mow_angle);
-	}
+	// Mowing stripes removed — would need to come from data, not procedural noise.
 
 	// Base sway: continuous oscillation
 	float px = origin.x * 0.15 + origin.z * 0.22;
@@ -173,94 +153,13 @@ void fragment() {
 	vec3 dormant_brown = vec3(0.12, 0.10, 0.06);  // match terrain shader's winter_grass target
 	col = mix(col, dormant_brown, winter_t);                          // winter: dormant brown
 
-	// --- Multi-scale colour variation — MUST match terrain.gdshader exactly ---
-	// Using identical noise scales and seed offsets as terrain shader ensures that
-	// grass blades and the terrain underneath get the same color modulation.
-	// Any mismatch makes the tile grid visible as colored blocks.
-
-	// Scale 1: field condition (333m) — matches terrain field_tone
-	float field_cond = vnoise(v_world_pos.xz * 0.003 + vec2(50.0, 23.0));
-	// Terrain blends toward lush/olive targets; we apply equivalent brightness shift
-	col *= mix(1.02, 0.96, field_cond);  // subtle — terrain does 25% blend
-
-	// Scale 2: large patches (166m) — matches terrain lawn_large
-	float lawn_large = fbm3(v_world_pos.xz * 0.006);
-	col *= 0.88 + lawn_large * 0.24;  // match terrain's gentler 0.85 + 0.30
-
-	// Scale 3: medium patches (40m) — matches terrain lawn_med
-	float lawn_med = fbm3(v_world_pos.xz * 0.025 + 37.0);
-	float stress = smoothstep(0.55, 0.80, lawn_med);
-	col = mix(col, col * vec3(1.04, 0.96, 0.80), stress * 0.08);  // subtler stress
-	col *= 0.94 + lawn_med * 0.12;  // match terrain's 0.94 + 0.12
-
-	// Scale 4: warm/cool hue (100m) — matches terrain temp_shift (reduced amplitude)
-	float temp_shift = fbm3(v_world_pos.xz * 0.01 + 91.0) - 0.5;
-	col *= vec3(1.0 + temp_shift * 0.10, 1.0, 1.0 - temp_shift * 0.08);  // subtler
-
-	// Scale 5: per-clump variation (2m) — sub-tile, doesn't need to match terrain
-	// Kept small to preserve close-up visual interest without affecting aerial pattern
-	float clump_var = hash2(floor(v_world_pos.xz * 0.5));
-	col *= 0.94 + clump_var * 0.12;  // reduced from 0.88+0.24 to minimize grid contrast
-
-	// --- Path-edge wear: grass near paths is stressed and browner ---
-	// Foot traffic compacts soil, wears grass. Trampled edges are a universal park feature.
+	// Color comes from the 3D model vertex colors. No procedural noise.
+	// Path-edge wear is data-driven (pre-baked proximity in instance data).
 	if (v_path_prox > 0.05) {
-		// Brown/yellow shift — compacted, stressed, partly bare
-		vec3 worn_col = col * vec3(1.10, 0.88, 0.60);  // warm brown tint
+		vec3 worn_col = col * vec3(1.10, 0.88, 0.60);
 		col = mix(col, worn_col, v_path_prox * 0.55);
-		// Wear reduces saturation too (exposed soil)
-		float wear_desat = v_path_prox * 0.25;
 		float wear_lum = dot(col, vec3(0.299, 0.587, 0.114));
-		col = mix(col, vec3(wear_lum), wear_desat);
-	}
-
-	// --- Mowing stripes: view-dependent brightness on formal lawns ---
-	// Blades bent toward viewer appear lighter (reflect sky), away appear darker
-	// This creates the classic striped lawn pattern visible from any angle
-	if (abs(v_mow_stripe) > 0.01) {
-		// View-dependent: stripe brightness varies with camera angle
-		// Stripe phase is -1 to +1; positive lean toward camera = brighter
-		float stripe_bright = v_mow_stripe * 0.06;  // subtle ±6% brightness
-		col *= 1.0 + stripe_bright;
-	}
-
-	// --- Wildflower coloring (spring/summer) ---
-	// Meadow zones (7,8): dense wildflowers (~15%)
-	// Mowed lawns (0-4,9): sparse weeds (~4%) — dandelions and clover survive mowing
-	float flower_season = smoothstep(0.0, 0.8, season_t) * (1.0 - smoothstep(2.2, 3.0, season_t));
-	bool is_meadow_zone = v_grass_type > 6.5;
-	bool is_lawn_zone = v_grass_type < 4.5 || (v_grass_type > 8.5 && v_grass_type < 9.5);
-	if (flower_season > 0.01 && blade_t > 0.7 && (is_meadow_zone || is_lawn_zone)) {
-		float flower_hash = hash2(floor(v_world_pos.xz * 2.0));
-		// Meadow: 15% flowers. Lawn: 4% weeds (dandelions, clover — they always come back)
-		float flower_thresh = is_meadow_zone ? 0.85 : 0.96;
-		if (flower_hash > flower_thresh) {
-			float flower_type = fract(flower_hash * 7.3);
-			vec3 flower_col;
-			if (is_lawn_zone) {
-				// Mowed lawns: only dandelions and clover survive regular mowing
-				if (flower_type < 0.55) {
-					flower_col = vec3(0.95, 0.85, 0.20);  // dandelion yellow
-				} else {
-					flower_col = vec3(0.90, 0.90, 0.85);  // white clover
-				}
-			} else {
-				// Meadow: full wildflower diversity
-				if (flower_type < 0.30) {
-					flower_col = vec3(0.95, 0.85, 0.20);  // dandelion yellow
-				} else if (flower_type < 0.50) {
-					flower_col = vec3(0.90, 0.90, 0.85);  // white clover
-				} else if (flower_type < 0.70) {
-					flower_col = vec3(0.55, 0.30, 0.65);  // violet/purple
-				} else if (flower_type < 0.85) {
-					flower_col = vec3(0.90, 0.65, 0.15);  // black-eyed susan
-				} else {
-					flower_col = vec3(0.85, 0.40, 0.50);  // pink clover
-				}
-			}
-			float tip_blend = smoothstep(0.7, 0.95, blade_t) * flower_season;
-			col = mix(col, flower_col, tip_blend * 0.8);
-		}
+		col = mix(col, vec3(wear_lum), v_path_prox * 0.25);
 	}
 
 	// --- Dappled canopy shade — grass under trees receives filtered light ---
