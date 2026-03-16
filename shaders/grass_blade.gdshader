@@ -34,18 +34,11 @@ void vertex() {
 	// Bottom-to-top from UV (0 at base, 1 at tip — set in Blender)
 	v_bottom_to_top = clamp(UV.y, 0.0, 1.0);
 
-	// --- Size patchiness (hexaquo core technique) ---
-	// World-space noise determines blade size. Creates natural tufts:
-	// tall old yellow-green blades next to short young deep-green ones.
+	// Patchiness — height only (not XZ) to avoid moving blade positions.
+	// Full patchiness requires individual blade instances (next step).
 	v_patch_factor = vnoise(blade_world_xz / 3.0);
-	// Size range depends on zone type
-	float size_lo = 0.7; float size_hi = 1.0;  // mowed lawn default
-	if (v_grass_type > 7.5) {
-		size_lo = 0.3; size_hi = 1.0;  // wild meadow: dramatic variation
-	} else if (v_grass_type > 4.5 && v_grass_type < 7.5) {
-		size_lo = 0.4; size_hi = 1.0;  // woodland/water
-	}
-	VERTEX *= mix(size_lo, size_hi, v_patch_factor);
+	float h_scale = mix(0.85, 1.0, v_patch_factor);
+	VERTEX.y *= h_scale;
 
 	// Sway amount: only tips move, base is rooted
 	float sway = max(VERTEX.y, 0.0);
