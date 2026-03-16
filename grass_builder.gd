@@ -218,8 +218,7 @@ func _build_layer_mapped(instances: Array, meshes: Array, vis_ranges: Array,
 			path_prox = 0.0
 
 		var y_rot := rng.randf() * TAU
-		// Tiles are grid-matched squares — scale must stay near 1.0 or
-		// gaps/overlaps make tile boundaries visible.
+		# Tiles are grid-matched squares — scale near 1.0 to avoid gaps/overlaps
 		var s_xz := rng.randf_range(0.97, 1.03)
 		var s_y := rng.randf_range(0.97, 1.03)
 		if path_prox > 0.1:
