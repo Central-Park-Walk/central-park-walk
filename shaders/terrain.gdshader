@@ -183,12 +183,16 @@ void fragment() {
 		grass_alb *= 0.75;
 	}
 
-	// Zone-based grass color — data-driven, no procedural noise.
-	// The terrain shader IS the grass at distance. Strong green tint ensures
-	// lawn zones read as grass from any distance. Texture provides micro-detail.
-	vec3 lawn_green = vec3(0.05, 0.12, 0.04);  // maintained lawn baseline
-	float green_blend = is_grass_zone ? 0.75 : (is_woodland ? 0.50 : 0.10);
-	grass_alb = mix(grass_alb, lawn_green, green_blend);
+	// Terrain under grass is dark — shadowed by the blades above (hexaquo).
+	// This matches the self-shadowed grass blade bases so the visibility
+	// boundary between 3D grass and terrain is invisible.
+	vec3 grass_ground = vec3(0.02, 0.04, 0.02);  // dark shadowed ground under grass
+	vec3 lawn_green = vec3(0.05, 0.12, 0.04);    // mid-distance green (impostor)
+	// Close up: dark ground shows between blades. At distance: green impostor.
+	float impostor_t = smoothstep(8.0, 20.0, cam_dist);
+	vec3 grass_target = mix(grass_ground, lawn_green, impostor_t);
+	float green_blend = is_grass_zone ? 0.80 : (is_woodland ? 0.50 : 0.10);
+	grass_alb = mix(grass_alb, grass_target, green_blend);
 
 	// Distance-based darkening + aerial perspective.
 	// Far grass darkens (blade highlights average out, self-shadowing).
