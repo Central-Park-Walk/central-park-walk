@@ -8,7 +8,12 @@
 var _loader
 var _blade_meshes: Array = []
 var _grass_shader: Shader
-var _positions_by_chunk: Dictionary = {}
+# Flat arrays from binary file (~10MB total vs 429MB of per-position Dicts)
+var _pos_x: PackedFloat32Array
+var _pos_z: PackedFloat32Array
+var _pos_type: PackedByteArray
+var _pos_prox: PackedByteArray
+var _chunk_indices: Dictionary = {}   # "cx|cz" -> PackedInt32Array of indices into flat arrays
 var _active_chunks: Dictionary = {}
 var _last_update_pos := Vector3(-99999, 0, -99999)
 var _build_queue: Array = []
@@ -70,25 +75,22 @@ func _build_grass() -> void:
 	if instances.is_empty():
 		print("Grass: no ground cover instances"); return
 
-	var x_arr: PackedFloat32Array = instances[0]
-	var z_arr: PackedFloat32Array = instances[1]
-	var type_arr: PackedByteArray = instances[2]
-	var y_arr: PackedFloat32Array = instances[3]
-	var prox_arr: PackedByteArray = instances[4]
+	_pos_x = instances[0]
+	_pos_z = instances[1]
+	_pos_type = instances[2]
+	# instances[3] = y (not needed — we sample heightmap per blade)
+	_pos_prox = instances[4]
 
-	for i in x_arr.size():
-		var cx := int(floorf(x_arr[i] / CHUNK))
-		var cz := int(floorf(z_arr[i] / CHUNK))
+	for i in _pos_x.size():
+		var cx := int(floorf(_pos_x[i] / CHUNK))
+		var cz := int(floorf(_pos_z[i] / CHUNK))
 		var ck := "%d|%d" % [cx, cz]
-		if not _positions_by_chunk.has(ck):
-			_positions_by_chunk[ck] = []
-		_positions_by_chunk[ck].append({
-			"x": x_arr[i], "z": z_arr[i], "y": y_arr[i],
-			"type": type_arr[i], "prox": prox_arr[i]
-		})
+		if not _chunk_indices.has(ck):
+			_chunk_indices[ck] = PackedInt32Array()
+		_chunk_indices[ck].append(i)
 
 	print("Grass: %d cells in %d chunks (%.0fms)" % [
-		x_arr.size(), _positions_by_chunk.size(), Time.get_ticks_msec() - t0])
+		_pos_x.size(), _chunk_indices.size(), Time.get_ticks_msec() - t0])
 
 	var spawn := Vector3(350, 0, -1100)
 	_last_update_pos = spawn
@@ -117,7 +119,7 @@ func _update_chunks_near(pos: Vector3) -> void:
 			var cc := Vector3((cx + 0.5) * CHUNK, 0, (cz + 0.5) * CHUNK)
 			if cc.distance_to(pos) > LOAD_RANGE: continue
 			var ck := "%d|%d" % [cx, cz]
-			if _positions_by_chunk.has(ck):
+			if _chunk_indices.has(ck):
 				needed[ck] = true
 
 	var to_remove: Array = []
@@ -155,7 +157,7 @@ func _process_queue(pos: Vector3) -> void:
 	var ck: String = _build_queue[best_i]
 	_build_queue.remove_at(best_i)
 	_queued_set.erase(ck)
-	if not _chunk_loaded(ck) and _positions_by_chunk.has(ck):
+	if not _chunk_loaded(ck) and _chunk_indices.has(ck):
 		_build_chunk(ck)
 
 
@@ -172,21 +174,21 @@ func _chunk_loaded(ck: String) -> bool:
 
 
 func _build_chunk(ck: String) -> void:
-	var positions: Array = _positions_by_chunk[ck]
-	if positions.is_empty(): return
+	var indices: PackedInt32Array = _chunk_indices[ck]
+	if indices.is_empty(): return
 
 	var ck_p: PackedStringArray = ck.split("|")
 	var cx: float = float(ck_p[0]) * CHUNK
 	var cz: float = float(ck_p[1]) * CHUNK
 
-	# Cell lookup for type/prox
+	# Cell lookup: cell_key -> index into flat arrays (for type/prox)
 	var cells: Dictionary = {}
-	for p in positions:
-		var lx: int = int((p["x"] - cx) / CELL_SIZE)
-		var lz: int = int((p["z"] - cz) / CELL_SIZE)
-		cells[lx * 256 + lz] = p
+	for idx in indices:
+		var lx: int = int((_pos_x[idx] - cx) / CELL_SIZE)
+		var lz: int = int((_pos_z[idx] - cz) / CELL_SIZE)
+		cells[lx * 256 + lz] = idx
 
-	var target: int = mini(int(positions.size() * CELL_SIZE * CELL_SIZE * BLADES_PER_M2), MAX_BLADES)
+	var target: int = mini(int(indices.size() * CELL_SIZE * CELL_SIZE * BLADES_PER_M2), MAX_BLADES)
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = (int(ck_p[0]) * 73856093 + int(ck_p[1]) * 19349669) & 0x7FFFFFFF
@@ -233,8 +235,9 @@ func _build_chunk(ck: String) -> void:
 		var ot: int = 9
 		var pp: float = 0.0
 		if cells.has(ck_key):
-			ot = cells[ck_key]["type"]
-			pp = float(cells[ck_key]["prox"]) / 255.0
+			var ci: int = cells[ck_key]
+			ot = _pos_type[ci]
+			pp = float(_pos_prox[ci]) / 255.0
 
 		var bt: int = TYPE_TO_BLADE[ot] if ot < TYPE_TO_BLADE.size() else 0
 		if bt >= _blade_meshes.size() or _blade_meshes[bt] == null: continue
