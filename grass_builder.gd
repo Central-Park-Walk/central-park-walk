@@ -48,15 +48,13 @@ const VIS_RANGES: Array = [
 ]
 
 # --- Ground cover layer (4 types × 3 variants each) ---
-# Multiple variants per type with different blade arrangements break repetition.
-# Tiles sit aligned to grid (no rotation) — variety comes from variant mixing.
+# One mesh per type — identical tiles tile seamlessly on the grid.
 const TURF_NAMES: Array = [
-	"Turf_Lawn",    # 0 — mowed lawn carpet
-	"Turf_Wild",    # 1 — wild meadow ground cover
-	"Turf_Shade",   # 2 — woodland floor cover
-	"Turf_Sedge",   # 3 — waterside ground cover
+	"Turf_Lawn_v0",    # 0 — mowed lawn carpet
+	"Turf_Wild_v0",    # 1 — wild meadow ground cover
+	"Turf_Shade_v0",   # 2 — woodland floor cover
+	"Turf_Sedge_v0",   # 3 — waterside ground cover
 ]
-const TURF_VARIANTS := 3
 
 # Map detail type (0-9) → turf type (0-3)
 const TYPE_TO_TURF: Array = [
@@ -206,19 +204,12 @@ func _build_layer_mapped(instances: Array, meshes: Array, vis_ranges: Array,
 		var wz: float = z_arr[i]
 		var orig_type: int = type_arr[i]
 
-		# Map to mesh type and pick variant by position hash
+		# Map to mesh type
 		var mesh_type: int = 0
 		if orig_type < type_map.size():
 			mesh_type = type_map[orig_type]
-		if mesh_type >= meshes.size():
+		if mesh_type >= meshes.size() or meshes[mesh_type] == null:
 			continue
-		# Pick variant by position hash — breaks repetition
-		var variant: int = (int(wx * 73.0 + wz * 37.0) & 0x7FFFFFFF) % TURF_VARIANTS
-		var variant_meshes: Array = meshes[mesh_type]
-		if variant >= variant_meshes.size() or variant_meshes[variant] == null:
-			variant = 0
-			if variant_meshes[0] == null:
-				continue
 
 		rng.seed = int(wx * 99371.0 + wz * 27183.0) & 0x7FFFFFFF
 
@@ -231,26 +222,24 @@ func _build_layer_mapped(instances: Array, meshes: Array, vis_ranges: Array,
 			wy = _loader._terrain_y(wx, wz) + 0.002
 			path_prox = 0.0
 
-		# Small random rotation (±20°) breaks grid alignment without creating
-		# significant gaps. Full 0-360° created huge corner gaps on square tiles.
-		var y_rot := rng.randf_range(-0.35, 0.35)  # ±20° in radians
-		var s_y := rng.randf_range(0.97, 1.03)
+		# Identical tiles on a grid tile seamlessly — no rotation, no scale variation.
+		# Path proximity is the only per-instance height adjustment (data-driven).
+		var s_y := 1.0
 		if path_prox > 0.1:
-			s_y *= lerpf(1.0, 0.40, path_prox)
-		var basis := Basis(Vector3.UP, y_rot).scaled(Vector3(1.0, s_y, 1.0))
+			s_y = lerpf(1.0, 0.40, path_prox)
+		var basis := Basis().scaled(Vector3(1.0, s_y, 1.0))
 		var tf := Transform3D(basis, Vector3(wx, wy, wz))
 
 		var cx := int(floorf(wx / CHUNK))
 		var cz := int(floorf(wz / CHUNK))
-		# Group by mesh_type AND variant for rendering
-		var ck := "%d_%d|%d|%d" % [mesh_type, variant, cx, cz]
+		var ck := "%d|%d|%d" % [mesh_type, cx, cz]
 		if not chunks.has(ck):
-			chunks[ck] = {"type": mesh_type, "variant": variant, "xf": [], "cd": []}
+			chunks[ck] = {"type": mesh_type, "xf": [], "cd": []}
 		chunks[ck]["xf"].append(tf)
 		chunks[ck]["cd"].append(Color(float(orig_type), rng.randf(), path_prox, 0.0))
 		total += 1
 
-	var chunk_count := _emit_multimeshes_variants(chunks, meshes, vis_ranges, prefix)
+	var chunk_count := _emit_multimeshes(chunks, meshes, vis_ranges, prefix)
 	return [total, chunk_count]
 
 
