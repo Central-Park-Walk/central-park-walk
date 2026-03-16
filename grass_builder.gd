@@ -70,12 +70,14 @@ const TYPE_TO_TURF: Array = [
 
 # Ground cover visibility — needs to be far enough that pop-in isn't obvious,
 # with a generous fade margin for smooth transition.
-# Full detail up close, taper to terrain at distance.
+# Full geometry close, crossfade to terrain at distance.
+# Grass looks great within 10m. Tile grid visible beyond 15m.
+# Terrain carries the green beyond the fade.
 const TURF_VIS_RANGES: Array = [
-	35.0,  # lawn
-	30.0,  # wild
-	20.0,  # shade
-	25.0,  # sedge
+	16.0,  # lawn
+	18.0,  # wild (taller, visible further)
+	12.0,  # shade
+	15.0,  # sedge
 ]
 
 
