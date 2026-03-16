@@ -191,9 +191,9 @@ void fragment() {
 	float dry_tip = smoothstep(0.75, 1.0, blade_t) * step(0.7, blade_seed);
 	col = mix(col, col * vec3(1.08, 1.02, 0.80), dry_tip * 0.15);
 
-	// Flowers: bright override so they're impossible to miss
+	// Flowers: use baked vertex color from flower GLB mesh
 	if (v_is_flower > 0.5) {
-		col = vec3(1.0, 0.0, 0.0);  // DEBUG: bright red
+		col = COLOR.rgb;
 	}
 
 	// --- AO: self-shadowing + wind darkening (hexaquo) ---

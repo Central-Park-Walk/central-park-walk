@@ -962,7 +962,7 @@ func _grass_tour_teleport() -> void:
 	var spot: Dictionary = _grass_tour_spots[_grass_tour_idx]
 	var x: float = spot["x"]
 	var z: float = spot["z"]
-	_player.global_position = Vector3(x, _terrain_height(x, z) + 0.7, z)
+	_player.global_position = Vector3(x, _terrain_height(x, z) + 1.8, z)
 	_player.velocity = Vector3.ZERO
 	_player.rotation_degrees.y = spot["yaw"]
 	var head: Node3D = _player.get_node("Head")
@@ -1964,7 +1964,7 @@ func _setup_player() -> CharacterBody3D:
 		if _cli_height > 5.0:
 			p.set_physics_process(false)  # disable gravity for elevated shots
 	else:
-		p.position = Vector3(-480.0, _terrain_height(-480.0, 1020.0) + 0.7, 1020.0)
+		p.position = Vector3(-480.0, _terrain_height(-480.0, 1020.0) + 1.9, 1020.0)
 	if not _cli_pos_set:
 		p.rotation_degrees.y = 30.0
 	p.terrain_height_fn = Callable(self, "_terrain_height")
