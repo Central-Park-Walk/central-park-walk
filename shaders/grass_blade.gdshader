@@ -24,21 +24,24 @@ void vertex() {
 	v_grass_type = INSTANCE_CUSTOM.r;
 	v_path_prox = INSTANCE_CUSTOM.b;
 
-	vec3 origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-
-	// Per-blade world position — continuous across tile boundaries.
-	// Tiles are axis-aligned so origin + model XZ = world XZ.
-	vec2 blade_world_xz = origin.xz + VERTEX.xz;
-	v_world_blade = vec3(blade_world_xz.x, origin.y, blade_world_xz.y);
+	// Each blade is its own MultiMesh instance — NODE_POSITION_WORLD
+	// gives the true per-blade world position. No approximation needed.
+	vec2 blade_world_xz = NODE_POSITION_WORLD.xz;
+	v_world_blade = NODE_POSITION_WORLD;
 
 	// Bottom-to-top from UV (0 at base, 1 at tip — set in Blender)
 	v_bottom_to_top = clamp(UV.y, 0.0, 1.0);
 
-	// Patchiness — height only (not XZ) to avoid moving blade positions.
-	// Full patchiness requires individual blade instances (next step).
+	// --- Full patchiness (hexaquo) — now possible with individual instances ---
+	// Each blade is its own instance, so scaling moves the tip but base stays put.
 	v_patch_factor = vnoise(blade_world_xz / 3.0);
-	float h_scale = mix(0.85, 1.0, v_patch_factor);
-	VERTEX.y *= h_scale;
+	float size_lo = 0.6; float size_hi = 1.0;
+	if (v_grass_type > 7.5) {
+		size_lo = 0.3; size_hi = 1.0;   // wild meadow: dramatic
+	} else if (v_grass_type > 4.5 && v_grass_type < 7.5) {
+		size_lo = 0.4; size_hi = 1.0;   // woodland/water
+	}
+	VERTEX *= mix(size_lo, size_hi, v_patch_factor);
 
 	// Sway amount: only tips move, base is rooted
 	float sway = max(VERTEX.y, 0.0);
