@@ -247,12 +247,12 @@ def build_grass_tile(cfg, seed):
 # ---------------------------------------------------------------------------
 GRASS_TYPES = [
     # 0: Sheep Meadow — A Lawn, 80% KBG / 20% ryegrass, mowed 2x/week
-    #    Tight height range = uniform mowed look. 1-segment straight spikes.
+    #    CPC maintains all lawns at 3 inches (7.6cm). Tight range = uniform.
     {
         "name": "Grass_Tile_SheepMeadow",
         "blade_count": 1000,
         "radius": 1.0,
-        "height_range": (0.05, 0.065),
+        "height_range": (0.065, 0.085),  # 3 inches ± variation
         "width_range": (0.008, 0.014),
         "arch_range": (0.005, 0.015),
         "segments": 1,
@@ -263,12 +263,12 @@ GRASS_TYPES = [
         "clover_pct": 0.01,
         "seed": 42,
     },
-    # 1: Great Lawn — A Lawn, KBG/ryegrass, mowed 2x/week
+    # 1: Great Lawn — A Lawn, KBG/ryegrass, mowed 2x/week (3 inches)
     {
         "name": "Grass_Tile_GreatLawn",
         "blade_count": 900,
         "radius": 1.0,
-        "height_range": (0.05, 0.065),
+        "height_range": (0.065, 0.085),
         "width_range": (0.008, 0.013),
         "arch_range": (0.005, 0.015),
         "segments": 1,
@@ -279,12 +279,12 @@ GRASS_TYPES = [
         "clover_pct": 0.01,
         "seed": 73,
     },
-    # 2: North Meadow — A Lawn, heavy-use soccer, seeded 2x/week
+    # 2: North Meadow — A Lawn, heavy-use soccer, seeded 2x/week (3 inches)
     {
         "name": "Grass_Tile_NorthMeadow",
         "blade_count": 850,
         "radius": 0.95,
-        "height_range": (0.05, 0.065),
+        "height_range": (0.065, 0.085),
         "width_range": (0.009, 0.015),
         "arch_range": (0.005, 0.018),
         "segments": 1,
@@ -295,12 +295,12 @@ GRASS_TYPES = [
         "clover_pct": 0.02,
         "seed": 109,
     },
-    # 3: Formal garden — A Lawn, Conservatory Garden, pristine
+    # 3: Formal garden — A Lawn, Conservatory Garden, pristine (3 inches, very uniform)
     {
         "name": "Grass_Tile_FormalGarden",
         "blade_count": 1100,
         "radius": 0.95,
-        "height_range": (0.035, 0.05),
+        "height_range": (0.065, 0.080),
         "width_range": (0.007, 0.012),
         "arch_range": (0.003, 0.010),
         "segments": 1,
@@ -311,12 +311,12 @@ GRASS_TYPES = [
         "clover_pct": 0.005,
         "seed": 151,
     },
-    # 4: Sports field — A Lawn, athletic crew-cut, densest
+    # 4: Sports field — A Lawn, athletic fields (3 inches, tightest range)
     {
         "name": "Grass_Tile_SportsTurf",
         "blade_count": 1200,
         "radius": 1.0,
-        "height_range": (0.025, 0.04),
+        "height_range": (0.065, 0.080),
         "width_range": (0.007, 0.011),
         "arch_range": (0.002, 0.008),
         "segments": 1,
@@ -327,12 +327,12 @@ GRASS_TYPES = [
         "clover_pct": 0.005,
         "seed": 197,
     },
-    # 5: North Woods understory — D Lawn, shade fescue, sparse + varied
+    # 5: North Woods understory — nature reserve, NOT mowed, shade fescue
     {
         "name": "Grass_Tile_NorthWoods",
         "blade_count": 300,
         "radius": 0.70,
-        "height_range": (0.03, 0.07),
+        "height_range": (0.08, 0.20),  # unmowed understory, 8-20cm
         "width_range": (0.010, 0.018),
         "arch_range": (0.010, 0.040),
         "segments": 2,
@@ -343,12 +343,12 @@ GRASS_TYPES = [
         "clover_pct": 0.02,
         "seed": 233,
     },
-    # 6: Ramble / Dene — D Lawn, woodland floor, moderate density
+    # 6: Ramble / Dene — nature reserve, woodland floor, NOT mowed
     {
         "name": "Grass_Tile_Ramble",
         "blade_count": 450,
         "radius": 0.80,
-        "height_range": (0.04, 0.08),
+        "height_range": (0.08, 0.18),  # unmowed woodland, 8-18cm
         "width_range": (0.010, 0.018),
         "arch_range": (0.010, 0.045),
         "segments": 2,
@@ -359,12 +359,12 @@ GRASS_TYPES = [
         "clover_pct": 0.02,
         "seed": 277,
     },
-    # 7: Waterside — C Lawn, moisture-loving, gently curved blades
+    # 7: Waterside — C/D Lawn, moisture-loving sedges and rushes, less frequent mowing
     {
         "name": "Grass_Tile_Waterside",
         "blade_count": 600,
         "radius": 0.90,
-        "height_range": (0.05, 0.08),
+        "height_range": (0.10, 0.25),  # waterside vegetation grows taller, 10-25cm
         "width_range": (0.010, 0.018),
         "arch_range": (0.015, 0.040),
         "segments": 2,
@@ -375,29 +375,29 @@ GRASS_TYPES = [
         "clover_pct": 0.02,
         "seed": 313,
     },
-    # 8: Wild meadow — nature reserve, slightly unkempt but still managed parkland
-    #    2-segment gentle curve, wildflowers present but grass height modest
+    # 8: Wild meadow — nature reserve, unmowed, tallest grass in the park
+    #    3-segment dramatic arch, wildflowers, golden seed heads
     {
         "name": "Grass_Tile_WildMeadow",
         "blade_count": 500,
         "radius": 0.95,
-        "height_range": (0.06, 0.10),
-        "width_range": (0.010, 0.018),
-        "arch_range": (0.015, 0.045),
-        "segments": 2,
+        "height_range": (0.15, 0.40),  # unmowed meadow, 15-40cm, Rapture-style
+        "width_range": (0.012, 0.020),
+        "arch_range": (0.05, 0.15),   # dramatic flowing arch
+        "segments": 3,                 # 3-segment curve for flowing tall grass
         "base_rgb": (0.14, 0.32, 0.05),
-        "tip_rgb": (0.40, 0.45, 0.18),
+        "tip_rgb": (0.45, 0.48, 0.22),  # golden tips on tall grass
         "color_var": 0.06,
         "flower_pct": 0.10,
         "clover_pct": 0.03,
         "seed": 359,
     },
-    # 9: Open lawn — B/C Lawn, default maintained grass
+    # 9: Open lawn — B/C Lawn, default maintained grass (3 inches)
     {
         "name": "Grass_Tile_OpenLawn",
         "blade_count": 850,
         "radius": 1.0,
-        "height_range": (0.05, 0.065),
+        "height_range": (0.065, 0.085),
         "width_range": (0.008, 0.014),
         "arch_range": (0.005, 0.018),
         "segments": 1,
