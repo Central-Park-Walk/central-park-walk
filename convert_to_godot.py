@@ -3296,6 +3296,7 @@ def prebake_grass_instances(landuse_zones):
     # Skip woodland types (5=NorthWoods, 6=Ramble) — terrain shader shows
     # brown leaf litter floor there, not green lawn. Dense turf tiles on
     # woodland floor look like weeds.
+    # Woodland understory handled at runtime by grass_builder scanning atlas.
     gc_tg = type_grid[gz_g, gx_g]
     valid = (gc_tg < 255) & (gc_tg != 5) & (gc_tg != 6)
     gz_sel = gz_g[valid].astype(np.float32)

@@ -139,6 +139,16 @@ func _update_chunks_near(pos: Vector3) -> void:
 			var ck := "%d|%d" % [cx, cz]
 			if _chunk_indices.has(ck):
 				needed[ck] = true
+			else:
+				# Check if this chunk has grass in the atlas (woodland areas)
+				# Sample center point — fast single atlas lookup
+				var sample_x: float = (cx + 0.5) * CHUNK
+				var sample_z: float = (cz + 0.5) * CHUNK
+				var spx: int = int((sample_x + _atlas_half) * _atlas_scale)
+				var spz: int = int((sample_z + _atlas_half) * _atlas_scale)
+				if spx >= 0 and spx < _atlas_res and spz >= 0 and spz < _atlas_res:
+					if _atlas_data[(spz * _atlas_res + spx) * 2] == 1:
+						needed[ck] = true
 
 	var to_remove: Array = []
 	for key: String in _active_chunks:
@@ -192,21 +202,27 @@ func _chunk_loaded(ck: String) -> bool:
 
 
 func _build_chunk(ck: String) -> void:
-	var indices: PackedInt32Array = _chunk_indices[ck]
-	if indices.is_empty(): return
-
 	var ck_p: PackedStringArray = ck.split("|")
 	var cx: float = float(ck_p[0]) * CHUNK
 	var cz: float = float(ck_p[1]) * CHUNK
 
 	# Cell lookup: cell_key -> index into flat arrays (for type/prox)
 	var cells: Dictionary = {}
-	for idx in indices:
-		var lx: int = int((_pos_x[idx] - cx) / CELL_SIZE)
-		var lz: int = int((_pos_z[idx] - cz) / CELL_SIZE)
-		cells[lx * 256 + lz] = idx
+	var is_woodland := false
+	var target: int
 
-	var target: int = mini(int(indices.size() * CELL_SIZE * CELL_SIZE * BLADES_PER_M2), MAX_BLADES)
+	if _chunk_indices.has(ck):
+		var indices: PackedInt32Array = _chunk_indices[ck]
+		if indices.is_empty(): return
+		for idx in indices:
+			var lx: int = int((_pos_x[idx] - cx) / CELL_SIZE)
+			var lz: int = int((_pos_z[idx] - cz) / CELL_SIZE)
+			cells[lx * 256 + lz] = idx
+		target = mini(int(indices.size() * CELL_SIZE * CELL_SIZE * BLADES_PER_M2), MAX_BLADES)
+	else:
+		# Woodland chunk — no pre-baked data, sparse shade grass
+		is_woodland = true
+		target = int(CHUNK * CHUNK * 100.0)  # 100/m² (sparse understory)
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = (int(ck_p[0]) * 73856093 + int(ck_p[1]) * 19349669) & 0x7FFFFFFF
@@ -259,12 +275,16 @@ func _build_chunk(ck: String) -> void:
 		var lx: int = int((bx - cx) / CELL_SIZE)
 		var lz: int = int((bz - cz) / CELL_SIZE)
 		var ck_key: int = lx * 256 + lz
-		var ot: int = 9
+		var ot: int
 		var pp: float = 0.0
-		if cells.has(ck_key):
+		if is_woodland:
+			ot = 5  # NorthWoods shade grass
+		elif cells.has(ck_key):
 			var ci: int = cells[ck_key]
 			ot = _pos_type[ci]
 			pp = float(_pos_prox[ci]) / 255.0
+		else:
+			ot = 9  # default OpenLawn
 
 		# Determine if this is a flower or a grass blade
 		var is_flower := false
