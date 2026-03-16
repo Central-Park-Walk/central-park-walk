@@ -87,24 +87,6 @@ func _build_grass() -> void:
 
 	var grass_shader: Shader = _loader._get_shader("grass_blade", "res://shaders/grass_blade.gdshader")
 
-	# --- Load detail blade models (10 types) ---
-	var meshes: Array = []
-	var loaded := 0
-	for mname in MODEL_NAMES:
-		var mesh: Mesh = _load_tile_model(mname, grass_shader)
-		meshes.append(mesh)
-		if mesh != null:
-			loaded += 1
-
-	if loaded == 0:
-		var old_mesh: Mesh = _load_tile_model("Grass_Patch_Lawn", grass_shader)
-		if old_mesh == null:
-			print("Grass: no tile models loaded — skipping")
-			return
-		for i in meshes.size():
-			if meshes[i] == null:
-				meshes[i] = old_mesh
-
 	# --- Load ground cover models (4 types) ---
 	var turf_meshes: Array = []
 	var turf_loaded := 0
@@ -114,33 +96,19 @@ func _build_grass() -> void:
 		if mesh != null:
 			turf_loaded += 1
 
-	# --- Build detail blade layer ---
-	var instances: Array = _load_binary("res://grass_instances.bin", 0x47525332)  # "GRS2"
-	var detail_total := 0
-	var detail_chunks := 0
-	if not instances.is_empty():
-		var result := _build_layer(instances, meshes, VIS_RANGES, "Grass")
-		detail_total = result[0]
-		detail_chunks = result[1]
+	if turf_loaded == 0:
+		print("Grass: no turf models found — skipping (run make_ground_cover.py in Blender)")
+		return
 
 	# --- Build ground cover layer ---
-	var gc_total := 0
-	var gc_chunks := 0
-	if turf_loaded > 0:
-		var gc_instances: Array = _load_binary("res://ground_cover_instances.bin", 0x47524332)  # "GRC2"
-		if not gc_instances.is_empty():
-			# Remap types: detail type (0-9) → turf type (0-3) for mesh selection
-			# but keep original type in custom data for shader coloring
-			var result := _build_layer_mapped(gc_instances, turf_meshes, TURF_VIS_RANGES, TYPE_TO_TURF, "Turf")
-			gc_total = result[0]
-			gc_chunks = result[1]
-	elif not instances.is_empty():
-		print("  Ground cover: no turf models found — skipping (run make_ground_cover.py in Blender)")
+	var gc_instances: Array = _load_binary("res://ground_cover_instances.bin", 0x47524332)  # "GRC2"
+	if gc_instances.is_empty():
+		print("Grass: no ground cover instances — skipping (run convert_to_godot.py)")
+		return
 
+	var result := _build_layer_mapped(gc_instances, turf_meshes, TURF_VIS_RANGES, TYPE_TO_TURF, "Turf")
 	var elapsed := Time.get_ticks_msec() - t0
-	print("Grass: %d detail + %d cover = %d tiles (%d chunks) in %.0fms" % [
-		detail_total, gc_total, detail_total + gc_total,
-		detail_chunks + gc_chunks, elapsed])
+	print("Grass: %d ground cover tiles (%d chunks) in %.0fms" % [result[0], result[1], elapsed])
 
 
 func _build_layer(instances: Array, meshes: Array, vis_ranges: Array, prefix: String) -> Array:
