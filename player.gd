@@ -24,16 +24,16 @@ func _ready() -> void:
 	# Capsule collider
 	var col := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
-	cap.radius = 0.25
-	cap.height = 1.30
+	cap.radius = 0.12
+	cap.height = 0.50
 	col.shape   = cap
-	col.position = Vector3(0.0, 0.65, 0.0)
+	col.position = Vector3(0.0, 0.25, 0.0)
 	add_child(col)
 
 	# Head node – only rotates on X (pitch)
 	head = Node3D.new()
 	head.name     = "Head"
-	head.position = Vector3(0.0, 1.58, 0.0)
+	head.position = Vector3(0.0, 0.61, 0.0)  # 2ft eye height
 	add_child(head)
 
 	# Camera attached to head
