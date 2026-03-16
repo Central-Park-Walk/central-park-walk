@@ -117,9 +117,9 @@ void fragment() {
 	float blade_seed = INSTANCE_CUSTOM.g;  // per-blade random (0-1)
 
 	// Blade roundness is baked into custom split normals from Blender
-	// (cylinder Data Transfer technique). The tip trick blends toward
-	// up at blade tips for sharp specular highlights.
-	NORMAL = mix(NORMAL, vec3(0.0, 1.0, 0.0), blade_t);
+	// (cylinder Data Transfer technique). Tips blend toward up for
+	// specular highlights, but not fully — prevents white shimmer.
+	NORMAL = mix(NORMAL, vec3(0.0, 1.0, 0.0), blade_t * 0.6);
 
 	// --- Color tied to size + zone type (hexaquo) ---
 	// Each grass type gets its own color pair for visual identity.
@@ -232,8 +232,8 @@ void fragment() {
 	// --- Proper grass material (hexaquo) ---
 	// Grass IS shiny. Specular highlights on blade tips are what make
 	// individual blades stand out and give the field depth.
-	ROUGHNESS = 0.4;
-	SPECULAR = 0.2;
+	ROUGHNESS = 0.5;
+	SPECULAR = 0.15;
 	METALLIC = 0.0;
 
 	// Translucency — light passes through grass blades
