@@ -603,6 +603,10 @@ func _process(delta: float) -> void:
 		_season_t = fmod(_season_t + _season_speed * delta, 4.0)
 		RenderingServer.global_shader_parameter_set("season_t", _season_t)
 
+	# Dynamic grass chunk loading — load/unload near camera
+	if _player and _park_loader and _park_loader._grass_builder:
+		_park_loader._grass_builder.update_camera(_player.global_position)
+
 	# Particles follow player — wind deflects rain/snow
 	if _rain_particles and _player:
 		_rain_particles.global_position = _player.global_position + Vector3(0, 14, 0)
