@@ -27,13 +27,9 @@ void vertex() {
 	vec3 origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	v_world_pos = origin;
 
-	// Soft edge fade: compute how close this blade is to the tile perimeter.
-	// Tile models are circular with radius ~0.95-1.0m in model space.
-	// Blades near the edge get faded out (dithered discard in fragment),
-	// creating soft overlapping boundaries that hide the grid pattern.
-	float blade_r = length(VERTEX.xz);  // model-space distance from tile center
-	float tile_radius = 1.0;  // approximate tile model radius
-	v_edge_fade = smoothstep(0.5, 1.0, blade_r / tile_radius);  // 0 at center, 1 at edge
+	// Edge fade disabled — tiles are square and grid-aligned with overlap.
+	// The old circular edge fade was cutting square tiles into circles.
+	v_edge_fade = 0.0;
 
 	// Height-based sway: model-space VERTEX.y (0 at base, tip varies by type)
 	float sway = max(VERTEX.y, 0.0);
