@@ -47,7 +47,7 @@ const VIS_RANGES: Array = [
 	70.0,  # open_lawn
 ]
 
-# --- Ground cover layer (4 types × 3 variants each) ---
+# --- Ground cover layer (4 types) ---
 # One mesh per type — identical tiles tile seamlessly on the grid.
 const TURF_NAMES: Array = [
 	"Turf_Lawn_v0",    # 0 — mowed lawn carpet
@@ -89,18 +89,14 @@ func _build_grass() -> void:
 
 	var grass_shader: Shader = _loader._get_shader("grass_blade", "res://shaders/grass_blade.gdshader")
 
-	# --- Load ground cover models (4 types × 3 variants) ---
-	# turf_meshes[type][variant] — 2D array
+	# --- Load ground cover models (4 types) ---
 	var turf_meshes: Array = []
 	var turf_loaded := 0
 	for tname in TURF_NAMES:
-		var variants: Array = []
-		for v in TURF_VARIANTS:
-			var mesh: Mesh = _load_tile_model("%s_v%d" % [tname, v], grass_shader)
-			variants.append(mesh)
-			if mesh != null:
-				turf_loaded += 1
-		turf_meshes.append(variants)
+		var mesh: Mesh = _load_tile_model(tname, grass_shader)
+		turf_meshes.append(mesh)
+		if mesh != null:
+			turf_loaded += 1
 
 	if turf_loaded == 0:
 		print("Grass: no turf models found — skipping (run make_ground_cover.py in Blender)")
