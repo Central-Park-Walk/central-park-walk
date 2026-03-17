@@ -945,11 +945,523 @@ def make_cattail():
 
 
 # ==========================================================================
+# Species: TIER 3 — SHRUBS
+# ==========================================================================
+
+def make_sweet_pepperbush():
+    """Sweet pepperbush (Clethra alnifolia) — 1-2.5m, upright suckering shrub.
+    White bottlebrush flower spikes. Wetland edge."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    co = bm.loops.layers.color.new("Col")
+    rng = random.Random(1001)
+
+    # Narrow upright form — suckering stems close together
+    _make_shrub(bm, rng, n_stems=5, height=2.2, spread=0.9,
+                stem_r=0.015, leaf_size=0.09,
+                stem_color=(0.35, 0.28, 0.18),
+                leaf_color=(0.22, 0.44, 0.10),
+                zigzag=False, leaf_density=35,
+                uv_layer=uv, col_layer=co)
+
+    # White bottlebrush flower spikes at stem tips
+    for _ in range(4):
+        fc = Vector((rng.uniform(-0.3, 0.3), rng.uniform(-0.3, 0.3),
+                      rng.uniform(1.6, 2.1)))
+        for fi in range(6):
+            fv = fc + Vector((rng.uniform(-0.02, 0.02),
+                              rng.uniform(-0.02, 0.02),
+                              fi * 0.025 - 0.05))
+            make_leaf_card(bm, fv, 0.025, 0.015, rng.uniform(0, math.tau),
+                          0.1, (0.94, 0.96, 0.90), 0.92, uv, co)
+
+    return bm
+
+
+def make_flowering_raspberry():
+    """Purple flowering raspberry (Rubus odoratus) — 1-2m, spreading.
+    Large maple-like leaves (to 25cm), rose-purple flowers 5cm across."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    co = bm.loops.layers.color.new("Col")
+    rng = random.Random(1002)
+
+    # Spreading shrub with large leaves — fewer stems, bigger leaves
+    _make_shrub(bm, rng, n_stems=4, height=1.8, spread=1.6,
+                stem_r=0.015, leaf_size=0.18,  # LARGE maple-like leaves
+                stem_color=(0.38, 0.30, 0.20),
+                leaf_color=(0.22, 0.42, 0.10),
+                zigzag=False, leaf_density=24,
+                uv_layer=uv, col_layer=co)
+
+    # Rose-purple flowers (5cm across, scattered)
+    for _ in range(5):
+        fc = Vector((rng.uniform(-0.6, 0.6), rng.uniform(-0.6, 0.6),
+                      rng.uniform(1.0, 1.6)))
+        # 5-petal flower
+        for p in range(5):
+            pa = (p / 5) * math.tau + rng.uniform(-0.1, 0.1)
+            pv = fc + Vector((math.cos(pa) * 0.02, math.sin(pa) * 0.02, 0))
+            make_leaf_card(bm, pv, 0.025, 0.025, pa, 0.1,
+                          (0.72, 0.28, 0.55), 0.9, uv, co)
+
+    return bm
+
+
+# ==========================================================================
+# Species: TIER 3 — TALL HERBS
+# ==========================================================================
+
+def make_white_snakeroot():
+    """White snakeroot (Ageratina altissima) — 0.5-1.5m.
+    Erect branching, white fluffy flower clusters at woodland edges."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    co = bm.loops.layers.color.new("Col")
+    rng = random.Random(1101)
+
+    h = 1.2
+    # Main stem
+    pts = []
+    for i in range(7):
+        t = i / 6
+        pts.append(Vector((rng.uniform(-0.01, 0.01),
+                           rng.uniform(-0.01, 0.01), h * t)))
+    make_tube(bm, pts, 0.006, 0.003, 4,
+              (0.22, 0.30, 0.10), (0.26, 0.34, 0.12),
+              uv, co, 0.0, 0.5)
+
+    # Heart-shaped toothed leaves along stem
+    for node in range(2, 6):
+        t = node / 6
+        lc = pts[node].copy()
+        for side in [-1, 1]:
+            la = side * 1.2 + rng.uniform(-0.3, 0.3)
+            leaf_off = Vector((math.cos(la) * 0.08, math.sin(la) * 0.08, 0))
+            make_leaf_card(bm, lc + leaf_off, 0.10, 0.08, la,
+                          rng.uniform(-0.1, 0.2),
+                          (0.18, 0.36, 0.08), t * 0.4 + 0.2, uv, co)
+
+    # Branching top with white flower corymbs
+    for b in range(3):
+        ba = rng.uniform(0, math.tau)
+        bx = math.cos(ba) * 0.12
+        by = math.sin(ba) * 0.12
+        fc = pts[-1] + Vector((bx, by, rng.uniform(-0.05, 0.1)))
+        for _ in range(8):
+            fv = fc + Vector((rng.uniform(-0.06, 0.06),
+                              rng.uniform(-0.06, 0.06),
+                              rng.uniform(-0.02, 0.04)))
+            make_leaf_card(bm, fv, 0.02, 0.02, rng.uniform(0, math.tau),
+                          0.1, (0.94, 0.96, 0.92), 0.92, uv, co)
+
+    return bm
+
+
+def make_ironweed():
+    """New York ironweed (Vernonia noveboracensis) — 1.2-2.4m.
+    Stiff erect stems, deep purple fluffy disc flowers."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    co = bm.loops.layers.color.new("Col")
+    rng = random.Random(1102)
+
+    h = 2.0
+    pts = []
+    for i in range(7):
+        t = i / 6
+        pts.append(Vector((rng.uniform(-0.008, 0.008),
+                           rng.uniform(-0.008, 0.008), h * t)))
+    # Purple-tinged stem
+    make_tube(bm, pts, 0.010, 0.005, 5,
+              (0.25, 0.18, 0.24), (0.30, 0.22, 0.28),
+              uv, co, 0.0, 0.5)
+
+    # Lance leaves along stem
+    for node in range(2, 6):
+        t = node / 6
+        lc = pts[node].copy()
+        for side in [-1, 1]:
+            la = side * 1.3 + rng.uniform(-0.2, 0.2)
+            leaf_off = Vector((math.cos(la) * 0.06, math.sin(la) * 0.06, 0))
+            make_leaf_card(bm, lc + leaf_off, 0.06, 0.14, la,
+                          rng.uniform(-0.1, 0.2),
+                          (0.16, 0.32, 0.06), t * 0.3 + 0.2, uv, co)
+
+    # Deep purple flower clusters at top — loose terminal arrangement
+    for b in range(4):
+        ba = rng.uniform(0, math.tau)
+        fc = pts[-1] + Vector((math.cos(ba) * 0.10, math.sin(ba) * 0.10,
+                               rng.uniform(-0.05, 0.1)))
+        for _ in range(5):
+            fv = fc + Vector((rng.uniform(-0.03, 0.03),
+                              rng.uniform(-0.03, 0.03),
+                              rng.uniform(-0.01, 0.03)))
+            make_leaf_card(bm, fv, 0.025, 0.025, rng.uniform(0, math.tau),
+                          0.2, (0.38, 0.05, 0.42), 0.92, uv, co)
+
+    return bm
+
+
+def make_rose_mallow():
+    """Rose mallow (Hibiscus moscheutos) — 1-2m.
+    ENORMOUS dinner-plate flowers 15-30cm across, white/pink with dark eye."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    co = bm.loops.layers.color.new("Col")
+    rng = random.Random(1103)
+
+    h = 1.6
+    # Sturdy single stem
+    pts = []
+    for i in range(7):
+        t = i / 6
+        pts.append(Vector((0, 0, h * t)))
+    make_tube(bm, pts, 0.012, 0.006, 5,
+              (0.24, 0.32, 0.10), (0.28, 0.36, 0.12),
+              uv, co, 0.0, 0.5)
+
+    # Broad tropical-looking leaves
+    for node in range(2, 6):
+        t = node / 6
+        lc = pts[node].copy()
+        for side in [-1, 1]:
+            la = side * 1.1 + rng.uniform(-0.3, 0.3)
+            leaf_off = Vector((math.cos(la) * 0.1, math.sin(la) * 0.1, 0))
+            make_leaf_card(bm, lc + leaf_off, 0.14, 0.12, la,
+                          rng.uniform(-0.1, 0.2),
+                          (0.18, 0.38, 0.08), t * 0.3 + 0.2, uv, co)
+
+    # ENORMOUS flower at top — 20cm across, pink/white with dark center
+    fc = pts[-1] + Vector((0.05, 0, 0.05))
+    # 5 large overlapping petals
+    for p in range(5):
+        pa = (p / 5) * math.tau + rng.uniform(-0.1, 0.1)
+        pv = fc + Vector((math.cos(pa) * 0.04, math.sin(pa) * 0.04, 0))
+        make_leaf_card(bm, pv, 0.08, 0.10, pa, rng.uniform(-0.1, 0.2),
+                      (0.90, 0.65, 0.72), 0.9, uv, co)  # soft pink
+    # Dark eye center
+    make_leaf_card(bm, fc, 0.04, 0.04, 0, 0.0,
+                  (0.45, 0.05, 0.12), 0.95, uv, co)
+
+    return bm
+
+
+def make_burdock():
+    """Burdock (Arctium spp.) — 0.8-1.5m.
+    Very large heart-shaped leaves, round burr-like flower heads."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    co = bm.loops.layers.color.new("Col")
+    rng = random.Random(1104)
+
+    h = 1.2
+    pts = []
+    for i in range(6):
+        t = i / 5
+        pts.append(Vector((rng.uniform(-0.01, 0.01),
+                           rng.uniform(-0.01, 0.01), h * t)))
+    make_tube(bm, pts, 0.015, 0.008, 5,
+              (0.28, 0.25, 0.18), (0.32, 0.30, 0.22),
+              uv, co, 0.0, 0.5)
+
+    # VERY large basal leaves — up to 50cm, heart-shaped
+    for node in range(1, 4):
+        t = node / 5
+        lc = pts[node].copy()
+        for side in [-1, 1]:
+            la = side * 1.0 + rng.uniform(-0.4, 0.4)
+            leaf_off = Vector((math.cos(la) * 0.12, math.sin(la) * 0.12,
+                              rng.uniform(-0.05, 0.02)))
+            # Massive leaves — grey-green on underside
+            size_scale = 1.3 - t * 0.5  # bigger at base
+            make_leaf_card(bm, lc + leaf_off,
+                          0.22 * size_scale, 0.18 * size_scale, la,
+                          rng.uniform(-0.2, 0.1),
+                          (0.20, 0.34, 0.10), t * 0.3 + 0.2, uv, co)
+
+    # Round burr-like flower heads on upper branches
+    for b in range(4):
+        bt = rng.uniform(0.5, 0.9)
+        idx = min(int(bt * 5), 4)
+        ba = rng.uniform(0, math.tau)
+        fc = pts[idx] + Vector((math.cos(ba) * 0.15, math.sin(ba) * 0.15,
+                                rng.uniform(0.05, 0.15)))
+        # Round purple-brown burr
+        make_leaf_card(bm, fc, 0.035, 0.035, rng.uniform(0, math.tau),
+                      0.0, (0.42, 0.18, 0.35), 0.9, uv, co)
+
+    return bm
+
+
+# ==========================================================================
+# Species: TIER 3 — FERNS
+# ==========================================================================
+
+def make_cinnamon_fern():
+    """Cinnamon fern (Osmundastrum cinnamomeum) — 0.6-1.2m.
+    Blue-green sterile fronds in vase shape. CINNAMON-BROWN fertile fronds
+    stand erect in center — unique visual signature."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    co = bm.loops.layers.color.new("Col")
+    rng = random.Random(1201)
+
+    # Sterile fronds — blue-green, vase shape
+    n_fronds = 6
+    for i in range(n_fronds):
+        angle = (i / n_fronds) * math.tau + rng.uniform(-0.15, 0.15)
+        make_frond(bm, Vector((0, 0, 0.04)),
+                   length=1.1, width=0.12, segments=5,
+                   arch=0.48, droop=0.25, angle_y=angle,
+                   color_base=(0.10, 0.28, 0.12),   # blue-green base
+                   color_tip=(0.22, 0.42, 0.18),     # blue-green tip
+                   uv_layer=uv, col_layer=co)
+
+    # CINNAMON fertile fronds in center — 2-3 erect brown spikes
+    for i in range(3):
+        angle = (i / 3) * math.tau + rng.uniform(-0.3, 0.3)
+        make_frond(bm, Vector((0, 0, 0.04)),
+                   length=0.85, width=0.035, segments=3,
+                   arch=0.08, droop=0.05, angle_y=angle,
+                   color_base=(0.50, 0.28, 0.08),   # cinnamon brown
+                   color_tip=(0.58, 0.32, 0.10),     # lighter cinnamon
+                   uv_layer=uv, col_layer=co)
+
+    return bm
+
+
+def make_sensitive_fern():
+    """Sensitive fern (Onoclea sensibilis) — 0.3-1m.
+    Broad triangular fronds (unusual for fern). Coarse texture."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    co = bm.loops.layers.color.new("Col")
+    rng = random.Random(1202)
+
+    # Broad triangular fronds — wider and coarser than typical ferns
+    n_fronds = 5
+    for i in range(n_fronds):
+        angle = (i / n_fronds) * math.tau + rng.uniform(-0.2, 0.2)
+        # Broader, more spreading fronds
+        make_frond(bm, Vector((0, 0, 0.03)),
+                   length=0.75, width=0.20, segments=4,  # WIDE
+                   arch=0.65, droop=0.20, angle_y=angle,
+                   color_base=(0.14, 0.32, 0.08),
+                   color_tip=(0.28, 0.46, 0.16),
+                   uv_layer=uv, col_layer=co)
+
+    # Separate beaded fertile frond — dark, stiff
+    make_frond(bm, Vector((0, 0, 0.03)),
+               length=0.5, width=0.03, segments=3,
+               arch=0.10, droop=0.05, angle_y=rng.uniform(0, math.tau),
+               color_base=(0.28, 0.18, 0.08),
+               color_tip=(0.32, 0.22, 0.10),
+               uv_layer=uv, col_layer=co)
+
+    return bm
+
+
+# ==========================================================================
+# Species: TIER 3 — GRASS
+# ==========================================================================
+
+def make_bottlebrush_grass():
+    """Bottlebrush grass (Elymus hystrix) — 0.6-1.4m.
+    Shade-tolerant woodland grass with distinctive seed heads."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    co = bm.loops.layers.color.new("Col")
+    rng = random.Random(1301)
+
+    # Tufted clump — narrow grey-green leaves + seed stalks
+    def color_func(t):
+        if t < 0.1:
+            return (0.28, 0.32, 0.16)  # base
+        elif t < 0.6:
+            return (0.32, 0.40, 0.22)  # grey-green blades
+        elif t < 0.75:
+            return (0.36, 0.38, 0.22)  # stalk
+        else:
+            # Straw-colored bottlebrush seed head
+            return (0.58, 0.50, 0.28)
+
+    make_crossed_planes(bm, 1.1, 0.22, 0.15, 3, 5, color_func, uv, co)
+
+    # Extra seed head stalks sticking up
+    for s in range(2):
+        sa = rng.uniform(0, math.tau)
+        sx = math.cos(sa) * 0.04
+        sy = math.sin(sa) * 0.04
+        stalk_pts = [
+            Vector((sx, sy, 0.6)),
+            Vector((sx * 1.1, sy * 1.1, 0.9)),
+            Vector((sx * 1.2, sy * 1.2, 1.15)),
+        ]
+        make_tube(bm, stalk_pts, 0.003, 0.002, 3,
+                  (0.36, 0.38, 0.22), (0.52, 0.46, 0.26),
+                  uv, co, 0.6, 0.85)
+
+    return bm
+
+
+# ==========================================================================
+# Species: TIER 3 — WETLAND
+# ==========================================================================
+
+def make_yellow_flag_iris():
+    """Yellow flag iris (Iris pseudacorus) — 0.6-1.5m.
+    Sword-shaped dark green leaves, bright yellow flowers."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    co = bm.loops.layers.color.new("Col")
+    rng = random.Random(1401)
+
+    # 4-5 sword-like leaves — similar to cattail but shorter, stiffer
+    for i in range(5):
+        angle = (i / 5) * math.tau + rng.uniform(-0.25, 0.25)
+        leaf_h = rng.uniform(0.8, 1.2)
+        make_frond(bm, Vector((0, 0, 0.0)),
+                   length=leaf_h, width=0.04, segments=4,
+                   arch=0.20, droop=0.10, angle_y=angle,
+                   color_base=(0.12, 0.30, 0.06),  # dark green
+                   color_tip=(0.18, 0.38, 0.10),
+                   uv_layer=uv, col_layer=co)
+
+    # Flower stalk — taller than leaves
+    stalk_pts = []
+    for i in range(5):
+        t = i / 4
+        stalk_pts.append(Vector((0, 0, 1.2 * t)))
+    make_tube(bm, stalk_pts, 0.006, 0.004, 4,
+              (0.18, 0.30, 0.08), (0.22, 0.34, 0.10),
+              uv, co, 0.0, 0.5)
+
+    # Bright yellow flower at top — 3 drooping petals + 3 upright standards
+    fc = stalk_pts[-1]
+    for p in range(3):
+        pa = (p / 3) * math.tau
+        # Drooping falls
+        pv = fc + Vector((math.cos(pa) * 0.04, math.sin(pa) * 0.04, -0.02))
+        make_leaf_card(bm, pv, 0.035, 0.05, pa, -0.3,
+                      (0.88, 0.82, 0.12), 0.9, uv, co)  # bright yellow
+        # Upright standards
+        pv2 = fc + Vector((math.cos(pa + 0.5) * 0.02, math.sin(pa + 0.5) * 0.02, 0.02))
+        make_leaf_card(bm, pv2, 0.02, 0.04, pa + 0.5, 0.3,
+                      (0.85, 0.78, 0.15), 0.9, uv, co)
+
+    return bm
+
+
+def make_lizards_tail():
+    """Lizard's tail (Saururus cernuus) — 0.6-1.2m.
+    Heart-shaped leaves, distinctive drooping white flower spikes that curve at tip."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    co = bm.loops.layers.color.new("Col")
+    rng = random.Random(1402)
+
+    h = 0.9
+    # Main stem
+    pts = []
+    for i in range(6):
+        t = i / 5
+        pts.append(Vector((rng.uniform(-0.01, 0.01),
+                           rng.uniform(-0.01, 0.01), h * t)))
+    make_tube(bm, pts, 0.006, 0.003, 4,
+              (0.20, 0.30, 0.10), (0.24, 0.34, 0.12),
+              uv, co, 0.0, 0.5)
+
+    # Heart-shaped leaves
+    for node in range(2, 5):
+        t = node / 5
+        lc = pts[node].copy()
+        for side in [-1, 1]:
+            la = side * 1.1 + rng.uniform(-0.2, 0.2)
+            leaf_off = Vector((math.cos(la) * 0.08, math.sin(la) * 0.08, 0))
+            make_leaf_card(bm, lc + leaf_off, 0.09, 0.08, la,
+                          rng.uniform(-0.1, 0.2),
+                          (0.18, 0.40, 0.08), t * 0.3 + 0.2, uv, co)
+
+    # Drooping curved white flower spike — the "lizard's tail"
+    fc = pts[-1]
+    spike_pts = []
+    for i in range(5):
+        t = i / 4
+        # Curves downward and to one side
+        spike_pts.append(Vector((
+            fc.x + t * 0.08,
+            fc.y,
+            fc.z + 0.03 - t * 0.10  # droops
+        )))
+    make_tube(bm, spike_pts, 0.010, 0.005, 5,
+              (0.92, 0.94, 0.86), (0.96, 0.97, 0.90),  # white
+              uv, co, 0.85, 0.95)
+
+    return bm
+
+
+def make_phragmites():
+    """Common reed / Phragmites (Phragmites australis) — 2-5m.
+    Tall rigid tan stems, large feathery purplish-brown seed heads.
+    Creates dense monoculture reed beds."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    co = bm.loops.layers.color.new("Col")
+    rng = random.Random(1403)
+
+    # Cluster of 3-4 tall reed stems
+    for s in range(4):
+        h = rng.uniform(2.8, 3.8)
+        ox = rng.uniform(-0.15, 0.15)
+        oy = rng.uniform(-0.15, 0.15)
+
+        pts = []
+        for i in range(8):
+            t = i / 7
+            pts.append(Vector((
+                ox + rng.uniform(-0.005, 0.005),
+                oy + rng.uniform(-0.005, 0.005),
+                h * t
+            )))
+
+        # Rigid tan stems
+        make_tube(bm, pts, 0.012, 0.008, 5,
+                  (0.35, 0.38, 0.18), (0.42, 0.40, 0.22),
+                  uv, co, 0.0, 0.5)
+
+        # Long arching leaves at nodes
+        for node in range(3, 7):
+            t = node / 7
+            lc = pts[node].copy()
+            la = rng.uniform(0, math.tau)
+            make_frond(bm, lc,
+                       length=0.45, width=0.04, segments=3,
+                       arch=0.70, droop=0.30, angle_y=la,
+                       color_base=(0.28, 0.35, 0.14),
+                       color_tip=(0.38, 0.40, 0.20),
+                       uv_layer=uv, col_layer=co)
+
+        # Feathery plume at top — purplish-brown
+        top = pts[-1]
+        for _ in range(8):
+            pa = rng.uniform(0, math.tau)
+            pr = rng.uniform(0, 0.06)
+            pz = rng.uniform(-0.08, 0.15)
+            pv = top + Vector((math.cos(pa) * pr, math.sin(pa) * pr, pz))
+            make_leaf_card(bm, pv, 0.015, 0.06, pa,
+                          rng.uniform(-0.2, 0.3),
+                          (0.50, 0.30, 0.32), 0.85, uv, co)
+
+    return bm
+
+
+# ==========================================================================
 # Build all species
 # ==========================================================================
 
 SPECIES = [
-    # (builder_func, output_name)
+    # Tier 1+2 (original 16)
     (make_spicebush,          "Shrub_Spicebush"),
     (make_witch_hazel,        "Shrub_WitchHazel"),
     (make_viburnum,           "Shrub_Viburnum"),
@@ -966,6 +1478,19 @@ SPECIES = [
     (make_ostrich_fern,       "Fern_Ostrich"),
     (make_christmas_fern,     "Fern_Christmas"),
     (make_cattail,            "Wetland_Cattail"),
+    # Tier 3 (12 new species)
+    (make_sweet_pepperbush,   "Shrub_SweetPepperbush"),
+    (make_flowering_raspberry, "Shrub_FloweringRaspberry"),
+    (make_white_snakeroot,    "Herb_WhiteSnakeroot"),
+    (make_ironweed,           "Herb_Ironweed"),
+    (make_rose_mallow,        "Herb_RoseMallow"),
+    (make_burdock,            "Herb_Burdock"),
+    (make_cinnamon_fern,      "Fern_Cinnamon"),
+    (make_sensitive_fern,     "Fern_Sensitive"),
+    (make_bottlebrush_grass,  "Grass_Bottlebrush"),
+    (make_yellow_flag_iris,   "Wetland_YellowIris"),
+    (make_lizards_tail,       "Wetland_LizardsTail"),
+    (make_phragmites,         "Wetland_Phragmites"),
 ]
 
 if __name__ == "__main__":

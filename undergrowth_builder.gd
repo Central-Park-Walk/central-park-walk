@@ -1,5 +1,5 @@
 # undergrowth_builder.gd
-# Chunk-based MultiMesh placement for 16 undergrowth species.
+# Chunk-based MultiMesh placement for 30 undergrowth species (16 Tier 1+2, 2 fungi, 12 Tier 3).
 # Fills the missing vertical layers between grass (0-25cm) and tree canopy (5m+).
 # Placement driven by atlas zone type — data-first, no procedural invention.
 
@@ -32,34 +32,53 @@ const UNLOAD_RANGE := 70.0
 const UPDATE_DIST := 2.0
 const VIS_END := 50.0
 
-# Species definitions: name, scale range (relative to model), wind flex, evergreen, fall tint
+# Species definitions: name, scale range, wind flex, evergreen, fall tint, atlas_idx
 # Models are already built at natural reference height; s=[min,max] is scale multiplier
+# atlas_idx: slot in leaf_atlas.png (4-col grid, 7 rows = 28 slots). -1 = no atlas.
+const ATLAS_COLS := 4
+const ATLAS_ROWS := 7
 const SPECIES := [
 	# Shrubs (0-4)
-	{"name": "Shrub_Spicebush",        "s": [0.75, 1.20], "flex": 0.25, "green": 0, "fall": [0.70, 0.65, 0.15]},
-	{"name": "Shrub_WitchHazel",        "s": [0.80, 1.15], "flex": 0.20, "green": 0, "fall": [0.65, 0.60, 0.12]},
-	{"name": "Shrub_Viburnum",          "s": [0.75, 1.20], "flex": 0.25, "green": 0, "fall": [0.60, 0.25, 0.15]},
-	{"name": "Shrub_Sumac",             "s": [0.80, 1.15], "flex": 0.20, "green": 0, "fall": [0.80, 0.20, 0.08]},
-	{"name": "Shrub_Elderberry",        "s": [0.80, 1.15], "flex": 0.30, "green": 0, "fall": [0.55, 0.45, 0.10]},
+	{"name": "Shrub_Spicebush",        "s": [0.75, 1.20], "flex": 0.25, "green": 0, "fall": [0.70, 0.65, 0.15], "ai": 0},
+	{"name": "Shrub_WitchHazel",        "s": [0.80, 1.15], "flex": 0.20, "green": 0, "fall": [0.65, 0.60, 0.12], "ai": 1},
+	{"name": "Shrub_Viburnum",          "s": [0.75, 1.20], "flex": 0.25, "green": 0, "fall": [0.60, 0.25, 0.15], "ai": 2},
+	{"name": "Shrub_Sumac",             "s": [0.80, 1.15], "flex": 0.20, "green": 0, "fall": [0.80, 0.20, 0.08], "ai": 3},
+	{"name": "Shrub_Elderberry",        "s": [0.80, 1.15], "flex": 0.30, "green": 0, "fall": [0.55, 0.45, 0.10], "ai": 4},
 	# Tall herbs (5-9)
-	{"name": "Herb_Pokeweed",           "s": [0.70, 1.30], "flex": 0.45, "green": 0, "fall": [0.50, 0.15, 0.30]},
-	{"name": "Herb_JapaneseKnotweed",   "s": [0.80, 1.20], "flex": 0.35, "green": 0, "fall": [0.40, 0.30, 0.12]},
-	{"name": "Herb_JoePyeWeed",         "s": [0.75, 1.25], "flex": 0.50, "green": 0, "fall": [0.45, 0.30, 0.20]},
-	{"name": "Herb_Coneflower",         "s": [0.75, 1.25], "flex": 0.55, "green": 0, "fall": [0.50, 0.40, 0.12]},
-	{"name": "Herb_CardinalFlower",     "s": [0.80, 1.20], "flex": 0.40, "green": 0, "fall": [0.30, 0.18, 0.08]},
-	# Billboard herbs (10-12) — scale verified against real-world heights
-	{"name": "Herb_WhiteWoodAster",     "s": [0.55, 1.00], "flex": 0.35, "green": 0, "fall": [0.35, 0.28, 0.10]},
-	{"name": "Herb_Jewelweed",          "s": [0.80, 1.30], "flex": 0.50, "green": 0, "fall": [0.40, 0.30, 0.08]},
-	{"name": "Herb_Mugwort",            "s": [1.00, 1.50], "flex": 0.30, "green": 0, "fall": [0.45, 0.38, 0.20]},
-	# Ferns (13-14) — scale verified against real-world heights
-	{"name": "Fern_Ostrich",            "s": [0.55, 0.95], "flex": 0.40, "green": 0, "fall": [0.50, 0.40, 0.10]},
-	{"name": "Fern_Christmas",          "s": [0.85, 1.30], "flex": 0.20, "green": 1, "fall": [0.10, 0.28, 0.06]},
+	{"name": "Herb_Pokeweed",           "s": [0.70, 1.30], "flex": 0.45, "green": 0, "fall": [0.50, 0.15, 0.30], "ai": 5},
+	{"name": "Herb_JapaneseKnotweed",   "s": [0.80, 1.20], "flex": 0.35, "green": 0, "fall": [0.40, 0.30, 0.12], "ai": 6},
+	{"name": "Herb_JoePyeWeed",         "s": [0.75, 1.25], "flex": 0.50, "green": 0, "fall": [0.45, 0.30, 0.20], "ai": 7},
+	{"name": "Herb_Coneflower",         "s": [0.75, 1.25], "flex": 0.55, "green": 0, "fall": [0.50, 0.40, 0.12], "ai": 8},
+	{"name": "Herb_CardinalFlower",     "s": [0.80, 1.20], "flex": 0.40, "green": 0, "fall": [0.30, 0.18, 0.08], "ai": 9},
+	# Billboard herbs (10-12)
+	{"name": "Herb_WhiteWoodAster",     "s": [0.55, 1.00], "flex": 0.35, "green": 0, "fall": [0.35, 0.28, 0.10], "ai": 10},
+	{"name": "Herb_Jewelweed",          "s": [0.80, 1.30], "flex": 0.50, "green": 0, "fall": [0.40, 0.30, 0.08], "ai": 11},
+	{"name": "Herb_Mugwort",            "s": [1.00, 1.50], "flex": 0.30, "green": 0, "fall": [0.45, 0.38, 0.20], "ai": 12},
+	# Ferns (13-14)
+	{"name": "Fern_Ostrich",            "s": [0.55, 0.95], "flex": 0.40, "green": 0, "fall": [0.50, 0.40, 0.10], "ai": 13},
+	{"name": "Fern_Christmas",          "s": [0.85, 1.30], "flex": 0.20, "green": 1, "fall": [0.10, 0.28, 0.06], "ai": 14},
 	# Wetland (15)
-	{"name": "Wetland_Cattail",         "s": [0.75, 1.25], "flex": 0.35, "green": 0, "fall": [0.35, 0.25, 0.10]},
-	# Fungi (16-17) — seasonal: peak late summer through fall, absent in winter/spring
-	# Laetiporus (chicken of the woods) on oaks; common mushrooms on woodland floor
-	{"name": "Mushroom_Common",         "s": [0.80, 1.50], "flex": 0.0, "green": 0, "fall": [0.30, 0.22, 0.12]},
-	{"name": "Mushroom_Laetiporus",     "s": [0.60, 1.20], "flex": 0.0, "green": 0, "fall": [0.60, 0.35, 0.08]},
+	{"name": "Wetland_Cattail",         "s": [0.75, 1.25], "flex": 0.35, "green": 0, "fall": [0.35, 0.25, 0.10], "ai": 15},
+	# Fungi (16-17) — no leaf atlas
+	{"name": "Mushroom_Common",         "s": [0.80, 1.50], "flex": 0.0, "green": 0, "fall": [0.30, 0.22, 0.12], "ai": -1},
+	{"name": "Mushroom_Laetiporus",     "s": [0.60, 1.20], "flex": 0.0, "green": 0, "fall": [0.60, 0.35, 0.08], "ai": -1},
+	# Tier 3 shrubs (18-19)
+	{"name": "Shrub_SweetPepperbush",   "s": [0.80, 1.20], "flex": 0.25, "green": 0, "fall": [0.60, 0.55, 0.12], "ai": 16},
+	{"name": "Shrub_FloweringRaspberry","s": [0.75, 1.15], "flex": 0.30, "green": 0, "fall": [0.55, 0.45, 0.10], "ai": 17},
+	# Tier 3 herbs (20-23)
+	{"name": "Herb_WhiteSnakeroot",     "s": [0.70, 1.25], "flex": 0.35, "green": 0, "fall": [0.40, 0.32, 0.10], "ai": 18},
+	{"name": "Herb_Ironweed",           "s": [0.75, 1.20], "flex": 0.40, "green": 0, "fall": [0.35, 0.20, 0.25], "ai": 19},
+	{"name": "Herb_RoseMallow",         "s": [0.80, 1.20], "flex": 0.40, "green": 0, "fall": [0.42, 0.30, 0.12], "ai": 20},
+	{"name": "Herb_Burdock",            "s": [0.75, 1.25], "flex": 0.25, "green": 0, "fall": [0.40, 0.30, 0.15], "ai": 21},
+	# Tier 3 ferns (24-25)
+	{"name": "Fern_Cinnamon",           "s": [0.70, 1.15], "flex": 0.35, "green": 0, "fall": [0.50, 0.40, 0.12], "ai": 22},
+	{"name": "Fern_Sensitive",          "s": [0.80, 1.20], "flex": 0.45, "green": 0, "fall": [0.45, 0.35, 0.10], "ai": 23},
+	# Tier 3 grass (26)
+	{"name": "Grass_Bottlebrush",       "s": [0.80, 1.30], "flex": 0.55, "green": 0, "fall": [0.55, 0.48, 0.22], "ai": 24},
+	# Tier 3 wetland (27-29)
+	{"name": "Wetland_YellowIris",      "s": [0.75, 1.20], "flex": 0.30, "green": 0, "fall": [0.40, 0.32, 0.10], "ai": 25},
+	{"name": "Wetland_LizardsTail",     "s": [0.80, 1.20], "flex": 0.40, "green": 0, "fall": [0.38, 0.30, 0.10], "ai": 26},
+	{"name": "Wetland_Phragmites",      "s": [0.70, 1.15], "flex": 0.35, "green": 0, "fall": [0.50, 0.42, 0.22], "ai": 27},
 ]
 
 # Zone type -> list of [species_index, density_per_100m2]
@@ -69,12 +88,15 @@ const ZONE_SPECIES := {
 	5: [  # NorthWoods — dense woodland understory
 		[0, 3.0],   # Spicebush
 		[1, 1.5],   # Witch Hazel
-		[10, 10.0],  # White Wood Aster
+		[10, 10.0], # White Wood Aster
 		[13, 4.0],  # Ostrich Fern
 		[14, 6.0],  # Christmas Fern
 		[5, 1.0],   # Pokeweed (edges)
-		[16, 0.5],  # Common Mushroom (woodland floor, seasonal)
-		[17, 0.3],  # Chicken of the Woods (on oaks, seasonal)
+		[20, 3.0],  # White Snakeroot (woodland edge)
+		[24, 5.0],  # Cinnamon Fern (wet spots)
+		[26, 4.0],  # Bottlebrush Grass (shade grass)
+		[16, 0.5],  # Common Mushroom (seasonal)
+		[17, 0.3],  # Chicken of the Woods (seasonal)
 	],
 	6: [  # Ramble — designed wild garden, dense understory
 		[0, 4.0],   # Spicebush (dominant)
@@ -84,6 +106,13 @@ const ZONE_SPECIES := {
 		[14, 5.0],  # Christmas Fern
 		[13, 3.0],  # Ostrich Fern
 		[5, 1.5],   # Pokeweed
+		[18, 1.5],  # Sweet Pepperbush (stream edges)
+		[19, 1.0],  # Flowering Raspberry (trail edges)
+		[20, 4.0],  # White Snakeroot (woodland edge)
+		[24, 3.0],  # Cinnamon Fern (wet areas)
+		[25, 2.0],  # Sensitive Fern (wet areas)
+		[26, 3.0],  # Bottlebrush Grass
+		[28, 4.0],  # Lizard's Tail (stream banks)
 		[16, 0.6],  # Common Mushroom (seasonal)
 		[17, 0.2],  # Chicken of the Woods (seasonal)
 	],
@@ -93,6 +122,12 @@ const ZONE_SPECIES := {
 		[7, 4.0],   # Joe Pye Weed
 		[11, 6.0],  # Jewelweed
 		[13, 2.0],  # Ostrich Fern
+		[21, 3.0],  # Ironweed (deep purple)
+		[22, 1.5],  # Rose Mallow (huge flowers)
+		[27, 4.0],  # Yellow Flag Iris
+		[28, 3.0],  # Lizard's Tail
+		[29, 2.0],  # Phragmites (where present)
+		[25, 2.0],  # Sensitive Fern
 	],
 	8: [  # WildMeadow — unmowed tall herbs
 		[12, 5.0],  # Mugwort
@@ -102,6 +137,10 @@ const ZONE_SPECIES := {
 		[7, 3.0],   # Joe Pye Weed
 		[3, 1.0],   # Sumac
 		[4, 1.5],   # Elderberry
+		[21, 2.0],  # Ironweed
+		[23, 2.0],  # Burdock (edges)
+		[19, 1.0],  # Flowering Raspberry (edges)
+		[29, 1.0],  # Phragmites (wet patches)
 	],
 	# Zones 0-4 (SheepMeadow, GreatLawn, NorthMeadow, FormalGarden, SportsTurf)
 	# and zone 9 (OpenLawn) are maintained lawns — NO undergrowth.
@@ -114,6 +153,8 @@ const WOODLAND_SPECIES: Array = [
 	[10, 6.0],  # White Wood Aster
 	[14, 4.0],  # Christmas Fern
 	[13, 2.0],  # Ostrich Fern
+	[20, 2.0],  # White Snakeroot
+	[26, 3.0],  # Bottlebrush Grass
 	[16, 0.4],  # Common Mushroom (seasonal)
 	[17, 0.2],  # Chicken of the Woods (seasonal)
 ]
@@ -484,17 +525,14 @@ func _load_model(sp_name: String) -> Mesh:
 			sp_cfg = sp
 			break
 
-	# Find species index for atlas coordinates
-	var sp_idx := 0
-	for i in SPECIES.size():
-		if SPECIES[i].name == sp_name:
-			sp_idx = i
-			break
-
-	# Atlas grid: 4x4, each cell = 0.25 UV
-	var atlas_col: int = sp_idx % 4
-	var atlas_row: int = sp_idx / 4
-	var atlas_off := Vector2(atlas_col * 0.25, atlas_row * 0.25)
+	# Atlas grid coordinates from species config
+	var ai: int = sp_cfg.get("ai", -1)
+	var atlas_off := Vector2.ZERO
+	var has_atlas := ai >= 0
+	if has_atlas:
+		var atlas_col: int = ai % ATLAS_COLS
+		var atlas_row: int = ai / ATLAS_COLS
+		atlas_off = Vector2(float(atlas_col) / ATLAS_COLS, float(atlas_row) / ATLAS_ROWS)
 
 	# Apply undergrowth shader
 	for si in mesh.get_surface_count():
@@ -508,9 +546,10 @@ func _load_model(sp_name: String) -> Mesh:
 		if _loader._canopy_texture:
 			mat.set_shader_parameter("canopy_map", _loader._canopy_texture)
 		# Leaf texture atlas
-		if _leaf_atlas:
+		if _leaf_atlas and has_atlas:
 			mat.set_shader_parameter("leaf_atlas", _leaf_atlas)
 			mat.set_shader_parameter("atlas_offset", atlas_off)
+			mat.set_shader_parameter("atlas_cell_size", Vector2(1.0 / ATLAS_COLS, 1.0 / ATLAS_ROWS))
 			mat.set_shader_parameter("use_atlas", 1.0)
 		mesh.surface_set_material(si, mat)
 	return mesh

@@ -15,9 +15,10 @@ uniform vec3 fall_tint = vec3(0.5, 0.35, 0.08);
 uniform sampler2D canopy_map : filter_linear, repeat_disable;
 uniform float hm_world_size = 5000.0;
 
-// Leaf texture atlas (2048x2048, 4x4 grid = 512px per species)
+// Leaf texture atlas (4-col grid, variable rows, 512px per species cell)
 uniform sampler2D leaf_atlas : filter_linear, repeat_disable;
-uniform vec2 atlas_offset = vec2(0.0, 0.0);  // species cell position in atlas
+uniform vec2 atlas_offset = vec2(0.0, 0.0);  // species cell position in atlas (UV space)
+uniform vec2 atlas_cell_size = vec2(0.25, 0.25);  // cell size in UV space (1/cols, 1/rows)
 uniform float use_atlas = 0.0;  // 1.0 = sample atlas, 0.0 = procedural only
 
 varying vec3 v_world_pos;
@@ -74,7 +75,7 @@ void fragment() {
 
 	if (use_atlas > 0.5) {
 		// Sample species-specific leaf texture from atlas
-		vec2 atlas_uv = atlas_offset + UV * 0.25;  // 0.25 = 1/4 grid
+		vec2 atlas_uv = atlas_offset + UV * atlas_cell_size;
 		vec4 tex = texture(leaf_atlas, atlas_uv);
 
 		// Blend: stems use vertex color, leaves use atlas

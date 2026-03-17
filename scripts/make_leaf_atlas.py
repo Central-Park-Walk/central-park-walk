@@ -18,7 +18,7 @@ PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
 OUT_PATH = os.path.join(PROJECT_DIR, "textures", "leaf_atlas.png")
 
 CELL = 512       # pixels per species cell
-ATLAS = 2048     # 4x4 grid = 2048x2048
+COLS = 4         # columns in atlas grid
 PAD = 8          # padding inside each cell
 
 
@@ -358,15 +358,69 @@ SPECIES = [
 
     {"name": "Cattail", "shape": "sword",
      "color": (51, 107, 28), "vein": (38, 82, 20)},
+
+    # Row 4 (Tier 3 shrubs + herbs)
+    {"name": "SweetPepperbush", "shape": "elliptical",
+     "color": (66, 117, 28), "vein": (46, 85, 18),
+     "opts": {"aspect": 1.5, "serrated": True},
+     "flower": (240, 242, 230)},
+
+    {"name": "FloweringRaspberry", "shape": "lobed",
+     "color": (66, 112, 28), "vein": (45, 80, 18),
+     "opts": {"n_lobes": 5, "depth": 0.35},
+     "flower": (184, 72, 140)},
+
+    {"name": "WhiteSnakeroot", "shape": "heart",
+     "color": (56, 107, 26), "vein": (38, 78, 16),
+     "flower": (238, 240, 230)},
+
+    {"name": "Ironweed", "shape": "lance",
+     "color": (48, 97, 20), "vein": (34, 70, 14),
+     "flower": (97, 13, 107)},
+
+    # Row 5 (Tier 3 herbs + ferns)
+    {"name": "RoseMallow", "shape": "elliptical",
+     "color": (56, 112, 26), "vein": (40, 82, 18),
+     "opts": {"aspect": 1.3},
+     "flower": (230, 166, 184)},
+
+    {"name": "Burdock", "shape": "heart",
+     "color": (61, 102, 30), "vein": (42, 74, 20)},
+
+    {"name": "CinnamonFern", "shape": "pinnate",
+     "color": (38, 102, 22), "vein": (26, 76, 14),
+     "opts": {"n_pinnae": 14, "pinna_w": 0.32}},
+
+    {"name": "SensitiveFern", "shape": "pinnate",
+     "color": (48, 112, 26), "vein": (34, 82, 18),
+     "opts": {"n_pinnae": 10, "pinna_w": 0.42}},
+
+    # Row 6 (Tier 3 grass + wetland)
+    {"name": "BottlebrushGrass", "shape": "lance",
+     "color": (82, 102, 56), "vein": (60, 78, 42)},
+
+    {"name": "YellowFlagIris", "shape": "sword",
+     "color": (46, 97, 22), "vein": (32, 72, 15),
+     "flower": (224, 210, 30)},
+
+    {"name": "LizardsTail", "shape": "heart",
+     "color": (56, 117, 28), "vein": (40, 86, 18),
+     "flower": (236, 238, 226)},
+
+    {"name": "Phragmites", "shape": "sword",
+     "color": (92, 102, 56), "vein": (68, 78, 42)},
 ]
 
 
 def build_atlas():
-    atlas = Image.new("RGBA", (ATLAS, ATLAS), (0, 0, 0, 0))
+    n_rows = (len(SPECIES) + COLS - 1) // COLS
+    atlas_w = COLS * CELL
+    atlas_h = n_rows * CELL
+    atlas = Image.new("RGBA", (atlas_w, atlas_h), (0, 0, 0, 0))
 
     for idx, sp in enumerate(SPECIES):
-        row = idx // 4
-        col = idx % 4
+        row = idx // COLS
+        col = idx % COLS
         x0 = col * CELL
         y0 = row * CELL
 
@@ -410,12 +464,12 @@ def build_atlas():
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
     atlas.save(OUT_PATH, "PNG")
     size_kb = os.path.getsize(OUT_PATH) // 1024
-    print(f"\nAtlas saved: {OUT_PATH} ({ATLAS}x{ATLAS}, {size_kb} KB)")
+    print(f"\nAtlas saved: {OUT_PATH} ({atlas_w}x{atlas_h}, {COLS}x{n_rows} grid, {size_kb} KB)")
 
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("Building 16-species leaf texture atlas")
+    print(f"Building {len(SPECIES)}-species leaf texture atlas")
     print("=" * 60)
     build_atlas()
     print("Done.")
