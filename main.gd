@@ -606,6 +606,8 @@ func _process(delta: float) -> void:
 	# Dynamic grass chunk loading — load/unload near camera
 	if _player and _park_loader and _park_loader._grass_builder:
 		_park_loader._grass_builder.update_camera(_player.global_position)
+	if _player and _park_loader and _park_loader._undergrowth_builder:
+		_park_loader._undergrowth_builder.update_camera(_player.global_position)
 
 	# Grass tour auto-teleport + screenshot
 	_grass_tour_process(delta)
