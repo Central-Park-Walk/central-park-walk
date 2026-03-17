@@ -2434,80 +2434,85 @@ def main() -> None:
     prebake_boundary_mask(boundary_pts)
     prebake_water_grids(water_out, terrain, boundary_pts)
     if have_terrain:
-        # --- DEM-only terrain (AAA approach) ---
-        # Use bare-earth DEM everywhere. Buildings are separate 3D models.
-        # The DSM hybrid was causing stalagmites (building heights baked into
-        # terrain mesh as rocky spikes). AAA studios never put building heights
-        # in terrain — the terrain is always bare ground.
-        # Rock outcrops lost from terrain can be added back later as targeted
-        # DSM blends in verified natural areas (Ramble, North Woods).
-        if False and os.path.exists(LIDAR_DSM) and surface_arr is not None:
+        # --- Targeted rock outcrop restoration ---
+        # DEM-only terrain is clean (no building stalagmites) but loses rock
+        # outcrops that the DSM captures. The DSM has tree canopy already masked,
+        # so DSM-DEM differences in natural grass areas are genuine geological
+        # features: Manhattan schist outcrops, retaining walls, stone steps.
+        # Strategy: blend DSM back into DEM ONLY where moderate-height features
+        # exist in natural (grass/rock) areas — never near buildings or outside park.
+        if os.path.exists(LIDAR_DSM) and surface_arr is not None:
             import numpy as np
-            from scipy.ndimage import binary_dilation, gaussian_filter
-            print("\n--- DEM/DSM hybrid terrain ---")
-            dsm_raw = _load_lidar_raster(LIDAR_DSM, "LiDAR DSM (structure-enhanced)")
+            from scipy.ndimage import gaussian_filter, binary_opening, binary_dilation
+            print("\n--- Targeted rock outcrop restoration (DSM blend) ---")
+            dsm_raw = _load_lidar_raster(LIDAR_DSM, "LiDAR DSM (canopy-masked)")
             if dsm_raw is not None:
-                # Normalize DSM with same min_elev as DEM so heights are compatible
                 dsm_arr = (dsm_raw - min_elev).astype(np.float32)
                 dsm_arr = np.maximum(dsm_arr, 0.0)
                 del dsm_raw
 
-                # Build DEM-priority mask: 1.0 where we want DEM (bare earth)
-                # Three sources of structure detection:
-                #   1. Atlas classification: surface_arr == 5 (building) or 6 (bridge)
-                #   2. Height spike detection: DSM > DEM + 3m inside park (catches
-                #      unclassified structures while preserving rock outcrops <3m)
-                #   3. Outside-park height: DSM > DEM + 1m outside boundary (Manhattan
-                #      buildings have no atlas classification but dominate DSM)
-                height_diff = dsm_arr - hm_arr
-                struct_mask = (
-                    (surface_arr == 5) | (surface_arr == 6) |    # classified
-                    (height_diff > 3.0) |                         # any 3m+ spike
-                    ((surface_arr == 0) & (height_diff > 1.0))    # outside park 1m+
+                # Height difference: features above bare earth
+                diff = dsm_arr - hm_arr
+
+                # Rock candidate mask: moderate-height features in natural areas.
+                # The DSM has tree canopy masked, so non-building elevated features
+                # in grass/rock areas are outcrops, retaining walls, or stone steps.
+                natural_mask = (surface_arr == 1) | (surface_arr == 7)
+                # Also exclude cells adjacent to buildings (5-cell buffer ≈ 3m)
+                building_mask = (surface_arr == 5) | (surface_arr == 6)
+                building_buffer = binary_dilation(building_mask, iterations=5)
+                del building_mask
+
+                rock_candidates = (
+                    (diff > 0.2) & (diff < 4.0) &   # 0.2-4m above bare earth
+                    natural_mask &                    # grass or tagged rock only
+                    ~building_buffer                  # not near buildings/bridges
                 )
-                del height_diff
+                del natural_mask, building_buffer
 
-                classified_count = int(((surface_arr == 5) | (surface_arr == 6)).sum())
-                struct_count = int(struct_mask.sum())
-                print(f"  Structure cells: {struct_count:,} ({classified_count:,} classified + {struct_count - classified_count:,} height-detected)")
+                if rock_candidates.any():
+                    # Morphological opening removes isolated noise pixels
+                    rock_candidates = binary_opening(rock_candidates, iterations=1)
 
-                # Dilate to create buffer zone around structures
-                dilated = binary_dilation(struct_mask, iterations=16)
-                dilated_count = int(dilated.sum())
-                print(f"  After 10m dilation: {dilated_count:,} cells")
-                del struct_mask
+                    rock_cells = int(rock_candidates.sum())
+                    cell_m = WORLD_SIZE / GRID_W
+                    rock_area = rock_cells * cell_m * cell_m
+                    print(f"  Rock candidate cells: {rock_cells:,} ({rock_area:.0f} m²)")
+                    print(f"  Height range: {diff[rock_candidates].min():.2f}m to "
+                          f"{diff[rock_candidates].max():.2f}m "
+                          f"(mean {diff[rock_candidates].mean():.2f}m)")
 
-                # Gaussian feather for smooth transition (~3m = 5 cells)
-                dem_priority = gaussian_filter(dilated.astype(np.float32), sigma=5.0)
-                dem_priority = np.clip(dem_priority, 0.0, 1.0)
-                del dilated
+                    # Dilation for natural transition (3 cells ≈ 1.8m)
+                    rock_zone = binary_dilation(rock_candidates, iterations=3)
 
-                # Blend: DEM under structures, DSM elsewhere
-                hybrid_arr = hm_arr * dem_priority + dsm_arr * (1.0 - dem_priority)
+                    # Gaussian feather for smooth blending (~1.8m sigma)
+                    blend_mask = gaussian_filter(rock_zone.astype(np.float32), sigma=3.0)
+                    blend_mask = np.clip(blend_mask, 0.0, 1.0)
 
-                # Statistics
-                diff = hybrid_arr - hm_arr
-                changed = np.abs(diff) > 0.1  # >10cm difference
-                if changed.any():
-                    print(f"  Hybrid: {changed.sum():,} cells differ >10cm from bare-earth DEM")
-                    print(f"  Height delta range: {diff[changed].min():.2f}m to {diff[changed].max():.2f}m "
-                          f"(mean {diff[changed].mean():.2f}m)")
+                    # Blend DSM into DEM only where rock features detected
+                    hm_arr = hm_arr * (1.0 - blend_mask) + dsm_arr * blend_mask
+
+                    # Mark surface type 7 (rock) where features are prominent
+                    significant_rock = rock_candidates & (diff > 0.3)
+                    new_rock_cells = int(significant_rock.sum())
+                    surface_arr[significant_rock] = 7
+                    print(f"  Marked {new_rock_cells:,} cells as rock outcrop (type 7)")
+
+                    del rock_zone, blend_mask, significant_rock
                 else:
-                    print(f"  Hybrid: no significant height differences found")
-                del diff, changed, dem_priority, dsm_arr
+                    print("  No rock candidates found in natural areas")
 
-                # Replace heightmap array
-                hm_arr = hybrid_arr.astype(np.float32)
+                del dsm_arr, diff, rock_candidates
 
-                # Re-write heightmap.bin with hybrid values
-                flat_hybrid = hm_arr.flatten()
-                origin_h = float(flat_hybrid[(GRID_H // 2) * GRID_W + GRID_W // 2])
+                # Re-write heightmap.bin with rock-restored values
+                flat = hm_arr.flatten()
+                origin_h = float(flat[(GRID_H // 2) * GRID_W + GRID_W // 2])
                 with open("heightmap.bin", "wb") as fh:
                     fh.write(struct.pack("<II", GRID_W, GRID_H))
                     fh.write(struct.pack("<f", WORLD_SIZE))
                     fh.write(struct.pack("<f", origin_h))
-                    fh.write(flat_hybrid.tobytes())
-                print(f"  Re-wrote heightmap.bin (hybrid DEM/DSM)")
+                    fh.write(flat.tobytes())
+                print(f"  Re-wrote heightmap.bin (rock-restored)")
 
                 # Re-write heightmap_gpu.bin
                 hm_min_h = float(hm_arr.min())
@@ -2528,8 +2533,22 @@ def main() -> None:
                     fh.write(struct.pack("<II", TEX_RES, TEX_RES))
                     fh.write(struct.pack("<ff", hm_min_h, hm_max_h))
                     fh.write(rg8.tobytes())
-                print(f"  Re-wrote heightmap_gpu.bin (hybrid DEM/DSM)")
-                del flat_hybrid, arr4k, norm, h16, rg8
+                print(f"  Re-wrote heightmap_gpu.bin (rock-restored)")
+                del flat, arr4k, norm, h16, rg8
+
+                # Re-write world_atlas.bin with updated rock surface types
+                atlas_path = "world_atlas.bin"
+                if os.path.exists(atlas_path):
+                    with open(atlas_path, "rb") as f:
+                        aw, ah = struct.unpack("<II", f.read(8))
+                        atlas_raw = f.read()
+                    atlas_data = np.frombuffer(atlas_raw, dtype=np.uint8).reshape(ah, aw, 2).copy()
+                    atlas_data[:, :, 0] = surface_arr
+                    with open(atlas_path, "wb") as f:
+                        f.write(struct.pack("<II", aw, ah))
+                        f.write(atlas_data.tobytes())
+                    print(f"  Re-wrote world_atlas.bin with rock surface types")
+                    del atlas_data
         else:
             print("  DSM not available — using bare-earth DEM only")
 
