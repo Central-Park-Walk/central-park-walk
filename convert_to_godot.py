@@ -1266,46 +1266,74 @@ def main() -> None:
     # -------------------------------------------------------------------
 
     SPECIES_MAP = {
-        # 12 visual archetypes — each gets distinct crown shape, leaf/bark color, fall colors
-        # Deciduous — broad-leaved
-        "quercus":     "oak",           # 7% pin oak + 3% red/swamp/willow oak
-        "acer":        "maple",         # 2% — red maple, sugar maple, Norway maple
-        "ulmus":       "elm",           # 4.4% American elm — iconic vase shape
-        "betula":      "birch",         # 0.1% — white bark
-        "gleditsia":   "honeylocust",   # 17% — airy compound leaves, open canopy
-        "pyrus":       "callery_pear",  # 10% — dense ovoid crown, white spring bloom
-        "ginkgo":      "ginkgo",        # 9% — columnar, fan leaves, golden fall
-        "platanus":    "london_plane",  # 8% — tall broad crown, mottled bark
-        "tilia":       "linden",        # 7% — dense symmetrical, heart-shaped leaves
-        "prunus":      "cherry",        # 2.4% — small ornamental, spring blossoms
-        "zelkova":     "zelkova",       # 3.7% — upright vase, elm family
-        "styphnolobium": "deciduous",   # 5.7% Japanese pagoda — broad, spreading
-        "robinia":     "honeylocust",   # black locust — similar airy compound leaves
-        "celtis":      "deciduous",     # hackberry
-        "fraxinus":    "deciduous",     # ash
-        "liquidambar": "maple",         # sweetgum — star-shaped leaves, maple-like
-        "cornus":      "cherry",        # dogwood — small ornamental, like cherry
-        "magnolia":    "magnolia",      # saucer magnolia — spreading, spring bloom
-        "cercis":      "cherry",        # redbud — small ornamental
-        "malus":       "cherry",        # crabapple — small ornamental, spring blooms
-        "salix":       "willow",        # weeping willow — cascading branches
-        "fagus":       "deciduous",     # beech
-        "carpinus":    "deciduous",     # hornbeam
-        "sophora":     "deciduous",     # Japanese pagoda tree (old genus name)
-        "catalpa":     "deciduous",     # catalpa — large leaves
-        "gymnocladus": "honeylocust",   # Kentucky coffeetree — similar compound leaves
-        "crataegus":   "cherry",        # hawthorn — small ornamental
-        # Conifers
-        "picea":       "conifer",
-        "pinus":       "conifer",
-        "abies":       "conifer",
-        "tsuga":       "conifer",
-        "juniperus":   "conifer",
-        "thuja":       "conifer",
-        "cedrus":      "conifer",
-        "taxus":       "conifer",
-        "metasequoia": "conifer",       # dawn redwood
-        "cryptomeria": "conifer",       # Japanese cedar
+        # Map every census genus to its most visually truthful archetype.
+        # Principle: never use "deciduous" if an existing archetype captures
+        # the species' crown shape, leaf type, or visual character.
+        #
+        # Deciduous — broad-crowned
+        "quercus":       "oak",           # 2,613 — pin oak, red oak, swamp white oak
+        "platanus":      "london_plane",  # 1,669 — tall broad crown, mottled bark
+        "tilia":         "linden",        # 1,750 — dense symmetrical, heart-shaped leaves
+        "ulmus":         "elm",           # 1,188 — iconic vase shape
+        "zelkova":       "elm",           # 852 — upright vase, elm family (same visual)
+        "celtis":        "elm",           # 103 — hackberry: vase-shaped, warty bark
+        "carpinus":      "elm",           # 140 — hornbeam: dense vase, muscular trunk
+        "fagus":         "oak",           # 9 — beech: massive broad crown like oak
+        "nyssa":         "maple",         # 16 — tupelo: layered branches, brilliant fall color
+        "populus":       "birch",         # 5 — cottonwood: tall, pale bark, shimmering leaves
+        # Deciduous — compound leaves (airy canopy)
+        "gleditsia":     "honeylocust",   # 3,713 — airy compound leaves, open canopy
+        "styphnolobium": "honeylocust",   # 1,205 — Japanese pagoda: compound leaves, spreading
+        "sophora":       "honeylocust",   # (old pagoda genus name)
+        "robinia":       "honeylocust",   # black locust — similar airy compound
+        "fraxinus":      "honeylocust",   # 101 — ash: compound leaves, upright
+        "gymnocladus":   "honeylocust",   # Kentucky coffeetree — compound leaves
+        "koelreuteria":  "honeylocust",   # 83 — goldenrain tree: compound, open canopy
+        "ailanthus":     "honeylocust",   # 23 — tree of heaven: compound, invasive
+        "maackia":       "honeylocust",   # 41 — Amur maackia: small, compound
+        "cladrastis":    "honeylocust",   # 28 — yellowwood: compound, hanging flowers
+        "aesculus":      "maple",         # 14 — horse chestnut: palmate leaves, dense crown
+        # Deciduous — dense ovoid/pyramidal
+        "pyrus":         "callery_pear",  # 2,019 — dense ovoid crown, white spring bloom
+        "ginkgo":        "ginkgo",        # 1,802 — columnar, fan leaves, golden fall
+        # Deciduous — medium/irregular crown
+        "acer":          "maple",         # 471 — red maple, sugar maple, Norway maple
+        "liquidambar":   "maple",         # 88 — sweetgum: star-shaped leaves, maple-like
+        "parrotia":      "maple",         # 13 — Persian ironwood: fall color, broad
+        "cercidiphyllum":"maple",         # 14 — katsura: heart leaves
+        # Deciduous — small ornamental
+        "prunus":        "cherry",        # 1,284 — cherry/plum: spring blossoms
+        "malus":         "cherry",        # 286 — crabapple: spring blooms, small
+        "cornus":        "cherry",        # dogwood: small ornamental
+        "cercis":        "cherry",        # 71 — redbud: small, pink spring flowers
+        "crataegus":     "cherry",        # 148 — hawthorn: small ornamental
+        "amelanchier":   "cherry",        # 57 — serviceberry: small, white spring flowers
+        "syringa":       "cherry",        # 15 — tree lilac: small, white flowers
+        "lagerstroemia": "cherry",        # 13 — crape myrtle: small, pink flowers
+        "chionanthus":   "cherry",        # 4 — fringetree: white fringe flowers
+        "hamamelis":     "cherry",        # 3 — witch hazel (tree form): small understory
+        # Deciduous — large-leaved / distinctive
+        "magnolia":      "magnolia",      # 41 — saucer magnolia: spreading, spring bloom
+        "catalpa":       "linden",        # large heart-shaped leaves, dense crown
+        "morus":         "linden",        # 32 — mulberry: broad crown, lobed leaves
+        "eucommia":      "linden",        # 61 — hardy rubber tree: medium, glossy leaves
+        # Deciduous — special
+        "betula":        "birch",         # 29 — white bark
+        "salix":         "willow",        # 3 — weeping willow: cascading branches
+        # Conifers — needle-leaved evergreen
+        "pinus":         "conifer",       # 88 — spreading pine
+        "picea":         "conifer",       # 5 — spruce: dense pyramidal
+        "abies":         "conifer",       # fir
+        "tsuga":         "conifer",       # hemlock: drooping tips
+        "juniperus":     "conifer",       # narrow columnar
+        "thuja":         "conifer",       # narrow columnar
+        "cedrus":        "conifer",       # cedar
+        "taxus":         "conifer",       # yew: dark evergreen
+        "metasequoia":   "conifer",       # 56 — dawn redwood: deciduous conifer, conical
+        "cryptomeria":   "conifer",       # Japanese cedar
+        "taxodium":      "conifer",       # 24 — bald cypress: deciduous conifer, conical
+        # Evergreen broadleaf
+        "ilex":          "conifer",       # 11 — holly: dense evergreen (best available fit)
     }
 
     DEDUP_DIST = 3.0  # metres — avoid exact overlaps between census and OSM
@@ -1458,21 +1486,21 @@ def main() -> None:
         "black cherry": "cherry", "yoshino cherry": "cherry",
         "kwanzan cherry": "cherry", "cornelian cherry": "cherry",
         "red maple": "maple", "sugar maple": "maple", "norway maple": "maple",
-        "sweetgum": "deciduous", "tupelo": "deciduous", "black tupelo": "deciduous",
-        "sassafras": "deciduous", "hickory": "deciduous", "shagbark hickory": "deciduous",
-        "pignut hickory": "deciduous", "black locust": "honeylocust",
-        "honeylocust": "honeylocust", "black walnut": "deciduous",
+        "sweetgum": "maple", "tupelo": "maple", "black tupelo": "maple",
+        "sassafras": "maple", "hickory": "oak", "shagbark hickory": "oak",
+        "pignut hickory": "oak", "black locust": "honeylocust",
+        "honeylocust": "honeylocust", "black walnut": "honeylocust",
         "crabapple": "callery_pear", "star magnolia": "magnolia",
-        "stewartia": "deciduous", "bald cypress": "conifer",
+        "stewartia": "cherry", "bald cypress": "conifer",
         "eastern redcedar": "conifer", "white pine": "conifer",
         "austrian pine": "conifer", "eastern hemlock": "conifer",
         "flowering dogwood": "cherry", "gray birch": "birch",
         "river birch": "birch", "paper birch": "birch",
         "ginkgo": "ginkgo", "london plane": "london_plane",
         "linden": "linden", "littleleaf linden": "linden",
-        "american linden": "linden", "zelkova": "deciduous",
-        "kentucky coffeetree": "deciduous", "catalpa": "deciduous",
-        "horsechestnut": "deciduous", "beech": "deciduous",
+        "american linden": "linden", "zelkova": "elm",
+        "kentucky coffeetree": "honeylocust", "catalpa": "linden",
+        "horsechestnut": "maple", "beech": "oak",
         "hackberry": "elm",  # Celtis — vase-shaped, similar habit to elm
         "birch": "birch",
         "weeping willow": "willow", "willow": "willow",

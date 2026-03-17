@@ -56,6 +56,10 @@ const SPECIES := [
 	{"name": "Fern_Christmas",          "s": [0.85, 1.30], "flex": 0.20, "green": 1, "fall": [0.10, 0.28, 0.06]},
 	# Wetland (15)
 	{"name": "Wetland_Cattail",         "s": [0.75, 1.25], "flex": 0.35, "green": 0, "fall": [0.35, 0.25, 0.10]},
+	# Fungi (16-17) — seasonal: peak late summer through fall, absent in winter/spring
+	# Laetiporus (chicken of the woods) on oaks; common mushrooms on woodland floor
+	{"name": "Mushroom_Common",         "s": [0.80, 1.50], "flex": 0.0, "green": 0, "fall": [0.30, 0.22, 0.12]},
+	{"name": "Mushroom_Laetiporus",     "s": [0.60, 1.20], "flex": 0.0, "green": 0, "fall": [0.60, 0.35, 0.08]},
 ]
 
 # Zone type -> list of [species_index, density_per_100m2]
@@ -69,6 +73,8 @@ const ZONE_SPECIES := {
 		[13, 4.0],  # Ostrich Fern
 		[14, 6.0],  # Christmas Fern
 		[5, 1.0],   # Pokeweed (edges)
+		[16, 0.5],  # Common Mushroom (woodland floor, seasonal)
+		[17, 0.3],  # Chicken of the Woods (on oaks, seasonal)
 	],
 	6: [  # Ramble — designed wild garden, dense understory
 		[0, 4.0],   # Spicebush (dominant)
@@ -78,6 +84,8 @@ const ZONE_SPECIES := {
 		[14, 5.0],  # Christmas Fern
 		[13, 3.0],  # Ostrich Fern
 		[5, 1.5],   # Pokeweed
+		[16, 0.6],  # Common Mushroom (seasonal)
+		[17, 0.2],  # Chicken of the Woods (seasonal)
 	],
 	7: [  # Waterside — wetland edge
 		[15, 8.0],  # Cattail
@@ -106,6 +114,8 @@ const WOODLAND_SPECIES: Array = [
 	[10, 6.0],  # White Wood Aster
 	[14, 4.0],  # Christmas Fern
 	[13, 2.0],  # Ostrich Fern
+	[16, 0.4],  # Common Mushroom (seasonal)
+	[17, 0.2],  # Chicken of the Woods (seasonal)
 ]
 # Z ranges where woodland fallback is allowed (from park_data.json foliage_zones)
 const WOODLAND_Z_RANGES: Array = [
@@ -329,6 +339,15 @@ func _build_chunk(ck: String) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = (int(ck_p[0]) * 73856093 + int(ck_p[1]) * 19349669 + 42) & 0x7FFFFFFF
 
+	# Seasonal check for fungi (indices 16, 17)
+	# Mushrooms: peak late summer through fall (season_t 1.5-2.8), absent otherwise
+	var season_val = RenderingServer.global_shader_parameter_get("season_t")
+	var cur_season: float = float(season_val) if season_val != null else 1.5
+	var mushroom_active: bool = cur_season > 1.3 and cur_season < 2.9
+	# Rain boosts mushroom density
+	var rain_val = RenderingServer.global_shader_parameter_get("rain_wetness")
+	var rain_boost: float = 1.0 + (float(rain_val) if rain_val != null else 0.0) * 0.5
+
 	# Pre-allocate buffers per species
 	var bufs: Dictionary = {}
 	var cnts: Dictionary = {}
@@ -339,6 +358,11 @@ func _build_chunk(ck: String) -> void:
 		var density: float = sp_entry[1]
 		var sp_name: String = SPECIES[sp_idx].name
 		if not _meshes.has(sp_name): continue
+
+		# Skip fungi outside their season
+		if sp_idx >= 16 and sp_idx <= 17:
+			if not mushroom_active: continue
+			density *= rain_boost
 
 		var target := int(density * CHUNK * CHUNK / 100.0)
 		if target <= 0: continue
@@ -442,8 +466,12 @@ func _build_chunk(ck: String) -> void:
 
 
 func _load_model(sp_name: String) -> Mesh:
+	# Try .glb first, then .gltf (mushroom models are .gltf)
 	var abs_path := ProjectSettings.globalize_path(
 		"res://models/vegetation/%s.glb" % sp_name)
+	if not FileAccess.file_exists(abs_path):
+		abs_path = ProjectSettings.globalize_path(
+			"res://models/vegetation/%s.gltf" % sp_name)
 	if not FileAccess.file_exists(abs_path): return null
 	var meshes: Dictionary = _loader._load_glb_meshes(abs_path)
 	if meshes.is_empty(): return null
