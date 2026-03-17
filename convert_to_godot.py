@@ -1564,7 +1564,7 @@ def main() -> None:
         # Diverse species, managed but naturalistic. Major birding habitat.
         # More open understory than North Woods.
         {
-            "z_range": [-750, -375],
+            "z_range": [375, 975],
             "type": "managed",
             "density_mult": 1.0,  # 150 trees/ha
             "species": [
@@ -1581,7 +1581,7 @@ def main() -> None:
         },
         # THE DENE (67th–65th, east side): Sheltered slope woodland.
         {
-            "z_range": [-375, -150],
+            "z_range": [1350, 1600],
             "type": "managed",
             "density_mult": 0.9,
             "species": [
@@ -1597,7 +1597,7 @@ def main() -> None:
         # HALLETT NATURE SANCTUARY (62nd, south): Fenced 4-acre preserve.
         # Oldest successional growth in park. Very dense.
         {
-            "z_range": [75, 375],
+            "z_range": [1650, 2050],
             "type": "successional",
             "density_mult": 1.4,  # densest zone, 210 trees/ha
             "species": [
@@ -1632,7 +1632,7 @@ def main() -> None:
         # Wide spacing, large mature elms. Not really "woodland" but
         # any wood polygon here should match the elm character.
         {
-            "z_range": [-150, 75],
+            "z_range": [1050, 1500],
             "type": "grove",
             "density_mult": 0.5,  # open canopy, 75 trees/ha
             "species": [
@@ -1644,7 +1644,7 @@ def main() -> None:
         },
         # CHERRY HILL / BETHESDA (72nd–70th): Ornamental plantings.
         {
-            "z_range": [-450, -150],
+            "z_range": [975, 1200],
             "type": "grove",
             "density_mult": 0.6,
             "species": [
@@ -1659,7 +1659,7 @@ def main() -> None:
         },
         # GREAT LAWN / TURTLE POND surroundings (80th–85th):
         {
-            "z_range": [-975, -750],
+            "z_range": [-100, 375],
             "type": "mixed",
             "density_mult": 0.7,
             "species": [
@@ -1675,7 +1675,7 @@ def main() -> None:
         },
         # SOUTH END (59th–62nd): Heavily managed, mixed ornamental + shade.
         {
-            "z_range": [375, 750],
+            "z_range": [1850, 2100],
             "type": "mixed",
             "density_mult": 0.7,
             "species": [
