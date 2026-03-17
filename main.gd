@@ -915,11 +915,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		print("Wind: %.0f%%" % (_wind_override * 100.0))
 	elif event.keycode == KEY_N:
 		if event.shift_pressed:
-			# Shift+N: cycle season backward
-			_season_t = fmod(float(int(_season_t - 1.0 + 4.0)), 4.0)
+			# Shift+N: cycle season backward (use mid-season values for correct phenology)
+			_season_t = fmod(fmod(_season_t - 0.5, 4.0) - 1.0 + 4.0, 4.0) + 0.5
 		else:
-			# N: cycle season forward
-			_season_t = fmod(float(int(_season_t + 1.0)), 4.0)
+			# N: cycle season forward (use mid-season values for correct phenology)
+			_season_t = fmod(fmod(_season_t - 0.5, 4.0) + 1.0, 4.0) + 0.5
 		RenderingServer.global_shader_parameter_set("season_t", _season_t)
 		var season_name := _season_name(_season_t)
 		print("Season: %s (%.1f)" % [season_name, _season_t])
