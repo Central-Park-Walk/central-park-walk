@@ -85,7 +85,7 @@ python3 convert_to_godot.py
 | Feature | Count | Source |
 |---------|-------|--------|
 | Terrain | 8192×8192 mesh (14M verts) | LiDAR DEM bare earth 2017 (1ft resolution, 0.61m cells). Buildings are separate 3D models — terrain is pure ground surface with no structure heights (AAA approach). Terrain mesh holes at terrain-integrated structures (Bethesda Terrace) filled by dedicated 3D models. 3D path mesh strips from OSM polylines (2,624 paths). Granite curb faces along 2,173 paved path edges (316K verts) — height from LiDAR grade change. 1,909 retaining wall segments along steep grade changes. Dappled canopy shade from tree census crown data (2K coverage map, wind-animated) |
-| Trees | ~9,300 | NYC Tree Census + OSM + woodland scatter in 12 ecological zones. 17 custom Blender models: 15 species (oak, elm, maple, birch, cherry, ginkgo, honeylocust, linden, london plane, callery pear, pine, willow, magnolia) + generic deciduous + standing dead snag. Per-species summer leaf colors + fall colors + phenology. Cherry blossom + callery pear + magnolia spring bloom. 5 species-specific bark textures (birch lenticels, london plane mottled exfoliation, pine scaled plates). Frost sparkle, morning dew |
+| Trees | ~9,300 | NYC Tree Census + OSM + woodland scatter in 12 ecological zones. 17 custom Blender models: 15 species (oak, elm, maple, birch, cherry, ginkgo, honeylocust, linden, london plane, callery pear, pine, willow, magnolia) + generic deciduous + standing dead snag. Per-species summer leaf colors + fall colors + phenology. Cherry blossom + callery pear + magnolia spring bloom. 5 species-specific bark textures (birch lenticels, london plane mottled exfoliation, pine scaled plates). Frost sparkle, morning dew. **Invasive vines**: porcelain berry (multicolor berries) + oriental bittersweet (red/yellow fruit) draping from canopy edges in Ramble, North Woods, and wild areas — 13 mesh variants (hanging strands + trunk wraps) |
 | Water | 23 bodies + 10 streams | OpenStreetMap polygons. Dappled canopy shade on water under trees. Stone coping on formal water bodies (Conservatory Water, Harlem Meer, Turtle Pond). Dawn/dusk mist (8 localized fog volumes) |
 | Buildings | 6,557 | NYC Building Footprints + LiDAR heights. 5 facade material types (limestone, brick, concrete, glass/granite, cream) with per-building hash variation, floor-height-accurate windows, cornice bands, awnings, grime weathering |
 | Bridges & Arches | 17 models | Custom Blender models for all named structures: Bow Bridge (cast iron), Gapstow (schist), Huddlestone (cyclopean boulders), Glen Span (tall gneiss), Trefoil (dual Gothic/round profile), Oak Bridge (steel+oak), Eaglevale (double arch), Winterdale (largest stone span), plus 9 more. Each modeled from documented dimensions and materials |
@@ -120,7 +120,7 @@ All data is freely available. No paid APIs. No API keys.
 | [OpenStreetMap](https://www.openstreetmap.org/) | Paths, water, buildings, bridges, furniture | ODbL |
 | [NYC Tree Census](https://data.cityofnewyork.us/) | Species, diameter for park trees | Public Domain |
 | [Sketchfab](https://sketchfab.com/) | Photogrammetry scans (3 statues + Bethesda Fountain) | CC-BY |
-| Custom Blender scripts | 17 tree models, 17 bridge/arch models, 16 undergrowth species, furniture, Cleopatra's Needle | Original (MIT) |
+| Custom Blender scripts | 17 tree models, 17 bridge/arch models, 30 undergrowth species, 13 vine models, furniture, Cleopatra's Needle | Original (MIT) |
 | [ambientCG](https://ambientcg.com/) / [Polyhaven](https://polyhaven.com/) | PBR textures, HDRI sky | CC0 |
 
 ## How to Contribute
@@ -155,7 +155,7 @@ See [FUNDING.md](FUNDING.md) for details on how funds are used.
 | Engine | Godot 4.6.1 (Forward+, GDScript) |
 | Data pipeline | Python (GDAL, numpy/scipy, Pillow) |
 | 3D modeling | Blender 3.0.1 (headless scripts) |
-| Rendering | 21 custom GLSL shaders (terrain with hexaquo grass impostor, water, water mist, stream, facade, stone, tree leaf/bark, grass blade, undergrowth, hedge, wood, cast iron, roof, sky, path, curb, weather), MultiMesh instancing, buffer-based grass (600/m²), 8K prebaked terrain mesh, 3D path mesh extrusion |
+| Rendering | 22 custom GLSL shaders (terrain with hexaquo grass impostor, water, water mist, stream, facade, stone, tree leaf/bark, grass blade, undergrowth, vine, hedge, wood, cast iron, roof, sky, path, curb, weather), MultiMesh instancing, buffer-based grass (600/m²), 8K prebaked terrain mesh, 3D path mesh extrusion |
 
 ## License
 
