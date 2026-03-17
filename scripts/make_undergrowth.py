@@ -365,10 +365,11 @@ def make_spicebush():
     co = bm.loops.layers.color.new("Col")
     rng = random.Random(101)
 
+    # Glossy aromatic leaves — warmer yellow-green than typical foliage
     _make_shrub(bm, rng, n_stems=5, height=3.0, spread=1.8,
                 stem_r=0.025, leaf_size=0.12,
-                stem_color=(0.35, 0.28, 0.18),
-                leaf_color=(0.22, 0.42, 0.12),
+                stem_color=(0.30, 0.25, 0.14),
+                leaf_color=(0.30, 0.48, 0.12),  # warm glossy yellow-green
                 zigzag=True, leaf_density=8,
                 uv_layer=uv, col_layer=co)
 
@@ -401,10 +402,11 @@ def make_viburnum():
     co = bm.loops.layers.color.new("Col")
     rng = random.Random(303)
 
+    # Glossy dark green toothed leaves — denser and darker than spicebush
     _make_shrub(bm, rng, n_stems=6, height=2.5, spread=1.5,
                 stem_r=0.020, leaf_size=0.10,
-                stem_color=(0.32, 0.26, 0.16),
-                leaf_color=(0.18, 0.40, 0.08),
+                stem_color=(0.30, 0.24, 0.14),
+                leaf_color=(0.10, 0.32, 0.05),  # glossy dark green
                 zigzag=False, leaf_density=12,
                 uv_layer=uv, col_layer=co)
 
@@ -444,7 +446,7 @@ def make_sumac():
                   (0.45, 0.30, 0.18), (0.50, 0.35, 0.22),
                   uv, co, 0.0, 0.4)
 
-        # Flat-topped canopy: feathery compound leaf quads
+        # Flat-topped canopy: feathery compound leaf quads (pinnate, vivid green)
         top = pts[-1]
         for _ in range(10):
             lc = top + Vector((rng.uniform(-0.6, 0.6),
@@ -452,16 +454,16 @@ def make_sumac():
                                rng.uniform(-0.2, 0.3)))
             make_leaf_quad(bm, lc, 0.25, 0.08, rng.uniform(0, math.tau),
                           rng.uniform(-0.1, 0.2),
-                          (0.20, 0.38, 0.08), 0.8, uv, co)
+                          (0.18, 0.42, 0.06), 0.8, uv, co)
 
-        # Red fruit cluster at top
+        # Fuzzy crimson-red fruit cluster at top — vivid upright cone
         fruit_c = top + Vector((0, 0, 0.15))
         for _ in range(4):
             fc = fruit_c + Vector((rng.uniform(-0.03, 0.03),
                                    rng.uniform(-0.03, 0.03),
                                    rng.uniform(-0.05, 0.05)))
             make_leaf_quad(bm, fc, 0.04, 0.06, rng.uniform(0, math.tau),
-                          0.1, (0.72, 0.15, 0.10), 0.95, uv, co)
+                          0.1, (0.82, 0.10, 0.06), 0.95, uv, co)  # vivid crimson
 
     return bm
 
@@ -500,9 +502,10 @@ def make_elderberry():
             lc = pts[idx] + Vector((rng.uniform(-0.15, 0.15),
                                     rng.uniform(-0.15, 0.15),
                                     rng.uniform(-0.05, 0.1)))
+            # Light green compound leaves (5-7 leaflets per leaf)
             make_leaf_quad(bm, lc, 0.14, 0.08, rng.uniform(0, math.tau),
                           rng.uniform(-0.2, 0.3),
-                          (0.16, 0.36, 0.06), lt * 0.4 + 0.3, uv, co)
+                          (0.22, 0.44, 0.10), lt * 0.4 + 0.3, uv, co)
 
         # White flower cluster near top
         fc = pts[-2] + Vector((0, 0, 0.1))
@@ -539,7 +542,7 @@ def make_pokeweed():
             h * t
         )))
     make_tube(bm, main_pts, 0.025, 0.010, 5,
-              (0.65, 0.12, 0.30), (0.72, 0.18, 0.38),  # magenta!
+              (0.72, 0.08, 0.35), (0.80, 0.12, 0.42),  # vivid magenta!
               uv, co, 0.0, 0.6)
 
     # Side branches with leaves
@@ -565,7 +568,7 @@ def make_pokeweed():
                            rng.uniform(-0.02, 0.02),
                            -bt * 0.15 + 0.05))
         make_leaf_quad(bm, bc, 0.03, 0.03, rng.uniform(0, math.tau),
-                      0.0, (0.25, 0.05, 0.20), 0.95, uv, co)
+                      0.0, (0.15, 0.02, 0.15), 0.95, uv, co)  # deep purple-black
 
     return bm
 
@@ -593,9 +596,9 @@ def make_japanese_knotweed():
                 h * t
             )))
 
-        # Green stem with purple speckles (represented as brownish-green)
+        # Green stem with purple speckle character — olive-green with red undertone
         make_tube(bm, pts, 0.018, 0.012, 5,
-                  (0.28, 0.38, 0.12), (0.32, 0.42, 0.15),
+                  (0.32, 0.35, 0.14), (0.38, 0.38, 0.18),  # purple-tinged green
                   uv, co, 0.0, 0.5)
 
         # Large heart-shaped leaves at nodes
@@ -605,9 +608,9 @@ def make_japanese_knotweed():
             for side in range(2):
                 la = (s / 4) * math.tau + side * math.pi + rng.uniform(-0.3, 0.3)
                 leaf_off = Vector((math.cos(la) * 0.2, math.sin(la) * 0.2, 0.02))
-                make_leaf_quad(bm, lc + leaf_off, 0.15, 0.12, la,
+                make_leaf_quad(bm, lc + leaf_off, 0.18, 0.14, la,
                               rng.uniform(-0.2, 0.1),
-                              (0.18, 0.40, 0.08), t * 0.4 + 0.3, uv, co)
+                              (0.20, 0.46, 0.08), t * 0.4 + 0.3, uv, co)  # bright green
 
     return bm
 
@@ -652,7 +655,7 @@ def make_joe_pye_weed():
                            rng.uniform(-0.02, 0.06)))
         make_leaf_quad(bm, fc, 0.04, 0.04, rng.uniform(0, math.tau),
                       rng.uniform(-0.2, 0.3),
-                      (0.68, 0.35, 0.55), 0.9, uv, co)
+                      (0.75, 0.30, 0.58), 0.9, uv, co)  # vivid mauve-rose
 
     return bm
 
@@ -808,13 +811,13 @@ def make_mugwort():
 
     def color_func(t):
         if t < 0.15:
-            return (0.30, 0.24, 0.16)  # woody stem base
+            return (0.30, 0.24, 0.16)  # woody ridged stems
         elif t < 0.5:
-            # Mix of green upper and silvery under — reads as grey-green
-            return (0.35, 0.42, 0.28)
+            # Dark green upper surface — deeply lobed leaves
+            return (0.22, 0.34, 0.16)
         else:
-            # Upper foliage — more silvery, the distinctive feature
-            return (0.55, 0.58, 0.48)
+            # SILVERY-WHITE undersides — the key identifier, flashes in wind
+            return (0.62, 0.66, 0.56)  # distinctly silvery-grey
 
     make_crossed_planes(bm, 1.0, 0.30, 0.45, 3, 4, color_func, uv, co)
     return bm
@@ -866,11 +869,12 @@ def make_christmas_fern():
     for i in range(n_fronds):
         angle = (i / n_fronds) * math.tau + rng.uniform(-0.1, 0.1)
         # Low rosette: fronds more horizontal, shorter
+        # Deep glossy leathery green — EVERGREEN, stays green through winter
         make_frond(bm, Vector((0, 0, 0.02)),
                    length=0.38, width=0.06, segments=4,
                    arch=0.85, droop=0.15, angle_y=angle,
-                   color_base=(0.06, 0.22, 0.03),
-                   color_tip=(0.12, 0.32, 0.06),
+                   color_base=(0.03, 0.16, 0.02),   # very deep green base
+                   color_tip=(0.06, 0.24, 0.04),     # dark glossy green tip
                    uv_layer=uv, col_layer=co)
 
     return bm
@@ -918,8 +922,9 @@ def make_cattail():
     for i in range(4):
         t = i / 3
         spike_pts.append(Vector((0, 0, spike_base + (spike_top - spike_base) * t)))
+    # Brown "hot dog" spike — dark chocolate brown, iconic shape
     make_tube(bm, spike_pts, 0.022, 0.020, 6,
-              (0.38, 0.22, 0.08), (0.42, 0.25, 0.10),
+              (0.28, 0.14, 0.05), (0.32, 0.16, 0.06),  # dark chocolate brown
               uv, co, 0.7, 0.85)
 
     return bm
