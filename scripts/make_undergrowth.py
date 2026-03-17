@@ -176,35 +176,44 @@ def make_tube(bm, points, r_start, r_end, n_sides, color_start, color_end,
     return rings
 
 
-def make_leaf_quad(bm, center, width, height, angle_y, tilt, color,
-                   uv_y, uv_layer, col_layer):
-    """Single billboard leaf quad at given position and orientation."""
+def make_leaf_card(bm, center, width, height, angle_y, tilt, color,
+                   _uv_y, uv_layer, col_layer):
+    """Diamond-shaped leaf card with UV mapped for procedural alpha cutout.
+    UV.x spans 0-1 across leaf width, UV.y spans 0-1 base to tip.
+    Shader uses these UVs to generate a natural leaf silhouette.
+    _uv_y is accepted for call-site compatibility but ignored."""
     ca, sa = math.cos(angle_y), math.sin(angle_y)
     ct, st = math.cos(tilt), math.sin(tilt)
     hw, hh = width * 0.5, height * 0.5
 
-    # Quad corners in local frame, rotated by angle_y around Z, tilted
     dx = Vector((ca, sa, 0))
     dz = Vector((-sa * st, ca * st, ct))
 
-    v0 = bm.verts.new(center - dx * hw - dz * hh)
-    v1 = bm.verts.new(center + dx * hw - dz * hh)
-    v2 = bm.verts.new(center + dx * hw + dz * hh)
-    v3 = bm.verts.new(center - dx * hw + dz * hh)
+    # Diamond: 4 verts — base, right, tip, left (same tri count as rectangle)
+    vb = bm.verts.new(center - dz * hh)                   # base
+    vr = bm.verts.new(center + dx * hw - dz * hh * 0.1)   # right (at 40% height)
+    vt = bm.verts.new(center + dz * hh)                   # tip
+    vl = bm.verts.new(center - dx * hw - dz * hh * 0.1)   # left (at 40% height)
+
     col_rgba = list(color[:3]) + [1.0] if len(color) == 3 else list(color)
-    try:
-        f = bm.faces.new([v0, v1, v2, v3])
-        for loop in f.loops:
-            loop[uv_layer].uv = (0.5, uv_y)
-            loop[col_layer] = col_rgba
-    except ValueError:
-        pass
+    # Two triangles: base-right-tip, base-tip-left
+    uv_map = {id(vb): (0.5, 0.0), id(vr): (1.0, 0.4),
+              id(vt): (0.5, 1.0), id(vl): (0.0, 0.4)}
+    for verts in [[vb, vr, vt], [vb, vt, vl]]:
+        try:
+            f = bm.faces.new(verts)
+            for loop in f.loops:
+                loop[uv_layer].uv = uv_map[id(loop.vert)]
+                loop[col_layer] = col_rgba
+        except ValueError:
+            pass
 
 
 def make_crossed_planes(bm, height, width_base, width_top, n_planes, segments,
                         color_func, uv_layer, col_layer):
     """Create n_planes vertical billboard planes crossing at center.
-    color_func(t) returns (r,g,b) for height fraction t."""
+    UV.x spans 0-1 across each plane width (for shader leaf alpha cutout).
+    UV.y spans 0-1 from base to tip. color_func(t) returns (r,g,b)."""
     for p in range(n_planes):
         angle = (p / n_planes) * math.pi
         ca, sa = math.cos(angle), math.sin(angle)
@@ -219,18 +228,19 @@ def make_crossed_planes(bm, height, width_base, width_top, n_planes, segments,
             c0 = list(color_func(t0)) + [1.0]
             c1 = list(color_func(t1)) + [1.0]
 
-            v0 = bm.verts.new((-ca * w0, -sa * w0, z0))
-            v1 = bm.verts.new((ca * w0, sa * w0, z0))
-            v2 = bm.verts.new((ca * w1, sa * w1, z1))
-            v3 = bm.verts.new((-ca * w1, -sa * w1, z1))
+            v0 = bm.verts.new((-ca * w0, -sa * w0, z0))  # left-bottom
+            v1 = bm.verts.new((ca * w0, sa * w0, z0))     # right-bottom
+            v2 = bm.verts.new((ca * w1, sa * w1, z1))     # right-top
+            v3 = bm.verts.new((-ca * w1, -sa * w1, z1))   # left-top
             try:
                 f = bm.faces.new([v0, v1, v2, v3])
+                uv_map = {id(v0): (0.0, t0), id(v1): (1.0, t0),
+                          id(v2): (1.0, t1), id(v3): (0.0, t1)}
                 for loop in f.loops:
+                    loop[uv_layer].uv = uv_map[id(loop.vert)]
                     if loop.vert in (v0, v1):
-                        loop[uv_layer].uv = (0.5, t0)
                         loop[col_layer] = c0
                     else:
-                        loop[uv_layer].uv = (0.5, t1)
                         loop[col_layer] = c1
             except ValueError:
                 pass
@@ -238,41 +248,40 @@ def make_crossed_planes(bm, height, width_base, width_top, n_planes, segments,
 
 def make_frond(bm, origin, length, width, segments, arch, droop, angle_y,
                color_base, color_tip, uv_layer, col_layer):
-    """Create one fern frond as a curved tapered strip."""
+    """Create one fern frond as a curved tapered strip.
+    UV.x spans 0-1 across width (for shader leaf alpha cutout).
+    UV.y spans 0-1 from base to tip."""
     ca, sa = math.cos(angle_y), math.sin(angle_y)
     verts = []
     for i in range(segments + 1):
         t = i / segments
-        # Frond curves up then droops
         rise = length * 0.7 * t * (1.0 - t * droop)
         out = length * t * arch
-        fw = width * (1.0 - t * 0.7) * 0.5  # taper
+        fw = width * (1.0 - t * 0.7) * 0.5
 
         cx = origin.x + ca * out
         cy = origin.y + sa * out
         cz = origin.z + rise
 
-        # Perpendicular to frond direction in XY plane
         px, py = -sa * fw, ca * fw
 
         col = _lerp_color(color_base, color_tip, t)
-        uv_y = t
-
         vl = bm.verts.new((cx + px, cy + py, cz))
         vr = bm.verts.new((cx - px, cy - py, cz))
-        verts.append((vl, vr, uv_y, col))
+        verts.append((vl, vr, t, col))
 
     for i in range(segments):
         vl0, vr0, uv0, c0 = verts[i]
         vl1, vr1, uv1, c1 = verts[i + 1]
         try:
             f = bm.faces.new([vl0, vr0, vr1, vl1])
+            uv_map = {id(vl0): (0.0, uv0), id(vr0): (1.0, uv0),
+                      id(vr1): (1.0, uv1), id(vl1): (0.0, uv1)}
             for loop in f.loops:
+                loop[uv_layer].uv = uv_map[id(loop.vert)]
                 if loop.vert in (vl0, vr0):
-                    loop[uv_layer].uv = (0.5, uv0)
                     loop[col_layer] = c0
                 else:
-                    loop[uv_layer].uv = (0.5, uv1)
                     loop[col_layer] = c1
         except ValueError:
             pass
@@ -353,7 +362,7 @@ def _make_shrub(bm, rng, n_stems, height, spread, stem_r, leaf_size,
             lt_angle = rng.uniform(-0.3, 0.5)
             lw = leaf_size * rng.uniform(0.7, 1.3)
             lh = leaf_size * rng.uniform(0.8, 1.4)
-            make_leaf_quad(bm, lc, lw, lh, la, lt_angle, leaf_color,
+            make_leaf_card(bm, lc, lw, lh, la, lt_angle, leaf_color,
                           lt * 0.5 + 0.3, uv_layer, col_layer)
 
 
@@ -365,12 +374,12 @@ def make_spicebush():
     co = bm.loops.layers.color.new("Col")
     rng = random.Random(101)
 
-    # Glossy aromatic leaves — warmer yellow-green than typical foliage
+    # Glossy aromatic leaves — warmer yellow-green, dense understory
     _make_shrub(bm, rng, n_stems=5, height=3.0, spread=1.8,
-                stem_r=0.025, leaf_size=0.12,
+                stem_r=0.025, leaf_size=0.09,
                 stem_color=(0.30, 0.25, 0.14),
                 leaf_color=(0.30, 0.48, 0.12),  # warm glossy yellow-green
-                zigzag=True, leaf_density=8,
+                zigzag=True, leaf_density=25,
                 uv_layer=uv, col_layer=co)
 
     return bm
@@ -385,10 +394,10 @@ def make_witch_hazel():
     rng = random.Random(202)
 
     _make_shrub(bm, rng, n_stems=4, height=4.0, spread=2.2,
-                stem_r=0.035, leaf_size=0.16,
+                stem_r=0.035, leaf_size=0.12,
                 stem_color=(0.40, 0.34, 0.25),
                 leaf_color=(0.20, 0.38, 0.10),
-                zigzag=True, leaf_density=7,
+                zigzag=True, leaf_density=22,
                 uv_layer=uv, col_layer=co)
 
     return bm
@@ -404,10 +413,10 @@ def make_viburnum():
 
     # Glossy dark green toothed leaves — denser and darker than spicebush
     _make_shrub(bm, rng, n_stems=6, height=2.5, spread=1.5,
-                stem_r=0.020, leaf_size=0.10,
+                stem_r=0.020, leaf_size=0.07,
                 stem_color=(0.30, 0.24, 0.14),
                 leaf_color=(0.10, 0.32, 0.05),  # glossy dark green
-                zigzag=False, leaf_density=12,
+                zigzag=False, leaf_density=30,
                 uv_layer=uv, col_layer=co)
 
     # Add white flower cluster at top
@@ -415,7 +424,7 @@ def make_viburnum():
         fc = Vector((rng.uniform(-0.3, 0.3), rng.uniform(-0.3, 0.3),
                       rng.uniform(1.8, 2.3)))
         for _ in range(5):
-            make_leaf_quad(bm, fc + Vector((rng.uniform(-0.06, 0.06),
+            make_leaf_card(bm, fc + Vector((rng.uniform(-0.06, 0.06),
                                             rng.uniform(-0.06, 0.06), 0)),
                           0.04, 0.04, rng.uniform(0, math.tau), 0.1,
                           (0.92, 0.94, 0.88), 0.9, uv, co)
@@ -452,7 +461,7 @@ def make_sumac():
             lc = top + Vector((rng.uniform(-0.6, 0.6),
                                rng.uniform(-0.6, 0.6),
                                rng.uniform(-0.2, 0.3)))
-            make_leaf_quad(bm, lc, 0.25, 0.08, rng.uniform(0, math.tau),
+            make_leaf_card(bm, lc, 0.25, 0.08, rng.uniform(0, math.tau),
                           rng.uniform(-0.1, 0.2),
                           (0.18, 0.42, 0.06), 0.8, uv, co)
 
@@ -462,7 +471,7 @@ def make_sumac():
             fc = fruit_c + Vector((rng.uniform(-0.03, 0.03),
                                    rng.uniform(-0.03, 0.03),
                                    rng.uniform(-0.05, 0.05)))
-            make_leaf_quad(bm, fc, 0.04, 0.06, rng.uniform(0, math.tau),
+            make_leaf_card(bm, fc, 0.04, 0.06, rng.uniform(0, math.tau),
                           0.1, (0.82, 0.10, 0.06), 0.95, uv, co)  # vivid crimson
 
     return bm
@@ -503,7 +512,7 @@ def make_elderberry():
                                     rng.uniform(-0.15, 0.15),
                                     rng.uniform(-0.05, 0.1)))
             # Light green compound leaves (5-7 leaflets per leaf)
-            make_leaf_quad(bm, lc, 0.14, 0.08, rng.uniform(0, math.tau),
+            make_leaf_card(bm, lc, 0.14, 0.08, rng.uniform(0, math.tau),
                           rng.uniform(-0.2, 0.3),
                           (0.22, 0.44, 0.10), lt * 0.4 + 0.3, uv, co)
 
@@ -513,7 +522,7 @@ def make_elderberry():
             fv = fc + Vector((rng.uniform(-0.08, 0.08),
                               rng.uniform(-0.08, 0.08),
                               rng.uniform(-0.02, 0.04)))
-            make_leaf_quad(bm, fv, 0.03, 0.03, rng.uniform(0, math.tau),
+            make_leaf_card(bm, fv, 0.03, 0.03, rng.uniform(0, math.tau),
                           0.1, (0.92, 0.94, 0.86), 0.92, uv, co)
 
     return bm
@@ -556,7 +565,7 @@ def make_pokeweed():
 
         # Large elliptical leaf
         leaf_c = origin + Vector((bdx * 0.5, bdy * 0.5, 0.05))
-        make_leaf_quad(bm, leaf_c, 0.18, 0.28, ba,
+        make_leaf_card(bm, leaf_c, 0.18, 0.28, ba,
                       rng.uniform(-0.1, 0.2),
                       (0.15, 0.35, 0.06), bt * 0.5 + 0.2, uv, co)
 
@@ -567,7 +576,7 @@ def make_pokeweed():
         bc = top + Vector((rng.uniform(-0.02, 0.02),
                            rng.uniform(-0.02, 0.02),
                            -bt * 0.15 + 0.05))
-        make_leaf_quad(bm, bc, 0.03, 0.03, rng.uniform(0, math.tau),
+        make_leaf_card(bm, bc, 0.03, 0.03, rng.uniform(0, math.tau),
                       0.0, (0.15, 0.02, 0.15), 0.95, uv, co)  # deep purple-black
 
     return bm
@@ -608,7 +617,7 @@ def make_japanese_knotweed():
             for side in range(2):
                 la = (s / 4) * math.tau + side * math.pi + rng.uniform(-0.3, 0.3)
                 leaf_off = Vector((math.cos(la) * 0.2, math.sin(la) * 0.2, 0.02))
-                make_leaf_quad(bm, lc + leaf_off, 0.18, 0.14, la,
+                make_leaf_card(bm, lc + leaf_off, 0.18, 0.14, la,
                               rng.uniform(-0.2, 0.1),
                               (0.20, 0.46, 0.08), t * 0.4 + 0.3, uv, co)  # bright green
 
@@ -643,7 +652,7 @@ def make_joe_pye_weed():
         for w in range(n_whorl):
             la = (w / n_whorl) * math.tau + rng.uniform(-0.2, 0.2)
             leaf_off = Vector((math.cos(la) * 0.12, math.sin(la) * 0.12, 0))
-            make_leaf_quad(bm, lc + leaf_off, 0.08, 0.18, la,
+            make_leaf_card(bm, lc + leaf_off, 0.08, 0.18, la,
                           rng.uniform(-0.1, 0.2),
                           (0.16, 0.34, 0.06), t * 0.4 + 0.2, uv, co)
 
@@ -653,7 +662,7 @@ def make_joe_pye_weed():
         fc = top + Vector((rng.uniform(-0.08, 0.08),
                            rng.uniform(-0.08, 0.08),
                            rng.uniform(-0.02, 0.06)))
-        make_leaf_quad(bm, fc, 0.04, 0.04, rng.uniform(0, math.tau),
+        make_leaf_card(bm, fc, 0.04, 0.04, rng.uniform(0, math.tau),
                       rng.uniform(-0.2, 0.3),
                       (0.75, 0.30, 0.58), 0.9, uv, co)  # vivid mauve-rose
 
@@ -686,7 +695,7 @@ def make_coneflower():
         for side in [-1, 1]:
             la = side * 1.2 + rng.uniform(-0.3, 0.3)
             leaf_off = Vector((math.cos(la) * 0.1, math.sin(la) * 0.1, 0))
-            make_leaf_quad(bm, lc + leaf_off, 0.10, 0.14, la,
+            make_leaf_card(bm, lc + leaf_off, 0.10, 0.14, la,
                           rng.uniform(-0.1, 0.2),
                           (0.18, 0.36, 0.06), t * 0.4 + 0.2, uv, co)
 
@@ -698,7 +707,7 @@ def make_coneflower():
                                 rng.uniform(-0.15, 0.15), 0.1))
 
         # Green cone center
-        make_leaf_quad(bm, fc, 0.03, 0.04, 0, 0.1,
+        make_leaf_card(bm, fc, 0.03, 0.04, 0, 0.1,
                       (0.35, 0.50, 0.15), 0.95, uv, co)
 
         # Yellow drooping petals
@@ -707,7 +716,7 @@ def make_coneflower():
             pdx = math.cos(pa) * 0.04
             pdy = math.sin(pa) * 0.04
             pv = fc + Vector((pdx, pdy, -0.02))
-            make_leaf_quad(bm, pv, 0.02, 0.05, pa, -0.4,
+            make_leaf_card(bm, pv, 0.02, 0.05, pa, -0.4,
                           (0.90, 0.80, 0.15), 0.92, uv, co)
 
     return bm
@@ -736,7 +745,7 @@ def make_cardinal_flower():
         lc = pts[node].copy()
         for side in [-1, 1]:
             la = side * 1.3 + rng.uniform(-0.2, 0.2)
-            make_leaf_quad(bm, lc + Vector((math.cos(la) * 0.04,
+            make_leaf_card(bm, lc + Vector((math.cos(la) * 0.04,
                                             math.sin(la) * 0.04, 0)),
                           0.04, 0.10, la, 0.1,
                           (0.14, 0.30, 0.05), t * 0.3 + 0.2, uv, co)
@@ -749,7 +758,7 @@ def make_cardinal_flower():
             a = (fa / 3) * math.tau + fi * 0.5
             fx = math.cos(a) * 0.015
             fy = math.sin(a) * 0.015
-            make_leaf_quad(bm, Vector((fx, fy, fz)),
+            make_leaf_card(bm, Vector((fx, fy, fz)),
                           0.015, 0.02, a, 0.2,
                           (0.88, 0.08, 0.06), ft, uv, co)
 
