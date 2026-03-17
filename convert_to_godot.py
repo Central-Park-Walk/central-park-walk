@@ -1522,7 +1522,7 @@ def main() -> None:
     #   "grove"        — open canopy, widely spaced (Mall elms, Cherry Hill)
     #   "mixed"        — transitional, varied structure
 
-    BASE_DENSITY = 0.015  # trees/m² = 150/ha baseline
+    BASE_DENSITY = 0.030  # trees/m² = 300/ha baseline (doubled for visual density)
 
     _foliage_zones = [
         # NORTH WOODS (110th–102nd): Central Park's most natural woodland.
