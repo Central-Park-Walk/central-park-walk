@@ -15,6 +15,11 @@ uniform vec3 fall_tint = vec3(0.5, 0.35, 0.08);
 uniform sampler2D canopy_map : filter_linear, repeat_disable;
 uniform float hm_world_size = 5000.0;
 
+// Leaf texture atlas (2048x2048, 4x4 grid = 512px per species)
+uniform sampler2D leaf_atlas : filter_linear, repeat_disable;
+uniform vec2 atlas_offset = vec2(0.0, 0.0);  // species cell position in atlas
+uniform float use_atlas = 0.0;  // 1.0 = sample atlas, 0.0 = procedural only
+
 varying vec3 v_world_pos;
 varying float v_seed;
 varying float v_wind_amount;
@@ -58,26 +63,35 @@ void vertex() {
 void fragment() {
 	if (!FRONT_FACING) NORMAL = -NORMAL;
 
-	// ---- PROCEDURAL LEAF ALPHA CUTOUT ----
-	// UV.x = 0..1 across leaf width (stems have UV.x=0.5 → always solid)
-	// UV.y = 0..1 from leaf base to tip
-	// Creates natural tapered leaf silhouette from UV coordinates alone.
-	float edge_dist = abs(UV.x - 0.5) * 2.0;  // 0 at center, 1 at edges
+	// ---- LEAF vs STEM detection from UV ----
+	// UV.x = 0..1 across leaf cards, UV.x ≈ 0.5 for stems
+	float edge_dist = abs(UV.x - 0.5) * 2.0;
+	float is_leaf = smoothstep(0.05, 0.2, edge_dist);
 
-	// Leaf width envelope: widest at ~45% height, tapers at base and tip
-	float leaf_width = sin(UV.y * 3.14159) * (1.0 - UV.y * 0.25);
+	// ---- ALPHA CUTOUT (atlas or procedural) ----
+	float leaf_alpha = 1.0;
+	vec3 tex_color = COLOR.rgb;
 
-	// Organic edge irregularity — each instance gets unique edges via v_seed
-	float edge_noise = vnoise(UV * 6.0 + vec2(v_seed * 13.0, v_seed * 7.0)) * 0.12;
-	leaf_width += edge_noise;
+	if (use_atlas > 0.5) {
+		// Sample species-specific leaf texture from atlas
+		vec2 atlas_uv = atlas_offset + UV * 0.25;  // 0.25 = 1/4 grid
+		vec4 tex = texture(leaf_atlas, atlas_uv);
 
-	// Alpha scissor: hard cutout in opaque pass (no sorting cost)
-	float leaf_mask = smoothstep(leaf_width, leaf_width - 0.06, edge_dist);
-	if (leaf_mask < 0.35) discard;
+		// Blend: stems use vertex color, leaves use atlas
+		tex_color = mix(COLOR.rgb, tex.rgb, is_leaf * step(0.1, tex.a));
+		leaf_alpha = mix(1.0, tex.a, is_leaf);
+	} else {
+		// Procedural leaf shape from UV
+		float leaf_width = sin(UV.y * 3.14159) * (1.0 - UV.y * 0.25);
+		float edge_noise = vnoise(UV * 6.0 + vec2(v_seed * 13.0, v_seed * 7.0)) * 0.12;
+		leaf_width += edge_noise;
+		float proc_mask = smoothstep(leaf_width, leaf_width - 0.06, edge_dist);
+		leaf_alpha = mix(1.0, proc_mask, is_leaf);
+	}
+
+	if (leaf_alpha < 0.35) discard;
 
 	// ---- HEMISPHERE NORMALS ----
-	// Blend normal toward outward from plant center axis.
-	// Prevents individual cards from lighting as distinct flat planes.
 	vec3 outward = normalize(vec3(VERTEX.x, VERTEX.y * 0.25, VERTEX.z));
 	NORMAL = normalize(mix(NORMAL, outward, 0.45));
 	if (!FRONT_FACING) NORMAL = -NORMAL;
@@ -87,7 +101,7 @@ void fragment() {
 	if (winter_discard > 0.95 && is_evergreen < 0.5) discard;
 
 	// ---- COLOR ----
-	vec3 col = COLOR.rgb;
+	vec3 col = tex_color;
 
 	// Per-instance hue variation
 	col *= mix(vec3(0.95, 1.02, 1.04), vec3(1.05, 0.98, 0.94), v_seed);
@@ -96,7 +110,7 @@ void fragment() {
 	float broad = vnoise(v_world_pos.xz / 10.0);
 	col *= mix(0.90, 1.10, broad);
 
-	// ---- AO from vertex height (not UV) ----
+	// ---- AO from vertex height ----
 	float height_frac = clamp(VERTEX.y / 3.0, 0.0, 1.0);
 	float ao = mix(0.55, 1.0, height_frac) - v_wind_amount * 0.2;
 	AO = clamp(ao, 0.0, 1.0);
@@ -113,7 +127,7 @@ void fragment() {
 		col = mix(col, vec3(0.14, 0.10, 0.06), winter_t);
 	}
 
-	// Wind color shift — gusts subtly darken leaves (Synty technique)
+	// Wind color shift
 	float wind_darken = v_wind_amount * length(wind_vec) * 0.15;
 	col *= (1.0 - wind_darken);
 
@@ -138,11 +152,10 @@ void fragment() {
 
 	ALBEDO = col;
 
-	// Leaf translucency — light passes through foliage
 	ROUGHNESS = 0.60;
 	SPECULAR = 0.12;
 	METALLIC = 0.0;
-	BACKLIGHT = vec3(0.22);  // stronger than grass — light through leaves
+	BACKLIGHT = vec3(0.22);
 
 	// ---- WEATHER ----
 	if (rain_wetness > 0.01) {

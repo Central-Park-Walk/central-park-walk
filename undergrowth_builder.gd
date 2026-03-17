@@ -6,6 +6,7 @@
 var _loader
 var _meshes: Dictionary = {}    # species_name -> Mesh
 var _shader: Shader
+var _leaf_atlas: Texture2D       # 2048x2048 leaf texture atlas (4x4 grid)
 var _active_chunks: Dictionary = {}
 var _last_update_pos := Vector3(-99999, 0, -99999)
 var _build_queue: Array = []
@@ -120,6 +121,14 @@ func _build_undergrowth() -> void:
 	_shader = _loader._get_shader("undergrowth", "res://shaders/undergrowth.gdshader")
 	if _shader == null:
 		print("Undergrowth: shader not found"); return
+
+	# Load leaf texture atlas
+	var atlas_path := ProjectSettings.globalize_path("res://textures/leaf_atlas.png")
+	if FileAccess.file_exists(atlas_path):
+		var img := Image.load_from_file(atlas_path)
+		if img:
+			_leaf_atlas = ImageTexture.create_from_image(img)
+			print("Undergrowth: leaf atlas loaded (%dx%d)" % [img.get_width(), img.get_height()])
 
 	# Load all species meshes
 	var loaded := 0
@@ -434,6 +443,18 @@ func _load_model(sp_name: String) -> Mesh:
 			sp_cfg = sp
 			break
 
+	# Find species index for atlas coordinates
+	var sp_idx := 0
+	for i in SPECIES.size():
+		if SPECIES[i].name == sp_name:
+			sp_idx = i
+			break
+
+	# Atlas grid: 4x4, each cell = 0.25 UV
+	var atlas_col: int = sp_idx % 4
+	var atlas_row: int = sp_idx / 4
+	var atlas_off := Vector2(atlas_col * 0.25, atlas_row * 0.25)
+
 	# Apply undergrowth shader
 	for si in mesh.get_surface_count():
 		var mat := ShaderMaterial.new()
@@ -445,5 +466,10 @@ func _load_model(sp_name: String) -> Mesh:
 		mat.set_shader_parameter("hm_world_size", _loader._hm_world_size)
 		if _loader._canopy_texture:
 			mat.set_shader_parameter("canopy_map", _loader._canopy_texture)
+		# Leaf texture atlas
+		if _leaf_atlas:
+			mat.set_shader_parameter("leaf_atlas", _leaf_atlas)
+			mat.set_shader_parameter("atlas_offset", atlas_off)
+			mat.set_shader_parameter("use_atlas", 1.0)
 		mesh.surface_set_material(si, mat)
 	return mesh
