@@ -360,7 +360,7 @@ func _build_trees(trees: Array) -> void:
 
 		# Desired height: use LiDAR measurement if available, else DBH estimate
 		var desired_h: float
-		if typeof(tree_entry) == TYPE_DICTIONARY and tree_entry.has("lidar_h"):
+		if typeof(tree_entry) == TYPE_DICTIONARY and tree_entry.has("lidar_h") and float(tree_entry["lidar_h"]) > 0.0:
 			desired_h = float(tree_entry["lidar_h"])
 			if desired_h < 3.0:
 				desired_h = 3.0  # clamp tiny LiDAR readings
