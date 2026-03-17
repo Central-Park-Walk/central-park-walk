@@ -1,0 +1,990 @@
+
+hexaquo
+
+    Categories
+    Archive
+    Search
+    Tags
+    Impressum
+
+Grass Rendering Series Part 1: Theory
+April 5, 2025 · 4 min · Karl Bittner
+
+This is part 1 of a multi-part series on grass rendering. We’ll start by figuring out how realistic grass should look like, and how herbage can be modeled with the tools we have at our disposal in real-time 3D graphics. Then, we’ll look at how to implement different methods of grass rendering in Godot. However, most of the tutorial will not be Godot-specific aside from some node names and syntax.
+
+But before getting into any implementation details, we must first understand what grass even looks like.
+What Does Grass Look Like?
+
+Some of the visual properties are quite surprising if you have never really paid attention to them. For one, grass is shiny, especially long grass. Check out the specular hightlights in this example:
+
+Free Expansive view of a lush green grass field, perfect for nature themes. Stock Photo
+
+Although the random orientations of all the individual grass blades causes quite a rough appearance when looking at an entire field of grass - the specular highlights average out into a diffuse noise - the individual blades actually have quite strong specular reflections, and when looking at a field of grass against the sun, it is more shiny than you might intuitively think.
+
+Secondly, grass is translucent. In fact, most herbage and foliage is quite translucent. In technical terms, translucency means that when the object is lit, it is also bright on the other side of its surface (although that light may look different, e.g. more diffuse and with a stronger color). This might seem obvious for grass, but it means we need to use an entirely different logic than what we usually do for rendering, since we usually assume that surfaces are hard and light does not go through them.
+
+Free Macro shot of lush green grass with sunlight creating a warm, serene atmosphere. Stock Photo
+
+When looking at an entire field of grass, we see large patterns which affect multiple individual blades of grass that are next to one another. Grass is patchy: depending on environmental conditions, micro-relief, etc., patches of grass with different heights and different shades of green emerge.
+
+Free Scenic rural landscape with lush green hills and clouds in Samsun, Türkiye. Stock Photo
+
+Related to this patchiness, we see structure and detail mostly because grass is self-shadowing. The tips of grass are often brightly lit, especially those of larger stalks or tufts, whereas the bottom part is dark because it is occluded by all the surrounding grass. Similarly, we may be able to see some shadowing on the side of tufts when the sun is at a steeper angle.
+
+Free Expansive green field with dramatic clouds and bright sky, depicting rural serenity. Stock Photo
+How to Depict Grass in 3D Graphics?
+
+Now we know what grass looks like, but we haven’t talked about a fundamental question when it comes to translating grass into 3D graphics: what kind of method would we even use to depict it?
+
+Different games from different times have come to different conclusions here. In most older games, grass is simply textured onto the terrain:
+
+OoT_Link_in_Hyrule_Field.jpg
+
+This makes sense: when every vertex counts, you don’t want to add any vertices for something as insignificant as grass when you can just draw it onto the terrain. Even in modern games, this may be fine for very short grass, especially with techniques like bump mapping. However, tall grass will never look right with this method. This is why games have started adding actual objects for grass. There are two ways to do this:
+
+Billboards render an image of multiple stalks of grass onto a plane. This is the oldest and still a very common, if not most common, way to depict grass. It takes just a few vertices and a texture to get a seemingly high-detailed tuft of grass. Here’s how grass looks in Horizon: Zero Dawn, along with the underlying geometry:
+
+image.png
+
+This method is great and, especially at a distance, sufficient for high realism. However, when grass is tall and very close by, the flatness of the billboards can start to become obvious. In addition, animating these billboards will never look like proper, individual grass blades moving in the wind. That is why some games use actual geometry for individual grass blades. This is easier in games with a cartoon art style, since grass blades can be quite tall and plainly colored there. Zelda: Breath of the Wild is a good example:
+
+botwgrassRS.jpg
+
+Probably the state-of-the-art of realistic (even if somewhat painterly) geometry-based grass is Ghost of Tsushima:
+
+maxresdefault.jpg
+
+These games get a lot of their aesthetic from their grass, and only such games with full-geometry grass stalks can give you that feeling of being properly inside a field of tall grass.
+
+Modern GPU hardware doesn’t care as much about the amount of vertices as older hardware did, so full-geometry grass is quite feasible nowadays. So in the next post, I will show how to create full-geometry grass in Godot; how to practically and efficiently fill a field with grass stalks, and how to shade them in a way that fulfills the criteria we set above: Grass Rendering Series Part 2: Full-Geometry Grass in Godot
+Linked References
+
+    Grass Rendering Series Part 4: Level-Of-Detail Tricks for Infinite Plains of Grass in Godot
+
+    Grass Rendering Series Part 2: Full-Geometry Grass in Godot
+
+
+Similar Content
+
+    Rendering to Textures: Shadows, Cubemaps, and Special Effects
+
+    Pop-Art Light Shader: Halftone Shading in Godot
+
+    Handpainted Light Shader: Cross-Hatching in Godot
+
+    Shader
+    Vegetation
+
+© 2025 | cc-by-sa | hexaquo
+Powered by Hugo and Logseq Schrödinger.
+Theme PaperMod with accents by Marlene.
+
+
+hexaquo
+
+    Categories
+    Archive
+    Search
+    Tags
+    Impressum
+
+Grass Rendering Series Part 2: Full-Geometry Grass in Godot
+April 6, 2025 · 14 min · Karl Bittner
+
+In this second part of the Grass Rendering series, we’ll go over one possible implementation of grass in Godot. It will be full-geometry grass, meaning that each grass blade is an actual 3D object. This is in contrast to the also very popular billboard grass, where multiple blades of grass (or other plants) are drawn onto a transparent texture, which is rendered onto quads scattered across the ground. If you haven’t read part 1, I’d recommend to check that our first: Grass Rendering Series Part 1: Theory
+
+Full-geometry grass is probably the only way to create luscious fields of high grass. It can look great both in realistic games, such as Ghost of Tsushima, or in more cartoony games like Breath of the Wild. However, it is less flexible than billboard grass, as each different plant needs its own geometry (as opposed to just swapping a texture), and it is very heavy on vertex count. In modern graphics hardware, however, this is not a big problem, and may even be preferable to the high overdraw caused by transparent billboards.
+
+This is what the result will look like:
+There should have been a video here but your browser does not seem to support it.
+
+The Godot project is available here: https://git.hexaquo.at/karl/godot-grass/src/commit/dd02cb971c6e6dbf41e3cba06213939d4d2b1d20
+Creating a Grass Stalk
+
+I used Blender to create a simple grass stalk made up of a few quads. You’ll want to go fairly minimalist here, since this object will be rendered tens of thousands of times. However, it should have enough vertices to be able to bend it somewhat smoothly later.
+
+image.png
+
+This already works, but we can make it a bit better by changing the normal vectors as if the geometry was more detailed than it really is. In particular, we can imply a certain roundness to the grass blade by bending the normals sideways. In Blender, we can do this via the “Data Transfer” modifier, which takes the closest normal from a different mesh and applies it to the target. Using a cylinder as the source, we can get rounded normals:
+
+image.png
+
+This way, the grass gets shaded as if it were slightly rounded, making the geometry look more detailed than it really is:
+
+image.png
+
+One thing that we always need to be aware of when modeling and shading vegetation is that we’re dealing with an approximation of the real object. Our geometry is simplified, but it should end up looking as similar to the non-simplified version as possible. With vegetation, we can often do this by changing the normal vectors into a shape that more closely resembles the real object, like we did here by implying roundness which is not actually there in the geometry. A similar technique is often used to hide the fact that billboards and other flat approximated geometry are used; for example, this blog post shows how cartoon trees can be shaded with this technique: https://simonschreibt.de/gat/airborn-trees/
+
+Note that I made the grass stalk approximately 1 unit high - this makes it easier to adapt it to whatever desired size in the shader later on. I also unwrapped the UVs to make them go from 0 to 1 on the vertical axis, which will make some shader logic easier.
+Filling a Surface With Grass
+
+We can export the grass stalk we have created as a .obj and import it into a Godot project, but we will quickly realize that manually placing these is not sensible. We could create a script to place lots of grass MeshInstances, but having so many nodes in the scene tree will soon slow down our game. We need a different approach.
+
+Godot offers a node for rendering one object lots of times: the MultiMeshInstance3D. As the name implies, it’s similar to the MeshInstance3D in that it instances a mesh into the scene, but it instances multiple instances at the same time without creating nodes for each of them. Each of these instances has the same material, which makes it really efficient for the GPU, since it can batch all of them into one call.
+
+We could now write a script to set all the object instances of the MultiMesh, but Godot also offers a utility for quickly scattering instances on top of a surface, which is exactly what we need here. It’s called “Populate MultiMesh” and it can be accessed above the 3D viewport while having the MultiMeshInstance3D selected:
+
+image.png
+
+It needs a node to take the source mesh from - an instance of our grass blade - and a surface to scatter that mesh on top of - in this case, a plane representing our ground. We can also apply a random rotation, which is great to get a more varied field of grass. Then we just set the number of instances and hit apply:
+
+image.png
+
+Now we have all the geometry we need in the scene - we just need it to look like actual grass.
+Shaping the Grass
+
+We looked at the visual properties of grass in Grass Rendering Series Part 1: Theory; now, we’ll write a shader to apply this to our grass in Godot. We can put a ShaderMaterial into the Material Override property of the MultiMeshInstance3D, just like with normal MeshInstances.
+
+First, we’ll want to scale the grass to a more appropriate size. This is easy by just multiplying VERTEX by a number, e.g. 0.1, in the vertex shader:
+
+shader_type spatial;
+render_mode cull_disabled;
+
+uniform float size = 0.5;
+
+void vertex() {
+	VERTEX *= size;
+}
+
+Also note the render_mode cull_disabled, which disables backface culling so that the back sides of the grass blades are also visible.
+
+image.png
+
+Next, we’ll want to bend the tip a bit in order to not have all the grass stalks stand up perfectly straight. Just like the size, we could’ve done that in Blender, but then we would’ve been stuck with that specific type of grass. By bending the grass in the shader, we can change the angle and direction based on the type of grass and (later) other factors such as wind.
+
+For bending the tip, we need a factor which gives us information about how high up we are in the grass. This is why I unwrapped the UVs to be exactly between 0.0 and 1.0: They’re 1.0 at the bottom and 0.0 at the top, so in order to get a “bottom to top” factor, we just invert this. (We could also use VERTEX.y, but this would be more prone to unintended behavior if the model height isn’t precisely 1.0.) We’ll save this into a variable before scaling the vertex, and we’ll use a varying so that we also have access to it in the fragment shader later:
+
+shader_type spatial;
+render_mode cull_disabled;
+
+uniform float size = 0.5;
+
+varying float bottom_to_top;
+
+void vertex() {
+	bottom_to_top = 1.0 - UV.y;
+	VERTEX *= size;
+}
+
+Now we can offset the tip of the grass blade by this factor. The most simple solution would be VERTEX.z += bottom_to_top (also applied before scaling the vertex by size), but that gives us perfectly diagonal blades, which is not really what we want:
+
+image.png
+
+Instead, we’d want a function which bends the grass less in the area close to the bottom and more in the area around the tip. As is often the case when writing shaders, having an idea of some basic mathematical functions is quite helpful here. Remember that squaring a number close to 0.0 gives us an even smaller number, whereas squaring 1.0 gives us 1.0. This would be a good fit for our grass, since we want to barely bend the bottom half, but gradually progress to a steep angle at the tip. So we can try VERTEX.z += pow(bottom_to_top, 2.0):
+
+image.png
+
+This works well! Now we just add a factor to scale this bend so that we can change it from outside later, resulting in this shader:
+
+shader_type spatial;
+render_mode cull_disabled;
+
+uniform float size = 0.5;
+uniform float blade_bend = 0.5;
+
+varying float bottom_to_top;
+
+void vertex() {
+	bottom_to_top = 1.0 - UV.y;
+	
+	VERTEX.z += blade_bend * pow(bottom_to_top, 2.0);
+	
+	VERTEX *= size;
+}
+
+We’re still missing variation (the patchiness discussed in part 1), but for now, our grass geometry looks good enough - we’ll deal with coloring and lighting next, since that is still far from real vegetation.
+Shading the Grass
+
+We’ll start with disabling the “Cast Shadow” property of the grass MultiMeshInstance3D. Games rarely render real shadows for small herbage: this would require lights to also render the grass, causing a big performance hit. And even then, it doesn’t usually look clean because of how small and detailed grass geometry is.
+
+Instead, we’ll use an insight from part 1: that the self-shadowing of grass generally causes the tips to be bright and the bottom to be dark.
+
+We can use the Ambient Occlusion property for this, since that’s exactly what it’s for: assigning areas which should appear darker in ambient light due to the surrounding occluding geometry. We already have the bottom_to_top property that we can use for this:
+
+void fragment() {
+	AO = bottom_to_top;
+	AO_LIGHT_AFFECT = 1.0;
+}
+
+And this immediately adds a lot of depth to our grass:
+
+image.png
+
+At this point, we can also finally add a proper color:
+
+uniform vec3 color = vec3(0.3, 0.6, 0.1);
+
+[...]
+
+void fragment() {
+	AO = bottom_to_top;
+	AO_LIGHT_AFFECT = 1.0;
+	
+	ALBEDO = color;
+}
+
+I also set the ground underneath the grass to black (presuming that it’s fully shadowed by all the grass on top of it) and added a more appealing WorldEnvironment (PhysicalSky with white ground, and a DirectionalLight with an energy of 3.0):
+
+image.png
+
+It’s starting to look like something! We’re missing the shininess and translucency though, which causes harsh shadows and a lack of highlights.
+
+The easiest way to get translucency is the BACKLIGHT property, which we can set like this: BACKLIGHT = vec3(0.2); I’m using a dark gray here, but you could try different colors to create the bright green which translucent grass tends to have.
+
+For specular highlights, we need to change the ROUGHNESS property using a simple number: ROUGHNESS = 0.4; However, we’ll see that this does not really produce the specular highlights at grass tips which we’re looking for:
+
+image.png
+
+That’s because, while we blend the grass blade by moving the vertex, we didn’t modify the normals: the grass blades are still shaded as if they were upright, so there’s no way for there to be highlights up-top, since there’s no surface where the light could bounce off this way.
+
+In addition, real grass blades have a much more complex and properly 3-dimensional shape, which creates far more opportunities for light to bounce off at the right angle to produce specular highlights. Even with correct normals, our simplified geometry can’t create the specular highlights we’re looking for. In order to get something good-looking anyways, we’ll again trick a little, similarly to what we did when modeling it: we just modify the normal vector to act as if the geometry was different.
+
+Specifically, we’ll interpolate between the normal of the geometry and a straight-up normal based on how high up we are in the grass blade. We can do this with a mix and our bottom_to_top factor:
+
+NORMAL = mix(NORMAL, vec3(0.0, 1.0, 0.0), bottom_to_top);
+
+This line takes the normal vector from the geometry and gradually bends it upwards the closer we are to the grass blade’s tip, until it points straight up at the top. This makes a big difference and gives us the sharp highlights we’re looking for, making the distinct grass blades stand out much more:
+
+image.png
+
+We might also want to modify the “specular” parameter in order to make the highlights more defined:
+
+SPECULAR = 0.2;
+
+This is not something you usually do, since the default value of 0.5 is physically correct for most materials and shouldn’t be changed. But grass is a special material and requires so much trickery that we’re far from physical reality anyways!
+Note on Normals and Culling
+
+Remember that we added render_mode cull_disabled at the start of our shader. When we use this together with custom normals, the renderer can get a bit confused about what to do with the back-sides. Without culling, the normally invisible back-faces receive flipped normals, meaning they point into the opposite direction of the front-face. This makes sense in most cases - it assumes that what we want to depict is a thin wall - but when we set custom normals, this logic breaks down: when we set our normal to point straight up at the tip of a grass blade, we don’t want it to point straight down on the back of that grass blade - we still want it to point up!
+
+You can work around this behavior by adding this line to the start of the fragment shader:
+
+if (!FRONT_FACING) NORMAL = -NORMAL;
+
+(I added this note after taking all the remaining screenshots, so they won’t take this into account. It actually looks fairly good with our ‘false’ normals in the lighting settings here, but in some light situations, it does look noticeably wrong.)
+Clumping the Grass
+
+Our grass is looking good, but it looks like a heavily fertilized and mowed lawn since it’s missing the large-scale patchy structures of more naturally grown fields of grass. We’ll model these structures based on a noise texture (and also add a scale factor and a varying to read the sample into):
+
+uniform sampler2D patch_noise;
+uniform float patch_scale = 5.0;
+varying float patch_factor;
+
+In the editor, we can fill this slot with a NoiseTexture2D. The default settings are fine, just make sure to add a new Noise at the bottom and tick the “Seamless” property:
+
+image.png
+
+We now need to read from this noise at world scale. VERTEX and UV are all values which change within a single grass blade instance, but this noise should cause changes between different grass blades based on their position. Luckily, we can read from textures based on any 2D vector, not just the UV coordinates like we usually do. In this case, we can use the x and z components of the NODE_POSITION_WORLD vector, which corresponds to the positions of the individual instances of a MultiMesh on the ground plane:
+
+void vertex() {
+	[...]
+    
+	patch_factor = texture(patch_noise, NODE_POSITION_WORLD.xz / patch_scale).r;
+}
+
+Just to see what this does, we could just scale our grass blades by this value, causing some blades to remain at their original size and other to be scaled down to zero:
+
+void vertex() {
+	[...]
+    
+	patch_factor = texture(patch_noise, NODE_POSITION_WORLD.xz / patch_scale).r;
+    VERTEX *= patch_factor;
+}
+
+This immediately makes the grass look far more organic:
+
+image.png
+
+However, we’re now scaling grass blades down to size 0 where the noise is very dark, which not only looks bad, but also reduces the perceived density while still impacting performance just the same. Instead, we’ll want to go from a minimum size to a maximum size based on the noise value. We’ll replace the original size uniform with a minimum and maximum size:
+
+uniform float size_small = 0.2;
+uniform float size_large = 0.6;
+
+And, in the shader, we can replace the previous size calculations with an interpolation between these new min and max sizes based on the value in the clump noise:
+
+void vertex() {
+	[...]
+	patch_factor = texture(patch_noise, NODE_POSITION_WORLD.xz / patch_scale).r;
+	VERTEX *= mix(size_small, size_large, patch_factor);
+	[...]
+}
+
+By modifying these parameters, we can now have either very noticeable clumps (as would be the case with wild grass on more rough terrain) or very even grass, where the clumps mainly show up as variation in the specular highlights:
+
+image.png
+
+One more thing we can do is to also alter the color based on the value in the noise texture. Taller grass blades are probably older, and old grass probably tends more towards yellow than the freshly green young stalks. Therefore, instead of defining a single color, we’ll define two colors: one for the smallest blades and one of the highest blades, which we can interpolate between. The logic is essentially the same as with the size:
+
+[...]
+
+uniform vec3 color_small: source_color = vec3(0.3, 0.6, 0.1);
+uniform vec3 color_large: source_color = vec3(0.9, 0.9, 0.2);
+
+[...]
+
+void fragment() {
+	[...]
+	ALBEDO = mix(color_small, color_large, patch_factor);
+    [...]
+}
+
+Of course, there are a lot of additional details we could add, but this is a fairly solid base for a flexible grass effect. We can have old, tall grass with noticeable clumps:
+
+image.png
+
+Or, by changing the size, color and bend, we can have grass that is more reminiscent of a freshly fertilized and mowed lawn:
+
+image.png
+
+This concludes the shading of our grass! In the next part, we’ll give the grass more live by adding wind and interaction: Grass Rendering Series Part 3: Animating and Interacting With Grass in Godot
+Linked References
+
+    Grass Rendering Series Part 3: Animating and Interacting With Grass in Godot
+
+    Grass Rendering Series Part 1: Theory
+
+
+Similar Content
+
+    Rendering to Textures: Shadows, Cubemaps, and Special Effects
+
+    Pop-Art Light Shader: Halftone Shading in Godot
+
+    Handpainted Light Shader: Cross-Hatching in Godot
+
+    Shader
+    Vegetation
+
+© 2025 | cc-by-sa | hexaquo
+Powered by Hugo and Logseq Schrödinger.
+Theme PaperMod with accents by Marlene.
+
+
+hexaquo
+
+    Categories
+    Archive
+    Search
+    Tags
+    Impressum
+
+Grass Rendering Series Part 3: Animating and Interacting With Grass in Godot
+May 25, 2025 · 10 min · Karl Bittner
+
+In the previous part, Grass Rendering Series Part 2: Full-Geometry Grass in Godot, we worked on placing and shading blades of grass to get a realistic-looking field of grass into our scene. It looks nice, but it’s completely static: it looks good on screenshots, but in a game, you’d want your grass to look lively and react to what’s happening around it.
+
+Therefore, in this third part, we’ll add three ways of animating and interacting with the grass: wind, displacement, and cutting.
+There should have been a video here but your browser does not seem to support it.
+
+You can get the full Godot project here: https://git.hexaquo.at/karl/godot-grass/src/commit/a198b71a26584837d6351e3ac02219823b9de505
+Blowing Gusts of Wind Through the Grass
+
+Looking at a large field of grass while a decent wind is blowing, you might notice a similarity to waves as gusts move through it. Wind neither simply shakes the grass blades around, nor does it bend the blade continuously. Rather, as a gust of wind moves through the meadow, it strongly bends and shakes the grass where it is currently strongest; once it has passed, the stalks stand mostly upright and shake only lightly for a moment, until another gust hits them.
+There should have been a video here but your browser does not seem to support it.
+
+We could try to come up with a mathematical solution for this, combining sines and cosines and similar functions to simulate the different scales of gusts and shakes and bends. However, the easier solution is to just use a noise texture, similarly to how a water shader would be implemented (and also similarly to how we implemented patchiness in the last chapter). By using the right settings, we can get small-scale noise for the continuous shaking as well as large-scale structures for gusts of wind. So we’ll add a new uniform sampler2D wind_noise to the shader and fill it with a NoiseTexture2D. I find that a Simplex Smooth noise with the fractal Type set to Ridged does a good job at simulating gusts; the amount of small shaking in-between can be controlled by varying the fractal Gain.
+
+Now, we once again want to read from this texture at world space, so we’ll need NODE_POSITION_WORLD.xz. We also need to animate the texture though: it shouldn’t remain static, like the patches of grass, but it should move through the field. Therefore, we’ll offset the position based on TIME, a wind direction, and a wind speed.
+
+The code might look like this, before our previous vertex logic:
+
+uniform sampler2D wind_noise;
+uniform float wind_strength = 0.1;
+uniform vec2 wind_direction = vec2(1.0, 0.0);
+
+void vertex() {
+  bottom_to_top = 1.0 - UV.y;
+    
+  vec2 wind_position = NODE_POSITION_WORLD.xz / 10.0;
+  wind_position -= TIME * wind_direction * wind_strength;
+
+  current_wind_bend = texture(wind_noise, wind_position).x;
+  
+  [...]
+}
+
+Note that we subtract, rather than add, from the wind_position because, from the perspective of the noise texture, the blades of grass are moving to the left. (This doesn’t matter yet, but the direction should align with the bend direction we’ll implement later.)
+
+This gives us the power of the current wind gust at the position of the current grass blade. Since we read it from a texture, it’s scaled between 0.0 and 1.0. We might also want to scale it by wind_strength, since the wind speed should not only move the gusts more quickly, but also cause a more significant bend. In addition, the bend should be strongest at the tip and zero at the bottom, since the grass should remain rooted in the ground. We have our bottom_to_top parameter for this. Therefore, we can add these lines:
+
+current_wind_bend *= wind_strength;
+current_wind_bend *= bottom_to_top * 2.0;
+
+This gives us a factor which tells us how much to offset the current vertex; however, we don’t yet have a direction. We could do the same thing we did with the general grass blades’ bend and simply subtract it from VERTEX.z:
+There should have been a video here but your browser does not seem to support it.
+
+This does work and create a wind-like effect, but it looks a bit odd since we’re applying the offset in model space rather than world space. This means that the bend is relative to that grass blade’s rotation, or in other words, it’s applied before the random rotation is applied via the MultiMesh. Simulating different growth directions in this way makes sense: grass blades should grow into somewhat random directions, so there, we want to offset the vertex relative to the random rotation. However, applying wind the same way makes it look as if the grass blades are dancing rather than being blown by the wind. Instead, wind should have the same direction globally, depending on a global uniform vec2 wind_direction.
+Transforming Between Spaces
+
+Switching between different coordinate systems is a fairly common problem in shader programming. In this case, we have the wind direction in world space, but we want it to be in model space, so that we can apply it to the vertex (which is also in model space). Whenever we want to transform between spaces, we need a matrix, since that’s what matrices do: transform from one coordinate system to the other.
+
+The Godot shader documentation tells us that the MODEL_MATRIX transforms a vector from model space to world space. This is the opposite of what we want; therefore, we need to invert this matrix, which we can do with inverse(MODEL_MATRIX).
+
+The code for applying the wind bend based on the global wind direction, transformed into a local direction, looks like this:
+
+uniform float wind_bend_strength = 2.0;
+
+[...]
+
+void vertex() {
+  [...]
+  
+  mat4 inv_model = inverse(MODEL_MATRIX);
+  vec2 local_direction = (inv_model * vec4(wind_direction.x, 0.0, wind_direction.y, 0.0)).xz;
+
+  VERTEX.xz += current_wind_bend * local_direction;
+  
+  [...]
+}
+
+We invert the model matrix to get the world-to-model transform, and we multiply the wind direction vector with the resulting matrix, since that’s how such a transformation is applied. Because it’s a 4-dimensional matrix, we need to turn the wind direction into a 4-dimensional vector. The y-coordinate of this vector is 0.0, since wind shouldn’t blow upwards or downwards. The fourth component of such matrix transformations in 3D space specifies whether an offset should also be applied (i.e. the world position of this grass blade). Since the wind direction should be an abstract direction and not a position, we use 0.0 in this fourth component.
+
+With all grass blades now bending into the same direction, it’s starting to look like proper wind:
+There should have been a video here but your browser does not seem to support it.
+
+There’s one more thing we can do to further accentuate the wind: when grass is bent down by the wind, there’s more self-shadowing, since the grass is denser there. Therefore, grass is probably darker when it is currently bent being bent strongly by the wind. We can add this to our ambient occlusion logic:
+
+AO = bottom_to_top - current_wind_bend * wind_ao_affect;
+
+And now, we really get that wave-like effect we were going for:
+There should have been a video here but your browser does not seem to support it.
+
+With some adaptations, the same logic could also be used for other objects in the game such as trees. By accessing the same wind texture at world space, gusts of wind are synchronized between grass and everything else in the level.
+Making Grass React to an Object
+
+Wind already does a lot to make the grass feel alive and part of the virtual world. However, games live through interaction, and by allowing interaction with the grass, it can feel even more tangible. Here, we’ll implement a simple displacement logic: making the grass bend away from a point. This looks best for spheres, but it can be added as a subtle effect for all kinds of objects.
+
+Making grass bend away from an object entails two things: firstly, the bend direction should be from the object’s center to the current grass blade’s position. Secondly, the amount of the bend should transition smoothly from a very strong bend at the center to a very light bend further away from the object, depending on a given radius.
+
+In mathematical terms, we therefore need a factor which is strongest (1.0) close to the object and decreases to 0.0 after a certain radius. Here’s how we might calculate this (right below the wind logic):
+
+uniform float object_radius = 1.0;
+uniform vec3 object_position;
+
+[...]
+
+void vertex() {
+  [...]
+  
+  float object_distance = distance(object_position, NODE_POSITION_WORLD);
+  float bend_away_strength = max(object_radius - object_distance, 0.0) / object_radius;
+  
+  [...]
+}
+
+The direction is just the vector from the object to the current grass blade, normalized to length 1.0 so that we can scale it independently:
+
+vec2 bend_direction = normalize(object_position.xz - NODE_POSITION_WORLD.xz);
+
+Applying this puts us in front of a similar problem as the wind: we have a world space bend direction which we must apply to a model space vertex. Therefore, we must once again multiply our bend direction by the inverse model matrix (the world space to model space transform). We also multiply by a bend strength and by our bottom_to_top parameter in order to increase the bend towards the tip of the grass.
+
+VERTEX.xz -= (inv_model * vec4(bend_direction.x, 0.0, bend_direction.y, 0.0)).xz
+			* bend_away_strength * bottom_to_top;
+
+Lastly, grass should not only be bent sideways, but also towards the ground the closer we are to the object’s center:
+
+VERTEX.y -= bend_away_strength * bottom_to_top * 0.5;
+
+And we’re done! This allows one object to interact with the grass; for multiple objects, just turn the object radius and position into arrays of the appropriate size.
+
+You can attach a script to the grass MultiMesh to automatically update the object’s position each frame. For example, assuming the MultiMesh has a child MeshInstance3D which should interact with the grass:
+
+func _process(delta: float) -> void:
+	material_override.set_shader_parameter("object_position", $MeshInstance3D.position)
+
+Running that script as a @tool allows you to see it right in the editor:
+There should have been a video here but your browser does not seem to support it.
+Cutting Grass
+
+The last interaction we’ll implement is cutting grass. This will just be a quick sketch, but the concept opens up lots of possibilities.
+
+Essentially, cutting grass means that vertices above a certain height should be removed. Actually removing vertices is not really possible in a vertex shader (it only processes vertices, it can’t create or delete them), so we’ll simply move vertices down if they exceed a certain height we name cut_height. We need to do this right at the start of the vertex shader, since the following logic should react to this cutting functionality.
+
+[...]
+
+varying float cut_height;
+
+void vertex() {
+  cut_height = 1.0;
+  VERTEX.y = min(VERTEX.y, cut_height);
+  
+  [...]
+}
+
+We need to do something similar to the UV coordinates in order to make the rest of the bending and lighting logic work and in order to avoid these moved-down top vertices to act as if they’re higher up, i.e. bending more than they should. UV.y is 1.0 at the bottom, therefore we need UV.y to range between cut_height and 1.0:
+
+UV.y = max(UV.y, 1.0 - cut_height);
+
+When grass is cut, more light can reach it; therefore, we might also want this to affect the ambient occlusion. The simplest solution is to just scale the AO_LIGHT_AFFECT by our cut height:
+
+AO_LIGHT_AFFECT = cut_height;
+
+image.png
+
+If a game requires the player to be able to cut the grass dynamically at any location - for example, when swinging a sword, like in Breath of the Wild - we could write “grass cut” events into a texture and use that for the cut_height, again reading it in world space. This general approach of using on-the-fly utility textures for shader logic is introduced here: Rendering to Textures: Shadows, Cubemaps, and Special Effects
+
+That’s it for interaction! In the next part, we’ll add a LOD system to our grass chunks in order to make it viable for a large-scale open world game.
+Linked References
+
+    Grass Rendering Series Part 2: Full-Geometry Grass in Godot
+
+
+Similar Content
+
+    Grass Rendering Series Part 1: Theory
+
+    Rendering to Textures: Shadows, Cubemaps, and Special Effects
+
+    Pop-Art Light Shader: Halftone Shading in Godot
+
+    Shader
+    Vegetation
+
+© 2025 | cc-by-sa | hexaquo
+Powered by Hugo and Logseq Schrödinger.
+Theme PaperMod with accents by Marlene.
+
+
+
+hexaquo
+
+    Categories
+    Archive
+    Search
+    Tags
+    Impressum
+
+Grass Rendering Series Part 4: Level-Of-Detail Tricks for Infinite Plains of Grass in Godot
+August 25, 2025 · 25 min · Karl Bittner
+
+This article expands on the previous parts of the grass rendering series and makes it feasible for real-world use with a level-of-detail system utilizing impostors. If you want to implement a grass effect from scratch yourself, definitely go through the previous parts first, starting at Grass Rendering Series Part 1: Theory. However, this tutorial will also be useful if you just want to learn about level-of-detail systems in general, as I’ll provide some theory and show my general approach towards hand-crafting impostors with custom shaders. I’ll dive fairly deep into fine-tuning the impostors, not because it’s absolutely necessary for this effect, but to share the tricks I’ve come up with in my work on foliage rendering. Feel free to skip these deep-dive sections if you only want to learn about the general technology behind LOD systems for grass.
+
+Here’s what we’ll end up with at the end of this tutorial:
+There should have been a video here but your browser does not seem to support it.
+
+As always, the Godot project is available here: https://git.hexaquo.at/karl/godot-grass/src/commit/37bcb521953b31e0be24775eec563b81535660e0
+
+If you want to follow along, you can start from this commit: https://git.hexaquo.at/karl/godot-grass/src/commit/00526b9e1f7d2d1e327ed60ac46ae33fe57488a8
+The Problem
+
+In the previous parts of this series, we set up a grass shader with special lighting logic and a wind animation:
+There should have been a video here but your browser does not seem to support it.
+
+The grass looks good and performance is fine, but it’s just a 5x5 meter chunk. That’s fine for a demo, but not suitable for an actual game, where you likely want to cover much larger areas with grass.
+
+We could duplicate our 5x5 meter chunk and cover, say, 50x50 meters by using 100 chunks. However, when doing that, you’ll notice that the framerate starts to drop dramatically. This makes sense: each chunk contains 10.000 blades of grass, or 90.000 triangles (since I modeled my grass blade out of 9 triangles). 10 million triangles is the ballpark of what modern games tend to render at once, so with 100 chunks of grass, you’re essentially maxed out. And even with 50x50 meters, we’re far from the coverage required for a real open world game.
+
+Luckily, there is another thing we can notice when duplicating the existing grass chunks: the farther they get from the camera, the less discernible the individual blades of grass really are. The general structures as well as the wind animation remain visible, but rendering individual grass blades at that distance is quite a waste, since many of these will turn out smaller than a single pixel.
+
+This insight leads us to the solution…
+The Solution: Level of Detail
+
+Almost all modern 3D games use some sort of level-of-detail (LOD) system. What this means is that, for each 3D object in the scene, there are multiple levels of complexity which that object can choose from. Objects switch between these levels depending on how close to the camera they are.
+
+As we’ve noticed with the grass, fine detail is not discernible past a certain distance, so you might as well not render it. That’s exactly the thought process behind all level-of-detail systems: When you get further away from the camera, you leave out the details that wouldn’t be noticeably anymore anyways.
+
+In fact, this kind of detail reduction can be beneficial not only for performance, but also for visuals: when geometry gets smaller than individual pixels, it’s hard for the renderer to decide what to render on a given pixel, which can cause flickering and noise.
+
+With 3D geometry, this detail reduction can be (partially) automatic. Godot does this by default: it generates simplified geometry and switches to that when you get further from the camera. You can alter the “LOD bias” property of a complex mesh to see this in effect:
+
+lod_comparison.png
+
+Our grass blade, however, does not play too nicely with this system because its geometry is already incredibly simple. For such objects, it’s best to generate LODs by hand. In our case, there is an obvious way we could make a lower LOD version: simply remove all vertices until the blade of grass is a single triangle.
+
+image.png
+
+This triangle behaves very similarly to the original grass. It doesn’t bend as nicely, but at the distances where we’d use this lower LOD, the shape of the bend will barely be discernible.
+
+Of course, we don’t want to place these lower-LOD chunks by hand. Instead, we can add a script to our grass chunk which switches out the mesh depending on the distance to the camera. Actually, we can’t just switch out the mesh inside the multimesh, since that multimesh is shared across all instances of the grass (which is great for performance). Instead, we’ll want to duplicate the multimesh, swap out the mesh in this new multimesh resource, and assign the multimesh based on the distance. Something like this as a script in our grass chunk:
+
+func _process(delta: float) -> void:
+		var camera_pos
+
+		if Engine.is_editor_hint():
+			camera_pos = EditorInterface.get_editor_viewport_3d().get_camera_3d().global_position
+		else:
+			camera_pos = get_viewport().get_camera_3d().global_position
+
+		var camera_distance = global_position.distance_to(camera_pos)
+
+		if camera_distance < lod_switch:
+			$Grass.multimesh = preload("res://grass_multimesh_detailed.tres")
+		else:
+			$Grass.multimesh = preload("res://grass_multimesh_simple.tres")
+
+Since we switch immediately without any blending, it’s not unnoticeable, but the difference is still very minor:
+There should have been a video here but your browser does not seem to support it.
+
+To clean up the transition, you could define a short distance where you render both multimeshes and blend between the two. Alternatively, just add a few more LOD steps in-between to make each shift less severe.
+
+We’re only rendering about 1/10th of the original triangles in these lower-LOD chunks, so that’s definitely an improvement! However, it’s still not quite the full solution to our original problem. We may be able to increase our framerate a bit by using this mesh in some chunks, but we’re still rendering at least 10.000 triangles per chunk, and at a distance, we’re still getting multiple vertices within a single pixel. We need something else here.
+
+The idea is: when you’re so far away that the individual geometry can’t be discerned anymore, why even render geometry at all? Why not, essentially, put up a screenshot of a grass chunk? This is the basic idea behind impostors.
+
+As the name implies, impostors (yes, that’s the real term) are objects which pretend to be more complex than they really are. Specifically, they pretend to have much more complex geometry than they really have. This is usually done by getting rid of (parts of) the geometry entirely and instead using textures.
+
+It’s commonly used for trees, where lower LODs generally swap out the geometry for billboard textures - orthographic, unshaded renderings of the tree - with transparency:
+
+image.png
+
+The tree on the left here is an optimized tree with about 4500 triangles (it already uses billboards for the leaves), whereas the tree on the right is a simple billboard made from just 4 triangles: two crossed-over quads, textured with screenshots of the albedo buffer and the normal buffer of the original tree.
+
+You could do something very similar for the grass: create a billboard mesh with multiple grass stalks on it and transparency in-between. That would certainly be another improvement, but still not the full solution: transparency introduces new complexity into the rendering pipeline and the heavy overdraw (having to render the same spot multiple times in order to know what’s in front of what) might make the performance gain negligible.
+
+Instead, we’ll make use of the fact that grass is largely ground-covering. We want to emulate the color and shading of the grass without actually rendering individual grass blades; instead, we’ll just render the ground - a single plane mesh without any additional geometry - and make it act as if there were grass blades on it.
+Implementing Grass Impostors
+
+When creating impostors, we want to get as close to the original geometry as possible without actually rendering the geometry. As mentioned, the simplest solution would be to literally take a screenshot and use that as a texture for a plane. But of course, this screenshot will only depict the grass with the specific current lighting and camera angle, and without animation.
+
+Therefore, it’s best to think of impostors as made up of individual components. We want to recreate all aspects of shading as accurately as possible. Here, these are:
+
+    Albedo
+
+    Ambient Occlusion
+
+    Normals
+
+    Lighting
+
+Going back to the simple screenshot approach, we could take one unshaded screenshot for the albedo texture and one screenshot of the normal buffer for the normal map. This is actually how impostors for things like trees, as mentioned earlier, can be created. However, for the grass, we implemented some quite unique lighting and animation logic, and the albedo color is based on world-space noise textures, so we’ll need more sophisticated logic there.
+
+What we’ll do instead is write a new shader which re-uses as much of the grass blade shader as possible. We’ll want to use the same logic for getting albedo colors and animation, even using the same world-space textures. Once we have that, we can deal with the parts where we have to deviate because of the lack of grass blade geometry.
+
+Here, I’ll apply that shader to a simple Plane mesh. In a real game, you could instead re-use the terrain geometry by adding the impostor grass as a second pass on your terrain material.
+Getting the Albedo right
+
+In order to avoid distractions at this stage and not over-complicate things right away, I like to switch my viewport to Unshaded. This way, I can focus purely on the albedo logic, without accidentally trying to replicate shading which should actually be handled by the normal map later.
+
+Note that Ambient Occlusion is still applied in the Unshaded render mode. I’ll also comment out our AO = ... line in the grass shader for now so that we’re only dealing with albedo first.
+
+I set up a scene with a few grass chunks next to a few chunks of our impostor plane, here depicted in the Unshaded render mode:
+
+image.png
+
+Let’s consider what gives the grass its main color. Looking at the fragment shader, it’s fairly obvious, it’s really just this one line:
+
+ALBEDO = mix(color_small, color_large, patch_factor);
+
+Where patch_factor is read from a texture in world-space:
+
+patch_factor = texture(patch_noise, NODE_POSITION_WORLD.xz / patch_scale).r;
+
+We can re-use this almost 1:1 in our impostor plane! The only thing we need to change is NODE_POSITION_WORLD, since that will just give us the center of the quad. What we need instead is the world position of the current fragment. We can get that by converting the vertex position to world-space in the vertex shader, which is (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; and writing that into a varying variable. This leaves us with the following first shader for our impostor:
+
+shader_type spatial;
+
+uniform vec3 color_small: source_color = vec3(0.3, 0.6, 0.1);
+uniform vec3 color_large: source_color = vec3(0.9, 0.9, 0.2);
+
+uniform sampler2D patch_noise;
+uniform float patch_scale = 5.0;
+
+varying vec3 world_vertex;
+varying float normal_to_view;
+
+void vertex() {
+	world_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+
+void fragment() {
+	float patch_factor = texture(patch_noise, world_vertex.xz / patch_scale).r;
+	
+	ALBEDO = mix(color_small, color_large, patch_factor);
+}
+
+I filled patch_noise with the exact same texture as the original grass is using. In our unshaded test scene, if we squint a bit, this already makes a quite nice transition from high-LOD grass into impostor:
+
+image.png
+
+This might already be good enough for some use-cases. However, I tricked a bit here by choosing a fairly neutral camera angle. It’s important to remember that, because our high-LOD grass is made up of actual grass blades, it can look very different depending on the viewing angle.
+
+Specifically, from above, the high-LOD meadow looks darker and more contrastful than our impostor because we see more of the stuff in-between grass blades:
+
+image.png
+
+On the other hand, when viewed from a more eye-level position, the high-LOD meadow actually looks brighter and less contrastful than the impostors because from this position, the tips of the higher grass blades (which have a lighter color) largely cover the ground and the lower stalks:
+
+image.png
+
+Let’s hack our way around this. We recognized that the real grass looks different depending on the viewing angle. This means that we need to calculate this viewing angle in our impostor grass somehow.
+
+In shader terms, the viewing angle is the angle between the camera direction and the normal vector. If you’ve read my post Understanding Godot Light Shaders and Light Calculations by Implementing a Toon Light Shader, this might sound very familiar: it’s the exact same logic as rim lighting! In fact, we can use the same line of code here:
+
+float normal_to_view = 1.0 - dot(VIEW, NORMAL);
+
+This gives us a factor which is 0.0 for a top-down view and (almost) 1.0 for a steep eye-level angle.
+
+Using this, let’s first fix the overly dark and contrastful eye-level view. As noted above, it’s caused by the real grass being dominated by the higher, brighter blades. In other words, it’s as if the patch_factor gets closer towards 1.0 at steep angles. So what we could do is lerp between the real patch_factor and 1.0 based on our normal_to_view factor. Perhaps not all the way to 1.0 since that would remove all contrast, so I’ll scale normal_to_view down a bit:
+
+patch_factor = mix(patch_factor, 1.0, normal_to_view * 0.4);
+
+This makes the transition at steep angles a bit more seamless:
+
+image.png
+
+Since normal_to_view is 0.0 when viewed from top-down, that view still has the full contrast of patchiness. However, what’s missing there is the bits of ground showing through. How could we fake that?
+
+We don’t have any geometry which may or may not cover the ground, so we need to trick again. As is often the case, we can approximate geometrical detail using a texture. From a sufficient distance, the spots of ground showing through the grass looks essentially like noise, which is great, since that means we can use another noise texture. (I used a NoiseTexture2D with a frequency of 0.1 here.)
+
+float high_frequency_sample = texture(high_frequency_noise, world_vertex.xz / patch_scale).r;
+
+As we noted, in addition to this noise texture, our normal_to_view factor should decide whether we really do see ground showing through or not. In addition, more ground is covered in taller patches of grass, so we can factor in the patch_factor as well. Using these assumptions, here’s a “spottiness” from 0.0 (no spots) to 1.0 (full of spots) which I came up with after some playing around with the values:
+
+float spottiness = (1.0 - normal_to_view) * 0.5 - patch_factor * 0.2;
+
+Right now, this is a value from 0.0 to 1.0 for the entire plane; we still need to apply the high_frequency_sample we took before. You could think about it like this: if the viewing angle is closer at eye-level, we only want to have spots where the high_frequency_noise is very bright. With a more top-down viewing angle, parts of the noise texture which are a bit darker should also turn into spots, thereby producing more and larger spots.
+
+This is a typical use-case for step or smoothstep: sample from a texture and turn it into either 0.0 or 1.0 based on a given threshold. I recommend smoothstep here to have a small transition between 0.0 and 1.0, otherwise it can get harsh and noisy. Something like this:
+
+float ground_factor = smoothstep(spottiness + 0.1, spottiness - 0.1, high_frequency_sample);
+
+If you aren’t familiar with these functions, check out Godot Shader for Beginners: Lightning Strike Effect using step and smoothstep.
+
+This ground_factor is now 0.0 if we want to use the grass color and 1.0 if the ground color should be applied. So we can simply lerp between ALBEDO and a ground_color (in my case, black) for our final ALBEDO:
+
+ALBEDO = mix(ALBEDO, ground_color, ground_factor);
+
+Now, our top-down view also looks much more like the high-LOD grass:
+
+image.png
+
+And it looks nice in-between too (view rotated by 90°):
+
+image.png
+
+Of course, if you have a ground texture underneath your grass rather than black, you can also sample from that and use it as the ground_color; that’ll depend on your art style.
+
+Alright, I think the albedo color is good enough! Let’s move on to the next thing…
+Getting the Ambient Occlusion Right
+
+Remember that we turned off ambient occlusion to focus purely on albedo. When turning it back on, we notice that quite a lot is missing, especially the entire wind effect:
+
+image.png
+
+Let’s see how AO is calculated in our high-LOD grass blades. It comes down to this line:
+
+AO = bottom_to_top - current_wind_bend * wind_ao_affect;
+
+Where current_wind_bend is calculated as follows in the original high-LOD vertex shader:
+
+vec2 wind_position = NODE_POSITION_WORLD.xz / 10.0;
+wind_position -= (TIME + 8.0) * wind_direction * wind_strength;
+
+current_wind_bend = texture(wind_noise, wind_position).x;
+
+current_wind_bend *= wind_strength;
+current_wind_bend *= bottom_to_top * 2.0;
+
+It’s just another world-space texture read! That means we can do basically the same thing as we did for ALBEDO: replicate this texture read in our impostor fragment shader and apply the same logic. It’s important that we sample the current_wind_bend in the same way (just with our world_vertex varying rather than NODE_POSITION_WORLD) for a seamless transition between high-LOD and impostor:
+
+vec2 wind_position = world_vertex.xz / 10.0;
+wind_position -= (TIME + 8.0) * wind_direction * wind_strength;
+
+float current_wind_bend = texture(wind_noise, wind_position).x;
+current_wind_bend *= wind_strength;
+
+Note that all the variables, including the noise texture, need to be filled with the same values and resources as in the high-LOD grass blade shader.
+
+Now, we can apply this in a very similar way:
+
+AO = 1.0 - current_wind_bend * wind_ao_affect;
+AO_LIGHT_AFFECT = 1.0;
+
+You may notice that I replaced bottom_to_top with 1.0 here. Because we don’t have any geometry, we don’t have a bottom_to_top factor. However, strictly using 1.0 makes the shader act as if only the tips of grass blades were visible, causing the result to still be too bright overall:
+
+image.png
+
+We need to somehow simulate the very fine-grained detail of individual grass blades. Remember how we simulated the spots of ground showing through by using a high-frequency texture; we could also use a noise texture for simulating different parts of grass blades showing through. In fact, our previous high-frequency noise is quite suitable for this!
+
+After some playing around with it, I found that this produces a quite similar result as the high LOD:
+
+AO = mix(0.5, 1.0, high_frequency_sample) - current_wind_bend * wind_ao_affect;
+
+I can’t give you an objective reason why this works, it just seems to be a good-enough approximation of how the original geometry behaves - specifically, how frequently the more self-shadowed lower bits of the grass stalks are visible.
+
+It looks great from the top:
+
+image.png
+
+And quite good from eye-level too:
+
+image.png
+
+It might make sense to factor in our normal_to_view value since, from steep angles, the parts shadowed by AO should be less visible, causing the overall impression to be brighter (higher AO value). I find that the effect is actually quite small here, but I do get a slight improvement, especially when the camera is very close to the ground, like this:
+
+float bottom_to_top_simulation = high_frequency_sample + smoothstep(0.6, 1.0, normal_to_view) * 0.4;
+AO = mix(0.5, 1.0, bottom_to_top_simulation) - current_wind_bend * wind_ao_affect;
+
+What I’m doing here is making bottom_to_top_simulation lean more towards “top” rather than “bottom” (higher value) if normal_to_view is above 0.6, so if the angle is quite steep.
+
+image.png
+
+Again, there’s no way to mathematically derive these things, I’m just showing you the kinds of tricks that I come up with from my experience with vegetation rendering. Don’t take any of this as hard facts or correct solutions; I really encourage you to just play around with it yourself and see if you can come up with something better!
+Getting the Normals right
+
+Now that we have albedo and AO (including the wind effect) working, let’s switch from Unshaded to normal rendering and see where we’re at:
+
+image.png
+
+Not too bad! But of course, we’re not even touching the normal vectors yet, so the lighting is quite off. We’ll deal with this now. That means we’ll replicate the normal vectors of the grass as closely as possible.
+
+Again, to avoid distractions, I’ll start by switching to the render mode Normal Buffer. That way, we can focus purely on replicating the normals.
+
+image.png
+
+Let’s consider, again, how the normals are calculated in the high-LOD grass. There’s just this one line:
+
+NORMAL = mix(NORMAL, vec3(0.0, 1.0, 0.0), bottom_to_top);
+
+We can tell that a significant part of the normals is coming directly from the geometry. Our high-LOD grass has a lot of geometric complexity, so the normals are also quite complex. We could try replicating them with a noise texture, like we did for the spottiness, but in this case, I feel like baking a texture from the original geometry is the easiest start.
+
+Here’s how I quickly bake a normal map from geometry in Godot: with the viewport switched to Normal Buffer, just align the camera to look straight down with an orthographic projection (you can do that by clicking the Y-axis in the top left gizmo) and take a screenshot! I did that and ended up with this:
+
+grass_normals.png
+
+In this case, I don’t think there’s any need to make it tiling, since it’s so noisy anyways. It’s only the general shape of the geometry that matters. I did turn off the wind effect on the grass before taking the screenshot, since I wanted to capture the grass in a neutral position.
+
+We can apply this normal map directly in the fragment shader of our impostor plane:
+
+NORMAL_MAP = texture(baked_normals, world_vertex.xz / 5.0).xyz;
+
+As expected, this works very well when viewing from the top:
+
+image.png
+
+And it actually works nicely from the side too:
+
+image.png
+
+I was surprised by this when first working on this effect. I had already planned out how I could use the bottom_to_top_simulation from before to simulate how, when viewing from the side, you primarily see grass blade tips which we point straight up. What I had in mind was something like this:
+
+NORMAL_MAP = mix(texture(baked_normals, world_vertex.xz / 5.0).xyz, vec3(0.5, 0.5, 1.0), bottom_to_top_simulation);
+
+However, it turned out that that’s not necessary. I believe that this is because, when viewing at a steep angle, the renderer reads from a fairly low mipmap level of the normal map to avoid noise. Since, on average, our normal map points straight up, these lower mipmap levels (which are just nicely downscaled versions of the original texture) also point straight up, which is exactly what we want when viewing at this angle!
+
+In fact, you can verify this by disabling mipmaps on the normal map by adding the filter_linear type hint to it. When doing that, the normals get not only very noisy, but less fitting.
+Lighting and Fine-Tuning
+
+Now that we have albedo and normals dialed in, we can switch our viewport back to normal rendering. We’ll see that it’s still not quite there, but that’s because we haven’t set any of the other lighting parameters such as ROUGHNESS and SPECULAR. Let’s have a look at our original grass shader again for this. It has:
+
+BACKLIGHT = vec3(0.2);
+ROUGHNESS = 0.4;
+SPECULAR = 0.12;
+
+We can copy all of that right over to the impostor plane as it is. Now we’re really getting somewhere! Thanks to the baked normal map and identical lighting parameters, the shading and specular highlights are very similar between impostor and high LOD: image.png
+
+There’s one more detail which may or may not matter depending on your game. As I mentioned earlier, because we work with textures as opposed to real geometry in our impostors, we benefit from mipmapping. This reduces noise by smoothing out details at high distances or steep angles. However, there’s an interesting problem here: our high LOD grass doesn’t do that. Because it’s actual geometry, it’s perfectly noisy. We can see this by zooming very far out (this screenshot is magnified 3x):
+
+grass-screen-small.png
+
+In our low LOD, we get a nice and smooth result, whereas the high-LOD grass is really noisy, since at this point, the renderer is essentially sampling random points from the geometry.
+
+This is great: not only is our impostor more performant, it also looks better! However, there’s a trade-off to be made here: grass is supposed to be a bit noisy at a distance. The shiny highlights flickering in and out of view are part of what makes us see that this is a volume made up of individual stalks rather than just a plane. This limitation gets more apparent when viewing the grass against the light:
+
+image.png
+
+Our impostor plane reduces noisiness, but it does so at the cost of implied geometry. Luckily, there’s an easy way to work around this. If you’ve looked at the documentation of the texture() function, you may have noticed an optional third parameter:
+
+gvec4_type texture (gsampler2D s, vec2 p [, float bias])
+
+This bias can be used to steer mipmaps into a certain direction. A positive bias means mipmaps will be used earlier (more smoothing), a negative bias reduces smoothing. By adding a bias of -3.0 to our normal map read, we get a much more similar result between high LOD and impostor:
+
+image.png
+
+Of course, the same can be done for the high_frequency_sample. When I also add a bias of -3.0 there, the high LOD becomes almost indistinguishable from the impostor in the view angle I showed before (again magnified by 3x):
+
+grass-screen-small-noise.png
+
+But beware: when the camera is moving, this does introduce some amount of noise. You’ll want to play with these biases to find a good trade-off between desired and undesired noisiness.
+Using our Impostors in a LOD System
+
+After a lot of trickery, we have a plane which looks very similar to our original grass field. However, in all the screenshots above, I just had them side-by-side for testing. What we really want is to switch between LODs based on the camera distance. We’ll add a system for this now.
+
+First, we need to be able to fade between high LOD and impostor, since just swapping them out immediately would be very noticeable. We need some sensible implementation of transparency for this. In the high-LOD grass, I’ll just add this to the end of the fragment function:
+
+ALPHA = alpha;
+ALPHA_HASH_SCALE = 1.0;
+
+By specifying a ALPHA_HASH_SCALE, we use dithered alpha rather than true alpha, meaning that neighboring pixels will alternate between fully transparent and fully opaque, rather than doing complicated alpha blending. This makes a lot of things easier for rendering, and there’s no need for true alpha here.
+
+I defined alpha not as a normal uniform variable, but as an instance uniform like so:
+
+instance uniform float alpha = 1.0;
+
+That way, we don’t need to duplicate the material for each chunk in order to be able to change the alpha; instead, we can set it on each instance of the material individually.
+
+One problem with alpha is that the lower ends of grass stalks can shine through the disabled pixels. I fixed this by altering the AO_LIGHT_AFFECT, which is the prime contributor to this darkening:
+
+AO_LIGHT_AFFECT = mix(0.2, 1.0, alpha);
+
+Similarly, the very harsh bottom normals can shine through the transparent grass. We can fix this in a similar way, by lerping towards the up vector earlier if alpha is smaller than 1.0:
+
+NORMAL = mix(NORMAL, vec3(0.0, 1.0, 0.0), mix(1.0, bottom_to_top, alpha + 0.2));
+
+(Conveniently, this is another solution for the problem we worked around earlier by changing the impostor textures’ biases, just the other way around: rather than adding noisy complexity to the impostor, we reduce complexity of the high-LOD grass at a distance, thereby reducing noise and making the noise-free impostor less noticeable.)
+
+In our impostor plane, “alpha” should mean “fade to ground”. We’ve already implemented a system which fades to the ground in some cases: the spottiness added in the albedo section. We just need to incorporate a new alpha parameter there (also defined as an instance uniform):
+
+ALBEDO = mix(ALBEDO, ground_color, clamp(ground_factor + 1.0 - alpha, 0.0, 1.0));
+
+Now that we have alpha systems for both LODs, we just need to set these parameters from a script. I wrote this script for the GrassChunk node, which has both the high-LOD multimesh and the impostor as a child:
+
+@export var impostor_fade_in_start := 5.0
+@export var impostor_fade_in_end := 10.0
+@export var grass_fade_out_start := 10.0
+@export var grass_fade_out_end := 20.0
+
+func _process(delta: float) -> void:
+		var camera_pos
+
+		if Engine.is_editor_hint():
+			camera_pos = EditorInterface.get_editor_viewport_3d().get_camera_3d().global_position
+		else:
+			camera_pos = get_viewport().get_camera_3d().global_position
+
+		var camera_distance = global_position.distance_to(camera_pos)
+
+		var start_to_mid = smoothstep(impostor_fade_in_start, impostor_fade_in_end, camera_distance)
+		var mid_to_end = smoothstep(grass_fade_out_start, grass_fade_out_end, camera_distance)
+		
+		$Grass.visible = mid_to_end < 1.0
+		$Impostor.visible = start_to_mid >= 0.0
+
+		# Interpolate
+		$Impostor.set_instance_shader_parameter("alpha", start_to_mid)
+		$Grass.set_instance_shader_parameter("alpha", 1.0 - mid_to_end)
+
+With these parameters, I start fading from ground to impostor at 5 units. At 10 units, when the impostor is fully visible, the grass geometry starts to fade out to reveal the impostor underneath, until it’s fully invisible at 20 units.
+
+Of course, these properties are not set in stone, and in fact, these are perfect to plug into some sort of “graphics quality” setting. That’s another great thing about good LOD systems: it makes your game more accessible, since you can alter the LOD switch distances based on the hardware. And with good impostors, bad hardware doesn’t mean less grass, it just means the impostors will fade in earlier. (It’s actually shocking to me how many games don’t do this, and very noticeably make grass appear out of nowhere, meaning that players with slower hardware will simply see more bare ground.)
+
+Note that setting the visible properties is essential for the LOD system to have its full effect. Since “alpha” is just some custom property, simply setting it to 0.0 has no special meaning to the renderer, so it still runs through most rendering logic until eventually discarding the pixel.
+
+All that’s left to do now is to populate the game world with grass chunks! If your levels are small enough, you can simply place all chunks at the start; otherwise, I’d recommend instantiating chunks near the camera and using one huge impostor plane to cover all the remaining area.
+
+Here’s the end result with some better environment and lighting settings:
+There should have been a video here but your browser does not seem to support it.
+
+This entire effect takes just under 2 ms to render on my machine. If you’re aiming for 60 FPS, that’s 12% of your budget. For an effect which covers the entire ground of the entire world, that’s quite acceptable - and even if not, you have the LOD fade-in and fade-out distances at your disposal for fine-tuning performance.
+
+With this, our full geometry grass effect is done! As I mentioned, I recommend taking all of this as inspiration rather than “how it should be done”. LOD always involves lots of trickery, and these are just the tricks I’ve come up with. Maybe you can come up with something better?
+
+In the next part, I’ll showcase a different vegetation rendering system based on billboards. I’ve also been meaning to write a post about performance benchmarking and optimization for a while, which will delve deeper into some concepts that I touched on here.
+No linked references
+
+Similar Content
+
+    Grass Rendering Series Part 3: Animating and Interacting With Grass in Godot
+
+    Grass Rendering Series Part 2: Full-Geometry Grass in Godot
+
+    Grass Rendering Series Part 1: Theory
+
+    Shader
+    Vegetation
+
+© 2025 | cc-by-sa | hexaquo
+Powered by Hugo and Logseq Schrödinger.
+Theme PaperMod with accents by Marlene.
+
+
+

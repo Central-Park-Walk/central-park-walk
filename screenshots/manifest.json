@@ -2,9 +2,9 @@
 	"angles": 5,
 	"shots": [
 		{
-			"filename": "cpw_skyline_autumn_dusk.png",
-			"hour": 19.0,
-			"name": "cpw_skyline_autumn_dusk",
+			"filename": "literary_walk_summer_golden.png",
+			"hour": 18.5,
+			"name": "literary_walk_summer_golden",
 			"x": -600.0,
 			"z": 1420.0
 		},
@@ -23,11 +23,11 @@
 			"z": 1600.0
 		},
 		{
-			"filename": "north_woods_snow_morning.png",
-			"hour": 9.0,
-			"name": "north_woods_snow_morning",
-			"x": 600.0,
-			"z": -1315.0
+			"filename": "skyline_autumn_dusk.png",
+			"hour": 19.0,
+			"name": "skyline_autumn_dusk",
+			"x": -600.0,
+			"z": 1420.0
 		}
 	],
 	"times": 4,
