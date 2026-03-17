@@ -47,13 +47,13 @@ const SPECIES := [
 	{"name": "Herb_JoePyeWeed",         "s": [0.75, 1.25], "flex": 0.50, "green": 0, "fall": [0.45, 0.30, 0.20]},
 	{"name": "Herb_Coneflower",         "s": [0.75, 1.25], "flex": 0.55, "green": 0, "fall": [0.50, 0.40, 0.12]},
 	{"name": "Herb_CardinalFlower",     "s": [0.80, 1.20], "flex": 0.40, "green": 0, "fall": [0.30, 0.18, 0.08]},
-	# Billboard herbs (10-12)
-	{"name": "Herb_WhiteWoodAster",     "s": [0.75, 1.25], "flex": 0.35, "green": 0, "fall": [0.35, 0.28, 0.10]},
-	{"name": "Herb_Jewelweed",          "s": [0.75, 1.25], "flex": 0.50, "green": 0, "fall": [0.40, 0.30, 0.08]},
-	{"name": "Herb_Mugwort",            "s": [0.75, 1.25], "flex": 0.30, "green": 0, "fall": [0.45, 0.38, 0.20]},
-	# Ferns (13-14)
-	{"name": "Fern_Ostrich",            "s": [0.75, 1.30], "flex": 0.40, "green": 0, "fall": [0.50, 0.40, 0.10]},
-	{"name": "Fern_Christmas",          "s": [0.75, 1.25], "flex": 0.20, "green": 1, "fall": [0.10, 0.28, 0.06]},
+	# Billboard herbs (10-12) — scaled up for visibility
+	{"name": "Herb_WhiteWoodAster",     "s": [1.20, 1.80], "flex": 0.35, "green": 0, "fall": [0.35, 0.28, 0.10]},
+	{"name": "Herb_Jewelweed",          "s": [1.00, 1.60], "flex": 0.50, "green": 0, "fall": [0.40, 0.30, 0.08]},
+	{"name": "Herb_Mugwort",            "s": [1.00, 1.50], "flex": 0.30, "green": 0, "fall": [0.45, 0.38, 0.20]},
+	# Ferns (13-14) — scaled up for visibility
+	{"name": "Fern_Ostrich",            "s": [0.90, 1.50], "flex": 0.40, "green": 0, "fall": [0.50, 0.40, 0.10]},
+	{"name": "Fern_Christmas",          "s": [1.00, 1.50], "flex": 0.20, "green": 1, "fall": [0.10, 0.28, 0.06]},
 	# Wetland (15)
 	{"name": "Wetland_Cattail",         "s": [0.75, 1.25], "flex": 0.35, "green": 0, "fall": [0.35, 0.25, 0.10]},
 ]
@@ -95,12 +95,8 @@ const ZONE_SPECIES := {
 		[3, 1.0],   # Sumac
 		[4, 1.5],   # Elderberry
 	],
-	9: [  # OpenLawn — sparse edges only
-		[12, 1.0],  # Mugwort (sparse)
-	],
-	2: [  # NorthMeadow — sparse edges
-		[12, 0.5],  # Mugwort (very sparse)
-	],
+	# Zones 0-4 (SheepMeadow, GreatLawn, NorthMeadow, FormalGarden, SportsTurf)
+	# and zone 9 (OpenLawn) are maintained lawns — NO undergrowth.
 }
 
 # Woodland chunks (no pre-baked data) get understory similar to NorthWoods

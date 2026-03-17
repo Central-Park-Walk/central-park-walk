@@ -300,15 +300,18 @@ def bezier_pt(p0, p1, p2, t):
 def _make_shrub(bm, rng, n_stems, height, spread, stem_r, leaf_size,
                 stem_color, leaf_color, zigzag, leaf_density,
                 uv_layer, col_layer):
-    """Generic multi-stem shrub with leaf billboard clusters."""
-    stem_color_tip = [min(c + 0.08, 1.0) for c in stem_color]
+    """Generic multi-stem shrub with dense leaf coverage.
+    Stems are thin and green-tinted to blend with foliage.
+    Leaves start low (20% height) and spread wide to fill the crown."""
+    # Stems: lighter, greener — blend toward leaf color so they disappear
+    stem_blend = [stem_color[i] * 0.6 + leaf_color[i] * 0.4 for i in range(3)]
+    stem_color_tip = [min(c + 0.06, 1.0) for c in stem_blend]
 
     for s in range(n_stems):
         angle = (s / n_stems) * math.tau + rng.uniform(-0.3, 0.3)
         lean = rng.uniform(0.15, 0.45) * spread
         dx, dy = math.cos(angle) * lean, math.sin(angle) * lean
 
-        # Build stem path with optional zigzag
         pts = []
         n_seg = 6
         for i in range(n_seg):
@@ -322,15 +325,16 @@ def _make_shrub(bm, rng, n_stems, height, spread, stem_r, leaf_size,
                 height * t * (1.0 - 0.1 * t)
             )))
 
-        r_base = stem_r * rng.uniform(0.8, 1.2)
-        make_tube(bm, pts, r_base, r_base * 0.25, 4,
-                  stem_color, stem_color_tip, uv_layer, col_layer,
+        # Thinner stems — less visible
+        r_base = stem_r * rng.uniform(0.6, 0.9)
+        make_tube(bm, pts, r_base, r_base * 0.2, 3,
+                  stem_blend, stem_color_tip, uv_layer, col_layer,
                   uv_y_start=0.0, uv_y_end=0.5)
 
-        # Sub-branches
+        # Sub-branches (also thinner)
         n_sub = rng.randint(1, 3)
         for sb in range(n_sub):
-            branch_t = rng.uniform(0.4, 0.8)
+            branch_t = rng.uniform(0.3, 0.7)
             branch_idx = min(int(branch_t * (n_seg - 1)), n_seg - 1)
             origin = pts[branch_idx].copy()
             sub_angle = angle + rng.uniform(-1.2, 1.2)
@@ -346,18 +350,19 @@ def _make_shrub(bm, rng, n_stems, height, spread, stem_r, leaf_size,
                         origin.y + sub_dy * sub_len,
                         origin.z + sub_len * 0.2)),
             ]
-            make_tube(bm, sub_pts, r_base * 0.3, r_base * 0.1, 4,
-                      stem_color, stem_color_tip, uv_layer, col_layer,
+            make_tube(bm, sub_pts, r_base * 0.25, r_base * 0.08, 3,
+                      stem_blend, stem_color_tip, uv_layer, col_layer,
                       uv_y_start=0.3, uv_y_end=0.6)
 
-        # Leaf quads along upper portion of stem
+        # Dense leaf cards — start LOW (20% height), spread WIDE to fill crown
         for i in range(leaf_density):
-            lt = rng.uniform(0.4, 1.0)
+            lt = rng.uniform(0.20, 1.0)  # leaves start at 20%, not 40%
             idx = min(int(lt * (n_seg - 1)), n_seg - 1)
             lc = pts[idx].copy()
-            lc.x += rng.uniform(-0.15, 0.15) * spread
-            lc.y += rng.uniform(-0.15, 0.15) * spread
-            lc.z += rng.uniform(-0.1, 0.1) * height
+            # Wider spread — leaves fill the air around the stems
+            lc.x += rng.uniform(-0.25, 0.25) * spread
+            lc.y += rng.uniform(-0.25, 0.25) * spread
+            lc.z += rng.uniform(-0.08, 0.12) * height
             la = rng.uniform(0, math.tau)
             lt_angle = rng.uniform(-0.3, 0.5)
             lw = leaf_size * rng.uniform(0.7, 1.3)
@@ -376,10 +381,10 @@ def make_spicebush():
 
     # Glossy aromatic leaves — warmer yellow-green, dense understory
     _make_shrub(bm, rng, n_stems=5, height=3.0, spread=1.8,
-                stem_r=0.025, leaf_size=0.09,
+                stem_r=0.020, leaf_size=0.10,
                 stem_color=(0.30, 0.25, 0.14),
                 leaf_color=(0.30, 0.48, 0.12),  # warm glossy yellow-green
-                zigzag=True, leaf_density=25,
+                zigzag=True, leaf_density=40,
                 uv_layer=uv, col_layer=co)
 
     return bm
@@ -394,10 +399,10 @@ def make_witch_hazel():
     rng = random.Random(202)
 
     _make_shrub(bm, rng, n_stems=4, height=4.0, spread=2.2,
-                stem_r=0.035, leaf_size=0.12,
-                stem_color=(0.40, 0.34, 0.25),
+                stem_r=0.025, leaf_size=0.13,
+                stem_color=(0.34, 0.30, 0.20),
                 leaf_color=(0.20, 0.38, 0.10),
-                zigzag=True, leaf_density=22,
+                zigzag=True, leaf_density=35,
                 uv_layer=uv, col_layer=co)
 
     return bm
@@ -411,12 +416,12 @@ def make_viburnum():
     co = bm.loops.layers.color.new("Col")
     rng = random.Random(303)
 
-    # Glossy dark green toothed leaves — denser and darker than spicebush
+    # Glossy dark green toothed leaves — dense visual screen
     _make_shrub(bm, rng, n_stems=6, height=2.5, spread=1.5,
-                stem_r=0.020, leaf_size=0.07,
-                stem_color=(0.30, 0.24, 0.14),
+                stem_r=0.015, leaf_size=0.08,
+                stem_color=(0.22, 0.28, 0.12),
                 leaf_color=(0.10, 0.32, 0.05),  # glossy dark green
-                zigzag=False, leaf_density=30,
+                zigzag=False, leaf_density=45,
                 uv_layer=uv, col_layer=co)
 
     # Add white flower cluster at top
@@ -784,7 +789,7 @@ def make_white_wood_aster():
         else:
             return (0.90, 0.92, 0.85)  # white flower clusters
 
-    make_crossed_planes(bm, 0.40, 0.25, 0.35, 3, 4, color_func, uv, co)
+    make_crossed_planes(bm, 0.55, 0.30, 0.40, 3, 4, color_func, uv, co)
     return bm
 
 
@@ -807,7 +812,7 @@ def make_jewelweed():
             r = 0.40 + (t - 0.75) * 2.0 * 0.45
             return (min(r, 0.85), max(g, 0.40), 0.12)
 
-    make_crossed_planes(bm, 0.80, 0.30, 0.40, 3, 4, color_func, uv, co)
+    make_crossed_planes(bm, 1.0, 0.35, 0.45, 3, 4, color_func, uv, co)
     return bm
 
 
@@ -880,7 +885,7 @@ def make_christmas_fern():
         # Low rosette: fronds more horizontal, shorter
         # Deep glossy leathery green — EVERGREEN, stays green through winter
         make_frond(bm, Vector((0, 0, 0.02)),
-                   length=0.38, width=0.06, segments=4,
+                   length=0.50, width=0.08, segments=4,
                    arch=0.85, droop=0.15, angle_y=angle,
                    color_base=(0.03, 0.16, 0.02),   # very deep green base
                    color_tip=(0.06, 0.24, 0.04),     # dark glossy green tip
