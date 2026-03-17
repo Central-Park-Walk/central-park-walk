@@ -361,9 +361,10 @@ func _build_chunk(ck: String) -> void:
 	var species_list: Array
 	if zone_type >= 0 and ZONE_SPECIES.has(zone_type):
 		species_list = ZONE_SPECIES[zone_type]
-	elif zone_type < 0:
-		# No pre-baked zone data — only treat as woodland if actually in a
-		# woodland foliage zone. Otherwise it's a gap in maintained lawn data.
+	else:
+		# Check if this chunk is in a woodland foliage zone — override lawn
+		# classification for areas that are actually forest (ground_cover_instances
+		# doesn't distinguish woodland floor from maintained lawn)
 		var chunk_z: float = cz + CHUNK * 0.5
 		var in_woodland := false
 		for zr in WOODLAND_Z_RANGES:
@@ -372,10 +373,10 @@ func _build_chunk(ck: String) -> void:
 				break
 		if in_woodland:
 			species_list = WOODLAND_SPECIES
+		elif zone_type < 0:
+			return  # No data and not woodland — skip
 		else:
-			return  # Gap in lawn data — no undergrowth
-	else:
-		return  # Mowed lawn, formal garden, etc. — no undergrowth
+			return  # Mowed lawn, formal garden, etc. — no undergrowth
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = (int(ck_p[0]) * 73856093 + int(ck_p[1]) * 19349669 + 42) & 0x7FFFFFFF
