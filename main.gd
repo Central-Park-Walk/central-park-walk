@@ -174,6 +174,7 @@ func _ready() -> void:
 	RenderingServer.global_shader_parameter_add("season_t", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, _season_t)
 	RenderingServer.global_shader_parameter_add("lightning_flash", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	RenderingServer.global_shader_parameter_add("dew_amount", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
+	RenderingServer.global_shader_parameter_add("lamp_glow", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	print("main: environment: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	if not _terrain_only:
 		_setup_park()
@@ -1480,8 +1481,9 @@ func _apply_time_of_day() -> void:
 	_sun.rotation_degrees = Vector3(pitch, yaw, 0.0)
 	_sun.directional_shadow_max_distance = _lerp_kf("shadow_dist", a, b, t)
 
-	# Lamp emission level — drives SpotLight3D pool energy (globe mesh removed)
+	# Lamp emission level — drives SpotLight3D pool energy + globe glow
 	_lamp_emission = _lerp_kf("lamp_emission", a, b, t)
+	RenderingServer.global_shader_parameter_set("lamp_glow", clampf(_lamp_emission / 5.0, 0.0, 1.0))
 
 	# Building window emission — smooth night_factor curve
 	# 0.0 during day (7h-18h), ramps to 1.0 at night (21h-5h)

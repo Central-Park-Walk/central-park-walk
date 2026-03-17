@@ -38,7 +38,16 @@ func _build_furniture(bench_data: Array, lamppost_data: Array, paths: Array) -> 
 	var lamp_post_mat := ShaderMaterial.new()
 	lamp_post_mat.shader = iron_shader
 	lamp_post_mat.set_shader_parameter("iron_color", Vector3(0.08, 0.08, 0.06))
-	# Globe mesh removed — SpotLight3D pool provides scene lighting
+	# Globe mesh — emissive luminaire that glows at night via lamp_glow global uniform
+	var lamp_globe_mesh: Mesh = null
+	if cp_lamp_meshes.has("CP_Lamppost_Globe"):
+		lamp_globe_mesh = cp_lamp_meshes["CP_Lamppost_Globe"] as Mesh
+	var globe_mat: ShaderMaterial = null
+	if lamp_globe_mesh:
+		var globe_shader: Shader = _loader._get_shader("lamp_globe", "res://shaders/lamp_globe.gdshader")
+		globe_mat = ShaderMaterial.new()
+		globe_mat.shader = globe_shader
+		globe_mat.render_priority = 1  # render after opaque
 
 	# --- Bench mesh (CP-specific model: surface 0=Iron, surface 1=Wood) ---
 	var cp_bench_path := ProjectSettings.globalize_path("res://models/furniture/cp_bench.glb")
@@ -98,6 +107,9 @@ func _build_furniture(bench_data: Array, lamppost_data: Array, paths: Array) -> 
 	# Spawn lamppost iron parts (cast iron shader for weather response)
 	if not lamp_xf.is_empty():
 		_loader._spawn_multimesh(lamp_iron_mesh, lamp_post_mat, lamp_xf, "Lampposts")
+	# Spawn luminaire globes (emissive at night)
+	if lamp_globe_mesh and globe_mat and not lamp_xf.is_empty():
+		_loader._spawn_multimesh(lamp_globe_mesh, globe_mat, lamp_xf, "LampGlobes")
 	# Spawn all benches with the CP bench model (materials baked into GLB)
 	if not bench_xf.is_empty():
 		_loader._spawn_multimesh(bench_mesh, null, bench_xf, "Benches_0")
