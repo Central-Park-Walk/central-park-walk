@@ -852,18 +852,18 @@ def make_ostrich_fern():
     n_fronds = 7
     for i in range(n_fronds):
         angle = (i / n_fronds) * math.tau + rng.uniform(-0.15, 0.15)
-        # Vase shape: fronds arch outward
+        # Vase shape: 30-45° outward lean, tips droop slightly
         make_frond(bm, Vector((0, 0, 0.05)),
-                   length=1.3, width=0.12, segments=5,
-                   arch=0.7, droop=0.3, angle_y=angle,
+                   length=1.6, width=0.14, segments=6,
+                   arch=0.50, droop=0.28, angle_y=angle,
                    color_base=(0.10, 0.32, 0.04),
                    color_tip=(0.30, 0.52, 0.15),
                    uv_layer=uv, col_layer=co)
 
     # Brown fertile frond in center (shorter, darker)
     make_frond(bm, Vector((0, 0, 0.05)),
-               length=0.7, width=0.04, segments=3,
-               arch=0.15, droop=0.1, angle_y=rng.uniform(0, math.tau),
+               length=0.9, width=0.04, segments=3,
+               arch=0.12, droop=0.1, angle_y=rng.uniform(0, math.tau),
                color_base=(0.35, 0.22, 0.10),
                color_tip=(0.40, 0.28, 0.14),
                uv_layer=uv, col_layer=co)
