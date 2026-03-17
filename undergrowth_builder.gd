@@ -99,12 +99,19 @@ const ZONE_SPECIES := {
 	# and zone 9 (OpenLawn) are maintained lawns — NO undergrowth.
 }
 
-# Woodland chunks (no pre-baked data) get understory similar to NorthWoods
+# Woodland chunks (no pre-baked data) get understory — but ONLY in actual
+# woodland foliage zones, not on maintained lawns that happen to lack data.
 const WOODLAND_SPECIES: Array = [
 	[0, 2.0],   # Spicebush
 	[10, 6.0],  # White Wood Aster
 	[14, 4.0],  # Christmas Fern
 	[13, 2.0],  # Ostrich Fern
+]
+# Z ranges where woodland fallback is allowed (from park_data.json foliage_zones)
+const WOODLAND_Z_RANGES: Array = [
+	[-1800, -1050],  # North Woods + The Pool
+	[375, 975],      # The Ramble
+	[1650, 2050],    # Hallett & The Pond
 ]
 
 
@@ -304,8 +311,18 @@ func _build_chunk(ck: String) -> void:
 	if zone_type >= 0 and ZONE_SPECIES.has(zone_type):
 		species_list = ZONE_SPECIES[zone_type]
 	elif zone_type < 0:
-		# Woodland chunk (no pre-baked zone data) — use woodland understory
-		species_list = WOODLAND_SPECIES
+		# No pre-baked zone data — only treat as woodland if actually in a
+		# woodland foliage zone. Otherwise it's a gap in maintained lawn data.
+		var chunk_z: float = cz + CHUNK * 0.5
+		var in_woodland := false
+		for zr in WOODLAND_Z_RANGES:
+			if chunk_z >= zr[0] and chunk_z <= zr[1]:
+				in_woodland = true
+				break
+		if in_woodland:
+			species_list = WOODLAND_SPECIES
+		else:
+			return  # Gap in lawn data — no undergrowth
 	else:
 		return  # Mowed lawn, formal garden, etc. — no undergrowth
 
