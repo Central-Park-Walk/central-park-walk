@@ -27,24 +27,27 @@ OUTPUT_DIR   = os.path.join(PROJECT_DIR, "models/vegetation")
 BACKUP_DIR   = os.path.join(OUTPUT_DIR, "backup_procedural")
 
 # ── Extraction map ─────────────────────────────────────────────────────────────
-# (BD3D name, our species name, max face count (0=keep), mirror X, target height m)
+# (BD3D name, our species name, max face count (0=keep), mirror X, target height m, sink fraction)
 # Heights match the existing procedural models so SPECIES scale multipliers stay valid.
+# sink_frac: fraction of height to push below origin (hides bare stems in grass).
+#   Shrubs have ~25-30% bare stem before foliage; sinking 20% hides the gap.
+#   Ferns have ~10-20% gap; sinking 8-10% is enough.
 
 EXTRACTIONS = [
     # ── Shrubs ── BD3D "Deciduous bush A" → 7 species
-    ("GS Deciduous bush A 1", "Shrub_Spicebush",          4000, False, 2.78),
-    ("GS Deciduous bush A 3", "Shrub_WitchHazel",         4000, False, 3.70),
-    ("GS Deciduous bush A 2", "Shrub_Viburnum",           4000, False, 2.44),
-    ("GS Deciduous bush A 4", "Shrub_Sumac",              4500, False, 4.11),
-    ("GS Deciduous bush A 3", "Shrub_Elderberry",         4000, True,  2.22),
-    ("GS Deciduous bush A 1", "Shrub_SweetPepperbush",    4000, True,  2.17),
-    ("GS Deciduous bush A 2", "Shrub_FloweringRaspberry", 4000, True,  1.73),
+    ("GS Deciduous bush A 1", "Shrub_Spicebush",          4000, False, 2.78, 0.20),
+    ("GS Deciduous bush A 3", "Shrub_WitchHazel",         4000, False, 3.70, 0.20),
+    ("GS Deciduous bush A 2", "Shrub_Viburnum",           4000, False, 2.44, 0.20),
+    ("GS Deciduous bush A 4", "Shrub_Sumac",              4500, False, 4.11, 0.18),
+    ("GS Deciduous bush A 3", "Shrub_Elderberry",         4000, True,  2.22, 0.20),
+    ("GS Deciduous bush A 1", "Shrub_SweetPepperbush",    4000, True,  2.17, 0.20),
+    ("GS Deciduous bush A 2", "Shrub_FloweringRaspberry", 4000, True,  1.73, 0.20),
 
     # ── Ferns ── BD3D "Forest ferns" → 4 species
-    ("GS Forest ferns A 01",  "Fern_Ostrich",             2000, False, 0.88),
-    ("GS Forest ferns A 02",  "Fern_Cinnamon",            2000, False, 0.61),
-    ("GS Forest ferns B 01",  "Fern_Christmas",           0,    False, 0.32),
-    ("GS Forest ferns B 02",  "Fern_Sensitive",           0,    False, 0.45),
+    ("GS Forest ferns A 01",  "Fern_Ostrich",             2000, False, 0.88, 0.08),
+    ("GS Forest ferns A 02",  "Fern_Cinnamon",            2000, False, 0.61, 0.08),
+    ("GS Forest ferns B 01",  "Fern_Christmas",           0,    False, 0.32, 0.06),
+    ("GS Forest ferns B 02",  "Fern_Sensitive",           0,    False, 0.45, 0.06),
 ]
 
 
@@ -152,7 +155,7 @@ def _find_source_image(mat):
 
 # ── Core extraction ────────────────────────────────────────────────────────────
 
-def extract_plant(bd3d_name, output_name, max_faces, mirror, target_h):
+def extract_plant(bd3d_name, output_name, max_faces, mirror, target_h, sink_frac=0.0):
     """Extract, decimate, normalize, and export one plant as GLB."""
 
     src = bpy.data.objects.get(bd3d_name)
@@ -261,10 +264,15 @@ def extract_plant(bd3d_name, output_name, max_faces, mirror, target_h):
         dup.scale = (scale, scale, scale)
         apply_transforms(dup)
 
-    # ── Center at base (min Z = 0, horizontal center at origin) ──
+    # ── Center at base, then sink into ground ──
+    # min_z → 0, then shift down by sink_frac of total height so bare stems
+    # disappear into the grass layer instead of floating above their shadow.
+    cur_h = get_mesh_height(dup)
+    sink_amount = cur_h * sink_frac
     cx, cy, min_z = get_mesh_center_base(dup)
-    if abs(cx) > 0.001 or abs(cy) > 0.001 or abs(min_z) > 0.001:
-        translate_mesh(dup, -cx, -cy, -min_z)
+    translate_mesh(dup, -cx, -cy, -min_z + sink_amount)
+    if sink_amount > 0.001:
+        print(f"  Sunk {sink_amount:.2f}m ({sink_frac*100:.0f}% of {cur_h:.2f}m) into ground")
 
     # ── Export GLB ──
     out_path = os.path.join(OUTPUT_DIR, f"{output_name}.glb")
@@ -330,7 +338,8 @@ def main():
     # Backup existing models
     os.makedirs(BACKUP_DIR, exist_ok=True)
     backed = 0
-    for _, name, _, _, _ in EXTRACTIONS:
+    for entry in EXTRACTIONS:
+        name = entry[1]
         for ext in ['.glb', '.gltf', '.bin']:
             src_path = os.path.join(OUTPUT_DIR, f"{name}{ext}")
             dst_path = os.path.join(BACKUP_DIR, f"{name}{ext}")
@@ -342,10 +351,12 @@ def main():
 
     # Extract each plant
     success = 0
-    for bd3d_name, output_name, max_faces, mirror, target_h in EXTRACTIONS:
+    for entry in EXTRACTIONS:
+        bd3d_name, output_name, max_faces, mirror, target_h = entry[:5]
+        sink_frac = entry[5] if len(entry) > 5 else 0.0
         print(f"\n[{output_name}] ← '{bd3d_name}'"
-              f"  target_f={max_faces or 'keep'}  mirror={mirror}  h={target_h:.2f}m")
-        if extract_plant(bd3d_name, output_name, max_faces, mirror, target_h):
+              f"  target_f={max_faces or 'keep'}  mirror={mirror}  h={target_h:.2f}m  sink={sink_frac:.0%}")
+        if extract_plant(bd3d_name, output_name, max_faces, mirror, target_h, sink_frac):
             success += 1
 
     print(f"\n{'=' * 60}")
