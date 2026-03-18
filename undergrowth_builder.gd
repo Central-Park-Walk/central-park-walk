@@ -550,7 +550,12 @@ func _load_model(sp_name: String) -> Mesh:
 			tex = orig_mat.albedo_texture
 			if tex:
 				has_embedded_tex = true
+		elif orig_mat != null:
+			# Debug: what material type did we get?
+			print("  %s surf %d: material is %s (not StandardMaterial3D)" % [sp_name, si, orig_mat.get_class()])
 		surface_textures.append(tex)
+	if has_embedded_tex:
+		print("  %s: BD3D textures detected (%d surfaces)" % [sp_name, surface_textures.size()])
 
 	# Apply undergrowth shader per surface
 	for si in mesh.get_surface_count():

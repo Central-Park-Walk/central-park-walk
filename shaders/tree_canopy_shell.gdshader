@@ -92,9 +92,9 @@ void vertex() {
 	float tree_id = world_pos.x * 0.173 + world_pos.z * 0.317;
 
 	// Fine-grain noise — small bumps that roughen the silhouette edge
-	vec3 disp_seed = VERTEX * 5.0 + vec3(tree_id);
+	vec2 disp_seed = VERTEX.xz * 5.0 + vec2(tree_id, tree_id * 0.7);
 	float bump = vnoise(disp_seed) * 0.06
-	           + vnoise(disp_seed * 3.1 + vec3(7.1)) * 0.03;
+	           + vnoise(disp_seed * 3.1 + vec2(7.1, 3.3)) * 0.03;
 	// Inward pulls create gaps/holes in the canopy silhouette (more natural)
 	bump -= 0.02;
 	// Strongest at equator (silhouette edge), gentle on top

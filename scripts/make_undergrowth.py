@@ -1925,8 +1925,16 @@ def make_phragmites():
 # Build all species
 # ==========================================================================
 
+# Species replaced by BD3D Plant Library 3D meshes (extract_bd3d_plants.py).
+# DO NOT regenerate these — they have real PBR textures and 3D leaf geometry.
+BD3D_REPLACED = {
+    "Shrub_Spicebush", "Shrub_WitchHazel", "Shrub_Viburnum", "Shrub_Sumac",
+    "Shrub_Elderberry", "Shrub_SweetPepperbush", "Shrub_FloweringRaspberry",
+    "Fern_Ostrich", "Fern_Cinnamon", "Fern_Christmas", "Fern_Sensitive",
+}
+
 SPECIES = [
-    # Tier 1+2 (original 16 → expanded to 18 shrubs/herbs + billboard herbs)
+    # Tier 1+2: shrubs (BD3D replaced — skipped), herbs, ferns, wetland
     (make_spicebush,           "Shrub_Spicebush"),
     (make_witch_hazel,         "Shrub_WitchHazel"),
     (make_viburnum,            "Shrub_Viburnum"),
@@ -1943,7 +1951,7 @@ SPECIES = [
     (make_ostrich_fern,        "Fern_Ostrich"),
     (make_christmas_fern,      "Fern_Christmas"),
     (make_cattail,             "Wetland_Cattail"),
-    # Tier 3 (12 species)
+    # Tier 3
     (make_sweet_pepperbush,    "Shrub_SweetPepperbush"),
     (make_flowering_raspberry, "Shrub_FloweringRaspberry"),
     (make_white_snakeroot,     "Herb_WhiteSnakeroot"),
@@ -1964,6 +1972,9 @@ if __name__ == "__main__":
     print("=" * 60)
 
     for func, name in SPECIES:
+        if name in BD3D_REPLACED:
+            print(f"\n  Skipping {name} (BD3D replaced — use extract_bd3d_plants.py)")
+            continue
         print(f"\n  Building {name}...")
         clear_scene()
         bm = func()
