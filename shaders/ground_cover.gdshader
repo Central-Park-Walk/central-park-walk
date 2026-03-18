@@ -14,6 +14,9 @@ uniform float is_seasonal : hint_range(0.0, 1.0) = 1.0; // 0=always visible, 1=s
 uniform float is_litter : hint_range(0.0, 1.0) = 0.0;   // 1=fallen leaves/twigs
 uniform float hm_world_size = 5000.0;
 uniform sampler2D canopy_map : filter_linear, repeat_disable;
+uniform sampler2D cover_atlas : filter_linear;
+uniform vec2 atlas_offset = vec2(0.0, 0.0);     // cell origin in atlas UV
+uniform vec2 atlas_cell_size = vec2(0.25, 0.5);  // 4 cols, 2 rows
 
 varying vec3 v_world_pos;
 varying float v_seed;
@@ -74,14 +77,11 @@ void fragment() {
 		if (ad < aerial_discard) discard;
 	}
 
-	// Base color from vertex color (baked in GLB)
-	vec3 col = COLOR.rgb;
-
-	// If color is near-white (no vertex color), use procedural green
-	float col_lum = dot(col, vec3(0.299, 0.587, 0.114));
-	if (col_lum > 0.85) {
-		col = mix(vec3(0.12, 0.22, 0.06), vec3(0.25, 0.35, 0.10), v_seed);
-	}
+	// Sample shared atlas texture
+	vec2 atlas_uv = atlas_offset + UV * atlas_cell_size;
+	vec4 tex_col = texture(cover_atlas, atlas_uv);
+	if (tex_col.a < 0.35) discard;
+	vec3 col = tex_col.rgb;
 
 	// Per-instance color variation
 	col *= mix(vec3(0.92, 1.04, 1.06), vec3(1.08, 0.96, 0.92), v_seed);

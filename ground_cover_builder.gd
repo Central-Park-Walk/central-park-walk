@@ -31,13 +31,19 @@ const UPDATE_DIST := 3.0
 const VIS_END := 28.0
 
 # Patch types: name, variants, height range, is_litter, wind_flex
+# Atlas layout: 4 cols × 2 rows (matches ground_cover_atlas.png)
+# Row 0: bramble(0,0), fern_cluster(1,0), mixed_weeds(2,0), tall_grass(3,0)
+# Row 1: fallen_leaves(0,1), twig_litter(1,1)
+const ATLAS_COLS := 4
+const ATLAS_ROWS := 2
+
 const PATCH_TYPES := [
-	{"name": "bramble",       "variants": 4, "flex": 0.30, "litter": 0, "seasonal": 1},
-	{"name": "fern_cluster",  "variants": 4, "flex": 0.35, "litter": 0, "seasonal": 1},
-	{"name": "mixed_weeds",   "variants": 4, "flex": 0.25, "litter": 0, "seasonal": 1},
-	{"name": "tall_grass",    "variants": 4, "flex": 0.45, "litter": 0, "seasonal": 1},
-	{"name": "fallen_leaves", "variants": 4, "flex": 0.05, "litter": 1, "seasonal": 0},
-	{"name": "twig_litter",   "variants": 4, "flex": 0.02, "litter": 1, "seasonal": 0},
+	{"name": "bramble",       "variants": 4, "flex": 0.30, "litter": 0, "seasonal": 1, "acol": 0, "arow": 0},
+	{"name": "fern_cluster",  "variants": 4, "flex": 0.35, "litter": 0, "seasonal": 1, "acol": 1, "arow": 0},
+	{"name": "mixed_weeds",   "variants": 4, "flex": 0.25, "litter": 0, "seasonal": 1, "acol": 2, "arow": 0},
+	{"name": "tall_grass",    "variants": 4, "flex": 0.45, "litter": 0, "seasonal": 1, "acol": 3, "arow": 0},
+	{"name": "fallen_leaves", "variants": 4, "flex": 0.05, "litter": 1, "seasonal": 0, "acol": 0, "arow": 1},
+	{"name": "twig_litter",   "variants": 4, "flex": 0.02, "litter": 1, "seasonal": 0, "acol": 1, "arow": 1},
 ]
 
 # Zone type -> list of [patch_type_index, density_per_100m2, scale_min, scale_max]
@@ -110,12 +116,22 @@ func _build_ground_cover() -> void:
 	_hm_ws = _loader._hm_world_size
 	_hm_half = _hm_ws * 0.5
 
+	# Load shared atlas texture
+	var atlas_path := "res://textures/ground_cover_atlas.png"
+	var atlas_img := Image.load_from_file(ProjectSettings.globalize_path(atlas_path))
+	var _cover_atlas: ImageTexture = null
+	if atlas_img:
+		_cover_atlas = ImageTexture.create_from_image(atlas_img)
+		print("ground_cover: atlas loaded (%dx%d)" % [atlas_img.get_width(), atlas_img.get_height()])
+	else:
+		print("ground_cover: WARNING — atlas not found at %s" % atlas_path)
+
 	# Load patch meshes
 	var loaded := 0
 	for pt in PATCH_TYPES:
 		for vi in range(pt.variants):
 			var mesh_name := "Patch_%s_v%d" % [pt.name, vi]
-			var mesh := _load_model(mesh_name, pt)
+			var mesh := _load_model(mesh_name, pt, _cover_atlas)
 			if mesh:
 				_meshes[mesh_name] = mesh
 				loaded += 1
@@ -126,7 +142,7 @@ func _build_ground_cover() -> void:
 	_update_chunks_near(spawn)
 
 
-func _load_model(mesh_name: String, pt: Dictionary) -> Mesh:
+func _load_model(mesh_name: String, pt: Dictionary, cover_atlas: Texture2D) -> Mesh:
 	var path := "res://models/vegetation/%s.glb" % mesh_name
 	var abs_path: String = ProjectSettings.globalize_path(path)
 	if not FileAccess.file_exists(abs_path):
@@ -136,13 +152,21 @@ func _load_model(mesh_name: String, pt: Dictionary) -> Mesh:
 		return null
 	var mesh: Mesh = meshes.values()[0]
 
-	# Apply shader material
+	# Atlas UV offset for this patch type
+	var a_off := Vector2(float(pt.acol) / ATLAS_COLS, float(pt.arow) / ATLAS_ROWS)
+	var a_cell := Vector2(1.0 / ATLAS_COLS, 1.0 / ATLAS_ROWS)
+
+	# Apply shader material with shared atlas
 	var mat := ShaderMaterial.new()
 	mat.shader = _shader
 	mat.set_shader_parameter("wind_flex", pt.flex)
 	mat.set_shader_parameter("is_seasonal", float(pt.seasonal))
 	mat.set_shader_parameter("is_litter", float(pt.litter))
 	mat.set_shader_parameter("hm_world_size", _hm_ws)
+	if cover_atlas:
+		mat.set_shader_parameter("cover_atlas", cover_atlas)
+	mat.set_shader_parameter("atlas_offset", a_off)
+	mat.set_shader_parameter("atlas_cell_size", a_cell)
 	if _loader._canopy_texture:
 		mat.set_shader_parameter("canopy_map", _loader._canopy_texture)
 
