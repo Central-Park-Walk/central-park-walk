@@ -41,20 +41,23 @@ void fragment() {
 	float micro = 0.0;
 
 	if (bark_style == 0) {
-		// --- Style 0: Fissured bark (oak, elm, maple, ginkgo, etc.) ---
-		// Dominant vertical fissures with heavy noise to break regularity.
-		// Sparse horizontal breaks (NOT a sine grid — organic noise patches).
-		float vert = sin(bark_u * 4.5 + fbm(vec2(bark_u * 0.5, bark_y * 0.15), 2) * 3.5);
-		furrow = smoothstep(-0.05, 0.5, vert);
-		// Sparse horizontal breaks — noise-based, only ~20% of surface
-		float h_noise = vnoise(vec2(bark_y * 1.2, bark_u * 0.4));
-		float h_break = smoothstep(0.58, 0.72, h_noise);
-		furrow *= mix(1.0, 0.45, h_break);  // darken at horizontal breaks
-		col *= mix(0.78, 1.06, furrow);
-		// Organic micro-texture (more noise octaves, isotropic)
-		micro = fbm(vec2(bark_u * 6.0, bark_y * 5.5), 3);
-		col *= (0.92 + micro * 0.16);
-		rough = mix(0.82, 0.95, furrow) + micro * 0.05;
+		// --- Style 0: Rough fissured bark (oak, elm, maple, ginkgo, etc.) ---
+		// Sharp-edged vertical cracks with heavy FBM wobble so each furrow
+		// wanders irregularly. Hard transitions = bark, soft = wood grain.
+		float vert_wave = sin(bark_u * 4.5 + fbm(vec2(bark_u * 0.5, bark_y * 0.15), 3) * 4.0);
+		// Sharp edge: narrow smoothstep (0.08 range) instead of soft (0.55 range)
+		furrow = smoothstep(-0.04, 0.04, vert_wave);
+		// Sparse horizontal breaks — noise-based, irregular
+		float h_noise = vnoise(vec2(bark_y * 1.4, bark_u * 0.5));
+		float h_break = smoothstep(0.55, 0.68, h_noise);
+		furrow *= mix(1.0, 0.35, h_break);
+		// Strong contrast: deep dark fissures vs raised ridges
+		col *= mix(0.65, 1.08, furrow);
+		// Coarse flaky texture on ridge surfaces (high frequency, rough)
+		micro = fbm(vec2(bark_u * 9.0, bark_y * 7.0), 4);
+		float grit = vnoise(vec2(bark_u * 25.0, bark_y * 22.0));
+		col *= (0.88 + micro * 0.16 + grit * 0.08);
+		rough = mix(0.78, 0.96, furrow) + micro * 0.04;
 	} else if (bark_style == 1) {
 		// --- Style 1: Smooth bark with horizontal lenticels (birch, cherry) ---
 		// Birch: white/cream with dark horizontal lines; cherry: reddish-brown shiny
