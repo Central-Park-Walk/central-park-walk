@@ -94,10 +94,18 @@ void vertex() {
 }
 
 void fragment() {
-	// Sample canopy texture for alpha shape (leafy dome outline)
+	// Sample canopy texture for alpha shape + add noise breakup
 	vec4 tex = texture(canopy_tex, UV);
+	// Break up the dome silhouette with noise so it reads as foliage, not a balloon
+	vec3 shell_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	float edge_noise = vnoise(shell_pos.xz * 3.0 + shell_pos.yy * 2.0) * 0.4;
 	float alpha = tex.a * v_canopy_alpha;
-	if (alpha < 0.15) discard;
+	// Thin out edges and add holes throughout
+	alpha *= smoothstep(0.0, 0.3, tex.a) * (0.7 + edge_noise * 0.6);
+	// Bottom hemisphere thins out more (see trunk through gaps)
+	vec3 world_n = mat3(INV_VIEW_MATRIX) * NORMAL;
+	alpha *= mix(0.5, 1.0, smoothstep(-0.2, 0.3, world_n.y));
+	if (alpha < 0.2) discard;
 
 	vec3 col = v_canopy_color;
 
