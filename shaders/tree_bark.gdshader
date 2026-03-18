@@ -146,6 +146,14 @@ void fragment() {
 	vec3 bark_normal_perturb = vec3(dFdx(relief_h), dFdy(relief_h), 0.0);
 	NORMAL = normalize(NORMAL + bark_normal_perturb * 2.5);
 
+	// Per-pixel micro-variation: lichen spores, mineral deposits,
+	// moisture stains, insect marks — millions of unique shades
+	vec2 bark_px = vec2(bark_u, bark_y) * 67.3 + world_pos.xz * 3.7;
+	float bark_pn = hash2(bark_px) * 0.06 - 0.03;
+	float bark_phr = hash2(bark_px + vec2(71.9, 0.0)) * 0.025;
+	float bark_phb = hash2(bark_px + vec2(0.0, 53.1)) * 0.025;
+	col += vec3(bark_pn + bark_phr, bark_pn, bark_pn + bark_phb);
+
 	ALBEDO = col;
 	ROUGHNESS = clamp(rough, 0.0, 1.0);
 	METALLIC = 0.0;

@@ -12,6 +12,8 @@ global uniform vec3 sky_reflect_color;
 uniform float wind_flex : hint_range(0.0, 1.0) = 0.4;
 uniform float is_evergreen : hint_range(0.0, 1.0) = 0.0;
 uniform vec3 fall_tint = vec3(0.5, 0.35, 0.08);
+uniform vec3 flower_color = vec3(0.0, 0.0, 0.0);  // (0,0,0) = no flowers
+uniform vec2 bloom_range = vec2(1.0, 2.0);  // season_t range when flowers appear
 uniform sampler2D canopy_map : filter_linear, repeat_disable;
 uniform float hm_world_size = 5000.0;
 
@@ -128,6 +130,24 @@ void fragment() {
 	if (is_evergreen < 0.5) {
 		col = mix(col, fall_tint, autumn_t * 0.65);
 		col = mix(col, vec3(0.14, 0.10, 0.06), winter_t);
+	}
+
+	// Flowering — tint upper parts during bloom season
+	// flower_color (0,0,0) = no flowers; bloom_range = season_t window
+	if (flower_color.r + flower_color.g + flower_color.b > 0.01) {
+		float bloom_t = smoothstep(bloom_range.x, bloom_range.x + 0.3, season_t)
+		              * (1.0 - smoothstep(bloom_range.y - 0.2, bloom_range.y, season_t));
+		// Flowers appear on upper 30% of plant, per-instance variation
+		float flower_mask = smoothstep(0.6, 0.85, height_frac) * bloom_t;
+		// Per-instance: ~60% of plants bloom, rest stay green
+		float bloom_chance = step(0.4, v_seed);
+		// Per-pixel flower color variation — petals have veining, fading, moisture
+		vec3 f_col = flower_color * mix(0.85, 1.15, v_seed);
+		vec2 fl_px = v_world_pos.xz * 31.7 + vec2(height_frac * 17.3);
+		float fl_noise = hash2(fl_px) * 0.10 - 0.05;
+		float fl_hue = hash2(fl_px + vec2(43.1, 0.0)) * 0.06 - 0.03;
+		f_col += vec3(fl_noise + fl_hue, fl_noise, fl_noise - fl_hue);
+		col = mix(col, f_col, flower_mask * bloom_chance * 0.8);
 	}
 
 	// Wind color shift

@@ -250,6 +250,14 @@ void fragment() {
 	// Per-leaf brightness variation (some leaves catch more light)
 	col *= (0.92 + detail_n * 0.16);
 
+	// Per-pixel micro-variation: chlorophyll patches, dust, cell structure
+	// Real leaves have millions of unique shades across their surface
+	vec2 px_uv = UV * 97.3 + tree_pos.xz * 5.1;
+	float px_n = hash2(px_uv) * 0.08 - 0.04;             // ±4% brightness
+	float px_hr = hash2(px_uv + vec2(71.9, 0.0)) * 0.03;  // warm shift
+	float px_hb = hash2(px_uv + vec2(0.0, 53.1)) * 0.03;  // cool shift
+	col += vec3(px_n + px_hr, px_n, px_n + px_hb);
+
 	// --- Species-specific material properties ---
 	// Broad-leaved trees (maple, london plane) have smoother, more reflective leaves
 	// Compound-leaved (honeylocust) and small-leaved (birch) are finer-textured
@@ -274,9 +282,13 @@ void fragment() {
 		// Petals have a delicate translucent quality
 		rough = mix(rough, 0.55, v_blossom);    // smooth petal surface
 		spec = mix(spec, 0.22, v_blossom);       // subtle sheen on petals
-		// Slight per-petal color variation from texture luminance
+		// Per-pixel petal variation — real petals have veining, bruising, moisture spots
 		float petal_var = lum * 0.15;
-		col += vec3(petal_var, petal_var * 0.8, petal_var * 0.7) * v_blossom;
+		float petal_noise = hash2(UV * 83.7 + v_world_pos.xz * 11.3) * 0.08 - 0.04;
+		float petal_hue = hash2(UV * 47.1 + v_world_pos.xz * 7.9) * 0.04 - 0.02;
+		col += vec3(petal_var + petal_noise + petal_hue,
+		            (petal_var + petal_noise) * 0.8,
+		            (petal_var + petal_noise) * 0.7 - petal_hue) * v_blossom;
 	}
 
 	// Snow accumulation
