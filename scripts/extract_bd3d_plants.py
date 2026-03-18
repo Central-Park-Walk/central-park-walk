@@ -35,13 +35,15 @@ BACKUP_DIR   = os.path.join(OUTPUT_DIR, "backup_procedural")
 
 EXTRACTIONS = [
     # ── Shrubs ── BD3D "Deciduous bush A" → 7 species
-    ("GS Deciduous bush A 1", "Shrub_Spicebush",          4000, False, 2.78, 0.20),
-    ("GS Deciduous bush A 3", "Shrub_WitchHazel",         4000, False, 3.70, 0.20),
-    ("GS Deciduous bush A 2", "Shrub_Viburnum",           4000, False, 2.44, 0.20),
-    ("GS Deciduous bush A 4", "Shrub_Sumac",              4500, False, 4.11, 0.18),
-    ("GS Deciduous bush A 3", "Shrub_Elderberry",         4000, True,  2.22, 0.20),
-    ("GS Deciduous bush A 1", "Shrub_SweetPepperbush",    4000, True,  2.17, 0.20),
-    ("GS Deciduous bush A 2", "Shrub_FloweringRaspberry", 4000, True,  1.73, 0.20),
+    # Central Park shrubs are maintained/trimmed — use 4-5ft range, not wild max.
+    # Builder jitter 0.65-1.25x makes these span roughly 3-6ft in-game.
+    ("GS Deciduous bush A 1", "Shrub_Spicebush",          4000, False, 1.50, 0.20),  # wild 2-4m → park 5ft
+    ("GS Deciduous bush A 3", "Shrub_WitchHazel",         4000, False, 1.80, 0.20),  # wild 3-5m → park 6ft (larger species)
+    ("GS Deciduous bush A 2", "Shrub_Viburnum",           4000, False, 1.40, 0.20),  # wild 2-3m → park 4.5ft
+    ("GS Deciduous bush A 4", "Shrub_Sumac",              4500, False, 1.80, 0.18),  # wild 3-5m → park 6ft (flat-topped)
+    ("GS Deciduous bush A 3", "Shrub_Elderberry",         4000, True,  1.50, 0.20),  # wild 2-3.5m → park 5ft
+    ("GS Deciduous bush A 1", "Shrub_SweetPepperbush",    4000, True,  1.30, 0.20),  # wild 1-2.5m → park 4.5ft
+    ("GS Deciduous bush A 2", "Shrub_FloweringRaspberry", 4000, True,  1.20, 0.20),  # wild 1-2m → park 4ft
 
     # ── Ferns ── BD3D "Forest ferns" → 4 species
     # Use lower end of real range — builder scale jitter (0.40-1.45x) pushes them up further.

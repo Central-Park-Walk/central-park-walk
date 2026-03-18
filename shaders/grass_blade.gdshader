@@ -324,8 +324,8 @@ void fragment() {
 	// terrain underneath. Per-blade fade (not per-chunk) eliminates
 	// visible chunk rectangles.
 	float cam_dist = length(v_world_blade - INV_VIEW_MATRIX[3].xyz);
-	float fade_start = 20.0;  // start fading
-	float fade_end = 25.0;    // fully transparent
+	float fade_start = 70.0;  // start fading
+	float fade_end = 90.0;    // fully transparent
 	float alpha = 1.0 - smoothstep(fade_start, fade_end, cam_dist);
 	// Also reduce AO harshness as blades fade (hexaquo trick)
 	AO_LIGHT_AFFECT = mix(0.3, 1.0, alpha);
