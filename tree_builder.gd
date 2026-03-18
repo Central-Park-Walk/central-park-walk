@@ -392,16 +392,17 @@ func _build_trees(trees: Array) -> void:
 			mesh_h = 0.06
 		var sy := desired_h / mesh_h
 
-		# Crown width: blend uniform scale with LiDAR crown data for subtle variation
+		# Crown width: strongly data-driven from LiDAR crown area measurement.
+		# Real crown-to-height ratio varies widely (0.25 for columnar ginkgo to
+		# 0.8 for spreading oak). Using 80% blend with data makes each tree's
+		# proportions match its actual measured silhouette.
 		var sx := sy
 		if typeof(tree_entry) == TYPE_DICTIONARY and tree_entry.has("crown_a"):
 			var crown_a := float(tree_entry["crown_a"])
 			if crown_a > 0.0 and desired_h > 1.0:
 				var crown_d := 2.0 * sqrt(crown_a / PI)
-				# Ratio of crown spread to height (typical trees: 0.3–1.0)
-				var crown_ratio := clampf(crown_d / desired_h, 0.3, 1.2)
-				# Apply as a subtle modifier (30% blend) to avoid extreme stretching
-				sx = sy * lerpf(1.0, crown_ratio, 0.3)
+				var crown_ratio := clampf(crown_d / desired_h, 0.2, 1.5)
+				sx = sy * lerpf(1.0, crown_ratio, 0.80)
 
 		# Random Y rotation for variety
 		var y_rot := rng.randf() * TAU
@@ -423,13 +424,25 @@ func _build_trees(trees: Array) -> void:
 		var is_evergreen := 1.0 if species == "conifer" else 0.0
 		cd_by_key[key].append(Color(float(pheno_idx) / 13.0, timing_off + 0.5, is_evergreen, 0.0))
 
-		# Canopy data for dappled shade map — crown radius from height + species
-		var crown_r := desired_h * (0.25 if species == "conifer" else 0.38)
-		crown_r *= sx / sy  # apply crown width scaling
+		# Canopy data for dappled shade map — use measured crown area when available
+		var crown_r: float
+		if typeof(tree_entry) == TYPE_DICTIONARY and tree_entry.has("crown_a"):
+			var ca := float(tree_entry["crown_a"])
+			if ca > 0.0:
+				crown_r = sqrt(ca / PI)  # real measured crown radius
+			else:
+				crown_r = desired_h * (0.25 if species == "conifer" else 0.35)
+		else:
+			crown_r = desired_h * (0.25 if species == "conifer" else 0.35)
 		canopy_data.append({"x": tx, "z": tz, "r": crown_r, "ev": species == "conifer"})
 
-		# Collision: simplified cylinder at trunk position
-		var trunk_r := desired_h * 0.02
+		# Collision: trunk cylinder from actual DBH data (census measurement)
+		var trunk_r: float
+		if dbh > 0:
+			trunk_r = float(dbh) * 0.0254 * 0.5  # DBH inches → radius metres
+			trunk_r = maxf(trunk_r, 0.05)  # minimum 5cm radius
+		else:
+			trunk_r = desired_h * 0.012  # fallback: slimmer ratio than old 0.02
 		var col_basis := Basis(
 			Vector3(trunk_r, 0.0,      0.0),
 			Vector3(0.0,     desired_h, 0.0),
