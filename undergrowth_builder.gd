@@ -85,30 +85,37 @@ const SPECIES := [
 # Zone types: 0=SheepMeadow, 1=GreatLawn, 2=NorthMeadow, 3=FormalGarden,
 #   4=SportsTurf, 5=NorthWoods, 6=Ramble, 7=Waterside, 8=WildMeadow, 9=OpenLawn
 const ZONE_SPECIES := {
-	5: [  # NorthWoods — mature forest: fern-dominated, few shrubs, shade species
+	5: [  # NorthWoods — iNaturalist: ferns + iris + elderberry + raspberry + jewelweed
 		[13, 8.0],  # Ostrich Fern (dominant — NorthWoods signature)
 		[14, 6.0],  # Christmas Fern (evergreen carpet)
 		[24, 6.0],  # Cinnamon Fern (wet ravines)
+		[27, 3.0],  # Yellow Flag Iris — 53% of obs here (The Pool)
+		[4, 2.0],   # Elderberry — 36% of obs here
+		[19, 2.0],  # Flowering Raspberry — 29% of obs here
+		[11, 3.0],  # Jewelweed — 50% of obs here
 		[26, 5.0],  # Bottlebrush Grass (shade grass)
-		[20, 4.0],  # White Snakeroot (woodland edge)
-		[10, 3.0],  # White Wood Aster (sparse, shade floor)
+		[20, 4.0],  # White Snakeroot — 7% here but ubiquitous (CP's #1 plant)
+		[10, 3.0],  # White Wood Aster — 23% of obs here
 		[0, 1.5],   # Spicebush (scattered, not dominant)
 		[1, 1.0],   # Witch Hazel (occasional large specimen)
+		[9, 1.0],   # Cardinal Flower — 33% of obs here
 		[16, 0.8],  # Common Mushroom (seasonal)
 		[17, 0.4],  # Chicken of the Woods (seasonal)
 	],
-	6: [  # Ramble — designed wild garden: shrub-heavy, stream plants, diverse
+	6: [  # Ramble — iNaturalist: diverse, everything grows here
 		[2, 4.0],   # Viburnum (Ramble signature — dense thickets)
-		[18, 3.0],  # Sweet Pepperbush (stream edges, fragrant)
-		[19, 2.5],  # Flowering Raspberry (trail edges, showy)
+		[10, 5.0],  # White Wood Aster — 31% of obs here
+		[11, 4.0],  # Jewelweed — 50% of obs here (stream banks)
+		[22, 2.0],  # Rose Mallow — 47% of obs here (most common location!)
+		[4, 2.0],   # Elderberry — 36% of obs here
+		[18, 2.0],  # Sweet Pepperbush — 27% of obs here
+		[19, 2.0],  # Flowering Raspberry — 29% of obs here
+		[9, 2.0],   # Cardinal Flower — 67% of obs here (primary habitat!)
 		[0, 2.0],   # Spicebush (present but not dominant)
-		[10, 5.0],  # White Wood Aster (abundant ground cover)
-		[11, 4.0],  # Jewelweed (stream banks, orange flowers)
-		[28, 5.0],  # Lizard's Tail (stream banks)
+		[28, 4.0],  # Lizard's Tail (stream banks)
 		[25, 3.0],  # Sensitive Fern (wet areas)
 		[14, 2.0],  # Christmas Fern (scattered)
-		[5, 2.0],   # Pokeweed (edges, tall contrast)
-		[20, 2.0],  # White Snakeroot (woodland edge)
+		[20, 3.0],  # White Snakeroot — 27% of obs here
 		[26, 2.0],  # Bottlebrush Grass (path margins)
 		[16, 0.6],  # Common Mushroom (seasonal)
 	],
