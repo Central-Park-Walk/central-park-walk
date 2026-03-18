@@ -890,6 +890,23 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.axis_value < 0.2:
 			_lt_screenshot_pending = false
 		return
+	# Gamepad buttons: D-pad left/right = time, LB = weather, RB = season
+	if event is InputEventJoypadButton and event.pressed:
+		if event.button_index == JOY_BUTTON_DPAD_LEFT:
+			_time_of_day = fmod(_time_of_day - 1.0 + 24.0, 24.0)
+			_apply_time_of_day()
+			print("Time: %.1f h" % _time_of_day)
+		elif event.button_index == JOY_BUTTON_DPAD_RIGHT:
+			_time_of_day = fmod(_time_of_day + 1.0, 24.0)
+			_apply_time_of_day()
+			print("Time: %.1f h" % _time_of_day)
+		elif event.button_index == JOY_BUTTON_LEFT_SHOULDER:
+			_cycle_weather()
+		elif event.button_index == JOY_BUTTON_RIGHT_SHOULDER:
+			_season_t = fmod(fmod(_season_t - 0.5, 4.0) + 1.0, 4.0) + 0.5
+			RenderingServer.global_shader_parameter_set("season_t", _season_t)
+			print("Season: %s (%.1f)" % [_season_name(_season_t), _season_t])
+		return
 	if not (event is InputEventKey and event.pressed):
 		return
 	if event.keycode == KEY_T:

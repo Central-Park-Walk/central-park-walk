@@ -75,6 +75,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			_change_speed(1)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_change_speed(-1)
+	if event is InputEventJoypadButton and event.pressed:
+		if event.button_index == JOY_BUTTON_DPAD_UP:
+			_change_speed(1)
+		elif event.button_index == JOY_BUTTON_DPAD_DOWN:
+			_change_speed(-1)
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_EQUAL or event.keycode == KEY_KP_ADD:
 			_change_speed(1)
