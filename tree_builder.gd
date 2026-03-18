@@ -271,26 +271,26 @@ func _build_trees(trees: Array) -> void:
 
 	# Desired height ranges per species archetype (metres)
 	# [min, max] — census DBH drives interpolation within range
-	# DBH fallback height ranges — raised maximums to match real mature
-	# Central Park specimens. Old ranges capped too low (deciduous at 22m
-	# when real mature trees reach 30m+).
+	# DBH fallback height ranges (metres). Minimums raised because woodland-fill
+	# trees represent established 150-year-old Central Park canopy, not saplings.
+	# "cherry" includes black cherry (Prunus serotina, 25m+) not just ornamentals.
 	var height_ranges := {
-		"oak":           [12.0, 30.0],   # red/white oak — massive when mature
-		"maple":         [10.0, 26.0],   # sugar/Norway maple
-		"elm":           [14.0, 32.0],   # American Elm — tall vase shape
-		"conifer":       [12.0, 30.0],
-		"deciduous":     [10.0, 28.0],   # generic — raised from 22 to 28
-		"birch":         [8.0, 20.0],
-		"honeylocust":   [10.0, 25.0],   # open, airy crown
-		"callery_pear":  [6.0, 16.0],    # medium street tree
-		"ginkgo":        [8.0, 22.0],    # slow-growing
-		"london_plane":  [14.0, 32.0],   # tall broad crown, like sycamore
-		"linden":        [10.0, 24.0],   # dense symmetrical crown
-		"cherry":        [5.0, 14.0],    # small ornamental
-		"zelkova":       [10.0, 24.0],   # upright vase shape
-		"dead":          [6.0, 18.0],    # shorter (broken top)
-		"willow":        [8.0, 20.0],    # weeping willow — wide, medium height
-		"magnolia":      [4.0, 12.0],    # saucer magnolia — short, wide crown
+		"oak":           [15.0, 30.0],   # red/white oak — massive when mature
+		"maple":         [14.0, 26.0],   # sugar/Norway maple
+		"elm":           [16.0, 32.0],   # American Elm — tall vase shape
+		"conifer":       [14.0, 30.0],
+		"deciduous":     [14.0, 28.0],   # generic canopy tree
+		"birch":         [10.0, 22.0],   # gray/river birch
+		"honeylocust":   [14.0, 25.0],   # open, airy crown
+		"callery_pear":  [8.0, 18.0],    # medium street tree
+		"ginkgo":        [10.0, 22.0],   # slow-growing
+		"london_plane":  [16.0, 32.0],   # tall broad crown, like sycamore
+		"linden":        [14.0, 24.0],   # dense symmetrical crown
+		"cherry":        [10.0, 22.0],   # includes black cherry (P. serotina 25m+)
+		"zelkova":       [14.0, 24.0],   # upright vase shape
+		"dead":          [8.0, 20.0],    # shorter (broken top)
+		"willow":        [10.0, 22.0],   # weeping willow — wide, medium height
+		"magnolia":      [6.0, 16.0],    # sweetbay magnolia can reach 20m
 		"cathedral_elm": [22.0, 34.0],   # mature Literary Walk elms — tall, wide vase
 	}
 
@@ -396,20 +396,14 @@ func _build_trees(trees: Array) -> void:
 			mesh_h = 0.06
 		var sy := desired_h / mesh_h
 
-		# Crown width: moderate data influence from LiDAR crown area.
-		# LiDAR crown_area measures dense inner canopy, not full spread —
-		# real canopy extends significantly beyond the measured boundary.
-		# 40% blend preserves data influence without collapsing proportions.
+		# Crown width: uniform scaling (sx = sy) preserves model proportions.
+		# LiDAR crown_area measures only the dense inner canopy (~10-30m²
+		# for a 20m tree) which compressed sx to 0.72×sy for nearly every
+		# tree, making them all look like sticks. Removed data-driven width.
 		var sx := sy
 		if species == "cathedral_elm":
 			# Cathedral elms MUST stay wide — override crown scaling
 			sx = sy * 1.35  # force 35% wider than tall for canopy convergence
-		elif typeof(tree_entry) == TYPE_DICTIONARY and tree_entry.has("crown_a"):
-			var crown_a := float(tree_entry["crown_a"])
-			if crown_a > 0.0 and desired_h > 1.0:
-				var crown_d := 2.0 * sqrt(crown_a / PI)
-				var crown_ratio := clampf(crown_d / desired_h, 0.3, 1.5)
-				sx = sy * lerpf(1.0, crown_ratio, 0.40)
 
 		# Random Y rotation for variety
 		var y_rot := rng.randf() * TAU
@@ -431,16 +425,11 @@ func _build_trees(trees: Array) -> void:
 		var is_evergreen := 1.0 if species == "conifer" else 0.0
 		cd_by_key[key].append(Color(float(pheno_idx) / 13.0, timing_off + 0.5, is_evergreen, 0.0))
 
-		# Canopy data for dappled shade map — use measured crown area when available
-		var crown_r: float
-		if typeof(tree_entry) == TYPE_DICTIONARY and tree_entry.has("crown_a"):
-			var ca := float(tree_entry["crown_a"])
-			if ca > 0.0:
-				crown_r = sqrt(ca / PI)  # real measured crown radius
-			else:
-				crown_r = desired_h * (0.25 if species == "conifer" else 0.35)
-		else:
-			crown_r = desired_h * (0.25 if species == "conifer" else 0.35)
+		# Canopy data for dappled shade map + LOD1 shells.
+		# LiDAR crown_a measures only the dense inner canopy (often 10-30m²
+		# for a 20m tree), producing absurdly small crown radii (1-3m).
+		# Use proportional radius from desired_h instead — matches visual spread.
+		var crown_r: float = desired_h * (0.25 if species == "conifer" else 0.35)
 		canopy_data.append({"x": tx, "z": tz, "r": crown_r, "ev": species == "conifer"})
 
 		# LOD1 canopy shell data — collected for dome mesh generation
