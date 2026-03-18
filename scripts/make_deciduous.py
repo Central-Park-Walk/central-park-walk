@@ -236,7 +236,7 @@ def make_deciduous_variant(vi, seed):
         limb_data.append((limb_pts, base_angle, end_spread))
 
         # ---- Secondary branches ----
-        n_subs = rng.randint(3, 5)
+        n_subs = rng.randint(5, 8)
         for s in range(n_subs):
             t_start = rng.uniform(0.30, 0.85)
             idx = int(t_start * (len(limb_pts) - 1))
@@ -253,13 +253,33 @@ def make_deciduous_variant(vi, seed):
                     origin.y + sub_dy * sub_len * st,
                     origin.z + sub_len * st * 0.12 + rng.uniform(-0.05, 0.05))))
             bark_parts.append(make_tube(f"sub_{vi}_{b}_{s}", sub_pts,
-                                        0.014, 0.004, SUB_SEGS, bark_mat))
+                                        0.020, 0.006, SUB_SEGS, bark_mat))
+
+            # Tertiary twigs from sub-branches
+            n_twigs = rng.randint(2, 4)
+            for tw_i in range(n_twigs):
+                ti_origin = sub_pts[rng.randint(1, 2)]
+                tw_angle = sub_angle + rng.uniform(-1.0, 1.0)
+                tw_dx = math.cos(tw_angle)
+                tw_dy = math.sin(tw_angle)
+                tw_len = rng.uniform(0.2, 0.5)
+                tw_pts = [
+                    ti_origin.copy(),
+                    Vector((ti_origin.x + tw_dx * tw_len * 0.5,
+                            ti_origin.y + tw_dy * tw_len * 0.5,
+                            ti_origin.z + tw_len * 0.12)),
+                    Vector((ti_origin.x + tw_dx * tw_len,
+                            ti_origin.y + tw_dy * tw_len,
+                            ti_origin.z + tw_len * 0.20)),
+                ]
+                bark_parts.append(make_tube(f"twig_{vi}_{b}_{s}_{tw_i}", tw_pts,
+                                            0.012, 0.004, SUB_SEGS, bark_mat))
 
     # ---- Canopy: moderate density, rounded ----
 
     # Along branches
     for b, (limb_pts, angle, spread) in enumerate(limb_data):
-        n_cl = rng.randint(12, 18)
+        n_cl = rng.randint(6, 10)
         for c in range(n_cl):
             t = rng.uniform(0.30, 1.0)
             idx = int(t * (len(limb_pts) - 1))
@@ -274,7 +294,7 @@ def make_deciduous_variant(vi, seed):
                 f"lc_{vi}_{b}_{c}", pos, r, rng.uniform(0.50, 0.70), rng))
 
     # Dome fill for rounded crown
-    n_dome = rng.randint(12, 20)
+    n_dome = rng.randint(6, 12)
     for f in range(n_dome):
         angle_f = rng.uniform(0, 2.0 * math.pi)
         dist = rng.uniform(0, CANOPY_SPREAD * 0.65)

@@ -280,13 +280,13 @@ def make_birch_variant(vi, seed):
                         origin.y + sub_dy * sub_len * st,
                         origin.z + sub_len * st * 0.05 - st * st * 0.15)))
                 bark_parts.append(make_tube(f"sub_{vi}_{si}_{b}_{s}", sub_pts,
-                                            0.010, 0.003, SUB_SEGS, bark_mat))
+                                            0.014, 0.004, SUB_SEGS, bark_mat))
 
     # ---- Canopy: open, airy — light filters through ----
 
     # Along branches
     for b, (limb_pts, angle, spread) in enumerate(all_limb_data):
-        n_cl = rng.randint(8, 14)  # fewer = airier
+        n_cl = rng.randint(6, 10)  # fewer = airier
         for c in range(n_cl):
             t = rng.uniform(0.40, 1.0)
             idx = int(t * (len(limb_pts) - 1))
@@ -301,7 +301,7 @@ def make_birch_variant(vi, seed):
                 f"lc_{vi}_{b}_{c}", pos, r, rng.uniform(0.45, 0.65), rng))
 
     # Sparse dome fill (birch crown is NOT dense)
-    n_dome = rng.randint(6, 12)
+    n_dome = rng.randint(5, 9)
     for f in range(n_dome):
         angle_f = rng.uniform(0, 2.0 * math.pi)
         dist = rng.uniform(0, CANOPY_SPREAD * 0.5)
@@ -315,7 +315,7 @@ def make_birch_variant(vi, seed):
             rng.uniform(0.40, 0.60), rng))
 
     # Drooping edge clusters (birch hallmark — pendulous tips)
-    n_drape = rng.randint(5, 9)
+    n_drape = rng.randint(4, 7)
     for d in range(n_drape):
         angle_d = rng.uniform(0, 2.0 * math.pi)
         dist = CANOPY_SPREAD * rng.uniform(0.60, 0.95)

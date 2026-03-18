@@ -242,7 +242,7 @@ def make_linden_variant(vi, seed):
         limb_data.append((limb_pts, base_angle, end_spread))
 
         # Secondary branches
-        n_subs = rng.randint(2, 4)
+        n_subs = rng.randint(5, 8)
         for s in range(n_subs):
             t_start = rng.uniform(0.30, 0.80)
             idx = int(t_start * (len(limb_pts) - 1))
@@ -259,13 +259,33 @@ def make_linden_variant(vi, seed):
                     origin.y + sub_dy * sub_len * st,
                     origin.z + sub_len * st * 0.25 + rng.uniform(-0.06, 0.06))))
             bark_parts.append(make_tube(f"sub_{vi}_{b}_{s}", sub_pts,
-                                        0.018, 0.005, SUB_SEGS, bark_mat))
+                                        0.032, 0.008, SUB_SEGS, bark_mat))
+
+            # Tertiary twigs from sub-branches
+            n_twigs = rng.randint(2, 4)
+            for tw_i in range(n_twigs):
+                ti_origin = sub_pts[rng.randint(1, 2)]
+                tw_angle = sub_angle + rng.uniform(-1.0, 1.0)
+                tw_dx = math.cos(tw_angle)
+                tw_dy = math.sin(tw_angle)
+                tw_len = rng.uniform(0.2, 0.5)
+                tw_pts = [
+                    ti_origin.copy(),
+                    Vector((ti_origin.x + tw_dx * tw_len * 0.5,
+                            ti_origin.y + tw_dy * tw_len * 0.5,
+                            ti_origin.z + tw_len * 0.18)),
+                    Vector((ti_origin.x + tw_dx * tw_len,
+                            ti_origin.y + tw_dy * tw_len,
+                            ti_origin.z + tw_len * 0.28)),
+                ]
+                bark_parts.append(make_tube(f"twig_{vi}_{b}_{s}_{tw_i}", tw_pts,
+                                            0.013, 0.004, SUB_SEGS, bark_mat))
 
     # ---- Canopy: very dense, symmetrical, pyramidal ----
 
     # Along branches (dense)
     for b, (limb_pts, angle, spread) in enumerate(limb_data):
-        n_cl = rng.randint(12, 18)
+        n_cl = rng.randint(6, 10)
         for c in range(n_cl):
             t = rng.uniform(0.30, 1.0)
             idx = int(t * (len(limb_pts) - 1))
@@ -280,7 +300,7 @@ def make_linden_variant(vi, seed):
                 f"lc_{vi}_{b}_{c}", pos, r, rng.uniform(0.45, 0.65), rng))
 
     # Dense dome fill (pyramidal: narrower at top)
-    n_dome = rng.randint(18, 28)
+    n_dome = rng.randint(8, 14)
     for f in range(n_dome):
         angle_f = rng.uniform(0, 2.0 * math.pi)
         z = TREE_H * rng.uniform(0.50, 0.95)
@@ -306,19 +326,6 @@ def make_linden_variant(vi, seed):
         leaf_parts.append(make_leaf_cluster(
             f"skirt_{vi}_{d}", Vector((x, y, z)), r,
             rng.uniform(0.50, 0.70), rng))
-
-    # Inner fill
-    n_inner = rng.randint(8, 14)
-    for i_c in range(n_inner):
-        angle_i = rng.uniform(0, 2.0 * math.pi)
-        dist = rng.uniform(0.3, CANOPY_SPREAD * 0.50)
-        z = split_h + (TREE_H - split_h) * rng.uniform(0.25, 0.65)
-        x = math.cos(angle_i) * dist
-        y = math.sin(angle_i) * dist
-        r = rng.uniform(0.22, 0.45)
-        leaf_parts.append(make_leaf_cluster(
-            f"inner_{vi}_{i_c}", Vector((x, y, z)), r,
-            rng.uniform(0.48, 0.65), rng))
 
     # ---- Finalize ----
     all_parts = bark_parts + leaf_parts

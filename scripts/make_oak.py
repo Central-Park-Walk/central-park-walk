@@ -255,7 +255,7 @@ def make_oak_variant(vi, seed):
         limb_data.append((limb_pts, base_angle, end_spread))
 
         # ---- Secondary branches: more gnarled, irregular ----
-        n_subs = rng.randint(3, 5)
+        n_subs = rng.randint(5, 8)
         for s in range(n_subs):
             t_start = rng.uniform(0.20, 0.80)
             idx = int(t_start * (len(limb_pts) - 1))
@@ -273,10 +273,11 @@ def make_oak_variant(vi, seed):
                     origin.y + sub_dy * sub_len * st,
                     origin.z + sub_len * st * 0.20 + rng.uniform(-0.10, 0.10))))
             bark_parts.append(make_tube(f"sub_{vi}_{b}_{s}", sub_pts,
-                                        0.028, 0.008, SUB_SEGS, bark_mat))
+                                        0.038, 0.010, SUB_SEGS, bark_mat))
 
             # Tertiary twigs from sub-branches
-            if rng.random() < 0.6:
+            n_twigs = rng.randint(2, 5)
+            for tw_i in range(n_twigs):
                 ti_origin = sub_pts[rng.randint(1, 3)]
                 tw_angle = sub_angle + rng.uniform(-1.2, 1.2)
                 tw_dx = math.cos(tw_angle)
@@ -291,15 +292,15 @@ def make_oak_variant(vi, seed):
                             ti_origin.y + tw_dy * tw_len,
                             ti_origin.z + tw_len * 0.25)),
                 ]
-                bark_parts.append(make_tube(f"twig_{vi}_{b}_{s}", tw_pts,
-                                            0.012, 0.003, SUB_SEGS, bark_mat))
+                bark_parts.append(make_tube(f"twig_{vi}_{b}_{s}_{tw_i}", tw_pts,
+                                            0.015, 0.005, SUB_SEGS, bark_mat))
 
     # ---- Canopy: dense rounded dome ----
     # Oak canopy is rounder and denser than elm, less drooping
 
     # Along each major limb (upper 40-100%)
     for b, (limb_pts, angle, spread) in enumerate(limb_data):
-        n_cl = rng.randint(14, 22)
+        n_cl = rng.randint(6, 10)
         for c in range(n_cl):
             t = rng.uniform(0.35, 1.0)
             idx = int(t * (len(limb_pts) - 1))
@@ -314,7 +315,7 @@ def make_oak_variant(vi, seed):
                 f"lc_{vi}_{b}_{c}", pos, r, rng.uniform(0.45, 0.65), rng))
 
     # Dense dome fill — oak has rounded top, not pointed
-    n_dome = rng.randint(20, 35)
+    n_dome = rng.randint(8, 15)
     for f in range(n_dome):
         angle_f = rng.uniform(0, 2.0 * math.pi)
         dist = rng.uniform(0, CANOPY_SPREAD * 0.7)
@@ -338,19 +339,6 @@ def make_oak_variant(vi, seed):
         leaf_parts.append(make_leaf_cluster(
             f"edge_{vi}_{d}", Vector((x, y, z)), r,
             rng.uniform(0.50, 0.70), rng))
-
-    # Inner canopy fill (creates depth and density)
-    n_inner = rng.randint(10, 16)
-    for i_c in range(n_inner):
-        angle_i = rng.uniform(0, 2.0 * math.pi)
-        dist = rng.uniform(0.4, CANOPY_SPREAD * 0.55)
-        z = split_h + (TREE_H - split_h) * rng.uniform(0.25, 0.65)
-        x = math.cos(angle_i) * dist
-        y = math.sin(angle_i) * dist
-        r = rng.uniform(0.25, 0.50)
-        leaf_parts.append(make_leaf_cluster(
-            f"inner_{vi}_{i_c}", Vector((x, y, z)), r,
-            rng.uniform(0.45, 0.65), rng))
 
     # ---- Finalize variant ----
     all_parts = bark_parts + leaf_parts

@@ -257,7 +257,7 @@ def make_ginkgo_variant(vi, seed):
         limb_data.append((limb_pts, base_angle, end_spread))
 
         # Spur shoots (short, stubby — ginkgo characteristic)
-        n_spurs = rng.randint(2, 4)
+        n_spurs = rng.randint(3, 6)
         for s in range(n_spurs):
             t_start = rng.uniform(0.30, 0.90)
             idx = int(t_start * (len(limb_pts) - 1))
@@ -276,7 +276,7 @@ def make_ginkgo_variant(vi, seed):
                         origin.z + spur_len * 0.35)),
             ]
             bark_parts.append(make_tube(f"spur_{vi}_{b}_{s}", spur_pts,
-                                        0.012, 0.004, SUB_SEGS, bark_mat))
+                                        0.017, 0.006, SUB_SEGS, bark_mat))
 
     # ---- Canopy: open, clustered along branches ----
     # Ginkgo has an open, airy canopy — clusters of fan leaves on spur shoots

@@ -237,7 +237,7 @@ def make_honeylocust_variant(vi, seed):
         limb_data.append((limb_pts, base_angle, end_spread))
 
         # Fine secondary branches (many, thin — creates airy look)
-        n_subs = rng.randint(3, 6)
+        n_subs = rng.randint(5, 8)
         for s in range(n_subs):
             t_start = rng.uniform(0.25, 0.85)
             idx = int(t_start * (len(limb_pts) - 1))
@@ -255,14 +255,14 @@ def make_honeylocust_variant(vi, seed):
                     origin.y + sub_dy * sub_len * st,
                     origin.z + sub_len * st * 0.10 + rng.uniform(-0.08, 0.05))))
             bark_parts.append(make_tube(f"sub_{vi}_{b}_{s}", sub_pts,
-                                        0.018, 0.005, SUB_SEGS, bark_mat))
+                                        0.030, 0.008, SUB_SEGS, bark_mat))
 
     # ---- Canopy: airy, dappled — hallmark of honeylocust ----
     # Fewer, smaller clusters with more gaps = visible sky through canopy
 
     # Along branches (sparser than oak)
     for b, (limb_pts, angle, spread) in enumerate(limb_data):
-        n_cl = rng.randint(8, 13)
+        n_cl = rng.randint(5, 9)
         for c in range(n_cl):
             t = rng.uniform(0.35, 1.0)
             idx = int(t * (len(limb_pts) - 1))
@@ -277,7 +277,7 @@ def make_honeylocust_variant(vi, seed):
                 f"lc_{vi}_{b}_{c}", pos, r, rng.uniform(0.45, 0.65), rng))
 
     # Light fill (much less dense than oak)
-    n_dome = rng.randint(8, 15)
+    n_dome = rng.randint(5, 10)
     for f in range(n_dome):
         angle_f = rng.uniform(0, 2.0 * math.pi)
         dist = rng.uniform(0, CANOPY_SPREAD * 0.6)

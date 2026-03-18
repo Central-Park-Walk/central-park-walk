@@ -229,7 +229,7 @@ def make_magnolia_variant(vi, seed):
                 pt.y += rng.uniform(-0.02, 0.02)
                 br_pts.append(pt)
 
-            br_r = rng.uniform(0.025, 0.045)
+            br_r = rng.uniform(0.035, 0.063)
             parts.append(make_tube(f"branch_{vi}_{stem_idx}_{b}", br_pts,
                                    br_r, br_r * 0.25, BRANCH_SEGS, bark_mat))
 
@@ -256,7 +256,7 @@ def make_magnolia_variant(vi, seed):
                         sub_origin.x + sub_dx * sub_len * st,
                         sub_origin.y + sub_dy * sub_len * st,
                         sub_origin.z + sub_len * st * 0.25)))
-                sub_r = rng.uniform(0.012, 0.025)
+                sub_r = rng.uniform(0.018, 0.035)
                 parts.append(make_tube(f"sub_{vi}_{stem_idx}_{b}_{s}", sub_pts,
                                        sub_r, sub_r * 0.25, SUB_SEGS, bark_mat))
                 all_branch_tips.append(sub_pts[-1].copy())

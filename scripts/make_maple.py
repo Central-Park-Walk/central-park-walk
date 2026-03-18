@@ -261,7 +261,7 @@ def make_maple_variant(vi, seed):
         limb_data.append((limb_pts, base_angle, end_spread))
 
         # ---- Secondary branches ----
-        n_subs = rng.randint(2, 4)
+        n_subs = rng.randint(5, 8)
         for s in range(n_subs):
             t_start = rng.uniform(0.30, 0.85)
             idx = int(t_start * (len(limb_pts) - 1))
@@ -278,14 +278,34 @@ def make_maple_variant(vi, seed):
                     origin.y + sub_dy * sub_len * st,
                     origin.z + sub_len * st * 0.30 + rng.uniform(-0.06, 0.06))))
             bark_parts.append(make_tube(f"sub_{vi}_{b}_{s}", sub_pts,
-                                        0.022, 0.006, SUB_SEGS, bark_mat))
+                                        0.031, 0.008, SUB_SEGS, bark_mat))
+
+            # Tertiary twigs from sub-branches
+            n_twigs = rng.randint(2, 5)
+            for tw_i in range(n_twigs):
+                ti_origin = sub_pts[rng.randint(1, 3)]
+                tw_angle = sub_angle + rng.uniform(-1.0, 1.0)
+                tw_dx = math.cos(tw_angle)
+                tw_dy = math.sin(tw_angle)
+                tw_len = rng.uniform(0.25, 0.6)
+                tw_pts = [
+                    ti_origin.copy(),
+                    Vector((ti_origin.x + tw_dx * tw_len * 0.5,
+                            ti_origin.y + tw_dy * tw_len * 0.5,
+                            ti_origin.z + tw_len * 0.20)),
+                    Vector((ti_origin.x + tw_dx * tw_len,
+                            ti_origin.y + tw_dy * tw_len,
+                            ti_origin.z + tw_len * 0.30)),
+                ]
+                bark_parts.append(make_tube(f"twig_{vi}_{b}_{s}_{tw_i}", tw_pts,
+                                            0.014, 0.004, SUB_SEGS, bark_mat))
 
     # ---- Canopy: dense, oval, full ----
     # Maple canopies are very dense — little visible branch structure
 
     # Along each major limb
     for b, (limb_pts, angle, spread) in enumerate(limb_data):
-        n_cl = rng.randint(14, 20)
+        n_cl = rng.randint(6, 10)
         for c in range(n_cl):
             t = rng.uniform(0.30, 1.0)
             idx = int(t * (len(limb_pts) - 1))
@@ -300,7 +320,7 @@ def make_maple_variant(vi, seed):
                 f"lc_{vi}_{b}_{c}", pos, r, rng.uniform(0.45, 0.65), rng))
 
     # Dense oval crown fill — taller than wide (oval vs dome)
-    n_fill = rng.randint(25, 38)
+    n_fill = rng.randint(10, 16)
     for f in range(n_fill):
         angle_f = rng.uniform(0, 2.0 * math.pi)
         dist = rng.uniform(0, CANOPY_SPREAD * 0.60)
