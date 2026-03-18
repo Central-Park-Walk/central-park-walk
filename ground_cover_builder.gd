@@ -264,11 +264,11 @@ func _build_chunk(ck: String) -> void:
 		patch_list = ZONE_PATCHES[zone_type]
 	elif zone_type == -1:
 		patch_list = WOODLAND_PATCHES
-	print("GC chunk %s zone=%d patches=%d" % [ck, zone_type, patch_list.size() if patch_list else 0])
 	else:
 		# No ground cover for maintained lawns (zones 0-4, 9)
 		_active_chunks[ck] = []
 		return
+	print("GC chunk %s zone=%d patches=%d" % [ck, zone_type, patch_list.size() if patch_list else 0])
 
 	var chunk_parts: Array = []
 	var rng := RandomNumberGenerator.new()
