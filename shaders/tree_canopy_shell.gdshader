@@ -86,23 +86,20 @@ void vertex() {
 	v_canopy_alpha = mix(1.0, 0.0, winter_bare * (1.0 - evergreen));
 
 	// ---- Organic silhouette noise ----
-	// Break up the smooth hemisphere into irregular tree-crown shapes.
-	// Each tree gets a unique displacement pattern from its world position.
+	// Subtle displacement to break up the perfect hemisphere.
+	// Goal: irregular crown edge, not alien egg pod.
 	vec3 world_pos = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	float tree_id = world_pos.x * 0.173 + world_pos.z * 0.317;
 
-	// Multi-octave displacement along the normal — lumpy, organic crown shape
-	vec3 disp_seed = VERTEX * 2.5 + vec3(tree_id);
-	float bump = vnoise(disp_seed) * 0.18
-	           + vnoise(disp_seed * 2.3 + vec3(7.1)) * 0.10
-	           + vnoise(disp_seed * 5.0 + vec3(13.7)) * 0.04;
-	// Stronger displacement near the equator (crown edge) where silhouette matters
+	// Fine-grain noise — small bumps that roughen the silhouette edge
+	vec3 disp_seed = VERTEX * 5.0 + vec3(tree_id);
+	float bump = vnoise(disp_seed) * 0.06
+	           + vnoise(disp_seed * 3.1 + vec3(7.1)) * 0.03;
+	// Inward pulls create gaps/holes in the canopy silhouette (more natural)
+	bump -= 0.02;
+	// Strongest at equator (silhouette edge), gentle on top
 	float equator_weight = sin(acos(clamp(NORMAL.y, 0.0, 1.0)));
-	VERTEX += NORMAL * bump * (0.5 + equator_weight * 0.5);
-
-	// Flatten the top slightly — real canopies aren't perfectly round on top
-	float top_squash = smoothstep(0.8, 1.0, VERTEX.y);
-	VERTEX.y -= top_squash * 0.08;
+	VERTEX += NORMAL * bump * equator_weight;
 
 	// ---- Wind sway ----
 	float wind_str = length(wind_vec);
