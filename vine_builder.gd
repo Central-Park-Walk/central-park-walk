@@ -46,7 +46,7 @@ func _build_vines(trees: Array) -> void:
 		print("Vine: cp_vines.glb not found — skipping vine placement")
 		return
 
-	var meshes := _loader._load_glb_meshes(glb_path)
+	var meshes: Dictionary = _loader._load_glb_meshes(glb_path)
 	if meshes.is_empty():
 		print("Vine: no meshes found in cp_vines.glb")
 		return

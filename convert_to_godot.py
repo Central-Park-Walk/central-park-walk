@@ -2443,7 +2443,7 @@ def main() -> None:
         # exist in natural (grass/rock) areas — never near buildings or outside park.
         if os.path.exists(LIDAR_DSM) and surface_arr is not None:
             import numpy as np
-            from scipy.ndimage import gaussian_filter, binary_opening, binary_dilation
+            from scipy.ndimage import gaussian_filter, binary_opening, binary_dilation, median_filter
             print("\n--- Targeted rock outcrop restoration (DSM blend) ---")
             dsm_raw = _load_lidar_raster(LIDAR_DSM, "LiDAR DSM (canopy-masked)")
             if dsm_raw is not None:
@@ -2471,8 +2471,10 @@ def main() -> None:
                 del natural_mask, building_buffer
 
                 if rock_candidates.any():
-                    # Morphological opening removes isolated noise pixels
-                    rock_candidates = binary_opening(rock_candidates, iterations=1)
+                    # Aggressive morphological opening removes isolated noise
+                    # and small artifact clusters (3 iterations ≈ 1.8m minimum
+                    # feature radius — real schist outcrops are broader)
+                    rock_candidates = binary_opening(rock_candidates, iterations=3)
 
                     rock_cells = int(rock_candidates.sum())
                     cell_m = WORLD_SIZE / GRID_W
@@ -2482,6 +2484,11 @@ def main() -> None:
                           f"{diff[rock_candidates].max():.2f}m "
                           f"(mean {diff[rock_candidates].mean():.2f}m)")
 
+                    # Pre-smooth the DSM in the blend zone to eliminate sharp
+                    # spikes while preserving broad outcrop shapes. Manhattan
+                    # schist forms smooth faces, not stalagmite-like spikes.
+                    dsm_smooth = median_filter(dsm_arr, size=5)
+
                     # Dilation for natural transition (3 cells ≈ 1.8m)
                     rock_zone = binary_dilation(rock_candidates, iterations=3)
 
@@ -2489,8 +2496,9 @@ def main() -> None:
                     blend_mask = gaussian_filter(rock_zone.astype(np.float32), sigma=3.0)
                     blend_mask = np.clip(blend_mask, 0.0, 1.0)
 
-                    # Blend DSM into DEM only where rock features detected
-                    hm_arr = hm_arr * (1.0 - blend_mask) + dsm_arr * blend_mask
+                    # Blend smoothed DSM into DEM where rock features detected
+                    hm_arr = hm_arr * (1.0 - blend_mask) + dsm_smooth * blend_mask
+                    del dsm_smooth
 
                     # Mark surface type 7 (rock) where features are prominent
                     significant_rock = rock_candidates & (diff > 0.3)
