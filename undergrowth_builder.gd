@@ -538,7 +538,21 @@ func _load_model(sp_name: String) -> Mesh:
 		var atlas_row: int = ai / ATLAS_COLS
 		atlas_off = Vector2(float(atlas_col) / ATLAS_COLS, float(atlas_row) / ATLAS_ROWS)
 
-	# Apply undergrowth shader
+	# Detect embedded PBR textures from 3D meshes (BD3D plant library).
+	# The GLB importer creates StandardMaterial3D per surface — extract
+	# albedo textures before we replace materials with our custom shader.
+	var surface_textures: Array = []
+	var has_embedded_tex := false
+	for si in mesh.get_surface_count():
+		var orig_mat = mesh.surface_get_material(si)
+		var tex: Texture2D = null
+		if orig_mat is StandardMaterial3D:
+			tex = orig_mat.albedo_texture
+			if tex:
+				has_embedded_tex = true
+		surface_textures.append(tex)
+
+	# Apply undergrowth shader per surface
 	for si in mesh.get_surface_count():
 		var mat := ShaderMaterial.new()
 		mat.shader = _shader
@@ -554,8 +568,15 @@ func _load_model(sp_name: String) -> Mesh:
 		mat.set_shader_parameter("hm_world_size", _loader._hm_world_size)
 		if _loader._canopy_texture:
 			mat.set_shader_parameter("canopy_map", _loader._canopy_texture)
-		# Leaf texture atlas
-		if _leaf_atlas and has_atlas:
+
+		if has_embedded_tex and si < surface_textures.size() and surface_textures[si]:
+			# 3D mesh with PBR texture — use albedo_tex mode
+			mat.set_shader_parameter("use_texture", 1.0)
+			mat.set_shader_parameter("albedo_tex", surface_textures[si])
+			mat.set_shader_parameter("use_atlas", 0.0)
+		elif _leaf_atlas and has_atlas:
+			# Flat-card mesh — use shared leaf atlas
+			mat.set_shader_parameter("use_texture", 0.0)
 			mat.set_shader_parameter("leaf_atlas", _leaf_atlas)
 			mat.set_shader_parameter("atlas_offset", atlas_off)
 			mat.set_shader_parameter("atlas_cell_size", Vector2(1.0 / ATLAS_COLS, 1.0 / ATLAS_ROWS))

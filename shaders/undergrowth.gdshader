@@ -23,6 +23,10 @@ uniform vec2 atlas_offset = vec2(0.0, 0.0);  // species cell position in atlas (
 uniform vec2 atlas_cell_size = vec2(0.25, 0.25);  // cell size in UV space (1/cols, 1/rows)
 uniform float use_atlas = 0.0;  // 1.0 = sample atlas, 0.0 = procedural only
 
+// Per-surface albedo texture for 3D meshes (BD3D plant library etc.)
+uniform sampler2D albedo_tex : source_color, filter_linear;
+uniform float use_texture = 0.0;  // 1.0 = read albedo+alpha from albedo_tex
+
 varying vec3 v_world_pos;
 varying float v_seed;
 varying float v_wind_amount;
@@ -66,25 +70,27 @@ void vertex() {
 void fragment() {
 	if (!FRONT_FACING) NORMAL = -NORMAL;
 
-	// ---- LEAF vs STEM detection from UV ----
-	// UV.x = 0..1 across leaf cards, UV.x ≈ 0.5 for stems
-	float edge_dist = abs(UV.x - 0.5) * 2.0;
-	float is_leaf = smoothstep(0.05, 0.2, edge_dist);
-
-	// ---- ALPHA CUTOUT (atlas or procedural) ----
+	// ---- ALPHA CUTOUT ----
 	float leaf_alpha = 1.0;
 	vec3 tex_color = COLOR.rgb;
 
-	if (use_atlas > 0.5) {
-		// Sample species-specific leaf texture from atlas
+	if (use_texture > 0.5) {
+		// 3D mesh with per-surface PBR texture (BD3D plant library)
+		vec4 tex = texture(albedo_tex, UV);
+		tex_color = tex.rgb;
+		leaf_alpha = tex.a;
+	} else if (use_atlas > 0.5) {
+		// Flat-card mesh with shared leaf atlas
+		float edge_dist = abs(UV.x - 0.5) * 2.0;
+		float is_leaf = smoothstep(0.05, 0.2, edge_dist);
 		vec2 atlas_uv = atlas_offset + UV * atlas_cell_size;
 		vec4 tex = texture(leaf_atlas, atlas_uv);
-
-		// Blend: stems use vertex color, leaves use atlas
 		tex_color = mix(COLOR.rgb, tex.rgb, is_leaf * step(0.1, tex.a));
 		leaf_alpha = mix(1.0, tex.a, is_leaf);
 	} else {
-		// Procedural leaf shape from UV
+		// Procedural leaf shape from UV (billboard herbs etc.)
+		float edge_dist = abs(UV.x - 0.5) * 2.0;
+		float is_leaf = smoothstep(0.05, 0.2, edge_dist);
 		float leaf_width = sin(UV.y * 3.14159) * (1.0 - UV.y * 0.25);
 		float edge_noise = vnoise(UV * 6.0 + vec2(v_seed * 13.0, v_seed * 7.0)) * 0.12;
 		leaf_width += edge_noise;
@@ -92,12 +98,15 @@ void fragment() {
 		leaf_alpha = mix(1.0, proc_mask, is_leaf);
 	}
 
-	if (leaf_alpha < 0.35) discard;
+	if (leaf_alpha < 0.4) discard;
 
-	// ---- HEMISPHERE NORMALS ----
-	vec3 outward = normalize(vec3(VERTEX.x, VERTEX.y * 0.25, VERTEX.z));
-	NORMAL = normalize(mix(NORMAL, outward, 0.45));
-	if (!FRONT_FACING) NORMAL = -NORMAL;
+	// ---- NORMALS ----
+	// 3D meshes have real normals; flat-card meshes need hemisphere blend
+	if (use_texture < 0.5) {
+		vec3 outward = normalize(vec3(VERTEX.x, VERTEX.y * 0.25, VERTEX.z));
+		NORMAL = normalize(mix(NORMAL, outward, 0.45));
+		if (!FRONT_FACING) NORMAL = -NORMAL;
+	}
 
 	// Winter discard
 	float winter_discard = smoothstep(3.2, 3.8, season_t);

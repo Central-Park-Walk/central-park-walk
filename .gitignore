@@ -11,6 +11,12 @@ models/
 !models/furniture/cp_rocks.glb
 !models/furniture/cp_*_bridge.glb
 !models/furniture/cp_*_arch.glb
+!models/vegetation/Shrub_*.glb
+!models/vegetation/Fern_*.glb
+!models/vegetation/Herb_*.glb
+!models/vegetation/Wetland_*.glb
+!models/vegetation/Grass_*.glb
+!models/vegetation/Mushroom_*.gltf
 textures/
 sounds/
 
