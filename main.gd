@@ -361,17 +361,33 @@ func _build_showcase_shots() -> void:
 		_tour_shots.back()["filename"] = shot["name"]
 
 
-# README shots — exactly the 4 images referenced in README.md
-# Saves to screenshots/ (not /tmp/tour/) so they land in the repo directly.
+# README candidate shots — 12 diverse locations/times/seasons/weather.
+# Best 4 chosen for README.md. Saves to screenshots/.
 const README_SHOTS: Array = [
-	# Summer golden hour on Literary Walk — grass + canopy shade showcase
-	{"name": "literary_walk_summer_golden", "x": -600.0, "z": 1420.0, "yaw": 90.0, "pitch": -5.0, "hour": 18.5, "season": 1.5, "weather": "clear"},
-	# Rain at Conservatory Water — atmosphere + weather showcase
-	{"name": "conservatory_rain_afternoon", "x": -152.0, "z": 958.0, "yaw": 270.0, "pitch": 0.0, "hour": 15.0, "season": 2.0, "weather": "rain"},
-	# Winter snow at Sheep Meadow
-	{"name": "sheep_meadow_winter_noon", "x": -700.0, "z": 1600.0, "yaw": 270.0, "pitch": 0.0, "hour": 12.0, "season": 3.5, "weather": "snow"},
-	# Autumn dusk — skyline through trees
-	{"name": "skyline_autumn_dusk", "x": -600.0, "z": 1420.0, "yaw": 90.0, "pitch": 0.0, "hour": 19.0, "season": 2.5, "weather": "clear"},
+	# 1. North Woods morning fog — atmospheric forest depth
+	{"name": "readme_north_woods_fog", "x": 850.0, "z": -1300.0, "yaw": 45.0, "pitch": 0.0, "hour": 7.5, "season": 1.5, "weather": "fog"},
+	# 2. Bow Bridge autumn golden hour — iconic landmark + fall color
+	{"name": "readme_bow_bridge_autumn", "x": -540.0, "z": 740.0, "yaw": 310.0, "pitch": -3.0, "hour": 17.5, "season": 2.5, "weather": "clear"},
+	# 3. Ramble summer noon — under-canopy forest walk
+	{"name": "readme_ramble_noon", "x": -350.0, "z": 650.0, "yaw": 200.0, "pitch": 0.0, "hour": 12.0, "season": 1.5, "weather": "clear"},
+	# 4. Cherry Hill spring dawn — blossoms + lake
+	{"name": "readme_cherry_hill_spring", "x": -630.0, "z": 880.0, "yaw": 90.0, "pitch": -5.0, "hour": 6.5, "season": 0.3, "weather": "clear"},
+	# 5. Great Lawn winter snow — open space + skyline
+	{"name": "readme_great_lawn_snow", "x": -99.0, "z": 173.0, "yaw": 270.0, "pitch": 0.0, "hour": 14.0, "season": 3.5, "weather": "snow"},
+	# 6. Bethesda Terrace rain — architecture + weather
+	{"name": "readme_bethesda_rain", "x": -480.0, "z": 1020.0, "yaw": 350.0, "pitch": -5.0, "hour": 16.0, "season": 1.5, "weather": "rain"},
+	# 7. Conservatory Water summer dusk — water + reflections
+	{"name": "readme_conservatory_dusk", "x": -152.0, "z": 958.0, "yaw": 200.0, "pitch": -3.0, "hour": 19.5, "season": 1.5, "weather": "clear"},
+	# 8. Reservoir south winter dawn — frozen water + skyline
+	{"name": "readme_reservoir_dawn", "x": -200.0, "z": -300.0, "yaw": 0.0, "pitch": -2.0, "hour": 7.0, "season": 3.5, "weather": "clear"},
+	# 9. Wagner Cove summer thunderstorm — drama
+	{"name": "readme_wagner_storm", "x": -370.0, "z": 800.0, "yaw": 340.0, "pitch": 0.0, "hour": 15.0, "season": 1.5, "weather": "thunderstorm"},
+	# 10. Sheep Meadow autumn afternoon — open meadow + perimeter trees
+	{"name": "readme_sheep_meadow_autumn", "x": -750.0, "z": 1700.0, "yaw": 120.0, "pitch": 0.0, "hour": 15.0, "season": 2.3, "weather": "clear"},
+	# 11. Cleopatra's Needle spring morning — landmark
+	{"name": "readme_obelisk_spring", "x": 40.0, "z": 360.0, "yaw": 250.0, "pitch": 5.0, "hour": 9.0, "season": 0.5, "weather": "clear"},
+	# 12. The Lake summer night — city glow + water
+	{"name": "readme_lake_night", "x": -500.0, "z": 780.0, "yaw": 90.0, "pitch": -3.0, "hour": 22.0, "season": 1.5, "weather": "clear"},
 ]
 
 func _build_readme_shots() -> void:
