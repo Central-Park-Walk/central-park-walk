@@ -61,11 +61,12 @@ void fragment() {
 	float winter_discard = smoothstep(3.2, 3.8, season_t);
 	if (winter_discard > 0.95 && is_seasonal > 0.5 && is_litter < 0.5) discard;
 
-	// Litter visibility: only in autumn/winter (season_t > 2.0)
+	// Litter visibility: autumn through early spring only
+	// NYC leaf fall starts mid-October (season_t ~2.5), peaks November
 	if (is_litter > 0.5) {
-		float litter_vis = smoothstep(1.8, 2.3, season_t);
-		// Also visible in early spring (leftover from winter)
-		litter_vis = max(litter_vis, 1.0 - smoothstep(0.0, 0.5, season_t));
+		float litter_vis = smoothstep(2.3, 2.7, season_t);  // appears Oct-Nov
+		// Persists through winter into early spring (leftover litter)
+		litter_vis = max(litter_vis, 1.0 - smoothstep(0.0, 0.6, season_t));
 		if (litter_vis < 0.1) discard;
 	}
 

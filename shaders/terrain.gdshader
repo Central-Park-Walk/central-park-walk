@@ -695,6 +695,13 @@ void fragment() {
 		grass_rgh = mix(grass_rgh, city_rgh, city_blend);
 	}
 
+	// Per-pixel micro-variation: soil particles, mineral deposits, moisture
+	vec2 terr_px = world_pos.xz * 23.7 + vec2(world_pos.y * 5.1);
+	float terr_pn = hash2(terr_px) * 0.05 - 0.025;
+	float terr_hr = hash2(terr_px + vec2(71.9, 0.0)) * 0.02;
+	float terr_hb = hash2(terr_px + vec2(0.0, 53.1)) * 0.02;
+	grass_alb += vec3(terr_pn + terr_hr, terr_pn, terr_pn + terr_hb);
+
 	ALBEDO          = grass_alb;
 	vec3 _gn = grass_nrm * 2.0 - 1.0;
 	_gn.xy *= 0.8;
