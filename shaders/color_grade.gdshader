@@ -6,31 +6,21 @@ global uniform float season_t;
 global uniform float lightning_flash;
 
 void fragment() {
+	vec2 px = SCREEN_PIXEL_SIZE;
 	vec3 c = texture(SCREEN_TEXTURE, SCREEN_UV).rgb;
 
-	// --- Anti-firefly: clamp isolated bright pixels ---
-	// Single-pixel HDR spikes (sub-pixel gaps in alpha-tested foliage)
-	// cause temporal flicker when bloom amplifies them. Clamp any pixel
-	// that's much brighter than its neighbors.
-	vec2 px = SCREEN_PIXEL_SIZE;
+	// --- Impressionist color diffusion ---
+	// Light bleeds into shadows, edges soften — painterly quality.
+	// 8 samples at 1-2px radius, blend 12% toward average.
 	vec3 n1 = texture(SCREEN_TEXTURE, SCREEN_UV + vec2(px.x, 0.0)).rgb;
 	vec3 n2 = texture(SCREEN_TEXTURE, SCREEN_UV - vec2(px.x, 0.0)).rgb;
 	vec3 n3 = texture(SCREEN_TEXTURE, SCREEN_UV + vec2(0.0, px.y)).rgb;
 	vec3 n4 = texture(SCREEN_TEXTURE, SCREEN_UV - vec2(0.0, px.y)).rgb;
-	vec3 neighbor_max = max(max(n1, n2), max(n3, n4));
-	// Clamp to 2x brightest neighbor — kills fireflies, preserves real highlights
-	c = min(c, neighbor_max * 2.0 + 0.05);
-
-	// --- Impressionist color diffusion: subtle neighbor blending ---
-	// Light bleeds into shadows, edges soften — painterly quality.
-	// Sample at 2px radius for wider diffusion without extra texture reads.
 	vec3 n5 = texture(SCREEN_TEXTURE, SCREEN_UV + vec2(px.x * 2.0, px.y)).rgb;
 	vec3 n6 = texture(SCREEN_TEXTURE, SCREEN_UV - vec2(px.x * 2.0, px.y)).rgb;
 	vec3 n7 = texture(SCREEN_TEXTURE, SCREEN_UV + vec2(px.x, px.y * 2.0)).rgb;
 	vec3 n8 = texture(SCREEN_TEXTURE, SCREEN_UV - vec2(px.x, px.y * 2.0)).rgb;
 	vec3 neighbor_avg = (n1 + n2 + n3 + n4 + n5 + n6 + n7 + n8) * 0.125;
-	// Blend 12% toward neighbors — enough for soft impressionist feel,
-	// not so much that it looks blurry
 	c = mix(c, neighbor_avg, 0.12);
 
 	// Time-of-day detection from sky luminance
