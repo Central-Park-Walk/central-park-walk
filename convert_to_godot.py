@@ -1888,6 +1888,43 @@ def main() -> None:
         print(f"    {ztype}: {total} trees ({top3_str})")
     print(f"  Trees total: {len(trees_out)}")
 
+    # --- Step 5: Enrich ALL trees with canopy height model ---
+    # Pre-computed 8K canopy height model (DSM - DEM) gives tree height at every pixel.
+    # Sample at each tree position to replace DBH estimates with measured LiDAR heights.
+    CHM_PATH = "lidar_data/canopy_height_model.png"
+    if os.path.exists(CHM_PATH):
+        from PIL import Image
+        import numpy as np
+        chm_img = Image.open(CHM_PATH)
+        chm = np.array(chm_img, dtype=np.float32)  # values in metres
+        chm_h, chm_w = chm.shape
+        enriched = 0
+        for tree in trees_out:
+            if tree.get("lidar_h", 0) > 0:
+                continue  # already has good height from 6M Trees match
+            tx, tz = tree["pos"][0], tree["pos"][2]
+            # Convert world coords to CHM pixel indices
+            gi = int((tx + WORLD_SIZE / 2) / WORLD_SIZE * (chm_w - 1))
+            gj = int((tz + WORLD_SIZE / 2) / WORLD_SIZE * (chm_h - 1))
+            gi = max(0, min(chm_w - 1, gi))
+            gj = max(0, min(chm_h - 1, gj))
+            # Sample 5x5 neighborhood and take max (crown peak)
+            h_max = 0.0
+            for di in range(-2, 3):
+                for dj in range(-2, 3):
+                    si = max(0, min(chm_w - 1, gi + di))
+                    sj = max(0, min(chm_h - 1, gj + dj))
+                    h_max = max(h_max, float(chm[sj, si]))
+            if h_max > 3.0:  # minimum 3m to be a real tree (filter ground noise)
+                tree["lidar_h"] = round(h_max, 1)
+                enriched += 1
+        del chm
+        remaining = sum(1 for t in trees_out if t.get("lidar_h", 0) == 0)
+        print(f"  Trees: {enriched} enriched from canopy height model ({remaining} still DBH-only)")
+    else:
+        remaining = sum(1 for t in trees_out if t.get("lidar_h", 0) == 0)
+        print(f"  Trees: canopy height model not found ({CHM_PATH}), {remaining} trees use DBH estimates")
+
     for e in elements:
         if e["type"] != "node" or "lat" not in e:
             continue
