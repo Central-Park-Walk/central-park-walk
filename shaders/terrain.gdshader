@@ -876,16 +876,15 @@ void fragment() {
 		// Dew forms more on open flat grass, less on slopes and rock
 		dew *= terrain_n.y;  // less on slopes
 		dew *= (1.0 - rock_blend);  // none on rock
-		// Individual droplet sparkle at fine scale
-		float dew_sparkle = hash2(floor(world_pos.xz * 18.0));
-		float sparkle_mask = step(0.55, dew_sparkle) * dew;
-		// Broad dew film: reduces roughness, increases specular across grass
-		ROUGHNESS = mix(ROUGHNESS, 0.15, dew * 0.4);
-		SPECULAR = mix(SPECULAR, 0.45, dew * 0.35);
-		// Droplet sparkle: bright pinpoints where dew catches sunrise
+		// Dew film: reduces roughness, increases specular across grass
+		ROUGHNESS = mix(ROUGHNESS, 0.20, dew * 0.35);
+		SPECULAR = mix(SPECULAR, 0.35, dew * 0.30);
+		// Droplet sparkle: organic noise, not grid — real dew is random
+		float dew_noise = vnoise(world_pos.xz * 25.0);
+		float sparkle_mask = smoothstep(0.55, 0.75, dew_noise) * dew;
 		if (sparkle_mask > 0.01) {
-			SPECULAR = mix(SPECULAR, 0.80, sparkle_mask * 0.5);
-			ROUGHNESS = mix(ROUGHNESS, 0.05, sparkle_mask * 0.3);
+			SPECULAR = mix(SPECULAR, 0.65, sparkle_mask * 0.4);
+			ROUGHNESS = mix(ROUGHNESS, 0.08, sparkle_mask * 0.25);
 		}
 		// Dew-wet grass is slightly more vivid (water on surface deepens color)
 		ALBEDO *= mix(1.0, 1.08, dew * 0.3);
