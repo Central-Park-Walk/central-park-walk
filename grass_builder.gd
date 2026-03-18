@@ -9,6 +9,8 @@ var _loader
 var _blade_meshes: Array = []
 var _flower_meshes: Array = []   # [Clover, Dandelion, Violet, Buttercup]
 var _grass_shader: Shader
+var _impostor_shader: Shader
+var _impostor_mesh: Mesh          # single quad plane reused for all impostor chunks
 var _canopy_img: Image  # CPU-side canopy map for grass suppression under trees
 # Flat arrays from binary file (~10MB total vs 429MB of per-position Dicts)
 var _pos_x: PackedFloat32Array
@@ -20,6 +22,10 @@ var _active_chunks: Dictionary = {}
 var _last_update_pos := Vector3(-99999, 0, -99999)
 var _build_queue: Array = []
 var _queued_set: Dictionary = {}
+
+# Impostor tier tracking (separate from blade chunks)
+var _imp_active: Dictionary = {}     # "icx|icz" -> MeshInstance3D
+var _imp_last_pos := Vector3(-99999, 0, -99999)
 
 # Cached atlas/heightmap for inline lookups (set in _build_grass)
 var _atlas_data: PackedByteArray
@@ -41,6 +47,16 @@ const LOAD_RANGE := 55.0
 const UNLOAD_RANGE := 65.0
 const UPDATE_DIST := 1.0
 
+# Impostor tier (hexaquo LOD tier 2): flat plane per chunk with grass-like shader.
+# Bridges the gap between full-geometry blades (0-35m) and terrain shader (100m+).
+const IMP_CHUNK := 20.0         # larger chunks — impostors are cheap
+const IMP_LOAD_RANGE := 120.0
+const IMP_UNLOAD_RANGE := 130.0
+const IMP_VIS_BEGIN := 20.0     # fade in where blades start fading out
+const IMP_VIS_END := 100.0      # fade out where terrain shader takes over
+const IMP_FADE_IN := 10.0       # margin for fade-in (20-30m overlap with blades)
+const IMP_FADE_OUT := 15.0      # margin for fade-out
+
 const BLADE_NAMES: Array = ["Blade_Lawn", "Blade_Wild", "Blade_Shade", "Blade_Sedge"]
 # Flowers: 0-3 = year-round lawn, 4-5 = spring only, 6-7 = fall only
 const FLOWER_NAMES: Array = [
@@ -57,6 +73,8 @@ func _init(loader) -> void:
 func _build_grass() -> void:
 	var t0 := Time.get_ticks_msec()
 	_grass_shader = _loader._get_shader("grass_blade", "res://shaders/grass_blade.gdshader")
+	_impostor_shader = _loader._get_shader("grass_impostor", "res://shaders/grass_impostor.gdshader")
+	_impostor_mesh = _make_impostor_plane(IMP_CHUNK)
 
 	for bname in BLADE_NAMES:
 		_blade_meshes.append(_load_blade_model(bname))
@@ -129,6 +147,11 @@ func update_camera(camera_pos: Vector3) -> void:
 	# Build 1 queued chunk per frame (always, not just on movement)
 	if not _build_queue.is_empty():
 		_process_queue(camera_pos)
+
+	# Impostor tier: update on larger movement threshold
+	if camera_pos.distance_to(_imp_last_pos) > 5.0:
+		_imp_last_pos = camera_pos
+		_update_impostors(camera_pos)
 
 
 func _update_chunks_near(pos: Vector3) -> void:
@@ -455,3 +478,86 @@ func _load_binary(res_path: String, expected_magic: int) -> Array:
 		ta[j] = tb[j]; pa[j] = pb[j]
 	print("  Grass: %d positions loaded" % cnt)
 	return [xa, za, ta, ya, pa]
+
+
+# ── Impostor tier (hexaquo LOD tier 2) ─────────────────────────────────────
+
+func _make_impostor_plane(size: float) -> Mesh:
+	## Create a flat horizontal quad mesh of given size, centered at origin.
+	var half := size * 0.5
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_normal(Vector3.UP)
+	st.set_uv(Vector2(0, 0)); st.add_vertex(Vector3(-half, 0, -half))
+	st.set_uv(Vector2(1, 0)); st.add_vertex(Vector3( half, 0, -half))
+	st.set_uv(Vector2(1, 1)); st.add_vertex(Vector3( half, 0,  half))
+	st.set_uv(Vector2(0, 0)); st.add_vertex(Vector3(-half, 0, -half))
+	st.set_uv(Vector2(1, 1)); st.add_vertex(Vector3( half, 0,  half))
+	st.set_uv(Vector2(0, 1)); st.add_vertex(Vector3(-half, 0,  half))
+	var mesh: ArrayMesh = st.commit()
+	# Apply impostor shader
+	var mat := ShaderMaterial.new()
+	mat.shader = _impostor_shader
+	if _loader._canopy_texture:
+		mat.set_shader_parameter("canopy_map", _loader._canopy_texture)
+	mat.set_shader_parameter("hm_world_size", _loader._hm_world_size)
+	mesh.surface_set_material(0, mat)
+	return mesh
+
+
+func _update_impostors(pos: Vector3) -> void:
+	## Load/unload impostor planes around the camera. Each plane is a single
+	## MeshInstance3D covering one IMP_CHUNK×IMP_CHUNK area of grass.
+	var load_r := int(ceili(IMP_LOAD_RANGE / IMP_CHUNK))
+	var cam_cx := int(floorf(pos.x / IMP_CHUNK))
+	var cam_cz := int(floorf(pos.z / IMP_CHUNK))
+	var needed: Dictionary = {}
+
+	for dx in range(-load_r, load_r + 1):
+		for dz in range(-load_r, load_r + 1):
+			var icx := cam_cx + dx
+			var icz := cam_cz + dz
+			var cc := Vector3((icx + 0.5) * IMP_CHUNK, 0, (icz + 0.5) * IMP_CHUNK)
+			if cc.distance_to(pos) > IMP_LOAD_RANGE:
+				continue
+			# Only place impostors on grass zones (atlas surface type 1)
+			var sx: int = int((cc.x + _atlas_half) * _atlas_scale)
+			var sz: int = int((cc.z + _atlas_half) * _atlas_scale)
+			if sx >= 0 and sx < _atlas_res and sz >= 0 and sz < _atlas_res:
+				if _atlas_data[(sz * _atlas_res + sx) * 2] == 1:
+					needed["%d|%d" % [icx, icz]] = true
+
+	# Remove out-of-range impostors
+	var to_remove: Array = []
+	for key: String in _imp_active:
+		if not needed.has(key):
+			_imp_active[key].queue_free()
+			to_remove.append(key)
+	for key in to_remove:
+		_imp_active.erase(key)
+
+	# Create new impostors
+	for key: String in needed:
+		if _imp_active.has(key):
+			continue
+		var p: PackedStringArray = key.split("|")
+		var icx := int(p[0])
+		var icz := int(p[1])
+		var wx: float = (icx + 0.5) * IMP_CHUNK
+		var wz: float = (icz + 0.5) * IMP_CHUNK
+		# Sample terrain height at chunk center
+		var wy: float = _loader._terrain_y(wx, wz)
+		# Place impostor slightly above ground (0.02m) to avoid z-fighting with terrain
+		var mi := MeshInstance3D.new()
+		mi.mesh = _impostor_mesh
+		mi.position = Vector3(wx, wy + 0.02, wz)
+		mi.name = "GrassImp_%s" % key
+		# Visibility: fade in at 20m (where blades fade out), fade out at 100m
+		mi.visibility_range_begin = IMP_VIS_BEGIN
+		mi.visibility_range_begin_margin = IMP_FADE_IN
+		mi.visibility_range_end = IMP_VIS_END
+		mi.visibility_range_end_margin = IMP_FADE_OUT
+		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_loader.add_child(mi)
+		_imp_active[key] = mi
