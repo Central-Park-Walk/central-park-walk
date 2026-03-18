@@ -1309,16 +1309,16 @@ func _build_keyframes() -> void:
 		"gnd_bottom":     Color(0.02, 0.015, 0.01),
 		"gnd_horizon":    Color(0.08, 0.06, 0.04),  # warm ground glow from city
 		"ambient_color":  Color(0.85, 0.65, 0.40),  # warm amber city glow — NYC sodium vapor spill
-		"ambient_energy": 0.10,   # darker ambient — lets lamppost pools stand out more
-		"exposure":       0.92,   # darker overall — night IS dark even in NYC
+		"ambient_energy": 0.04,   # deep dark — only lamppost pools provide real light
+		"exposure":       0.70,   # genuinely dark night — bark barely visible without lamps
 		"white":          6.0,
 		"ssao_radius":    2.0,
 		"ssao_intensity": 1.4,
 		"ssao_power":     1.5,
 		"saturation":     0.50,   # colors are very muted at night — olive/brown, not green
 		"contrast":       1.01,
-		"brightness":     1.0,
-		"fog_color":      Color(0.12, 0.09, 0.07),  # warm amber night haze — city light scatter
+		"brightness":     0.82,
+		"fog_color":      Color(0.08, 0.06, 0.04),  # dimmer amber night haze
 		"fog_energy":     0.20,
 		"fog_scatter":    0.06,
 		"fog_density":    0.0003,
