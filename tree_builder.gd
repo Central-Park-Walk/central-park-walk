@@ -24,10 +24,10 @@ const ARCHETYPE_MODEL := {
 	"cathedral_elm": "cathedral_elm",
 }
 
-# Literary Walk / Mall: elms flanking the straight promenade get the wide-vase
-# cathedral elm model so canopies arch over the path. Zone is a bounding box
-# around the Mall centerline (X≈-650, Z≈1200-1500) with 25m lateral tolerance.
-const CATHEDRAL_ELM_ZONE := Rect2(-680.0, 1180.0, 65.0, 340.0)  # x, z, w, h
+# Literary Walk / Mall: mature trees flanking the straight promenade get the
+# wide-vase cathedral elm model. Most are tagged "deciduous" in OSM data but
+# are historically American Elms. Zone covers both rows (X≈-640 and X≈-710).
+const CATHEDRAL_ELM_ZONE := Rect2(-720.0, 1180.0, 90.0, 340.0)  # x, z, w, h
 
 var canopy_data: Array = []  # [{x, z, radius}] for canopy map generation
 
@@ -350,8 +350,9 @@ func _build_trees(trees: Array) -> void:
 
 		# Use the species from data as-is (census or OSM archetype)
 		var species: String = tree_species
-		# Elms on the Literary Walk/Mall get the cathedral elm (wide vase canopy)
-		if species == "elm" and CATHEDRAL_ELM_ZONE.has_point(Vector2(tx, tz)):
+		# Literary Walk/Mall: mature elms AND deciduous trees get cathedral elm
+		# (OSM tags most Mall trees as generic "deciduous" — they're American Elms)
+		if (species == "elm" or species == "deciduous") and CATHEDRAL_ELM_ZONE.has_point(Vector2(tx, tz)):
 			if species_meshes.has("cathedral_elm"):
 				species = "cathedral_elm"
 		if not species_meshes.has(species):
