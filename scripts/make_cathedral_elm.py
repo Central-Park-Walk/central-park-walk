@@ -24,6 +24,7 @@ import bmesh
 import math
 import random
 from mathutils import Vector
+import sys, os; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); from leaf_card_utils import create_leaf_material, make_leaf_cards
 
 # ---- Configuration ----
 TREE_H = 5.5             # taller — mature Literary Walk specimens
@@ -50,38 +51,6 @@ for block in bpy.data.images:
     if block.users == 0:
         bpy.data.images.remove(block)
 
-# ---- Generate leaf texture ----
-# Same approach as standard elm: scattered leaf shapes on transparent background
-TEX = LEAF_TEX_SIZE
-leaf_img = bpy.data.images.new("CathedralElmLeafTex", width=TEX, height=TEX, alpha=True)
-pixels = [0.0] * (TEX * TEX * 4)
-
-leaf_rng = random.Random(888)
-for _ in range(80):  # 80 leaf shapes
-    cx = leaf_rng.randint(4, TEX - 4)
-    cy = leaf_rng.randint(4, TEX - 4)
-    leaf_w = leaf_rng.randint(3, 7)
-    leaf_h = leaf_rng.randint(6, 14)
-    angle = leaf_rng.uniform(0, math.pi)
-    r = leaf_rng.uniform(0.70, 0.85)
-    g = leaf_rng.uniform(0.85, 0.98)
-    b = leaf_rng.uniform(0.65, 0.80)
-    for dy in range(-leaf_h, leaf_h + 1):
-        for dx in range(-leaf_w, leaf_w + 1):
-            rx = dx * math.cos(angle) + dy * math.sin(angle)
-            ry = -dx * math.sin(angle) + dy * math.cos(angle)
-            if (rx / max(leaf_w, 1)) ** 2 + (ry / max(leaf_h, 1)) ** 2 <= 1.0:
-                px = (cx + dx) % TEX
-                py = (cy + dy) % TEX
-                idx = (py * TEX + px) * 4
-                pixels[idx + 0] = r
-                pixels[idx + 1] = g
-                pixels[idx + 2] = b
-                pixels[idx + 3] = 1.0
-
-leaf_img.pixels[:] = pixels
-leaf_img.pack()
-
 # ---- Materials ----
 # Bark: gray-brown (mature American Elm — deeper furrowed bark)
 bark_mat = bpy.data.materials.new(name="CathedralElmBark")
@@ -90,19 +59,8 @@ bsdf_bark = bark_mat.node_tree.nodes["Principled BSDF"]
 bsdf_bark.inputs["Base Color"].default_value = (0.28, 0.23, 0.16, 1.0)
 bsdf_bark.inputs["Roughness"].default_value = 0.90
 
-# Leaves: alpha-clipped material with leaf texture
-leaf_mat = bpy.data.materials.new(name="CathedralElmLeaf")
-leaf_mat.use_nodes = True
-leaf_mat.blend_method = 'CLIP'
-leaf_mat.alpha_threshold = 0.5
-tree = leaf_mat.node_tree
-bsdf_leaf = tree.nodes["Principled BSDF"]
-bsdf_leaf.inputs["Roughness"].default_value = 0.75
-
-tex_node = tree.nodes.new('ShaderNodeTexImage')
-tex_node.image = leaf_img
-tree.links.new(tex_node.outputs['Color'], bsdf_leaf.inputs['Base Color'])
-tree.links.new(tex_node.outputs['Alpha'], bsdf_leaf.inputs['Alpha'])
+# Leaves: crossed-quad leaf cards with elliptic elm leaf atlas
+leaf_mat = create_leaf_material("CathedralElmLeaf", leaf_shape="elliptic", n_leaves=14, tex_size=512, seed=888)
 
 
 # ---- Geometry helpers ----
@@ -145,23 +103,6 @@ def make_tube(name, points, r_start, r_end, segments, mat):
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
     obj.data.materials.append(mat)
-    return obj
-
-
-def make_leaf_cluster(name, center, radius, flatten, rng_local):
-    """Small icosphere canopy cluster with leaf texture material."""
-    bpy.ops.mesh.primitive_ico_sphere_add(
-        subdivisions=1, radius=radius, location=tuple(center))
-    obj = bpy.context.active_object
-    obj.name = name
-    for v in obj.data.vertices:
-        v.co.z *= flatten
-        noise = (math.sin(v.co.x * 6.1 + v.co.z * 3.7) *
-                 math.cos(v.co.y * 5.3 + v.co.x * 2.9) * 0.15 * radius)
-        v.co.x += noise
-        v.co.y += noise * 0.7
-        v.co.z += noise * 0.4
-    obj.data.materials.append(leaf_mat)
     return obj
 
 
@@ -327,8 +268,7 @@ def make_cathedral_elm_variant(vi, seed):
             pos.y += rng.uniform(-0.8, 0.8)
             pos.z += rng.uniform(-0.3, 0.4)
             r = rng.uniform(0.50, 0.95)  # slightly larger clusters
-            leaf_parts.append(make_leaf_cluster(
-                f"lc_{vi}_{b}_{c}", pos, r, rng.uniform(0.40, 0.60), rng))
+            leaf_parts += make_leaf_cards("lc", vi, pos, r, n_cards=3, rng=rng, mat=leaf_mat, flatten=rng.uniform(0.40, 0.60))
 
     # Upper dome — sparser to let light through (cathedral light effect)
     n_dome = rng.randint(8, 14)
@@ -339,9 +279,7 @@ def make_cathedral_elm_variant(vi, seed):
         x = math.cos(angle_f) * dist + rng.uniform(-0.4, 0.4)
         y = math.sin(angle_f) * dist + rng.uniform(-0.4, 0.4)
         r = rng.uniform(0.55, 0.90)
-        leaf_parts.append(make_leaf_cluster(
-            f"dome_{vi}_{f}", Vector((x, y, z)), r,
-            rng.uniform(0.40, 0.55), rng))
+        leaf_parts += make_leaf_cards("dome", vi, Vector((x, y, z)), r, n_cards=3, rng=rng, mat=leaf_mat, flatten=rng.uniform(0.40, 0.55))
 
     # Draping edges — elm's signature weeping tips, heavier for cathedral effect
     n_drape = rng.randint(12, 20)
@@ -352,9 +290,7 @@ def make_cathedral_elm_variant(vi, seed):
         x = math.cos(angle_d) * dist + rng.uniform(-0.4, 0.4)
         y = math.sin(angle_d) * dist + rng.uniform(-0.4, 0.4)
         r = rng.uniform(0.40, 0.75)
-        leaf_parts.append(make_leaf_cluster(
-            f"drape_{vi}_{d}", Vector((x, y, z)), r,
-            rng.uniform(0.50, 0.70), rng))
+        leaf_parts += make_leaf_cards("drape", vi, Vector((x, y, z)), r, n_cards=3, rng=rng, mat=leaf_mat, flatten=rng.uniform(0.50, 0.70))
 
     # ---- Finalize variant ----
     all_parts = bark_parts + leaf_parts

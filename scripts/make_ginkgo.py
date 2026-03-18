@@ -15,6 +15,7 @@ import bmesh
 import math
 import random
 from mathutils import Vector
+import sys, os; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); from leaf_card_utils import create_leaf_material, make_leaf_cards
 
 # ---- Configuration ----
 TREE_H = 5.0              # game scales to 12-20m
@@ -26,7 +27,6 @@ OUT_PATH = "/home/chris/central-park-walk/models/trees/ginkgo.glb"
 TRUNK_SEGS = 7
 BRANCH_SEGS = 5
 SUB_SEGS = 4
-LEAF_TEX_SIZE = 128
 
 # ---- Scene cleanup ----
 bpy.ops.object.select_all(action='SELECT')
@@ -41,40 +41,6 @@ for block in bpy.data.images:
     if block.users == 0:
         bpy.data.images.remove(block)
 
-# ---- Leaf texture ----
-# Ginkgo: fan-shaped leaves, distinctive semicircular form
-TEX = LEAF_TEX_SIZE
-leaf_img = bpy.data.images.new("GinkgoLeafTex", width=TEX, height=TEX, alpha=True)
-pixels = [0.0] * (TEX * TEX * 4)
-
-leaf_rng = random.Random(557)
-for _ in range(65):
-    cx = leaf_rng.randint(6, TEX - 6)
-    cy = leaf_rng.randint(6, TEX - 6)
-    fan_r = leaf_rng.randint(4, 9)  # fan radius
-    angle = leaf_rng.uniform(0, math.pi)
-    # Yellow-green tone (ginkgo has distinctive color even in summer)
-    r = leaf_rng.uniform(0.65, 0.80)
-    g = leaf_rng.uniform(0.82, 0.95)
-    b = leaf_rng.uniform(0.45, 0.60)
-    for dy in range(-fan_r, fan_r + 1):
-        for dx in range(-fan_r, fan_r + 1):
-            rx = dx * math.cos(angle) + dy * math.sin(angle)
-            ry = -dx * math.sin(angle) + dy * math.cos(angle)
-            dist = math.sqrt(rx * rx + ry * ry)
-            # Fan shape: semicircle on upper half, narrow stem below
-            if dist <= fan_r and ry >= -fan_r * 0.2:
-                px = (cx + dx) % TEX
-                py = (cy + dy) % TEX
-                idx = (py * TEX + px) * 4
-                pixels[idx + 0] = r
-                pixels[idx + 1] = g
-                pixels[idx + 2] = b
-                pixels[idx + 3] = 1.0
-
-leaf_img.pixels[:] = pixels
-leaf_img.pack()
-
 # ---- Materials ----
 bark_mat = bpy.data.materials.new(name="GinkgoBark")
 bark_mat.use_nodes = True
@@ -82,18 +48,9 @@ bsdf_bark = bark_mat.node_tree.nodes["Principled BSDF"]
 bsdf_bark.inputs["Base Color"].default_value = (0.38, 0.34, 0.28, 1.0)
 bsdf_bark.inputs["Roughness"].default_value = 0.90
 
-leaf_mat = bpy.data.materials.new(name="GinkgoLeaf")
-leaf_mat.use_nodes = True
-leaf_mat.blend_method = 'CLIP'
-leaf_mat.alpha_threshold = 0.5
-tree = leaf_mat.node_tree
-bsdf_leaf = tree.nodes["Principled BSDF"]
-bsdf_leaf.inputs["Roughness"].default_value = 0.70
-
-tex_node = tree.nodes.new('ShaderNodeTexImage')
-tex_node.image = leaf_img
-tree.links.new(tex_node.outputs['Color'], bsdf_leaf.inputs['Base Color'])
-tree.links.new(tex_node.outputs['Alpha'], bsdf_leaf.inputs['Alpha'])
+# Leaves — crossed-quad leaf cards with fan-shaped ginkgo leaves
+leaf_mat = create_leaf_material("GinkgoLeaf", leaf_shape="fan",
+                                n_leaves=12, tex_size=512, seed=557)
 
 
 # ---- Geometry helpers (same as oak/elm) ----
@@ -135,22 +92,6 @@ def make_tube(name, points, r_start, r_end, segments, mat):
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
     obj.data.materials.append(mat)
-    return obj
-
-
-def make_leaf_cluster(name, center, radius, flatten, rng_local):
-    bpy.ops.mesh.primitive_ico_sphere_add(
-        subdivisions=1, radius=radius, location=tuple(center))
-    obj = bpy.context.active_object
-    obj.name = name
-    for v in obj.data.vertices:
-        v.co.z *= flatten
-        noise = (math.sin(v.co.x * 6.5 + v.co.z * 3.9) *
-                 math.cos(v.co.y * 5.1 + v.co.x * 2.7) * 0.14 * radius)
-        v.co.x += noise
-        v.co.y += noise * 0.7
-        v.co.z += noise * 0.4
-    obj.data.materials.append(leaf_mat)
     return obj
 
 
@@ -294,8 +235,9 @@ def make_ginkgo_variant(vi, seed):
             pos.y += rng.uniform(-0.35, 0.35)
             pos.z += rng.uniform(-0.15, 0.25)
             r = rng.uniform(0.18, 0.40)  # smaller clusters = open canopy
-            leaf_parts.append(make_leaf_cluster(
-                f"lc_{vi}_{b}_{c}", pos, r, rng.uniform(0.50, 0.70), rng))
+            leaf_parts += make_leaf_cards(
+                f"lc_{b}_{c}", vi, pos, r, n_cards=3,
+                rng=rng, mat=leaf_mat, flatten=rng.uniform(0.50, 0.70))
 
     # Central leader clusters (pyramidal top)
     n_top = rng.randint(8, 14)
@@ -307,9 +249,9 @@ def make_ginkgo_variant(vi, seed):
         x = math.cos(angle_f) * dist + rng.uniform(-0.2, 0.2)
         y = math.sin(angle_f) * dist + rng.uniform(-0.2, 0.2)
         r = rng.uniform(0.20, 0.45)
-        leaf_parts.append(make_leaf_cluster(
-            f"top_{vi}_{f}", Vector((x, y, z)), r,
-            rng.uniform(0.45, 0.65), rng))
+        leaf_parts += make_leaf_cards(
+            f"top_{f}", vi, Vector((x, y, z)), r, n_cards=3,
+            rng=rng, mat=leaf_mat, flatten=rng.uniform(0.45, 0.65))
 
     # ---- Finalize ----
     all_parts = bark_parts + leaf_parts
