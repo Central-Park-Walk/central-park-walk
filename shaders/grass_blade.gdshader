@@ -117,9 +117,14 @@ void fragment() {
 	// which breaks our custom normal logic. Flip them back.
 	if (!FRONT_FACING) NORMAL = -NORMAL;
 
-	// Winter discard
+	// Winter discard — maintained lawns fully, woodland mostly
 	float winter_discard = smoothstep(3.2, 3.8, season_t);
 	if (winter_discard > 0.95 && v_grass_type < 4.5) discard;
+	// Woodland grass (types 5-7): discard 80% in winter (sparse dormant remnants)
+	if (winter_discard > 0.5 && v_grass_type > 4.5 && v_grass_type < 7.5) {
+		float wd_hash = hash2(v_world_blade.xz * 2.7 + vec2(19.3, 47.1));
+		if (wd_hash < winter_discard * 0.8) discard;
+	}
 
 	// Aerial height discard — from above, sub-pixel blades create noise
 	float cam_h = INV_VIEW_MATRIX[3].y - v_world_blade.y;
