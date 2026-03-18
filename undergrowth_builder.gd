@@ -39,12 +39,12 @@ const VIS_FADE_MARGIN := 25.0
 const ATLAS_COLS := 4
 const ATLAS_ROWS := 7
 const SPECIES := [
-	# Shrubs (0-4) — wide scale range for natural juvenile/mature size variation
-	{"name": "Shrub_Spicebush",        "s": [0.55, 1.40], "flex": 0.25, "green": 0, "fall": [0.70, 0.65, 0.15], "ai": 0},
-	{"name": "Shrub_WitchHazel",        "s": [0.60, 1.35], "flex": 0.20, "green": 0, "fall": [0.65, 0.60, 0.12], "ai": 1},
-	{"name": "Shrub_Viburnum",          "s": [0.55, 1.40], "flex": 0.25, "green": 0, "fall": [0.60, 0.25, 0.15], "ai": 2},
-	{"name": "Shrub_Sumac",             "s": [0.60, 1.35], "flex": 0.20, "green": 0, "fall": [0.80, 0.20, 0.08], "ai": 3},
-	{"name": "Shrub_Elderberry",        "s": [0.60, 1.35], "flex": 0.30, "green": 0, "fall": [0.55, 0.45, 0.10], "ai": 4, "fc": [1.00, 0.99, 0.91], "bl": [0.78, 1.33]},  # creamy white #FFFDE8; May-Jul
+	# Shrubs (0-4) — moderate scale variation for natural juvenile/mature mix
+	{"name": "Shrub_Spicebush",        "s": [0.65, 1.25], "flex": 0.25, "green": 0, "fall": [0.70, 0.65, 0.15], "ai": 0},
+	{"name": "Shrub_WitchHazel",        "s": [0.70, 1.20], "flex": 0.20, "green": 0, "fall": [0.65, 0.60, 0.12], "ai": 1},
+	{"name": "Shrub_Viburnum",          "s": [0.65, 1.25], "flex": 0.25, "green": 0, "fall": [0.60, 0.25, 0.15], "ai": 2},
+	{"name": "Shrub_Sumac",             "s": [0.70, 1.20], "flex": 0.20, "green": 0, "fall": [0.80, 0.20, 0.08], "ai": 3},
+	{"name": "Shrub_Elderberry",        "s": [0.70, 1.20], "flex": 0.30, "green": 0, "fall": [0.55, 0.45, 0.10], "ai": 4, "fc": [1.00, 0.99, 0.91], "bl": [0.78, 1.33]},  # creamy white #FFFDE8; May-Jul
 	# Tall herbs (5-9) — fc=flower color (RGB from iNaturalist), bl=bloom season_t (from observation histograms)
 	{"name": "Herb_Pokeweed",           "s": [0.70, 1.30], "flex": 0.45, "green": 0, "fall": [0.50, 0.15, 0.30], "ai": 5, "fc": [0.95, 0.88, 0.92], "bl": [1.0, 2.33]},   # white-pink; Jun-Oct
 	{"name": "Herb_JapaneseKnotweed",   "s": [0.80, 1.20], "flex": 0.35, "green": 0, "fall": [0.40, 0.30, 0.12], "ai": 6, "fc": [0.92, 0.92, 0.90], "bl": [1.22, 2.0]},  # white plumes; late Jun-Sep
@@ -55,25 +55,25 @@ const SPECIES := [
 	{"name": "Herb_WhiteWoodAster",     "s": [0.55, 1.00], "flex": 0.35, "green": 0, "fall": [0.35, 0.28, 0.10], "ai": 10, "fc": [0.96, 0.96, 0.96], "bl": [1.56, 2.33]},  # white #F5F5F5; late Jul-Oct
 	{"name": "Herb_Jewelweed",          "s": [0.80, 1.30], "flex": 0.50, "green": 0, "fall": [0.40, 0.30, 0.08], "ai": 11, "fc": [1.00, 0.55, 0.00], "bl": [1.0, 2.33]},   # orange #FF8C00; Jun-Oct
 	{"name": "Herb_Mugwort",            "s": [1.00, 1.50], "flex": 0.30, "green": 0, "fall": [0.45, 0.38, 0.20], "ai": 12},  # inconspicuous greenish; not worth rendering
-	# Ferns (13-14) — wider range for natural clump variation
-	{"name": "Fern_Ostrich",            "s": [0.40, 1.15], "flex": 0.40, "green": 0, "fall": [0.50, 0.40, 0.10], "ai": 13},
-	{"name": "Fern_Christmas",          "s": [0.65, 1.45], "flex": 0.20, "green": 1, "fall": [0.10, 0.28, 0.06], "ai": 14},
+	# Ferns (13-14) — moderate variation, never taller than waist
+	{"name": "Fern_Ostrich",            "s": [0.60, 1.10], "flex": 0.40, "green": 0, "fall": [0.50, 0.40, 0.10], "ai": 13},
+	{"name": "Fern_Christmas",          "s": [0.70, 1.25], "flex": 0.20, "green": 1, "fall": [0.10, 0.28, 0.06], "ai": 14},
 	# Wetland (15)
 	{"name": "Wetland_Cattail",         "s": [0.75, 1.25], "flex": 0.35, "green": 0, "fall": [0.35, 0.25, 0.10], "ai": -1},  # vertex-colored (green stalks + brown catkin)
 	# Fungi (16-17) — no leaf atlas
 	{"name": "Mushroom_Common",         "s": [0.80, 1.50], "flex": 0.0, "green": 0, "fall": [0.30, 0.22, 0.12], "ai": -1},
 	{"name": "Mushroom_Laetiporus",     "s": [0.60, 1.20], "flex": 0.0, "green": 0, "fall": [0.60, 0.35, 0.08], "ai": -1},
-	# Tier 3 shrubs (18-19) — wide scale range for natural variation
-	{"name": "Shrub_SweetPepperbush",   "s": [0.55, 1.40], "flex": 0.25, "green": 0, "fall": [0.60, 0.55, 0.12], "ai": 16, "fc": [1.00, 0.99, 0.82], "bl": [1.22, 2.0]},  # creamy white #FFFDD0; late Jun-Sep
-	{"name": "Shrub_FloweringRaspberry","s": [0.55, 1.35], "flex": 0.30, "green": 0, "fall": [0.55, 0.45, 0.10], "ai": 17, "fc": [0.88, 0.25, 0.50], "bl": [0.67, 1.33]},  # rose-magenta #E04080; late Apr-Jul
+	# Tier 3 shrubs (18-19) — moderate scale variation
+	{"name": "Shrub_SweetPepperbush",   "s": [0.65, 1.25], "flex": 0.25, "green": 0, "fall": [0.60, 0.55, 0.12], "ai": 16, "fc": [1.00, 0.99, 0.82], "bl": [1.22, 2.0]},  # creamy white #FFFDD0; late Jun-Sep
+	{"name": "Shrub_FloweringRaspberry","s": [0.65, 1.20], "flex": 0.30, "green": 0, "fall": [0.55, 0.45, 0.10], "ai": 17, "fc": [0.88, 0.25, 0.50], "bl": [0.67, 1.33]},  # rose-magenta #E04080; late Apr-Jul
 	# Tier 3 herbs (20-23)
 	{"name": "Herb_WhiteSnakeroot",     "s": [0.70, 1.25], "flex": 0.35, "green": 0, "fall": [0.40, 0.32, 0.10], "ai": 18, "fc": [1.00, 1.00, 1.00], "bl": [1.33, 2.67]},  # pure white; Jul-Nov (CP's #1 observed plant!)
 	{"name": "Herb_Ironweed",           "s": [0.75, 1.20], "flex": 0.40, "green": 0, "fall": [0.35, 0.20, 0.25], "ai": 19, "fc": [0.42, 0.05, 0.42], "bl": [1.33, 2.33]},  # deep purple-violet #6A0DAD; Jul-Oct
 	{"name": "Herb_RoseMallow",         "s": [0.80, 1.20], "flex": 0.40, "green": 0, "fall": [0.42, 0.30, 0.12], "ai": 20, "fc": [1.00, 0.71, 0.76], "bl": [1.33, 2.0]},   # pink #FFB6C1 w/ crimson eye; Jul-Sep
 	{"name": "Herb_Burdock",            "s": [0.75, 1.25], "flex": 0.25, "green": 0, "fall": [0.40, 0.30, 0.15], "ai": 21, "fc": [0.73, 0.33, 0.83], "bl": [1.0, 1.67]},   # purple-pink thistle #BA55D3; Jun-Aug
-	# Tier 3 ferns (24-25) — wider range for natural variation
-	{"name": "Fern_Cinnamon",           "s": [0.50, 1.35], "flex": 0.35, "green": 0, "fall": [0.50, 0.40, 0.12], "ai": 22},
-	{"name": "Fern_Sensitive",          "s": [0.60, 1.40], "flex": 0.45, "green": 0, "fall": [0.45, 0.35, 0.10], "ai": 23},
+	# Tier 3 ferns (24-25) — moderate variation
+	{"name": "Fern_Cinnamon",           "s": [0.65, 1.20], "flex": 0.35, "green": 0, "fall": [0.50, 0.40, 0.12], "ai": 22},
+	{"name": "Fern_Sensitive",          "s": [0.70, 1.20], "flex": 0.45, "green": 0, "fall": [0.45, 0.35, 0.10], "ai": 23},
 	# Tier 3 grass (26)
 	{"name": "Grass_Bottlebrush",       "s": [0.80, 1.30], "flex": 0.55, "green": 0, "fall": [0.55, 0.48, 0.22], "ai": 24},
 	# Tier 3 wetland (27-29)

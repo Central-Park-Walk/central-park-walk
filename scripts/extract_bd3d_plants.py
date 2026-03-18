@@ -44,35 +44,36 @@ EXTRACTIONS = [
     ("GS Deciduous bush A 2", "Shrub_FloweringRaspberry", 4000, True,  1.73, 0.20),
 
     # ── Ferns ── BD3D "Forest ferns" → 4 species
-    # Heights from botanical data: Ostrich 1-1.8m, Cinnamon 0.6-1.2m, Christmas 0.3-0.6m, Sensitive 0.3-1m
-    ("GS Forest ferns A 01",  "Fern_Ostrich",             2000, False, 1.30, 0.08),
-    ("GS Forest ferns A 02",  "Fern_Cinnamon",            2000, False, 0.90, 0.08),
-    ("GS Forest ferns B 01",  "Fern_Christmas",           0,    False, 0.32, 0.06),
-    ("GS Forest ferns B 02",  "Fern_Sensitive",           0,    False, 0.60, 0.06),
+    # Use lower end of real range — builder scale jitter (0.40-1.45x) pushes them up further.
+    # These are understory plants, should be knee-to-waist height, never overhead.
+    ("GS Forest ferns A 01",  "Fern_Ostrich",             2000, False, 0.90, 0.08),  # real 1-1.8m, use low end
+    ("GS Forest ferns A 02",  "Fern_Cinnamon",            2000, False, 0.65, 0.08),  # real 0.6-1.2m
+    ("GS Forest ferns B 01",  "Fern_Christmas",           0,    False, 0.32, 0.06),  # real 0.3-0.6m, stays
+    ("GS Forest ferns B 02",  "Fern_Sensitive",           0,    False, 0.45, 0.06),  # real 0.3-1m, use low
 
     # ── Tall herbs ── BD3D "Autumn plant" series → tall upright herbs
     # Heights calibrated to real botanical midpoints
-    ("GS Autumn plant A 05",  "Herb_Pokeweed",            2500, False, 2.00, 0.12),  # real 1.2-3m, magenta stems
-    ("GS Autumn plant B 01",  "Herb_JapaneseKnotweed",    4000, False, 3.00, 0.15),  # real 2-4.5m, bamboo thickets
-    ("GS Autumn plant A 04",  "Herb_JoePyeWeed",          1800, False, 2.00, 0.12),  # real 1.2-3m, pink domes
-    ("GS Autumn plant A 04",  "Herb_Ironweed",            1800, True,  1.80, 0.12),  # real 1.2-2.4m, deep purple
+    ("GS Autumn plant A 05",  "Herb_Pokeweed",            2500, False, 1.50, 0.12),  # real 1.2-3m; use low-mid (jitter amplifies)
+    ("GS Autumn plant B 01",  "Herb_JapaneseKnotweed",    4000, False, 2.20, 0.15),  # real 2-4.5m; tallest herb, keep big
+    ("GS Autumn plant A 04",  "Herb_JoePyeWeed",          1800, False, 1.50, 0.12),  # real 1.2-3m; shoulder height base
+    ("GS Autumn plant A 04",  "Herb_Ironweed",            1800, True,  1.40, 0.12),  # real 1.2-2.4m
 
-    # ── Medium herbs ── smaller leafy forms
-    ("GS Autumn plant A 03",  "Herb_Mugwort",             1200, False, 1.00, 0.10),  # real 0.6-1.5m, silvery
-    ("GS Autumn plant A 02",  "Herb_WhiteSnakeroot",      900,  False, 1.00, 0.10),  # real 0.5-1.5m, white corymbs
-    ("GS Autumn plant B 01",  "Herb_Burdock",             4000, True,  1.00, 0.15),  # real 0.6-1.5m, large leaves
+    # ── Medium herbs ── smaller leafy forms (waist height and below)
+    ("GS Autumn plant A 03",  "Herb_Mugwort",             1200, False, 0.80, 0.10),  # real 0.6-1.5m
+    ("GS Autumn plant A 02",  "Herb_WhiteSnakeroot",      900,  False, 0.70, 0.10),  # real 0.5-1.5m
+    ("GS Autumn plant B 01",  "Herb_Burdock",             4000, True,  0.80, 0.15),  # real 0.6-1.5m
 
     # ── Flowering herbs ── BD3D meadow flowers
-    ("GS Dryland meadow flower 01", "Herb_Coneflower",    1400, False, 2.00, 0.08),  # real 1.5-3m, yellow drooping
-    ("GS Dryland meadow flower 02", "Herb_CardinalFlower", 900, False, 0.80, 0.08),  # real 0.6-1m, scarlet spike
-    ("GS PaperWhite",         "Herb_RoseMallow",          3000, False, 1.50, 0.10),  # real 1-2m, dinner-plate flowers
+    ("GS Dryland meadow flower 01", "Herb_Coneflower",    1400, False, 1.40, 0.08),  # real 1.5-3m; tall but thin
+    ("GS Dryland meadow flower 02", "Herb_CardinalFlower", 900, False, 0.70, 0.08),  # real 0.6-1m
+    ("GS PaperWhite",         "Herb_RoseMallow",          3000, False, 1.20, 0.10),  # real 1-2m
 
     # ── Low herbs ── BD3D nettles for woodland floor species
     ("GS Nettle 02",          "Herb_WhiteWoodAster",      1800, False, 0.45, 0.06),  # real 0.3-0.6m, sprawling
-    ("GS Nettle 01",          "Herb_Jewelweed",           2500, False, 1.00, 0.08),  # real 0.6-1.5m, translucent stems
+    ("GS Nettle 01",          "Herb_Jewelweed",           2500, False, 0.80, 0.08),  # real 0.6-1.5m
 
     # ── Grass ── BD3D grass clump for bottlebrush
-    ("GS Grass Clump 01",     "Grass_Bottlebrush",        3000, False, 1.00, 0.04),  # real 0.6-1.4m, seed heads
+    ("GS Grass Clump 01",     "Grass_Bottlebrush",        3000, False, 0.70, 0.04),  # real 0.6-1.4m, use low end
 
     # ── Wetland ── BD3D upright plants for emergent aquatic species
     ("GS type D plant 01",    "Wetland_Cattail",          4000, False, 2.20, 0.10),  # real 1.5-3m, sword leaves + catkins
