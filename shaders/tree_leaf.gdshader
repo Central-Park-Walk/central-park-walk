@@ -234,8 +234,9 @@ void fragment() {
 	float bump_coarse = vnoise(frag_world * 45.0);
 	float bump_fine = vnoise(frag_world * 110.0);
 	float bump_h = bump_coarse * 0.6 + bump_fine * 0.4;
-	// Perturb normal via screen-space height derivatives
-	NORMAL = normalize(NORMAL + vec3(dFdx(bump_h), dFdy(bump_h), 0.0) * 3.5);
+	// Perturb normal via screen-space height derivatives (subtle — just enough
+	// to break up uniform lighting, not enough to flip normals or wash out)
+	NORMAL = normalize(NORMAL + vec3(dFdx(bump_h), dFdy(bump_h), 0.0) * 1.2);
 
 	// Within-canopy detail: simulate individual leaf shadows, overlap, light pockets
 	vec3 tree_pos = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
@@ -304,23 +305,19 @@ void fragment() {
 
 	// --- Enhanced subsurface scattering / transmission ---
 	// Real leaves are translucent — light physically passes through the tissue.
-	// This is THE single biggest cue that separates "plastic" from "alive".
-	// Backlit canopies should glow green-gold; this is what EGTTR gets right.
-	vec3 backlight_col = vec3(0.58, 0.50, 0.14);  // strong warm green-gold transmission
+	// BACKLIGHT must stay well below ALBEDO or it washes the canopy white.
+	// Target: ~30-40% of front-face brightness for a visible green-gold glow.
+	vec3 backlight_col = vec3(0.46, 0.36, 0.10);  // warm green-gold (modest boost from original)
 	// Tint with leaf color so autumn leaves glow amber/red
-	backlight_col = mix(backlight_col, v_leaf_color * 0.8, 0.40);
+	backlight_col = mix(backlight_col, v_leaf_color * 0.6, 0.45);
 	float sss_strength = v_leaf_density;
 	// Spring leaves are thinner, more translucent
-	float spring_boost = (1.0 - smoothstep(0.3, 0.8, season_t)) * 0.4;
+	float spring_boost = (1.0 - smoothstep(0.3, 0.8, season_t)) * 0.3;
 	sss_strength += spring_boost;
-	// View-angle boost: leaves nearly edge-on to viewer transmit more light
-	// (thin cross-section means more light reaches your eye)
-	float edge_transmission = pow(1.0 - abs(dot(NORMAL, VIEW)), 2.0);
-	sss_strength += edge_transmission * 0.25;
 	// Conifer needles: thick, minimal SSS
-	if (sp == 5) sss_strength *= 0.2;
+	if (sp == 5) sss_strength *= 0.25;
 	// Magnolia: thick waxy leaves, reduced transmission
-	if (sp == 13) sss_strength *= 0.5;
+	if (sp == 13) sss_strength *= 0.55;
 	// Blossom petals: strong pink/white translucency (backlit cherry blossoms are iconic)
 	if (v_blossom > 0.01) {
 		vec3 petal_sss = BLOSSOM_COLORS[sp] * 0.7;  // petal color glows through
