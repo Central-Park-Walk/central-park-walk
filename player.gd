@@ -25,15 +25,15 @@ func _ready() -> void:
 	var col := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
 	cap.radius = 0.25
-	cap.height = 1.70
+	cap.height = 1.52
 	col.shape   = cap
-	col.position = Vector3(0.0, 0.85, 0.0)
+	col.position = Vector3(0.0, 0.76, 0.0)
 	add_child(col)
 
 	# Head node – only rotates on X (pitch)
 	head = Node3D.new()
 	head.name     = "Head"
-	head.position = Vector3(0.0, 1.73, 0.0)  # 6ft player, eye height ~5'8"
+	head.position = Vector3(0.0, 1.55, 0.0)  # ~5'1" eye height — trees feel bigger
 	add_child(head)
 
 	# Camera attached to head

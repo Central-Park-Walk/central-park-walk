@@ -270,24 +270,27 @@ func _build_trees(trees: Array) -> void:
 
 	# Desired height ranges per species archetype (metres)
 	# [min, max] — census DBH drives interpolation within range
+	# DBH fallback height ranges — raised maximums to match real mature
+	# Central Park specimens. Old ranges capped too low (deciduous at 22m
+	# when real mature trees reach 30m+).
 	var height_ranges := {
-		"oak":           [14.0, 25.0],
-		"maple":         [10.0, 20.0],
-		"elm":           [18.0, 30.0],   # American Elm — tall vase shape
-		"conifer":       [15.0, 30.0],
-		"deciduous":     [10.0, 22.0],
-		"birch":         [10.0, 18.0],
-		"honeylocust":   [12.0, 22.0],   # open, airy crown
-		"callery_pear":  [8.0, 14.0],    # medium street tree
-		"ginkgo":        [12.0, 20.0],   # slow-growing, columnar
-		"london_plane":  [15.0, 30.0],   # tall broad crown, like sycamore
-		"linden":        [12.0, 22.0],   # dense symmetrical crown
-		"cherry":        [6.0, 12.0],    # small ornamental
-		"zelkova":       [12.0, 22.0],   # upright vase shape
-		"dead":          [8.0, 16.0],    # shorter (broken top)
-		"willow":        [10.0, 18.0],   # weeping willow — wide, medium height
-		"magnolia":      [5.0, 10.0],    # saucer magnolia — short, wide crown
-		"cathedral_elm": [22.0, 32.0],   # mature Literary Walk elms — tall, wide vase
+		"oak":           [12.0, 30.0],   # red/white oak — massive when mature
+		"maple":         [10.0, 26.0],   # sugar/Norway maple
+		"elm":           [14.0, 32.0],   # American Elm — tall vase shape
+		"conifer":       [12.0, 30.0],
+		"deciduous":     [10.0, 28.0],   # generic — raised from 22 to 28
+		"birch":         [8.0, 20.0],
+		"honeylocust":   [10.0, 25.0],   # open, airy crown
+		"callery_pear":  [6.0, 16.0],    # medium street tree
+		"ginkgo":        [8.0, 22.0],    # slow-growing
+		"london_plane":  [14.0, 32.0],   # tall broad crown, like sycamore
+		"linden":        [10.0, 24.0],   # dense symmetrical crown
+		"cherry":        [5.0, 14.0],    # small ornamental
+		"zelkova":       [10.0, 24.0],   # upright vase shape
+		"dead":          [6.0, 18.0],    # shorter (broken top)
+		"willow":        [8.0, 20.0],    # weeping willow — wide, medium height
+		"magnolia":      [4.0, 12.0],    # saucer magnolia — short, wide crown
+		"cathedral_elm": [22.0, 34.0],   # mature Literary Walk elms — tall, wide vase
 	}
 
 	# Foliage zone data for deciduous sub-species assignment
@@ -383,7 +386,7 @@ func _build_trees(trees: Array) -> void:
 			var h_range: Array = height_ranges.get(species, [10.0, 22.0])
 			var h_min := float(h_range[0])
 			var h_max := float(h_range[1])
-			var dbh_t := clampf((float(dbh) - 3.0) / 30.0, 0.0, 1.0)
+			var dbh_t := clampf((float(dbh) - 3.0) / 45.0, 0.0, 1.0)  # /45 not /30 — real DBH goes to 52"
 			desired_h = lerpf(h_min, h_max, dbh_t)
 
 		# Scale factor: desired_height / mesh_height_in_raw_units

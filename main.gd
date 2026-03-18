@@ -104,7 +104,7 @@ const LANDUSE_TYPE_TO_ID: Dictionary = {
 
 var _cli_pos := Vector3.ZERO  # --pos x,z  or --pos x,z,yaw  or --pos x,z,yaw,height
 var _cli_pos_set := false
-var _cli_height := 1.8  # default eye height above terrain
+var _cli_height := 1.55  # default eye height above terrain (~5'1")
 var _cli_pitch := 0.0   # --pitch degrees (negative = look down)
 
 func _ready() -> void:
@@ -974,7 +974,7 @@ func _grass_tour_teleport() -> void:
 	var spot: Dictionary = _grass_tour_spots[_grass_tour_idx]
 	var x: float = spot["x"]
 	var z: float = spot["z"]
-	_player.global_position = Vector3(x, _terrain_height(x, z) + 1.8, z)
+	_player.global_position = Vector3(x, _terrain_height(x, z) + 1.55, z)
 	_player.velocity = Vector3.ZERO
 	_player.rotation_degrees.y = spot["yaw"]
 	var head: Node3D = _player.get_node("Head")
