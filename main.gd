@@ -1126,11 +1126,11 @@ func _build_keyframes() -> void:
 		"exposure":       0.85,
 		"white":          6.0,
 		"ssao_radius":    2.0,
-		"ssao_intensity": 2.2,
-		"ssao_power":     1.8,
+		"ssao_intensity": 1.4,
+		"ssao_power":     1.5,
 		"saturation":     0.75,
-		"contrast":       1.06,
-		"brightness":     0.88,
+		"contrast":       1.02,
+		"brightness":     0.95,
 		"fog_color":      Color(0.12, 0.10, 0.14),
 		"fog_energy":     0.20,
 		"fog_scatter":    0.05,
@@ -1166,16 +1166,16 @@ func _build_keyframes() -> void:
 		"exposure":       0.72,
 		"white":          5.5,
 		"ssao_radius":    1.5,
-		"ssao_intensity": 2.5,
-		"ssao_power":     1.8,
-		"saturation":     1.05,
-		"contrast":       1.08,
-		"brightness":     0.92,
+		"ssao_intensity": 1.5,
+		"ssao_power":     1.5,
+		"saturation":     1.0,
+		"contrast":       1.02,
+		"brightness":     0.96,
 		"fog_color":      Color(0.50, 0.42, 0.34),   # subtle warm haze, not amber wash
 		"fog_energy":     0.45,
 		"fog_scatter":    0.18,
 		"fog_density":    0.0005,   # golden hour haze — buildings fade into warm atmosphere
-		"fog_aerial":     0.22,     # atmospheric depth
+		"fog_aerial":     0.30,     # atmospheric depth — haze does the depth work (EGTTR-style)
 		"fog_sky_affect": 0.30,
 		"sun_energy":     0.90,
 		"sun_color":      Color(1.0, 0.75, 0.50),    # warm but not deep amber
@@ -1204,16 +1204,16 @@ func _build_keyframes() -> void:
 		"exposure":       0.68,
 		"white":          6.0,
 		"ssao_radius":    2.0,
-		"ssao_intensity": 2.0,
-		"ssao_power":     1.6,
-		"saturation":     1.05,
-		"contrast":       1.06,
-		"brightness":     0.90,
+		"ssao_intensity": 1.3,
+		"ssao_power":     1.4,
+		"saturation":     1.0,
+		"contrast":       1.01,
+		"brightness":     0.96,
 		"fog_color":      Color(0.62, 0.60, 0.56),  # warmer haze — NYC summer atmosphere
 		"fog_energy":     0.5,
 		"fog_scatter":    0.06,
 		"fog_density":    0.0004,   # NYC has noticeable daytime haze — buildings fade at distance
-		"fog_aerial":     0.25,     # atmospheric scattering: blue haze on distant objects
+		"fog_aerial":     0.35,     # atmospheric scattering — distant objects fade into haze (EGTTR-style)
 		"fog_sky_affect": 0.30,
 		"sun_energy":     0.95,
 		"sun_color":      Color(0.95, 0.92, 0.85),
@@ -1244,16 +1244,16 @@ func _build_keyframes() -> void:
 		"exposure":       0.72,
 		"white":          5.5,
 		"ssao_radius":    2.0,
-		"ssao_intensity": 1.8,
-		"ssao_power":     1.9,
-		"saturation":     1.05,   # natural — saturation boost makes everything amber
-		"contrast":       1.08,   # long shadows
-		"brightness":     0.93,
+		"ssao_intensity": 1.4,
+		"ssao_power":     1.5,
+		"saturation":     1.0,    # natural — let sun color do the work
+		"contrast":       1.02,   # soft long shadows
+		"brightness":     0.96,
 		"fog_color":      Color(0.55, 0.45, 0.35),    # neutral warm haze, not amber blanket
 		"fog_energy":     0.45,
 		"fog_scatter":    0.18,
 		"fog_density":    0.0005,   # golden hour atmospheric haze
-		"fog_aerial":     0.22,     # atmospheric depth
+		"fog_aerial":     0.30,     # atmospheric depth — haze creates distance (EGTTR-style)
 		"fog_sky_affect": 0.30,
 		"sun_energy":     0.95,    # strong low sun but not overblown
 		"sun_color":      Color(1.0, 0.72, 0.45),     # warm golden, not deep amber
@@ -1284,10 +1284,10 @@ func _build_keyframes() -> void:
 		"exposure":       0.92,   # darker overall — night IS dark even in NYC
 		"white":          6.0,
 		"ssao_radius":    2.0,
-		"ssao_intensity": 2.2,
-		"ssao_power":     1.8,
+		"ssao_intensity": 1.4,
+		"ssao_power":     1.5,
 		"saturation":     0.50,   # colors are very muted at night — olive/brown, not green
-		"contrast":       1.04,
+		"contrast":       1.01,
 		"brightness":     1.0,
 		"fog_color":      Color(0.12, 0.09, 0.07),  # warm amber night haze — city light scatter
 		"fog_energy":     0.20,

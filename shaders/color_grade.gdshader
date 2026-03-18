@@ -36,8 +36,8 @@ void fragment() {
 	// Slightly brighter floor at night (city light pollution)
 	vec3 dark_floor = mix(vec3(0.018, 0.014, 0.012), vec3(0.022, 0.018, 0.016), night_t);
 	c = max(c, dark_floor);
-	// Gentle shadow shaping — softer at night to preserve detail
-	c = pow(c, vec3(mix(1.06, 1.02, night_t)));
+	// Very gentle shadow shaping — preserve detail like EGTTR's soft look
+	c = pow(c, vec3(mix(1.02, 1.01, night_t)));
 
 	float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
 
@@ -66,38 +66,36 @@ void fragment() {
 
 	float shadow_blend = 1.0 - smoothstep(0.0, 0.25, lum);
 	float highlight_blend = smoothstep(0.40, 0.75, lum);
-	c *= mix(vec3(1.0), shadow_tint, shadow_blend * 0.45);
-	c *= mix(vec3(1.0), highlight_tint, highlight_blend * 0.40);
+	c *= mix(vec3(1.0), shadow_tint, shadow_blend * 0.20);
+	c *= mix(vec3(1.0), highlight_tint, highlight_blend * 0.15);
 
-	// Enrich greens — foliage pop (less at night, more in spring)
-	// 0.14 was too aggressive — combined with terrain/grass shader green, made everything neon
-	float green_boost = 0.06 * (1.0 - night_t * 0.7);
-	green_boost *= (1.0 + spring_s * 0.3);            // spring: lusher greens
+	// Enrich greens — subtle foliage warmth, EGTTR-style muted olive
+	float green_boost = 0.03 * (1.0 - night_t * 0.7);
+	green_boost *= (1.0 + spring_s * 0.2);            // spring: slightly lusher
 	green_boost *= (1.0 - winter_s * 0.5);            // winter: muted foliage
 	c.g *= 1.0 + green_boost * smoothstep(0.08, 0.4, c.g);
-	// Deepen blues — rich sky and shadows
-	float blue_boost = 0.10 * (1.0 - night_t * 0.5);
+	// Gentle blue enrichment — soft sky, not vivid
+	float blue_boost = 0.04 * (1.0 - night_t * 0.5);
 	c.b *= 1.0 + blue_boost * smoothstep(0.06, 0.35, c.b);
 	// Soften reds toward warm brown (less at night)
 	float red_excess = max(c.r - (c.g + c.b) * 0.5, 0.0);
-	c.r -= red_excess * mix(0.20, 0.10, night_t);
-	c.g += red_excess * 0.05;
+	c.r -= red_excess * mix(0.15, 0.08, night_t);
+	c.g += red_excess * 0.04;
 
-	// Softer S-curve — luminous midtones, visible shadows
-	c = c * c / (c * c + 0.08) * 1.08;
+	// Gentle filmic curve — retains shadow detail, soft highlight rolloff (EGTTR-style)
+	c = c / (c + 0.20) * 1.20;
 
-	// Saturate — 1.35 was too aggressive, combined with environment saturation
-	// made greens/warm tones oversaturated. 1.18 gives natural vibrance.
+	// Saturation — restrained, naturalistic. EGTTR greens are muted olive, not vivid.
 	float lum2 = dot(c, vec3(0.2126, 0.7152, 0.0722));
-	float sat = 1.18;
-	sat = mix(sat, 1.05, night_t);     // less saturated at night
+	float sat = 1.08;
+	sat = mix(sat, 1.0, night_t);      // neutral at night
 	sat = mix(sat, sat * 0.85, winter_s * 0.4);  // cooler winter
 	c = mix(vec3(lum2), c, sat);
 
-	// Warm amber cast — subtle, less at night (more blue-gray)
-	vec3 cast = mix(vec3(1.03, 1.01, 0.94), vec3(0.98, 0.98, 1.02), night_t);
-	// Golden hour: moderate warm cast (sun color already handles warmth)
-	cast = mix(cast, vec3(1.06, 1.02, 0.90), golden_t * 0.3);
+	// Warm cast — very subtle, unified tone
+	vec3 cast = mix(vec3(1.02, 1.005, 0.96), vec3(0.98, 0.98, 1.02), night_t);
+	// Golden hour: gentle warmth (sun color already handles most of it)
+	cast = mix(cast, vec3(1.04, 1.01, 0.92), golden_t * 0.25);
 	c *= cast;
 
 	// Eye adaptation — lift shadows in very dark scenes (NYC never pitch black)
@@ -105,10 +103,9 @@ void fragment() {
 	float lift = smoothstep(0.04, 0.0, scene_lum) * night_t * 0.015;
 	c += lift;
 
-	// Vignette — darker edges deepen the tunnel-vision glow
-	// Stronger at night (lamplight pools), softer during day
+	// Vignette — very subtle, EGTTR barely uses any
 	vec2 vig_uv = SCREEN_UV * 2.0 - 1.0;
-	float vig_strength = mix(0.18, 0.28, night_t);
+	float vig_strength = mix(0.08, 0.14, night_t);
 	float vig = 1.0 - dot(vig_uv, vig_uv) * vig_strength;
 	c *= vig;
 
