@@ -202,8 +202,8 @@ void sky() {
 		float cloud_y = max(elev, 0.01);
 		vec2 cloud_uv = dir.xz / (cloud_y + 0.1) * 0.8;
 		// Cloud drift: base speed + wind pushes clouds in wind direction
-		vec2 drift = vec2(cloud_speed, cloud_speed * 0.7);
-		drift += wind_vec * 0.002;  // wind accelerates cloud movement
+		// Clouds drift steadily — prevailing westerlies (NYC), not oscillating sway
+		vec2 drift = vec2(cloud_speed, cloud_speed * 0.4);  // mostly west-to-east
 		cloud_uv += TIME * drift;
 
 		// Multi-scale noise: base shape + edge detail
