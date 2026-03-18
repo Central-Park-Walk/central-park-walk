@@ -9,15 +9,15 @@ import bpy
 import math
 import os
 
+import sys as _sys
+_sys.path.insert(0, __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__))), "scripts"))
+from pbr_utils import make_pbr_material
+
+
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete()
 
-iron = bpy.data.materials.new("Iron")
-iron.use_nodes = True
-bsdf = iron.node_tree.nodes["Principled BSDF"]
-bsdf.inputs["Base Color"].default_value = (0.10, 0.10, 0.11, 1.0)
-bsdf.inputs["Roughness"].default_value = 0.65
-bsdf.inputs["Metallic"].default_value = 0.85
+iron = make_pbr_material("Iron", "cast_iron", tint=(0.08, 0.08, 0.08), tint_strength=0.7)
 
 SIZE = 1.20      # overall square size
 CENTER_R = 0.15  # center opening radius
@@ -89,5 +89,5 @@ outdir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))
                       "models", "furniture")
 os.makedirs(outdir, exist_ok=True)
 outpath = os.path.join(outdir, "cp_tree_pit_grate.glb")
-bpy.ops.export_scene.gltf(filepath=outpath, export_format='GLB')
+bpy.ops.export_scene.gltf(filepath=outpath, export_format='GLB', export_image_format='JPEG', export_image_quality=85)
 print(f"Exported: {outpath} ({os.path.getsize(outpath)} bytes)")

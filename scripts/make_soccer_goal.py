@@ -12,6 +12,11 @@ Exports to models/furniture/cp_soccer_goal.glb
 import bpy
 import math
 
+import sys as _sys
+_sys.path.insert(0, __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__))), "scripts"))
+from pbr_utils import make_pbr_material
+
+
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete()
 
@@ -72,12 +77,7 @@ for sx in [-GOAL_W/2, GOAL_W/2]:
     objects.append(tbar)
 
 # --- Material: white aluminum ---
-mat = bpy.data.materials.new("WhiteAluminum")
-mat.use_nodes = True
-bsdf = mat.node_tree.nodes["Principled BSDF"]
-bsdf.inputs["Base Color"].default_value = (0.90, 0.90, 0.88, 1.0)
-bsdf.inputs["Metallic"].default_value = 0.6
-bsdf.inputs["Roughness"].default_value = 0.4
+mat = make_pbr_material("WhiteAluminum", "cast_iron", tint=(0.85, 0.85, 0.82), tint_strength=0.4)
 
 for obj in objects:
     obj.data.materials.clear()
@@ -93,7 +93,7 @@ obj = bpy.context.active_object
 obj.name = "SoccerGoal"
 
 out_path = "/home/chris/central-park-walk/models/furniture/cp_soccer_goal.glb"
-bpy.ops.export_scene.gltf(filepath=out_path, export_format='GLB')
+bpy.ops.export_scene.gltf(filepath=out_path, export_format='GLB', export_image_format='JPEG', export_image_quality=85)
 vcount = len(obj.data.vertices)
 fcount = len(obj.data.polygons)
 print(f"Exported Soccer Goal to {out_path} ({vcount} verts, {fcount} faces)")

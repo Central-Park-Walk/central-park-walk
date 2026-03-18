@@ -8,28 +8,19 @@ import bpy
 import math
 import os
 
+import sys as _sys
+_sys.path.insert(0, __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__))), "scripts"))
+from pbr_utils import make_pbr_material
+
+
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete()
 
-green = bpy.data.materials.new("ParkGreen")
-green.use_nodes = True
-bsdf = green.node_tree.nodes["Principled BSDF"]
-bsdf.inputs["Base Color"].default_value = (0.12, 0.25, 0.10, 1.0)
-bsdf.inputs["Roughness"].default_value = 0.55
-bsdf.inputs["Metallic"].default_value = 0.65
+green = make_pbr_material("ParkGreen", "cast_iron", tint=(0.06, 0.06, 0.07), tint_strength=0.6)
 
-panel_mat = bpy.data.materials.new("MapPanel")
-panel_mat.use_nodes = True
-bsdf2 = panel_mat.node_tree.nodes["Principled BSDF"]
-bsdf2.inputs["Base Color"].default_value = (0.85, 0.82, 0.75, 1.0)
-bsdf2.inputs["Roughness"].default_value = 0.70
+panel_mat = make_pbr_material("MapPanel", "cast_iron", tint=(0.06, 0.06, 0.07), tint_strength=0.6)
 
-steel = bpy.data.materials.new("Steel")
-steel.use_nodes = True
-bsdf3 = steel.node_tree.nodes["Principled BSDF"]
-bsdf3.inputs["Base Color"].default_value = (0.35, 0.33, 0.30, 1.0)
-bsdf3.inputs["Roughness"].default_value = 0.50
-bsdf3.inputs["Metallic"].default_value = 0.85
+steel = make_pbr_material("Steel", "cast_iron", tint=(0.06, 0.06, 0.07), tint_strength=0.6)
 
 
 def box(name, x, y, z, sx, sy, sz, mat):
@@ -75,10 +66,7 @@ bpy.ops.mesh.primitive_uv_sphere_add(
 o = bpy.context.active_object
 o.name = "marker_dot"
 # Red dot
-red = bpy.data.materials.new("Red")
-red.use_nodes = True
-bsdf4 = red.node_tree.nodes["Principled BSDF"]
-bsdf4.inputs["Base Color"].default_value = (0.80, 0.10, 0.10, 1.0)
+red = make_pbr_material("Red", "cast_iron", tint=(0.06, 0.06, 0.07), tint_strength=0.6)
 o.data.materials.append(red)
 
 # ── Join and export ──
@@ -94,5 +82,5 @@ outdir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))
                       "models", "furniture")
 os.makedirs(outdir, exist_ok=True)
 outpath = os.path.join(outdir, "cp_info_kiosk.glb")
-bpy.ops.export_scene.gltf(filepath=outpath, export_format='GLB')
+bpy.ops.export_scene.gltf(filepath=outpath, export_format='GLB', export_image_format='JPEG', export_image_quality=85)
 print(f"Exported: {outpath} ({os.path.getsize(outpath)} bytes)")

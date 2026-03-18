@@ -11,6 +11,11 @@ Exports to models/furniture/cp_play_structure.glb
 import bpy
 import math
 
+import sys as _sys
+_sys.path.insert(0, __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__))), "scripts"))
+from pbr_utils import make_pbr_material
+
+
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete()
 
@@ -90,19 +95,9 @@ for ri in range(5):
     objects.append(rung)
 
 # --- Materials ---
-steel_mat = bpy.data.materials.new("PlaySteel")
-steel_mat.use_nodes = True
-bsdf = steel_mat.node_tree.nodes["Principled BSDF"]
-bsdf.inputs["Base Color"].default_value = (0.15, 0.35, 0.55, 1.0)  # blue painted steel
-bsdf.inputs["Metallic"].default_value = 0.6
-bsdf.inputs["Roughness"].default_value = 0.5
+steel_mat = make_pbr_material("PlaySteel", "cast_iron", tint=(0.15, 0.1, 0.08), tint_strength=0.5)
 
-slide_mat = bpy.data.materials.new("SlideSteel")  
-slide_mat.use_nodes = True
-bsdf2 = slide_mat.node_tree.nodes["Principled BSDF"]
-bsdf2.inputs["Base Color"].default_value = (0.55, 0.55, 0.50, 1.0)  # stainless
-bsdf2.inputs["Metallic"].default_value = 0.9
-bsdf2.inputs["Roughness"].default_value = 0.25
+slide_mat = make_pbr_material("SlideSteel", "cast_iron", tint=(0.15, 0.1, 0.08), tint_strength=0.5)
 
 for obj in objects:
     obj.data.materials.clear()
@@ -123,7 +118,7 @@ obj = bpy.context.active_object
 obj.name = "PlayStructure"
 
 out_path = "/home/chris/central-park-walk/models/furniture/cp_play_structure.glb"
-bpy.ops.export_scene.gltf(filepath=out_path, export_format='GLB')
+bpy.ops.export_scene.gltf(filepath=out_path, export_format='GLB', export_image_format='JPEG', export_image_quality=85)
 vcount = len(obj.data.vertices)
 fcount = len(obj.data.polygons)
 print(f"Exported Play Structure to {out_path} ({vcount} verts, {fcount} faces)")

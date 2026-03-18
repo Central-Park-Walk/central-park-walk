@@ -36,6 +36,11 @@ for sx in [-NET_W/2, NET_W/2]:
 # --- Net surface (slightly catenary — higher at posts, lower at center) ---
 # Build as a flat mesh with vertices curved
 import bmesh
+
+import sys as _sys
+_sys.path.insert(0, __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__))), "scripts"))
+from pbr_utils import make_pbr_material
+
 bm = bmesh.new()
 N_COLS = 20
 N_ROWS = 8
@@ -85,24 +90,11 @@ bpy.ops.object.transform_apply(location=True, scale=True)
 objects.append(band)
 
 # --- Materials ---
-post_mat = bpy.data.materials.new("PostSteel")
-post_mat.use_nodes = True
-bsdf = post_mat.node_tree.nodes["Principled BSDF"]
-bsdf.inputs["Base Color"].default_value = (0.30, 0.30, 0.28, 1.0)
-bsdf.inputs["Metallic"].default_value = 0.7
-bsdf.inputs["Roughness"].default_value = 0.5
+post_mat = make_pbr_material("PostSteel", "cast_iron", tint=(0.1, 0.12, 0.08), tint_strength=0.5)
 
-net_mat = bpy.data.materials.new("NetMaterial")
-net_mat.use_nodes = True
-bsdf2 = net_mat.node_tree.nodes["Principled BSDF"]
-bsdf2.inputs["Base Color"].default_value = (0.12, 0.12, 0.10, 1.0)  # dark net
-bsdf2.inputs["Roughness"].default_value = 0.8
+net_mat = make_pbr_material("NetMaterial", "cast_iron", tint=(0.1, 0.12, 0.08), tint_strength=0.5)
 
-band_mat = bpy.data.materials.new("WhiteBand")
-band_mat.use_nodes = True
-bsdf3 = band_mat.node_tree.nodes["Principled BSDF"]
-bsdf3.inputs["Base Color"].default_value = (0.95, 0.95, 0.95, 1.0)
-bsdf3.inputs["Roughness"].default_value = 0.6
+band_mat = make_pbr_material("WhiteBand", "cast_iron", tint=(0.1, 0.12, 0.08), tint_strength=0.5)
 
 for obj in objects:
     obj.data.materials.clear()
@@ -123,7 +115,7 @@ obj = bpy.context.active_object
 obj.name = "TennisNet"
 
 out_path = "/home/chris/central-park-walk/models/furniture/cp_tennis_net.glb"
-bpy.ops.export_scene.gltf(filepath=out_path, export_format='GLB')
+bpy.ops.export_scene.gltf(filepath=out_path, export_format='GLB', export_image_format='JPEG', export_image_quality=85)
 vcount = len(obj.data.vertices)
 fcount = len(obj.data.polygons)
 print(f"Exported Tennis Net to {out_path} ({vcount} verts, {fcount} faces)")

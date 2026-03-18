@@ -11,6 +11,11 @@ Exports to models/furniture/cp_backstop.glb
 import bpy
 import math
 
+import sys as _sys
+_sys.path.insert(0, __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__))), "scripts"))
+from pbr_utils import make_pbr_material
+
+
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete()
 
@@ -108,12 +113,7 @@ for p0_idx, p1_idx in panel_pairs:
     objects.append(rail)
 
 # Material: galvanized chain link
-mat = bpy.data.materials.new("ChainLink")
-mat.use_nodes = True
-bsdf = mat.node_tree.nodes["Principled BSDF"]
-bsdf.inputs["Base Color"].default_value = (0.45, 0.45, 0.42, 1.0)
-bsdf.inputs["Metallic"].default_value = 0.7
-bsdf.inputs["Roughness"].default_value = 0.55
+mat = make_pbr_material("ChainLink", "cast_iron", tint=(0.12, 0.12, 0.1), tint_strength=0.5)
 
 for obj in objects:
     obj.data.materials.clear()
@@ -129,7 +129,7 @@ obj = bpy.context.active_object
 obj.name = "Backstop"
 
 out_path = "/home/chris/central-park-walk/models/furniture/cp_backstop.glb"
-bpy.ops.export_scene.gltf(filepath=out_path, export_format='GLB')
+bpy.ops.export_scene.gltf(filepath=out_path, export_format='GLB', export_image_format='JPEG', export_image_quality=85)
 vcount = len(obj.data.vertices)
 fcount = len(obj.data.polygons)
 print(f"Exported Backstop to {out_path} ({vcount} verts, {fcount} faces)")

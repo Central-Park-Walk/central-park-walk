@@ -10,6 +10,11 @@ Exports to models/furniture/cp_handball_wall.glb
 import bpy
 import math
 
+import sys as _sys
+_sys.path.insert(0, __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__))), "scripts"))
+from pbr_utils import make_pbr_material
+
+
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete()
 
@@ -25,15 +30,11 @@ wall.location = (0, WALL_H/2, 0)
 bpy.ops.object.transform_apply(location=True, scale=True)
 
 # Material: concrete
-mat = bpy.data.materials.new("Concrete")
-mat.use_nodes = True
-bsdf = mat.node_tree.nodes["Principled BSDF"]
-bsdf.inputs["Base Color"].default_value = (0.55, 0.53, 0.50, 1.0)
-bsdf.inputs["Roughness"].default_value = 0.85
+mat = make_pbr_material("Concrete", "concrete", tint=(0.55, 0.53, 0.5), tint_strength=0.4)
 
 wall.data.materials.clear()
 wall.data.materials.append(mat)
 
 out_path = "/home/chris/central-park-walk/models/furniture/cp_handball_wall.glb"
-bpy.ops.export_scene.gltf(filepath=out_path, export_format='GLB')
+bpy.ops.export_scene.gltf(filepath=out_path, export_format='GLB', export_image_format='JPEG', export_image_quality=85)
 print(f"Exported Handball Wall to {out_path}")

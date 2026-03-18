@@ -11,6 +11,11 @@ Exports to models/furniture/cp_basketball_hoop.glb
 import bpy
 import math
 
+import sys as _sys
+_sys.path.insert(0, __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__))), "scripts"))
+from pbr_utils import make_pbr_material
+
+
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete()
 
@@ -63,25 +68,11 @@ bpy.ops.object.transform_apply(location=True, rotation=True)
 objects.append(arm)
 
 # --- Materials ---
-steel_mat = bpy.data.materials.new("Steel")
-steel_mat.use_nodes = True
-bsdf = steel_mat.node_tree.nodes["Principled BSDF"]
-bsdf.inputs["Base Color"].default_value = (0.35, 0.35, 0.33, 1.0)
-bsdf.inputs["Metallic"].default_value = 0.8
-bsdf.inputs["Roughness"].default_value = 0.5
+steel_mat = make_pbr_material("Steel", "cast_iron", tint=(0.08, 0.08, 0.09), tint_strength=0.6)
 
-board_mat = bpy.data.materials.new("Backboard")
-board_mat.use_nodes = True
-bsdf2 = board_mat.node_tree.nodes["Principled BSDF"]
-bsdf2.inputs["Base Color"].default_value = (0.85, 0.85, 0.85, 1.0)
-bsdf2.inputs["Roughness"].default_value = 0.3
+board_mat = make_pbr_material("Backboard", "cast_iron", tint=(0.08, 0.08, 0.09), tint_strength=0.6)
 
-rim_mat = bpy.data.materials.new("RimOrange")
-rim_mat.use_nodes = True
-bsdf3 = rim_mat.node_tree.nodes["Principled BSDF"]
-bsdf3.inputs["Base Color"].default_value = (0.8, 0.35, 0.05, 1.0)
-bsdf3.inputs["Metallic"].default_value = 0.7
-bsdf3.inputs["Roughness"].default_value = 0.45
+rim_mat = make_pbr_material("RimOrange", "cast_iron", tint=(0.08, 0.08, 0.09), tint_strength=0.6)
 
 for obj in objects:
     obj.data.materials.clear()
@@ -102,7 +93,7 @@ obj = bpy.context.active_object
 obj.name = "BasketballHoop"
 
 out_path = "/home/chris/central-park-walk/models/furniture/cp_basketball_hoop.glb"
-bpy.ops.export_scene.gltf(filepath=out_path, export_format='GLB')
+bpy.ops.export_scene.gltf(filepath=out_path, export_format='GLB', export_image_format='JPEG', export_image_quality=85)
 vcount = len(obj.data.vertices)
 fcount = len(obj.data.polygons)
 print(f"Exported Basketball Hoop to {out_path} ({vcount} verts, {fcount} faces)")

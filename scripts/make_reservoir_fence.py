@@ -11,6 +11,11 @@ import bpy
 import bmesh
 import math
 
+import sys as _sys
+_sys.path.insert(0, __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__))), "scripts"))
+from pbr_utils import make_pbr_material
+
+
 # Clean scene
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete()
@@ -76,12 +81,7 @@ for i in range(N_HORIZ_WIRES):
     objects.append(wire)
 
 # --- Material: black vinyl-coated chain link ---
-mat = bpy.data.materials.new("BlackFence")
-mat.use_nodes = True
-bsdf = mat.node_tree.nodes["Principled BSDF"]
-bsdf.inputs["Base Color"].default_value = (0.05, 0.05, 0.05, 1.0)
-bsdf.inputs["Roughness"].default_value = 0.5
-bsdf.inputs["Metallic"].default_value = 0.7
+mat = make_pbr_material("BlackFence", "cast_iron", tint=(0.05, 0.05, 0.06), tint_strength=0.7)
 
 for obj in objects:
     obj.data.materials.clear()
@@ -98,7 +98,7 @@ obj.name = "ReservoirFence"
 
 # Export
 out_path = "/home/chris/central-park-walk/models/furniture/cp_reservoir_fence.glb"
-bpy.ops.export_scene.gltf(filepath=out_path, export_format='GLB')
+bpy.ops.export_scene.gltf(filepath=out_path, export_format='GLB', export_image_format='JPEG', export_image_quality=85)
 vcount = len(obj.data.vertices)
 fcount = len(obj.data.polygons)
 print(f"Exported Reservoir Fence to {out_path} ({vcount} verts, {fcount} faces)")

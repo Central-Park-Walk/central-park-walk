@@ -9,14 +9,15 @@ import bpy
 import math
 import os
 
+import sys as _sys
+_sys.path.insert(0, __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__))), "scripts"))
+from pbr_utils import make_pbr_material
+
+
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete()
 
-stone = bpy.data.materials.new("Stone")
-stone.use_nodes = True
-bsdf = stone.node_tree.nodes["Principled BSDF"]
-bsdf.inputs["Base Color"].default_value = (0.62, 0.60, 0.56, 1.0)
-bsdf.inputs["Roughness"].default_value = 0.65
+stone = make_pbr_material("Stone", "granite", tint=(0.52, 0.5, 0.47), tint_strength=0.35)
 
 SECTION_W = 2.0   # section width
 RAIL_H = 0.85     # total height
@@ -108,5 +109,5 @@ outdir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))
                       "models", "furniture")
 os.makedirs(outdir, exist_ok=True)
 outpath = os.path.join(outdir, "cp_balustrade.glb")
-bpy.ops.export_scene.gltf(filepath=outpath, export_format='GLB')
+bpy.ops.export_scene.gltf(filepath=outpath, export_format='GLB', export_image_format='JPEG', export_image_quality=85)
 print(f"Exported: {outpath} ({os.path.getsize(outpath)} bytes)")

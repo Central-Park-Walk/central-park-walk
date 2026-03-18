@@ -11,6 +11,11 @@ Exports to models/furniture/cp_swing_set.glb
 import bpy
 import math
 
+import sys as _sys
+_sys.path.insert(0, __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__))), "scripts"))
+from pbr_utils import make_pbr_material
+
+
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete()
 
@@ -69,19 +74,10 @@ for sx in [-0.6, 0.6]:
         objects.append(chain)
 
 # --- Material: galvanized steel ---
-mat = bpy.data.materials.new("GalvanizedSteel")
-mat.use_nodes = True
-bsdf = mat.node_tree.nodes["Principled BSDF"]
-bsdf.inputs["Base Color"].default_value = (0.45, 0.45, 0.42, 1.0)
-bsdf.inputs["Metallic"].default_value = 0.8
-bsdf.inputs["Roughness"].default_value = 0.55
+mat = make_pbr_material("GalvanizedSteel", "cast_iron", tint=(0.08, 0.08, 0.09), tint_strength=0.6)
 
 # Seat material — dark rubber
-seat_mat = bpy.data.materials.new("RubberSeat")
-seat_mat.use_nodes = True
-bsdf2 = seat_mat.node_tree.nodes["Principled BSDF"]
-bsdf2.inputs["Base Color"].default_value = (0.08, 0.08, 0.08, 1.0)
-bsdf2.inputs["Roughness"].default_value = 0.9
+seat_mat = make_pbr_material("RubberSeat", "cast_iron", tint=(0.08, 0.08, 0.09), tint_strength=0.6)
 
 for obj in objects:
     obj.data.materials.clear()
@@ -100,7 +96,7 @@ obj = bpy.context.active_object
 obj.name = "SwingSet"
 
 out_path = "/home/chris/central-park-walk/models/furniture/cp_swing_set.glb"
-bpy.ops.export_scene.gltf(filepath=out_path, export_format='GLB')
+bpy.ops.export_scene.gltf(filepath=out_path, export_format='GLB', export_image_format='JPEG', export_image_quality=85)
 vcount = len(obj.data.vertices)
 fcount = len(obj.data.polygons)
 print(f"Exported Swing Set to {out_path} ({vcount} verts, {fcount} faces)")

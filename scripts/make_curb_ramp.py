@@ -9,21 +9,18 @@ import bpy
 import math
 import os
 
+import sys as _sys
+_sys.path.insert(0, __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__))), "scripts"))
+from pbr_utils import make_pbr_material
+
+
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete()
 
 # Yellow detectable warning surface
-yellow = bpy.data.materials.new("Warning")
-yellow.use_nodes = True
-bsdf = yellow.node_tree.nodes["Principled BSDF"]
-bsdf.inputs["Base Color"].default_value = (0.75, 0.65, 0.15, 1.0)
-bsdf.inputs["Roughness"].default_value = 0.80
+yellow = make_pbr_material("Warning", "concrete", tint=(0.55, 0.53, 0.5), tint_strength=0.4)
 
-concrete = bpy.data.materials.new("Concrete")
-concrete.use_nodes = True
-bsdf2 = concrete.node_tree.nodes["Principled BSDF"]
-bsdf2.inputs["Base Color"].default_value = (0.65, 0.63, 0.60, 1.0)
-bsdf2.inputs["Roughness"].default_value = 0.85
+concrete = make_pbr_material("Concrete", "concrete", tint=(0.55, 0.53, 0.5), tint_strength=0.4)
 
 W = 1.20   # width
 D = 0.90   # depth
@@ -77,5 +74,5 @@ outdir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))
                       "models", "furniture")
 os.makedirs(outdir, exist_ok=True)
 outpath = os.path.join(outdir, "cp_curb_ramp.glb")
-bpy.ops.export_scene.gltf(filepath=outpath, export_format='GLB')
+bpy.ops.export_scene.gltf(filepath=outpath, export_format='GLB', export_image_format='JPEG', export_image_quality=85)
 print(f"Exported: {outpath} ({os.path.getsize(outpath)} bytes)")

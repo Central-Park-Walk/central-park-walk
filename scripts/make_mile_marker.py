@@ -8,21 +8,17 @@ import bpy
 import math
 import os
 
+import sys as _sys
+_sys.path.insert(0, __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__))), "scripts"))
+from pbr_utils import make_pbr_material
+
+
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete()
 
-bronze = bpy.data.materials.new("Bronze")
-bronze.use_nodes = True
-bsdf = bronze.node_tree.nodes["Principled BSDF"]
-bsdf.inputs["Base Color"].default_value = (0.28, 0.22, 0.12, 1.0)
-bsdf.inputs["Roughness"].default_value = 0.50
-bsdf.inputs["Metallic"].default_value = 0.80
+bronze = make_pbr_material("Bronze", "granite", tint=(0.52, 0.5, 0.47), tint_strength=0.35)
 
-concrete = bpy.data.materials.new("Concrete")
-concrete.use_nodes = True
-bsdf2 = concrete.node_tree.nodes["Principled BSDF"]
-bsdf2.inputs["Base Color"].default_value = (0.60, 0.58, 0.55, 1.0)
-bsdf2.inputs["Roughness"].default_value = 0.85
+concrete = make_pbr_material("Concrete", "granite", tint=(0.52, 0.5, 0.47), tint_strength=0.35)
 
 
 # ── Concrete base pad ──
@@ -73,5 +69,5 @@ outdir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))
                       "models", "furniture")
 os.makedirs(outdir, exist_ok=True)
 outpath = os.path.join(outdir, "cp_mile_marker.glb")
-bpy.ops.export_scene.gltf(filepath=outpath, export_format='GLB')
+bpy.ops.export_scene.gltf(filepath=outpath, export_format='GLB', export_image_format='JPEG', export_image_quality=85)
 print(f"Exported: {outpath} ({os.path.getsize(outpath)} bytes)")

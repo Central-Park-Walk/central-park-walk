@@ -5,6 +5,11 @@ Origin at shore end. Exports to models/furniture/cp_dana_pier.glb
 """
 import bpy, math, os
 
+import sys as _sys
+_sys.path.insert(0, __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__))), "scripts"))
+from pbr_utils import make_pbr_material
+
+
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
 for b in bpy.data.meshes:

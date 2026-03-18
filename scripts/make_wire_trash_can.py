@@ -9,22 +9,17 @@ import bpy
 import math
 import os
 
+import sys as _sys
+_sys.path.insert(0, __import__("os").path.join(__import__("os").path.dirname(__import__("os").path.dirname(__import__("os").path.abspath(__file__))), "scripts"))
+from pbr_utils import make_pbr_material
+
+
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete()
 
-green = bpy.data.materials.new("ParkGreen")
-green.use_nodes = True
-bsdf = green.node_tree.nodes["Principled BSDF"]
-bsdf.inputs["Base Color"].default_value = (0.15, 0.28, 0.12, 1.0)
-bsdf.inputs["Roughness"].default_value = 0.60
-bsdf.inputs["Metallic"].default_value = 0.70
+green = make_pbr_material("ParkGreen", "cast_iron", tint=(0.08, 0.08, 0.09), tint_strength=0.6)
 
-steel = bpy.data.materials.new("Steel")
-steel.use_nodes = True
-bsdf2 = steel.node_tree.nodes["Principled BSDF"]
-bsdf2.inputs["Base Color"].default_value = (0.35, 0.33, 0.30, 1.0)
-bsdf2.inputs["Roughness"].default_value = 0.55
-bsdf2.inputs["Metallic"].default_value = 0.85
+steel = make_pbr_material("Steel", "cast_iron", tint=(0.08, 0.08, 0.09), tint_strength=0.6)
 
 CAN_R = 0.225    # radius
 CAN_H = 0.75     # can height
@@ -105,5 +100,5 @@ outdir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))
                       "models", "furniture")
 os.makedirs(outdir, exist_ok=True)
 outpath = os.path.join(outdir, "cp_wire_trash_can.glb")
-bpy.ops.export_scene.gltf(filepath=outpath, export_format='GLB')
+bpy.ops.export_scene.gltf(filepath=outpath, export_format='GLB', export_image_format='JPEG', export_image_quality=85)
 print(f"Exported: {outpath} ({os.path.getsize(outpath)} bytes)")
