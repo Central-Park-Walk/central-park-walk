@@ -40,7 +40,7 @@ func _ready() -> void:
 	var cam := Camera3D.new()
 	cam.name    = "Camera"
 	cam.current = true
-	cam.fov     = 29.0  # 70mm equivalent — telephoto, everything feels massive
+	cam.fov     = 20.0  # 100mm equivalent — trees feel tall and close, compression
 	var cam_attr := CameraAttributesPractical.new()
 	cam_attr.dof_blur_far_enabled    = true
 	cam_attr.dof_blur_far_distance   = 80.0    # start softening at 80m
