@@ -9,6 +9,7 @@ var _loader
 var _blade_meshes: Array = []
 var _flower_meshes: Array = []   # [Clover, Dandelion, Violet, Buttercup]
 var _grass_shader: Shader
+var _canopy_img: Image  # CPU-side canopy map for grass suppression under trees
 # Flat arrays from binary file (~10MB total vs 429MB of per-position Dicts)
 var _pos_x: PackedFloat32Array
 var _pos_z: PackedFloat32Array
@@ -83,6 +84,12 @@ func _build_grass() -> void:
 	_hm_d = _loader._hm_depth
 	_hm_ws = _loader._hm_world_size
 	_hm_half = _hm_ws * 0.5
+
+	# Cache canopy map for CPU-side grass suppression under dense tree cover
+	if _loader._canopy_texture:
+		_canopy_img = _loader._canopy_texture.get_image()
+		print("Grass: canopy map cached (%dx%d) for shade suppression" % [
+			_canopy_img.get_width(), _canopy_img.get_height()])
 
 	var instances: Array = _load_binary("res://ground_cover_instances.bin", 0x47524332)
 	if instances.is_empty():
@@ -276,6 +283,21 @@ func _build_chunk(ck: String) -> void:
 		var ck_key: int = lx * 256 + lz
 		var ot: int
 		var pp: float = 0.0
+		# Canopy shade suppression: under dense tree cover, forest floor
+		# is leaf litter and bare soil, not grass. Sample canopy map.
+		if _canopy_img:
+			var cuv_x: float = (bx + hh) / hws
+			var cuv_z: float = (bz + hh) / hws
+			var cpx: int = clampi(int(cuv_x * _canopy_img.get_width()), 0, _canopy_img.get_width() - 1)
+			var cpz: int = clampi(int(cuv_z * _canopy_img.get_height()), 0, _canopy_img.get_height() - 1)
+			var canopy_val: float = _canopy_img.get_pixel(cpx, cpz).r
+			if canopy_val > 0.4:
+				# Under dense canopy: heavily reduce grass
+				# >0.4 coverage = skip 70% of blades; >0.7 = skip 90%
+				var skip_chance: float = smoothstep(0.3, 0.8, canopy_val) * 0.9
+				if rng.randf() < skip_chance:
+					continue
+
 		if is_woodland:
 			ot = 5  # NorthWoods shade grass
 		elif cells.has(ck_key):
