@@ -50,6 +50,32 @@ float sky_fbm(vec2 p, int oct) {
 	}
 	return v * 0.5 + 0.5; // remap [-1,1] → [0,1]
 }
+// Billowy cloud noise: abs() of gradient noise creates sharp ridges
+// that look like cumulus cloud edges. More defined than standard FBM.
+float sky_billow(vec2 p, int oct) {
+	float v = 0.0, a = 0.6;
+	mat2 rot = mat2(vec2(0.80, 0.60), vec2(-0.60, 0.80));
+	for (int i = 0; i < oct; i++) {
+		v += a * abs(sky_gnoise(p));  // abs creates sharp valleys = cloud edges
+		p = rot * p * 2.0;
+		a *= 0.45;  // each octave contributes less — large shapes dominate
+	}
+	return v;
+}
+// Ridged noise: inverted billow, creates mountain-like peaks = towering cumulus
+float sky_ridged(vec2 p, int oct) {
+	float v = 0.0, a = 0.5, prev = 1.0;
+	mat2 rot = mat2(vec2(0.80, 0.60), vec2(-0.60, 0.80));
+	for (int i = 0; i < oct; i++) {
+		float n = 1.0 - abs(sky_gnoise(p));
+		n = n * n;  // sharpen ridges
+		v += a * n * prev;  // previous octave modulates — detail only in high areas
+		prev = n;
+		p = rot * p * 2.1;
+		a *= 0.5;
+	}
+	return v;
+}
 
 void sky() {
 	vec3 dir = EYEDIR;
@@ -211,62 +237,72 @@ void sky() {
 		vec3 cloud_col = vec3(0.5);
 
 		if (cloud_type < 0.5) {
-			// --- FAIR WEATHER CUMULUS: fluffy individual clouds, blue sky between ---
-			float n_base = sky_fbm(cloud_uv * 2.5, 4);
-			float n_detail = sky_fbm(cloud_uv * 8.0 + vec2(3.7, 1.9), 3);
-			float n = n_base - n_detail * 0.30;
-			cloud_mask = smoothstep(1.0 - cloud_coverage - 0.05, 1.0 - cloud_coverage + 0.12, n);
+			// --- FAIR WEATHER CUMULUS: billowy defined clouds with blue gaps ---
+			// Billow noise creates sharp cloud edges like real cumulus
+			float n_shape = sky_billow(cloud_uv * 2.0, 5);
+			// Ridged noise adds towering vertical structure
+			float n_tower = sky_ridged(cloud_uv * 1.5 + vec2(7.3, 0.0), 4);
+			float n = n_shape * 0.65 + n_tower * 0.35;
+			// Sharp threshold — distinct cloud/sky boundary
+			float thresh = 1.0 - cloud_coverage;
+			cloud_mask = smoothstep(thresh - 0.02, thresh + 0.08, n);
 			cloud_mask *= cloud_density;
-			cloud_depth = smoothstep(1.0 - cloud_coverage + 0.05, 1.0 - cloud_coverage + 0.30, n);
+			cloud_depth = smoothstep(thresh + 0.05, thresh + 0.35, n);
 
-			// Bright white tops, soft gray bases
-			vec2 shadow_offset = LIGHT0_DIRECTION.xz * 0.04;
-			float n_shadow = sky_fbm((cloud_uv + shadow_offset) * 2.5, 3);
-			float self_shadow = smoothstep(0.4, 0.7, n_shadow) * 0.30;
-			cloud_col = mix(cloud_color_bottom, cloud_color_top,
-				sun_illum * 0.40 + 0.25 + cloud_depth * 0.30 - self_shadow);
-			// Silver lining on thin edges
+			// Bright white tops, defined gray bases
+			vec2 shadow_off = LIGHT0_DIRECTION.xz * 0.05;
+			float n_shadow = sky_billow((cloud_uv + shadow_off) * 2.0, 3);
+			float self_shadow = smoothstep(0.3, 0.65, n_shadow) * 0.40;
+			// Strong contrast: dark base to bright top
+			vec3 c_dark = cloud_color_bottom * 0.7;
+			vec3 c_bright = cloud_color_top * 1.1;
+			cloud_col = mix(c_dark, c_bright,
+				clamp(cloud_depth * 0.5 + sun_illum * 0.35 - self_shadow + 0.15, 0.0, 1.0));
+			// Silver lining: bright rim on thin backlit edges
 			float edge_thin = (1.0 - cloud_depth) * cloud_mask;
-			cloud_col += LIGHT0_COLOR * pow(max(sun_dot, 0.0), 4.0) * 0.4 * edge_thin;
+			cloud_col += LIGHT0_COLOR * pow(max(sun_dot, 0.0), 3.0) * 0.5 * edge_thin;
 
 		} else if (cloud_type < 1.5) {
-			// --- STRATUS: flat, layered, uniform overcast ---
-			// Stretched horizontally, less vertical definition
-			float n_strat = sky_fbm(cloud_uv * vec2(2.0, 4.0), 5);
-			float n_thin = sky_fbm(cloud_uv * vec2(5.0, 8.0) + vec2(11.3, 7.1), 3);
-			float n = n_strat * 0.7 + n_thin * 0.3;
-			// Stratus covers most of the sky — narrow threshold band
-			cloud_mask = smoothstep(1.0 - cloud_coverage - 0.15, 1.0 - cloud_coverage + 0.05, n);
+			// --- STRATUS: flat layered overcast with subtle variation ---
+			float n_base = sky_fbm(cloud_uv * vec2(1.5, 3.5), 5);
+			float n_thin = sky_billow(cloud_uv * vec2(4.0, 6.0) + vec2(11.3, 7.1), 3);
+			float n = n_base * 0.65 + n_thin * 0.35;
+			// Wide coverage band — overcast but with thin/thick variation
+			cloud_mask = smoothstep(1.0 - cloud_coverage - 0.12, 1.0 - cloud_coverage + 0.05, n);
 			cloud_mask *= cloud_density;
-			cloud_depth = cloud_mask * 0.6;  // relatively uniform thickness
+			cloud_depth = smoothstep(1.0 - cloud_coverage, 1.0 - cloud_coverage + 0.25, n);
 
-			// Gray, flat, low contrast — typical overcast
-			cloud_col = mix(vec3(0.42, 0.44, 0.48), vec3(0.62, 0.64, 0.68),
-				n_strat * 0.4 + sun_illum * 0.15);
-			// Slight variation — thin spots are brighter
-			cloud_col += vec3(0.08) * (1.0 - cloud_depth);
+			// Gray with visible variation — not flat uniform
+			vec3 strat_dark = vec3(0.38, 0.40, 0.44);
+			vec3 strat_light = vec3(0.62, 0.64, 0.68);
+			cloud_col = mix(strat_dark, strat_light,
+				(1.0 - cloud_depth) * 0.5 + n_thin * 0.3 + sun_illum * 0.12);
+			// Thinner patches show brighter sky through
+			cloud_col += vec3(0.10) * (1.0 - cloud_mask) * (1.0 - cloud_depth);
 
 		} else {
-			// --- CUMULONIMBUS: towering storm clouds, very dark bases ---
-			float n_base = sky_fbm(cloud_uv * 1.8, 5);
-			float n_turb = sky_fbm(cloud_uv * 6.0 + vec2(5.3, 9.1), 4);
-			float n_anvil = sky_fbm(cloud_uv * vec2(1.2, 3.0) + vec2(17.0, 3.0), 3);
-			// Turbulent, towering shape
-			float n = n_base * 0.6 + n_turb * 0.25 + n_anvil * 0.15;
-			cloud_mask = smoothstep(1.0 - cloud_coverage - 0.10, 1.0 - cloud_coverage + 0.08, n);
+			// --- CUMULONIMBUS: towering dark storm with dramatic structure ---
+			float n_tower = sky_ridged(cloud_uv * 1.2, 5);
+			float n_turb = sky_billow(cloud_uv * 4.0 + vec2(5.3, 9.1), 4);
+			float n_anvil = sky_fbm(cloud_uv * vec2(0.8, 2.5) + vec2(17.0, 3.0), 4);
+			// Turbulent towering mass with anvil spread
+			float n = n_tower * 0.45 + n_turb * 0.30 + n_anvil * 0.25;
+			float thresh = 1.0 - cloud_coverage;
+			cloud_mask = smoothstep(thresh - 0.08, thresh + 0.05, n);
 			cloud_mask *= cloud_density;
-			cloud_depth = smoothstep(1.0 - cloud_coverage, 1.0 - cloud_coverage + 0.40, n);
+			cloud_depth = smoothstep(thresh, thresh + 0.40, n);
 
-			// Very dark bases, bright anvil tops
-			vec2 shadow_offset = LIGHT0_DIRECTION.xz * 0.06;
-			float n_shadow = sky_fbm((cloud_uv + shadow_offset) * 2.0, 4);
-			float self_shadow = smoothstep(0.3, 0.65, n_shadow) * 0.50;
-			vec3 storm_dark = vec3(0.18, 0.18, 0.22);   // near-black storm base
-			vec3 storm_bright = vec3(0.55, 0.55, 0.60);  // bright anvil top
-			cloud_col = mix(storm_dark, storm_bright,
-				cloud_depth * 0.5 + sun_illum * 0.15 - self_shadow);
-			// Green-yellow tinge in severe storms
-			cloud_col += vec3(-0.02, 0.02, -0.03) * cloud_depth;
+			// Very dark bases, bright anvil tops — high contrast
+			vec2 shadow_off = LIGHT0_DIRECTION.xz * 0.07;
+			float n_shadow = sky_ridged((cloud_uv + shadow_off) * 1.5, 4);
+			float self_shadow = smoothstep(0.25, 0.6, n_shadow) * 0.55;
+			vec3 storm_dark = vec3(0.12, 0.12, 0.16);   // very dark storm base
+			vec3 storm_mid = vec3(0.30, 0.30, 0.35);     // mid-cloud
+			vec3 storm_bright = vec3(0.52, 0.52, 0.58);  // anvil top
+			float vert = clamp(cloud_depth * 0.6 - self_shadow + sun_illum * 0.1, 0.0, 1.0);
+			cloud_col = mix(storm_dark, mix(storm_mid, storm_bright, vert), vert);
+			// Green-yellow tinge in severe storms (real meteorological phenomenon)
+			cloud_col += vec3(-0.02, 0.03, -0.04) * cloud_depth;
 		}
 
 		// --- Common cloud effects (all types) ---
