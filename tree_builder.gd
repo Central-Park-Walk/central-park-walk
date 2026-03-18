@@ -3,6 +3,7 @@
 # Extracted from park_loader.gd — all shared utilities accessed via _loader reference.
 
 var _loader  # Reference to park_loader for shared utilities
+var _shell_data: Array = []  # per-tree canopy shell data for LOD1
 
 # Maps data species archetype → phenology index for GPU seasonal color (12 species)
 const PHENOLOGY_INDEX := {
@@ -442,6 +443,11 @@ func _build_trees(trees: Array) -> void:
 			crown_r = desired_h * (0.25 if species == "conifer" else 0.35)
 		canopy_data.append({"x": tx, "z": tz, "r": crown_r, "ev": species == "conifer"})
 
+		# LOD1 canopy shell data — collected for dome mesh generation
+		_shell_data.append({"x": tx, "y": ty, "z": tz, "h": desired_h,
+			"r": crown_r, "sp": pheno_idx, "ev": is_evergreen,
+			"timing": timing_off + 0.5, "dead": species == "dead"})
+
 		# Collision: trunk cylinder from actual DBH data (census measurement)
 		var trunk_r: float
 		if dbh > 0:
@@ -511,11 +517,17 @@ func _build_trees(trees: Array) -> void:
 		mmi.multimesh = mm
 		mmi.position = chunk_origin
 		mmi.name = "Tree_%s" % ckey.replace("|", "_")
+		# LOD0: full geometry fades out at distance, canopy shell replaces it
+		mmi.visibility_range_end = 200.0
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		_loader.add_child(mmi)
 
 	_build_tree_collision(all_trunk_xf)
-	print("Trees: %d placed, %d chunks (skipped %d non-grass, nudged %d from paths)" % [
+	print("Trees: %d placed, %d LOD0 chunks (skipped %d non-grass, nudged %d from paths)" % [
 		all_trunk_xf.size(), lod0_chunks.size(), _skip_surface, _nudged])
+
+	# --- LOD1: Canopy shell domes for distant trees ---
+	_build_canopy_shells()
 
 
 func _build_tree_collision(trunk_xf: Array) -> void:
@@ -540,3 +552,145 @@ func _build_tree_collision(trunk_xf: Array) -> void:
 
 func _tree_glb_leaf_shader_code() -> String:
 	return "res://shaders/tree_leaf.gdshader"
+
+
+# ---------------------------------------------------------------------------
+# LOD1: Canopy shell domes — procedural hemisphere mesh + chunked MultiMesh
+# ---------------------------------------------------------------------------
+
+func _make_dome_mesh(lat_segs: int, lon_segs: int) -> ArrayMesh:
+	"""Generate a UV hemisphere mesh (radius 1, height 1, open bottom)."""
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var indices := PackedInt32Array()
+
+	# Generate vertices
+	for lat in range(lat_segs + 1):
+		var theta: float = float(lat) / lat_segs * PI * 0.5  # 0 to PI/2 (hemisphere)
+		var y: float = cos(theta)
+		var r: float = sin(theta)
+		for lon in range(lon_segs + 1):
+			var phi: float = float(lon) / lon_segs * TAU
+			var x: float = r * cos(phi)
+			var z: float = r * sin(phi)
+			verts.append(Vector3(x, y, z))
+			normals.append(Vector3(x, y, z).normalized())
+			uvs.append(Vector2(float(lon) / lon_segs, float(lat) / lat_segs))
+
+	# Generate indices
+	for lat in range(lat_segs):
+		for lon in range(lon_segs):
+			var a: int = lat * (lon_segs + 1) + lon
+			var b: int = a + lon_segs + 1
+			indices.append(a)
+			indices.append(b)
+			indices.append(a + 1)
+			indices.append(b)
+			indices.append(b + 1)
+			indices.append(a + 1)
+
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
+func _build_canopy_shells() -> void:
+	if _shell_data.is_empty():
+		return
+
+	var shell_shader: Shader = load("res://shaders/tree_canopy_shell.gdshader")
+	if not shell_shader:
+		print("Trees LOD1: canopy shell shader not found")
+		return
+
+	# Load canopy texture
+	var canopy_tex_path := "res://textures/tree_canopy_broad.png"
+	var canopy_img := Image.load_from_file(ProjectSettings.globalize_path(canopy_tex_path))
+	var canopy_tex: ImageTexture = null
+	if canopy_img:
+		canopy_tex = ImageTexture.create_from_image(canopy_img)
+
+	# Generate dome mesh (shared by all shells)
+	var dome: ArrayMesh = _make_dome_mesh(8, 12)
+
+	# Apply shell shader material
+	var mat := ShaderMaterial.new()
+	mat.shader = shell_shader
+	if canopy_tex:
+		mat.set_shader_parameter("canopy_tex", canopy_tex)
+	dome.surface_set_material(0, mat)
+
+	# Bucket into spatial chunks (same 80m as LOD0)
+	const CHUNK := 80.0
+	var chunks: Dictionary = {}  # "cx|cz" -> {"xf": [], "cd": []}
+
+	for sd in _shell_data:
+		if sd.dead:
+			continue  # dead trees have no canopy shell
+		var cx: int = int(floorf(sd.x / CHUNK))
+		var cz: int = int(floorf(sd.z / CHUNK))
+		var ck := "%d|%d" % [cx, cz]
+		if not chunks.has(ck):
+			chunks[ck] = {"xf": [], "cd": []}
+
+		# Shell transform: dome at crown center, scaled to crown dimensions
+		var crown_h: float = sd.h * 0.45  # crown height ~45% of total
+		var crown_y: float = sd.y + sd.h * 0.55  # crown starts above trunk
+		var basis := Basis(
+			Vector3(sd.r * 2.0, 0.0, 0.0),
+			Vector3(0.0, crown_h, 0.0),
+			Vector3(0.0, 0.0, sd.r * 2.0))
+		var tf := Transform3D(basis, Vector3(sd.x, crown_y, sd.z))
+		chunks[ck].xf.append(tf)
+		# INSTANCE_CUSTOM: R=phenology, G=timing, B=evergreen, A=species_idx (normalized)
+		chunks[ck].cd.append(Color(float(sd.sp) / 13.0, sd.timing, sd.ev, float(sd.sp) / 15.0))
+
+	# Create MultiMesh chunks
+	var shell_count := 0
+	for ck in chunks:
+		var xf_list: Array = chunks[ck].xf
+		var cd_list: Array = chunks[ck].cd
+		if xf_list.is_empty():
+			continue
+
+		var cx_sum := 0.0
+		var cy_sum := 0.0
+		var cz_sum := 0.0
+		for tf: Transform3D in xf_list:
+			cx_sum += tf.origin.x
+			cy_sum += tf.origin.y
+			cz_sum += tf.origin.z
+		var n := float(xf_list.size())
+		var chunk_origin := Vector3(cx_sum / n, cy_sum / n, cz_sum / n)
+
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_custom_data = true
+		mm.mesh = dome
+		mm.instance_count = xf_list.size()
+		for i in xf_list.size():
+			var tf: Transform3D = xf_list[i]
+			var local_tf := Transform3D(tf.basis, tf.origin - chunk_origin)
+			mm.set_instance_transform(i, local_tf)
+			mm.set_instance_custom_data(i, cd_list[i])
+
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.position = chunk_origin
+		mmi.name = "TreeShell_%s" % ck.replace("|", "_")
+		# LOD1: visible from 120m outward, fades in
+		mmi.visibility_range_begin = 120.0
+		mmi.visibility_range_end = 800.0
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_loader.add_child(mmi)
+		shell_count += xf_list.size()
+
+	print("Trees LOD1: %d canopy shells in %d chunks" % [shell_count, chunks.size()])

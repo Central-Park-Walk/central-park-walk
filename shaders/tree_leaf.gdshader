@@ -360,6 +360,12 @@ void fragment() {
 		ALBEDO = mix(ALBEDO, haze, leaf_aerial * 0.30);
 	}
 
+	// Distance-adaptive alpha: counteract mipmap erosion that thins leaves at distance.
+	// At distance, mipmapped alpha textures lose coverage — leaf cards become transparent
+	// confetti. Boosting alpha at distance makes canopy read as solid mass.
+	alpha *= mix(1.0, 1.5, leaf_aerial);
+	alpha = min(alpha, 1.0);
+
 	// Feed continuous alpha to alpha_to_coverage (4x MSAA).
 	// Depth prepass already wrote depth for fragments above 0.15 threshold.
 	ALPHA = alpha;
