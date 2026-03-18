@@ -37,11 +37,11 @@ ATLAS_MAP = {
 def _set_pixel(pixels, x, y, r, g, b, a=1.0):
     if 0 <= x < TEX_W and 0 <= y < TEX_H:
         idx = (y * TEX_W + x) * 4
-        if pixels[idx + 3] < 0.5:
-            pixels[idx] = r
-            pixels[idx + 1] = g
-            pixels[idx + 2] = b
-            pixels[idx + 3] = a
+        # Allow overlap — blend for richer coverage
+        pixels[idx] = r
+        pixels[idx + 1] = g
+        pixels[idx + 2] = b
+        pixels[idx + 3] = a
 
 
 def _paint_leaf(pixels, cx, cy, size, angle, r, g, b, rng, shape="elliptic"):
@@ -79,53 +79,55 @@ def _paint_stem(pixels, sx, sy, angle, length, rng):
 
 
 def paint_bramble(pixels, ox, oy, rng):
-    """Dense thorny leaves — small, dark green, overlapping."""
-    for _ in range(rng.randint(22, 32)):
-        cx = ox + rng.randint(CELL // 8, CELL * 7 // 8)
-        cy = oy + rng.randint(CELL // 8, CELL * 7 // 8)
-        size = CELL * rng.uniform(0.06, 0.13)
+    """Dense thorny leaves — fill 60%+ of cell."""
+    for _ in range(rng.randint(55, 75)):
+        cx = ox + rng.randint(CELL // 16, CELL * 15 // 16)
+        cy = oy + rng.randint(CELL // 16, CELL * 15 // 16)
+        size = CELL * rng.uniform(0.08, 0.16)
         angle = rng.uniform(0, math.pi * 2)
         r = rng.uniform(0.28, 0.42)
         g = rng.uniform(0.48, 0.68)
         b = rng.uniform(0.18, 0.32)
         _paint_leaf(pixels, cx, cy, size, angle, r, g, b, rng, "broad")
-    for _ in range(rng.randint(4, 7)):
-        sx = ox + rng.randint(CELL // 4, CELL * 3 // 4)
+    for _ in range(rng.randint(6, 10)):
+        sx = ox + rng.randint(CELL // 6, CELL * 5 // 6)
         sy = oy + rng.randint(0, CELL // 3)
         _paint_stem(pixels, sx, sy, rng.uniform(-0.3, 0.3),
                     rng.randint(CELL // 3, CELL * 2 // 3), rng)
 
 
 def paint_fern(pixels, ox, oy, rng):
-    """Fern fronds radiating from center."""
-    center_x = ox + CELL // 2 + rng.randint(-CELL // 8, CELL // 8)
-    center_y = oy + CELL // 4
-    n_fronds = rng.randint(5, 8)
-    for f in range(n_fronds):
-        angle = f * math.pi * 2 / n_fronds + rng.uniform(-0.3, 0.3)
-        frond_len = rng.randint(CELL // 4, CELL * 3 // 8)
-        r_col = rng.uniform(0.18, 0.28)
-        g_col = rng.uniform(0.42, 0.58)
-        b_col = rng.uniform(0.12, 0.22)
-        for t in range(frond_len):
-            px = int(center_x + math.sin(angle) * t)
-            py = int(center_y + math.cos(angle) * t * 0.7 + t * 0.3)
-            _set_pixel(pixels, px, py, r_col * 0.7, g_col * 0.7, b_col * 0.7)
-            if t > 5 and t % 3 < 2:
-                pinna_len = int((frond_len - t) * 0.35)
-                for p in range(pinna_len):
-                    side = 1 if (t % 6 < 3) else -1
-                    perp = angle + side * math.pi / 2
-                    ppx = int(px + math.sin(perp) * p)
-                    ppy = int(py + math.cos(perp) * p * 0.7)
-                    fade = 1.0 - p / max(pinna_len, 1) * 0.3
-                    _set_pixel(pixels, ppx, ppy,
-                               r_col * fade, g_col * fade, b_col * fade)
+    """Fern fronds radiating — multiple rosettes to fill cell."""
+    # Paint 2-3 overlapping rosettes
+    for _ in range(rng.randint(2, 3)):
+        center_x = ox + rng.randint(CELL // 4, CELL * 3 // 4)
+        center_y = oy + rng.randint(CELL // 4, CELL * 3 // 4)
+        n_fronds = rng.randint(6, 9)
+        for f in range(n_fronds):
+            angle = f * math.pi * 2 / n_fronds + rng.uniform(-0.3, 0.3)
+            frond_len = rng.randint(CELL // 4, CELL * 3 // 8)
+            r_col = rng.uniform(0.18, 0.28)
+            g_col = rng.uniform(0.42, 0.58)
+            b_col = rng.uniform(0.12, 0.22)
+            for t in range(frond_len):
+                px = int(center_x + math.sin(angle) * t)
+                py = int(center_y + math.cos(angle) * t * 0.7 + t * 0.3)
+                _set_pixel(pixels, px, py, r_col * 0.7, g_col * 0.7, b_col * 0.7)
+                if t > 5 and t % 3 < 2:
+                    pinna_len = int((frond_len - t) * 0.35)
+                    for p in range(pinna_len):
+                        side = 1 if (t % 6 < 3) else -1
+                        perp = angle + side * math.pi / 2
+                        ppx = int(px + math.sin(perp) * p)
+                        ppy = int(py + math.cos(perp) * p * 0.7)
+                        fade = 1.0 - p / max(pinna_len, 1) * 0.3
+                        _set_pixel(pixels, ppx, ppy,
+                                   r_col * fade, g_col * fade, b_col * fade)
 
 
 def paint_weeds(pixels, ox, oy, rng):
     """Mixed broad-leaf weeds — dock, plantain rosettes."""
-    for _ in range(rng.randint(10, 16)):
+    for _ in range(rng.randint(25, 40)):
         cx = ox + rng.randint(CELL // 8, CELL * 7 // 8)
         cy = oy + rng.randint(CELL // 8, CELL * 7 // 8)
         n_leaves = rng.randint(4, 8)
@@ -144,7 +146,7 @@ def paint_weeds(pixels, ox, oy, rng):
 
 def paint_tall_grass(pixels, ox, oy, rng):
     """Tall tussock grasses — vertical blades."""
-    n_blades = rng.randint(18, 28)
+    n_blades = rng.randint(35, 50)
     base_x = ox + CELL // 2
     base_y = oy + CELL // 10
     for _ in range(n_blades):
@@ -171,7 +173,7 @@ def paint_fallen_leaves(pixels, ox, oy, rng):
         (0.60, 0.40, 0.15), (0.70, 0.45, 0.10), (0.75, 0.60, 0.15),
         (0.55, 0.20, 0.10), (0.65, 0.55, 0.20), (0.45, 0.30, 0.12),
     ]
-    for _ in range(rng.randint(22, 38)):
+    for _ in range(rng.randint(50, 70)):
         cx = ox + rng.randint(CELL // 8, CELL * 7 // 8)
         cy = oy + rng.randint(CELL // 8, CELL * 7 // 8)
         size = CELL * rng.uniform(0.04, 0.11)
@@ -186,11 +188,11 @@ def paint_fallen_leaves(pixels, ox, oy, rng):
 
 def paint_twig_litter(pixels, ox, oy, rng):
     """Winter twigs + dead leaf fragments."""
-    for _ in range(rng.randint(8, 14)):
-        sx = ox + rng.randint(CELL // 6, CELL * 5 // 6)
-        sy = oy + rng.randint(CELL // 6, CELL * 5 // 6)
+    for _ in range(rng.randint(15, 22)):
+        sx = ox + rng.randint(CELL // 8, CELL * 7 // 8)
+        sy = oy + rng.randint(CELL // 8, CELL * 7 // 8)
         angle = rng.uniform(0, math.pi * 2)
-        length = rng.randint(CELL // 8, CELL // 3)
+        length = rng.randint(CELL // 6, CELL // 3)
         for t in range(length):
             px = int(sx + math.cos(angle) * t)
             py = int(sy + math.sin(angle) * t)
@@ -199,7 +201,7 @@ def paint_twig_litter(pixels, ox, oy, rng):
             b = rng.uniform(0.10, 0.18)
             for w in range(-1, 2):
                 _set_pixel(pixels, px + w, py, r, g, b)
-    for _ in range(rng.randint(10, 18)):
+    for _ in range(rng.randint(25, 40)):
         cx = ox + rng.randint(CELL // 6, CELL * 5 // 6)
         cy = oy + rng.randint(CELL // 6, CELL * 5 // 6)
         size = CELL * rng.uniform(0.03, 0.07)
