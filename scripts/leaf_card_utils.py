@@ -79,6 +79,13 @@ EDGE_FNS = {
 }
 
 
+def _pixel_hash(x, y):
+    """Fast deterministic per-pixel hash → float in [-1, 1]."""
+    n = x * 374761393 + y * 668265263
+    n = (n ^ (n >> 13)) * 1274126177
+    return ((n & 0xFFFFFF) / 8388608.0) - 1.0
+
+
 def generate_leaf_texture(name, tex_size=512, n_leaves=12, leaf_shape="elliptic",
                           seed=42):
     """Generate a leaf cluster texture with proper alpha for alpha-to-coverage.
@@ -113,6 +120,11 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=12, leaf_shape="elliptic"
         g = rng.uniform(0.80, 0.98)
         b = rng.uniform(0.55, 0.75)
 
+        # Per-leaf unique traits
+        tip_yellow = rng.uniform(0.0, 0.06)
+        base_dark = rng.uniform(0.0, 0.04)
+        side_warm = rng.uniform(-0.015, 0.015)
+
         # Subtle vein darkening along midrib
         phase = rng.uniform(0, math.pi * 2)
 
@@ -144,9 +156,20 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=12, leaf_shape="elliptic"
                     # Midrib vein (slight darkening along center line)
                     vein = 1.0 - 0.08 * math.exp(-abs(nx) * 8.0)
 
-                    lr = r * edge_dark * vein
-                    lg = g * edge_dark * vein
-                    lb = b * edge_dark * vein
+                    # Tip-to-base gradient
+                    tip_t = (ny + 1.0) * 0.5
+                    lr = r * edge_dark * vein + tip_yellow * tip_t - base_dark * (1.0 - tip_t)
+                    lg = g * edge_dark * vein + tip_yellow * tip_t * 0.4 - base_dark * (1.0 - tip_t) * 0.4
+                    lb = b * edge_dark * vein - tip_yellow * tip_t * 0.2
+                    lr += side_warm * nx
+
+                    # Per-pixel micro-noise: chlorophyll patches, dust, cell texture
+                    n1 = _pixel_hash(px, py) * 0.05
+                    n2 = _pixel_hash(px + 7919, py) * 0.025
+                    n3 = _pixel_hash(px, py + 6271) * 0.025
+                    lr = max(0.0, min(1.0, lr + n1 + n2))
+                    lg = max(0.0, min(1.0, lg + n1))
+                    lb = max(0.0, min(1.0, lb + n1 + n3))
 
                     # Alpha blend (later leaves overlap earlier)
                     old_a = pixels[idx + 3]

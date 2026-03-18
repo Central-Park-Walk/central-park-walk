@@ -196,6 +196,14 @@ void fragment() {
 	float dry_tip = smoothstep(0.75, 1.0, blade_t) * step(0.7, blade_seed);
 	col = mix(col, col * vec3(1.08, 1.02, 0.80), dry_tip * 0.15);
 
+	// Per-pixel micro-variation: real grass has millions of unique shades
+	// from chlorophyll density, moisture, cell structure, dust
+	vec2 px_seed = v_world_blade.xz * 47.3 + vec2(blade_t * 13.7, blade_seed * 29.1);
+	float px_noise = hash2(px_seed) * 0.10 - 0.05;  // ±5% brightness
+	float px_hue_r = hash2(px_seed + vec2(71.9, 0.0)) * 0.04 - 0.02;  // ±2% R shift
+	float px_hue_b = hash2(px_seed + vec2(0.0, 53.1)) * 0.04 - 0.02;  // ±2% B shift
+	col += vec3(px_noise + px_hue_r, px_noise, px_noise + px_hue_b);
+
 	// Flowers: use baked vertex color from flower GLB mesh
 	if (v_is_flower > 0.5) {
 		col = COLOR.rgb;
