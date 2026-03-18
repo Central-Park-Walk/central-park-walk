@@ -1540,8 +1540,8 @@ def main() -> None:
                 ("american elm", 0.04), ("flowering dogwood", 0.04),
                 ("eastern redcedar", 0.03), ("birch", 0.02),
             ],
-            "dbh_range": [5, 45],  # mature forest — some large oaks
-            "dbh_shape": 1.8,      # inverse-J: many small, some large
+            "dbh_range": [10, 45],  # mature forest — some large oaks
+            "dbh_shape": 1.2,      # mild inverse-J: 150yr managed park, mostly mature
         },
         # RAVINE / THE LOCH (within North Woods): Wet ravine microhabitat.
         # Moisture-loving species near stream. Overlaps North Woods z-range.
@@ -1557,8 +1557,8 @@ def main() -> None:
                 ("sassafras", 0.05), ("star magnolia", 0.03),
                 ("willow", 0.07),  # weeping willows along The Loch
             ],
-            "dbh_range": [5, 35],
-            "dbh_shape": 2.0,
+            "dbh_range": [10, 35],
+            "dbh_shape": 1.3,
         },
         # THE RAMBLE (79th–73rd): Intentionally "wild" 36-acre woodland.
         # Diverse species, managed but naturalistic. Major birding habitat.
@@ -1576,8 +1576,8 @@ def main() -> None:
                 ("crabapple", 0.04), ("eastern redcedar", 0.03),
                 ("gray birch", 0.04), ("honeylocust", 0.04),
             ],
-            "dbh_range": [5, 40],
-            "dbh_shape": 2.0,
+            "dbh_range": [10, 40],
+            "dbh_shape": 1.3,
         },
         # THE DENE (67th–65th, east side): Sheltered slope woodland.
         {
@@ -1591,8 +1591,8 @@ def main() -> None:
                 ("black cherry", 0.08), ("tupelo", 0.05),
                 ("red maple", 0.07), ("linden", 0.07),
             ],
-            "dbh_range": [8, 38],
-            "dbh_shape": 1.8,
+            "dbh_range": [12, 38],
+            "dbh_shape": 1.2,
         },
         # HALLETT NATURE SANCTUARY (62nd, south): Fenced 4-acre preserve.
         # Oldest successional growth in park. Very dense.
@@ -1608,8 +1608,8 @@ def main() -> None:
                 ("flowering dogwood", 0.06), ("tupelo", 0.05),
                 ("american elm", 0.04),
             ],
-            "dbh_range": [5, 50],  # some very old trees
-            "dbh_shape": 1.6,
+            "dbh_range": [10, 50],  # some very old trees
+            "dbh_shape": 1.1,      # oldest growth — mostly large trees
         },
         # RESERVOIR WOODLAND (86th–96th): Mixed plantings around reservoir.
         {
@@ -1625,8 +1625,8 @@ def main() -> None:
                 ("sassafras", 0.04), ("linden", 0.05),
                 ("eastern redcedar", 0.04),
             ],
-            "dbh_range": [8, 35],
-            "dbh_shape": 2.0,
+            "dbh_range": [12, 35],
+            "dbh_shape": 1.3,
         },
         # LITERARY WALK / MALL (72nd–66th, center): Formal elm allée.
         # Wide spacing, large mature elms. Not really "woodland" but
@@ -1670,8 +1670,8 @@ def main() -> None:
                 ("sweetgum", 0.06), ("ginkgo", 0.05),
                 ("hickory", 0.05),
             ],
-            "dbh_range": [10, 40],
-            "dbh_shape": 1.8,
+            "dbh_range": [12, 40],
+            "dbh_shape": 1.2,
         },
         # SOUTH END (59th–62nd): Heavily managed, mixed ornamental + shade.
         {
@@ -1686,8 +1686,8 @@ def main() -> None:
                 ("sweetgum", 0.06), ("red oak", 0.06),
                 ("norway maple", 0.06),
             ],
-            "dbh_range": [10, 35],
-            "dbh_shape": 2.0,
+            "dbh_range": [12, 35],
+            "dbh_shape": 1.3,
         },
         # CONSERVATORY GARDEN area (105th–106th, east):
         {
@@ -1717,8 +1717,8 @@ def main() -> None:
                 ("american elm", 0.05), ("sassafras", 0.04),
                 ("eastern redcedar", 0.04),
             ],
-            "dbh_range": [5, 40],
-            "dbh_shape": 1.8,
+            "dbh_range": [10, 40],
+            "dbh_shape": 1.2,
         },
     ]
 
@@ -1908,10 +1908,11 @@ def main() -> None:
             gj = int((tz + WORLD_SIZE / 2) / WORLD_SIZE * (chm_h - 1))
             gi = max(0, min(chm_w - 1, gi))
             gj = max(0, min(chm_h - 1, gj))
-            # Sample 5x5 neighborhood and take max (crown peak)
+            # Sample 11x11 neighborhood and take max (crown peak)
+            # ±5 pixels = ±3m at 0.61m/cell — catches canopy peaks near trunk
             h_max = 0.0
-            for di in range(-2, 3):
-                for dj in range(-2, 3):
+            for di in range(-5, 6):
+                for dj in range(-5, 6):
                     si = max(0, min(chm_w - 1, gi + di))
                     sj = max(0, min(chm_h - 1, gj + dj))
                     h_max = max(h_max, float(chm[sj, si]))
