@@ -5,26 +5,29 @@ gray granite (Westerly or Barre granite) with classical molding profiles.
 Three variants cover the main pedestal types:
 
   Variant 0 — Standard rectangular pedestal (statues, sculptures)
-    ~1.2m tall, 0.8m × 0.8m shaft, stepped base + cornice with molding
+    ~1.2m tall, 0.8m x 0.8m shaft, stepped base + cornice with molding
   Variant 1 — Column pedestal (busts)
-    ~1.5m tall, 0.45m × 0.45m shaft, chamfered cap for bust mounting
+    ~1.5m tall, 0.45m x 0.45m shaft, chamfered cap for bust mounting
   Variant 2 — Wide memorial base (memorials, monuments)
-    ~0.8m tall, 1.4m × 0.9m, low stepped profile with wide inscription face
+    ~0.8m tall, 1.4m x 0.9m, low stepped profile with wide inscription face
 
-Materials:
-  'GrayGranite' — polished gray granite (Roughness 0.55 on faces, 0.78 on base)
-  'Limestone' — warm buff limestone for some memorial bases
-
+Materials: PBR granite and brownstone from ambientCG.
 Exports: models/furniture/cp_pedestal.glb (3 variants as separate objects)
+
+Upgraded: Blender 4.5 + PBR textures, UV-mapped.
+Run: blender4 --background --python scripts/make_pedestal.py
 """
 
 import bpy
 import bmesh
-import math
 import os
+import sys
 from mathutils import Vector
 
-# --- Clear scene ---
+PROJ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(PROJ, "scripts"))
+from pbr_utils import make_pbr_material
+
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
 for block in bpy.data.meshes:
@@ -33,173 +36,92 @@ for block in bpy.data.meshes:
 for block in bpy.data.materials:
     if block.users == 0:
         bpy.data.materials.remove(block)
+for block in bpy.data.images:
+    if block.users == 0:
+        bpy.data.images.remove(block)
 
-# --- Materials ---
-granite_mat = bpy.data.materials.new(name="GrayGranite")
-granite_mat.use_nodes = True
-bsdf = granite_mat.node_tree.nodes["Principled BSDF"]
-bsdf.inputs["Base Color"].default_value = (0.52, 0.50, 0.47, 1.0)
-bsdf.inputs["Metallic"].default_value = 0.0
-bsdf.inputs["Roughness"].default_value = 0.62
-
-limestone_mat = bpy.data.materials.new(name="Limestone")
-limestone_mat.use_nodes = True
-bsdf_l = limestone_mat.node_tree.nodes["Principled BSDF"]
-bsdf_l.inputs["Base Color"].default_value = (0.65, 0.60, 0.52, 1.0)
-bsdf_l.inputs["Metallic"].default_value = 0.0
-bsdf_l.inputs["Roughness"].default_value = 0.75
+granite = make_pbr_material("GrayGranite", "granite", tint=(0.52, 0.50, 0.47),
+                              tint_strength=0.35, normal_strength=1.0)
+limestone = make_pbr_material("Limestone", "brownstone", tint=(0.65, 0.60, 0.52),
+                                tint_strength=0.4, normal_strength=0.8)
 
 
-def make_box(bm, cx, cy, cz, sx, sy, sz):
-    """Create a box centered at (cx, cy+sy/2, cz) with half-sizes sx, sy, sz."""
+def make_box(bm, uv_layer, cx, cz, sx, sy, sz):
+    """UV-mapped box centered at (cx, 0, cz), half-extents sx/sz, full height sy starting at cz."""
     verts = []
-    for dx in [-sx, sx]:
+    for dz in [-sz, sz]:
         for dy in [0, sy]:
-            for dz in [-sz, sz]:
-                verts.append(bm.verts.new((cx + dx, cy + dy, cz + dz)))
+            for dx in [-sx, sx]:
+                verts.append(bm.verts.new((cx + dx, cz + dy, dz)))
     bm.verts.ensure_lookup_table()
-    # Faces: bottom, top, 4 sides
-    faces = [
-        (0, 2, 6, 4),  # front
-        (1, 5, 7, 3),  # back
-        (0, 1, 3, 2),  # bottom
-        (4, 6, 7, 5),  # top
-        (0, 4, 5, 1),  # left
-        (2, 3, 7, 6),  # right
+    idx = [
+        (0, 2, 6, 4), (1, 5, 7, 3),  # front/back
+        (0, 1, 3, 2), (4, 6, 7, 5),  # bottom/top
+        (0, 4, 5, 1), (2, 3, 7, 6),  # left/right
     ]
     base = len(bm.verts) - 8
-    for f in faces:
-        bm.faces.new([bm.verts[base + i] for i in f])
-    return verts
+    for f_idx in idx:
+        face = bm.faces.new([bm.verts[base + i] for i in f_idx])
+        for loop in face.loops:
+            co = loop.vert.co
+            loop[uv_layer].uv = (co.x * 1.5 + co.z * 1.5, co.y * 1.5)
 
 
-def make_chamfered_box(bm, cx, cy, cz, sx, sy, sz, chamfer=0.03):
-    """Box with beveled top edges for classical molding look."""
-    # Main shaft
-    make_box(bm, cx, cy, cz, sx, sy, sz)
-    # Slight inset ledge at top (cornice)
-    make_box(bm, cx, cy + sy, cz, sx + chamfer, chamfer * 0.6, sz + chamfer)
-
-
-# ==========================================================================
-# Variant 0: Standard rectangular pedestal (statues, sculptures)
-# ==========================================================================
-def build_standard_pedestal():
+def build_variant(name, tiers, mat):
+    """Build a pedestal from a list of (cx, cz, sx, sy, sz) tier tuples."""
     bm = bmesh.new()
-
-    # Stepped base (3 tiers)
-    # Bottom step: widest
-    make_box(bm, 0, 0, 0, 0.55, 0.10, 0.55)
-    # Middle step
-    make_box(bm, 0, 0.10, 0, 0.48, 0.08, 0.48)
-    # Top step / plinth
-    make_box(bm, 0, 0.18, 0, 0.43, 0.06, 0.43)
-
-    # Main shaft
-    make_box(bm, 0, 0.24, 0, 0.38, 0.72, 0.38)
-
-    # Cornice molding at top (wider ledge)
-    make_box(bm, 0, 0.96, 0, 0.42, 0.04, 0.42)
-    # Cap plate
-    make_box(bm, 0, 1.00, 0, 0.44, 0.05, 0.44)
-    # Slight crown
-    make_box(bm, 0, 1.05, 0, 0.40, 0.03, 0.40)
-
-    mesh = bpy.data.meshes.new("pedestal_standard")
+    uv_layer = bm.loops.layers.uv.new("UVMap")
+    for cx, cz, sx, sy, sz in tiers:
+        make_box(bm, uv_layer, cx, cz, sx, sy, sz)
+    mesh = bpy.data.meshes.new(name)
     bm.to_mesh(mesh)
     bm.free()
-
-    obj = bpy.data.objects.new("Pedestal_Standard", mesh)
+    obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
-    obj.data.materials.append(granite_mat)
+    obj.data.materials.append(mat)
     return obj
 
 
-# ==========================================================================
-# Variant 1: Column pedestal (busts)
-# ==========================================================================
-def build_column_pedestal():
-    bm = bmesh.new()
+# Standard rectangular pedestal
+standard = build_variant("Pedestal_Standard", [
+    (0, 0.00, 0.55, 0.10, 0.55),   # bottom step
+    (0, 0.10, 0.48, 0.08, 0.48),   # middle step
+    (0, 0.18, 0.43, 0.06, 0.43),   # top step
+    (0, 0.24, 0.38, 0.72, 0.38),   # main shaft
+    (0, 0.96, 0.42, 0.04, 0.42),   # cornice
+    (0, 1.00, 0.44, 0.05, 0.44),   # cap plate
+    (0, 1.05, 0.40, 0.03, 0.40),   # crown
+], granite)
 
-    # Square base
-    make_box(bm, 0, 0, 0, 0.40, 0.08, 0.40)
-    make_box(bm, 0, 0.08, 0, 0.35, 0.05, 0.35)
+# Column pedestal (busts)
+column = build_variant("Pedestal_Column", [
+    (0, 0.00, 0.40, 0.08, 0.40),   # base
+    (0, 0.08, 0.35, 0.05, 0.35),   # base step
+    (0, 0.13, 0.25, 1.10, 0.25),   # shaft
+    (0, 1.23, 0.30, 0.04, 0.30),   # capital
+    (0, 1.27, 0.33, 0.06, 0.33),   # capital top
+    (0, 1.33, 0.28, 0.03, 0.28),   # mount plate
+], granite)
+column.location = (2, 0, 0)
 
-    # Tall narrow shaft
-    make_box(bm, 0, 0.13, 0, 0.25, 1.10, 0.25)
+# Wide memorial base
+memorial = build_variant("Pedestal_Memorial", [
+    (0, 0.00, 0.80, 0.08, 0.55),   # base
+    (0, 0.08, 0.72, 0.06, 0.48),   # step
+    (0, 0.14, 0.65, 0.45, 0.42),   # inscription body
+    (0, 0.59, 0.68, 0.04, 0.45),   # top ledge
+    (0, 0.63, 0.62, 0.05, 0.40),   # cap
+], limestone)
+memorial.location = (4, 0, 0)
 
-    # Capital / top molding
-    make_box(bm, 0, 1.23, 0, 0.30, 0.04, 0.30)
-    make_box(bm, 0, 1.27, 0, 0.33, 0.06, 0.33)
-    # Flat mounting plate for bust
-    make_box(bm, 0, 1.33, 0, 0.28, 0.03, 0.28)
-
-    mesh = bpy.data.meshes.new("pedestal_column")
-    bm.to_mesh(mesh)
-    bm.free()
-
-    obj = bpy.data.objects.new("Pedestal_Column", mesh)
-    bpy.context.collection.objects.link(obj)
-    obj.data.materials.append(granite_mat)
-    return obj
-
-
-# ==========================================================================
-# Variant 2: Wide memorial base (memorials, monuments)
-# ==========================================================================
-def build_memorial_base():
-    bm = bmesh.new()
-
-    # Wide low stepped base
-    make_box(bm, 0, 0, 0, 0.80, 0.08, 0.55)
-    make_box(bm, 0, 0.08, 0, 0.72, 0.06, 0.48)
-
-    # Main body — wide rectangular, good for inscriptions
-    make_box(bm, 0, 0.14, 0, 0.65, 0.45, 0.42)
-
-    # Top ledge
-    make_box(bm, 0, 0.59, 0, 0.68, 0.04, 0.45)
-    # Cap
-    make_box(bm, 0, 0.63, 0, 0.62, 0.05, 0.40)
-
-    mesh = bpy.data.meshes.new("pedestal_memorial")
-    bm.to_mesh(mesh)
-    bm.free()
-
-    obj = bpy.data.objects.new("Pedestal_Memorial", mesh)
-    bpy.context.collection.objects.link(obj)
-    obj.data.materials.append(limestone_mat)
-    return obj
-
-
-# ==========================================================================
-# Build all variants and export
-# ==========================================================================
-objs = []
-objs.append(build_standard_pedestal())
-objs.append(build_column_pedestal())
-objs.append(build_memorial_base())
-
-# Position variants side by side for inspection (doesn't matter for game)
-objs[0].location = (0, 0, 0)
-objs[1].location = (2, 0, 0)
-objs[2].location = (4, 0, 0)
-
-# Select all and export
+# Export
 bpy.ops.object.select_all(action='SELECT')
-out_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                         "models", "furniture", "cp_pedestal.glb")
-os.makedirs(os.path.dirname(out_path), exist_ok=True)
-
-bpy.ops.export_scene.gltf(
-    filepath=out_path,
-    export_format='GLB',
-    use_selection=True,
-    export_apply=True,
-    export_yup=True,
-)
-
-print(f"Exported pedestal variants to {out_path}")
-print(f"  Standard: ~1.08m tall, 3 stepped tiers + shaft + cornice")
-print(f"  Column:   ~1.36m tall, narrow shaft for bust mounting")
-print(f"  Memorial: ~0.68m tall, wide inscription face")
+out = os.path.join(PROJ, "models", "furniture", "cp_pedestal.glb")
+os.makedirs(os.path.dirname(out), exist_ok=True)
+bpy.ops.export_scene.gltf(filepath=out, export_format='GLB', use_selection=True,
+                            export_apply=True, export_image_format='JPEG', export_image_quality=85)
+sz_kb = os.path.getsize(out) / 1024
+print(f"Exported pedestal variants to {out} ({sz_kb:.0f} KB)")
+print(f"  Standard: ~1.08m tall (granite)")
+print(f"  Column:   ~1.36m tall (granite)")
+print(f"  Memorial: ~0.68m tall (limestone)")
