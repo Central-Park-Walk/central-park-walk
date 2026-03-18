@@ -233,6 +233,7 @@ var _screenshot_done  := false
 var _labels_hidden_for_screenshot := false
 var _screenshot_counter := 0  # incrementing counter for F12 screenshots
 var _auto_screenshot := false  # only auto-capture when --quit-after is used
+var _lt_screenshot_pending := false  # debounce for gamepad left trigger screenshots
 
 # ---------------------------------------------------------------------------
 # Tour mode — automated screenshot capture across 10 locations × 3 angles × 3 times
@@ -865,6 +866,14 @@ func _nearest_area(x: float, z: float) -> String:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Gamepad left trigger → screenshot
+	if event is InputEventJoypadMotion and event.axis == JOY_AXIS_TRIGGER_LEFT:
+		if event.axis_value > 0.8 and not _lt_screenshot_pending:
+			_lt_screenshot_pending = true
+			_take_screenshot()
+		elif event.axis_value < 0.2:
+			_lt_screenshot_pending = false
+		return
 	if not (event is InputEventKey and event.pressed):
 		return
 	if event.keycode == KEY_T:
