@@ -184,17 +184,15 @@ void sky() {
 			sky_col += star_color * (star_bright * star_mask * star_point * star_fade * twinkle);
 		}
 		// Light pollution sky glow — warm amber dome, directional
-		// NYC Bortle 8-9: entire sky dome is warm amber-brown, never dark blue
-		// Brighter toward south (Midtown/Downtown) and east/west (avenues)
-		// Park runs N-S, denser city to south, north is Harlem (less bright)
+		// NYC Bortle 8-9: dim warm amber, never truly dark but not bright
 		float lp_fade = smoothstep(0.15, 0.0, LIGHT0_ENERGY);
-		vec3 light_pollution = vec3(0.18, 0.12, 0.06);  // warm amber-brown (stronger)
-		// Directional: south-facing (+Z in our coords) is Midtown = brightest
-		float south_bias = dir.z * 0.25 + 0.75;  // 0.5 north, 1.0 south
-		// East/west sides brighter (avenues), center dimmer (park blocks light)
-		float side_glow = abs(dir.x) * 0.15;
-		// Strong even at zenith — NYC light pollution reaches all elevations
-		float lp_strength = lp_fade * (0.75 + 0.25 * (1.0 - elev)) * (south_bias + side_glow);
+		vec3 light_pollution = vec3(0.10, 0.06, 0.03);  // subtle warm amber
+		// Directional: south = Midtown (brighter), north = Harlem (dimmer)
+		float south_bias = dir.z * 0.20 + 0.70;
+		float side_glow = abs(dir.x) * 0.10;
+		// Fades toward zenith — light pollution concentrated at horizon
+		float lp_height = mix(1.0, 0.3, smoothstep(0.0, 0.6, elev));
+		float lp_strength = lp_fade * lp_height * (south_bias + side_glow);
 		sky_col += light_pollution * lp_strength;
 	}
 
@@ -208,17 +206,30 @@ void sky() {
 		drift += wind_vec * 0.002;  // wind accelerates cloud movement
 		cloud_uv += TIME * drift;
 
-		float n = sky_fbm(cloud_uv * 3.0, 5);
-		// Coverage threshold — higher coverage = more clouds
-		float cloud_mask = smoothstep(1.0 - cloud_coverage - 0.1, 1.0 - cloud_coverage + 0.2, n);
+		// Multi-scale noise: base shape + edge detail
+		float n_base = sky_fbm(cloud_uv * 3.0, 4);
+		float n_detail = sky_fbm(cloud_uv * 9.0 + vec2(3.7, 1.9), 3);
+		// Detail erodes cloud edges for fluffy silhouettes
+		float n = n_base - n_detail * 0.25;
+		// Coverage threshold
+		float cloud_mask = smoothstep(1.0 - cloud_coverage - 0.05, 1.0 - cloud_coverage + 0.15, n);
 		cloud_mask *= cloud_density;
+		// Internal density variation — thicker core, thinner edges
+		float cloud_depth = smoothstep(1.0 - cloud_coverage + 0.05, 1.0 - cloud_coverage + 0.35, n);
 
-		// Cloud shading: top lit by sun, bottom darker
+		// Cloud shading: self-shadowing via noise gradient
 		float sun_illum = max(dot(LIGHT0_DIRECTION, vec3(0.0, 1.0, 0.0)), 0.0);
-		float edge_lit = pow(max(sun_dot, 0.0), 4.0) * 0.4;
-		vec3 cloud_col = mix(cloud_color_bottom, cloud_color_top, sun_illum * 0.4 + 0.25);
-		// Sun-facing edges get warm highlight
-		cloud_col += LIGHT0_COLOR * edge_lit * 0.5;
+		// Sample noise offset toward sun for self-shadow approximation
+		vec2 shadow_offset = LIGHT0_DIRECTION.xz * 0.03;
+		float n_shadow = sky_fbm((cloud_uv + shadow_offset) * 3.0, 3);
+		float self_shadow = smoothstep(0.4, 0.7, n_shadow) * 0.35;
+		// Base color: darker bottoms from self-shadow + depth
+		vec3 cloud_col = mix(cloud_color_bottom, cloud_color_top,
+			sun_illum * 0.35 + 0.20 + cloud_depth * 0.25 - self_shadow);
+		// Silver lining: bright edges where sun backlight penetrates thin cloud
+		float edge_thin = (1.0 - cloud_depth) * cloud_mask;
+		float edge_lit = pow(max(sun_dot, 0.0), 4.0) * 0.5 * edge_thin;
+		cloud_col += LIGHT0_COLOR * edge_lit;
 		// Golden hour cloud drama: undersides lit warm orange, edges more vivid
 		float cloud_golden = smoothstep(0.15, -0.05, LIGHT0_DIRECTION.y);
 		if (cloud_golden > 0.01) {
