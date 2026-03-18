@@ -9,6 +9,8 @@ global uniform float snow_cover;
 global uniform float rain_wetness;
 global uniform float dew_amount;
 global uniform vec3 sky_reflect_color;
+global uniform float cloud_coverage_g;
+global uniform float cloud_speed_g;
 
 uniform sampler2D canopy_map : filter_linear, repeat_disable;
 uniform float hm_world_size = 5000.0;
@@ -250,6 +252,13 @@ void fragment() {
 			col *= vec3(1.0 + light_gap * shade * 0.08, 1.0 + light_gap * shade * 0.04, 1.0 - light_gap * shade * 0.024);
 		}
 	}
+
+	// Cloud shadows — subtle darkening under clouds during day
+	float sky_lum_cs = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
+	float daytime_cs = smoothstep(0.05, 0.20, sky_lum_cs);
+	float grass_cshadow = cloud_shadow(v_world_blade.xz, cloud_coverage_g, cloud_speed_g,
+	                                    TIME, wind_vec) * daytime_cs;
+	col *= (1.0 - grass_cshadow);
 
 	ALBEDO = col;
 

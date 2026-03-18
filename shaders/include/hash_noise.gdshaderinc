@@ -15,3 +15,21 @@ float vnoise(vec2 p) {
 float fbm3(vec2 p) {
 	return vnoise(p) * 0.5 + vnoise(p * 2.13) * 0.3 + vnoise(p * 4.57) * 0.2;
 }
+
+// Cloud shadow: project world position onto cloud plane along sun direction,
+// sample matching noise to darken ground under clouds.
+// cloud_coverage/cloud_speed/cloud_time are global uniforms set by main.gd.
+float cloud_shadow(vec2 world_xz, float cloud_coverage_val, float cloud_speed_val,
+                   float time_val, vec2 wind_val) {
+	// Project onto cloud dome (same UV calculation as sky shader)
+	vec2 cloud_uv = world_xz * 0.00016;  // world scale → cloud UV scale
+	vec2 drift = vec2(cloud_speed_val, cloud_speed_val * 0.7) + wind_val * 0.002;
+	cloud_uv += time_val * drift;
+	// Match sky shader FBM (simplified — 3 octaves for performance)
+	float n = vnoise(cloud_uv * 3.0) * 0.5
+	        + vnoise(cloud_uv * 6.0) * 0.3
+	        + vnoise(cloud_uv * 12.0) * 0.2;
+	float shadow = smoothstep(1.0 - cloud_coverage_val - 0.05,
+	                          1.0 - cloud_coverage_val + 0.15, n);
+	return shadow * 0.25;  // subtle: 0-25% darkening under clouds
+}

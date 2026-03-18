@@ -73,6 +73,8 @@ uniform sampler2D canopy_map : filter_linear, repeat_disable;
 
 // Morning dew: global uniform set by main.gd based on time of day (dawn→mid-morning)
 global uniform float dew_amount;
+global uniform float cloud_coverage_g;
+global uniform float cloud_speed_g;
 
 varying vec3 world_pos;
 
@@ -701,6 +703,13 @@ void fragment() {
 	float terr_hr = hash2(terr_px + vec2(71.9, 0.0)) * 0.02;
 	float terr_hb = hash2(terr_px + vec2(0.0, 53.1)) * 0.02;
 	grass_alb += vec3(terr_pn + terr_hr, terr_pn, terr_pn + terr_hb);
+
+	// Cloud shadows — subtle darkening where clouds block sun
+	float sky_lum_cs = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
+	float daytime = smoothstep(0.05, 0.20, sky_lum_cs);  // only during day
+	float c_shadow = cloud_shadow(world_pos.xz, cloud_coverage_g, cloud_speed_g,
+	                               TIME, wind_vec) * daytime;
+	grass_alb *= (1.0 - c_shadow);
 
 	ALBEDO          = grass_alb;
 	vec3 _gn = grass_nrm * 2.0 - 1.0;

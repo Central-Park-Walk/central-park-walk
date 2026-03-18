@@ -175,6 +175,8 @@ func _ready() -> void:
 	RenderingServer.global_shader_parameter_add("lightning_flash", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	RenderingServer.global_shader_parameter_add("dew_amount", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	RenderingServer.global_shader_parameter_add("lamp_glow", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
+	RenderingServer.global_shader_parameter_add("cloud_coverage_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.5)
+	RenderingServer.global_shader_parameter_add("cloud_speed_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.004)
 	print("main: environment: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	if not _terrain_only:
 		_setup_park()
@@ -1398,7 +1400,12 @@ func _apply_time_of_day() -> void:
 	var cc_bot: Color = _lerp_kf("cloud_color_bottom", a, b, t)
 	_sky_mat.set_shader_parameter("cloud_color_top", Vector3(cc_top.r, cc_top.g, cc_top.b))
 	_sky_mat.set_shader_parameter("cloud_color_bottom", Vector3(cc_bot.r, cc_bot.g, cc_bot.b))
-	_sky_mat.set_shader_parameter("cloud_speed", _lerp_kf("cloud_speed", a, b, t))
+	var _cc_val: float = _lerp_kf("cloud_coverage", a, b, t)
+	var _cs_val: float = _lerp_kf("cloud_speed", a, b, t)
+	_sky_mat.set_shader_parameter("cloud_speed", _cs_val)
+	# Push to globals for cloud shadows on terrain/grass
+	RenderingServer.global_shader_parameter_set("cloud_coverage_g", _cc_val)
+	RenderingServer.global_shader_parameter_set("cloud_speed_g", _cs_val)
 
 	# Ambient
 	_env.ambient_light_color  = _lerp_kf("ambient_color", a, b, t)
