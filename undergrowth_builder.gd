@@ -43,17 +43,17 @@ const SPECIES := [
 	{"name": "Shrub_WitchHazel",        "s": [0.80, 1.15], "flex": 0.20, "green": 0, "fall": [0.65, 0.60, 0.12], "ai": 1},
 	{"name": "Shrub_Viburnum",          "s": [0.75, 1.20], "flex": 0.25, "green": 0, "fall": [0.60, 0.25, 0.15], "ai": 2},
 	{"name": "Shrub_Sumac",             "s": [0.80, 1.15], "flex": 0.20, "green": 0, "fall": [0.80, 0.20, 0.08], "ai": 3},
-	{"name": "Shrub_Elderberry",        "s": [0.80, 1.15], "flex": 0.30, "green": 0, "fall": [0.55, 0.45, 0.10], "ai": 4, "fc": [0.92, 0.92, 0.85], "bl": [0.8, 1.5]},  # cream-white flat-tops
-	# Tall herbs (5-9) — fc=flower color (RGB), bl=bloom season_t range
-	{"name": "Herb_Pokeweed",           "s": [0.70, 1.30], "flex": 0.45, "green": 0, "fall": [0.50, 0.15, 0.30], "ai": 5, "fc": [0.85, 0.85, 0.88], "bl": [1.0, 2.0]},  # white-pink
-	{"name": "Herb_JapaneseKnotweed",   "s": [0.80, 1.20], "flex": 0.35, "green": 0, "fall": [0.40, 0.30, 0.12], "ai": 6, "fc": [0.92, 0.92, 0.90], "bl": [1.2, 2.2]},  # white plumes
-	{"name": "Herb_JoePyeWeed",         "s": [0.75, 1.25], "flex": 0.50, "green": 0, "fall": [0.45, 0.30, 0.20], "ai": 7, "fc": [0.75, 0.45, 0.65], "bl": [1.2, 2.0]},  # dusty pink-purple
-	{"name": "Herb_Coneflower",         "s": [0.75, 1.25], "flex": 0.55, "green": 0, "fall": [0.50, 0.40, 0.12], "ai": 8, "fc": [0.90, 0.75, 0.15], "bl": [1.0, 2.2]},  # golden yellow
-	{"name": "Herb_CardinalFlower",     "s": [0.80, 1.20], "flex": 0.40, "green": 0, "fall": [0.30, 0.18, 0.08], "ai": 9, "fc": [0.85, 0.12, 0.10], "bl": [1.2, 2.0]},  # scarlet red
+	{"name": "Shrub_Elderberry",        "s": [0.80, 1.15], "flex": 0.30, "green": 0, "fall": [0.55, 0.45, 0.10], "ai": 4, "fc": [1.00, 0.99, 0.91], "bl": [0.78, 1.33]},  # creamy white #FFFDE8; May-Jul
+	# Tall herbs (5-9) — fc=flower color (RGB from iNaturalist), bl=bloom season_t (from observation histograms)
+	{"name": "Herb_Pokeweed",           "s": [0.70, 1.30], "flex": 0.45, "green": 0, "fall": [0.50, 0.15, 0.30], "ai": 5, "fc": [0.95, 0.88, 0.92], "bl": [1.0, 2.33]},   # white-pink; Jun-Oct
+	{"name": "Herb_JapaneseKnotweed",   "s": [0.80, 1.20], "flex": 0.35, "green": 0, "fall": [0.40, 0.30, 0.12], "ai": 6, "fc": [0.92, 0.92, 0.90], "bl": [1.22, 2.0]},  # white plumes; late Jun-Sep
+	{"name": "Herb_JoePyeWeed",         "s": [0.75, 1.25], "flex": 0.50, "green": 0, "fall": [0.45, 0.30, 0.20], "ai": 7, "fc": [0.79, 0.53, 0.62], "bl": [1.22, 2.0]},  # dusty mauve-pink #C9879F; late Jun-Sep
+	{"name": "Herb_Coneflower",         "s": [0.75, 1.25], "flex": 0.55, "green": 0, "fall": [0.50, 0.40, 0.12], "ai": 8, "fc": [1.00, 0.72, 0.11], "bl": [1.0, 2.33]},   # golden yellow #FFB81C; Jun-Oct
+	{"name": "Herb_CardinalFlower",     "s": [0.80, 1.20], "flex": 0.40, "green": 0, "fall": [0.30, 0.18, 0.08], "ai": 9, "fc": [0.89, 0.09, 0.22], "bl": [1.33, 2.0]},   # scarlet #E31837; Jul-Sep
 	# Billboard herbs (10-12)
-	{"name": "Herb_WhiteWoodAster",     "s": [0.55, 1.00], "flex": 0.35, "green": 0, "fall": [0.35, 0.28, 0.10], "ai": 10, "fc": [0.92, 0.92, 0.95], "bl": [1.5, 2.5]},  # white
-	{"name": "Herb_Jewelweed",          "s": [0.80, 1.30], "flex": 0.50, "green": 0, "fall": [0.40, 0.30, 0.08], "ai": 11, "fc": [0.90, 0.55, 0.12], "bl": [1.0, 2.2]},  # orange spotted
-	{"name": "Herb_Mugwort",            "s": [1.00, 1.50], "flex": 0.30, "green": 0, "fall": [0.45, 0.38, 0.20], "ai": 12},  # no showy flowers
+	{"name": "Herb_WhiteWoodAster",     "s": [0.55, 1.00], "flex": 0.35, "green": 0, "fall": [0.35, 0.28, 0.10], "ai": 10, "fc": [0.96, 0.96, 0.96], "bl": [1.56, 2.33]},  # white #F5F5F5; late Jul-Oct
+	{"name": "Herb_Jewelweed",          "s": [0.80, 1.30], "flex": 0.50, "green": 0, "fall": [0.40, 0.30, 0.08], "ai": 11, "fc": [1.00, 0.55, 0.00], "bl": [1.0, 2.33]},   # orange #FF8C00; Jun-Oct
+	{"name": "Herb_Mugwort",            "s": [1.00, 1.50], "flex": 0.30, "green": 0, "fall": [0.45, 0.38, 0.20], "ai": 12},  # inconspicuous greenish; not worth rendering
 	# Ferns (13-14)
 	{"name": "Fern_Ostrich",            "s": [0.55, 0.95], "flex": 0.40, "green": 0, "fall": [0.50, 0.40, 0.10], "ai": 13},
 	{"name": "Fern_Christmas",          "s": [0.85, 1.30], "flex": 0.20, "green": 1, "fall": [0.10, 0.28, 0.06], "ai": 14},
@@ -63,20 +63,20 @@ const SPECIES := [
 	{"name": "Mushroom_Common",         "s": [0.80, 1.50], "flex": 0.0, "green": 0, "fall": [0.30, 0.22, 0.12], "ai": -1},
 	{"name": "Mushroom_Laetiporus",     "s": [0.60, 1.20], "flex": 0.0, "green": 0, "fall": [0.60, 0.35, 0.08], "ai": -1},
 	# Tier 3 shrubs (18-19)
-	{"name": "Shrub_SweetPepperbush",   "s": [0.80, 1.20], "flex": 0.25, "green": 0, "fall": [0.60, 0.55, 0.12], "ai": 16, "fc": [0.95, 0.95, 0.92], "bl": [1.2, 1.8]},  # white spikes, fragrant
-	{"name": "Shrub_FloweringRaspberry","s": [0.75, 1.15], "flex": 0.30, "green": 0, "fall": [0.55, 0.45, 0.10], "ai": 17, "fc": [0.82, 0.45, 0.62], "bl": [0.8, 1.5]},  # rose-pink
+	{"name": "Shrub_SweetPepperbush",   "s": [0.80, 1.20], "flex": 0.25, "green": 0, "fall": [0.60, 0.55, 0.12], "ai": 16, "fc": [1.00, 0.99, 0.82], "bl": [1.22, 2.0]},  # creamy white #FFFDD0; late Jun-Sep
+	{"name": "Shrub_FloweringRaspberry","s": [0.75, 1.15], "flex": 0.30, "green": 0, "fall": [0.55, 0.45, 0.10], "ai": 17, "fc": [0.88, 0.25, 0.50], "bl": [0.67, 1.33]},  # rose-magenta #E04080; late Apr-Jul
 	# Tier 3 herbs (20-23)
-	{"name": "Herb_WhiteSnakeroot",     "s": [0.70, 1.25], "flex": 0.35, "green": 0, "fall": [0.40, 0.32, 0.10], "ai": 18, "fc": [0.95, 0.95, 0.95], "bl": [1.5, 2.5]},  # white clusters
-	{"name": "Herb_Ironweed",           "s": [0.75, 1.20], "flex": 0.40, "green": 0, "fall": [0.35, 0.20, 0.25], "ai": 19, "fc": [0.55, 0.18, 0.55], "bl": [1.2, 2.0]},  # deep purple
-	{"name": "Herb_RoseMallow",         "s": [0.80, 1.20], "flex": 0.40, "green": 0, "fall": [0.42, 0.30, 0.12], "ai": 20, "fc": [0.90, 0.55, 0.65], "bl": [1.2, 2.0]},  # large pink
-	{"name": "Herb_Burdock",            "s": [0.75, 1.25], "flex": 0.25, "green": 0, "fall": [0.40, 0.30, 0.15], "ai": 21, "fc": [0.65, 0.40, 0.60], "bl": [1.2, 2.2]},  # purple thistle-like
+	{"name": "Herb_WhiteSnakeroot",     "s": [0.70, 1.25], "flex": 0.35, "green": 0, "fall": [0.40, 0.32, 0.10], "ai": 18, "fc": [1.00, 1.00, 1.00], "bl": [1.33, 2.67]},  # pure white; Jul-Nov (CP's #1 observed plant!)
+	{"name": "Herb_Ironweed",           "s": [0.75, 1.20], "flex": 0.40, "green": 0, "fall": [0.35, 0.20, 0.25], "ai": 19, "fc": [0.42, 0.05, 0.42], "bl": [1.33, 2.33]},  # deep purple-violet #6A0DAD; Jul-Oct
+	{"name": "Herb_RoseMallow",         "s": [0.80, 1.20], "flex": 0.40, "green": 0, "fall": [0.42, 0.30, 0.12], "ai": 20, "fc": [1.00, 0.71, 0.76], "bl": [1.33, 2.0]},   # pink #FFB6C1 w/ crimson eye; Jul-Sep
+	{"name": "Herb_Burdock",            "s": [0.75, 1.25], "flex": 0.25, "green": 0, "fall": [0.40, 0.30, 0.15], "ai": 21, "fc": [0.73, 0.33, 0.83], "bl": [1.0, 1.67]},   # purple-pink thistle #BA55D3; Jun-Aug
 	# Tier 3 ferns (24-25)
 	{"name": "Fern_Cinnamon",           "s": [0.70, 1.15], "flex": 0.35, "green": 0, "fall": [0.50, 0.40, 0.12], "ai": 22},
 	{"name": "Fern_Sensitive",          "s": [0.80, 1.20], "flex": 0.45, "green": 0, "fall": [0.45, 0.35, 0.10], "ai": 23},
 	# Tier 3 grass (26)
 	{"name": "Grass_Bottlebrush",       "s": [0.80, 1.30], "flex": 0.55, "green": 0, "fall": [0.55, 0.48, 0.22], "ai": 24},
 	# Tier 3 wetland (27-29)
-	{"name": "Wetland_YellowIris",      "s": [0.75, 1.20], "flex": 0.30, "green": 0, "fall": [0.40, 0.32, 0.10], "ai": 25, "fc": [0.90, 0.82, 0.15], "bl": [0.6, 1.3]},  # bright yellow
+	{"name": "Wetland_YellowIris",      "s": [0.75, 1.20], "flex": 0.30, "green": 0, "fall": [0.40, 0.32, 0.10], "ai": 25, "fc": [1.00, 0.84, 0.00], "bl": [0.67, 1.0]},  # bright yellow #FFD700; late Apr-Jun
 	{"name": "Wetland_LizardsTail",     "s": [0.80, 1.20], "flex": 0.40, "green": 0, "fall": [0.38, 0.30, 0.10], "ai": 26},
 	{"name": "Wetland_Phragmites",      "s": [0.70, 1.15], "flex": 0.35, "green": 0, "fall": [0.50, 0.42, 0.22], "ai": 27},
 ]

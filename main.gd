@@ -1541,9 +1541,22 @@ func _apply_time_of_day() -> void:
 		_env.fog_light_color = fog_c.lerp(Color(0.72, 0.75, 0.82), s_winter * 0.3)
 		_env.fog_density *= (1.0 + s_winter * 0.2)
 		_env.adjustment_saturation *= (1.0 - s_winter * 0.2)
-		# Winter overcast: increase cloud coverage
+	# Monthly cloud coverage from NOAA/Weather Atlas data for NYC
+	# season_t: 0=Mar(47%), 0.33=Apr(45%), 0.67=May(44%), 1.0=Jun(36%),
+	# 1.33=Jul(31%), 1.67=Aug(30%), 2.0=Sep(34%), 2.33=Oct(41%),
+	# 2.67=Nov(37%), 3.0=Dec(47%), 3.33=Jan(43%), 3.67=Feb(47%)
+	var monthly_cover: Array = [0.47, 0.45, 0.44, 0.36, 0.31, 0.30,
+		0.34, 0.41, 0.37, 0.47, 0.43, 0.47]
+	var month_idx: int = int(_season_t * 3.0) % 12
+	var month_next: int = (month_idx + 1) % 12
+	var month_frac: float = fmod(_season_t * 3.0, 1.0)
+	var data_cover: float = lerpf(monthly_cover[month_idx], monthly_cover[month_next], month_frac)
+	if _weather_mode == "clear":
 		var cc: float = _sky_mat.get_shader_parameter("cloud_coverage")
-		_sky_mat.set_shader_parameter("cloud_coverage", minf(cc + s_winter * 0.15, 0.95))
+		_sky_mat.set_shader_parameter("cloud_coverage", lerpf(cc, data_cover, 0.7))
+		# Winter stratus type (Dec-Feb)
+		if s_winter > 0.3:
+			_sky_mat.set_shader_parameter("cloud_type", lerpf(0.0, 1.0, s_winter))
 
 	# Sun / moon directional light
 	_sun.light_energy    = _lerp_kf("sun_energy", a, b, t)
