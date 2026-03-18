@@ -523,6 +523,18 @@ func _build_trees(trees: Array) -> void:
 		_loader.add_child(mmi)
 
 	_build_tree_collision(all_trunk_xf)
+	# Debug: print a few tree heights to verify scale
+	var _dbg_count := 0
+	for key in xf_by_key:
+		if _dbg_count >= 3: break
+		var xfs: Array = xf_by_key[key]
+		if xfs.size() > 0:
+			var tf: Transform3D = xfs[0]
+			var h_world := tf.basis.y.length()  # Y axis length = scaled height
+			var mesh_h_val: float = species_heights.get(key.split("_")[0], 5.0)
+			print("  Tree '%s': mesh_h=%.2f, scale_y=%.2f, world_h=%.1fm, at y=%.1f" % [
+				key, mesh_h_val, h_world / mesh_h_val, h_world, tf.origin.y])
+			_dbg_count += 1
 	print("Trees: %d placed, %d LOD0 chunks (skipped %d non-grass, nudged %d from paths)" % [
 		all_trunk_xf.size(), lod0_chunks.size(), _skip_surface, _nudged])
 
