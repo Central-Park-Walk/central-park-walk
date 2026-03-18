@@ -57,16 +57,17 @@ python3 convert_to_godot.py
 | Scroll / +/- | Adjust speed (Stroll / Walk / Jog / Bike / Drive / Fly) |
 | T | Cycle time speed (1x / 10x / 100x / Paused) |
 | [ / ] | Nudge time ±1 hour |
-| P | Cycle weather (Clear / Rain / Snow / Fog) |
-| N / Shift+N | Cycle season (Spring / Summer / Autumn / Winter) |
+| P | Cycle weather (Clear / Rain / Thunderstorm / Snow / Fog) |
+| N / Shift+N | Cycle month (March → April → ... → February) |
+| , / . | Adjust brightness |
+| 9 / 0 | Adjust wind |
 | G | Toggle data gap markers |
 | H | Toggle HUD |
-| F11 | Toggle fullscreen |
 | M | Toggle audio mute |
-| F10 | Grass tour (teleport through grass types + auto-screenshot) |
-| F12 | Screenshot (saves to screenshots/) |
+| F11 | Toggle fullscreen |
+| F12 | Screenshot |
 
-**Xbox/gamepad**: left stick walk, right stick look, right trigger fly mode, left trigger screenshot.
+**Gamepad**: Left stick walk, right stick look, right trigger fly, left trigger screenshot. D-pad up/down adjust speed, D-pad left/right ±1 hour. LB cycles weather, RB cycles month.
 
 ### CLI Options
 
@@ -84,26 +85,24 @@ python3 convert_to_godot.py
 
 | Feature | Count | Source |
 |---------|-------|--------|
-| Terrain | 8192×8192 mesh (14M verts) | LiDAR DEM bare earth 2017 (1ft resolution, 0.61m cells). Buildings are separate 3D models — terrain is pure ground surface with no structure heights (AAA approach). Terrain mesh holes at terrain-integrated structures (Bethesda Terrace) filled by dedicated 3D models. 3D path mesh strips from OSM polylines (2,624 paths). Granite curb faces along 2,173 paved path edges (316K verts) — height from LiDAR grade change. 1,909 retaining wall segments along steep grade changes. Dappled canopy shade from tree census crown data (2K coverage map, wind-animated) |
-| Trees | 9,852 | NYC Tree Census + OSM + woodland scatter in 12 ecological zones. 18 custom Blender models: 15 species (oak, elm, maple, birch, cherry, ginkgo, honeylocust, linden, london plane, callery pear, pine, willow, magnolia) + generic deciduous + standing dead snag + cathedral elm (Literary Walk wide-vase variant). **Data-driven**: heights from LiDAR, crown width from measured crown area (80% blend), trunk diameter from census DBH, species-specific trunk proportions from census means. **AAA leaf cards**: 512×512 multi-leaf atlas textures (8 species-specific shapes: lobed, palmate, elliptic, fan, compound, ovate, lanceolate, needle) on crossed-quad geometry (3 intersecting planes per cluster). Per-species summer/fall colors + phenology. Cherry/callery pear/magnolia spring bloom. FBM bark with 3D normal relief (5 styles). **Invasive vines**: porcelain berry + oriental bittersweet — 13 mesh variants |
-| Water | 23 bodies + 10 streams | OpenStreetMap polygons. Dappled canopy shade on water under trees. Stone coping on formal water bodies (Conservatory Water, Harlem Meer, Turtle Pond). Dawn/dusk mist (8 localized fog volumes) |
-| Buildings | 6,557 | NYC Building Footprints + LiDAR heights. 5 facade material types (limestone, brick, concrete, glass/granite, cream) with per-building hash variation, floor-height-accurate windows, cornice bands, awnings, grime weathering |
-| Bridges & Arches | 17 models | Custom Blender models for all named structures: Bow Bridge (cast iron), Gapstow (schist), Huddlestone (cyclopean boulders), Glen Span (tall gneiss), Trefoil (dual Gothic/round profile), Oak Bridge (steel+oak), Eaglevale (double arch), Winterdale (largest stone span), plus 9 more. Each modeled from documented dimensions and materials |
-| Perimeter | 4.8 km wall + 19 gates | Manhattan schist wall (1.17m×0.45m, batted cap) from boundary polygon. Gate openings where paths cross boundary. Paired dressed granite pillars (2.4m, capstone) at each gate. Named gate labels (Merchants', Scholars', Engineers', etc.) |
-| Barriers | 364 features | Stone walls, iron fence panels (MultiMesh + cast iron shader), hedges (seasonal foliage shader), Reservoir perimeter fence (864 sections), bridle path posts (2,990). ConcavePolygonShape3D collision |
-| Landmarks | 39 models | Bethesda Terrace (terrain-integrated tunnel with arcade vault, grand staircases, facades — built from LiDAR heightmap measurements and OSM path data), Belvedere Castle, Swedish Cottage, The Dairy, Chess & Checkers House, Loeb Boathouse, Delacorte Theater, Tavern on the Green, Wollman Rink, Dana Discovery Center, Gate Houses, SummerStage, Carousel, Blockhouse No. 1, Cop Cot, Arsenal, Central Park Zoo, Naumburg Bandshell, Lasker Rink, Vanderbilt Gate, Wisteria Pergola, Mineral Springs Pavilion, Central Park Precinct, Fort Clinton, Ladies' Pavilion, Cherry Hill Fountain, North Meadow Rec Center, Summerhouse, Kerbs Model Boathouse, Imagine Mosaic, Columbus Circle Kiosk, Tennis House, Maintenance Yard, Dana Pier, Delacorte Musical Clock, 4 stone weirs, 6 rustic bridges, 3 boat landings, 30 comfort stations |
-| Dog runs | 3 fenced areas | Chain-link fence sections (241 panels) around Bull Moose, West 87th St, and East Side dog runs from OSM polygons |
-| Furniture | 2,000+ | Lampposts (201), benches (610), trash cans (166), drive waste bins (291), drinking fountains (95), decorative fountains (Untermyer, Burnett), flagpoles (18), water towers (45), iron fences (207 segments), park signs (80), garden borders (28), bollards (75), emergency call boxes (133), info kiosks (13), mile markers (366), fitness stations (12), balustrades (37) |
-| Statues | 106 positions | 4 photogrammetry scans + 32 named Blender GLBs (Cleopatra's Needle, Balto, Shakespeare, Burns, Scott, Halleck, Indian Hunter, Hamilton, Columbus, 107th Infantry, 7th Regiment, Humboldt, Still Hunt, Bolívar, Jagiello, Ellington, Falconer, Morse, Martí, San Martín, Bears, Romeo & Juliet, Joan of Arc, Beethoven, Webster, Pilgrim, Mazzini, Verdi, Women's Rights, Eagles & Prey, Hans Christian Andersen, Alice in Wonderland) + stone pedestals, rest labeled |
-| Playgrounds | 21 equipped | Swing sets + climbing structures from OSM playground polygons |
-| Sports fields | 147 | Tennis (54 nets), basketball (72 hoops), baseball (30 backstops), soccer (22 goals), handball (4 walls) |
-| Grass & Flowers | Hexaquo method | Individual blade geometry at 600/m² via MultiMesh (hexaquo full-geometry approach). 4 blade meshes (Lawn/Wild/Shade/Sedge), 10 zone-specific color palettes. 8 wildflower models with seasonal clustering. Woodland understory. Wind, canopy shade, path-edge wear, seasonal color, winter dormancy |
-| Undergrowth | 16 species | 5 vertical layers from NYBG Flora of Central Park botanical data. **Shrubs** (2-4m): spicebush, witch hazel, viburnum, sumac, elderberry — multi-stem + leaf billboard geometry. **Tall herbs** (1-3m): pokeweed (magenta stems), Japanese knotweed (bamboo-like thickets), Joe Pye weed (pink wetland domes), coneflower (yellow drooping rays), cardinal flower (scarlet spikes). **Ground flora** (0.3-1m): white wood aster (woodland carpet), jewelweed (stream banks), mugwort (silvery invasive). **Ferns**: ostrich fern (1.3m vase), Christmas fern (evergreen rosette). **Wetland**: cattails (2m sword-leaves + brown spikes). Zone-driven placement: NorthWoods/Ramble → ferns + spicebush + aster; WildMeadow → mugwort + pokeweed + knotweed; Waterside → cattails + jewelweed. Per-species wind flex, fall tint, evergreen flag. Chunk-based MultiMesh (20m, 60m range) |
-| Seasons | 4 | Per-species phenology, cherry/callery pear/magnolia spring blossoms, spring cherry blossom petal drift, autumn falling leaf particles, leaf scatter, water color, atmosphere |
-| Weather | 5 modes | Rain, thunderstorm, snow, fog, clear — with surface response |
-| Day/night | Full cycle | 48-lamp pool (45m range, 110 energy), lit windows, NYC warm ambient light pollution, moon, atmospheric haze, aerial perspective (distance desaturation + blue shift) |
-| Audio | 5 layers | Wind (strength + altitude), city ambient (edge proximity + time of day), water proximity (nearest body), surface-aware footsteps (grass/stone), rain |
-| Color grading | Cinematic | Split-tone (teal shadows/amber highlights), film grain, vignette, seasonal + TOD color shifts, S-curve contrast, distance-based grass darkening |
+| Terrain | 8192×8192 mesh (14M verts) | LiDAR DEM bare earth 2017 (1ft resolution, 0.61m cells). Terrain mesh holes at terrain-integrated structures (Bethesda Terrace). 3D path mesh strips (2,624 paths). Granite curb faces (316K verts). 1,909 retaining wall segments. Rock outcrops via DSM blend (161K cells). Dappled canopy shade from tree census crown data |
+| Trees | 9,852 | NYC Tree Census + OSM + woodland scatter in 12 ecological zones. 18 custom Blender models: 15 species + generic + dead + cathedral elm. **Data-driven**: heights from LiDAR, crown width from measured crown area, trunk diameter from census DBH. **AAA leaf cards**: 512×512 multi-leaf atlas textures (8 leaf shapes) on crossed-quad geometry. Per-pixel color noise for millions of unique shades. Cherry/callery pear/magnolia spring bloom with petal translucency. FBM bark with 3D normal relief + per-pixel variation. Invasive vines: porcelain berry + oriental bittersweet (13 mesh variants) |
+| Vegetation | 30 undergrowth + 6 ground cover | **Undergrowth**: 5 shrubs, 8 herbs, 2 ferns, 1 wetland, 2 fungi, 12 tier-3 species. Zone-specific: NorthWoods fern-dominated, Ramble shrub-diverse, Waterside cattail/iris, WildMeadow tall herbs. **14 species with bloom-season flowers** (cardinal flower scarlet, ironweed purple, coneflower gold, etc.). **Ground cover patches**: 6 types (bramble, fern cluster, mixed weeds, tall grass, fallen leaves, twig litter) × 4 variants via shared atlas texture. Seasonal fallen leaves (October–March). Chunk-based MultiMesh with alpha-hash LOD |
+| Grass & Flowers | Hexaquo method | Individual blade geometry at 600/m² via MultiMesh. 4 blade meshes, 10 zone-specific color palettes. 8 wildflower models with seasonal clustering on all lawn zones (4% maintained lawns, 10% default, 15% wild meadow). Per-pixel color noise on every blade. Wind, canopy shade, path-edge wear, seasonal color, winter dormancy |
+| Water | 23 bodies + 10 streams | OpenStreetMap polygons. Canopy shade on water. Stone coping on formal water bodies. Dawn/dusk mist (8 fog volumes) |
+| Buildings | 6,557 | NYC Building Footprints + LiDAR heights. 5 facade materials with per-building variation, floor-accurate windows, cornice bands, awnings, grime weathering |
+| Bridges & Arches | 17 models | Custom Blender models: Bow Bridge (cast iron), Gapstow (schist), Huddlestone (cyclopean boulders), Glen Span (tall gneiss), Trefoil, Oak Bridge, Eaglevale, Winterdale, plus 9 more |
+| Perimeter | 4.8 km wall + 19 gates | Manhattan schist wall from boundary polygon. Paired granite pillars at each gate |
+| Barriers | 364 features | Stone walls, iron fence panels, hedges, Reservoir fence (864 sections), bridle path posts (2,990) |
+| Landmarks | 39 models | Bethesda Terrace, Belvedere Castle, Swedish Cottage, The Dairy, Loeb Boathouse, Delacorte Theater, Tavern on the Green, and 30+ more |
+| Furniture | 2,000+ | Lampposts (201), benches (610), trash cans, drinking fountains (95), decorative fountains, flagpoles, park signs (80), bollards, call boxes, info kiosks, mile markers, fitness stations, balustrades |
+| Statues | 106 positions | 4 photogrammetry scans + 32 named Blender GLBs |
+| Sports | 147 fields | Tennis (54 nets), basketball (72 hoops), baseball (30 backstops), soccer (22 goals), handball (4 walls), 21 playgrounds |
+| Seasons | 12 months | Per-species phenology, spring blossoms (cherry/magnolia/callery pear), cherry petal drift, autumn falling leaves, undergrowth bloom colors, seasonal fallen leaf litter. Monthly cycling (N key) |
+| Weather | 5 modes | Clear, rain, thunderstorm, snow, fog — with surface response (wet darkening, puddles, frost, snow accumulation) |
+| Day/night | Full cycle | 48-lamp pool, lit windows, NYC light pollution, moon, volumetric god rays, aerial perspective |
+| Audio | 5 layers | Wind, city ambient, water proximity, surface-aware footsteps, rain |
+| Post-processing | EGTTR-inspired | Soft impressionist bloom (midtone glow), color diffusion (12% neighbor blend), filmic tonemap, per-pixel noise on all natural surfaces (grass/leaves/bark/terrain), split-tone, film grain, seasonal color shifts |
 
 ## Performance
 
@@ -120,16 +119,16 @@ All data is freely available. No paid APIs. No API keys.
 | [OpenStreetMap](https://www.openstreetmap.org/) | Paths, water, buildings, bridges, furniture | ODbL |
 | [NYC Tree Census](https://data.cityofnewyork.us/) | Species, diameter for park trees | Public Domain |
 | [Sketchfab](https://sketchfab.com/) | Photogrammetry scans (3 statues + Bethesda Fountain) | CC-BY |
-| Custom Blender scripts | 18 tree models (data-driven proportions), 17 bridge/arch models, 30 undergrowth species, 13 vine models, furniture, Cleopatra's Needle | Original (MIT) |
+| Custom Blender scripts | 18 tree models, 30 undergrowth species, 24 ground cover patches, 17 bridges, 13 vine models, furniture | Original (MIT) |
 | [ambientCG](https://ambientcg.com/) / [Polyhaven](https://polyhaven.com/) | PBR textures, HDRI sky | CC0 |
 
 ## How to Contribute
 
 This project grows with human attention.
 
-**No coding required**: Map furniture in OSM (only ~10% of real lampposts/benches are mapped). Take photogrammetry scans of statues (4 of 106 scanned) or landmarks (Bethesda Terrace, Bow Bridge, Belvedere Castle). Record field audio. Photograph landmarks and materials. Map rock outcrops (~170 named, 1 in OSM). Close-range drone or terrestrial LiDAR of architectural detail is especially valuable — the city-wide 2017 capture at 8 pts/m² gives terrain but can't resolve ironwork, carved stone, or arcade interiors.
+**No coding required**: Map furniture in OSM (only ~10% of real lampposts/benches are mapped). Take photogrammetry scans of statues (4 of 106 scanned) or landmarks. Record field audio. Photograph landmarks and materials. Map rock outcrops (~170 named, 1 in OSM). Close-range drone or terrestrial LiDAR of architectural detail is especially valuable.
 
-**Technical**: 17 custom Blender tree models (all species-specific). Interior spaces. Performance profiling. Cross-platform support.
+**Technical**: Custom Blender tree models (all species-specific). Interior spaces. Performance profiling. Cross-platform support.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
@@ -155,7 +154,7 @@ See [FUNDING.md](FUNDING.md) for details on how funds are used.
 | Engine | Godot 4.6.1 (Forward+, GDScript) |
 | Data pipeline | Python (GDAL, numpy/scipy, Pillow) |
 | 3D modeling | Blender 3.0.1 (headless scripts) |
-| Rendering | 22 custom GLSL shaders (terrain with hexaquo grass impostor, water, water mist, stream, facade, stone, tree leaf/bark, grass blade, undergrowth, vine, hedge, wood, cast iron, roof, sky, path, curb, weather), MultiMesh instancing, buffer-based grass (600/m²), 8K prebaked terrain mesh, 3D path mesh extrusion |
+| Rendering | 24 custom GLSL shaders, MultiMesh instancing, buffer-based grass (600/m²), 8K prebaked terrain mesh, shared texture atlases (leaf + ground cover), per-pixel hash noise on all natural surfaces |
 
 ## License
 
