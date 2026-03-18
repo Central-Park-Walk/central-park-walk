@@ -42,20 +42,17 @@ void fragment() {
 
 	if (bark_style == 0) {
 		// --- Style 0: Rough fissured bark (oak, elm, maple, ginkgo, etc.) ---
-		// Sharp-edged vertical cracks with heavy FBM wobble so each furrow
-		// wanders irregularly. Hard transitions = bark, soft = wood grain.
-		float vert_wave = sin(bark_u * 4.5 + fbm(vec2(bark_u * 0.5, bark_y * 0.15), 3) * 4.0);
-		// Sharp edge: narrow smoothstep (0.08 range) instead of soft (0.55 range)
-		furrow = smoothstep(-0.04, 0.04, vert_wave);
-		// Sparse horizontal breaks — noise-based, irregular
-		float h_noise = vnoise(vec2(bark_y * 1.4, bark_u * 0.5));
-		float h_break = smoothstep(0.55, 0.68, h_noise);
-		furrow *= mix(1.0, 0.35, h_break);
-		// Strong contrast: deep dark fissures vs raised ridges
-		col *= mix(0.65, 1.08, furrow);
-		// Coarse flaky texture on ridge surfaces (high frequency, rough)
-		micro = fbm(vec2(bark_u * 9.0, bark_y * 7.0), 4);
-		float grit = vnoise(vec2(bark_u * 25.0, bark_y * 22.0));
+		// Pure FBM noise with hard threshold — no sine waves (which always
+		// read as wood grain no matter how much you perturb them).
+		// Vertically stretched noise (bark cracks run mostly vertical)
+		float crack_noise = fbm(vec2(bark_u * 2.5, bark_y * 1.2), 4);
+		// Hard threshold: above = ridge, below = fissure (sharp boundary)
+		furrow = smoothstep(0.42, 0.46, crack_noise);
+		// Strong contrast: deep dark fissures vs lighter ridges
+		col *= mix(0.62, 1.08, furrow);
+		// Coarse flaky texture on ridge surfaces
+		micro = fbm(vec2(bark_u * 8.0, bark_y * 6.0), 3);
+		float grit = vnoise(vec2(bark_u * 22.0, bark_y * 18.0));
 		col *= (0.88 + micro * 0.16 + grit * 0.08);
 		rough = mix(0.78, 0.96, furrow) + micro * 0.04;
 	} else if (bark_style == 1) {
