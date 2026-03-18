@@ -1186,7 +1186,7 @@ func _build_keyframes() -> void:
 	# long shadows stretch westward across the lawns, mist rises from the ponds.
 	_keyframes.append({
 		"hour": 6.5,
-		"sky_top":        Color(0.28, 0.42, 0.68),
+		"sky_top":        Color(0.18, 0.32, 0.62),  # deeper dawn blue
 		"sky_horizon":    Color(0.75, 0.52, 0.35),    # richer sunrise glow
 		"gnd_bottom":     Color(0.10, 0.08, 0.06),
 		"gnd_horizon":    Color(0.46, 0.34, 0.22),
@@ -1224,7 +1224,7 @@ func _build_keyframes() -> void:
 	# ---- 12.0  Noon (clear, bright daylight) ----
 	_keyframes.append({
 		"hour": 12.0,
-		"sky_top":        Color(0.22, 0.42, 0.75),
+		"sky_top":        Color(0.12, 0.28, 0.65),  # deep noon blue
 		"sky_horizon":    Color(0.55, 0.60, 0.68),
 		"gnd_bottom":     Color(0.12, 0.12, 0.10),
 		"gnd_horizon":    Color(0.38, 0.36, 0.32),
@@ -1264,7 +1264,7 @@ func _build_keyframes() -> void:
 	# long shadows, golden tree canopy, NYC skyline silhouettes catching fire.
 	_keyframes.append({
 		"hour": 19.0,
-		"sky_top":        Color(0.28, 0.22, 0.42),   # deeper purple above
+		"sky_top":        Color(0.18, 0.14, 0.38),   # deep sunset purple
 		"sky_horizon":    Color(0.82, 0.50, 0.28),    # richer orange at horizon
 		"gnd_bottom":     Color(0.10, 0.07, 0.04),
 		"gnd_horizon":    Color(0.48, 0.35, 0.20),    # warm ground reflection
@@ -1441,6 +1441,8 @@ func _apply_time_of_day() -> void:
 
 	# Weather overrides — use absolute values for fog/clouds so the effect
 	# is clearly visible regardless of time-of-day keyframe base values.
+	# Default: fair weather cumulus (cloud_type 0)
+	_sky_mat.set_shader_parameter("cloud_type", 0.0)
 	if _weather_mode == "fog":
 		_env.fog_density = 0.018  # moderate fade: visible at 30m, thick by 80m
 		_env.fog_light_energy = 0.6
@@ -1452,28 +1454,33 @@ func _apply_time_of_day() -> void:
 		_env.adjustment_brightness = 0.90
 		_sky_mat.set_shader_parameter("cloud_coverage", 0.99)
 		_sky_mat.set_shader_parameter("cloud_density", 0.95)
+		_sky_mat.set_shader_parameter("cloud_type", 1.0)  # stratus overcast
 	elif _weather_mode == "rain":
 		_env.fog_density = 0.012
 		_env.fog_light_energy *= 0.7
 		if _env.volumetric_fog_enabled:
 			_env.volumetric_fog_density = 0.006
 		_env.adjustment_saturation *= 0.7
+		_env.adjustment_brightness *= 0.88
 		_sky_mat.set_shader_parameter("cloud_coverage", 0.95)
-		_sky_mat.set_shader_parameter("cloud_density", 0.85)
+		_sky_mat.set_shader_parameter("cloud_density", 0.90)
+		_sky_mat.set_shader_parameter("cloud_type", 1.0)  # stratus — heavy rain overcast
 	elif _weather_mode == "thunderstorm":
 		_env.fog_density = 0.018
-		_env.fog_light_energy *= 0.5
+		_env.fog_light_energy *= 0.4
 		if _env.volumetric_fog_enabled:
 			_env.volumetric_fog_density = 0.010
-		_env.adjustment_saturation *= 0.55
-		_env.adjustment_brightness *= 0.85
+		_env.adjustment_saturation *= 0.50
+		_env.adjustment_brightness *= 0.75
 		_sky_mat.set_shader_parameter("cloud_coverage", 0.98)
-		_sky_mat.set_shader_parameter("cloud_density", 0.92)
+		_sky_mat.set_shader_parameter("cloud_density", 0.95)
+		_sky_mat.set_shader_parameter("cloud_type", 2.0)  # cumulonimbus — dark towering storm
 	elif _weather_mode == "snow":
 		_env.fog_density = 0.008
 		_env.adjustment_saturation *= 0.75
-		_sky_mat.set_shader_parameter("cloud_coverage", 0.92)
+		_sky_mat.set_shader_parameter("cloud_coverage", 0.88)
 		_sky_mat.set_shader_parameter("cloud_density", 0.80)
+		_sky_mat.set_shader_parameter("cloud_type", 1.0)  # stratus — snow overcast with some gaps
 
 	# Wind reduces fog density slightly (wind disperses mist)
 	var wind_str: float = _wind_vec.length()

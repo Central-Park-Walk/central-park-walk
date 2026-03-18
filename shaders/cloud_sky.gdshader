@@ -10,6 +10,7 @@ uniform float cloud_density = 0.50;
 uniform float cloud_speed = 0.004;
 uniform vec3 cloud_color_top = vec3(0.90, 0.90, 0.92);
 uniform vec3 cloud_color_bottom = vec3(0.45, 0.45, 0.50);
+uniform float cloud_type = 0.0;  // 0=fair cumulus, 1=stratus overcast, 2=cumulonimbus
 global uniform vec2 wind_vec;
 global uniform float season_t;
 global uniform float rain_wetness;
@@ -196,78 +197,112 @@ void sky() {
 		sky_col += light_pollution * lp_strength;
 	}
 
-	// --- FBM cloud layer ---
+	// --- Cloud layer: type-dependent rendering ---
+	// cloud_type: 0=fair cumulus, 1=stratus overcast, 2=cumulonimbus storm
 	if (elev > -0.05) {
-		// Project onto cloud dome — higher elevation = closer to zenith
 		float cloud_y = max(elev, 0.01);
 		vec2 cloud_uv = dir.xz / (cloud_y + 0.1) * 0.8;
-		// Cloud drift: base speed + wind pushes clouds in wind direction
-		// Clouds drift steadily — prevailing westerlies (NYC), not oscillating sway
-		vec2 drift = vec2(cloud_speed, cloud_speed * 0.4);  // mostly west-to-east
+		vec2 drift = vec2(cloud_speed, cloud_speed * 0.4);
 		cloud_uv += TIME * drift;
 
-		// Multi-scale noise: base shape + edge detail
-		float n_base = sky_fbm(cloud_uv * 3.0, 4);
-		float n_detail = sky_fbm(cloud_uv * 9.0 + vec2(3.7, 1.9), 3);
-		// Detail erodes cloud edges for fluffy silhouettes
-		float n = n_base - n_detail * 0.25;
-		// Coverage threshold
-		float cloud_mask = smoothstep(1.0 - cloud_coverage - 0.05, 1.0 - cloud_coverage + 0.15, n);
-		cloud_mask *= cloud_density;
-		// Internal density variation — thicker core, thinner edges
-		float cloud_depth = smoothstep(1.0 - cloud_coverage + 0.05, 1.0 - cloud_coverage + 0.35, n);
-
-		// Cloud shading: self-shadowing via noise gradient
 		float sun_illum = max(dot(LIGHT0_DIRECTION, vec3(0.0, 1.0, 0.0)), 0.0);
-		// Sample noise offset toward sun for self-shadow approximation
-		vec2 shadow_offset = LIGHT0_DIRECTION.xz * 0.03;
-		float n_shadow = sky_fbm((cloud_uv + shadow_offset) * 3.0, 3);
-		float self_shadow = smoothstep(0.4, 0.7, n_shadow) * 0.35;
-		// Base color: darker bottoms from self-shadow + depth
-		vec3 cloud_col = mix(cloud_color_bottom, cloud_color_top,
-			sun_illum * 0.35 + 0.20 + cloud_depth * 0.25 - self_shadow);
-		// Silver lining: bright edges where sun backlight penetrates thin cloud
-		float edge_thin = (1.0 - cloud_depth) * cloud_mask;
-		float edge_lit = pow(max(sun_dot, 0.0), 4.0) * 0.5 * edge_thin;
-		cloud_col += LIGHT0_COLOR * edge_lit;
-		// Golden hour cloud drama: undersides lit warm orange, edges more vivid
+		float cloud_mask = 0.0;
+		float cloud_depth = 0.0;
+		vec3 cloud_col = vec3(0.5);
+
+		if (cloud_type < 0.5) {
+			// --- FAIR WEATHER CUMULUS: fluffy individual clouds, blue sky between ---
+			float n_base = sky_fbm(cloud_uv * 2.5, 4);
+			float n_detail = sky_fbm(cloud_uv * 8.0 + vec2(3.7, 1.9), 3);
+			float n = n_base - n_detail * 0.30;
+			cloud_mask = smoothstep(1.0 - cloud_coverage - 0.05, 1.0 - cloud_coverage + 0.12, n);
+			cloud_mask *= cloud_density;
+			cloud_depth = smoothstep(1.0 - cloud_coverage + 0.05, 1.0 - cloud_coverage + 0.30, n);
+
+			// Bright white tops, soft gray bases
+			vec2 shadow_offset = LIGHT0_DIRECTION.xz * 0.04;
+			float n_shadow = sky_fbm((cloud_uv + shadow_offset) * 2.5, 3);
+			float self_shadow = smoothstep(0.4, 0.7, n_shadow) * 0.30;
+			cloud_col = mix(cloud_color_bottom, cloud_color_top,
+				sun_illum * 0.40 + 0.25 + cloud_depth * 0.30 - self_shadow);
+			// Silver lining on thin edges
+			float edge_thin = (1.0 - cloud_depth) * cloud_mask;
+			cloud_col += LIGHT0_COLOR * pow(max(sun_dot, 0.0), 4.0) * 0.4 * edge_thin;
+
+		} else if (cloud_type < 1.5) {
+			// --- STRATUS: flat, layered, uniform overcast ---
+			// Stretched horizontally, less vertical definition
+			float n_strat = sky_fbm(cloud_uv * vec2(2.0, 4.0), 5);
+			float n_thin = sky_fbm(cloud_uv * vec2(5.0, 8.0) + vec2(11.3, 7.1), 3);
+			float n = n_strat * 0.7 + n_thin * 0.3;
+			// Stratus covers most of the sky — narrow threshold band
+			cloud_mask = smoothstep(1.0 - cloud_coverage - 0.15, 1.0 - cloud_coverage + 0.05, n);
+			cloud_mask *= cloud_density;
+			cloud_depth = cloud_mask * 0.6;  // relatively uniform thickness
+
+			// Gray, flat, low contrast — typical overcast
+			cloud_col = mix(vec3(0.42, 0.44, 0.48), vec3(0.62, 0.64, 0.68),
+				n_strat * 0.4 + sun_illum * 0.15);
+			// Slight variation — thin spots are brighter
+			cloud_col += vec3(0.08) * (1.0 - cloud_depth);
+
+		} else {
+			// --- CUMULONIMBUS: towering storm clouds, very dark bases ---
+			float n_base = sky_fbm(cloud_uv * 1.8, 5);
+			float n_turb = sky_fbm(cloud_uv * 6.0 + vec2(5.3, 9.1), 4);
+			float n_anvil = sky_fbm(cloud_uv * vec2(1.2, 3.0) + vec2(17.0, 3.0), 3);
+			// Turbulent, towering shape
+			float n = n_base * 0.6 + n_turb * 0.25 + n_anvil * 0.15;
+			cloud_mask = smoothstep(1.0 - cloud_coverage - 0.10, 1.0 - cloud_coverage + 0.08, n);
+			cloud_mask *= cloud_density;
+			cloud_depth = smoothstep(1.0 - cloud_coverage, 1.0 - cloud_coverage + 0.40, n);
+
+			// Very dark bases, bright anvil tops
+			vec2 shadow_offset = LIGHT0_DIRECTION.xz * 0.06;
+			float n_shadow = sky_fbm((cloud_uv + shadow_offset) * 2.0, 4);
+			float self_shadow = smoothstep(0.3, 0.65, n_shadow) * 0.50;
+			vec3 storm_dark = vec3(0.18, 0.18, 0.22);   // near-black storm base
+			vec3 storm_bright = vec3(0.55, 0.55, 0.60);  // bright anvil top
+			cloud_col = mix(storm_dark, storm_bright,
+				cloud_depth * 0.5 + sun_illum * 0.15 - self_shadow);
+			// Green-yellow tinge in severe storms
+			cloud_col += vec3(-0.02, 0.02, -0.03) * cloud_depth;
+		}
+
+		// --- Common cloud effects (all types) ---
+
+		// Golden hour drama
 		float cloud_golden = smoothstep(0.15, -0.05, LIGHT0_DIRECTION.y);
 		if (cloud_golden > 0.01) {
 			float rim = pow(max(sun_dot, 0.0), 2.0) * 0.3;
 			cloud_col += LIGHT0_COLOR * vec3(1.2, 0.6, 0.3) * rim * cloud_golden;
-			// Warmer cloud base at golden hour
 			cloud_col = mix(cloud_col, cloud_col * vec3(1.15, 0.9, 0.75), cloud_golden * 0.4);
 		}
 
-		// Moonlit cloud edges at night — silver-blue rim lighting
+		// Night darkening
 		if (LIGHT0_ENERGY < 0.15) {
 			vec3 moon_dir2 = normalize(-LIGHT0_DIRECTION + vec3(0.0, 0.35, 0.1));
 			float moon_edge = pow(max(dot(dir, moon_dir2), 0.0), 4.0) * 0.25;
 			float night_f = smoothstep(0.15, 0.0, LIGHT0_ENERGY);
-			cloud_col += vec3(0.25, 0.28, 0.35) * moon_edge * night_f;
-			// Night clouds are darker overall (no sun illumination)
-			cloud_col *= mix(1.0, 0.30, night_f);
+			cloud_col += vec3(0.20, 0.22, 0.28) * moon_edge * night_f;
+			cloud_col *= mix(1.0, 0.25, night_f);
 		}
 
-		// Fade clouds near horizon to blend with haze
-		float horizon_fade = smoothstep(0.0, 0.12, elev);
+		// Horizon fade
+		float horizon_fade = smoothstep(0.0, 0.10, elev);
 		cloud_mask *= horizon_fade;
 
 		sky_col = mix(sky_col, cloud_col, cloud_mask);
 
-		// High-altitude cirrus wisps — thin ice-crystal streaks above main clouds
-		// Move faster (jet stream), more directional, semi-transparent
-		if (elev > 0.15) {
+		// --- Cirrus wisps (only with fair weather or light stratus) ---
+		if (cloud_type < 1.5 && elev > 0.15) {
 			vec2 cirrus_uv = dir.xz / (cloud_y + 0.05) * 0.3;
-			// Jet stream: moves mostly west-to-east, faster than low clouds
 			cirrus_uv += TIME * vec2(cloud_speed * 3.5, cloud_speed * 0.4);
-			// Stretched noise: elongated in wind direction for wispy streaks
 			float cn = sky_gnoise(cirrus_uv * vec2(2.0, 6.0));
 			cn += sky_gnoise(cirrus_uv * vec2(4.0, 12.0)) * 0.4;
-			float cirrus = smoothstep(0.3, 0.8, cn) * 0.15;
-			cirrus *= smoothstep(0.15, 0.35, elev);  // only high sky
-			// Cirrus are bright white, backlit by sun
-			vec3 cirrus_col = cloud_color_top + LIGHT0_COLOR * 0.15;
+			float cirrus = smoothstep(0.3, 0.8, cn) * 0.12;
+			cirrus *= smoothstep(0.15, 0.35, elev);
+			vec3 cirrus_col = cloud_color_top + LIGHT0_COLOR * 0.12;
 			sky_col = mix(sky_col, cirrus_col, cirrus);
 		}
 	}
