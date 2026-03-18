@@ -12,6 +12,7 @@ const PHENOLOGY_INDEX := {
 	"dead": 4,  # dead trees use deciduous phenology (no leaves rendered anyway)
 	"willow": 12,  # willow: golden yellow fall, early spring
 	"magnolia": 13,  # magnolia: spring blossom, brown-gold fall
+	"cathedral_elm": 2,  # shares elm phenology
 }
 # Maps archetype → base GLB model name
 const ARCHETYPE_MODEL := {
@@ -20,7 +21,13 @@ const ARCHETYPE_MODEL := {
 	"honeylocust": "honeylocust", "callery_pear": "callery_pear", "ginkgo": "ginkgo",
 	"london_plane": "london_plane", "linden": "linden", "cherry": "cherry",
 	"zelkova": "elm", "dead": "dead", "willow": "willow", "magnolia": "magnolia",
+	"cathedral_elm": "cathedral_elm",
 }
+
+# Literary Walk / Mall: elms flanking the straight promenade get the wide-vase
+# cathedral elm model so canopies arch over the path. Zone is a bounding box
+# around the Mall centerline (X≈-650, Z≈1200-1500) with 25m lateral tolerance.
+const CATHEDRAL_ELM_ZONE := Rect2(-680.0, 1180.0, 65.0, 340.0)  # x, z, w, h
 
 var canopy_data: Array = []  # [{x, z, radius}] for canopy map generation
 
@@ -103,6 +110,7 @@ func _build_trees(trees: Array) -> void:
 		"dead":          Vector3(0.42, 0.38, 0.34),   # gray weathered (no leaves)
 		"willow":        Vector3(0.30, 0.50, 0.15),   # yellow-green, narrow leaves
 		"magnolia":      Vector3(0.18, 0.35, 0.12),   # dark glossy green, large leaves
+		"cathedral_elm": Vector3(0.24, 0.42, 0.15),   # same as elm
 	}
 	var bark_colors := {
 		"oak":           Color(0.40, 0.32, 0.24),     # dark brown, deeply furrowed
@@ -121,6 +129,7 @@ func _build_trees(trees: Array) -> void:
 		"dead":          Color(0.42, 0.38, 0.34),     # weathered gray dead wood
 		"willow":        Color(0.40, 0.35, 0.28),     # gray-brown, deeply furrowed
 		"magnolia":      Color(0.52, 0.48, 0.44),     # smooth light gray
+		"cathedral_elm": Color(0.30, 0.25, 0.18),     # same as elm
 	}
 	# --- Load 5 base GLB models, then create per-archetype colored copies ---
 	var species_meshes: Dictionary = {}  # archetype_name -> Array[Mesh]
@@ -278,6 +287,7 @@ func _build_trees(trees: Array) -> void:
 		"dead":          [8.0, 16.0],    # shorter (broken top)
 		"willow":        [10.0, 18.0],   # weeping willow — wide, medium height
 		"magnolia":      [5.0, 10.0],    # saucer magnolia — short, wide crown
+		"cathedral_elm": [22.0, 32.0],   # mature Literary Walk elms — tall, wide vase
 	}
 
 	# Foliage zone data for deciduous sub-species assignment
@@ -340,6 +350,10 @@ func _build_trees(trees: Array) -> void:
 
 		# Use the species from data as-is (census or OSM archetype)
 		var species: String = tree_species
+		# Elms on the Literary Walk/Mall get the cathedral elm (wide vase canopy)
+		if species == "elm" and CATHEDRAL_ELM_ZONE.has_point(Vector2(tx, tz)):
+			if species_meshes.has("cathedral_elm"):
+				species = "cathedral_elm"
 		if not species_meshes.has(species):
 			species = "deciduous"
 			if not species_meshes.has(species):
