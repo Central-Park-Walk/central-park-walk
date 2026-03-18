@@ -64,6 +64,8 @@ void fragment() {
 	// Litter visibility: autumn through early spring only
 	// NYC leaf fall starts mid-October (season_t ~2.5), peaks November
 	if (is_litter > 0.5) {
+		// Summer (season_t 0.8-2.2): no fallen leaves on ground
+		if (season_t > 0.7 && season_t < 2.3) discard;
 		float litter_vis = smoothstep(2.3, 2.7, season_t);  // appears Oct-Nov
 		// Persists through winter into early spring (leftover litter)
 		litter_vis = max(litter_vis, 1.0 - smoothstep(0.0, 0.6, season_t));

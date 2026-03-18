@@ -611,11 +611,13 @@ func _build_canopy_shells() -> void:
 		return
 
 	# Load canopy texture
-	var canopy_tex_path := "res://textures/tree_canopy_broad.png"
-	var canopy_img := Image.load_from_file(ProjectSettings.globalize_path(canopy_tex_path))
-	var canopy_tex: ImageTexture = null
-	if canopy_img:
-		canopy_tex = ImageTexture.create_from_image(canopy_img)
+	var canopy_tex: Texture2D = load("res://textures/tree_canopy_broad.png")
+	if not canopy_tex:
+		# Fallback: try Image.load_from_file
+		var canopy_img := Image.load_from_file(ProjectSettings.globalize_path("res://textures/tree_canopy_broad.png"))
+		if canopy_img:
+			canopy_tex = ImageTexture.create_from_image(canopy_img)
+	print("Trees LOD1: canopy texture %s" % ("loaded" if canopy_tex else "MISSING"))
 
 	# Generate dome mesh (shared by all shells)
 	var dome: ArrayMesh = _make_dome_mesh(8, 12)
