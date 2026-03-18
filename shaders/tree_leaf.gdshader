@@ -284,8 +284,8 @@ void fragment() {
 		spec = mix(spec, 0.22, v_blossom);       // subtle sheen on petals
 		// Per-pixel petal variation — real petals have veining, bruising, moisture spots
 		float petal_var = lum * 0.15;
-		float petal_noise = hash2(UV * 83.7 + v_world_pos.xz * 11.3) * 0.08 - 0.04;
-		float petal_hue = hash2(UV * 47.1 + v_world_pos.xz * 7.9) * 0.04 - 0.02;
+		float petal_noise = hash2(UV * 83.7 + tree_pos.xz * 11.3) * 0.08 - 0.04;
+		float petal_hue = hash2(UV * 47.1 + tree_pos.xz * 7.9) * 0.04 - 0.02;
 		col += vec3(petal_var + petal_noise + petal_hue,
 		            (petal_var + petal_noise) * 0.8,
 		            (petal_var + petal_noise) * 0.7 - petal_hue) * v_blossom;
