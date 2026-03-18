@@ -34,13 +34,25 @@ ATLAS_MAP = {
 }
 
 
+def _pixel_hash(x, y):
+    """Fast deterministic per-pixel hash → float in [-1, 1]."""
+    n = x * 374761393 + y * 668265263
+    n = (n ^ (n >> 13)) * 1274126177
+    return ((n & 0xFFFFFF) / 8388608.0) - 1.0  # 2^23
+
+
 def _set_pixel(pixels, x, y, r, g, b, a=1.0):
     if 0 <= x < TEX_W and 0 <= y < TEX_H:
         idx = (y * TEX_W + x) * 4
-        # Allow overlap — blend for richer coverage
-        pixels[idx] = r
-        pixels[idx + 1] = g
-        pixels[idx + 2] = b
+        # Per-pixel micro-variation: subtle hue/value noise
+        # Real vegetation has millions of unique shades from
+        # chlorophyll patches, dust, moisture, cell structure
+        n1 = _pixel_hash(x, y) * 0.06       # brightness noise
+        n2 = _pixel_hash(x + 7919, y) * 0.03  # hue shift R
+        n3 = _pixel_hash(x, y + 6271) * 0.03  # hue shift B
+        pixels[idx] = max(0.0, min(1.0, r + n1 + n2))
+        pixels[idx + 1] = max(0.0, min(1.0, g + n1))
+        pixels[idx + 2] = max(0.0, min(1.0, b + n1 + n3))
         pixels[idx + 3] = a
 
 
@@ -50,6 +62,11 @@ def _paint_leaf(pixels, cx, cy, size, angle, r, g, b, rng, shape="elliptic"):
     leaf_w = int(size * aspect)
     cos_a, sin_a = math.cos(angle), math.sin(angle)
     radius = max(leaf_w, leaf_h)
+    # Per-leaf unique color shifts — tip yellowing, base darkening
+    tip_yellow = rng.uniform(0.0, 0.08)
+    base_dark = rng.uniform(0.0, 0.06)
+    # Subtle asymmetric hue — one side slightly warmer
+    side_warm = rng.uniform(-0.02, 0.02)
     for dy in range(-radius, radius + 1):
         for dx in range(-radius, radius + 1):
             lx = dx * cos_a + dy * sin_a
@@ -59,12 +76,17 @@ def _paint_leaf(pixels, cx, cy, size, angle, r, g, b, rng, shape="elliptic"):
             dist = math.sqrt(nx * nx + ny * ny)
             if dist <= 1.0:
                 edge_dark = 1.0 - 0.25 * dist
-                vein = 1.0 - 0.06 * math.exp(-abs(nx) * 6.0)
+                vein = 1.0 - 0.08 * math.exp(-abs(nx) * 5.0)
+                # Tip-to-base gradient: tips slightly yellow, base darker
+                tip_t = (ny + 1.0) * 0.5  # 0=base, 1=tip
+                lr = r * edge_dark * vein + tip_yellow * tip_t - base_dark * (1.0 - tip_t)
+                lg = g * edge_dark * vein + tip_yellow * tip_t * 0.5 - base_dark * (1.0 - tip_t) * 0.5
+                lb = b * edge_dark * vein - tip_yellow * tip_t * 0.3
+                # Side warmth
+                lr += side_warm * nx
                 px = int(cx + dx)
                 py = int(cy + dy)
-                _set_pixel(pixels, px, py,
-                           r * edge_dark * vein, g * edge_dark * vein,
-                           b * edge_dark * vein)
+                _set_pixel(pixels, px, py, lr, lg, lb)
 
 
 def _paint_stem(pixels, sx, sy, angle, length, rng):
