@@ -231,8 +231,8 @@ void fragment() {
 	// Real leaves have complex surface topology that catches light at micro-scale.
 	// Two noise octaves: coarse (vein ridges) + fine (cell/cuticle texture).
 	vec3 frag_world = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	float bump_coarse = vnoise(frag_world * 45.0);
-	float bump_fine = vnoise(frag_world * 110.0);
+	float bump_coarse = vnoise(frag_world.xz * 45.0);
+	float bump_fine = vnoise(frag_world.xz * 110.0);
 	float bump_h = bump_coarse * 0.6 + bump_fine * 0.4;
 	// Perturb normal via screen-space height derivatives (subtle — just enough
 	// to break up uniform lighting, not enough to flip normals or wash out)

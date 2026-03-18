@@ -154,7 +154,6 @@ void fragment() {
 	ALBEDO = col;
 
 	// Roughness varies with height: lower stems rougher, upper leaves glossier
-	float height_frac = clamp(VERTEX.y / 3.0, 0.0, 1.0);
 	ROUGHNESS = mix(0.72, 0.48, height_frac);
 	SPECULAR = mix(0.08, 0.16, height_frac);
 	METALLIC = 0.0;
