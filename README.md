@@ -23,7 +23,8 @@ Every tree has a real measured height. Every path follows its real-world geometr
 ### Prerequisites
 - [Godot 4.6.1](https://godotengine.org/download) (Linux x86_64)
 - Python 3 with: `numpy`, `scipy`, `gdal`, `Pillow`
-- [Blender 3.0+](https://www.blender.org/download/) (optional, for model regeneration)
+- [Blender 4.5 LTS](https://www.blender.org/download/lts/4-5/) (for model regeneration; `blender4` symlink)
+- [Mtree addon v5.5](https://extensions.blender.org/add-ons/modular-tree/) (Blender extension for tree generation)
 - NVIDIA GPU recommended (Forward+ renderer)
 
 ### Setup
@@ -86,7 +87,7 @@ python3 convert_to_godot.py
 | Feature | Count | Source |
 |---------|-------|--------|
 | Terrain | 8192×8192 mesh (14M verts) | LiDAR DEM bare earth 2017 (1ft resolution, 0.61m cells). Terrain mesh holes at terrain-integrated structures (Bethesda Terrace). 3D path mesh strips (2,624 paths). Granite curb faces (316K verts). 1,909 retaining wall segments. Rock outcrops via DSM blend (161K cells). Dappled canopy shade from tree census crown data |
-| Trees | 9,852 | NYC Tree Census + OSM + woodland scatter in 12 ecological zones. 18 custom Blender models: 15 species + generic + dead + cathedral elm. **Data-driven heights**: LiDAR 6M Trees (4,005), canopy height model enrichment (1,450), DBH-estimated (4,397). Uniform scaling preserves model proportions. **AAA leaf cards**: 512×512 multi-leaf atlas textures (8 leaf shapes) on crossed-quad geometry. Per-pixel color noise for millions of unique shades. Cherry/callery pear/magnolia spring bloom with petal translucency. FBM bark with 3D normal relief + per-pixel variation. Invasive vines: porcelain berry + oriental bittersweet (13 mesh variants) |
+| Trees | 9,852 | NYC Tree Census + OSM + woodland scatter in 12 ecological zones. **Mtree procedural generation** (Blender 4.5 + Modular Tree v5.5): 15 species × 3 size tiers (small/medium/large) = 46 GLBs with scale-aware branch density. Trees generated at real-world heights with natural branching, normalized to 5m model space. **Data-driven heights**: LiDAR 6M Trees (4,005), canopy height model enrichment (1,450), DBH-estimated (4,397). Crossed-quad leaf cards at branch tips (radius attribute). Per-pixel color noise. Cherry/callery pear/magnolia spring bloom. FBM bark with 3D normal relief. Invasive vines: porcelain berry + oriental bittersweet (13 mesh variants) |
 | Vegetation | 30 undergrowth + 6 ground cover | **Undergrowth**: 5 shrubs, 8 herbs, 2 ferns, 1 wetland, 2 fungi, 12 tier-3 species. Zone-specific: NorthWoods fern-dominated, Ramble shrub-diverse, Waterside cattail/iris, WildMeadow tall herbs. **14 species with bloom-season flowers** (cardinal flower scarlet, ironweed purple, coneflower gold, etc.). **Ground cover patches**: 6 types (bramble, fern cluster, mixed weeds, tall grass, fallen leaves, twig litter) × 4 variants via shared atlas texture. Seasonal fallen leaves (October–March). Chunk-based MultiMesh with alpha-hash LOD |
 | Grass & Flowers | Hexaquo method | Individual blade geometry at 600/m² via MultiMesh. 4 blade meshes, 10 zone-specific color palettes. 8 wildflower models with seasonal clustering on all lawn zones (4% maintained lawns, 10% default, 15% wild meadow). Per-pixel color noise on every blade. Wind, canopy shade, path-edge wear, seasonal color, winter dormancy |
 | Water | 23 bodies + 10 streams | OpenStreetMap polygons. Canopy shade on water. Stone coping on formal water bodies. Dawn/dusk mist (8 fog volumes) |
@@ -95,7 +96,7 @@ python3 convert_to_godot.py
 | Perimeter | 4.8 km wall + 19 gates | Manhattan schist wall from boundary polygon. Paired granite pillars at each gate |
 | Barriers | 364 features | Stone walls, iron fence panels, hedges, Reservoir fence (864 sections), bridle path posts (2,990) |
 | Landmarks | 39 models | Bethesda Terrace, Belvedere Castle, Swedish Cottage, The Dairy, Loeb Boathouse, Delacorte Theater, Tavern on the Green, and 30+ more |
-| Furniture | 2,000+ | Lampposts (201), benches (610), trash cans, drinking fountains (95), decorative fountains, flagpoles, park signs (80), bollards, call boxes, info kiosks, mile markers, fitness stations, balustrades |
+| Furniture | 2,000+ | **33 PBR-textured models** using ambientCG materials (cast iron, weathered wood, granite, concrete, bronze). Lampposts (201), benches (610), trash cans, drinking fountains (95), decorative fountains, flagpoles, park signs (80), bollards, call boxes, info kiosks, mile markers, fitness stations, balustrades. UV-mapped with normal/roughness/metalness maps |
 | Statues | 106 positions | 4 photogrammetry scans + 32 named Blender GLBs |
 | Sports | 147 fields | Tennis (54 nets), basketball (72 hoops), baseball (30 backstops), soccer (22 goals), handball (4 walls), 21 playgrounds |
 | Seasons | 12 months | Per-species phenology, spring blossoms (cherry/magnolia/callery pear), cherry petal drift, autumn falling leaves, undergrowth bloom colors, seasonal fallen leaf litter. Monthly cycling (N key) |
@@ -119,7 +120,7 @@ All data is freely available. No paid APIs. No API keys.
 | [OpenStreetMap](https://www.openstreetmap.org/) | Paths, water, buildings, bridges, furniture | ODbL |
 | [NYC Tree Census](https://data.cityofnewyork.us/) | Species, diameter for park trees | Public Domain |
 | [Sketchfab](https://sketchfab.com/) | Photogrammetry scans (3 statues + Bethesda Fountain) | CC-BY |
-| Custom Blender scripts | 18 tree models, 30 undergrowth species, 24 ground cover patches, 17 bridges, 13 vine models, furniture | Original (MIT) |
+| Custom Blender scripts | 46 Mtree tree models (15 species × 3 tiers), 33 PBR furniture models, 30 undergrowth species, 24 ground cover patches, 17 bridges, 13 vine models | Original (MIT) |
 | [ambientCG](https://ambientcg.com/) / [Polyhaven](https://polyhaven.com/) | PBR textures, HDRI sky | CC0 |
 
 ## How to Contribute
@@ -153,7 +154,7 @@ See [FUNDING.md](FUNDING.md) for details on how funds are used.
 |-------|-----------|
 | Engine | Godot 4.6.1 (Forward+, GDScript) |
 | Data pipeline | Python (GDAL, numpy/scipy, Pillow) |
-| 3D modeling | Blender 3.0.1 (headless scripts) |
+| 3D modeling | Blender 4.5.8 LTS + Mtree v5.5 (procedural trees), ambientCG PBR textures |
 | Rendering | 24 custom GLSL shaders, MultiMesh instancing, buffer-based grass (600/m²), 8K prebaked terrain mesh, shared texture atlases (leaf + ground cover), per-pixel hash noise on all natural surfaces |
 
 ## License

@@ -44,3 +44,8 @@ open-collective-setup.md
 sensory-data-sources.md
 visual-reference-report.md
 reference-photos.md
+
+# Plant library (1.2GB, re-download from Gumroad)
+assets/plant_library/*.blend
+assets/plant_library/*.rar
+*.rar
