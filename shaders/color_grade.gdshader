@@ -21,6 +21,18 @@ void fragment() {
 	// Clamp to 2x brightest neighbor — kills fireflies, preserves real highlights
 	c = min(c, neighbor_max * 2.0 + 0.05);
 
+	// --- Impressionist color diffusion: subtle neighbor blending ---
+	// Light bleeds into shadows, edges soften — painterly quality.
+	// Sample at 2px radius for wider diffusion without extra texture reads.
+	vec3 n5 = texture(SCREEN_TEXTURE, SCREEN_UV + vec2(px.x * 2.0, px.y)).rgb;
+	vec3 n6 = texture(SCREEN_TEXTURE, SCREEN_UV - vec2(px.x * 2.0, px.y)).rgb;
+	vec3 n7 = texture(SCREEN_TEXTURE, SCREEN_UV + vec2(px.x, px.y * 2.0)).rgb;
+	vec3 n8 = texture(SCREEN_TEXTURE, SCREEN_UV - vec2(px.x, px.y * 2.0)).rgb;
+	vec3 neighbor_avg = (n1 + n2 + n3 + n4 + n5 + n6 + n7 + n8) * 0.125;
+	// Blend 12% toward neighbors — enough for soft impressionist feel,
+	// not so much that it looks blurry
+	c = mix(c, neighbor_avg, 0.12);
+
 	// Time-of-day detection from sky luminance
 	float sky_lum = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
 	float night_t  = smoothstep(0.15, 0.02, sky_lum);  // 1.0 at night
