@@ -124,9 +124,14 @@ void fragment() {
 	float blade_seed = v_blade_seed;
 
 	// Blade roundness is baked into custom split normals from Blender
-	// (cylinder Data Transfer technique). Tips blend toward up for
-	// specular highlights, but not fully — prevents white shimmer.
-	NORMAL = mix(NORMAL, vec3(0.0, 1.0, 0.0), blade_t * 0.6);
+	// (cylinder Data Transfer technique). Gentle tip-up blend preserves
+	// per-blade orientation diversity — prevents plastic-sheet specular.
+	NORMAL = mix(NORMAL, vec3(0.0, 1.0, 0.0), blade_t * 0.25);
+	// Per-blade normal jitter: break up uniform reflection at golden hour
+	float nj = blade_seed * 6.2831;
+	NORMAL.x += sin(nj) * 0.12 * blade_t;
+	NORMAL.z += cos(nj) * 0.12 * blade_t;
+	NORMAL = normalize(NORMAL);
 
 	// --- Color tied to size + zone type (hexaquo) ---
 	// Each grass type gets a visually distinct color pair.
@@ -240,11 +245,12 @@ void fragment() {
 
 	ALBEDO = col;
 
-	// --- Proper grass material (hexaquo) ---
-	// Grass IS shiny. Real blades have a waxy cuticle that's glossiest
-	// at the tip and progressively matte toward the base sheath.
-	ROUGHNESS = mix(0.65, 0.35, blade_t);  // base matte, tip glossy
-	SPECULAR = mix(0.08, 0.20, blade_t);   // tip catches specular highlights
+	// --- Grass material ---
+	// Real blades have a waxy cuticle but random orientations break up
+	// specular into scattered glints, not a uniform sheet.
+	ROUGHNESS = mix(0.72, 0.52, blade_t);  // still has cuticle gradient, but diffuse enough
+	ROUGHNESS += (blade_seed - 0.5) * 0.10;  // per-blade roughness variation
+	SPECULAR = mix(0.06, 0.12, blade_t);   // subtle specular, not a mirror
 	METALLIC = 0.0;
 
 	// Translucency — grass blades are thin, light passes through as
