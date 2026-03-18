@@ -27,10 +27,10 @@ var _hm_half: float
 var _zone_map: Dictionary = {}  # "cx|cz" (grass chunk) -> dominant zone type
 
 const CHUNK := 20.0
-const LOAD_RANGE := 60.0
-const UNLOAD_RANGE := 70.0
+const LOAD_RANGE := 80.0
+const UNLOAD_RANGE := 90.0
 const UPDATE_DIST := 2.0
-const VIS_END := 50.0
+const VIS_END := 65.0
 
 # Species definitions: name, scale range, wind flex, evergreen, fall tint, atlas_idx
 # Models are already built at natural reference height; s=[min,max] is scale multiplier

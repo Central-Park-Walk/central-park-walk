@@ -121,7 +121,7 @@ SPECIES = {
         "bark_roughness": 0.92,
         "leaf_shape": "lobed",
         "leaf_n": 14,
-        "leaf_tex_size": 512,
+        "leaf_tex_size": 1024,
         "leaf_seed": 881,
         "leaf_cluster_size_range": (0.25, 0.55),
         "leaf_flatten_range": (0.40, 0.70),
@@ -168,7 +168,7 @@ SPECIES = {
         "bark_roughness": 0.88,
         "leaf_shape": "elliptic",
         "leaf_n": 14,
-        "leaf_tex_size": 512,
+        "leaf_tex_size": 1024,
         "leaf_seed": 777,
         "leaf_cluster_size_range": (0.25, 0.55),
         "leaf_flatten_range": (0.40, 0.70),
@@ -215,7 +215,7 @@ SPECIES = {
         "bark_roughness": 0.90,
         "leaf_shape": "elliptic",
         "leaf_n": 14,
-        "leaf_tex_size": 512,
+        "leaf_tex_size": 1024,
         "leaf_seed": 888,
         "leaf_cluster_size_range": (0.30, 0.60),
         "leaf_flatten_range": (0.40, 0.70),
@@ -262,7 +262,7 @@ SPECIES = {
         "bark_roughness": 0.88,
         "leaf_shape": "palmate",
         "leaf_n": 14,
-        "leaf_tex_size": 512,
+        "leaf_tex_size": 1024,
         "leaf_seed": 552,
         "leaf_cluster_size_range": (0.22, 0.50),
         "leaf_flatten_range": (0.45, 0.60),
@@ -310,7 +310,7 @@ SPECIES = {
         "bark_roughness": 0.92,
         "leaf_shape": "needle",
         "leaf_n": 18,
-        "leaf_tex_size": 512,
+        "leaf_tex_size": 1024,
         "leaf_seed": 601,
         "leaf_cluster_size_range": (0.28, 0.55),
         "leaf_flatten_range": (0.40, 0.60),
@@ -358,7 +358,7 @@ SPECIES = {
         "bark_roughness": 0.72,
         "leaf_shape": "elliptic",
         "leaf_n": 14,
-        "leaf_tex_size": 512,
+        "leaf_tex_size": 1024,
         "leaf_seed": 443,
         "leaf_cluster_size_range": (0.20, 0.45),
         "leaf_flatten_range": (0.50, 0.75),
@@ -406,7 +406,7 @@ SPECIES = {
         "bark_roughness": 0.65,
         "leaf_shape": "elliptic",
         "leaf_n": 12,
-        "leaf_tex_size": 512,
+        "leaf_tex_size": 1024,
         "leaf_seed": 551,
         "leaf_cluster_size_range": (0.18, 0.40),
         "leaf_flatten_range": (0.40, 0.70),
@@ -454,7 +454,7 @@ SPECIES = {
         "bark_roughness": 0.88,
         "leaf_shape": "compound",
         "leaf_n": 12,
-        "leaf_tex_size": 512,
+        "leaf_tex_size": 1024,
         "leaf_seed": 661,
         "leaf_cluster_size_range": (0.20, 0.42),
         "leaf_flatten_range": (0.45, 0.65),
@@ -502,7 +502,7 @@ SPECIES = {
         "bark_roughness": 0.82,
         "leaf_shape": "ovate",
         "leaf_n": 14,
-        "leaf_tex_size": 512,
+        "leaf_tex_size": 1024,
         "leaf_seed": 557,
         "leaf_cluster_size_range": (0.22, 0.48),
         "leaf_flatten_range": (0.50, 0.70),
@@ -551,7 +551,7 @@ SPECIES = {
         "bark_roughness": 0.88,
         "leaf_shape": "lanceolate",
         "leaf_n": 14,
-        "leaf_tex_size": 512,
+        "leaf_tex_size": 1024,
         "leaf_seed": 801,
         "leaf_cluster_size_range": (0.18, 0.40),
         "leaf_flatten_range": (0.55, 0.75),
@@ -600,7 +600,7 @@ SPECIES = {
         "bark_roughness": 0.85,
         "leaf_shape": "ovate",
         "leaf_n": 14,
-        "leaf_tex_size": 512,
+        "leaf_tex_size": 1024,
         "leaf_seed": 773,
         "leaf_cluster_size_range": (0.22, 0.48),
         "leaf_flatten_range": (0.45, 0.60),
@@ -648,7 +648,7 @@ SPECIES = {
         "bark_roughness": 0.75,
         "leaf_shape": "lobed",
         "leaf_n": 12,
-        "leaf_tex_size": 512,
+        "leaf_tex_size": 1024,
         "leaf_seed": 447,
         "leaf_cluster_size_range": (0.25, 0.55),
         "leaf_flatten_range": (0.45, 0.65),
@@ -696,7 +696,7 @@ SPECIES = {
         "bark_roughness": 0.90,
         "leaf_shape": "fan",
         "leaf_n": 12,
-        "leaf_tex_size": 512,
+        "leaf_tex_size": 1024,
         "leaf_seed": 557,
         "leaf_cluster_size_range": (0.18, 0.40),
         "leaf_flatten_range": (0.50, 0.70),
@@ -745,7 +745,7 @@ SPECIES = {
         "bark_roughness": 0.78,
         "leaf_shape": "ovate",
         "leaf_n": 12,
-        "leaf_tex_size": 512,
+        "leaf_tex_size": 1024,
         "leaf_seed": 663,
         "leaf_cluster_size_range": (0.25, 0.55),
         "leaf_flatten_range": (0.45, 0.65),
@@ -793,7 +793,7 @@ SPECIES = {
         "bark_roughness": 0.85,
         "leaf_shape": "elliptic",
         "leaf_n": 14,
-        "leaf_tex_size": 512,
+        "leaf_tex_size": 1024,
         "leaf_seed": 700,
         "leaf_cluster_size_range": (0.22, 0.50),
         "leaf_flatten_range": (0.45, 0.65),
@@ -1162,33 +1162,33 @@ def generate_dead_tree():
         trunk = m_tree.TrunkFunction()
         trunk.seed = seed
         trunk.length = rng.uniform(8, 14)
-        trunk.start_radius = rng.uniform(0.15, 0.30)
-        trunk.end_radius = rng.uniform(0.04, 0.08)
-        trunk.shape = 0.6
-        trunk.up_attraction = 0.3      # Dead trees lean
+        trunk.start_radius = rng.uniform(0.15, 0.28)
+        trunk.end_radius = rng.uniform(0.05, 0.10)
+        trunk.shape = 0.45                  # Natural taper
+        trunk.up_attraction = 0.7           # Mostly vertical (dead wood doesn't bend further)
         trunk.resolution = 0.6
-        trunk.randomness = 1.5         # More irregular
+        trunk.randomness = 0.4              # Subtle irregularity, not chaos
 
-        # A few broken stubs
+        # Short broken stubs — dead branches are stiff and short
         br = m_tree.BranchFunction()
         br.seed = seed + 1
-        br.distribution.start = 0.25
-        br.distribution.end = rng.uniform(0.55, 0.85)  # Broken top
-        br.distribution.density = rng.uniform(0.3, 0.6)
-        br.gravity.strength = 15.0
-        br.gravity.stiffness = 0.05
-        br.gravity.up_attraction = -0.2
-        br.split.probability = 0.15
-        br.flatness = 0.3
-        br.break_chance = 0.15         # Lots of breakage
+        br.distribution.start = 0.2
+        br.distribution.end = rng.uniform(0.6, 0.85)   # Broken top
+        br.distribution.density = rng.uniform(0.25, 0.5)  # Sparse — most branches have fallen
+        br.gravity.strength = 2.0           # Dead wood is stiff, minimal droop
+        br.gravity.stiffness = 0.6          # Rigid branches
+        br.gravity.up_attraction = 0.1      # Slight upward tendency (grew up when alive)
+        br.split.probability = 0.05         # Almost no splitting (broken off)
+        br.flatness = 0.15                  # Slight planar tendency
+        br.break_chance = 0.25              # Many branches snap off
         br.resolution = 0.5
         br.length = m_tree.PropertyWrapper(
-            m_tree.ConstantProperty(rng.uniform(1.5, 4.0))
+            m_tree.ConstantProperty(rng.uniform(0.8, 2.5))  # Short stubs
         )
-        br.start_radius = m_tree.PropertyWrapper(m_tree.ConstantProperty(0.5))
-        br.randomness = m_tree.PropertyWrapper(m_tree.ConstantProperty(1.0))
+        br.start_radius = m_tree.PropertyWrapper(m_tree.ConstantProperty(0.3))
+        br.randomness = m_tree.PropertyWrapper(m_tree.ConstantProperty(0.3))
         br.start_angle = m_tree.PropertyWrapper(
-            m_tree.ConstantProperty(rng.uniform(40, 70))
+            m_tree.ConstantProperty(rng.uniform(50, 80))    # Angled up (natural growth direction)
         )
 
         trunk.add_child(br)

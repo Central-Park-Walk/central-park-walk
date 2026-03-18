@@ -209,8 +209,8 @@ void fragment() {
 
 	// ---- DISTANCE LOD (alpha hash fade) ----
 	float cam_dist = length(v_world_pos - INV_VIEW_MATRIX[3].xyz);
-	float fade_start = 35.0;
-	float fade_end = 45.0;
+	float fade_start = 50.0;
+	float fade_end = 62.0;
 	float alpha = 1.0 - smoothstep(fade_start, fade_end, cam_dist);
 	AO_LIGHT_AFFECT = mix(0.3, 1.0, alpha);
 	NORMAL = mix(NORMAL, vec3(0.0, 1.0, 0.0), 1.0 - alpha);
