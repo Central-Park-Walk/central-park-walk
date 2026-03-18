@@ -119,7 +119,7 @@ def finalize_and_export(bm, name, mat=None):
         export_format='GLB',
         use_selection=True,
         export_normals=True,
-        export_colors=True,
+        export_vertex_color='ACTIVE',
         export_apply=True,
     )
     nv = len(mesh.vertices)
@@ -1354,65 +1354,144 @@ def make_burdock():
 
 
 # ==========================================================================
-# Species: BILLBOARD HERBS (crossed planes for viewing from any angle)
+# Species: SMALL HERBS (stem + leaf cards — replaced crossed-plane billboards)
 # ==========================================================================
 
 def make_white_wood_aster():
     """White wood aster (Eurybia divaricata) — 0.3-0.6m.
-    THE woodland floor wildflower. White carpet in autumn. ~80 faces."""
+    THE woodland floor wildflower. White carpet in autumn. Zigzag dark stems
+    with heart-shaped leaves and loose corymbs of small white flowers. ~250 faces."""
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
     co = bm.loops.layers.color.new("Col")
 
-    def color_func(t):
-        if t < 0.3:
-            return (0.22, 0.15, 0.10)  # dark zigzag stems
-        elif t < 0.65:
-            return (0.18, 0.38, 0.10)  # heart-shaped leaves
-        else:
-            return (0.90, 0.92, 0.85)  # white flower clusters
+    H = 0.55
+    # 3 zigzag stems from a common base (asters are clumping)
+    for si in range(3):
+        angle = si * math.tau / 3 + 0.2
+        lean_x = math.cos(angle) * 0.04
+        lean_y = math.sin(angle) * 0.04
+        pts = []
+        for j in range(7):
+            t = j / 6
+            zz = H * t
+            # Zigzag offset alternating at each node
+            zig = 0.02 * (1 if j % 2 == 0 else -1)
+            pts.append(Vector((lean_x * t + zig, lean_y * t + zig * 0.5, zz)))
+        make_tube(bm, pts, 0.006, 0.003, 4,
+                  (0.22, 0.15, 0.10), (0.18, 0.12, 0.08), uv, co)
 
-    make_crossed_planes(bm, 0.55, 0.30, 0.40, 4, 5, color_func, uv, co, fold=0.12)
+        # Heart-shaped leaves at nodes 1-4, alternating sides
+        for li in range(4):
+            lt = (li + 1) / 6
+            lz = H * lt
+            la = angle + (math.pi * 0.4 if li % 2 == 0 else -math.pi * 0.4)
+            lc = Vector((lean_x * lt + 0.015 * math.cos(la),
+                         lean_y * lt + 0.015 * math.sin(la), lz))
+            sz = 0.06 - li * 0.008  # lower leaves larger
+            make_leaf_card(bm, lc, sz, sz * 1.3, la, 0.25,
+                           (0.18, 0.38, 0.10), lt, uv, co)
+
+        # White flower corymb at top — 5 tiny flower cards
+        for fi in range(5):
+            fa = angle + fi * math.tau / 5
+            fr = 0.02
+            fc = Vector((lean_x + math.cos(fa) * fr,
+                         lean_y + math.sin(fa) * fr,
+                         H * 0.92 + fi * 0.01))
+            make_leaf_card(bm, fc, 0.018, 0.015, fa, 0.1,
+                           (0.92, 0.93, 0.88), 0.95, uv, co)
+
     return bm
 
 
 def make_jewelweed():
     """Jewelweed (Impatiens capensis) — 0.6-1.5m.
-    Translucent pale green, dense stream bank walls. Orange spotted flowers. ~80 faces."""
+    Translucent pale-green succulent stems, serrated ovate leaves.
+    Orange spotted flowers dangle like tiny cornucopias. ~300 faces."""
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
     co = bm.loops.layers.color.new("Col")
 
-    def color_func(t):
-        if t < 0.15:
-            return (0.25, 0.35, 0.15)  # stem base
-        elif t < 0.75:
-            return (0.40, 0.58, 0.25)  # translucent pale green
-        else:
-            g = 0.58 - (t - 0.75) * 2.0 * 0.30
-            r = 0.40 + (t - 0.75) * 2.0 * 0.45
-            return (min(r, 0.85), max(g, 0.40), 0.12)
+    H = 1.0
+    # 2 main stems (jewelweed grows in dense patches, translucent)
+    for si in range(2):
+        angle = si * math.pi + 0.3
+        lean = 0.06 * si
+        pts = []
+        for j in range(8):
+            t = j / 7
+            pts.append(Vector((math.cos(angle) * lean * t,
+                               math.sin(angle) * lean * t,
+                               H * t)))
+        make_tube(bm, pts, 0.010, 0.005, 4,
+                  (0.35, 0.50, 0.18), (0.45, 0.60, 0.22), uv, co)
 
-    make_crossed_planes(bm, 1.0, 0.35, 0.45, 4, 5, color_func, uv, co, fold=0.14)
+        # Ovate leaves at nodes 2-6, alternating
+        for li in range(5):
+            lt = (li + 2) / 7
+            lz = H * lt
+            la = angle + (math.pi * 0.45 if li % 2 == 0 else -math.pi * 0.45)
+            off = 0.02
+            lc = Vector((math.cos(angle) * lean * lt + math.cos(la) * off,
+                         math.sin(angle) * lean * lt + math.sin(la) * off, lz))
+            sz = 0.065 - li * 0.006
+            make_leaf_card(bm, lc, sz, sz * 1.4, la, 0.3,
+                           (0.40, 0.58, 0.25), lt, uv, co)
+
+        # Orange spotted flowers at nodes 4-6 (dangling)
+        for fi in range(3):
+            ft = (fi + 4) / 7
+            fz = H * ft
+            fa = angle + (fi - 1) * 0.5
+            fc = Vector((math.cos(angle) * lean * ft + math.cos(fa) * 0.035,
+                         math.sin(angle) * lean * ft + math.sin(fa) * 0.035,
+                         fz - 0.01))  # slight droop
+            make_leaf_card(bm, fc, 0.020, 0.025, fa + 0.3, 0.5,
+                           (0.90, 0.50, 0.08), ft, uv, co)
+
     return bm
 
 
 def make_mugwort():
     """Mugwort (Artemisia vulgaris) — 0.6-1.5m.
-    SILVERY-WHITE leaf undersides flash in wind. Dark green upper. ~60 faces."""
+    Stiff upright herb, deeply lobed dark-green leaves with silvery-white
+    undersides. Ridged woody stems. Small inconspicuous flower heads. ~280 faces."""
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
     co = bm.loops.layers.color.new("Col")
 
-    def color_func(t):
-        if t < 0.15:
-            return (0.30, 0.24, 0.16)  # woody ridged stems
-        elif t < 0.5:
-            return (0.22, 0.34, 0.16)  # dark green upper
-        else:
-            return (0.62, 0.66, 0.56)  # silvery-grey undersides
+    H = 1.0
+    # 2-3 stiff upright stems (mugwort is a colony former)
+    for si in range(3):
+        angle = si * math.tau / 3
+        lean = 0.03
+        pts = []
+        for j in range(8):
+            t = j / 7
+            pts.append(Vector((math.cos(angle) * lean * t,
+                               math.sin(angle) * lean * t,
+                               H * t)))
+        make_tube(bm, pts, 0.008, 0.004, 4,
+                  (0.30, 0.24, 0.16), (0.25, 0.20, 0.12), uv, co)
 
-    make_crossed_planes(bm, 1.0, 0.30, 0.45, 4, 5, color_func, uv, co, fold=0.10)
+        # Deeply lobed leaves at nodes 1-5
+        for li in range(5):
+            lt = (li + 1) / 7
+            lz = H * lt
+            la = angle + (math.pi * 0.4 if li % 2 == 0 else -math.pi * 0.4)
+            off = 0.018
+            lc = Vector((math.cos(angle) * lean * lt + math.cos(la) * off,
+                         math.sin(angle) * lean * lt + math.sin(la) * off, lz))
+            # Lower leaves dark green, upper silvery (undersides show more)
+            if li < 3:
+                leaf_col = (0.22, 0.34, 0.16)
+            else:
+                leaf_col = (0.52, 0.56, 0.46)  # silvery
+            sz = 0.055 - li * 0.005
+            make_leaf_card(bm, lc, sz, sz * 1.6, la, 0.2,
+                           leaf_col, lt, uv, co)
+
     return bm
 
 
