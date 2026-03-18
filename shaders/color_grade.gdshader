@@ -82,8 +82,8 @@ void fragment() {
 	c.r -= red_excess * mix(0.15, 0.08, night_t);
 	c.g += red_excess * 0.04;
 
-	// Gentle filmic curve — retains shadow detail, soft highlight rolloff (EGTTR-style)
-	c = c / (c + 0.20) * 1.20;
+	// Soft filmic curve — defined shadows but no crushing, gentle highlight rolloff
+	c = c * (c + 0.10) / (c * c + c * 0.10 + 0.12) * 1.10;
 
 	// Saturation — restrained, naturalistic. EGTTR greens are muted olive, not vivid.
 	float lum2 = dot(c, vec3(0.2126, 0.7152, 0.0722));

@@ -1175,7 +1175,7 @@ func _build_keyframes() -> void:
 		"fog_energy":     0.45,
 		"fog_scatter":    0.18,
 		"fog_density":    0.0005,   # golden hour haze — buildings fade into warm atmosphere
-		"fog_aerial":     0.30,     # atmospheric depth — haze does the depth work (EGTTR-style)
+		"fog_aerial":     0.18,     # gentle atmospheric depth
 		"fog_sky_affect": 0.30,
 		"sun_energy":     0.90,
 		"sun_color":      Color(1.0, 0.75, 0.50),    # warm but not deep amber
@@ -1213,7 +1213,7 @@ func _build_keyframes() -> void:
 		"fog_energy":     0.5,
 		"fog_scatter":    0.06,
 		"fog_density":    0.0004,   # NYC has noticeable daytime haze — buildings fade at distance
-		"fog_aerial":     0.35,     # atmospheric scattering — distant objects fade into haze (EGTTR-style)
+		"fog_aerial":     0.20,     # atmospheric scattering on distant objects
 		"fog_sky_affect": 0.30,
 		"sun_energy":     0.95,
 		"sun_color":      Color(0.95, 0.92, 0.85),
@@ -1253,7 +1253,7 @@ func _build_keyframes() -> void:
 		"fog_energy":     0.45,
 		"fog_scatter":    0.18,
 		"fog_density":    0.0005,   # golden hour atmospheric haze
-		"fog_aerial":     0.30,     # atmospheric depth — haze creates distance (EGTTR-style)
+		"fog_aerial":     0.18,     # gentle atmospheric depth
 		"fog_sky_affect": 0.30,
 		"sun_energy":     0.95,    # strong low sun but not overblown
 		"sun_color":      Color(1.0, 0.72, 0.45),     # warm golden, not deep amber
