@@ -6,17 +6,17 @@ Central Park Walk is a real-time 3D walking simulation of all 843 acres of New Y
 
 Every tree has a real measured height. Every path follows its real-world geometry. Every building has its actual footprint and construction year. The terrain is accurate to one foot. The data has gaps, and we leave them visible — gaps tell us what humans haven't yet measured or mapped.
 
-![Summer Golden Hour — Literary Walk](screenshots/literary_walk_summer_golden.png)
-*Golden hour on the Literary Walk. American elms line the promenade with dappled canopy shade on three-layer grass.*
+![Spring Dawn — Cherry Hill](screenshots/readme_cherry_hill_spring.png)
+*Spring dawn at Cherry Hill. Golden light through the canopy with sun sparkle on the Lake. Data-driven tree heights from LiDAR, species-specific leaf cards.*
 
-![Rain — Conservatory Water](screenshots/conservatory_rain_afternoon.png)
-*Rain on the Conservatory Water. Real-time weather with animated surface ripples, atmospheric fog, and city silhouette.*
+![Summer Noon — The Ramble](screenshots/readme_ramble_noon.png)
+*Walking through the Ramble at noon. Crossed-quad leaf cards on 15 species, FBM bark with 3D normal relief, hexaquo grass at 600 blades/m².*
 
-![Winter Snow — Sheep Meadow](screenshots/sheep_meadow_winter_noon.png)
-*Sheep Meadow under snow. Full day/night cycle with seasonal atmosphere and LiDAR DEM terrain at 0.61m resolution.*
+![Winter Snow — Great Lawn](screenshots/readme_great_lawn_snow.png)
+*The Great Lawn under snow. Full day/night cycle, 4 seasons, 5 weather modes. Building silhouettes from 6,557 NYC footprints + LiDAR heights.*
 
-![Autumn Dusk — Under the Canopy](screenshots/skyline_autumn_dusk.png)
-*Autumn dusk beneath the elms. Per-species fall colors, dappled canopy shade, and the Manhattan skyline through 6,557 buildings.*
+![Morning Fog — North Woods](screenshots/readme_north_woods_fog.png)
+*Morning fog in the North Woods. Volumetric atmosphere, 9,852 trees from census + OSM + woodland scatter, terrain from 1ft LiDAR DEM.*
 
 ## Quick Start
 
