@@ -42,7 +42,10 @@ func _ready() -> void:
 	cam.current = true
 	cam.fov     = 29.0  # 70mm equivalent — telephoto, everything feels massive
 	var cam_attr := CameraAttributesPractical.new()
-	cam_attr.dof_blur_far_enabled    = false
+	cam_attr.dof_blur_far_enabled    = true
+	cam_attr.dof_blur_far_distance   = 80.0    # start softening at 80m
+	cam_attr.dof_blur_far_transition = 60.0    # gradual 60m transition
+	cam_attr.dof_blur_amount         = 0.04    # very subtle — painterly, not camera sim
 	cam_attr.dof_blur_near_enabled   = false
 	cam.attributes = cam_attr
 	head.add_child(cam)
