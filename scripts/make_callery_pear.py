@@ -273,7 +273,7 @@ def make_callery_pear_variant(vi, seed):
         limb_data.append((limb_pts, base_angle, end_spread, branch_start_t))
 
         # ---- Secondary branches ----
-        n_subs = rng.randint(2, 5)
+        n_subs = rng.randint(5, 8)
         for s in range(n_subs):
             t_start = rng.uniform(0.35, 0.90)
             idx = int(t_start * (len(limb_pts) - 1))
@@ -290,14 +290,14 @@ def make_callery_pear_variant(vi, seed):
                     origin.y + sub_dy * sub_len * st,
                     origin.z + sub_len * st * 0.35)))  # upward bias
             bark_parts.append(make_tube(f"sub_{vi}_{b}_{s}", sub_pts,
-                                        0.014, 0.004, SUB_SEGS, bark_mat))
+                                        0.020, 0.006, SUB_SEGS, bark_mat))
 
     # ---- Canopy: DENSE, PYRAMIDAL ----
     # The key to Bradford pear's look is the tight pyramidal silhouette
 
     # Along branches: dense clusters
     for b, (limb_pts, angle, spread, start_t) in enumerate(limb_data):
-        n_cl = rng.randint(12, 20)  # denser than cherry
+        n_cl = rng.randint(6, 10)
         for c in range(n_cl):
             t = rng.uniform(0.30, 1.0)
             idx = int(t * (len(limb_pts) - 1))
@@ -312,7 +312,7 @@ def make_callery_pear_variant(vi, seed):
                 f"lc_{vi}_{b}_{c}", pos, r, rng.uniform(0.50, 0.70), rng))
 
     # Pyramidal fill: constrain clusters within tapered cone
-    n_fill = rng.randint(25, 40)  # very dense fill
+    n_fill = rng.randint(10, 16)
     for f in range(n_fill):
         # Height within crown
         z_t = rng.uniform(0.0, 1.0)

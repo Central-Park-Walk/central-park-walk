@@ -261,7 +261,7 @@ def make_london_plane_variant(vi, seed):
         limb_data.append((limb_pts, base_angle, end_spread))
 
         # ---- Secondary branches ----
-        n_subs = rng.randint(2, 4)
+        n_subs = rng.randint(5, 8)
         for s in range(n_subs):
             t_start = rng.uniform(0.25, 0.85)
             idx = int(t_start * (len(limb_pts) - 1))
@@ -278,10 +278,10 @@ def make_london_plane_variant(vi, seed):
                     origin.y + sub_dy * sub_len * st,
                     origin.z + sub_len * st * 0.25 + rng.uniform(-0.08, 0.08))))
             bark_parts.append(make_tube(f"sub_{vi}_{b}_{s}", sub_pts,
-                                        0.025, 0.007, SUB_SEGS, bark_mat))
+                                        0.035, 0.010, SUB_SEGS, bark_mat))
 
             # Tertiary twigs
-            if rng.random() < 0.5:
+            if rng.random() < 0.8:
                 ti_origin = sub_pts[rng.randint(1, 3)]
                 tw_angle = sub_angle + rng.uniform(-1.2, 1.2)
                 tw_dx = math.cos(tw_angle)
@@ -297,14 +297,14 @@ def make_london_plane_variant(vi, seed):
                             ti_origin.z + tw_len * 0.22)),
                 ]
                 bark_parts.append(make_tube(f"twig_{vi}_{b}_{s}", tw_pts,
-                                            0.010, 0.003, SUB_SEGS, bark_mat))
+                                            0.014, 0.004, SUB_SEGS, bark_mat))
 
     # ---- Canopy: broad, open, with visible gaps ----
     # London planes have a more open canopy than oaks — branch structure visible
 
     # Clusters along each major limb (upper 45-100%)
     for b, (limb_pts, angle, spread) in enumerate(limb_data):
-        n_cl = rng.randint(10, 16)  # fewer clusters than oak (14-22)
+        n_cl = rng.randint(5, 9)
         for c in range(n_cl):
             t = rng.uniform(0.40, 1.0)
             idx = int(t * (len(limb_pts) - 1))
@@ -319,7 +319,7 @@ def make_london_plane_variant(vi, seed):
                 f"lc_{vi}_{b}_{c}", pos, r, rng.uniform(0.45, 0.65), rng))
 
     # Upper crown fill — broad but not as dense as oak
-    n_dome = rng.randint(12, 22)  # less than oak (20-35)
+    n_dome = rng.randint(6, 12)
     for f in range(n_dome):
         angle_f = rng.uniform(0, 2.0 * math.pi)
         dist = rng.uniform(0, CANOPY_SPREAD * 0.65)
