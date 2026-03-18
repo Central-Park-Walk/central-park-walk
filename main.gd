@@ -905,9 +905,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == JOY_BUTTON_LEFT_SHOULDER:
 			_cycle_weather()
 		elif event.button_index == JOY_BUTTON_RIGHT_SHOULDER:
-			_season_t = fmod(fmod(_season_t - 0.5, 4.0) + 1.0, 4.0) + 0.5
+			_season_t = fmod(_season_t + 1.0 / 3.0, 4.0)
 			RenderingServer.global_shader_parameter_set("season_t", _season_t)
-			print("Season: %s (%.1f)" % [_season_name(_season_t), _season_t])
+			print("Month: %s (season_t=%.2f)" % [_month_name(_season_t), _season_t])
 		return
 	if not (event is InputEventKey and event.pressed):
 		return
@@ -960,14 +960,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		print("Wind: %.0f%%" % (_wind_override * 100.0))
 	elif event.keycode == KEY_N:
 		if event.shift_pressed:
-			# Shift+N: cycle season backward (use mid-season values for correct phenology)
-			_season_t = fmod(fmod(_season_t - 0.5, 4.0) - 1.0 + 4.0, 4.0) + 0.5
+			_season_t = fmod(_season_t - 1.0 / 3.0 + 4.0, 4.0)
 		else:
-			# N: cycle season forward (use mid-season values for correct phenology)
-			_season_t = fmod(fmod(_season_t - 0.5, 4.0) + 1.0, 4.0) + 0.5
+			_season_t = fmod(_season_t + 1.0 / 3.0, 4.0)
 		RenderingServer.global_shader_parameter_set("season_t", _season_t)
-		var season_name := _season_name(_season_t)
-		print("Season: %s (%.1f)" % [season_name, _season_t])
+		print("Month: %s (season_t=%.2f)" % [_month_name(_season_t), _season_t])
 	elif event.keycode == KEY_F12:
 		_take_screenshot()
 	elif event.keycode == KEY_F10:
@@ -982,6 +979,16 @@ func _season_name(t: float) -> String:
 	if t < 2.0: return "Summer"
 	if t < 3.0: return "Autumn"
 	return "Winter"
+
+
+func _month_name(t: float) -> String:
+	# season_t: 0=spring equinox (Mar 20), 1=summer solstice (Jun 21),
+	# 2=autumn equinox (Sep 22), 3=winter solstice (Dec 21)
+	# Each 1/3 of a season ≈ 1 month
+	var month_idx := int(t * 3.0) % 12
+	const MONTHS := ["March", "April", "May", "June", "July", "August",
+		"September", "October", "November", "December", "January", "February"]
+	return MONTHS[month_idx]
 
 
 # --- Grass tour: F10 visits all grass type locations + screenshots ---
