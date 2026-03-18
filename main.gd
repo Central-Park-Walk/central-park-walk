@@ -1147,7 +1147,7 @@ func _build_keyframes() -> void:
 		"ssao_power":     1.5,
 		"saturation":     0.75,
 		"contrast":       1.02,
-		"brightness":     0.95,
+		"brightness":     0.90,
 		"fog_color":      Color(0.12, 0.10, 0.14),
 		"fog_energy":     0.20,
 		"fog_scatter":    0.05,
@@ -1187,7 +1187,7 @@ func _build_keyframes() -> void:
 		"ssao_power":     1.5,
 		"saturation":     1.0,
 		"contrast":       1.02,
-		"brightness":     0.96,
+		"brightness":     0.92,
 		"fog_color":      Color(0.50, 0.42, 0.34),   # subtle warm haze, not amber wash
 		"fog_energy":     0.45,
 		"fog_scatter":    0.18,
@@ -1225,7 +1225,7 @@ func _build_keyframes() -> void:
 		"ssao_power":     1.4,
 		"saturation":     1.0,
 		"contrast":       1.01,
-		"brightness":     0.96,
+		"brightness":     0.93,
 		"fog_color":      Color(0.62, 0.60, 0.56),  # warmer haze — NYC summer atmosphere
 		"fog_energy":     0.5,
 		"fog_scatter":    0.06,
@@ -1265,7 +1265,7 @@ func _build_keyframes() -> void:
 		"ssao_power":     1.5,
 		"saturation":     1.0,    # natural — let sun color do the work
 		"contrast":       1.02,   # soft long shadows
-		"brightness":     0.98,
+		"brightness":     0.91,
 		"fog_color":      Color(0.55, 0.45, 0.35),    # neutral warm haze, not amber blanket
 		"fog_energy":     0.45,
 		"fog_scatter":    0.18,
