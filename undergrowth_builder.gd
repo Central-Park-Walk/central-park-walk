@@ -85,36 +85,32 @@ const SPECIES := [
 # Zone types: 0=SheepMeadow, 1=GreatLawn, 2=NorthMeadow, 3=FormalGarden,
 #   4=SportsTurf, 5=NorthWoods, 6=Ramble, 7=Waterside, 8=WildMeadow, 9=OpenLawn
 const ZONE_SPECIES := {
-	5: [  # NorthWoods — dense woodland understory
-		[0, 3.0],   # Spicebush
-		[1, 1.5],   # Witch Hazel
-		[10, 10.0], # White Wood Aster
-		[13, 4.0],  # Ostrich Fern
-		[14, 6.0],  # Christmas Fern
-		[5, 1.0],   # Pokeweed (edges)
-		[20, 3.0],  # White Snakeroot (woodland edge)
-		[24, 5.0],  # Cinnamon Fern (wet spots)
-		[26, 4.0],  # Bottlebrush Grass (shade grass)
-		[16, 0.5],  # Common Mushroom (seasonal)
-		[17, 0.3],  # Chicken of the Woods (seasonal)
-	],
-	6: [  # Ramble — designed wild garden, dense understory
-		[0, 4.0],   # Spicebush (dominant)
-		[1, 1.0],   # Witch Hazel
-		[2, 2.0],   # Viburnum
-		[10, 12.0], # White Wood Aster
-		[14, 5.0],  # Christmas Fern
-		[13, 3.0],  # Ostrich Fern
-		[5, 1.5],   # Pokeweed
-		[18, 1.5],  # Sweet Pepperbush (stream edges)
-		[19, 1.0],  # Flowering Raspberry (trail edges)
+	5: [  # NorthWoods — mature forest: fern-dominated, few shrubs, shade species
+		[13, 8.0],  # Ostrich Fern (dominant — NorthWoods signature)
+		[14, 6.0],  # Christmas Fern (evergreen carpet)
+		[24, 6.0],  # Cinnamon Fern (wet ravines)
+		[26, 5.0],  # Bottlebrush Grass (shade grass)
 		[20, 4.0],  # White Snakeroot (woodland edge)
-		[24, 3.0],  # Cinnamon Fern (wet areas)
-		[25, 2.0],  # Sensitive Fern (wet areas)
-		[26, 3.0],  # Bottlebrush Grass
-		[28, 4.0],  # Lizard's Tail (stream banks)
+		[10, 3.0],  # White Wood Aster (sparse, shade floor)
+		[0, 1.5],   # Spicebush (scattered, not dominant)
+		[1, 1.0],   # Witch Hazel (occasional large specimen)
+		[16, 0.8],  # Common Mushroom (seasonal)
+		[17, 0.4],  # Chicken of the Woods (seasonal)
+	],
+	6: [  # Ramble — designed wild garden: shrub-heavy, stream plants, diverse
+		[2, 4.0],   # Viburnum (Ramble signature — dense thickets)
+		[18, 3.0],  # Sweet Pepperbush (stream edges, fragrant)
+		[19, 2.5],  # Flowering Raspberry (trail edges, showy)
+		[0, 2.0],   # Spicebush (present but not dominant)
+		[10, 5.0],  # White Wood Aster (abundant ground cover)
+		[11, 4.0],  # Jewelweed (stream banks, orange flowers)
+		[28, 5.0],  # Lizard's Tail (stream banks)
+		[25, 3.0],  # Sensitive Fern (wet areas)
+		[14, 2.0],  # Christmas Fern (scattered)
+		[5, 2.0],   # Pokeweed (edges, tall contrast)
+		[20, 2.0],  # White Snakeroot (woodland edge)
+		[26, 2.0],  # Bottlebrush Grass (path margins)
 		[16, 0.6],  # Common Mushroom (seasonal)
-		[17, 0.2],  # Chicken of the Woods (seasonal)
 	],
 	7: [  # Waterside — wetland edge
 		[15, 8.0],  # Cattail
@@ -149,12 +145,12 @@ const ZONE_SPECIES := {
 # Woodland chunks (no pre-baked data) get understory — but ONLY in actual
 # woodland foliage zones, not on maintained lawns that happen to lack data.
 const WOODLAND_SPECIES: Array = [
-	[0, 2.0],   # Spicebush
-	[10, 6.0],  # White Wood Aster
+	[13, 5.0],  # Ostrich Fern (dominant ground cover)
 	[14, 4.0],  # Christmas Fern
-	[13, 2.0],  # Ostrich Fern
+	[26, 4.0],  # Bottlebrush Grass (shade grass)
+	[10, 3.0],  # White Wood Aster
 	[20, 2.0],  # White Snakeroot
-	[26, 3.0],  # Bottlebrush Grass
+	[0, 1.0],   # Spicebush (scattered)
 	[16, 0.4],  # Common Mushroom (seasonal)
 	[17, 0.2],  # Chicken of the Woods (seasonal)
 ]
