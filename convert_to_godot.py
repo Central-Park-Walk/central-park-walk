@@ -2443,7 +2443,7 @@ def main() -> None:
         # exist in natural (grass/rock) areas — never near buildings or outside park.
         if os.path.exists(LIDAR_DSM) and surface_arr is not None:
             import numpy as np
-            from scipy.ndimage import gaussian_filter, binary_opening, binary_dilation, median_filter
+            from scipy.ndimage import gaussian_filter, binary_opening, binary_dilation, median_filter, label
             print("\n--- Targeted rock outcrop restoration (DSM blend) ---")
             dsm_raw = _load_lidar_raster(LIDAR_DSM, "LiDAR DSM (canopy-masked)")
             if dsm_raw is not None:
@@ -2475,6 +2475,22 @@ def main() -> None:
                     # and small artifact clusters (3 iterations ≈ 1.8m minimum
                     # feature radius — real schist outcrops are broader)
                     rock_candidates = binary_opening(rock_candidates, iterations=3)
+
+                    # Connected-component filtering: remove small clusters that
+                    # survived morphological opening (stumps, noise, etc.).
+                    # Real Manhattan schist outcrops are broad exposures (≥19 m²).
+                    labeled, num_features = label(rock_candidates)
+                    MIN_CLUSTER_CELLS = 50  # ~19 m² at 0.61 m/cell
+                    retained = 0
+                    for cid in range(1, num_features + 1):
+                        if (labeled == cid).sum() < MIN_CLUSTER_CELLS:
+                            rock_candidates[labeled == cid] = False
+                        else:
+                            retained += 1
+                    removed = num_features - retained
+                    print(f"  Connected-component filter: {retained} clusters retained, "
+                          f"{removed} removed (< {MIN_CLUSTER_CELLS} cells)")
+                    del labeled
 
                     rock_cells = int(rock_candidates.sum())
                     cell_m = WORLD_SIZE / GRID_W
