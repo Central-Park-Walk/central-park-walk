@@ -41,24 +41,20 @@ void fragment() {
 	float micro = 0.0;
 
 	if (bark_style == 0) {
-		// --- Style 0: Blocky fissured plates (oak, elm, maple, ginkgo, etc.) ---
-		// Real bark has both vertical AND horizontal cracks forming rough
-		// rectangular plates — not smooth vertical stripes (that's cut wood).
-		// Vertical fissures (dominant, slightly irregular)
-		float vert_crack = sin(bark_u * 5.0 + vnoise(vec2(bark_u * 0.6, bark_y * 0.2)) * 2.0);
-		// Horizontal fissures (less frequent, more irregular — bark stretches vertically)
-		float horiz_crack = sin(bark_y * 2.8 + vnoise(vec2(bark_y * 0.4, bark_u * 0.3)) * 2.8);
-		// Plates exist where both crack systems form ridges
-		float plate = smoothstep(-0.1, 0.4, vert_crack) * smoothstep(-0.2, 0.45, horiz_crack);
-		// Deep fissures where either crack system dips
-		furrow = plate;
-		col *= mix(0.70, 1.10, furrow);  // deeper contrast than before
-		// Coarse plate surface texture (isotropic, not vertically stretched)
-		micro = fbm(vec2(bark_u * 8.0, bark_y * 7.0), 3);
-		// Fine gritty texture within plates
-		float grit = vnoise(vec2(bark_u * 22.0, bark_y * 20.0));
-		col *= (0.90 + micro * 0.14 + grit * 0.06);
-		rough = mix(0.80, 0.96, furrow) + micro * 0.04;
+		// --- Style 0: Fissured bark (oak, elm, maple, ginkgo, etc.) ---
+		// Dominant vertical fissures with heavy noise to break regularity.
+		// Sparse horizontal breaks (NOT a sine grid — organic noise patches).
+		float vert = sin(bark_u * 4.5 + fbm(vec2(bark_u * 0.5, bark_y * 0.15), 2) * 3.5);
+		furrow = smoothstep(-0.05, 0.5, vert);
+		// Sparse horizontal breaks — noise-based, only ~20% of surface
+		float h_noise = vnoise(vec2(bark_y * 1.2, bark_u * 0.4));
+		float h_break = smoothstep(0.58, 0.72, h_noise);
+		furrow *= mix(1.0, 0.45, h_break);  // darken at horizontal breaks
+		col *= mix(0.78, 1.06, furrow);
+		// Organic micro-texture (more noise octaves, isotropic)
+		micro = fbm(vec2(bark_u * 6.0, bark_y * 5.5), 3);
+		col *= (0.92 + micro * 0.16);
+		rough = mix(0.82, 0.95, furrow) + micro * 0.05;
 	} else if (bark_style == 1) {
 		// --- Style 1: Smooth bark with horizontal lenticels (birch, cherry) ---
 		// Birch: white/cream with dark horizontal lines; cherry: reddish-brown shiny
