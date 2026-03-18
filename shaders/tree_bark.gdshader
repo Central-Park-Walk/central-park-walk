@@ -41,13 +41,24 @@ void fragment() {
 	float micro = 0.0;
 
 	if (bark_style == 0) {
-		// --- Style 0: Deep vertical furrows (oak, elm, maple, ginkgo, etc.) ---
-		float furrow_wave = sin(bark_u * 6.0 + vnoise(vec2(bark_u * 0.8, bark_y * 0.3)) * 2.5);
-		furrow = smoothstep(0.15, 0.55, furrow_wave);
-		col *= mix(0.78, 1.08, furrow);
-		micro = fbm(vec2(bark_u * 12.0, bark_y * 8.0), 3);
-		col *= (0.92 + micro * 0.16);
-		rough = mix(0.82, 0.95, furrow) + micro * 0.05;
+		// --- Style 0: Blocky fissured plates (oak, elm, maple, ginkgo, etc.) ---
+		// Real bark has both vertical AND horizontal cracks forming rough
+		// rectangular plates — not smooth vertical stripes (that's cut wood).
+		// Vertical fissures (dominant, slightly irregular)
+		float vert_crack = sin(bark_u * 5.0 + vnoise(vec2(bark_u * 0.6, bark_y * 0.2)) * 2.0);
+		// Horizontal fissures (less frequent, more irregular — bark stretches vertically)
+		float horiz_crack = sin(bark_y * 2.8 + vnoise(vec2(bark_y * 0.4, bark_u * 0.3)) * 2.8);
+		// Plates exist where both crack systems form ridges
+		float plate = smoothstep(-0.1, 0.4, vert_crack) * smoothstep(-0.2, 0.45, horiz_crack);
+		// Deep fissures where either crack system dips
+		furrow = plate;
+		col *= mix(0.70, 1.10, furrow);  // deeper contrast than before
+		// Coarse plate surface texture (isotropic, not vertically stretched)
+		micro = fbm(vec2(bark_u * 8.0, bark_y * 7.0), 3);
+		// Fine gritty texture within plates
+		float grit = vnoise(vec2(bark_u * 22.0, bark_y * 20.0));
+		col *= (0.90 + micro * 0.14 + grit * 0.06);
+		rough = mix(0.80, 0.96, furrow) + micro * 0.04;
 	} else if (bark_style == 1) {
 		// --- Style 1: Smooth bark with horizontal lenticels (birch, cherry) ---
 		// Birch: white/cream with dark horizontal lines; cherry: reddish-brown shiny
@@ -109,11 +120,12 @@ void fragment() {
 		col *= (0.94 + micro * 0.12);
 		rough = mix(0.85, 0.95, 1.0 - furrow) + micro * 0.04;
 	} else {
-		// --- Style 4: Smooth gray (magnolia, callery pear) ---
-		// Very smooth with subtle vertical streaking, almost no furrows
-		float streak = vnoise(vec2(bark_u * 2.0, bark_y * 6.0));
-		furrow = smoothstep(0.3, 0.7, streak);
-		col *= (0.94 + furrow * 0.12);
+		// --- Style 4: Smooth gray (magnolia, callery pear, beech) ---
+		// Smooth with subtle mottling and gentle undulations, not streaks
+		float mottled = vnoise(vec2(bark_u * 2.5, bark_y * 2.0));
+		float fine_mot = vnoise(vec2(bark_u * 5.0, bark_y * 4.5));
+		furrow = smoothstep(0.3, 0.7, mottled);
+		col *= (0.94 + furrow * 0.10 + fine_mot * 0.04);
 		micro = vnoise(vec2(bark_u * 10.0, bark_y * 8.0)) * 0.04;
 		col *= (0.98 + micro);
 		rough = 0.58 + furrow * 0.12;  // quite smooth
