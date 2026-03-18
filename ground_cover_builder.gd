@@ -208,20 +208,20 @@ func _process_queue(pos: Vector3) -> void:
 	if _build_queue.is_empty():
 		return
 	# Sort by distance, build closest first
-	_build_queue.sort_custom(func(a, b):
-		var pa := a.split("|")
-		var pb := b.split("|")
-		var ax := int(pa[0]) * CHUNK + CHUNK * 0.5
-		var az := int(pa[1]) * CHUNK + CHUNK * 0.5
-		var bx := int(pb[0]) * CHUNK + CHUNK * 0.5
-		var bz := int(pb[1]) * CHUNK + CHUNK * 0.5
-		var da := (ax - pos.x) * (ax - pos.x) + (az - pos.z) * (az - pos.z)
-		var db := (bx - pos.x) * (bx - pos.x) + (bz - pos.z) * (bz - pos.z)
+	_build_queue.sort_custom(func(a: String, b: String) -> bool:
+		var pa: PackedStringArray = a.split("|")
+		var pb: PackedStringArray = b.split("|")
+		var ax: float = int(pa[0]) * CHUNK + CHUNK * 0.5
+		var az: float = int(pa[1]) * CHUNK + CHUNK * 0.5
+		var bx: float = int(pb[0]) * CHUNK + CHUNK * 0.5
+		var bz: float = int(pb[1]) * CHUNK + CHUNK * 0.5
+		var da: float = (ax - pos.x) * (ax - pos.x) + (az - pos.z) * (az - pos.z)
+		var db: float = (bx - pos.x) * (bx - pos.x) + (bz - pos.z) * (bz - pos.z)
 		return da < db)
 	var ck: String = _build_queue.pop_front()
 	_queued_set.erase(ck)
 	# Check distance still valid
-	var cp := ck.split("|")
+	var cp: PackedStringArray = ck.split("|")
 	var wx := int(cp[0]) * CHUNK + CHUNK * 0.5
 	var wz := int(cp[1]) * CHUNK + CHUNK * 0.5
 	var dd := (wx - pos.x) * (wx - pos.x) + (wz - pos.z) * (wz - pos.z)
@@ -244,9 +244,9 @@ func _get_zone_type(cx: int, cz: int) -> int:
 
 
 func _build_chunk(ck: String) -> void:
-	var cp := ck.split("|")
-	var cx := int(cp[0])
-	var cz := int(cp[1])
+	var cp: PackedStringArray = ck.split("|")
+	var cx: int = int(cp[0])
+	var cz: int = int(cp[1])
 	var chunk_x := cx * CHUNK
 	var chunk_z := cz * CHUNK
 
