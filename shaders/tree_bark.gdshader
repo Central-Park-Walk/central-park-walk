@@ -33,9 +33,10 @@ void fragment() {
 	vec3 col = bark_color * (0.90 + tree_var * 0.20);
 
 	// UV approximation: vertical = world_pos.y, horizontal = angular position
+	// Scale chosen so crack patterns read at walking distance (not microscopic)
 	float local_h = world_pos.y - tree_base.y;
-	float bark_y = local_h * 4.0;
-	float bark_u = world_pos.x * 3.5 + world_pos.z * 2.8;
+	float bark_y = local_h * 2.0;
+	float bark_u = world_pos.x * 1.8 + world_pos.z * 1.4;
 	float furrow = 0.5;  // shared variable for lichen/moss/snow to use
 	float rough = 0.88;
 	float micro = 0.0;
