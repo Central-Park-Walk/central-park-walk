@@ -680,12 +680,12 @@ void fragment() {
 
 			// Apply shade: darken under canopy, with bright dappled sun spots
 			float shade = seasonal_canopy * sun_factor;
-			// Base shade: 35% darkening under dense canopy
-			float shade_amount = shade * (1.0 - light_gap) * 0.35;
+			// Shade: 50% darkening under dense canopy (Ramble reference shows deep shade)
+			float shade_amount = shade * (1.0 - light_gap) * 0.50;
 			grass_alb *= (1.0 - shade_amount);
-			// Sun spots through canopy are slightly warm (filtered by leaves)
-			float warm_spots = light_gap * shade * 0.08;
-			grass_alb *= vec3(1.0 + warm_spots, 1.0 + warm_spots * 0.5, 1.0 - warm_spots * 0.3);
+			// Sun spots through canopy are warm green-gold (filtered by leaves)
+			float warm_spots = light_gap * shade;
+			grass_alb *= vec3(1.0 + warm_spots * 0.15, 1.0 + warm_spots * 0.10, 1.0 - warm_spots * 0.05);
 		}
 	}
 
