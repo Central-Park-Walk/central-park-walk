@@ -45,7 +45,7 @@ const BLADE_NAMES: Array = ["Blade_Lawn", "Blade_Wild", "Blade_Shade", "Blade_Se
 const FLOWER_NAMES: Array = [
 	"Flower_Clover", "Flower_Dandelion", "Flower_Violet", "Flower_Buttercup",
 	"Flower_Crocus", "Flower_Daffodil", "Flower_Goldenrod", "Flower_Aster"]
-const FLOWER_CHANCE := 0.06        # base chance, modulated by clustering noise
+const FLOWER_CHANCE := 0.10        # ~10% of grass positions can be flowers
 const TYPE_TO_BLADE: Array = [0, 0, 0, 0, 0, 2, 2, 3, 1, 0]
 
 
@@ -290,14 +290,21 @@ func _build_chunk(ck: String) -> void:
 		var bt: int = TYPE_TO_BLADE[ot] if ot < TYPE_TO_BLADE.size() else 0
 		if bt >= _blade_meshes.size() or _blade_meshes[bt] == null: continue
 
-		# Flowers in unmowed grass: 2=NorthMeadow, 7=Waterside, 8=WildMeadow, 9=OpenLawn
-		var flower_eligible := (ot == 2 or ot == 7 or ot == 8 or ot == 9)
+		# Flowers everywhere grass grows — lawns have clover/dandelion,
+		# meadows have wildflowers. Only sports turf (4) excluded (mowed tight).
+		var flower_eligible := (ot != 4)
+		# Maintained lawns get lower density, wild areas get full density
+		var flower_density := FLOWER_CHANCE
+		if ot <= 1 or ot == 3:  # SheepMeadow, GreatLawn, FormalGarden
+			flower_density = 0.04  # mowed but still has clover/dandelion patches
+		elif ot == 8:  # WildMeadow
+			flower_density = 0.15  # dense wildflowers
 		if flower_eligible:
 			var active: Array = []
 			if summer_active: active.append_array([0, 1, 2, 3])
 			if spring_active: active.append_array([4, 5])
 			if fall_active: active.append_array([6, 7])
-			if not active.is_empty() and rng.randf() < FLOWER_CHANCE:
+			if not active.is_empty() and rng.randf() < flower_density:
 				# Simple hash picks flower type — each type dominates in
 				# different ~5m patches based on world position
 				var cell_hash: int = int(abs(bx * 3.1 + bz * 7.3)) % active.size()
