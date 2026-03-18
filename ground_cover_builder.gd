@@ -25,11 +25,11 @@ var _hm_ws: float
 var _hm_half: float
 
 const CHUNK := 20.0
-const LOAD_RANGE := 70.0
-const UNLOAD_RANGE := 80.0
+const LOAD_RANGE := 120.0
+const UNLOAD_RANGE := 130.0
 const UPDATE_DIST := 3.0
-const VIS_END := 50.0
-const VIS_FADE_MARGIN := 10.0
+const VIS_END := 100.0
+const VIS_FADE_MARGIN := 15.0
 
 # Patch types: name, variants, height range, is_litter, wind_flex
 # Atlas layout: 4 cols × 2 rows (matches ground_cover_atlas.png)

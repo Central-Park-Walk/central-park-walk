@@ -14,8 +14,8 @@ var _wrap_shader: Shader
 
 # Chunk size for spatial batching (matches tree_builder)
 const CHUNK := 80.0
-const VIS_RANGE := 120.0  # strands visible to 120m
-const WRAP_VIS_RANGE := 80.0  # trunk wraps visible to 80m
+const VIS_RANGE := 200.0  # strands visible to 200m
+const WRAP_VIS_RANGE := 150.0  # trunk wraps visible to 150m
 
 # Zone types where vines grow (from ground_cover_instances zone classification)
 # 5 = NorthWoods, 6 = Ramble, 7 = Waterside, 8 = WildMeadow
