@@ -223,7 +223,7 @@ def make_linden_variant(vi, seed):
 
     # Along branches (dense)
     for b, (limb_pts, angle, spread) in enumerate(limb_data):
-        n_cl = rng.randint(6, 10)
+        n_cl = rng.randint(8, 14)
         for c in range(n_cl):
             t = rng.uniform(0.30, 1.0)
             idx = int(t * (len(limb_pts) - 1))
@@ -239,7 +239,7 @@ def make_linden_variant(vi, seed):
                 flatten=rng.uniform(0.45, 0.65))
 
     # Dense dome fill (pyramidal: narrower at top)
-    n_dome = rng.randint(8, 14)
+    n_dome = rng.randint(11, 19)
     for f in range(n_dome):
         angle_f = rng.uniform(0, 2.0 * math.pi)
         z = TREE_H * rng.uniform(0.50, 0.95)

@@ -280,7 +280,7 @@ def make_willow_variant(vi, seed):
     # ---- Additional leaf mass at crown ----
     # Fill in the dome with leaf clusters where branches meet
     crown_center_z = top_pt.z + 1.2
-    n_crown_clusters = rng.randint(6, 12)  # sparser to show weeping branches
+    n_crown_clusters = rng.randint(8, 16)  # sparser to show weeping branches
     for cc in range(n_crown_clusters):
         cc_angle = rng.uniform(0, 2 * math.pi)
         cc_radius = rng.uniform(0.3, 1.5)

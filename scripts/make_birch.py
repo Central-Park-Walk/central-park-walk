@@ -224,7 +224,7 @@ def make_birch_variant(vi, seed):
 
     # Along branches
     for b, (limb_pts, angle, spread) in enumerate(all_limb_data):
-        n_cl = rng.randint(6, 10)  # fewer = airier
+        n_cl = rng.randint(8, 14)  # fewer = airier
         for c in range(n_cl):
             t = rng.uniform(0.40, 1.0)
             idx = int(t * (len(limb_pts) - 1))
@@ -240,7 +240,7 @@ def make_birch_variant(vi, seed):
                 rng=rng, mat=leaf_mat, flatten=rng.uniform(0.45, 0.65))
 
     # Sparse dome fill (birch crown is NOT dense)
-    n_dome = rng.randint(5, 9)
+    n_dome = rng.randint(7, 13)
     for f in range(n_dome):
         angle_f = rng.uniform(0, 2.0 * math.pi)
         dist = rng.uniform(0, CANOPY_SPREAD * 0.5)
@@ -254,7 +254,7 @@ def make_birch_variant(vi, seed):
             rng=rng, mat=leaf_mat, flatten=rng.uniform(0.40, 0.60))
 
     # Drooping edge clusters (birch hallmark — pendulous tips)
-    n_drape = rng.randint(4, 7)
+    n_drape = rng.randint(6, 10)
     for d in range(n_drape):
         angle_d = rng.uniform(0, 2.0 * math.pi)
         dist = CANOPY_SPREAD * rng.uniform(0.60, 0.95)

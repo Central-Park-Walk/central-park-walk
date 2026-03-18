@@ -220,7 +220,7 @@ def make_deciduous_variant(vi, seed):
 
     # Along branches
     for b, (limb_pts, angle, spread) in enumerate(limb_data):
-        n_cl = rng.randint(6, 10)
+        n_cl = rng.randint(8, 14)
         for c in range(n_cl):
             t = rng.uniform(0.30, 1.0)
             idx = int(t * (len(limb_pts) - 1))
@@ -236,7 +236,7 @@ def make_deciduous_variant(vi, seed):
                 flatten=rng.uniform(0.50, 0.70))
 
     # Dome fill for rounded crown
-    n_dome = rng.randint(6, 12)
+    n_dome = rng.randint(8, 16)
     for f in range(n_dome):
         angle_f = rng.uniform(0, 2.0 * math.pi)
         dist = rng.uniform(0, CANOPY_SPREAD * 0.65)

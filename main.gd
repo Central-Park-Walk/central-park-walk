@@ -1047,7 +1047,13 @@ func _setup_environment() -> void:
 	_env.ambient_light_sky_contribution = 0.3
 	_env.tonemap_mode          = Environment.TONE_MAPPER_FILMIC
 	_env.tonemap_white         = 6.0
-	_env.glow_enabled          = false   # causes temporal flicker artifacts with dense geometry
+	_env.glow_enabled          = true    # anti-firefly shader in color_grade.gdshader clamps pixel spikes
+	_env.glow_intensity        = 0.5
+	_env.glow_strength         = 0.7
+	_env.glow_bloom            = 0.08
+	_env.glow_blend_mode       = Environment.GLOW_BLEND_MODE_SOFTLIGHT
+	_env.glow_hdr_threshold    = 1.4     # only HDR-bright pixels (sun disc, lit windows)
+	_env.glow_hdr_scale        = 1.2
 	_env.ssao_enabled          = true
 	_env.ssao_detail           = 0.5
 	_env.ssil_enabled          = false   # causes yellow shield artifacts (temporal accumulation)

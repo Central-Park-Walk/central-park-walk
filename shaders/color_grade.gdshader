@@ -8,6 +8,19 @@ global uniform float lightning_flash;
 void fragment() {
 	vec3 c = texture(SCREEN_TEXTURE, SCREEN_UV).rgb;
 
+	// --- Anti-firefly: clamp isolated bright pixels ---
+	// Single-pixel HDR spikes (sub-pixel gaps in alpha-tested foliage)
+	// cause temporal flicker when bloom amplifies them. Clamp any pixel
+	// that's much brighter than its neighbors.
+	vec2 px = SCREEN_PIXEL_SIZE;
+	vec3 n1 = texture(SCREEN_TEXTURE, SCREEN_UV + vec2(px.x, 0.0)).rgb;
+	vec3 n2 = texture(SCREEN_TEXTURE, SCREEN_UV - vec2(px.x, 0.0)).rgb;
+	vec3 n3 = texture(SCREEN_TEXTURE, SCREEN_UV + vec2(0.0, px.y)).rgb;
+	vec3 n4 = texture(SCREEN_TEXTURE, SCREEN_UV - vec2(0.0, px.y)).rgb;
+	vec3 neighbor_max = max(max(n1, n2), max(n3, n4));
+	// Clamp to 2x brightest neighbor — kills fireflies, preserves real highlights
+	c = min(c, neighbor_max * 2.0 + 0.05);
+
 	// Time-of-day detection from sky luminance
 	float sky_lum = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
 	float night_t  = smoothstep(0.15, 0.02, sky_lum);  // 1.0 at night

@@ -40,7 +40,7 @@ func _ready() -> void:
 	var cam := Camera3D.new()
 	cam.name    = "Camera"
 	cam.current = true
-	cam.fov     = 82.0
+	cam.fov     = 65.0  # cinematic walking sim FOV — intimate, trees feel large
 	var cam_attr := CameraAttributesPractical.new()
 	cam_attr.dof_blur_far_enabled    = false
 	cam_attr.dof_blur_near_enabled   = false

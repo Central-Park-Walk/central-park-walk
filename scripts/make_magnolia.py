@@ -252,7 +252,7 @@ def make_magnolia_variant(vi, seed):
         avg_x = sum(t.x for t in all_branch_tips) / len(all_branch_tips)
         avg_y = sum(t.y for t in all_branch_tips) / len(all_branch_tips)
         avg_z = sum(t.z for t in all_branch_tips) / len(all_branch_tips)
-        n_fill = rng.randint(6, 12)
+        n_fill = rng.randint(8, 16)
         for f in range(n_fill):
             center = Vector((
                 avg_x + rng.uniform(-0.8, 0.8),

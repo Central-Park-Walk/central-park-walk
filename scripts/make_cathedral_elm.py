@@ -257,7 +257,7 @@ def make_cathedral_elm_variant(vi, seed):
 
     # Along each major limb — clusters follow branch architecture
     for b, (limb_pts, angle, spread) in enumerate(limb_data):
-        n_cl = rng.randint(7, 11)
+        n_cl = rng.randint(10, 15)
         for c in range(n_cl):
             t = rng.uniform(0.40, 1.0)
             idx = int(t * (len(limb_pts) - 1))
@@ -271,7 +271,7 @@ def make_cathedral_elm_variant(vi, seed):
             leaf_parts += make_leaf_cards("lc", vi, pos, r, n_cards=3, rng=rng, mat=leaf_mat, flatten=rng.uniform(0.40, 0.60))
 
     # Upper dome — sparser to let light through (cathedral light effect)
-    n_dome = rng.randint(8, 14)
+    n_dome = rng.randint(11, 19)
     for f in range(n_dome):
         angle_f = rng.uniform(0, 2.0 * math.pi)
         dist = rng.uniform(0.8, CANOPY_SPREAD * 0.65)
@@ -282,7 +282,7 @@ def make_cathedral_elm_variant(vi, seed):
         leaf_parts += make_leaf_cards("dome", vi, Vector((x, y, z)), r, n_cards=3, rng=rng, mat=leaf_mat, flatten=rng.uniform(0.40, 0.55))
 
     # Draping edges — elm's signature weeping tips, heavier for cathedral effect
-    n_drape = rng.randint(12, 20)
+    n_drape = rng.randint(16, 27)
     for d in range(n_drape):
         angle_d = rng.uniform(0, 2.0 * math.pi)
         dist = CANOPY_SPREAD * rng.uniform(0.70, 1.12)

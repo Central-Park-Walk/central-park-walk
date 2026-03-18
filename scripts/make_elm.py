@@ -227,7 +227,7 @@ def make_elm_variant(vi, seed):
 
     # Along each major limb — sparser, larger clusters with visible gaps
     for b, (limb_pts, angle, spread) in enumerate(limb_data):
-        n_cl = rng.randint(6, 10)
+        n_cl = rng.randint(8, 14)
         for c in range(n_cl):
             t = rng.uniform(0.45, 1.0)
             idx = int(t * (len(limb_pts) - 1))
@@ -241,7 +241,7 @@ def make_elm_variant(vi, seed):
             leaf_parts += make_leaf_cards("lc", vi, pos, r, n_cards=3, rng=rng, mat=leaf_mat, flatten=rng.uniform(0.45, 0.65))
 
     # Dome fill (top of canopy) — sparser, branches should show through
-    n_dome = rng.randint(10, 18)
+    n_dome = rng.randint(14, 24)
     for f in range(n_dome):
         angle_f = rng.uniform(0, 2.0 * math.pi)
         dist = rng.uniform(0.5, CANOPY_SPREAD * 0.70)
@@ -252,7 +252,7 @@ def make_elm_variant(vi, seed):
         leaf_parts += make_leaf_cards("dome", vi, Vector((x, y, z)), r, n_cards=3, rng=rng, mat=leaf_mat, flatten=rng.uniform(0.40, 0.60))
 
     # Draping edges (elm's signature — but sparser, showing branch tips)
-    n_drape = rng.randint(8, 14)
+    n_drape = rng.randint(11, 19)
     for d in range(n_drape):
         angle_d = rng.uniform(0, 2.0 * math.pi)
         dist = CANOPY_SPREAD * rng.uniform(0.75, 1.10)

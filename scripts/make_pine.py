@@ -218,7 +218,7 @@ def make_pine_variant(vi, seed):
 
     for b, (limb_pts, angle, spread, whorl_t) in enumerate(all_limb_data):
         # More needles on outer portion of branch
-        n_cl = rng.randint(6, 10)  # reduced ~30% for sparser canopy
+        n_cl = rng.randint(8, 14)  # reduced ~30% for sparser canopy
         for c in range(n_cl):
             t = rng.uniform(0.50, 1.0)  # concentrated at tips
             idx = int(t * (len(limb_pts) - 1))

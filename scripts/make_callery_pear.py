@@ -237,7 +237,7 @@ def make_callery_pear_variant(vi, seed):
 
     # Along branches: dense clusters
     for b, (limb_pts, angle, spread, start_t) in enumerate(limb_data):
-        n_cl = rng.randint(6, 10)
+        n_cl = rng.randint(8, 14)
         for c in range(n_cl):
             t = rng.uniform(0.30, 1.0)
             idx = int(t * (len(limb_pts) - 1))
@@ -253,7 +253,7 @@ def make_callery_pear_variant(vi, seed):
                 flatten=rng.uniform(0.50, 0.70))
 
     # Pyramidal fill: constrain clusters within tapered cone
-    n_fill = rng.randint(10, 16)
+    n_fill = rng.randint(14, 22)
     for f in range(n_fill):
         # Height within crown
         z_t = rng.uniform(0.0, 1.0)

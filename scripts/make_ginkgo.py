@@ -224,7 +224,7 @@ def make_ginkgo_variant(vi, seed):
 
     # Along branches
     for b, (limb_pts, angle, spread) in enumerate(limb_data):
-        n_cl = rng.randint(6, 12)
+        n_cl = rng.randint(8, 16)
         for c in range(n_cl):
             t = rng.uniform(0.30, 1.0)
             idx = int(t * (len(limb_pts) - 1))

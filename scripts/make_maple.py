@@ -242,7 +242,7 @@ def make_maple_variant(vi, seed):
 
     # Along each major limb
     for b, (limb_pts, angle, spread) in enumerate(limb_data):
-        n_cl = rng.randint(6, 10)
+        n_cl = rng.randint(8, 14)
         for c in range(n_cl):
             t = rng.uniform(0.30, 1.0)
             idx = int(t * (len(limb_pts) - 1))
@@ -256,7 +256,7 @@ def make_maple_variant(vi, seed):
             leaf_parts += make_leaf_cards("lc", vi, pos, r, n_cards=3, rng=rng, mat=leaf_mat, flatten=rng.uniform(0.45, 0.65))
 
     # Dense oval crown fill — taller than wide (oval vs dome)
-    n_fill = rng.randint(10, 16)
+    n_fill = rng.randint(14, 22)
     for f in range(n_fill):
         angle_f = rng.uniform(0, 2.0 * math.pi)
         dist = rng.uniform(0, CANOPY_SPREAD * 0.60)

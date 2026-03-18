@@ -209,7 +209,7 @@ def make_cherry_variant(vi, seed):
 
     # Along branches
     for b, (limb_pts, angle, spread) in enumerate(limb_data):
-        n_cl = rng.randint(5, 9)
+        n_cl = rng.randint(7, 13)
         for c in range(n_cl):
             t = rng.uniform(0.35, 1.0)
             idx = int(t * (len(limb_pts) - 1))
@@ -225,7 +225,7 @@ def make_cherry_variant(vi, seed):
                 flatten=rng.uniform(0.50, 0.70))
 
     # Light dome fill
-    n_dome = rng.randint(5, 10)
+    n_dome = rng.randint(7, 14)
     for f in range(n_dome):
         angle_f = rng.uniform(0, 2.0 * math.pi)
         dist = rng.uniform(0, CANOPY_SPREAD * 0.6)
@@ -238,7 +238,7 @@ def make_cherry_variant(vi, seed):
             flatten=rng.uniform(0.45, 0.65))
 
     # Tip clusters (drooping at edges — characteristic cherry look)
-    n_drape = rng.randint(4, 7)
+    n_drape = rng.randint(6, 10)
     for d in range(n_drape):
         angle_d = rng.uniform(0, 2.0 * math.pi)
         dist = CANOPY_SPREAD * rng.uniform(0.70, 1.0)
