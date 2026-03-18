@@ -245,104 +245,91 @@ def make_elm_variant(vi, seed):
                                     r_start, 0.012, BRANCH_SEGS, bark_mat))
         limb_data.append((limb_pts, base_angle, end_spread))
 
-        # ---- Secondary branches (more, longer) ----
-        n_subs = rng.randint(3, 5)
+        # ---- Secondary branches (denser, thicker — visible architecture) ----
+        n_subs = rng.randint(5, 8)
         for s in range(n_subs):
-            t_start = rng.uniform(0.30, 0.85)
+            t_start = rng.uniform(0.25, 0.90)
             idx = int(t_start * (len(limb_pts) - 1))
             origin = limb_pts[idx].copy()
-            sub_angle = base_angle + rng.uniform(-1.1, 1.1)
+            sub_angle = base_angle + rng.uniform(-1.2, 1.2)
             sub_dx = math.cos(sub_angle)
             sub_dy = math.sin(sub_angle)
-            sub_len = rng.uniform(0.7, 1.8)
+            sub_len = rng.uniform(0.8, 2.2)
             sub_pts = []
-            for sp in range(6):
-                st = sp / 5.0
-                # Sub-branches also arch outward and droop
+            for sp in range(7):
+                st = sp / 6.0
+                # Sub-branches arch outward and droop
                 sub_pts.append(Vector((
                     origin.x + sub_dx * sub_len * st,
                     origin.y + sub_dy * sub_len * st,
                     origin.z + sub_len * st * 0.25 - st * st * sub_len * 0.15)))
             bark_parts.append(make_tube(f"sub_{vi}_{b}_{s}", sub_pts,
-                                        0.025, 0.005, SUB_SEGS, bark_mat))
+                                        0.035, 0.008, SUB_SEGS, bark_mat))
 
-            # Tertiary twigs off sub-branches
-            for tw in range(rng.randint(1, 3)):
-                tw_t = rng.uniform(0.3, 0.8)
+            # Tertiary twigs off sub-branches (more numerous)
+            for tw in range(rng.randint(2, 5)):
+                tw_t = rng.uniform(0.25, 0.85)
                 tw_idx = int(tw_t * (len(sub_pts) - 1))
                 tw_origin = sub_pts[tw_idx].copy()
-                tw_angle = sub_angle + rng.uniform(-1.0, 1.0)
-                tw_len = rng.uniform(0.3, 0.7)
+                tw_angle = sub_angle + rng.uniform(-1.2, 1.2)
+                tw_len = rng.uniform(0.35, 0.85)
                 tw_pts = [
                     tw_origin,
                     tw_origin + Vector((math.cos(tw_angle) * tw_len * 0.5,
                                         math.sin(tw_angle) * tw_len * 0.5,
-                                        tw_len * 0.15)),
+                                        tw_len * 0.12)),
                     tw_origin + Vector((math.cos(tw_angle) * tw_len,
                                         math.sin(tw_angle) * tw_len,
-                                        -tw_len * 0.05)),
+                                        -tw_len * 0.08)),
                 ]
                 bark_parts.append(make_tube(f"twig_{vi}_{b}_{s}_{tw}", tw_pts,
-                                            0.008, 0.003, 3, bark_mat))
+                                            0.012, 0.004, 3, bark_mat))
 
     # ---- Canopy: many small leaf clusters ----
     # Distributed along branches, at dome top, and at draping edges.
     # Smaller clusters = more granular, natural canopy with visible gaps.
 
-    # Along each major limb (upper 40%) — dense foliage wrapping branches
+    # Along each major limb — sparser, larger clusters with visible gaps
     for b, (limb_pts, angle, spread) in enumerate(limb_data):
-        n_cl = rng.randint(18, 28)
+        n_cl = rng.randint(6, 10)
         for c in range(n_cl):
-            t = rng.uniform(0.35, 1.0)
+            t = rng.uniform(0.45, 1.0)
             idx = int(t * (len(limb_pts) - 1))
             idx2 = min(idx + 1, len(limb_pts) - 1)
             frac = t * (len(limb_pts) - 1) - idx
             pos = limb_pts[idx].lerp(limb_pts[idx2], frac)
-            pos.x += rng.uniform(-0.9, 0.9)
-            pos.y += rng.uniform(-0.9, 0.9)
-            pos.z += rng.uniform(-0.4, 0.5)
-            r = rng.uniform(0.35, 0.70)
+            pos.x += rng.uniform(-0.7, 0.7)
+            pos.y += rng.uniform(-0.7, 0.7)
+            pos.z += rng.uniform(-0.3, 0.4)
+            r = rng.uniform(0.45, 0.85)
             leaf_parts.append(make_leaf_cluster(
                 f"lc_{vi}_{b}_{c}", pos, r, rng.uniform(0.45, 0.65), rng))
 
-    # Dome fill (top of canopy) — dense overhead coverage
-    n_dome = rng.randint(25, 40)
+    # Dome fill (top of canopy) — sparser, branches should show through
+    n_dome = rng.randint(10, 18)
     for f in range(n_dome):
         angle_f = rng.uniform(0, 2.0 * math.pi)
-        dist = rng.uniform(0, CANOPY_SPREAD * 0.75)
-        z = TREE_H * rng.uniform(0.68, 1.0)
-        x = math.cos(angle_f) * dist + rng.uniform(-0.4, 0.4)
-        y = math.sin(angle_f) * dist + rng.uniform(-0.4, 0.4)
-        r = rng.uniform(0.35, 0.75)
+        dist = rng.uniform(0.5, CANOPY_SPREAD * 0.70)
+        z = TREE_H * rng.uniform(0.72, 1.0)
+        x = math.cos(angle_f) * dist + rng.uniform(-0.3, 0.3)
+        y = math.sin(angle_f) * dist + rng.uniform(-0.3, 0.3)
+        r = rng.uniform(0.50, 0.85)
         leaf_parts.append(make_leaf_cluster(
             f"dome_{vi}_{f}", Vector((x, y, z)), r,
             rng.uniform(0.40, 0.60), rng))
 
-    # Draping edges (elm's signature — cascading curtain of foliage)
-    n_drape = rng.randint(20, 30)
+    # Draping edges (elm's signature — but sparser, showing branch tips)
+    n_drape = rng.randint(8, 14)
     for d in range(n_drape):
         angle_d = rng.uniform(0, 2.0 * math.pi)
-        dist = CANOPY_SPREAD * rng.uniform(0.70, 1.15)
-        z = TREE_H * rng.uniform(0.40, 0.72)
-        x = math.cos(angle_d) * dist + rng.uniform(-0.4, 0.4)
-        y = math.sin(angle_d) * dist + rng.uniform(-0.4, 0.4)
-        r = rng.uniform(0.30, 0.60)
+        dist = CANOPY_SPREAD * rng.uniform(0.75, 1.10)
+        z = TREE_H * rng.uniform(0.45, 0.72)
+        x = math.cos(angle_d) * dist + rng.uniform(-0.3, 0.3)
+        y = math.sin(angle_d) * dist + rng.uniform(-0.3, 0.3)
+        r = rng.uniform(0.40, 0.70)
         leaf_parts.append(make_leaf_cluster(
             f"drape_{vi}_{d}", Vector((x, y, z)), r,
             rng.uniform(0.50, 0.70), rng))
-
-    # Inner canopy (between limb bases and dome, creates depth)
-    n_inner = rng.randint(12, 18)
-    for i_c in range(n_inner):
-        angle_i = rng.uniform(0, 2.0 * math.pi)
-        dist = rng.uniform(0.3, CANOPY_SPREAD * 0.55)
-        z = split_h + (TREE_H - split_h) * rng.uniform(0.25, 0.65)
-        x = math.cos(angle_i) * dist
-        y = math.sin(angle_i) * dist
-        r = rng.uniform(0.25, 0.55)
-        leaf_parts.append(make_leaf_cluster(
-            f"inner_{vi}_{i_c}", Vector((x, y, z)), r,
-            rng.uniform(0.45, 0.65), rng))
 
     # ---- Finalize variant ----
     all_parts = bark_parts + leaf_parts
