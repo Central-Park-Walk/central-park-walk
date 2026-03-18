@@ -88,7 +88,7 @@ python3 convert_to_godot.py
 |---------|-------|--------|
 | Terrain | 8192×8192 mesh (14M verts) | LiDAR DEM bare earth 2017 (1ft resolution, 0.61m cells). Terrain mesh holes at terrain-integrated structures (Bethesda Terrace). 3D path mesh strips (2,624 paths). Granite curb faces (316K verts). 1,909 retaining wall segments. Rock outcrops via DSM blend (161K cells). Dappled canopy shade from tree census crown data |
 | Trees | 9,852 | NYC Tree Census + OSM + woodland scatter in 12 ecological zones. **Mtree procedural generation** (Blender 4.5 + Modular Tree v5.5): 15 species × 3 size tiers (small/medium/large) = 46 GLBs with scale-aware branch density. Trees generated at real-world heights with natural branching, normalized to 5m model space. **Data-driven heights**: LiDAR 6M Trees (4,005), canopy height model enrichment (1,450), DBH-estimated (4,397). Crossed-quad leaf cards at branch tips (radius attribute). Per-pixel color noise. Cherry/callery pear/magnolia spring bloom. FBM bark with 3D normal relief. Invasive vines: porcelain berry + oriental bittersweet (13 mesh variants) |
-| Vegetation | 30 undergrowth + 6 ground cover | **Undergrowth**: 5 shrubs, 8 herbs, 2 ferns, 1 wetland, 2 fungi, 12 tier-3 species. Zone-specific: NorthWoods fern-dominated, Ramble shrub-diverse, Waterside cattail/iris, WildMeadow tall herbs. **14 species with bloom-season flowers** (cardinal flower scarlet, ironweed purple, coneflower gold, etc.). **Ground cover patches**: 6 types (bramble, fern cluster, mixed weeds, tall grass, fallen leaves, twig litter) × 4 variants via shared atlas texture. Seasonal fallen leaves (October–March). Chunk-based MultiMesh with alpha-hash LOD |
+| Vegetation | 30 undergrowth + 6 ground cover | **Undergrowth**: 7 shrubs, 12 herbs, 4 ferns, 4 wetland, 2 fungi, 1 grass. Zone-specific: NorthWoods fern-dominated, Ramble shrub-diverse, Waterside cattail/iris, WildMeadow tall herbs. **14 species with bloom-season flowers** (cardinal flower scarlet, ironweed purple, coneflower gold, etc.). **11 species upgraded to real 3D foliage** from BD3D Plant Library (shrubs + ferns) with PBR bark/leaf textures and alpha-cutout silhouettes; remaining herbs use procedural geometry. **Ground cover patches**: 6 types (bramble, fern cluster, mixed weeds, tall grass, fallen leaves, twig litter) × 4 variants via shared atlas texture. Seasonal fallen leaves (October–March). Chunk-based MultiMesh with alpha-hash LOD |
 | Grass & Flowers | Hexaquo method | Individual blade geometry at 600/m² via MultiMesh. 4 blade meshes, 10 zone-specific color palettes. 8 wildflower models with seasonal clustering on all lawn zones (4% maintained lawns, 10% default, 15% wild meadow). Per-pixel color noise on every blade. Wind, canopy shade, path-edge wear, seasonal color, winter dormancy |
 | Water | 23 bodies + 10 streams | OpenStreetMap polygons. Canopy shade on water. Stone coping on formal water bodies. Dawn/dusk mist (8 fog volumes) |
 | Buildings | 6,557 | NYC Building Footprints + LiDAR heights. 5 facade materials with per-building variation, floor-accurate windows, cornice bands, awnings, grime weathering |
@@ -120,7 +120,8 @@ All data is freely available. No paid APIs. No API keys.
 | [OpenStreetMap](https://www.openstreetmap.org/) | Paths, water, buildings, bridges, furniture | ODbL |
 | [NYC Tree Census](https://data.cityofnewyork.us/) | Species, diameter for park trees | Public Domain |
 | [Sketchfab](https://sketchfab.com/) | Photogrammetry scans (3 statues + Bethesda Fountain) | CC-BY |
-| Custom Blender scripts | 46 Mtree tree models (15 species × 3 tiers), 33 PBR furniture models, 30 undergrowth species, 24 ground cover patches, 17 bridges, 13 vine models | Original (MIT) |
+| Custom Blender scripts | 46 Mtree tree models (15 species × 3 tiers), 33 PBR furniture models, 30 undergrowth species (11 from BD3D Plant Library), 24 ground cover patches, 17 bridges, 13 vine models | Original (MIT) |
+| [BD3D Plant Library](https://blendermarket.com/products/bd3d-plant-library) | 3D foliage meshes for shrubs + ferns (decimated + relit) | Free (Gumroad) |
 | [ambientCG](https://ambientcg.com/) / [Polyhaven](https://polyhaven.com/) | PBR textures, HDRI sky | CC0 |
 
 ## How to Contribute
@@ -154,7 +155,7 @@ See [FUNDING.md](FUNDING.md) for details on how funds are used.
 |-------|-----------|
 | Engine | Godot 4.6.1 (Forward+, GDScript) |
 | Data pipeline | Python (GDAL, numpy/scipy, Pillow) |
-| 3D modeling | Blender 4.5.8 LTS + Mtree v5.5 (procedural trees), ambientCG PBR textures |
+| 3D modeling | Blender 4.5.8 LTS + Mtree v5.5 (procedural trees), BD3D Plant Library (undergrowth), ambientCG PBR textures |
 | Rendering | 24 custom GLSL shaders, MultiMesh instancing, buffer-based grass (600/m²), 8K prebaked terrain mesh, shared texture atlases (leaf + ground cover), per-pixel hash noise on all natural surfaces |
 
 ## License
