@@ -1047,7 +1047,13 @@ func _setup_environment() -> void:
 	_env.ambient_light_sky_contribution = 0.3
 	_env.tonemap_mode          = Environment.TONE_MAPPER_FILMIC
 	_env.tonemap_white         = 6.0
-	_env.glow_enabled          = false   # glow causes temporal blip artifacts with dense geometry
+	_env.glow_enabled          = true
+	_env.glow_intensity        = 0.6
+	_env.glow_strength         = 0.8
+	_env.glow_bloom            = 0.1     # subtle bloom on bright emitters (sun, windows)
+	_env.glow_blend_mode       = Environment.GLOW_BLEND_MODE_SOFTLIGHT
+	_env.glow_hdr_threshold    = 1.2     # only bloom on HDR-bright pixels (not foliage)
+	_env.glow_hdr_scale        = 1.5
 	_env.ssao_enabled          = true
 	_env.ssao_detail           = 0.5
 	_env.ssil_enabled          = false   # causes yellow shield artifacts (temporal accumulation)
@@ -1386,12 +1392,12 @@ func _apply_time_of_day() -> void:
 	# Weather overrides — use absolute values for fog/clouds so the effect
 	# is clearly visible regardless of time-of-day keyframe base values.
 	if _weather_mode == "fog":
-		_env.fog_density = 0.035  # heavy fade: ~50% at 20m, ~90% at 65m
+		_env.fog_density = 0.018  # moderate fade: visible at 30m, thick by 80m
 		_env.fog_light_energy = 0.6
 		_env.fog_light_color = Color(0.78, 0.80, 0.82)
 		_env.fog_sun_scatter = 0.05
 		if _env.volumetric_fog_enabled:
-			_env.volumetric_fog_density = 0.015
+			_env.volumetric_fog_density = 0.005  # atmospheric, not opaque
 		_env.adjustment_saturation = 0.45
 		_env.adjustment_brightness = 0.90
 		_sky_mat.set_shader_parameter("cloud_coverage", 0.99)
