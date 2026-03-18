@@ -85,12 +85,30 @@ void vertex() {
 	// Winter: canopy shell becomes transparent (bare branches)
 	v_canopy_alpha = mix(1.0, 0.0, winter_bare * (1.0 - evergreen));
 
-	// Wind sway — gentle rocking of the whole canopy
-	float wind_str = length(wind_vec);
+	// ---- Organic silhouette noise ----
+	// Break up the smooth hemisphere into irregular tree-crown shapes.
+	// Each tree gets a unique displacement pattern from its world position.
 	vec3 world_pos = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	float tree_id = world_pos.x * 0.173 + world_pos.z * 0.317;
+
+	// Multi-octave displacement along the normal — lumpy, organic crown shape
+	vec3 disp_seed = VERTEX * 2.5 + vec3(tree_id);
+	float bump = vnoise(disp_seed) * 0.18
+	           + vnoise(disp_seed * 2.3 + vec3(7.1)) * 0.10
+	           + vnoise(disp_seed * 5.0 + vec3(13.7)) * 0.04;
+	// Stronger displacement near the equator (crown edge) where silhouette matters
+	float equator_weight = sin(acos(clamp(NORMAL.y, 0.0, 1.0)));
+	VERTEX += NORMAL * bump * (0.5 + equator_weight * 0.5);
+
+	// Flatten the top slightly — real canopies aren't perfectly round on top
+	float top_squash = smoothstep(0.8, 1.0, VERTEX.y);
+	VERTEX.y -= top_squash * 0.08;
+
+	// ---- Wind sway ----
+	float wind_str = length(wind_vec);
 	float phase = world_pos.x * 0.07 + world_pos.z * 0.11;
 	float sway = sin(TIME * 0.8 + phase) * 0.02 * wind_str;
-	VERTEX.x += sway * VERTEX.y;  // top sways more
+	VERTEX.x += sway * VERTEX.y;
 }
 
 void fragment() {
@@ -113,7 +131,7 @@ void fragment() {
 	// Aerial perspective (matches tree_leaf.gdshader exactly)
 	vec3 shell_world = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	float shell_dist = length(shell_world - INV_VIEW_MATRIX[3].xyz);
-	float shell_aerial = smoothstep(60.0, 300.0, shell_dist);
+	float shell_aerial = smoothstep(200.0, 500.0, shell_dist);
 	if (shell_aerial > 0.01) {
 		float al = dot(col, vec3(0.2126, 0.7152, 0.0722));
 		col = mix(col, vec3(al), shell_aerial * 0.30);
