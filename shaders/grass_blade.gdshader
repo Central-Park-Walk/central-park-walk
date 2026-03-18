@@ -49,7 +49,14 @@ void vertex() {
 	}
 	// Flowers keep natural size — don't shrink with grass patchiness
 	if (v_is_flower < 0.5) {
-		VERTEX *= mix(size_lo, size_hi, v_patch_factor);
+		float broad_scale = mix(size_lo, size_hi, v_patch_factor);
+		// Fine-scale clumping: taller grass patches at 20-40cm scale
+		// Real mowed lawns have visible clumps where grass grows taller
+		float clump_noise = vnoise(blade_world_xz / 0.3);  // ~30cm clusters
+		float clump_boost = smoothstep(0.55, 0.85, clump_noise) * 0.35;
+		// Per-blade height variation from seed
+		float blade_height_var = mix(0.85, 1.15, v_blade_seed);
+		VERTEX *= broad_scale * blade_height_var * (1.0 + clump_boost);
 	}
 
 	// Sway amount: only tips move, base is rooted
