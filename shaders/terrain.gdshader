@@ -226,16 +226,16 @@ void fragment() {
 		vec2 can_uv = (world_pos.xz + world_size * 0.5) / world_size;
 		float canopy_cover = texture(canopy_map, can_uv).r;
 		if (canopy_cover > 0.3) {
-			// Blend from green grass toward brown leaf litter as canopy thickens
-			vec3 litter_col = vec3(0.18, 0.14, 0.08);  // dark brown leaf litter
-			// Add variation — not uniform brown
+			// Blend from green grass toward warm brown leaf litter
+			// Bright enough to not go black when canopy shade also applies
+			vec3 litter_col = vec3(0.28, 0.22, 0.14);  // warm brown — visible, not dark
 			float litter_noise = vnoise(world_pos.xz * 0.5);
-			litter_col = mix(litter_col, vec3(0.22, 0.16, 0.10), litter_noise);
-			float litter_blend = smoothstep(0.3, 0.7, canopy_cover);
-			imp_col = mix(imp_col, litter_col, litter_blend * 0.85);
+			litter_col = mix(litter_col, vec3(0.34, 0.26, 0.16), litter_noise);
+			float litter_blend = smoothstep(0.3, 0.7, canopy_cover) * 0.70;
+			imp_col = mix(imp_col, litter_col, litter_blend);
 		}
 		if (is_woodland) {
-			imp_col *= vec3(0.75, 0.80, 0.65);  // slightly darker/cooler
+			imp_col *= vec3(0.85, 0.88, 0.75);  // gentle darken only
 		}
 
 		// Distance blend: dark green close (under blades) → full impostor at distance
