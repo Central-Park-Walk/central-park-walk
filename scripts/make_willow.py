@@ -228,7 +228,7 @@ def make_willow_variant(vi, seed):
             pt.y += rng.uniform(-0.03, 0.03)
             br_pts.append(pt)
 
-        br_r_start = rng.uniform(0.04, 0.07)
+        br_r_start = rng.uniform(0.056, 0.098)  # +40% thicker
         parts.append(make_tube(f"branch_{vi}_{b}", br_pts,
                                br_r_start, br_r_start * 0.3, BRANCH_SEGS, bark_mat))
 
@@ -257,7 +257,7 @@ def make_willow_variant(vi, seed):
                     sub_origin.x + sub_dx * sub_len * st,
                     sub_origin.y + sub_dy * sub_len * st,
                     sub_origin.z + sub_len * st * 0.3 * (1.0 - st))))
-            sub_r = rng.uniform(0.015, 0.030)
+            sub_r = rng.uniform(0.021, 0.042)  # +40% thicker
             parts.append(make_tube(f"sub_{vi}_{b}_{s}", sub_pts,
                                    sub_r, sub_r * 0.3, SUB_SEGS, bark_mat))
             branch_tips.append((sub_pts[-1].copy(), sub_r * 0.3, sub_angle))
@@ -292,7 +292,7 @@ def make_willow_variant(vi, seed):
                     attach_pt.y + droop_dy * horiz - wave * droop_dx,
                     attach_pt.z + vert)))
 
-            droop_r = rng.uniform(0.004, 0.010)
+            droop_r = rng.uniform(0.005, 0.013)  # +30% thicker pendulous strands
             parts.append(make_tube(f"droop_{vi}_{tip_idx}_{d}", droop_pts,
                                    droop_r, droop_r * 0.2, SUB_SEGS, bark_mat))
 
@@ -313,7 +313,7 @@ def make_willow_variant(vi, seed):
     # ---- Additional leaf mass at crown ----
     # Fill in the dome with leaf clusters where branches meet
     crown_center_z = top_pt.z + 1.2
-    n_crown_clusters = rng.randint(10, 18)
+    n_crown_clusters = rng.randint(6, 12)  # sparser to show weeping branches
     for cc in range(n_crown_clusters):
         cc_angle = rng.uniform(0, 2 * math.pi)
         cc_radius = rng.uniform(0.3, 1.5)

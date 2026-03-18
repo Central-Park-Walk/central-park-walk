@@ -265,9 +265,9 @@ def make_pine_variant(vi, seed):
             limb_pts = [bezier_point(p0, p1, p2, p3, t / (n_pts - 1))
                         for t in range(n_pts)]
 
-            r_start = 0.025 + (1.0 - whorl_t) * 0.02  # lower branches thicker
+            r_start = 0.035 + (1.0 - whorl_t) * 0.028  # lower branches thicker (+40%)
             bark_parts.append(make_tube(f"limb_{vi}_{w}_{b}", limb_pts,
-                                        r_start, 0.008, BRANCH_SEGS, bark_mat))
+                                        r_start, 0.012, BRANCH_SEGS, bark_mat))
             all_limb_data.append((limb_pts, base_angle, end_spread, whorl_t))
 
     # ---- Needle masses: dense, dark, concentrated at branch ends ----
@@ -275,7 +275,7 @@ def make_pine_variant(vi, seed):
 
     for b, (limb_pts, angle, spread, whorl_t) in enumerate(all_limb_data):
         # More needles on outer portion of branch
-        n_cl = rng.randint(8, 15)
+        n_cl = rng.randint(6, 10)  # reduced ~30% for sparser canopy
         for c in range(n_cl):
             t = rng.uniform(0.50, 1.0)  # concentrated at tips
             idx = int(t * (len(limb_pts) - 1))
@@ -292,7 +292,7 @@ def make_pine_variant(vi, seed):
 
     # Top crown: leader tip gets dense needle cap
     top_z = TREE_H * rng.uniform(0.88, 0.98)
-    n_top = rng.randint(5, 9)
+    n_top = rng.randint(4, 6)  # reduced ~30%
     for f in range(n_top):
         angle_f = rng.uniform(0, 2.0 * math.pi)
         dist = rng.uniform(0, CANOPY_SPREAD * 0.25)
