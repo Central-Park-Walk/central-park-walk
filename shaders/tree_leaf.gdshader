@@ -227,6 +227,16 @@ void fragment() {
 	float fresnel = pow(1.0 - abs(dot(NORMAL, VIEW)), 3.0);
 	col += col * fresnel * 0.18;
 
+	// --- Procedural leaf micro-texture: veins, cell structure, surface bumps ---
+	// Real leaves have complex surface topology that catches light at micro-scale.
+	// Two noise octaves: coarse (vein ridges) + fine (cell/cuticle texture).
+	vec3 frag_world = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	float bump_coarse = vnoise(frag_world * 45.0);
+	float bump_fine = vnoise(frag_world * 110.0);
+	float bump_h = bump_coarse * 0.6 + bump_fine * 0.4;
+	// Perturb normal via screen-space height derivatives
+	NORMAL = normalize(NORMAL + vec3(dFdx(bump_h), dFdy(bump_h), 0.0) * 3.5);
+
 	// Within-canopy detail: simulate individual leaf shadows, overlap, light pockets
 	vec3 tree_pos = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	float detail_n = vnoise(UV * 12.0 + tree_pos.xz * 0.5);  // per-leaf-scale noise
@@ -247,6 +257,13 @@ void fragment() {
 	else if (sp == 6) { rough = 0.90; spec = 0.07; }    // honeylocust: tiny compound leaflets
 	else if (sp == 8) { rough = 0.75; spec = 0.14; }    // ginkgo: smooth fan-shaped
 	else if (sp == 9) { rough = 0.80; spec = 0.11; }    // london plane: large waxy leaves
+
+	// Micro-roughness variation: waxy cuticle creates glossy patches,
+	// leaf edges and veins are matte. Breaks up uniform specular response.
+	float rough_var = (bump_coarse - 0.5) * 0.14;
+	rough = clamp(rough + rough_var, 0.3, 0.98);
+	// Specular inversely follows roughness (glossier patches reflect more)
+	spec = clamp(spec - rough_var * 0.08, 0.02, 0.25);
 
 	// --- Blossom rendering: petals are smoother, more translucent ---
 	if (v_blossom > 0.01) {
@@ -285,18 +302,25 @@ void fragment() {
 		SPECULAR = mix(SPECULAR, 0.50, droplet * 0.4);
 	}
 
-	// --- Enhanced subsurface scattering ---
-	// Light passing through thin leaves creates warm glow
-	// Stronger in spring (fresh thin leaves), reduced in fall (dry/thick), absent in winter
-	vec3 backlight_col = vec3(0.42, 0.30, 0.08);  // warm green-gold SSS glow
-	// Tint backlight with leaf color: autumn leaves glow warm amber/red
-	backlight_col = mix(backlight_col, v_leaf_color * 0.6, 0.45);
+	// --- Enhanced subsurface scattering / transmission ---
+	// Real leaves are translucent — light physically passes through the tissue.
+	// This is THE single biggest cue that separates "plastic" from "alive".
+	// Backlit canopies should glow green-gold; this is what EGTTR gets right.
+	vec3 backlight_col = vec3(0.58, 0.50, 0.14);  // strong warm green-gold transmission
+	// Tint with leaf color so autumn leaves glow amber/red
+	backlight_col = mix(backlight_col, v_leaf_color * 0.8, 0.40);
 	float sss_strength = v_leaf_density;
 	// Spring leaves are thinner, more translucent
-	float spring_boost = (1.0 - smoothstep(0.3, 0.8, season_t)) * 0.3;
+	float spring_boost = (1.0 - smoothstep(0.3, 0.8, season_t)) * 0.4;
 	sss_strength += spring_boost;
-	// Conifer needles have minimal SSS
-	if (sp == 5) sss_strength *= 0.3;
+	// View-angle boost: leaves nearly edge-on to viewer transmit more light
+	// (thin cross-section means more light reaches your eye)
+	float edge_transmission = pow(1.0 - abs(dot(NORMAL, VIEW)), 2.0);
+	sss_strength += edge_transmission * 0.25;
+	// Conifer needles: thick, minimal SSS
+	if (sp == 5) sss_strength *= 0.2;
+	// Magnolia: thick waxy leaves, reduced transmission
+	if (sp == 13) sss_strength *= 0.5;
 	// Blossom petals: strong pink/white translucency (backlit cherry blossoms are iconic)
 	if (v_blossom > 0.01) {
 		vec3 petal_sss = BLOSSOM_COLORS[sp] * 0.7;  // petal color glows through

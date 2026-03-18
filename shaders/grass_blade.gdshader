@@ -241,14 +241,16 @@ void fragment() {
 	ALBEDO = col;
 
 	// --- Proper grass material (hexaquo) ---
-	// Grass IS shiny. Specular highlights on blade tips are what make
-	// individual blades stand out and give the field depth.
-	ROUGHNESS = 0.5;
-	SPECULAR = 0.15;
+	// Grass IS shiny. Real blades have a waxy cuticle that's glossiest
+	// at the tip and progressively matte toward the base sheath.
+	ROUGHNESS = mix(0.65, 0.35, blade_t);  // base matte, tip glossy
+	SPECULAR = mix(0.08, 0.20, blade_t);   // tip catches specular highlights
 	METALLIC = 0.0;
 
-	// Translucency — light passes through grass blades
-	BACKLIGHT = vec3(0.2);
+	// Translucency — grass blades are thin, light passes through as
+	// warm green-gold glow (not white). This is what makes sunlit
+	// meadows glow rather than look flat.
+	BACKLIGHT = vec3(0.25, 0.30, 0.08) * mix(0.6, 1.0, blade_t);
 
 	// --- Weather effects ---
 	if (rain_wetness > 0.01) {
