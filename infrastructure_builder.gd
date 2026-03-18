@@ -77,7 +77,7 @@ func _build_barriers(barriers: Array) -> void:
 		iron_mat.set_shader_parameter("iron_color", Vector3(0.05, 0.05, 0.06))
 		iron_mat.set_shader_parameter("base_roughness", 0.65)
 		iron_mat.set_shader_parameter("base_metallic", 0.85)
-		_loader._spawn_multimesh(fence_panel_mesh, iron_mat, fence_xforms, "IronFences_Barriers")
+		_loader._spawn_multimesh(fence_panel_mesh, iron_mat, fence_xforms, "IronFences_Barriers", 200.0, 25.0)
 		print("ParkLoader: barrier iron fences = %d panels" % fence_xforms.size())
 
 	# Hedge mesh — seasonal foliage shader
@@ -880,7 +880,7 @@ func _build_amenities(amenities: Array) -> void:
 
 	# Spawn drinking fountains via MultiMesh
 	if not df_xforms.is_empty() and df_mesh:
-		_loader._spawn_multimesh(df_mesh, null, df_xforms, "DrinkingFountains")
+		_loader._spawn_multimesh(df_mesh, null, df_xforms, "DrinkingFountains", 120.0, 15.0)
 		print("  Drinking fountains: %d (CP model)" % df_xforms.size())
 	print("  Amenities: %d placed (inside park)" % count)
 
@@ -1493,7 +1493,7 @@ func _build_comfort_stations(amenities: Array) -> void:
 		xforms.append(Transform3D(basis, Vector3(x, y, z)))
 
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(cs_mesh, null, xforms, "ComfortStations")
+		_loader._spawn_multimesh(cs_mesh, null, xforms, "ComfortStations", 300.0, 35.0)
 	print("  Comfort stations: %d placed" % xforms.size())
 
 
@@ -1746,7 +1746,7 @@ func _build_boat_landings() -> void:
 		var basis := Basis(Vector3.UP, dr)
 		xforms.append(Transform3D(basis, Vector3(dx, dy, dz)))
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(dock_mesh, null, xforms, "BoatLandings")
+		_loader._spawn_multimesh(dock_mesh, null, xforms, "BoatLandings", 200.0, 25.0)
 	print("  Boat landings: %d placed" % xforms.size())
 
 
@@ -1916,7 +1916,7 @@ func _build_stone_weirs() -> void:
 		var basis := Basis(Vector3.UP, wr)
 		xforms.append(Transform3D(basis, Vector3(wx, wy, wz)))
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(weir_mesh, null, xforms, "StoneWeirs")
+		_loader._spawn_multimesh(weir_mesh, null, xforms, "StoneWeirs", 200.0, 25.0)
 	print("  Stone weirs: %d placed" % xforms.size())
 
 
@@ -2052,7 +2052,7 @@ func _build_rustic_bridges() -> void:
 		var basis := Basis(Vector3.UP, br)
 		xforms.append(Transform3D(basis, Vector3(bx, by, bz)))
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(bridge_mesh, null, xforms, "RusticBridges")
+		_loader._spawn_multimesh(bridge_mesh, null, xforms, "RusticBridges", 300.0, 35.0)
 	print("  Rustic bridges: %d placed" % xforms.size())
 
 
@@ -2110,7 +2110,7 @@ func _build_dog_run_fences(landuse: Array) -> void:
 				xforms.append(Transform3D(basis, Vector3(fx, fy, fz)))
 
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(fence_mesh, null, xforms, "DogRunFences")
+		_loader._spawn_multimesh(fence_mesh, null, xforms, "DogRunFences", 200.0, 25.0)
 	print("  Dog run fences: %d sections around %d runs" % [xforms.size(), run_count])
 
 
@@ -2208,7 +2208,7 @@ func _build_park_signs(paths: Array) -> void:
 		xforms.append(Transform3D(basis, Vector3(fx, fy, fz)))
 
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(sign_mesh, null, xforms, "ParkSigns")
+		_loader._spawn_multimesh(sign_mesh, null, xforms, "ParkSigns", 200.0, 25.0)
 	print("  Park signs: %d placed at path intersections" % xforms.size())
 
 	# Named gate labels at park entrances
@@ -2366,7 +2366,7 @@ func _build_reservoir_fence(water: Array) -> void:
 			xforms.append(Transform3D(basis, Vector3(fx, fy, fz)))
 
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(fence_mesh, null, xforms, "ReservoirFence")
+		_loader._spawn_multimesh(fence_mesh, null, xforms, "ReservoirFence", 300.0, 35.0)
 	print("  Reservoir fence: %d sections around running track" % xforms.size())
 
 
@@ -2433,9 +2433,9 @@ func _build_playground_equipment(landuse: Array) -> void:
 			play_xforms.append(Transform3D(Basis(Vector3.UP, yaw + PI * 0.5), Vector3(cx, py, cz)))
 
 	if not swing_xforms.is_empty() and swing_mesh:
-		_loader._spawn_multimesh(swing_mesh, null, swing_xforms, "SwingSets")
+		_loader._spawn_multimesh(swing_mesh, null, swing_xforms, "SwingSets", 200.0, 25.0)
 	if not play_xforms.is_empty() and play_mesh:
-		_loader._spawn_multimesh(play_mesh, null, play_xforms, "PlayStructures")
+		_loader._spawn_multimesh(play_mesh, null, play_xforms, "PlayStructures", 200.0, 25.0)
 	print("  Playground equipment: %d swing sets, %d play structures" % [swing_xforms.size(), play_xforms.size()])
 
 
@@ -2535,9 +2535,9 @@ func _build_sports_equipment(landuse: Array) -> void:
 						hoop_xforms.append(Transform3D(Basis(Vector3.UP, h_yaw), Vector3(hx, hy, hz)))
 
 	if not backstop_xforms.is_empty() and backstop_mesh:
-		_loader._spawn_multimesh(backstop_mesh, null, backstop_xforms, "BaseballBackstops")
+		_loader._spawn_multimesh(backstop_mesh, null, backstop_xforms, "BaseballBackstops", 200.0, 25.0)
 	if not hoop_xforms.is_empty() and hoop_mesh:
-		_loader._spawn_multimesh(hoop_mesh, null, hoop_xforms, "BasketballHoops")
+		_loader._spawn_multimesh(hoop_mesh, null, hoop_xforms, "BasketballHoops", 200.0, 25.0)
 	# Tennis nets
 	var net_path := ProjectSettings.globalize_path("res://models/furniture/cp_tennis_net.glb")
 	var net_mesh: Mesh = null
@@ -2590,7 +2590,7 @@ func _build_sports_equipment(landuse: Array) -> void:
 			net_xforms.append(Transform3D(Basis(Vector3.UP, yaw), Vector3(cx2, cy2, cz2)))
 
 	if not net_xforms.is_empty() and net_mesh:
-		_loader._spawn_multimesh(net_mesh, null, net_xforms, "TennisNets")
+		_loader._spawn_multimesh(net_mesh, null, net_xforms, "TennisNets", 200.0, 25.0)
 
 	# Soccer goals
 	var goal_path := ProjectSettings.globalize_path("res://models/furniture/cp_soccer_goal.glb")
@@ -2651,7 +2651,7 @@ func _build_sports_equipment(landuse: Array) -> void:
 				goal_xforms.append(Transform3D(Basis(Vector3.UP, g_yaw), Vector3(gx, gy, gz)))
 
 	if not goal_xforms.is_empty() and goal_mesh:
-		_loader._spawn_multimesh(goal_mesh, null, goal_xforms, "SoccerGoals")
+		_loader._spawn_multimesh(goal_mesh, null, goal_xforms, "SoccerGoals", 200.0, 25.0)
 
 	# Handball walls
 	var hwall_path := ProjectSettings.globalize_path("res://models/furniture/cp_handball_wall.glb")
@@ -2715,7 +2715,7 @@ func _build_sports_equipment(landuse: Array) -> void:
 			hwall_xforms.append(Transform3D(Basis(Vector3.UP, h_yaw), Vector3(wx_h, wy_h, wz_h)))
 
 	if not hwall_xforms.is_empty() and hwall_mesh:
-		_loader._spawn_multimesh(hwall_mesh, null, hwall_xforms, "HandballWalls")
+		_loader._spawn_multimesh(hwall_mesh, null, hwall_xforms, "HandballWalls", 200.0, 25.0)
 
 	print("  Sports equipment: %d backstops, %d hoops, %d nets, %d goals, %d walls" % [backstop_xforms.size(), hoop_xforms.size(), net_xforms.size(), goal_xforms.size(), hwall_xforms.size()])
 
@@ -3176,7 +3176,7 @@ func _build_fitness_stations(paths: Array) -> void:
 		xforms.append(Transform3D(Basis(Vector3.UP, yaw), Vector3(wx, wy, wz)))
 
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(mesh, null, xforms, "FitnessStations")
+		_loader._spawn_multimesh(mesh, null, xforms, "FitnessStations", 120.0, 15.0)
 	print("  Fitness stations: %d placed" % xforms.size())
 
 
@@ -3243,7 +3243,7 @@ func _build_mile_markers(paths: Array) -> void:
 			dist -= seg_len
 
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(mesh, null, xforms, "MileMarkers")
+		_loader._spawn_multimesh(mesh, null, xforms, "MileMarkers", 120.0, 15.0)
 	print("  Mile markers: %d placed" % placed_count)
 
 
@@ -3309,7 +3309,7 @@ func _build_balustrades() -> void:
 			xforms.append(Transform3D(Basis(Vector3.UP, yaw), Vector3(wx, wy, wz)))
 
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(mesh, null, xforms, "Balustrades")
+		_loader._spawn_multimesh(mesh, null, xforms, "Balustrades", 300.0, 35.0)
 	print("  Balustrades: %d sections at formal terraces" % xforms.size())
 
 
@@ -3372,7 +3372,7 @@ func _build_drive_waste_bins(paths: Array) -> void:
 			dist -= seg_len
 
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(mesh, null, xforms, "DriveWasteBins")
+		_loader._spawn_multimesh(mesh, null, xforms, "DriveWasteBins", 120.0, 15.0)
 	print("  Drive waste bins: %d placed" % xforms.size())
 
 
@@ -3546,7 +3546,7 @@ func _build_bollards() -> void:
 			xforms.append(Transform3D(Basis(Vector3.UP, yaw), Vector3(bx, by, bz)))
 
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(mesh, null, xforms, "Bollards")
+		_loader._spawn_multimesh(mesh, null, xforms, "Bollards", 120.0, 15.0)
 	print("  Bollards: %d at %d gate entrances" % [xforms.size(), gate_positions.size()])
 
 
@@ -3607,7 +3607,7 @@ func _build_call_boxes(paths: Array) -> void:
 			dist -= seg_len
 
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(mesh, null, xforms, "EmergencyCallBoxes")
+		_loader._spawn_multimesh(mesh, null, xforms, "EmergencyCallBoxes", 120.0, 15.0)
 	print("  Emergency call boxes: %d placed" % xforms.size())
 
 
@@ -3656,7 +3656,7 @@ func _build_info_kiosks() -> void:
 		xforms.append(Transform3D(Basis(Vector3.UP, yaw), Vector3(kx, ky, kz)))
 
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(mesh, null, xforms, "InfoKiosks")
+		_loader._spawn_multimesh(mesh, null, xforms, "InfoKiosks", 120.0, 15.0)
 	print("  Info kiosks: %d placed" % xforms.size())
 
 
@@ -3728,7 +3728,7 @@ func _build_drain_grates(paths: Array) -> void:
 			dist -= seg_len
 
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(mesh, null, xforms, "DrainGrates")
+		_loader._spawn_multimesh(mesh, null, xforms, "DrainGrates", 120.0, 15.0)
 	print("  Drain grates: %d placed" % xforms.size())
 
 
@@ -3798,7 +3798,7 @@ func _build_bike_racks() -> void:
 			xforms.append(Transform3D(Basis(Vector3.UP, yaw), Vector3(bx, by, bz)))
 
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(mesh, null, xforms, "BikeRacks")
+		_loader._spawn_multimesh(mesh, null, xforms, "BikeRacks", 120.0, 15.0)
 	print("  Bike racks: %d at %d locations" % [xforms.size(), clusters.size()])
 
 
@@ -3855,7 +3855,7 @@ func _build_tree_pit_grates(trees: Array) -> void:
 		xforms.append(Transform3D(Basis(Vector3.UP, yaw), Vector3(tx, ty, tz)))
 
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(mesh, null, xforms, "TreePitGrates")
+		_loader._spawn_multimesh(mesh, null, xforms, "TreePitGrates", 120.0, 15.0)
 	print("  Tree pit grates: %d placed" % xforms.size())
 
 
@@ -3922,7 +3922,7 @@ func _build_curb_ramps(paths: Array) -> void:
 			xforms.append(Transform3D(Basis(Vector3.UP, yaw), Vector3(ex, ey, ez)))
 
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(mesh, null, xforms, "CurbRamps")
+		_loader._spawn_multimesh(mesh, null, xforms, "CurbRamps", 120.0, 15.0)
 	print("  Curb ramps: %d placed" % xforms.size())
 
 
@@ -3989,5 +3989,5 @@ func _build_stone_urns() -> void:
 		xforms.append(Transform3D(Basis(Vector3.UP, yaw), Vector3(ux, uy, uz)))
 
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(mesh, null, xforms, "StoneUrns")
+		_loader._spawn_multimesh(mesh, null, xforms, "StoneUrns", 120.0, 15.0)
 	print("  Stone urns: %d placed" % xforms.size())
