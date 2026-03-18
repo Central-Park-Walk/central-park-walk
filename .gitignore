@@ -17,6 +17,7 @@ models/
 !models/vegetation/Wetland_*.glb
 !models/vegetation/Grass_*.glb
 !models/vegetation/Mushroom_*.gltf
+!models/vegetation/ForestFloor_*.glb
 textures/
 sounds/
 

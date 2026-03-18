@@ -48,6 +48,42 @@ EXTRACTIONS = [
     ("GS Forest ferns A 02",  "Fern_Cinnamon",            2000, False, 0.61, 0.08),
     ("GS Forest ferns B 01",  "Fern_Christmas",           0,    False, 0.32, 0.06),
     ("GS Forest ferns B 02",  "Fern_Sensitive",           0,    False, 0.45, 0.06),
+
+    # ── Tall herbs ── BD3D "Autumn plant" series → tall upright herbs (1-2.5m)
+    # Autumn plant A: size-graded series (small→large), leafy upright form
+    # Autumn plant B: bushier, denser — good for thicket-forming species
+    ("GS Autumn plant A 05",  "Herb_Pokeweed",            2500, False, 1.80, 0.12),  # magenta stems, tall
+    ("GS Autumn plant B 01",  "Herb_JapaneseKnotweed",    4000, False, 2.40, 0.15),  # dense bamboo-like thickets
+    ("GS Autumn plant A 04",  "Herb_JoePyeWeed",          1800, False, 1.50, 0.12),  # pink dome flowers
+    ("GS Autumn plant A 04",  "Herb_Ironweed",            1800, True,  1.50, 0.12),  # mirror → distinct variant
+
+    # ── Medium herbs ── smaller leafy forms (0.4-1.2m)
+    ("GS Autumn plant A 03",  "Herb_Mugwort",             1200, False, 1.20, 0.10),  # silvery invasive patches
+    ("GS Autumn plant A 02",  "Herb_WhiteSnakeroot",      900,  False, 0.80, 0.10),  # white corymbs, shade
+    ("GS Autumn plant B 01",  "Herb_Burdock",             4000, True,  1.20, 0.15),  # mirror → large coarse leaves
+
+    # ── Flowering herbs ── BD3D meadow flowers for species with prominent blooms
+    ("GS Dryland meadow flower 01", "Herb_Coneflower",    1400, False, 0.90, 0.08),  # yellow drooping petals
+    ("GS Dryland meadow flower 02", "Herb_CardinalFlower", 900, False, 0.80, 0.08),  # scarlet spike
+    ("GS PaperWhite",         "Herb_RoseMallow",          3000, False, 1.80, 0.10),  # enormous pink flowers
+
+    # ── Low herbs ── BD3D nettles for woodland floor species
+    ("GS Nettle 02",          "Herb_WhiteWoodAster",      1800, False, 0.40, 0.06),  # dominant woodland carpet
+    ("GS Nettle 01",          "Herb_Jewelweed",           2500, False, 1.00, 0.08),  # stream bank lush walls
+
+    # ── Grass ── BD3D grass clump for bottlebrush
+    ("GS Grass Clump 01",     "Grass_Bottlebrush",        3000, False, 0.60, 0.04),  # woodland shade grass
+
+    # ── Wetland ── BD3D upright plants for emergent aquatic species
+    ("GS type D plant 01",    "Wetland_Cattail",          4000, False, 1.80, 0.10),  # sword leaves + brown catkins
+    ("GS type D plant 02",    "Wetland_YellowIris",       4000, False, 0.70, 0.08),  # bright yellow flowers
+    ("GS Dryland meadow flower 01", "Wetland_LizardsTail", 1400, True, 0.50, 0.06), # drooping white spikes
+    ("GS Grass Wild Clump Dry 01",  "Wetland_Phragmites", 5000, False, 2.50, 0.08), # tall reed plumes
+
+    # ── Forest floor ── seedlings and ground cover for woodland enrichment
+    ("GS Forest seedlings 01", "ForestFloor_Seedling_A",  0,    False, 0.16, 0.02),
+    ("GS Forest seedlings 02", "ForestFloor_Seedling_B",  0,    False, 0.23, 0.02),
+    ("GS Forest seedlings 03", "ForestFloor_Seedling_C",  0,    False, 0.26, 0.02),
 ]
 
 
