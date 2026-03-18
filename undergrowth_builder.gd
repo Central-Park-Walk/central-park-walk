@@ -58,7 +58,7 @@ const SPECIES := [
 	{"name": "Fern_Ostrich",            "s": [0.55, 0.95], "flex": 0.40, "green": 0, "fall": [0.50, 0.40, 0.10], "ai": 13},
 	{"name": "Fern_Christmas",          "s": [0.85, 1.30], "flex": 0.20, "green": 1, "fall": [0.10, 0.28, 0.06], "ai": 14},
 	# Wetland (15)
-	{"name": "Wetland_Cattail",         "s": [0.75, 1.25], "flex": 0.35, "green": 0, "fall": [0.35, 0.25, 0.10], "ai": 15},
+	{"name": "Wetland_Cattail",         "s": [0.75, 1.25], "flex": 0.35, "green": 0, "fall": [0.35, 0.25, 0.10], "ai": -1},  # vertex-colored (green stalks + brown catkin)
 	# Fungi (16-17) — no leaf atlas
 	{"name": "Mushroom_Common",         "s": [0.80, 1.50], "flex": 0.0, "green": 0, "fall": [0.30, 0.22, 0.12], "ai": -1},
 	{"name": "Mushroom_Laetiporus",     "s": [0.60, 1.20], "flex": 0.0, "green": 0, "fall": [0.60, 0.35, 0.08], "ai": -1},

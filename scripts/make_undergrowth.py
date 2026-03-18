@@ -1642,8 +1642,8 @@ def make_cattail():
         make_frond(bm, Vector((0, 0, 0.0)),
                    length=leaf_h, width=0.045, segments=5,
                    arch=0.22, droop=0.14, angle_y=angle,
-                   color_base=(0.15, 0.35, 0.08),
-                   color_tip=(0.28, 0.45, 0.15),
+                   color_base=(0.30, 0.55, 0.15),
+                   color_tip=(0.45, 0.62, 0.22),
                    uv_layer=uv, col_layer=co)
 
     # 2 detailed central stalks
@@ -1655,7 +1655,7 @@ def make_cattail():
             t = i / 6
             stalk_pts.append(Vector((ox, oy, h * t)))
         make_tube(bm, stalk_pts, 0.009, 0.006, 5,
-                  (0.20, 0.32, 0.10), (0.25, 0.38, 0.14),
+                  (0.35, 0.55, 0.18), (0.42, 0.60, 0.20),
                   uv, co, 0.0, 0.5)
 
         # Brown spike ("hot dog") near top
@@ -1666,7 +1666,7 @@ def make_cattail():
             t = i / 4
             spike_pts.append(Vector((ox, oy, spike_base + (spike_top - spike_base) * t)))
         make_tube(bm, spike_pts, 0.024, 0.022, 7,
-                  (0.28, 0.14, 0.05), (0.32, 0.16, 0.06),
+                  (0.45, 0.25, 0.10), (0.55, 0.30, 0.12),
                   uv, co, 0.7, 0.85)
 
     return bm

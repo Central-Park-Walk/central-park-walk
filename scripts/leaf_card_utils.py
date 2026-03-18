@@ -86,6 +86,11 @@ def _pixel_hash(x, y):
     return ((n & 0xFFFFFF) / 8388608.0) - 1.0
 
 
+def mix_f(a, b, t):
+    """Linear interpolation."""
+    return a + (b - a) * t
+
+
 def generate_leaf_texture(name, tex_size=512, n_leaves=12, leaf_shape="elliptic",
                           seed=42):
     """Generate a leaf cluster texture with proper alpha for alpha-to-coverage.
@@ -115,14 +120,15 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=12, leaf_shape="elliptic"
         rot = rng.uniform(0, math.pi * 2)
         cos_r, sin_r = math.cos(rot), math.sin(rot)
 
-        # Color variation — light values, shader provides final tint
-        r = rng.uniform(0.65, 0.85)
-        g = rng.uniform(0.80, 0.98)
-        b = rng.uniform(0.55, 0.75)
+        # Color variation — moderate values with headroom for noise/gradients
+        # Shader tints these further, so keep below 0.90 to avoid clipping
+        r = rng.uniform(0.55, 0.75)
+        g = rng.uniform(0.68, 0.85)
+        b = rng.uniform(0.45, 0.65)
 
-        # Per-leaf unique traits
-        tip_yellow = rng.uniform(0.0, 0.06)
-        base_dark = rng.uniform(0.0, 0.04)
+        # Per-leaf unique traits (multiplicative to avoid clipping)
+        tip_yellow = rng.uniform(1.0, 1.06)   # tip warms slightly
+        base_dark = rng.uniform(0.92, 1.0)    # base darkens slightly
         side_warm = rng.uniform(-0.015, 0.015)
 
         # Subtle vein darkening along midrib
@@ -156,11 +162,12 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=12, leaf_shape="elliptic"
                     # Midrib vein (slight darkening along center line)
                     vein = 1.0 - 0.08 * math.exp(-abs(nx) * 8.0)
 
-                    # Tip-to-base gradient
-                    tip_t = (ny + 1.0) * 0.5
-                    lr = r * edge_dark * vein + tip_yellow * tip_t - base_dark * (1.0 - tip_t)
-                    lg = g * edge_dark * vein + tip_yellow * tip_t * 0.4 - base_dark * (1.0 - tip_t) * 0.4
-                    lb = b * edge_dark * vein - tip_yellow * tip_t * 0.2
+                    # Tip-to-base gradient (multiplicative — no clipping)
+                    tip_t = (ny + 1.0) * 0.5  # 0=base, 1=tip
+                    grad = mix_f(base_dark, tip_yellow, tip_t)
+                    lr = r * edge_dark * vein * grad
+                    lg = g * edge_dark * vein * grad
+                    lb = b * edge_dark * vein * (2.0 - grad)  # tips slightly less blue
                     lr += side_warm * nx
 
                     # Per-pixel micro-noise: chlorophyll patches, dust, cell texture
