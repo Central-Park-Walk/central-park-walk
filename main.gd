@@ -719,7 +719,7 @@ func _update_hud() -> void:
 			h12 = 12
 		var mins: int = int(fmod(_time_of_day, 1.0) * 60.0)
 		var ampm: String = "AM" if _time_of_day < 12.0 else "PM"
-		_time_label.text = "%d:%02d %s  [%s]  %s" % [h12, mins, ampm, TIME_SPEED_NAMES[_time_speed_idx], _season_name(_season_t)]
+		_time_label.text = "%d:%02d %s  [%s]  %s" % [h12, mins, ampm, TIME_SPEED_NAMES[_time_speed_idx], _month_name(_season_t)]
 	if _speed_label and _player:
 		_speed_label.text = "%s (%.1f m/s)" % [_player.SPEED_NAMES[_player._speed_idx], _player.walk_speed]
 	if _location_label:
@@ -2499,7 +2499,7 @@ func _setup_hud() -> void:
 	vbox.add_child(_location_label)
 
 	var hint := Label.new()
-	hint.text = "WASD: move   Mouse+RMB: look   Scroll/+/-: speed   9/0: wind   T: time   [/]: ±1h   P: weather   H: HUD"
+	hint.text = "WASD: move   Mouse+RMB: look   Scroll/+/-: speed   9/0: wind   T: time   [/]: ±1h   P: weather   N: month   H: HUD"
 	hint.add_theme_font_size_override("font_size", 15)
 	hint.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
 	vbox.add_child(hint)
