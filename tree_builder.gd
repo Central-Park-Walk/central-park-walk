@@ -392,17 +392,20 @@ func _build_trees(trees: Array) -> void:
 			mesh_h = 0.06
 		var sy := desired_h / mesh_h
 
-		# Crown width: strongly data-driven from LiDAR crown area measurement.
-		# Real crown-to-height ratio varies widely (0.25 for columnar ginkgo to
-		# 0.8 for spreading oak). Using 80% blend with data makes each tree's
-		# proportions match its actual measured silhouette.
+		# Crown width: moderate data influence from LiDAR crown area.
+		# LiDAR crown_area measures dense inner canopy, not full spread —
+		# real canopy extends significantly beyond the measured boundary.
+		# 40% blend preserves data influence without collapsing proportions.
 		var sx := sy
-		if typeof(tree_entry) == TYPE_DICTIONARY and tree_entry.has("crown_a"):
+		if species == "cathedral_elm":
+			# Cathedral elms MUST stay wide — override crown scaling
+			sx = sy * 1.35  # force 35% wider than tall for canopy convergence
+		elif typeof(tree_entry) == TYPE_DICTIONARY and tree_entry.has("crown_a"):
 			var crown_a := float(tree_entry["crown_a"])
 			if crown_a > 0.0 and desired_h > 1.0:
 				var crown_d := 2.0 * sqrt(crown_a / PI)
-				var crown_ratio := clampf(crown_d / desired_h, 0.2, 1.5)
-				sx = sy * lerpf(1.0, crown_ratio, 0.80)
+				var crown_ratio := clampf(crown_d / desired_h, 0.3, 1.5)
+				sx = sy * lerpf(1.0, crown_ratio, 0.40)
 
 		# Random Y rotation for variety
 		var y_rot := rng.randf() * TAU
