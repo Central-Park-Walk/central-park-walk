@@ -18,6 +18,10 @@ Generates 5 variants → models/trees/magnolia.glb
 Run: blender --background --python scripts/make_magnolia.py
 """
 
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from leaf_card_utils import create_leaf_material, make_leaf_cards
+
 import bpy
 import bmesh
 import math
@@ -51,12 +55,9 @@ bsdf = bark_mat.node_tree.nodes["Principled BSDF"]
 bsdf.inputs["Base Color"].default_value = (0.52, 0.48, 0.44, 1.0)
 bsdf.inputs["Roughness"].default_value = 0.75  # smooth gray bark
 
-# Leaves: dark glossy green, large and thick
-leaf_mat = bpy.data.materials.new(name="MagnoliaLeaf")
-leaf_mat.use_nodes = True
-bsdf_l = leaf_mat.node_tree.nodes["Principled BSDF"]
-bsdf_l.inputs["Base Color"].default_value = (0.18, 0.35, 0.12, 1.0)
-bsdf_l.inputs["Roughness"].default_value = 0.65  # glossy leaves
+# Leaves — crossed-quad leaf cards with ovate texture
+leaf_mat = create_leaf_material("MagnoliaLeaf", leaf_shape="ovate",
+                                 n_leaves=12, tex_size=512, seed=901)
 
 
 # ---- Geometry helpers ----
@@ -92,37 +93,6 @@ def make_tube(name, points, r_start, r_end, segments, mat):
         bm.faces.new(list(reversed(rings[0])))
     if len(rings) > 0 and len(rings[-1]) >= 3:
         bm.faces.new(rings[-1])
-    mesh = bpy.data.meshes.new(name)
-    bm.to_mesh(mesh)
-    bm.free()
-    obj = bpy.data.objects.new(name, mesh)
-    bpy.context.collection.objects.link(obj)
-    obj.data.materials.append(mat)
-    return obj
-
-
-def make_leaf_cluster(name, center, radius, n_quads, rng, mat):
-    """Create a cluster of large magnolia leaf billboard quads."""
-    bm = bmesh.new()
-    for _ in range(n_quads):
-        dx = rng.gauss(0, radius * 0.45)
-        dy = rng.gauss(0, radius * 0.45)
-        dz = rng.gauss(0, radius * 0.35)
-        qc = Vector((center.x + dx, center.y + dy, center.z + dz))
-        # Large, broad magnolia leaves — oval shape
-        w = rng.uniform(0.10, 0.18)  # wider than typical leaves
-        h = rng.uniform(0.12, 0.20)
-        angle = rng.uniform(0, math.pi)
-        ax = math.cos(angle) * w
-        az = math.sin(angle) * w
-        v0 = bm.verts.new((qc.x - ax, qc.y - h * 0.5, qc.z - az))
-        v1 = bm.verts.new((qc.x + ax, qc.y - h * 0.5, qc.z + az))
-        v2 = bm.verts.new((qc.x + ax, qc.y + h * 0.5, qc.z + az))
-        v3 = bm.verts.new((qc.x - ax, qc.y + h * 0.5, qc.z - az))
-        try:
-            bm.faces.new([v0, v1, v2, v3])
-        except ValueError:
-            pass
     mesh = bpy.data.meshes.new(name)
     bm.to_mesh(mesh)
     bm.free()
@@ -272,10 +242,10 @@ def make_magnolia_variant(vi, seed):
                 rng.uniform(-0.10, 0.10)))
             center = tip + offset
             cluster_r = rng.uniform(0.25, 0.45)
-            n_quads = rng.randint(10, 18)
-            parts.append(make_leaf_cluster(
-                f"leaf_{vi}_{tip_idx}_{cl}",
-                center, cluster_r, n_quads, rng, leaf_mat))
+            parts += make_leaf_cards(
+                f"leaf_{vi}_{tip_idx}_{cl}", vi,
+                center, cluster_r, n_cards=3,
+                rng=rng, mat=leaf_mat, flatten=0.7)
 
     # Extra canopy fill at crown center
     if all_branch_tips:
@@ -289,9 +259,9 @@ def make_magnolia_variant(vi, seed):
                 avg_y + rng.uniform(-0.8, 0.8),
                 avg_z + rng.uniform(-0.4, 0.4)))
             cluster_r = rng.uniform(0.3, 0.50)
-            n_quads = rng.randint(12, 20)
-            parts.append(make_leaf_cluster(
-                f"fill_{vi}_{f}", center, cluster_r, n_quads, rng, leaf_mat))
+            parts += make_leaf_cards(
+                f"fill_{vi}_{f}", vi, center, cluster_r, n_cards=3,
+                rng=rng, mat=leaf_mat, flatten=0.7)
 
     # ---- Finalize ----
     for obj in parts:

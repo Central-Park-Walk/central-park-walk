@@ -18,6 +18,10 @@ Generates 5 variants → models/trees/willow.glb
 Run: blender --background --python scripts/make_willow.py
 """
 
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from leaf_card_utils import create_leaf_material, make_leaf_cards
+
 import bpy
 import bmesh
 import math
@@ -52,14 +56,9 @@ bsdf = bark_mat.node_tree.nodes["Principled BSDF"]
 bsdf.inputs["Base Color"].default_value = (0.40, 0.35, 0.28, 1.0)
 bsdf.inputs["Roughness"].default_value = 0.88
 
-# Leaves: narrow willow leaves, yellow-green
-leaf_mat = bpy.data.materials.new(name="WillowLeaf")
-leaf_mat.use_nodes = True
-bsdf_l = leaf_mat.node_tree.nodes["Principled BSDF"]
-bsdf_l.inputs["Base Color"].default_value = (0.30, 0.48, 0.15, 1.0)
-bsdf_l.inputs["Roughness"].default_value = 0.82
-# Enable transparency for leaf alpha cutout
-leaf_mat.blend_method = 'CLIP' if hasattr(leaf_mat, 'blend_method') else 'OPAQUE'
+# Leaves — crossed-quad leaf cards with lanceolate texture
+leaf_mat = create_leaf_material("WillowLeaf", leaf_shape="lanceolate",
+                                 n_leaves=14, tex_size=512, seed=801)
 
 
 # ---- Geometry helpers ----
@@ -95,38 +94,6 @@ def make_tube(name, points, r_start, r_end, segments, mat):
         bm.faces.new(list(reversed(rings[0])))
     if len(rings) > 0 and len(rings[-1]) >= 3:
         bm.faces.new(rings[-1])
-    mesh = bpy.data.meshes.new(name)
-    bm.to_mesh(mesh)
-    bm.free()
-    obj = bpy.data.objects.new(name, mesh)
-    bpy.context.collection.objects.link(obj)
-    obj.data.materials.append(mat)
-    return obj
-
-
-def make_leaf_cluster(name, center, radius, n_quads, rng, mat):
-    """Create a cluster of leaf billboard quads — elongated for willow."""
-    bm = bmesh.new()
-    for _ in range(n_quads):
-        # Random position within cluster sphere
-        dx = rng.gauss(0, radius * 0.45)
-        dy = rng.gauss(0, radius * 0.45)
-        dz = rng.gauss(0, radius * 0.35)
-        qc = Vector((center.x + dx, center.y + dy, center.z + dz))
-        # Elongated leaf quad — narrower and longer than typical broadleaf
-        w = rng.uniform(0.04, 0.08)
-        h = rng.uniform(0.12, 0.22)  # elongated willow leaf shape
-        angle = rng.uniform(0, math.pi)
-        ax = math.cos(angle) * w
-        az = math.sin(angle) * w
-        v0 = bm.verts.new((qc.x - ax, qc.y - h * 0.5, qc.z - az))
-        v1 = bm.verts.new((qc.x + ax, qc.y - h * 0.5, qc.z + az))
-        v2 = bm.verts.new((qc.x + ax, qc.y + h * 0.5, qc.z + az))
-        v3 = bm.verts.new((qc.x - ax, qc.y + h * 0.5, qc.z - az))
-        try:
-            bm.faces.new([v0, v1, v2, v3])
-        except ValueError:
-            pass
     mesh = bpy.data.meshes.new(name)
     bm.to_mesh(mesh)
     bm.free()
@@ -296,7 +263,7 @@ def make_willow_variant(vi, seed):
             parts.append(make_tube(f"droop_{vi}_{tip_idx}_{d}", droop_pts,
                                    droop_r, droop_r * 0.2, SUB_SEGS, bark_mat))
 
-            # Leaf clusters along the drooping branch
+            # Leaf cards along the drooping branch
             n_leaf_pts = rng.randint(3, 5)
             for lp in range(n_leaf_pts):
                 lt = (lp + 0.5) / n_leaf_pts
@@ -305,10 +272,10 @@ def make_willow_variant(vi, seed):
                 leaf_center.x += rng.uniform(-0.08, 0.08)
                 leaf_center.y += rng.uniform(-0.08, 0.08)
                 leaf_r = rng.uniform(0.12, 0.22)
-                n_quads = rng.randint(6, 12)
-                parts.append(make_leaf_cluster(
-                    f"leaf_{vi}_{tip_idx}_{d}_{lp}",
-                    leaf_center, leaf_r, n_quads, rng, leaf_mat))
+                parts += make_leaf_cards(
+                    f"leaf_{vi}_{tip_idx}_{d}_{lp}", vi,
+                    leaf_center, leaf_r, n_cards=3,
+                    rng=rng, mat=leaf_mat, flatten=0.7)
 
     # ---- Additional leaf mass at crown ----
     # Fill in the dome with leaf clusters where branches meet
@@ -323,9 +290,9 @@ def make_willow_variant(vi, seed):
             top_pt.y + math.sin(cc_angle) * cc_radius,
             crown_center_z + cc_height))
         cc_r = rng.uniform(0.25, 0.45)
-        cc_quads = rng.randint(12, 20)
-        parts.append(make_leaf_cluster(
-            f"crown_{vi}_{cc}", cc_center, cc_r, cc_quads, rng, leaf_mat))
+        parts += make_leaf_cards(
+            f"crown_{vi}_{cc}", vi, cc_center, cc_r, n_cards=3,
+            rng=rng, mat=leaf_mat, flatten=0.7)
 
     # ---- Finalize ----
     for obj in parts:

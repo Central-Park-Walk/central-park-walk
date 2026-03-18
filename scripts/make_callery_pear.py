@@ -22,6 +22,7 @@ import bmesh
 import math
 import random
 from mathutils import Vector
+import sys, os; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); from leaf_card_utils import create_leaf_material, make_leaf_cards
 
 # ---- Configuration ----
 TREE_H = 5.2              # medium-large tree
@@ -33,8 +34,6 @@ OUT_PATH = "/home/chris/central-park-walk/models/trees/callery_pear.glb"
 TRUNK_SEGS = 6
 BRANCH_SEGS = 5
 SUB_SEGS = 4
-LEAF_TEX_SIZE = 128
-
 # ---- Scene cleanup ----
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
@@ -48,38 +47,6 @@ for block in bpy.data.images:
     if block.users == 0:
         bpy.data.images.remove(block)
 
-# ---- Leaf texture ----
-TEX = LEAF_TEX_SIZE
-leaf_img = bpy.data.images.new("CalleryPearLeafTex", width=TEX, height=TEX, alpha=True)
-pixels = [0.0] * (TEX * TEX * 4)
-
-leaf_rng = random.Random(557)
-for _ in range(95):  # dense glossy leaves
-    cx = leaf_rng.randint(4, TEX - 4)
-    cy = leaf_rng.randint(4, TEX - 4)
-    leaf_w = leaf_rng.randint(4, 8)   # broadly ovate
-    leaf_h = leaf_rng.randint(6, 12)
-    angle = leaf_rng.uniform(0, math.pi)
-    # Glossy dark green
-    r = leaf_rng.uniform(0.50, 0.65)
-    g = leaf_rng.uniform(0.75, 0.90)
-    b = leaf_rng.uniform(0.45, 0.58)
-    for dy in range(-leaf_h, leaf_h + 1):
-        for dx in range(-leaf_w, leaf_w + 1):
-            rx = dx * math.cos(angle) + dy * math.sin(angle)
-            ry = -dx * math.sin(angle) + dy * math.cos(angle)
-            if (rx / max(leaf_w, 1)) ** 2 + (ry / max(leaf_h, 1)) ** 2 <= 1.0:
-                px = (cx + dx) % TEX
-                py = (cy + dy) % TEX
-                idx = (py * TEX + px) * 4
-                pixels[idx + 0] = r
-                pixels[idx + 1] = g
-                pixels[idx + 2] = b
-                pixels[idx + 3] = 1.0
-
-leaf_img.pixels[:] = pixels
-leaf_img.pack()
-
 # ---- Materials ----
 # Bark: gray-brown with shallow furrows
 bark_mat = bpy.data.materials.new(name="CalleryPearBark")
@@ -88,19 +55,8 @@ bsdf_bark = bark_mat.node_tree.nodes["Principled BSDF"]
 bsdf_bark.inputs["Base Color"].default_value = (0.42, 0.36, 0.28, 1.0)
 bsdf_bark.inputs["Roughness"].default_value = 0.82
 
-# Leaves
-leaf_mat = bpy.data.materials.new(name="CalleryPearLeaf")
-leaf_mat.use_nodes = True
-leaf_mat.blend_method = 'CLIP'
-leaf_mat.alpha_threshold = 0.5
-tree = leaf_mat.node_tree
-bsdf_leaf = tree.nodes["Principled BSDF"]
-bsdf_leaf.inputs["Roughness"].default_value = 0.65  # glossy leaves
-
-tex_node = tree.nodes.new('ShaderNodeTexImage')
-tex_node.image = leaf_img
-tree.links.new(tex_node.outputs['Color'], bsdf_leaf.inputs['Base Color'])
-tree.links.new(tex_node.outputs['Alpha'], bsdf_leaf.inputs['Alpha'])
+# Leaves (crossed-quad leaf cards)
+leaf_mat = create_leaf_material("CalleryPearLeaf", leaf_shape="ovate", n_leaves=14, tex_size=512, seed=557)
 
 
 # ---- Geometry helpers ----
@@ -142,22 +98,6 @@ def make_tube(name, points, r_start, r_end, segments, mat):
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
     obj.data.materials.append(mat)
-    return obj
-
-
-def make_leaf_cluster(name, center, radius, flatten, rng_local):
-    bpy.ops.mesh.primitive_ico_sphere_add(
-        subdivisions=1, radius=radius, location=tuple(center))
-    obj = bpy.context.active_object
-    obj.name = name
-    for v in obj.data.vertices:
-        v.co.z *= flatten
-        noise = (math.sin(v.co.x * 7.1 + v.co.z * 3.3) *
-                 math.cos(v.co.y * 5.7 + v.co.x * 2.1) * 0.15 * radius)
-        v.co.x += noise
-        v.co.y += noise * 0.7
-        v.co.z += noise * 0.5
-    obj.data.materials.append(leaf_mat)
     return obj
 
 
@@ -308,8 +248,9 @@ def make_callery_pear_variant(vi, seed):
             pos.y += rng.uniform(-0.35, 0.35)
             pos.z += rng.uniform(-0.15, 0.25)
             r = rng.uniform(0.28, 0.55)
-            leaf_parts.append(make_leaf_cluster(
-                f"lc_{vi}_{b}_{c}", pos, r, rng.uniform(0.50, 0.70), rng))
+            leaf_parts += make_leaf_cards(
+                "lc", vi, pos, r, n_cards=3, rng=rng, mat=leaf_mat,
+                flatten=rng.uniform(0.50, 0.70))
 
     # Pyramidal fill: constrain clusters within tapered cone
     n_fill = rng.randint(10, 16)
@@ -326,8 +267,9 @@ def make_callery_pear_variant(vi, seed):
         r = rng.uniform(0.25, 0.50)
         # Flatten clusters more at edges
         flatten = rng.uniform(0.45, 0.65)
-        leaf_parts.append(make_leaf_cluster(
-            f"fill_{vi}_{f}", Vector((x, y, z)), r, flatten, rng))
+        leaf_parts += make_leaf_cards(
+            "fill", vi, Vector((x, y, z)), r, n_cards=3, rng=rng, mat=leaf_mat,
+            flatten=flatten)
 
     # Top cap: pointed crown tip (hallmark of Bradford pear)
     n_top = rng.randint(4, 8)
@@ -338,9 +280,9 @@ def make_callery_pear_variant(vi, seed):
         x = math.cos(angle_tc) * dist
         y = math.sin(angle_tc) * dist
         r = rng.uniform(0.22, 0.40)
-        leaf_parts.append(make_leaf_cluster(
-            f"top_{vi}_{tc}", Vector((x, y, z)), r,
-            rng.uniform(0.50, 0.70), rng))
+        leaf_parts += make_leaf_cards(
+            "top", vi, Vector((x, y, z)), r, n_cards=3, rng=rng, mat=leaf_mat,
+            flatten=rng.uniform(0.50, 0.70))
 
     # ---- Finalize ----
     all_parts = bark_parts + leaf_parts

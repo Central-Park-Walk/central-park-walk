@@ -17,6 +17,10 @@ Generates 5 variants → models/trees/pine.glb
 Run: blender --background --python scripts/make_pine.py
 """
 
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from leaf_card_utils import create_leaf_material, make_leaf_cards
+
 import bpy
 import bmesh
 import math
@@ -33,7 +37,6 @@ OUT_PATH = "/home/chris/central-park-walk/models/trees/pine.glb"
 TRUNK_SEGS = 7
 BRANCH_SEGS = 5
 SUB_SEGS = 4
-LEAF_TEX_SIZE = 128
 
 # ---- Scene cleanup ----
 bpy.ops.object.select_all(action='SELECT')
@@ -48,38 +51,6 @@ for block in bpy.data.images:
     if block.users == 0:
         bpy.data.images.remove(block)
 
-# ---- Needle texture ----
-TEX = LEAF_TEX_SIZE
-needle_img = bpy.data.images.new("PineNeedleTex", width=TEX, height=TEX, alpha=True)
-pixels = [0.0] * (TEX * TEX * 4)
-
-needle_rng = random.Random(601)
-for _ in range(120):  # many needle clusters
-    cx = needle_rng.randint(3, TEX - 3)
-    cy = needle_rng.randint(3, TEX - 3)
-    # Needle bundles: elongated thin strokes
-    n_len = needle_rng.randint(5, 12)
-    angle = needle_rng.uniform(0, math.pi)
-    # Austrian pine: dark green, sometimes blue-green
-    r = needle_rng.uniform(0.18, 0.32)
-    g = needle_rng.uniform(0.35, 0.55)
-    b = needle_rng.uniform(0.16, 0.30)
-    for di in range(-n_len, n_len + 1):
-        # Needle is 1-2 pixels wide
-        for dw in range(-1, 2):
-            px_x = cx + int(di * math.cos(angle) + dw * math.sin(angle))
-            px_y = cy + int(di * math.sin(angle) - dw * math.cos(angle))
-            px_x = px_x % TEX
-            px_y = px_y % TEX
-            idx = (px_y * TEX + px_x) * 4
-            pixels[idx + 0] = r
-            pixels[idx + 1] = g
-            pixels[idx + 2] = b
-            pixels[idx + 3] = 1.0
-
-needle_img.pixels[:] = pixels
-needle_img.pack()
-
 # ---- Materials ----
 # Bark: deeply furrowed dark gray-brown (Austrian pine characteristic)
 bark_mat = bpy.data.materials.new(name="PineBark")
@@ -88,19 +59,9 @@ bsdf_bark = bark_mat.node_tree.nodes["Principled BSDF"]
 bsdf_bark.inputs["Base Color"].default_value = (0.28, 0.22, 0.18, 1.0)
 bsdf_bark.inputs["Roughness"].default_value = 0.92  # deeply furrowed
 
-# Needles
-needle_mat = bpy.data.materials.new(name="PineNeedle")
-needle_mat.use_nodes = True
-needle_mat.blend_method = 'CLIP'
-needle_mat.alpha_threshold = 0.5
-tree = needle_mat.node_tree
-bsdf_needle = tree.nodes["Principled BSDF"]
-bsdf_needle.inputs["Roughness"].default_value = 0.60
-
-tex_node = tree.nodes.new('ShaderNodeTexImage')
-tex_node.image = needle_img
-tree.links.new(tex_node.outputs['Color'], bsdf_needle.inputs['Base Color'])
-tree.links.new(tex_node.outputs['Alpha'], bsdf_needle.inputs['Alpha'])
+# Needles — crossed-quad leaf cards with needle texture
+needle_mat = create_leaf_material("PineNeedle", leaf_shape="needle",
+                                   n_leaves=18, tex_size=512, seed=601)
 
 
 # ---- Geometry helpers ----
@@ -142,24 +103,6 @@ def make_tube(name, points, r_start, r_end, segments, mat):
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
     obj.data.materials.append(mat)
-    return obj
-
-
-def make_needle_cluster(name, center, radius, flatten, rng_local):
-    """Create a dense needle foliage blob — flatter and more irregular than leaf clusters."""
-    bpy.ops.mesh.primitive_ico_sphere_add(
-        subdivisions=1, radius=radius, location=tuple(center))
-    obj = bpy.context.active_object
-    obj.name = name
-    for v in obj.data.vertices:
-        v.co.z *= flatten
-        # More angular distortion for conifer silhouette
-        noise = (math.sin(v.co.x * 5.5 + v.co.z * 4.2) *
-                 math.cos(v.co.y * 6.3 + v.co.x * 3.1) * 0.20 * radius)
-        v.co.x += noise
-        v.co.y += noise * 0.8
-        v.co.z += noise * 0.4
-    obj.data.materials.append(needle_mat)
     return obj
 
 
@@ -287,8 +230,9 @@ def make_pine_variant(vi, seed):
             pos.z += rng.uniform(-0.15, 0.20)
             # Larger clusters than deciduous — dense needle masses
             r = rng.uniform(0.28, 0.55) * (0.7 + whorl_t * 0.3)
-            needle_parts.append(make_needle_cluster(
-                f"nc_{vi}_{b}_{c}", pos, r, rng.uniform(0.40, 0.60), rng))
+            needle_parts += make_leaf_cards(
+                f"nc_{vi}_{b}_{c}", vi, pos, r, n_cards=3,
+                rng=rng, mat=needle_mat, flatten=rng.uniform(0.40, 0.60))
 
     # Top crown: leader tip gets dense needle cap
     top_z = TREE_H * rng.uniform(0.88, 0.98)
@@ -300,9 +244,9 @@ def make_pine_variant(vi, seed):
         x = lean_x + math.cos(angle_f) * dist
         y = lean_y + math.sin(angle_f) * dist
         r = rng.uniform(0.25, 0.50)
-        needle_parts.append(make_needle_cluster(
-            f"top_{vi}_{f}", Vector((x, y, z)), r,
-            rng.uniform(0.45, 0.60), rng))
+        needle_parts += make_leaf_cards(
+            f"top_{vi}_{f}", vi, Vector((x, y, z)), r, n_cards=3,
+            rng=rng, mat=needle_mat, flatten=rng.uniform(0.45, 0.60))
 
     # ---- Finalize ----
     all_parts = bark_parts + needle_parts
