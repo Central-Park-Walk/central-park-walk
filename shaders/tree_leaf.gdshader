@@ -218,9 +218,12 @@ void fragment() {
 	// This is the single biggest cue for 3D canopy shape.
 	vec3 world_n = mat3(INV_VIEW_MATRIX) * NORMAL;
 	float top_lit = world_n.y * 0.5 + 0.5;  // 0=facing down, 1=facing up
-	col *= mix(0.72, 1.12, top_lit);  // 72% dark underneath, 112% bright on top
-	// Shaded underside shifts slightly cool (sky ambient is blue)
-	col = mix(col, col * vec3(0.92, 0.95, 1.06), (1.0 - top_lit) * 0.25);
+	col *= mix(0.82, 1.10, top_lit);  // 82% underneath (was 72% — too dark without GI)
+	// Underside gets warm ground-bounce (green grass reflects up into canopy)
+	// plus cool sky-fill — fakes indirect illumination without GI
+	float underside = (1.0 - top_lit);
+	col = mix(col, col * vec3(0.96, 1.02, 0.94), underside * 0.20);  // warm green bounce
+	col = mix(col, col * vec3(0.94, 0.96, 1.04), underside * 0.10);  // cool sky fill
 
 	// --- Fresnel rim light: leaf edges glow at grazing view angles ---
 	// Real leaves show bright translucent edges when viewed at shallow angles

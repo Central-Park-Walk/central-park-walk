@@ -137,6 +137,14 @@ void fragment() {
 	float upper = smoothstep(4.0, 10.0, local_h);
 	col = mix(col, col * 1.12, upper * 0.3);  // lighter higher up
 
+	// --- 3D relief from fissure pattern ---
+	// Perturb the surface normal so cracks catch light at different angles.
+	// Uses screen-space derivatives of the furrow depth — ridges face outward,
+	// fissures recede. This is what makes bark look 3D instead of painted on.
+	float relief_h = furrow + micro * 0.4;
+	vec3 bark_normal_perturb = vec3(dFdx(relief_h), dFdy(relief_h), 0.0);
+	NORMAL = normalize(NORMAL + bark_normal_perturb * 2.5);
+
 	ALBEDO = col;
 	ROUGHNESS = clamp(rough, 0.0, 1.0);
 	METALLIC = 0.0;
