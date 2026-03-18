@@ -111,8 +111,8 @@ def make_deciduous_variant(vi, seed):
     leaf_parts = []
 
     split_h = TREE_H * TRUNK_FRAC
-    trunk_r_base = 0.12
-    trunk_r_top = 0.065
+    trunk_r_base = 0.046    # census DBH-derived — generic slim (was 0.12)
+    trunk_r_top = 0.028
     lean_x = rng.uniform(-0.04, 0.04)
     lean_y = rng.uniform(-0.04, 0.04)
 

@@ -116,8 +116,8 @@ def make_willow_variant(vi, seed):
     rng = random.Random(seed)
     parts = []
 
-    trunk_r_base = rng.uniform(0.14, 0.20)
-    trunk_r_top = rng.uniform(0.06, 0.10)
+    trunk_r_base = rng.uniform(0.047, 0.067)  # census DBH-derived — slim graceful (was 0.14-0.20)
+    trunk_r_top = rng.uniform(0.028, 0.040)
 
     # Willows are generally straight-trunked but can have slight lean
     lean_angle = rng.uniform(0, 2.0 * math.pi)

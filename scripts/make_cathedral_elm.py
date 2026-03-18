@@ -130,8 +130,8 @@ def make_cathedral_elm_variant(vi, seed):
     leaf_parts = []
 
     split_h = TREE_H * TRUNK_FRAC  # ~0.99m — low fork
-    trunk_r_base = 0.18             # slightly thicker — mature tree
-    trunk_r_top = 0.10
+    trunk_r_base = 0.065            # census DBH-derived (was 0.18)
+    trunk_r_top = 0.039
 
     lean_x = rng.uniform(-0.04, 0.04)  # less lean — well-maintained park tree
     lean_y = rng.uniform(-0.04, 0.04)

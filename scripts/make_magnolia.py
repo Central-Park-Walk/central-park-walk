@@ -117,7 +117,7 @@ def make_magnolia_variant(vi, seed):
 
     # Magnolias often multi-stemmed or branch very low
     n_stems = rng.randint(1, 3)
-    trunk_r_base = rng.uniform(0.08, 0.14)
+    trunk_r_base = rng.uniform(0.085, 0.119)  # census DBH-derived (was 0.08-0.14)
 
     all_branch_tips = []
 

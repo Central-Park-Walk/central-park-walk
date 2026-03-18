@@ -114,8 +114,8 @@ def make_elm_variant(vi, seed):
     leaf_parts = []
 
     split_h = TREE_H * TRUNK_FRAC
-    trunk_r_base = 0.16
-    trunk_r_top = 0.09
+    trunk_r_base = 0.060    # census DBH-derived (was 0.16)
+    trunk_r_top = 0.036
     lean_x = rng.uniform(-0.06, 0.06)
     lean_y = rng.uniform(-0.06, 0.06)
 

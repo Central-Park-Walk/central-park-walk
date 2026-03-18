@@ -125,8 +125,8 @@ def make_oak_variant(vi, seed):
     leaf_parts = []
 
     split_h = TREE_H * TRUNK_FRAC
-    trunk_r_base = 0.20     # thicker trunk than elm (0.16)
-    trunk_r_top = 0.12
+    trunk_r_base = 0.071    # census DBH-derived (was 0.20)
+    trunk_r_top = 0.043
     lean_x = rng.uniform(-0.04, 0.04)
     lean_y = rng.uniform(-0.04, 0.04)
 

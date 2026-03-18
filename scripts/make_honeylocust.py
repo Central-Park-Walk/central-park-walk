@@ -115,8 +115,8 @@ def make_honeylocust_variant(vi, seed):
     leaf_parts = []
 
     split_h = TREE_H * TRUNK_FRAC
-    trunk_r_base = 0.14
-    trunk_r_top = 0.08
+    trunk_r_base = 0.091    # census DBH-derived (was 0.14)
+    trunk_r_top = 0.055
     lean_x = rng.uniform(-0.05, 0.05)
     lean_y = rng.uniform(-0.05, 0.05)
 

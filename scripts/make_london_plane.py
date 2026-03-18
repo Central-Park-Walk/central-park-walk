@@ -133,8 +133,8 @@ def make_london_plane_variant(vi, seed):
     leaf_parts = []
 
     split_h = TREE_H * TRUNK_FRAC
-    trunk_r_base = 0.22     # massive trunk
-    trunk_r_top = 0.14
+    trunk_r_base = 0.060    # census DBH-derived — tall slim trunk (was 0.22)
+    trunk_r_top = 0.036
     lean_x = rng.uniform(-0.03, 0.03)
     lean_y = rng.uniform(-0.03, 0.03)
 

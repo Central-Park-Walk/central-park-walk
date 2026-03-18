@@ -116,8 +116,8 @@ def make_ginkgo_variant(vi, seed):
     leaf_parts = []
 
     split_h = TREE_H * TRUNK_FRAC
-    trunk_r_base = 0.14
-    trunk_r_top = 0.08
+    trunk_r_base = 0.072    # census DBH-derived (was 0.14)
+    trunk_r_top = 0.043
     lean_x = rng.uniform(-0.03, 0.03)
     lean_y = rng.uniform(-0.03, 0.03)
 

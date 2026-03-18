@@ -115,8 +115,8 @@ def make_linden_variant(vi, seed):
     leaf_parts = []
 
     split_h = TREE_H * TRUNK_FRAC
-    trunk_r_base = 0.14
-    trunk_r_top = 0.08
+    trunk_r_base = 0.070    # census DBH-derived (was 0.14)
+    trunk_r_top = 0.042
     lean_x = rng.uniform(-0.02, 0.02)  # very straight
     lean_y = rng.uniform(-0.02, 0.02)
 

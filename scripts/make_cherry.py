@@ -119,8 +119,8 @@ def make_cherry_variant(vi, seed):
     leaf_parts = []
 
     split_h = TREE_H * TRUNK_FRAC
-    trunk_r_base = 0.10     # slender trunk
-    trunk_r_top = 0.06
+    trunk_r_base = 0.117    # census DBH-derived — stocky for its size (was 0.10)
+    trunk_r_top = 0.070
     lean_x = rng.uniform(-0.05, 0.05)
     lean_y = rng.uniform(-0.05, 0.05)
 

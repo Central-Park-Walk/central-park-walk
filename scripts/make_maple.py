@@ -132,8 +132,8 @@ def make_maple_variant(vi, seed):
     leaf_parts = []
 
     split_h = TREE_H * TRUNK_FRAC
-    trunk_r_base = 0.16
-    trunk_r_top = 0.10
+    trunk_r_base = 0.062    # census DBH-derived (was 0.16)
+    trunk_r_top = 0.037
     lean_x = rng.uniform(-0.03, 0.03)
     lean_y = rng.uniform(-0.03, 0.03)
 

@@ -137,8 +137,8 @@ def make_birch_variant(vi, seed):
             stem_angle = (si / n_stems) * 2.0 * math.pi + rng.uniform(-0.3, 0.3)
             stem_lean = rng.uniform(0.08, 0.18)
 
-        trunk_r_base = 0.08 if n_stems == 1 else 0.06
-        trunk_r_top = 0.035
+        trunk_r_base = 0.087 if n_stems == 1 else 0.065  # census DBH-derived (was 0.08/0.06)
+        trunk_r_top = 0.052
 
         # Stem curves outward slightly from clump center
         lean_x = math.cos(stem_angle) * stem_lean

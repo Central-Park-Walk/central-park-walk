@@ -127,8 +127,8 @@ def make_pine_variant(vi, seed):
     bark_parts = []
     needle_parts = []
 
-    trunk_r_base = 0.14      # thick trunk
-    trunk_r_top = 0.06
+    trunk_r_base = 0.076     # census DBH-derived (was 0.14)
+    trunk_r_top = 0.046
     lean_x = rng.uniform(-0.03, 0.03)
     lean_y = rng.uniform(-0.03, 0.03)
 
