@@ -25,10 +25,11 @@ var _hm_ws: float
 var _hm_half: float
 
 const CHUNK := 20.0
-const LOAD_RANGE := 50.0
-const UNLOAD_RANGE := 60.0
+const LOAD_RANGE := 70.0
+const UNLOAD_RANGE := 80.0
 const UPDATE_DIST := 3.0
-const VIS_END := 28.0
+const VIS_END := 50.0
+const VIS_FADE_MARGIN := 10.0
 
 # Patch types: name, variants, height range, is_litter, wind_flex
 # Atlas layout: 4 cols × 2 rows (matches ground_cover_atlas.png)
@@ -362,21 +363,26 @@ func _build_chunk(ck: String) -> void:
 
 			var sc: float = rng.randf_range(s_lo, s_hi)
 			var yr: float = rng.randf() * TAU
-
+			# Random X-mirror (50%) + slight tilt (±4°) via R_y * R_x
+			var mx: float = 1.0 if rng.randf() > 0.5 else -1.0
+			var tilt: float = rng.randf_range(-0.07, 0.07)
+			var ct: float = cos(tilt)
+			var st: float = sin(tilt)
 			var cos_y := cos(yr)
 			var sin_y := sin(yr)
+
 			var o := placed * 16
-			buf[o + 0] = cos_y * sc
-			buf[o + 1] = 0.0
-			buf[o + 2] = sin_y * sc
-			buf[o + 3] = bx
-			buf[o + 4] = 0.0
-			buf[o + 5] = sc
-			buf[o + 6] = 0.0
-			buf[o + 7] = wy
-			buf[o + 8] = -sin_y * sc
-			buf[o + 9] = 0.0
-			buf[o + 10] = cos_y * sc
+			buf[o + 0]  = cos_y * sc * mx
+			buf[o + 1]  = sin_y * st * sc * mx
+			buf[o + 2]  = sin_y * ct * sc * mx
+			buf[o + 3]  = bx
+			buf[o + 4]  = 0.0
+			buf[o + 5]  = ct * sc
+			buf[o + 6]  = -st * sc
+			buf[o + 7]  = wy
+			buf[o + 8]  = -sin_y * sc
+			buf[o + 9]  = cos_y * st * sc
+			buf[o + 10] = cos_y * ct * sc
 			buf[o + 11] = bz
 			# INSTANCE_CUSTOM
 			buf[o + 12] = rng.randf()      # seed
@@ -414,6 +420,8 @@ func _build_chunk(ck: String) -> void:
 		mmi.position = Vector3(ox, oy, oz)
 		mmi.name = "GC_%s_%s" % [pt.name, ck]
 		mmi.visibility_range_end = VIS_END
+		mmi.visibility_range_end_margin = VIS_FADE_MARGIN
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_loader.add_child(mmi)
 		chunk_parts.append(mmi)

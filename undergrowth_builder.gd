@@ -27,10 +27,11 @@ var _hm_half: float
 var _zone_map: Dictionary = {}  # "cx|cz" (grass chunk) -> dominant zone type
 
 const CHUNK := 20.0
-const LOAD_RANGE := 80.0
-const UNLOAD_RANGE := 90.0
+const LOAD_RANGE := 120.0
+const UNLOAD_RANGE := 130.0
 const UPDATE_DIST := 2.0
-const VIS_END := 65.0
+const VIS_END := 100.0
+const VIS_FADE_MARGIN := 15.0
 
 # Species definitions: name, scale range, wind flex, evergreen, fall tint, atlas_idx
 # Models are already built at natural reference height; s=[min,max] is scale multiplier
@@ -38,12 +39,12 @@ const VIS_END := 65.0
 const ATLAS_COLS := 4
 const ATLAS_ROWS := 7
 const SPECIES := [
-	# Shrubs (0-4)
-	{"name": "Shrub_Spicebush",        "s": [0.75, 1.20], "flex": 0.25, "green": 0, "fall": [0.70, 0.65, 0.15], "ai": 0},
-	{"name": "Shrub_WitchHazel",        "s": [0.80, 1.15], "flex": 0.20, "green": 0, "fall": [0.65, 0.60, 0.12], "ai": 1},
-	{"name": "Shrub_Viburnum",          "s": [0.75, 1.20], "flex": 0.25, "green": 0, "fall": [0.60, 0.25, 0.15], "ai": 2},
-	{"name": "Shrub_Sumac",             "s": [0.80, 1.15], "flex": 0.20, "green": 0, "fall": [0.80, 0.20, 0.08], "ai": 3},
-	{"name": "Shrub_Elderberry",        "s": [0.80, 1.15], "flex": 0.30, "green": 0, "fall": [0.55, 0.45, 0.10], "ai": 4, "fc": [1.00, 0.99, 0.91], "bl": [0.78, 1.33]},  # creamy white #FFFDE8; May-Jul
+	# Shrubs (0-4) — wide scale range for natural juvenile/mature size variation
+	{"name": "Shrub_Spicebush",        "s": [0.55, 1.40], "flex": 0.25, "green": 0, "fall": [0.70, 0.65, 0.15], "ai": 0},
+	{"name": "Shrub_WitchHazel",        "s": [0.60, 1.35], "flex": 0.20, "green": 0, "fall": [0.65, 0.60, 0.12], "ai": 1},
+	{"name": "Shrub_Viburnum",          "s": [0.55, 1.40], "flex": 0.25, "green": 0, "fall": [0.60, 0.25, 0.15], "ai": 2},
+	{"name": "Shrub_Sumac",             "s": [0.60, 1.35], "flex": 0.20, "green": 0, "fall": [0.80, 0.20, 0.08], "ai": 3},
+	{"name": "Shrub_Elderberry",        "s": [0.60, 1.35], "flex": 0.30, "green": 0, "fall": [0.55, 0.45, 0.10], "ai": 4, "fc": [1.00, 0.99, 0.91], "bl": [0.78, 1.33]},  # creamy white #FFFDE8; May-Jul
 	# Tall herbs (5-9) — fc=flower color (RGB from iNaturalist), bl=bloom season_t (from observation histograms)
 	{"name": "Herb_Pokeweed",           "s": [0.70, 1.30], "flex": 0.45, "green": 0, "fall": [0.50, 0.15, 0.30], "ai": 5, "fc": [0.95, 0.88, 0.92], "bl": [1.0, 2.33]},   # white-pink; Jun-Oct
 	{"name": "Herb_JapaneseKnotweed",   "s": [0.80, 1.20], "flex": 0.35, "green": 0, "fall": [0.40, 0.30, 0.12], "ai": 6, "fc": [0.92, 0.92, 0.90], "bl": [1.22, 2.0]},  # white plumes; late Jun-Sep
@@ -54,25 +55,25 @@ const SPECIES := [
 	{"name": "Herb_WhiteWoodAster",     "s": [0.55, 1.00], "flex": 0.35, "green": 0, "fall": [0.35, 0.28, 0.10], "ai": 10, "fc": [0.96, 0.96, 0.96], "bl": [1.56, 2.33]},  # white #F5F5F5; late Jul-Oct
 	{"name": "Herb_Jewelweed",          "s": [0.80, 1.30], "flex": 0.50, "green": 0, "fall": [0.40, 0.30, 0.08], "ai": 11, "fc": [1.00, 0.55, 0.00], "bl": [1.0, 2.33]},   # orange #FF8C00; Jun-Oct
 	{"name": "Herb_Mugwort",            "s": [1.00, 1.50], "flex": 0.30, "green": 0, "fall": [0.45, 0.38, 0.20], "ai": 12},  # inconspicuous greenish; not worth rendering
-	# Ferns (13-14)
-	{"name": "Fern_Ostrich",            "s": [0.55, 0.95], "flex": 0.40, "green": 0, "fall": [0.50, 0.40, 0.10], "ai": 13},
-	{"name": "Fern_Christmas",          "s": [0.85, 1.30], "flex": 0.20, "green": 1, "fall": [0.10, 0.28, 0.06], "ai": 14},
+	# Ferns (13-14) — wider range for natural clump variation
+	{"name": "Fern_Ostrich",            "s": [0.40, 1.15], "flex": 0.40, "green": 0, "fall": [0.50, 0.40, 0.10], "ai": 13},
+	{"name": "Fern_Christmas",          "s": [0.65, 1.45], "flex": 0.20, "green": 1, "fall": [0.10, 0.28, 0.06], "ai": 14},
 	# Wetland (15)
 	{"name": "Wetland_Cattail",         "s": [0.75, 1.25], "flex": 0.35, "green": 0, "fall": [0.35, 0.25, 0.10], "ai": -1},  # vertex-colored (green stalks + brown catkin)
 	# Fungi (16-17) — no leaf atlas
 	{"name": "Mushroom_Common",         "s": [0.80, 1.50], "flex": 0.0, "green": 0, "fall": [0.30, 0.22, 0.12], "ai": -1},
 	{"name": "Mushroom_Laetiporus",     "s": [0.60, 1.20], "flex": 0.0, "green": 0, "fall": [0.60, 0.35, 0.08], "ai": -1},
-	# Tier 3 shrubs (18-19)
-	{"name": "Shrub_SweetPepperbush",   "s": [0.80, 1.20], "flex": 0.25, "green": 0, "fall": [0.60, 0.55, 0.12], "ai": 16, "fc": [1.00, 0.99, 0.82], "bl": [1.22, 2.0]},  # creamy white #FFFDD0; late Jun-Sep
-	{"name": "Shrub_FloweringRaspberry","s": [0.75, 1.15], "flex": 0.30, "green": 0, "fall": [0.55, 0.45, 0.10], "ai": 17, "fc": [0.88, 0.25, 0.50], "bl": [0.67, 1.33]},  # rose-magenta #E04080; late Apr-Jul
+	# Tier 3 shrubs (18-19) — wide scale range for natural variation
+	{"name": "Shrub_SweetPepperbush",   "s": [0.55, 1.40], "flex": 0.25, "green": 0, "fall": [0.60, 0.55, 0.12], "ai": 16, "fc": [1.00, 0.99, 0.82], "bl": [1.22, 2.0]},  # creamy white #FFFDD0; late Jun-Sep
+	{"name": "Shrub_FloweringRaspberry","s": [0.55, 1.35], "flex": 0.30, "green": 0, "fall": [0.55, 0.45, 0.10], "ai": 17, "fc": [0.88, 0.25, 0.50], "bl": [0.67, 1.33]},  # rose-magenta #E04080; late Apr-Jul
 	# Tier 3 herbs (20-23)
 	{"name": "Herb_WhiteSnakeroot",     "s": [0.70, 1.25], "flex": 0.35, "green": 0, "fall": [0.40, 0.32, 0.10], "ai": 18, "fc": [1.00, 1.00, 1.00], "bl": [1.33, 2.67]},  # pure white; Jul-Nov (CP's #1 observed plant!)
 	{"name": "Herb_Ironweed",           "s": [0.75, 1.20], "flex": 0.40, "green": 0, "fall": [0.35, 0.20, 0.25], "ai": 19, "fc": [0.42, 0.05, 0.42], "bl": [1.33, 2.33]},  # deep purple-violet #6A0DAD; Jul-Oct
 	{"name": "Herb_RoseMallow",         "s": [0.80, 1.20], "flex": 0.40, "green": 0, "fall": [0.42, 0.30, 0.12], "ai": 20, "fc": [1.00, 0.71, 0.76], "bl": [1.33, 2.0]},   # pink #FFB6C1 w/ crimson eye; Jul-Sep
 	{"name": "Herb_Burdock",            "s": [0.75, 1.25], "flex": 0.25, "green": 0, "fall": [0.40, 0.30, 0.15], "ai": 21, "fc": [0.73, 0.33, 0.83], "bl": [1.0, 1.67]},   # purple-pink thistle #BA55D3; Jun-Aug
-	# Tier 3 ferns (24-25)
-	{"name": "Fern_Cinnamon",           "s": [0.70, 1.15], "flex": 0.35, "green": 0, "fall": [0.50, 0.40, 0.12], "ai": 22},
-	{"name": "Fern_Sensitive",          "s": [0.80, 1.20], "flex": 0.45, "green": 0, "fall": [0.45, 0.35, 0.10], "ai": 23},
+	# Tier 3 ferns (24-25) — wider range for natural variation
+	{"name": "Fern_Cinnamon",           "s": [0.50, 1.35], "flex": 0.35, "green": 0, "fall": [0.50, 0.40, 0.12], "ai": 22},
+	{"name": "Fern_Sensitive",          "s": [0.60, 1.40], "flex": 0.45, "green": 0, "fall": [0.45, 0.35, 0.10], "ai": 23},
 	# Tier 3 grass (26)
 	{"name": "Grass_Bottlebrush",       "s": [0.80, 1.30], "flex": 0.55, "green": 0, "fall": [0.55, 0.48, 0.22], "ai": 24},
 	# Tier 3 wetland (27-29)
@@ -457,15 +458,20 @@ func _build_chunk(ck: String) -> void:
 			var yr: float = rng.randf() * TAU
 			var sc: float = rng.randf_range(s_lo, s_hi)
 			var seed_val: float = rng.randf()
-
-			# Write transform (rotation Y + uniform scale) + custom data
+			# Random X-mirror (50% chance) — doubles perceived mesh variety
+			var mx: float = 1.0 if rng.randf() > 0.5 else -1.0
+			# Slight random lean (±5°) via R_y(yr) * R_x(tilt)
+			var tilt: float = rng.randf_range(-0.087, 0.087)
 			var cr: float = cos(yr)
 			var sr: float = sin(yr)
+			var ct: float = cos(tilt)
+			var st: float = sin(tilt)
+
 			var c: int = cnts[sp_idx]
 			var o: int = c * 16
-			buf[o] = cr * sc; buf[o+1] = 0.0; buf[o+2] = sr * sc; buf[o+3] = bx
-			buf[o+4] = 0.0; buf[o+5] = sc; buf[o+6] = 0.0; buf[o+7] = wy
-			buf[o+8] = -sr * sc; buf[o+9] = 0.0; buf[o+10] = cr * sc; buf[o+11] = bz
+			buf[o]    = cr * sc * mx;        buf[o+1]  = sr * st * sc * mx; buf[o+2]  = sr * ct * sc * mx; buf[o+3]  = bx
+			buf[o+4]  = 0.0;                 buf[o+5]  = ct * sc;           buf[o+6]  = -st * sc;          buf[o+7]  = wy
+			buf[o+8]  = -sr * sc;            buf[o+9]  = cr * st * sc;      buf[o+10] = cr * ct * sc;      buf[o+11] = bz
 			buf[o+12] = seed_val; buf[o+13] = sc; buf[o+14] = 0.0; buf[o+15] = 0.0
 			cnts[sp_idx] = c + 1
 			sums[sp_idx][0] += bx
@@ -504,6 +510,8 @@ func _build_chunk(ck: String) -> void:
 		mmi.position = Vector3(ox, oy, oz)
 		mmi.name = "UG_%s_%s" % [sp_name, ck]
 		mmi.visibility_range_end = VIS_END
+		mmi.visibility_range_end_margin = VIS_FADE_MARGIN
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.visibility_range_begin = 0.0
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_loader.add_child(mmi)

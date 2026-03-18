@@ -1585,7 +1585,8 @@ func _collect_named_meshes(node: Node, out: Dictionary) -> void:
 
 
 func _spawn_multimesh(mesh: Mesh, mat: Material,
-					  transforms: Array, node_name: String) -> MultiMeshInstance3D:
+					  transforms: Array, node_name: String,
+					  vis_end: float = 0.0, vis_fade: float = 0.0) -> MultiMeshInstance3D:
 	if transforms.is_empty():
 		return null
 	var mm             := MultiMesh.new()
@@ -1599,6 +1600,11 @@ func _spawn_multimesh(mesh: Mesh, mat: Material,
 	mmi.name              = node_name
 	if mat != null:
 		mmi.material_override = mat
+	if vis_end > 0.0:
+		mmi.visibility_range_end = vis_end
+		if vis_fade > 0.0:
+			mmi.visibility_range_end_margin = vis_fade
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 	add_child(mmi)
 	return mmi
 

@@ -37,8 +37,8 @@ const BLADES_PER_M2 := 600.0
 const CELL_SIZE := 1.22
 const MAX_BLADES := 20000  # capped for build performance; impostor covers any gaps
 const VIS_RANGE := 25.0
-const LOAD_RANGE := 40.0
-const UNLOAD_RANGE := 50.0
+const LOAD_RANGE := 55.0
+const UNLOAD_RANGE := 65.0
 const UPDATE_DIST := 1.0
 
 const BLADE_NAMES: Array = ["Blade_Lawn", "Blade_Wild", "Blade_Shade", "Blade_Sedge"]
@@ -402,9 +402,10 @@ func _build_chunk(ck: String) -> void:
 		mmi.multimesh = mm
 		mmi.position = Vector3(ox, oy, oz)
 		mmi.name = "Grass_%d_%s" % [bt, ck]
-		# No visibility_range — shader handles per-blade alpha hash fade.
-		# But still set a hard cutoff past fade_end to save GPU work.
-		mmi.visibility_range_end = 30.0
+		# Shader handles per-blade alpha hash fade; hard cutoff past fade_end saves GPU.
+		mmi.visibility_range_end = 40.0
+		mmi.visibility_range_end_margin = 8.0
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.visibility_range_begin = 0.0
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_loader.add_child(mmi)

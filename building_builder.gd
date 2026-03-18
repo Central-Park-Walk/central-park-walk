@@ -591,13 +591,13 @@ func _build_buildings(buildings: Array) -> void:
 			wt_mat.shader = wood_sh
 			wt_mat.set_shader_parameter("wood_color", Vector3(0.42, 0.34, 0.22))
 			wt_mat.set_shader_parameter("base_roughness", 0.92)
-			_loader._spawn_multimesh(wt_wood_mesh, wt_mat, water_tower_xf, "WaterTowers")
+			_loader._spawn_multimesh(wt_wood_mesh, wt_mat, water_tower_xf, "WaterTowers", 350.0, 40.0)
 		if wt_steel_mesh:
 			var iron_sh: Shader = _loader._get_shader("cast_iron", "res://shaders/cast_iron.gdshader")
 			var leg_mat := ShaderMaterial.new()
 			leg_mat.shader = iron_sh
 			leg_mat.set_shader_parameter("iron_color", Vector3(0.12, 0.12, 0.10))
-			_loader._spawn_multimesh(wt_steel_mesh, leg_mat, water_tower_xf, "WaterTowerSteel")
+			_loader._spawn_multimesh(wt_steel_mesh, leg_mat, water_tower_xf, "WaterTowerSteel", 350.0, 40.0)
 		print("  Water towers: %d on rooftops (GLB model)" % water_tower_xf.size())
 
 
