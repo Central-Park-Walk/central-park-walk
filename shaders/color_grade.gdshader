@@ -92,10 +92,10 @@ void fragment() {
 	sat = mix(sat, sat * 0.85, winter_s * 0.4);  // cooler winter
 	c = mix(vec3(lum2), c, sat);
 
-	// Warm cast — very subtle, unified tone
-	vec3 cast = mix(vec3(1.02, 1.005, 0.96), vec3(0.98, 0.98, 1.02), night_t);
-	// Golden hour: gentle warmth (sun color already handles most of it)
-	cast = mix(cast, vec3(1.04, 1.01, 0.92), golden_t * 0.25);
+	// Warm cast — minimal, sun color handles warmth at golden hour
+	vec3 cast = mix(vec3(1.01, 1.005, 0.97), vec3(0.98, 0.98, 1.02), night_t);
+	// Golden hour: very slight — sun keyframe already warm, avoid double-dipping
+	cast = mix(cast, vec3(1.02, 1.005, 0.95), golden_t * 0.15);
 	c *= cast;
 
 	// Eye adaptation — lift shadows in very dark scenes (NYC never pitch black)

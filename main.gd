@@ -1077,16 +1077,16 @@ func _setup_environment() -> void:
 	_env.background_mode       = Environment.BG_SKY
 	_env.sky                   = sky
 	_env.ambient_light_source  = Environment.AMBIENT_SOURCE_SKY
-	_env.ambient_light_sky_contribution = 0.3
+	_env.ambient_light_sky_contribution = 0.4
 	_env.tonemap_mode          = Environment.TONE_MAPPER_FILMIC
 	_env.tonemap_white         = 6.0
 	_env.glow_enabled          = true    # anti-firefly shader in color_grade.gdshader clamps pixel spikes
-	_env.glow_intensity        = 0.5
-	_env.glow_strength         = 0.7
-	_env.glow_bloom            = 0.08
+	_env.glow_intensity        = 0.4
+	_env.glow_strength         = 0.5
+	_env.glow_bloom            = 0.05
 	_env.glow_blend_mode       = Environment.GLOW_BLEND_MODE_SOFTLIGHT
-	_env.glow_hdr_threshold    = 1.4     # only HDR-bright pixels (sun disc, lit windows)
-	_env.glow_hdr_scale        = 1.2
+	_env.glow_hdr_threshold    = 1.8     # tighter: only true bright spots (sun disc, lamp globes)
+	_env.glow_hdr_scale        = 1.0
 	_env.ssao_enabled          = true
 	_env.ssao_detail           = 0.5
 	_env.ssil_enabled          = false   # causes yellow shield artifacts (temporal accumulation)
@@ -1229,8 +1229,8 @@ func _build_keyframes() -> void:
 		"fog_color":      Color(0.62, 0.60, 0.56),  # warmer haze — NYC summer atmosphere
 		"fog_energy":     0.5,
 		"fog_scatter":    0.06,
-		"fog_density":    0.0004,   # NYC has noticeable daytime haze — buildings fade at distance
-		"fog_aerial":     0.20,     # atmospheric scattering on distant objects
+		"fog_density":    0.00015,  # noon: clearest air of the day, crisp visibility
+		"fog_aerial":     0.12,     # subtle atmospheric scattering on distant objects
 		"fog_sky_affect": 0.30,
 		"sun_energy":     0.95,
 		"sun_color":      Color(0.95, 0.92, 0.85),
@@ -1265,7 +1265,7 @@ func _build_keyframes() -> void:
 		"ssao_power":     1.5,
 		"saturation":     1.0,    # natural — let sun color do the work
 		"contrast":       1.02,   # soft long shadows
-		"brightness":     0.96,
+		"brightness":     0.98,
 		"fog_color":      Color(0.55, 0.45, 0.35),    # neutral warm haze, not amber blanket
 		"fog_energy":     0.45,
 		"fog_scatter":    0.18,
