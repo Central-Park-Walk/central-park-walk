@@ -74,7 +74,7 @@ python3 convert_to_godot.py
 ## What's In It
 
 ### Terrain
-Terrain3D geometry clipmaps with 64 regions at native 0.61m LiDAR resolution (8192×8192 heightmap). Auto-shader with BD3D forest floor + ambientCG rock textures. Rock outcrops via DSM blend (161K cells). Built-in collision and LOD.
+Terrain3D geometry clipmaps with 64 regions at native 0.61m LiDAR resolution (8192×8192 heightmap). Custom shader override: 12 OSM zone types, 15+ named location materials, 4 seasons, 5 weather modes, dappled canopy shade, cloud shadows, Manhattan schist rock outcrops via DSM blend (161K cells). Built-in collision and clipmap LOD.
 
 ### Trees (9,852)
 NYC Tree Census + OSM + woodland scatter across 12 ecological zones. 15 Mtree species × 3 size tiers = 46 GLBs. LiDAR heights (4,005 trees), canopy height model enrichment (1,450), DBH-estimated (4,397). Crossed-quad leaf cards, FBM bark, per-pixel noise. Invasive vines: porcelain berry + oriental bittersweet (13 variants).
@@ -115,7 +115,7 @@ All data is freely available. No paid APIs.
 | Terrain | Terrain3D v1.0.1 (geometry clipmaps, GDExtension) |
 | Data pipeline | Python (GDAL, numpy/scipy, Pillow) |
 | 3D modeling | Blender 4.5.8 LTS + Mtree v5.5, BD3D Plant Library |
-| Rendering | 24 custom GLSL shaders, MultiMesh instancing, 8K world atlas |
+| Rendering | 24 custom GLSL shaders, AgX tonemapping, MultiMesh instancing, 8K world atlas |
 
 ## Philosophy
 
