@@ -1742,17 +1742,18 @@ func _setup_grass_particles() -> void:
 	noise_tex.noise = noise
 	proc_mat.set_shader_parameter("main_noise", noise_tex)
 	proc_mat.set_shader_parameter("main_noise_scale", 0.01)
-	proc_mat.set_shader_parameter("position_offset", Vector3(0, 0.45, 0))
+	proc_mat.set_shader_parameter("position_offset", Vector3(0, 0.04, 0))
 	proc_mat.set_shader_parameter("align_to_normal", true)
 	proc_mat.set_shader_parameter("normal_strength", 0.3)
 	proc_mat.set_shader_parameter("random_rotation", true)
 	proc_mat.set_shader_parameter("random_spacing", 0.5)
-	proc_mat.set_shader_parameter("min_scale", Vector3(0.08, 0.4, 0.08))
-	proc_mat.set_shader_parameter("max_scale", Vector3(0.12, 1.2, 0.12))
+	proc_mat.set_shader_parameter("min_scale", Vector3(0.04, 0.04, 0.04))  # ~4cm lawn
+	proc_mat.set_shader_parameter("max_scale", Vector3(0.08, 0.20, 0.08))  # ~20cm wild
 	proc_mat.set_shader_parameter("wind_speed", 0.025)
 	proc_mat.set_shader_parameter("wind_strength", 1.0)
 	proc_mat.set_shader_parameter("wind_dithering", 4.0)
 	proc_mat.set_shader_parameter("wind_direction", Vector2(1, 1))
+	proc_mat.set_shader_parameter("clod_scale_boost", 0.5)    # subtle height variation
 	proc_mat.set_shader_parameter("surface_slope_min", 0.85)  # no grass on cliffs
 	proc_mat.set_shader_parameter("distance_fade_ammount", 0.6)
 	proc_mat.set_shader_parameter("world_size", _hm_world_size)
