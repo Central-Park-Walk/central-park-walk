@@ -95,19 +95,6 @@ void fragment() {
 		base_col = mix(base_col, vec3(0.90, 0.91, 0.94), snow_on_blade * 0.7);
 	}
 
-	// DEBUG: color by zone to verify landuse_map is being read
-	// Remove this block once zones are confirmed working
-	float zone_id_norm = COLOR.r;  // 0-1, zone_id / 15
-	int dbg_zone = int(zone_id_norm * 15.0 + 0.5);
-	if (dbg_zone == 0) base_col = mix(base_col, vec3(0.1, 0.5, 0.1), 0.3);       // lawn: green
-	else if (dbg_zone == 1) base_col = mix(base_col, vec3(0.2, 0.7, 0.2), 0.3);   // garden: bright green
-	else if (dbg_zone == 2) base_col = mix(base_col, vec3(0.3, 0.6, 0.1), 0.3);   // maintained: yellow-green
-	else if (dbg_zone == 3) base_col = mix(base_col, vec3(0.1, 0.3, 0.5), 0.3);   // pitch: blue-ish
-	else if (dbg_zone == 5) base_col = mix(base_col, vec3(0.6, 0.4, 0.1), 0.3);   // nature: amber
-	else if (dbg_zone == 7) base_col = mix(base_col, vec3(0.1, 0.4, 0.5), 0.3);   // sports: teal
-	else if (dbg_zone >= 10) base_col = mix(base_col, vec3(0.4, 0.2, 0.1), 0.3);  // woodland: brown
-	else base_col = mix(base_col, vec3(0.8, 0.1, 0.1), 0.5);                      // unexpected: RED
-
 	ALBEDO = base_col;
 
 	// PBR — rougher than the Terrain3D example for naturalistic grass
