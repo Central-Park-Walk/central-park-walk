@@ -34,11 +34,11 @@ func _init() -> void:
 	var img := Image.create_from_data(hm_width, hm_depth, false, Image.FORMAT_RF, buf)
 	print("Center height: %.2f" % img.get_pixel(hm_width / 2, hm_depth / 2).r)
 
-	# Control map — autoshader bit everywhere
+	# Control map — autoshader bit everywhere (auto_slope handles grass vs rock)
 	var ctrl_buf := PackedByteArray()
 	ctrl_buf.resize(hm_width * hm_depth * 4)
 	for i in hm_width * hm_depth:
-		ctrl_buf[i * 4] = 0x02
+		ctrl_buf[i * 4] = 0x02  # autoshader bit
 	var ctrl_img := Image.create_from_data(hm_width, hm_depth, false, Image.FORMAT_RF, ctrl_buf)
 	print("Control map: %d×%d (autoshader)" % [hm_width, hm_depth])
 
