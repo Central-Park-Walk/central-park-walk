@@ -118,6 +118,14 @@ EXTRACTIONS = [
     ("GS Dandelion 01",        "Dandelion_01",            0,    False, 0.10, 0.01),
     ("GS Dandelion 02",        "Dandelion_02",            1500, False, 0.12, 0.01),
 
+    # ── Particle-grade grass tufts ── heavily decimated for Terrain3D GPU particles
+    # Same BD3D sources at ~150-300 faces for mass instancing at 0.35-0.5m spacing.
+    # Each biome layer filters to its zone_ids; only ~25% of particles survive.
+    ("GS Lawn mowed 01",       "Tuft_Lawn",               200, False, 0.05, 0.01),  # formal lawn, sports
+    ("GS Grass Clump 01",      "Tuft_Meadow",             250, False, 0.18, 0.02),  # maintained park lawn
+    ("GS Grass Wild Clump 01", "Tuft_Wild",               300, False, 0.35, 0.03),  # nature reserve
+    ("GS Grass Duo 01",        "Tuft_Woodland",           150, False, 0.08, 0.01),  # sparse forest floor
+
     # ── Fallen leaves ── seasonal ground litter
     ("GS Forest dead leaves 01", "DeadLeaves_Forest_01",  0,    False, 0.03, 0.00),
     ("GS Forest dead leaves 02", "DeadLeaves_Forest_02",  2000, False, 0.04, 0.00),
@@ -446,18 +454,33 @@ def main():
     if backed:
         print(f"\nBacked up {backed} existing models to backup_procedural/")
 
+    # Optional filter: blender4 --background --python extract_bd3d_plants.py -- --only=Tuft_
+    filter_prefix = ""
+    for arg in sys.argv:
+        if arg.startswith("--only="):
+            filter_prefix = arg.split("=", 1)[1]
+    if filter_prefix:
+        print(f"\nFilter: only extracting names starting with '{filter_prefix}'")
+
     # Extract each plant
     success = 0
-    for entry in EXTRACTIONS:
+    skipped = 0
+    entries = EXTRACTIONS
+    for entry in entries:
         bd3d_name, output_name, max_faces, mirror, target_h = entry[:5]
         sink_frac = entry[5] if len(entry) > 5 else 0.0
+        if filter_prefix and not output_name.startswith(filter_prefix):
+            skipped += 1
+            continue
         print(f"\n[{output_name}] ← '{bd3d_name}'"
               f"  target_f={max_faces or 'keep'}  mirror={mirror}  h={target_h:.2f}m  sink={sink_frac:.0%}")
         if extract_plant(bd3d_name, output_name, max_faces, mirror, target_h, sink_frac):
             success += 1
 
+    total = len(entries) - skipped
     print(f"\n{'=' * 60}")
-    print(f"Done: {success}/{len(EXTRACTIONS)} extracted successfully")
+    print(f"Done: {success}/{total} extracted successfully" +
+          (f" ({skipped} skipped by filter)" if skipped else ""))
     print("=" * 60 + "\n")
 
 

@@ -1706,56 +1706,118 @@ func _setup_ground() -> void:
 # ---------------------------------------------------------------------------
 # GPU Particle Grass (Terrain3D-based)
 # ---------------------------------------------------------------------------
-var _grass_particles_node = null
+var _grass_particle_nodes: Array[Node3D] = []
 var _landuse_texture: Texture2D  # cached for grass particle system
 
-func _setup_grass_particles() -> void:
-	## Instantiate Terrain3D's particle grass scene with zone-aware filtering.
-	## Textures MUST be set before add_child() — particles birth instantly
-	## and won't re-filter until camera moves.
-	var gp_script = load("res://grass_particles.gd")
-	if not gp_script:
-		push_warning("grass_particles.gd not found")
-		return
-	var gp: Node3D = Node3D.new()
-	gp.set_script(gp_script)
-	gp.name = "GrassParticles"
-	gp.terrain = _terrain3d
-	gp.instance_spacing = 0.125
-	gp.cell_width = 16.0
-	gp.grid_width = 9
-	gp.shadow_mode = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+# Biome definitions for multi-layer grass particles.
+# Each biome gets its own Terrain3D particle grid with zone-filtered BD3D tuft mesh.
+const GRASS_BIOMES := [
+	{  # Formal lawn — mowed turf: sports fields, gardens
+		"name": "Lawn", "biome_id": 0,
+		"mesh_path": "res://models/vegetation/Tuft_Lawn.glb",
+		"spacing": 0.35, "cell_width": 16.0, "grid_width": 9,
+		"min_scale": Vector3(0.8, 0.7, 0.8),
+		"max_scale": Vector3(1.3, 1.2, 1.3),
+		"position_offset": Vector3(0, 0.01, 0),
+	},
+	{  # Maintained park lawn — Sheep Meadow, Great Lawn
+		"name": "Meadow", "biome_id": 1,
+		"mesh_path": "res://models/vegetation/Tuft_Meadow.glb",
+		"spacing": 0.4, "cell_width": 16.0, "grid_width": 9,
+		"min_scale": Vector3(0.8, 0.7, 0.8),
+		"max_scale": Vector3(1.3, 1.2, 1.3),
+		"position_offset": Vector3(0, 0.02, 0),
+	},
+	{  # Wild meadow — nature reserve, unmowed
+		"name": "Wild", "biome_id": 2,
+		"mesh_path": "res://models/vegetation/Tuft_Wild.glb",
+		"spacing": 0.5, "cell_width": 16.0, "grid_width": 9,
+		"min_scale": Vector3(0.7, 0.6, 0.7),
+		"max_scale": Vector3(1.4, 1.4, 1.4),
+		"position_offset": Vector3(0, 0.03, 0),
+	},
+	{  # Woodland floor — sparse forest grass
+		"name": "Woodland", "biome_id": 3,
+		"mesh_path": "res://models/vegetation/Tuft_Woodland.glb",
+		"spacing": 0.5, "cell_width": 16.0, "grid_width": 9,
+		"min_scale": Vector3(0.6, 0.5, 0.6),
+		"max_scale": Vector3(1.2, 1.0, 1.2),
+		"position_offset": Vector3(0, 0.01, 0),
+	},
+]
 
-	# Build a fresh process material with our custom shader + all uniforms set
+func _setup_grass_particles() -> void:
+	## Multi-biome grass: one Terrain3D particle layer per biome, each with a
+	## decimated BD3D tuft mesh filtered to its zone_ids.
+	var gp_script = load("res://grass_particles.gd")
 	var proc_shader: Shader = load("res://shaders/grass_particles.gdshader")
-	if proc_shader:
+	var render_shader: Shader = load("res://shaders/grass_particle_render.gdshader")
+	if not gp_script or not proc_shader or not render_shader:
+		push_warning("Grass particle scripts/shaders not found")
+		return
+
+	# Shared noise texture (reused across all biome layers)
+	var noise := FastNoiseLite.new()
+	noise.noise_type = FastNoiseLite.TYPE_CELLULAR
+	noise.frequency = 0.0145
+	noise.cellular_return_type = FastNoiseLite.RETURN_CELL_VALUE
+	var noise_tex := NoiseTexture2D.new()
+	noise_tex.seamless = true
+	noise_tex.noise = noise
+
+	for biome in GRASS_BIOMES:
+		# Load the BD3D tuft GLB and extract mesh + albedo texture
+		var mesh_scene = load(biome.mesh_path)
+		if not mesh_scene:
+			push_warning("Grass tuft not found: %s — skipping biome %s" % [
+				biome.mesh_path, biome.name])
+			continue
+		var inst = mesh_scene.instantiate()
+		var tuft_mesh: Mesh = null
+		var albedo_tex: Texture2D = null
+		for child in inst.get_children():
+			if child is MeshInstance3D:
+				tuft_mesh = child.mesh
+				var mat = tuft_mesh.surface_get_material(0)
+				if mat is StandardMaterial3D:
+					albedo_tex = mat.albedo_texture
+				break
+		inst.queue_free()
+		if not tuft_mesh:
+			push_warning("No mesh in %s" % biome.mesh_path)
+			continue
+
+		# Create particle controller node
+		var gp: Node3D = Node3D.new()
+		gp.set_script(gp_script)
+		gp.name = "Grass_%s" % biome.name
+		gp.terrain = _terrain3d
+		gp.instance_spacing = biome.spacing
+		gp.cell_width = biome.cell_width
+		gp.grid_width = biome.grid_width
+		gp.shadow_mode = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		gp.mesh = tuft_mesh
+
+		# Process material — particle placement + zone filtering
 		var proc_mat := ShaderMaterial.new()
 		proc_mat.shader = proc_shader
-		# Copy essential defaults from the Terrain3D example
-		var noise := FastNoiseLite.new()
-		noise.noise_type = FastNoiseLite.TYPE_CELLULAR
-		noise.frequency = 0.0145
-		noise.cellular_return_type = FastNoiseLite.RETURN_CELL_VALUE
-		var noise_tex := NoiseTexture2D.new()
-		noise_tex.seamless = true
-		noise_tex.noise = noise
 		proc_mat.set_shader_parameter("main_noise", noise_tex)
 		proc_mat.set_shader_parameter("main_noise_scale", 0.01)
-		proc_mat.set_shader_parameter("position_offset", Vector3(0, 0.3, 0))
+		proc_mat.set_shader_parameter("position_offset", biome.position_offset)
 		proc_mat.set_shader_parameter("align_to_normal", true)
 		proc_mat.set_shader_parameter("normal_strength", 0.3)
 		proc_mat.set_shader_parameter("random_rotation", true)
 		proc_mat.set_shader_parameter("random_spacing", 0.5)
-		proc_mat.set_shader_parameter("min_scale", Vector3(0.08, 0.3, 0.08))
-		proc_mat.set_shader_parameter("max_scale", Vector3(0.10, 0.7, 0.10))
+		proc_mat.set_shader_parameter("min_scale", biome.min_scale)
+		proc_mat.set_shader_parameter("max_scale", biome.max_scale)
 		proc_mat.set_shader_parameter("wind_speed", 0.025)
 		proc_mat.set_shader_parameter("wind_strength", 1.0)
 		proc_mat.set_shader_parameter("wind_dithering", 4.0)
 		proc_mat.set_shader_parameter("wind_direction", Vector2(1, 1))
-		proc_mat.set_shader_parameter("clod_scale_boost", 0.15)
+		proc_mat.set_shader_parameter("clod_scale_boost", 0.1)
 		proc_mat.set_shader_parameter("surface_slope_min", 0.85)
 		proc_mat.set_shader_parameter("distance_fade_ammount", 0.6)
-		# Central Park uniforms — set BEFORE add_child so start() has them
+		proc_mat.set_shader_parameter("biome_id", biome.biome_id)
 		proc_mat.set_shader_parameter("world_size", _hm_world_size)
 		if _landuse_texture:
 			proc_mat.set_shader_parameter("landuse_map", _landuse_texture)
@@ -1763,30 +1825,26 @@ func _setup_grass_particles() -> void:
 			proc_mat.set_shader_parameter("canopy_map", _park_loader._canopy_texture)
 		gp.process_material = proc_mat
 
-	# Grass blade mesh — RibbonTrailMesh (flat ribbon, same as Terrain3D example)
-	var blade := RibbonTrailMesh.new()
-	blade.shape = RibbonTrailMesh.SHAPE_FLAT
-	blade.section_length = 0.18
-	blade.section_segments = 1
-	gp.mesh = blade
-
-	var render_shader: Shader = load("res://shaders/grass_particle_render.gdshader")
-	if render_shader:
+		# Render material — textured alpha-scissor grass with wind + seasons
 		var render_mat := ShaderMaterial.new()
 		render_mat.shader = render_shader
+		render_mat.set_shader_parameter("use_texture", true)
+		if albedo_tex:
+			render_mat.set_shader_parameter("grass_albedo", albedo_tex)
 		gp.mesh_material_override = render_mat
 
-	# Pass textures to our controller for per-frame RenderingServer updates
-	if _landuse_texture:
-		gp.landuse_texture = _landuse_texture
-	if _park_loader and _park_loader._canopy_texture:
-		gp.canopy_texture = _park_loader._canopy_texture
-	gp.world_size = _hm_world_size
+		# Pass zone textures for per-frame RenderingServer updates
+		if _landuse_texture:
+			gp.landuse_texture = _landuse_texture
+		if _park_loader and _park_loader._canopy_texture:
+			gp.canopy_texture = _park_loader._canopy_texture
+		gp.world_size = _hm_world_size
 
-	add_child(gp)
-	_grass_particles_node = gp
-	print("Grass: Terrain3D GPU particles — spacing=%.2f, grid=%dx%d" % [
-		gp.instance_spacing, gp.grid_width, gp.grid_width])
+		add_child(gp)
+		_grass_particle_nodes.append(gp)
+		print("Grass [%s]: spacing=%.2f biome_id=%d mesh=%s (%d tris)" % [
+			biome.name, biome.spacing, biome.biome_id, biome.mesh_path,
+			tuft_mesh.get_faces().size() / 3 if tuft_mesh.get_faces().size() > 0 else 0])
 
 
 # ---------------------------------------------------------------------------

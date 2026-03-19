@@ -44,6 +44,8 @@ uniform sampler2D landuse_map : filter_nearest, repeat_disable;
 uniform sampler2D canopy_map : filter_linear, repeat_disable;
 uniform float world_size = 5000.0;
 uniform float season_t = 1.5;  // 0=spring, 1=summer, 2=autumn, 3=winter
+// Biome filter: 0=lawn(1,3,7) 1=meadow(0,2) 2=wild(5) 3=woodland(10,11) -1=all(legacy)
+uniform int biome_id = -1;
 
 group_uniforms private;
 uniform float max_dist = 1.;
@@ -189,10 +191,33 @@ void start() {
 	vec2 splat_uv = (pos.xz + world_size * 0.5) / world_size;
 	float zone_val = textureLod(landuse_map, splat_uv, 0.0).r * 255.0;
 	int zone_id = int(zone_val + 0.5);
-	bool is_grass_zone = (zone_id == 0 || zone_id == 1 || zone_id == 2
-	                   || zone_id == 3 || zone_id == 7);
-	bool is_woodland = (zone_id == 5 || zone_id == 10 || zone_id == 11);
 	float canopy_cover = textureLod(canopy_map, splat_uv, 0.0).r;
+
+	// Biome-based zone filtering
+	bool is_grass_zone;
+	bool is_woodland;
+	if (biome_id == 0) {
+		// Lawn: formal garden, sports, mowed
+		is_grass_zone = (zone_id == 1 || zone_id == 3 || zone_id == 7);
+		is_woodland = false;
+	} else if (biome_id == 1) {
+		// Meadow: maintained park lawn
+		is_grass_zone = (zone_id == 0 || zone_id == 2);
+		is_woodland = false;
+	} else if (biome_id == 2) {
+		// Wild: nature reserve
+		is_grass_zone = (zone_id == 5);
+		is_woodland = false;
+	} else if (biome_id == 3) {
+		// Woodland: forest floor
+		is_grass_zone = false;
+		is_woodland = (zone_id == 10 || zone_id == 11);
+	} else {
+		// Legacy: all grass zones
+		is_grass_zone = (zone_id == 0 || zone_id == 1 || zone_id == 2
+		              || zone_id == 3 || zone_id == 7);
+		is_woodland = (zone_id == 5 || zone_id == 10 || zone_id == 11);
+	}
 
 	vec2 uv = (pos.xz) * main_noise_scale;
 	float noise = textureLod(main_noise, uv, 0.0).r;
@@ -200,18 +225,10 @@ void start() {
 	float patch = smoothstep(patch_min_threshold, patch_max_threshold, noise);
 	float width_modifier = 1.0 + 3.0 * smoothstep(0., max_dist, length(camera_position - pos));
 
-	// Zone-based grass height — fit the data
-	float zone_height = 0.5;
-	if (zone_id == 3 || zone_id == 7) zone_height = 0.25;        // sports: very short
-	else if (zone_id == 1) zone_height = 0.35;                    // garden: manicured
-	else if (zone_id == 0 || zone_id == 2) zone_height = 0.5;    // maintained lawn
-	else if (zone_id == 5) zone_height = 0.85;                    // nature reserve: tall wild
-	else if (zone_id == 10 || zone_id == 11) zone_height = 0.4;  // woodland: sparse short
-
-	// Calculate scale — height driven by zone data
+	// Calculate scale — mesh already has correct biome height, just add variation
 	vec3 scale = vec3(
 		mix(min_scale.x, max_scale.x, r.x) * width_modifier,
-		mix(min_scale.y, max_scale.y, r.y * zone_height) + clods,
+		mix(min_scale.y, max_scale.y, r.y) + clods,
 		mix(min_scale.z, max_scale.z, r.z) * width_modifier) * patch;
 
 	// Apply scale to offset
@@ -257,13 +274,18 @@ void start() {
 		}
 	}
 
-	// Zone-based density — fit the data
-	float zone_density = 0.9;  // default: most blades kept
-	if (zone_id == 3 || zone_id == 7) zone_density = 1.0;         // sports: dense turf
-	else if (zone_id == 1) zone_density = 0.95;                    // garden: dense manicured
-	else if (zone_id == 0 || zone_id == 2) zone_density = 0.85;   // maintained lawn
-	else if (zone_id == 5) zone_density = 0.6;                     // nature reserve: patchy wild
-	else if (is_woodland) zone_density = 0.25;                     // woodland: sparse floor
+	// Biome-appropriate density — each layer tunes its own survival rate
+	float zone_density = 0.9;
+	if (biome_id == 0) zone_density = 0.95;        // lawn: dense turf
+	else if (biome_id == 1) zone_density = 0.85;   // meadow: natural
+	else if (biome_id == 2) zone_density = 0.60;   // wild: patchy
+	else if (biome_id == 3) zone_density = 0.25;   // woodland: sparse
+	// Legacy mode keeps per-zone density
+	else if (zone_id == 3 || zone_id == 7) zone_density = 1.0;
+	else if (zone_id == 1) zone_density = 0.95;
+	else if (zone_id == 0 || zone_id == 2) zone_density = 0.85;
+	else if (zone_id == 5) zone_density = 0.60;
+	else if (is_woodland) zone_density = 0.25;
 
 	if (r.x > zone_density) {
 		pos.y = 0. / 0.;
