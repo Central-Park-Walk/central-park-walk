@@ -38,7 +38,6 @@ var _env: Environment
 var _sky_mat: ShaderMaterial
 var _sun: DirectionalLight3D
 var _lamp_emission: float = 0.0  # cached for SpotLight3D pool
-var _terrain_mat: ShaderMaterial
 var _terrain3d: Terrain3D
 var _time_label: Label
 var _speed_label: Label
@@ -198,7 +197,7 @@ func _ready() -> void:
 		_apply_structure_mask()
 		print("main: structure mask: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 		if _park_loader and _park_loader._canopy_texture:
-			_terrain_mat.set_shader_parameter("canopy_map", _park_loader._canopy_texture)
+			_set_terrain_param("canopy_map", _park_loader._canopy_texture)
 		print("main: canopy map: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_player = _setup_player()
 	if _park_loader and _park_loader.boundary_polygon.size() > 2:
@@ -1604,8 +1603,30 @@ func _apply_time_of_day() -> void:
 # ---------------------------------------------------------------------------
 # Terrain ground – Terrain3D clipmap or flat fallback
 # ---------------------------------------------------------------------------
+func _set_terrain_param(param: StringName, value) -> void:
+	## Set a shader parameter on the terrain material (Terrain3D override or legacy).
+	if _terrain3d and _terrain3d.material:
+		_terrain3d.material.set_shader_param(param, value)
+
 func _setup_ground() -> void:
-	# grass_albedo is dense green turf; lawn_grass is sparse brown/dead — use green
+	# ---- Terrain3D (geometry clipmap + built-in collision) ----
+	_terrain3d = $Terrain3D if has_node("Terrain3D") else null
+	if _terrain3d:
+		var n_regions: int = _terrain3d.data.get_regions_active().size()
+		print("Terrain3D: %d regions, spacing=%.4f" % [n_regions, _terrain3d.vertex_spacing])
+		_terrain3d.collision.radius = 128
+
+		# Apply our custom shader override — keeps Terrain3D clipmap vertex,
+		# replaces fragment with zone/weather/season-aware Central Park texturing
+		var override_shader: Shader = load("res://shaders/terrain3d_override.gdshader")
+		if override_shader:
+			_terrain3d.material.shader_override = override_shader
+			_terrain3d.material.shader_override_enabled = true
+			print("Terrain3D: shader override applied (terrain3d_override.gdshader)")
+		else:
+			push_warning("Terrain3D: override shader not found, using default auto-shader")
+
+	# ---- Load ground textures and apply to Terrain3D override shader ----
 	var tex_alb := _load_img_tex("res://textures/grass_albedo.jpg")
 	if tex_alb == null:
 		tex_alb = _load_img_tex("res://textures/lawn_grass_Color.jpg")
@@ -1615,18 +1636,15 @@ func _setup_ground() -> void:
 	var tex_rgh := _load_img_tex("res://textures/grass_rough.jpg")
 	if tex_rgh == null:
 		tex_rgh = _load_img_tex("res://textures/lawn_grass_Roughness.jpg")
-	var shader: Shader = load("res://shaders/terrain.gdshader")
-	_terrain_mat = ShaderMaterial.new()
-	_terrain_mat.shader = shader
 	if tex_alb != null:
-		_terrain_mat.set_shader_parameter("grass_albedo", tex_alb)
-		_terrain_mat.set_shader_parameter("grass_normal", tex_nrm)
-		_terrain_mat.set_shader_parameter("grass_rough",  tex_rgh)
-		_terrain_mat.set_shader_parameter("tile_m",       6.0)
+		_set_terrain_param(&"grass_albedo", tex_alb)
+		_set_terrain_param(&"grass_normal", tex_nrm)
+		_set_terrain_param(&"grass_rough",  tex_rgh)
+		_set_terrain_param(&"tile_m",       6.0)
 		# Anti-tiling noise texture
 		var noise_tex := _load_img_tex("res://textures/tile_noise.png")
 		if noise_tex:
-			_terrain_mat.set_shader_parameter("tile_noise", noise_tex)
+			_set_terrain_param(&"tile_noise", noise_tex)
 		# Meadow/wild grass blend
 		var m_alb := _load_img_tex("res://textures/leaf_litter_Color.jpg")
 		if m_alb == null:
@@ -1638,10 +1656,10 @@ func _setup_ground() -> void:
 		if m_rgh == null:
 			m_rgh = _load_img_tex("res://textures/forrest_ground_01_Roughness.jpg")
 		if m_alb:
-			_terrain_mat.set_shader_parameter("meadow_albedo", m_alb)
-			_terrain_mat.set_shader_parameter("meadow_normal", m_nrm)
-			_terrain_mat.set_shader_parameter("meadow_rough",  m_rgh)
-			_terrain_mat.set_shader_parameter("meadow_tile_m", 4.0)
+			_set_terrain_param(&"meadow_albedo", m_alb)
+			_set_terrain_param(&"meadow_normal", m_nrm)
+			_set_terrain_param(&"meadow_rough",  m_rgh)
+			_set_terrain_param(&"meadow_tile_m", 4.0)
 		# Rock texture for steep slopes
 		var r_alb := _load_img_tex("res://textures/schist_rock_Color.jpg")
 		if r_alb == null:
@@ -1653,45 +1671,29 @@ func _setup_ground() -> void:
 		if r_rgh == null:
 			r_rgh = _load_img_tex("res://textures/rock_wall_rgh.jpg")
 		if r_alb:
-			_terrain_mat.set_shader_parameter("rock_albedo", r_alb)
-			_terrain_mat.set_shader_parameter("rock_normal", r_nrm)
-			_terrain_mat.set_shader_parameter("rock_rough",  r_rgh)
-			_terrain_mat.set_shader_parameter("rock_tile_m", 3.0)
+			_set_terrain_param(&"rock_albedo", r_alb)
+			_set_terrain_param(&"rock_normal", r_nrm)
+			_set_terrain_param(&"rock_rough",  r_rgh)
+			_set_terrain_param(&"rock_tile_m", 3.0)
 		# Dirt texture for playgrounds, dog parks, tracks
 		var d_alb := _load_img_tex("res://textures/park_dirt_Color.jpg")
 		var d_nrm := _load_img_tex("res://textures/park_dirt_NormalGL.jpg")
 		var d_rgh := _load_img_tex("res://textures/park_dirt_Roughness.jpg")
 		if d_alb:
-			_terrain_mat.set_shader_parameter("dirt_albedo", d_alb)
-			_terrain_mat.set_shader_parameter("dirt_normal", d_nrm)
-			_terrain_mat.set_shader_parameter("dirt_rough",  d_rgh)
-			_terrain_mat.set_shader_parameter("dirt_tile_m", 2.0)
+			_set_terrain_param(&"dirt_albedo", d_alb)
+			_set_terrain_param(&"dirt_normal", d_nrm)
+			_set_terrain_param(&"dirt_rough",  d_rgh)
+			_set_terrain_param(&"dirt_tile_m", 2.0)
 		# Shore/mud texture for water edges
 		var s_alb := _load_img_tex("res://textures/shore_mud_Color.jpg")
 		var s_nrm := _load_img_tex("res://textures/shore_mud_NormalGL.jpg")
 		var s_rgh := _load_img_tex("res://textures/shore_mud_Roughness.jpg")
 		if s_alb:
-			_terrain_mat.set_shader_parameter("shore_albedo", s_alb)
-			_terrain_mat.set_shader_parameter("shore_normal", s_nrm)
-			_terrain_mat.set_shader_parameter("shore_rough",  s_rgh)
-			_terrain_mat.set_shader_parameter("shore_tile_m", 3.0)
-		print("Ground: textured grass shader + meadow blend + rock slopes + dirt zones + shore")
-
-	# ---- Terrain3D (geometry clipmap + built-in collision) ----
-	# Node is in main.tscn — configured via editor (textures, material, etc.)
-	_terrain3d = $Terrain3D if has_node("Terrain3D") else null
-	if _terrain3d:
-		var n_regions: int = _terrain3d.data.get_regions_active().size()
-		print("Terrain3D: %d regions, spacing=%.4f" % [n_regions, _terrain3d.vertex_spacing])
-		_terrain3d.collision.radius = 128
-
-
-	# Heightmap texture for shaders that still need it (paths, grass, etc.)
-	if not _hm_data.is_empty():
-		var hm_img := Image.create(_hm_width, _hm_depth, false, Image.FORMAT_RF)
-		hm_img.set_data(_hm_width, _hm_depth, false, Image.FORMAT_RF, _hm_data.to_byte_array())
-		var hm_tex := ImageTexture.create_from_image(hm_img)
-		_terrain_mat.set_shader_parameter("heightmap_tex", hm_tex)
+			_set_terrain_param(&"shore_albedo", s_alb)
+			_set_terrain_param(&"shore_normal", s_nrm)
+			_set_terrain_param(&"shore_rough",  s_rgh)
+			_set_terrain_param(&"shore_tile_m", 3.0)
+		print("Ground: Terrain3D override + meadow + rock + dirt + shore textures")
 
 
 # ---------------------------------------------------------------------------
@@ -1712,8 +1714,8 @@ func _setup_park() -> void:
 func _apply_structure_textures() -> void:
 	## Load material texture arrays (asphalt, concrete, stone, gravel, wood)
 	## used by the terrain shader's structure mask system.
-	_terrain_mat.set_shader_parameter("world_size", _hm_world_size)
-	_terrain_mat.set_shader_parameter("path_tile_m", 2.5)
+	_set_terrain_param("world_size", _hm_world_size)
+	_set_terrain_param("path_tile_m", 2.5)
 	var prefixes: Array = [
 		"res://textures/Asphalt012_2K-JPG",
 		"res://textures/Concrete034_2K-JPG",
@@ -1741,7 +1743,7 @@ func _apply_structure_textures() -> void:
 		var tex2d_arr := Texture2DArray.new()
 		tex2d_arr.create_from_images(images)
 		var param_name: String = ["path_alb_arr", "path_nrm_arr", "path_rgh_arr"][si]
-		_terrain_mat.set_shader_parameter(param_name, tex2d_arr)
+		_set_terrain_param(param_name, tex2d_arr)
 	print("Terrain: structure material textures loaded")
 
 
@@ -1791,7 +1793,7 @@ func _apply_boundary_mask(poly: PackedVector2Array) -> void:
 
 	img.generate_mipmaps()
 	var tex := ImageTexture.create_from_image(img)
-	_terrain_mat.set_shader_parameter("park_mask", tex)
+	_set_terrain_param("park_mask", tex)
 	print("Terrain: boundary mask applied (%dx%d)" % [img.get_width(), img.get_height()])
 
 
@@ -1823,7 +1825,7 @@ func _apply_landuse_map(zones: Array, water: Array = []) -> void:
 		img = _rasterize_landuse_runtime(zones, water)
 
 	var tex := ImageTexture.create_from_image(img)
-	_terrain_mat.set_shader_parameter("landuse_map", tex)
+	_set_terrain_param("landuse_map", tex)
 
 	# Load pre-baked shore distance field for smooth water-to-land transitions
 	var shore_path := "res://shore_distance.png"
@@ -1835,7 +1837,7 @@ func _apply_landuse_map(zones: Array, water: Array = []) -> void:
 		shore_img = Image.load_from_file(shore_global)
 	if shore_img:
 		var shore_tex := ImageTexture.create_from_image(shore_img)
-		_terrain_mat.set_shader_parameter("shore_distance", shore_tex)
+		_set_terrain_param("shore_distance", shore_tex)
 		print("Terrain: loaded shore distance field %dx%d" % [shore_img.get_width(), shore_img.get_height()])
 
 
@@ -1940,7 +1942,7 @@ func _apply_structure_mask() -> void:
 		print("Terrain: failed to load structure mask")
 		return
 	var tex := ImageTexture.create_from_image(img)
-	_terrain_mat.set_shader_parameter("structure_mask", tex)
+	_set_terrain_param("structure_mask", tex)
 	print("Terrain: structure mask applied (%dx%d)" % [img.get_width(), img.get_height()])
 
 
