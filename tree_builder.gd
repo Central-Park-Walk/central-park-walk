@@ -486,7 +486,8 @@ func _build_trees(trees: Array) -> void:
 		# LOD1 canopy shell data — collected for dome mesh generation
 		_shell_data.append({"x": tx, "y": ty, "z": tz, "h": desired_h,
 			"r": crown_r, "sp": pheno_idx, "ev": is_evergreen,
-			"timing": timing_off + 0.5, "dead": species == "dead"})
+			"timing": timing_off + 0.5, "dead": species == "dead",
+			"archetype": species})
 
 		# Collision: trunk cylinder from actual DBH data (census measurement)
 		var trunk_r: float
@@ -611,110 +612,95 @@ func _tree_glb_leaf_shader_code() -> String:
 
 
 # ---------------------------------------------------------------------------
-# LOD1: Canopy shell domes — procedural hemisphere mesh + chunked MultiMesh
+# LOD1: Octahedral impostors — baked atlas textures + GodotImposter shader
 # ---------------------------------------------------------------------------
 
-func _make_dome_mesh(lat_segs: int, lon_segs: int) -> ArrayMesh:
-	"""Generate a UV hemisphere mesh (radius 1, height 1, open bottom)."""
-	var verts := PackedVector3Array()
-	var normals := PackedVector3Array()
-	var uvs := PackedVector2Array()
-	var indices := PackedInt32Array()
+const IMPOSTOR_FRAME_SIZE := 8  # 8×8 octahedral grid (hemisphere)
+const IMPOSTOR_DIR := "res://textures/impostors"
 
-	# Generate vertices
-	for lat in range(lat_segs + 1):
-		var theta: float = float(lat) / lat_segs * PI * 0.5  # 0 to PI/2 (hemisphere)
-		var y: float = cos(theta)
-		var r: float = sin(theta)
-		for lon in range(lon_segs + 1):
-			var phi: float = float(lon) / lon_segs * TAU
-			var x: float = r * cos(phi)
-			var z: float = r * sin(phi)
-			verts.append(Vector3(x, y, z))
-			normals.append(Vector3(x, y, z).normalized())
-			uvs.append(Vector2(float(lon) / lon_segs, float(lat) / lat_segs))
+# Map archetype model name → impostor atlas filename
+var _impostor_textures: Dictionary = {}  # model_name -> Texture2D
+var _impostor_materials: Dictionary = {}  # model_name -> ShaderMaterial
 
-	# Generate indices
-	for lat in range(lat_segs):
-		for lon in range(lon_segs):
-			var a: int = lat * (lon_segs + 1) + lon
-			var b: int = a + lon_segs + 1
-			indices.append(a)
-			indices.append(b)
-			indices.append(a + 1)
-			indices.append(b)
-			indices.append(b + 1)
-			indices.append(a + 1)
+func _load_impostor_atlases() -> void:
+	"""Load baked impostor atlas textures for all tree species."""
+	var impostor_shader: Shader = load(
+		"res://addons/Imposter/imposter/materials/shaders/ImpostorShader.gdshader")
+	if not impostor_shader:
+		print("Trees LOD1: ImpostorShader not found")
+		return
 
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = verts
-	arrays[Mesh.ARRAY_NORMAL] = normals
-	arrays[Mesh.ARRAY_TEX_UV] = uvs
-	arrays[Mesh.ARRAY_INDEX] = indices
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	return mesh
+	for model_name in ARCHETYPE_MODEL.values():
+		if _impostor_textures.has(model_name):
+			continue
+		var atlas_path := "%s/%s_impostor_albedo.png" % [IMPOSTOR_DIR, model_name]
+		var tex: Texture2D = load(atlas_path)
+		if not tex:
+			continue
+		_impostor_textures[model_name] = tex
+
+		# Create material for this species
+		var mat := ShaderMaterial.new()
+		mat.shader = impostor_shader
+		mat.set_shader_parameter("imposterTextureAlbedo", tex)
+		mat.set_shader_parameter("imposterFrames", Vector2(IMPOSTOR_FRAME_SIZE, IMPOSTOR_FRAME_SIZE))
+		mat.set_shader_parameter("isFullSphere", false)
+		mat.set_shader_parameter("alpha_clamp", 0.3)
+		mat.set_shader_parameter("dither", true)
+		_impostor_materials[model_name] = mat
+
+	print("Trees LOD1: loaded %d impostor atlases" % _impostor_textures.size())
 
 
 func _build_canopy_shells() -> void:
 	if _shell_data.is_empty():
 		return
 
-	var shell_shader: Shader = load("res://shaders/tree_canopy_shell.gdshader")
-	if not shell_shader:
-		print("Trees LOD1: canopy shell shader not found")
+	_load_impostor_atlases()
+
+	# Fall back to old dome system if no impostors available
+	if _impostor_materials.is_empty():
+		print("Trees LOD1: no impostor atlases found — skipping LOD1")
 		return
 
-	# Load canopy texture
-	var canopy_tex: Texture2D = load("res://textures/tree_canopy_broad.png")
-	if not canopy_tex:
-		# Fallback: try Image.load_from_file
-		var canopy_img := Image.load_from_file(ProjectSettings.globalize_path("res://textures/tree_canopy_broad.png"))
-		if canopy_img:
-			canopy_tex = ImageTexture.create_from_image(canopy_img)
-	print("Trees LOD1: canopy texture %s" % ("loaded" if canopy_tex else "MISSING"))
+	# Shared quad mesh for all impostors
+	var quad := QuadMesh.new()
 
-	# Generate dome mesh (shared by all shells)
-	var dome: ArrayMesh = _make_dome_mesh(8, 12)
-
-	# Apply shell shader material
-	var mat := ShaderMaterial.new()
-	mat.shader = shell_shader
-	if canopy_tex:
-		mat.set_shader_parameter("canopy_tex", canopy_tex)
-	dome.surface_set_material(0, mat)
-
-	# Bucket into spatial chunks (same 80m as LOD0)
+	# Bucket into spatial chunks × species (each species needs its own material)
 	const CHUNK := 80.0
-	var chunks: Dictionary = {}  # "cx|cz" -> {"xf": [], "cd": []}
+	var chunks: Dictionary = {}  # "cx|cz|model" -> {"xf": [], "cd": [], "model": ""}
 
 	for sd in _shell_data:
 		if sd.dead:
-			continue  # dead trees have no canopy shell
+			continue
+		var model_name: String = ARCHETYPE_MODEL.get(sd.archetype, "deciduous")
+		if not _impostor_materials.has(model_name):
+			model_name = "deciduous"  # fallback
+		if not _impostor_materials.has(model_name):
+			continue
+
 		var cx: int = int(floorf(sd.x / CHUNK))
 		var cz: int = int(floorf(sd.z / CHUNK))
-		var ck := "%d|%d" % [cx, cz]
+		var ck := "%d|%d|%s" % [cx, cz, model_name]
 		if not chunks.has(ck):
-			chunks[ck] = {"xf": [], "cd": []}
+			chunks[ck] = {"xf": [], "cd": [], "model": model_name}
 
-		# Shell transform: dome at crown center, scaled to crown dimensions
-		var crown_h: float = sd.h * 0.45  # crown height ~45% of total
-		var crown_y: float = sd.y + sd.h * 0.55  # crown starts above trunk
-		var basis := Basis(
-			Vector3(sd.r * 2.0, 0.0, 0.0),
-			Vector3(0.0, crown_h, 0.0),
-			Vector3(0.0, 0.0, sd.r * 2.0))
+		# Impostor transform: quad at crown center, scaled to crown diameter
+		var crown_h: float = sd.h * 0.45
+		var crown_y: float = sd.y + sd.h * 0.55
+		var crown_size: float = maxf(sd.r * 2.0, crown_h)  # impostor needs square scale
+		var basis := Basis.IDENTITY * crown_size
 		var tf := Transform3D(basis, Vector3(sd.x, crown_y, sd.z))
 		chunks[ck].xf.append(tf)
-		# INSTANCE_CUSTOM: R=phenology, G=timing, B=evergreen, A=species_idx (normalized)
 		chunks[ck].cd.append(Color(float(sd.sp) / 13.0, sd.timing, sd.ev, float(sd.sp) / 15.0))
 
-	# Create MultiMesh chunks
-	var shell_count := 0
+	# Create MultiMesh chunks per species
+	var impostor_count := 0
 	for ck in chunks:
-		var xf_list: Array = chunks[ck].xf
-		var cd_list: Array = chunks[ck].cd
+		var chunk_data: Dictionary = chunks[ck]
+		var xf_list: Array = chunk_data.xf
+		var cd_list: Array = chunk_data.cd
+		var model_name: String = chunk_data.model
 		if xf_list.is_empty():
 			continue
 
@@ -728,10 +714,14 @@ func _build_canopy_shells() -> void:
 		var n := float(xf_list.size())
 		var chunk_origin := Vector3(cx_sum / n, cy_sum / n, cz_sum / n)
 
+		# Set impostor scale + position offset on material
+		var mat: ShaderMaterial = _impostor_materials[model_name]
+		# Scale and positionOffset are set per-instance via the transform
+
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.use_custom_data = true
-		mm.mesh = dome
+		mm.mesh = quad
 		mm.instance_count = xf_list.size()
 		for i in xf_list.size():
 			var tf: Transform3D = xf_list[i]
@@ -741,9 +731,10 @@ func _build_canopy_shells() -> void:
 
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
+		mmi.material_override = mat
 		mmi.position = chunk_origin
-		mmi.name = "TreeShell_%s" % ck.replace("|", "_")
-		# LOD1: canopy shells visible 250-1200m, fades in 250-300m (overlaps LOD0 fade-out)
+		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
+		# LOD1: impostors visible 250-1200m
 		mmi.visibility_range_begin = 250.0
 		mmi.visibility_range_end = 1200.0
 		mmi.visibility_range_begin_margin = 50.0
@@ -751,6 +742,7 @@ func _build_canopy_shells() -> void:
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_loader.add_child(mmi)
-		shell_count += xf_list.size()
+		impostor_count += xf_list.size()
 
-	print("Trees LOD1: %d canopy shells in %d chunks" % [shell_count, chunks.size()])
+	print("Trees LOD1: %d octahedral impostors in %d chunks (%d species)" % [
+		impostor_count, chunks.size(), _impostor_materials.size()])
