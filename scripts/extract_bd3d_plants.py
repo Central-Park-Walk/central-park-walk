@@ -87,6 +87,64 @@ EXTRACTIONS = [
     ("GS Forest seedlings 01", "ForestFloor_Seedling_A",  0,    False, 0.16, 0.02),
     ("GS Forest seedlings 02", "ForestFloor_Seedling_B",  0,    False, 0.23, 0.02),
     ("GS Forest seedlings 03", "ForestFloor_Seedling_C",  0,    False, 0.26, 0.02),
+
+    # ── Lawn/meadow grass ── BD3D grass clumps for Terrain3D instancer
+    ("GS Grass Clump 01",      "Grass_Clump_01",          1500, False, 0.20, 0.02),
+    ("GS Grass Clump 02",      "Grass_Clump_02",          1500, False, 0.22, 0.02),
+    ("GS Grass Clump 03",      "Grass_Clump_03",          1500, False, 0.18, 0.02),
+    ("GS Grass Duo 01",        "Grass_Duo_01",            0,    False, 0.15, 0.01),
+    ("GS Grass Duo 02",        "Grass_Duo_02",            1500, False, 0.18, 0.01),
+    ("GS Grass tiny 01",       "Grass_Tiny_01",           0,    False, 0.08, 0.01),
+    ("GS Grass 01",            "Grass_Tall_01",           2000, False, 0.35, 0.03),
+    ("GS Grass 02",            "Grass_Tall_02",           2000, False, 0.30, 0.03),
+    ("GS Grass Wild Clump 01", "Grass_Wild_Clump_01",     2500, False, 0.45, 0.04),
+    ("GS Grass Wild Clump 02", "Grass_Wild_Clump_02",     2000, False, 0.40, 0.04),
+    ("GS Dryland grass small",  "Grass_Dryland_Small",    2000, False, 0.15, 0.02),
+    ("GS Dryland grass medium", "Grass_Dryland_Medium",   3000, False, 0.30, 0.03),
+    ("GS Grass Dry 01",        "Grass_Dry_01",           2000, False, 0.30, 0.03),  # seasonal dead grass
+
+    # ── Mowed lawn ── manicured park lawn (formal areas, sports fields)
+    ("GS Lawn mowed 01",       "Lawn_Mowed_01",           0,   False, 0.04, 0.00),
+    ("GS Lawn mowed 02",       "Lawn_Mowed_02",           0,   False, 0.03, 0.00),
+    ("GS Lawn mowed 03",       "Lawn_Mowed_03",           0,   False, 0.04, 0.00),
+
+    # ── Clovers ── lawn and woodland ground cover
+    ("GS Clovers 01",          "Clover_Lawn_01",          1500, False, 0.06, 0.01),
+    ("GS Clovers 02",          "Clover_Lawn_02",          1500, False, 0.06, 0.01),
+    ("GS Forest clover 01",    "Clover_Forest_01",        0,    False, 0.05, 0.01),
+    ("GS Forest clover 02",    "Clover_Forest_02",        1500, False, 0.08, 0.01),
+
+    # ── Dandelions ── common lawn weeds
+    ("GS Dandelion 01",        "Dandelion_01",            0,    False, 0.10, 0.01),
+    ("GS Dandelion 02",        "Dandelion_02",            1500, False, 0.12, 0.01),
+
+    # ── Fallen leaves ── seasonal ground litter
+    ("GS Forest dead leaves 01", "DeadLeaves_Forest_01",  0,    False, 0.03, 0.00),
+    ("GS Forest dead leaves 02", "DeadLeaves_Forest_02",  2000, False, 0.04, 0.00),
+    ("GS Autumn dead leaves 01", "DeadLeaves_Autumn_01",  0,    False, 0.03, 0.00),
+    ("GS Autumn dead leaves 02", "DeadLeaves_Autumn_02",  0,    False, 0.04, 0.00),
+    ("GS Leaves 01",            "Leaves_Scattered_01",    0,    False, 0.02, 0.00),
+
+    # ── Fallen branches ── woodland floor debris
+    ("GS Forest branches 01",  "Branch_Forest_01",        0,    False, 0.08, 0.00),
+    ("GS Forest branches 02",  "Branch_Forest_02",        0,    False, 0.10, 0.00),
+    ("GS Dryland branches 01", "Branch_Dry_01",           0,    False, 0.08, 0.00),
+
+    # ── Moss ── rock and tree base cover
+    ("GS Forest moss 01",      "Moss_Forest_01",          0,    False, 0.03, 0.00),
+    ("GS Forest moss 02",      "Moss_Forest_02",          0,    False, 0.04, 0.00),
+
+    # ── Small weeds ── path edges and disturbed ground
+    ("GS Weed 01",             "Weed_Small_01",           0,    False, 0.08, 0.01),
+    ("GS Weed 02",             "Weed_Small_02",           0,    False, 0.10, 0.01),
+    ("GS type A weed 01",      "Weed_TypeA_01",           0,    False, 0.06, 0.01),
+    ("GS type A weed 02",      "Weed_TypeA_02",           0,    False, 0.08, 0.01),
+
+    # ── Young trees ── woodland understory saplings
+    ("GS Forest young A 01",   "Sapling_Deciduous_01",    1500, False, 0.50, 0.04),
+    ("GS Forest young A 02",   "Sapling_Deciduous_02",    2500, False, 0.90, 0.06),
+    ("GS Forest young B 01",   "Sapling_Conifer_01",      2000, False, 0.60, 0.04),
+    ("GS Forest young B 02",   "Sapling_Conifer_02",      3000, False, 1.00, 0.06),
 ]
 
 

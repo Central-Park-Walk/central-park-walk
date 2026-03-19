@@ -1684,6 +1684,77 @@ func _setup_ground() -> void:
 		var n_regions: int = _terrain3d.data.get_regions_active().size()
 		print("Terrain3D: %d regions, spacing=%.4f" % [n_regions, _terrain3d.vertex_spacing])
 		_terrain3d.collision.radius = 128
+		# Grass via Terrain3D instancer disabled — BD3D materials don't render
+		# through instancer. Will use MultiMesh approach (like undergrowth builder)
+		# once height queries are reconciled.
+
+
+func _setup_terrain3d_grass() -> void:
+	if not _terrain3d:
+		return
+	var t0 := Time.get_ticks_msec()
+	# Load BD3D grass meshes — properly extracted with embedded textures
+	var grass_glbs := [
+		"res://models/vegetation/Grass_Clump_01.glb",
+		"res://models/vegetation/Grass_Clump_02.glb",
+		"res://models/vegetation/Grass_Clump_03.glb",
+	]
+	for i in grass_glbs.size():
+		var ma := Terrain3DMeshAsset.new()
+		ma.name = "Grass%d" % i
+		ma.scene_file = load(grass_glbs[i])
+		ma.height_offset = 0.0
+		ma.cast_shadows = 0
+		ma.lod0_range = 35.0
+		_terrain3d.assets.set_mesh_asset(i, ma)
+
+	# Scatter across grass zones from world atlas
+	var xforms: Array[Transform3D] = []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 42
+	var step := 1.2  # meters between grass patches
+	var half := _hm_world_size * 0.5
+
+	var atlas_data: PackedByteArray
+	var atlas_res: int = 0
+	if FileAccess.file_exists("res://world_atlas.bin"):
+		var af := FileAccess.open("res://world_atlas.bin", FileAccess.READ)
+		atlas_res = af.get_32()
+		atlas_data = af.get_buffer(atlas_res * atlas_res * 2)
+		af.close()
+	var atlas_scale: float = float(atlas_res) / _hm_world_size if atlas_res > 0 else 0.0
+
+	for xi in range(0, int(_hm_world_size / step)):
+		var wx: float = xi * step - half + rng.randf() * step * 0.7
+		for zi in range(0, int(_hm_world_size / step)):
+			var wz: float = zi * step - half + rng.randf() * step * 0.7
+			# Only on grass surfaces (type 1)
+			if atlas_res > 0:
+				var ax: int = clampi(int((wx + half) * atlas_scale), 0, atlas_res - 1)
+				var az: int = clampi(int((wz + half) * atlas_scale), 0, atlas_res - 1)
+				if atlas_data[(az * atlas_res + ax) * 2] != 1:
+					continue
+			var wy: float = _terrain3d.data.get_height(Vector3(wx, 0, wz))
+			if is_nan(wy):
+				continue
+			var rot: float = rng.randf() * TAU
+			var sc: float = rng.randf_range(0.6, 1.1)
+			var basis := Basis().rotated(Vector3.UP, rot).scaled(Vector3(sc, sc, sc))
+			xforms.push_back(Transform3D(basis, Vector3(wx, wy, wz)))
+
+	# Split transforms across the 3 grass types
+	var xf_by_type: Array[Array] = [[], [], []]
+	for xf in xforms:
+		xf_by_type[rng.randi() % 3].append(xf)
+	for i in 3:
+		if not xf_by_type[i].is_empty():
+			var typed: Array[Transform3D] = []
+			typed.assign(xf_by_type[i])
+			_terrain3d.instancer.add_transforms(i, typed)
+	print("Terrain3D grass: %d patches (%d/%d/%d) placed (%.0fms)" % [
+		xforms.size(), xf_by_type[0].size(), xf_by_type[1].size(), xf_by_type[2].size(),
+		Time.get_ticks_msec() - t0])
+
 
 	# Heightmap texture for shaders that still need it (paths, grass, etc.)
 	if not _hm_data.is_empty():
