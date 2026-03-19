@@ -35,6 +35,9 @@ func _init() -> void:
 	material.show_checkered = false
 	material.world_background = Terrain3DMaterial.NONE
 	material.auto_shader = true
+	material.set_shader_param(&"auto_slope", 25)       # very high = rock only on very steep slopes
+	material.set_shader_param(&"auto_height_reduction", 0.0)  # no altitude-based reduction
+	material.set_shader_param(&"blend_sharpness", 0.8)  # sharper texture transitions
 
 	var tex_sets := [
 		["Grass",  "res://textures/terrain3d/grass_albedo_height.png",
