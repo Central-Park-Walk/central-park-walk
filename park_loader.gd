@@ -19,6 +19,9 @@ var _hm_texture:    ImageTexture  # GPU-side heightmap for vertex shader snappin
 var _hm_min_h:      float   = 0.0
 var _hm_max_h:      float   = 1.0
 
+# Terrain3D reference (set by main.gd when available)
+var terrain3d: Terrain3D
+
 # Cached furniture GLB meshes — loaded once, shared by _build_furniture + _build_trash_cans
 var _furn_glb_meshes: Dictionary = {}
 
@@ -531,13 +534,13 @@ func _build_hm_gpu_texture() -> void:
 
 
 func _terrain_y(x: float, z: float) -> float:
-	## Sample the heightmap at world (x, z) using the SAME triangle interpolation
-	## as the terrain mesh in main.gd.  The mesh splits each quad along the
-	## i00→i11 diagonal (bottom-left to top-right), giving two triangles:
-	##   T1 (fz <= fx): i00, i10, i11
-	##   T2 (fz >  fx): i00, i11, i01
-	## Using bilinear would give different heights between grid points and cause
-	## paths to float above or clip through the rendered terrain.
+	## Sample terrain height at world (x, z).
+	## Uses Terrain3D get_height() when available, falls back to heightmap.
+	if terrain3d and terrain3d.data:
+		var h := terrain3d.data.get_height(Vector3(x, 0.0, z))
+		if not is_nan(h):
+			return h
+	# Fallback: heightmap barycentric interpolation
 	if _hm_data.is_empty():
 		return 0.0
 	var half := _hm_world_size * 0.5
@@ -551,12 +554,9 @@ func _terrain_y(x: float, z: float) -> float:
 	var h10  := float(_hm_data[zi0       * _hm_width + xi0 + 1])
 	var h01  := float(_hm_data[(zi0 + 1) * _hm_width + xi0    ])
 	var h11  := float(_hm_data[(zi0 + 1) * _hm_width + xi0 + 1])
-	# Barycentric interpolation matching the mesh diagonal i00→i11
 	if fz <= fx:
-		# Lower-right triangle: i00(0,0), i10(1,0), i11(1,1)
 		return h00 + (h10 - h00) * fx + (h11 - h10) * fz
 	else:
-		# Upper-left triangle: i00(0,0), i11(1,1), i01(0,1)
 		return h00 + (h11 - h01) * fx + (h01 - h00) * fz
 
 

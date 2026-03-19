@@ -183,6 +183,9 @@ func _ready() -> void:
 		_setup_park()
 		print("main: park_loader: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_setup_ground()
+	# Pass Terrain3D reference to park_loader (created in _setup_ground)
+	if _terrain3d and _park_loader:
+		_park_loader.terrain3d = _terrain3d
 	print("main: ground mesh: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	if not _terrain_only:
 		_apply_structure_textures()
@@ -440,7 +443,12 @@ func _load_heightmap() -> void:
 
 
 func _terrain_height(x: float, z: float) -> float:
-	## Barycentric interpolation matching the terrain mesh's adaptive diagonal split.
+	## Query terrain height — uses Terrain3D when available.
+	if _terrain3d and _terrain3d.data:
+		var h := _terrain3d.data.get_height(Vector3(x, 0.0, z))
+		if not is_nan(h):
+			return h
+	# Fallback: heightmap barycentric interpolation
 	if _hm_data.is_empty():
 		return 0.0
 	var half := _hm_world_size * 0.5
@@ -1763,6 +1771,7 @@ func _setup_park() -> void:
 	loader.name = "CentralPark"
 	if not _hm_data.is_empty():
 		loader.set_heightmap(_hm_data, _hm_width, _hm_depth, _hm_world_size)
+	# terrain3d is set after _setup_ground() in _ready()
 	add_child(loader)
 	_park_loader = loader
 
