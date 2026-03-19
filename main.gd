@@ -1164,14 +1164,14 @@ func _build_keyframes() -> void:
 		"gnd_horizon":    Color(0.10, 0.07, 0.12),
 		"ambient_color":  Color(0.16, 0.14, 0.22),
 		"ambient_energy": 0.40,   # NYC ambient from light pollution
-		"exposure":       0.85,
+		"exposure":       1.0,
 		"white":          6.0,
 		"ssao_radius":    2.0,
 		"ssao_intensity": 1.4,
 		"ssao_power":     1.5,
 		"saturation":     0.75,
 		"contrast":       1.02,
-		"brightness":     0.90,
+		"brightness":     0.93,
 		"fog_color":      Color(0.12, 0.10, 0.14),
 		"fog_energy":     0.20,
 		"fog_scatter":    0.05,
@@ -1204,14 +1204,14 @@ func _build_keyframes() -> void:
 		"gnd_horizon":    Color(0.46, 0.34, 0.22),
 		"ambient_color":  Color(0.48, 0.38, 0.26),
 		"ambient_energy": 0.65,
-		"exposure":       0.72,
+		"exposure":       0.85,
 		"white":          5.5,
 		"ssao_radius":    1.5,
 		"ssao_intensity": 1.5,
 		"ssao_power":     1.5,
 		"saturation":     1.0,
 		"contrast":       1.02,
-		"brightness":     0.92,
+		"brightness":     0.95,
 		"fog_color":      Color(0.50, 0.42, 0.34),   # subtle warm haze, not amber wash
 		"fog_energy":     0.45,
 		"fog_scatter":    0.18,
@@ -1242,14 +1242,14 @@ func _build_keyframes() -> void:
 		"gnd_horizon":    Color(0.38, 0.36, 0.32),
 		"ambient_color":  Color(0.50, 0.46, 0.38),
 		"ambient_energy": 0.85,
-		"exposure":       0.68,
+		"exposure":       0.82,
 		"white":          6.0,
 		"ssao_radius":    2.0,
 		"ssao_intensity": 1.3,
 		"ssao_power":     1.4,
 		"saturation":     1.0,
 		"contrast":       1.01,
-		"brightness":     0.93,
+		"brightness":     0.95,
 		"fog_color":      Color(0.62, 0.60, 0.56),  # warmer haze — NYC summer atmosphere
 		"fog_energy":     0.5,
 		"fog_scatter":    0.06,
@@ -1282,14 +1282,14 @@ func _build_keyframes() -> void:
 		"gnd_horizon":    Color(0.48, 0.35, 0.20),    # warm ground reflection
 		"ambient_color":  Color(0.48, 0.42, 0.32),    # warm ambient but not saturated amber
 		"ambient_energy": 0.80,
-		"exposure":       0.72,
+		"exposure":       0.85,
 		"white":          5.5,
 		"ssao_radius":    2.0,
 		"ssao_intensity": 1.4,
 		"ssao_power":     1.5,
 		"saturation":     1.0,    # natural — let sun color do the work
 		"contrast":       1.02,   # soft long shadows
-		"brightness":     0.91,
+		"brightness":     0.93,
 		"fog_color":      Color(0.55, 0.45, 0.35),    # neutral warm haze, not amber blanket
 		"fog_energy":     0.45,
 		"fog_scatter":    0.18,
@@ -1322,7 +1322,7 @@ func _build_keyframes() -> void:
 		"gnd_horizon":    Color(0.08, 0.06, 0.04),  # warm ground glow from city
 		"ambient_color":  Color(0.85, 0.65, 0.40),  # warm amber city glow — NYC sodium vapor spill
 		"ambient_energy": 0.04,   # deep dark — only lamppost pools provide real light
-		"exposure":       0.70,   # genuinely dark night — bark barely visible without lamps
+		"exposure":       0.82,   # dark night but AgX needs more exposure than Filmic
 		"white":          6.0,
 		"ssao_radius":    2.0,
 		"ssao_intensity": 1.4,
