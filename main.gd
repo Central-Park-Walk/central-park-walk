@@ -635,9 +635,10 @@ func _process(delta: float) -> void:
 		_season_t = fmod(_season_t + _season_speed * delta, 4.0)
 		RenderingServer.global_shader_parameter_set("season_t", _season_t)
 
-	# Dynamic grass chunk loading — load/unload near camera
-	if _player and _park_loader and _park_loader._grass_builder:
-		_park_loader._grass_builder.update_camera(_player.global_position)
+	# Dynamic grass chunk loading — disabled during Terrain3D migration
+	# (old grass blades use heightmap.bin heights that don't match Terrain3D)
+	#if _player and _park_loader and _park_loader._grass_builder:
+	#	_park_loader._grass_builder.update_camera(_player.global_position)
 	if _player and _park_loader and _park_loader._undergrowth_builder:
 		_park_loader._undergrowth_builder.update_camera(_player.global_position)
 	if _player and _park_loader and _park_loader._ground_cover_builder:
@@ -1599,42 +1600,6 @@ func _apply_time_of_day() -> void:
 	_last_applied_tod = _time_of_day
 
 
-# ---------------------------------------------------------------------------
-# Terrain3D texture setup — grass, meadow, rock, dirt
-# ---------------------------------------------------------------------------
-func _setup_terrain3d_textures() -> void:
-	if not _terrain3d:
-		return
-	# Disable checkerboard, enable auto shader (slope-based blending)
-	_terrain3d.material.show_checkered = false
-	_terrain3d.material.auto_shader = true
-	_terrain3d.material.set_shader_param(&"auto_slope", 15)
-	_terrain3d.material.set_shader_param(&"blend_sharpness", 0.87)
-	# Load channel-packed textures: albedo+height (RGBA), normal+roughness (RGBA)
-	var tex_sets := [
-		["grass", 0.04],   # slot 0: grass (base)
-		["rock", 0.08],    # slot 1: rock (auto-painted on slopes)
-		["meadow", 0.06],  # slot 2: meadow/leaf litter
-		["dirt", 0.05],    # slot 3: dirt
-	]
-	var tex_count := 0
-	for tex_set in tex_sets:
-		var name: String = tex_set[0]
-		var uv_scale: float = tex_set[1]
-		var alb_path := "res://textures/terrain3d/%s_albedo_height.png" % name
-		var nrm_path := "res://textures/terrain3d/%s_normal_rough.png" % name
-		if not FileAccess.file_exists(alb_path):
-			continue
-		var ta := Terrain3DTextureAsset.new()
-		ta.name = name
-		ta.albedo_texture = _load_img_tex(alb_path)
-		if FileAccess.file_exists(nrm_path):
-			ta.normal_texture = _load_img_tex(nrm_path)
-		ta.uv_scale = uv_scale
-		_terrain3d.assets.set_texture(tex_count, ta)
-		tex_count += 1
-	print("Terrain3D textures: %d sets loaded" % tex_count)
-
 
 # ---------------------------------------------------------------------------
 # Terrain ground – Terrain3D clipmap or flat fallback
@@ -1713,45 +1678,12 @@ func _setup_ground() -> void:
 		print("Ground: textured grass shader + meadow blend + rock slopes + dirt zones + shore")
 
 	# ---- Terrain3D (geometry clipmap + built-in collision) ----
-	# Replaces old terrain_mesh.bin (558MB) + HeightMapShape3D.
-	# Height data loaded from pre-imported region files in data/terrain3d/.
-	var terrain3d_dir := "res://data/terrain3d"
-	if DirAccess.dir_exists_absolute(terrain3d_dir):
-		_terrain3d = Terrain3D.new()
-		_terrain3d.name = "Terrain3D"
-		var cell_size: float = 0.6104  # LiDAR resolution
-		if _hm_width > 1:
-			cell_size = _hm_world_size / float(_hm_width - 1)
-		add_child(_terrain3d)
-		# Properties must be set AFTER add_child (internal data init)
-		_terrain3d.region_size = Terrain3D.SIZE_1024
-		_terrain3d.vertex_spacing = cell_size
-		# Camera is set later in _ready after _setup_player()
-		# Load saved regions
-		_terrain3d.data_directory = terrain3d_dir
+	# Node is in main.tscn — configured via editor (textures, material, etc.)
+	_terrain3d = $Terrain3D if has_node("Terrain3D") else null
+	if _terrain3d:
 		var n_regions: int = _terrain3d.data.get_regions_active().size()
-		print("Terrain3D loaded: %d regions, vertex_spacing=%.4f, region_size=1024" % [
-			n_regions, cell_size])
-		# Collision: dynamic around camera (default mode)
+		print("Terrain3D: %d regions, spacing=%.4f" % [n_regions, _terrain3d.vertex_spacing])
 		_terrain3d.collision.radius = 128
-		# Set up terrain textures
-		_setup_terrain3d_textures()
-	else:
-		# Flat fallback
-		print("WARNING: Terrain3D data not found at %s — using flat plane" % terrain3d_dir)
-		var plane            := PlaneMesh.new()
-		plane.size            = Vector2(5000.0, 5000.0)
-		plane.subdivide_width  = 1
-		plane.subdivide_depth  = 1
-		var mi                := MeshInstance3D.new()
-		mi.mesh                = plane
-		mi.material_override   = _terrain_mat
-		add_child(mi)
-		var body := StaticBody3D.new()
-		var col  := CollisionShape3D.new()
-		col.shape = WorldBoundaryShape3D.new()
-		body.add_child(col)
-		add_child(body)
 
 	# Heightmap texture for shaders that still need it (paths, grass, etc.)
 	if not _hm_data.is_empty():
