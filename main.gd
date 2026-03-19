@@ -1712,37 +1712,29 @@ var _landuse_texture: Texture2D  # cached for grass particle system
 # Biome definitions for multi-layer grass particles.
 # Each biome gets its own Terrain3D particle grid with zone-filtered BD3D tuft mesh.
 const GRASS_BIOMES := [
-	{  # Formal lawn — mowed turf: sports fields, gardens
+	{  # All maintained lawn — Sheep Meadow, Great Lawn, sports, gardens
 		"name": "Lawn", "biome_id": 0,
 		"mesh_path": "res://models/vegetation/Tuft_Lawn.glb",
-		"spacing": 0.35, "cell_width": 16.0, "grid_width": 9,
-		"min_scale": Vector3(0.8, 0.7, 0.8),
-		"max_scale": Vector3(1.3, 1.2, 1.3),
-		"position_offset": Vector3(0, 0.01, 0),
-	},
-	{  # Maintained park lawn — Sheep Meadow, Great Lawn
-		"name": "Meadow", "biome_id": 1,
-		"mesh_path": "res://models/vegetation/Tuft_Meadow.glb",
-		"spacing": 0.4, "cell_width": 16.0, "grid_width": 9,
-		"min_scale": Vector3(0.8, 0.7, 0.8),
-		"max_scale": Vector3(1.3, 1.2, 1.3),
-		"position_offset": Vector3(0, 0.02, 0),
+		"spacing": 0.2, "cell_width": 16.0, "grid_width": 9,
+		"min_scale": Vector3(1.0, 0.8, 1.0),
+		"max_scale": Vector3(1.6, 1.3, 1.6),
+		"position_offset": Vector3(0, -0.005, 0),
 	},
 	{  # Wild meadow — nature reserve, unmowed
 		"name": "Wild", "biome_id": 2,
 		"mesh_path": "res://models/vegetation/Tuft_Wild.glb",
-		"spacing": 0.5, "cell_width": 16.0, "grid_width": 9,
+		"spacing": 0.4, "cell_width": 16.0, "grid_width": 9,
 		"min_scale": Vector3(0.7, 0.6, 0.7),
-		"max_scale": Vector3(1.4, 1.4, 1.4),
-		"position_offset": Vector3(0, 0.03, 0),
+		"max_scale": Vector3(1.3, 1.3, 1.3),
+		"position_offset": Vector3(0, -0.01, 0),
 	},
 	{  # Woodland floor — sparse forest grass
 		"name": "Woodland", "biome_id": 3,
 		"mesh_path": "res://models/vegetation/Tuft_Woodland.glb",
-		"spacing": 0.5, "cell_width": 16.0, "grid_width": 9,
-		"min_scale": Vector3(0.6, 0.5, 0.6),
-		"max_scale": Vector3(1.2, 1.0, 1.2),
-		"position_offset": Vector3(0, 0.01, 0),
+		"spacing": 0.4, "cell_width": 16.0, "grid_width": 9,
+		"min_scale": Vector3(0.7, 0.6, 0.7),
+		"max_scale": Vector3(1.3, 1.0, 1.3),
+		"position_offset": Vector3(0, -0.005, 0),
 	},
 ]
 

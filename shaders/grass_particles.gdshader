@@ -197,12 +197,9 @@ void start() {
 	bool is_grass_zone;
 	bool is_woodland;
 	if (biome_id == 0) {
-		// Lawn: formal garden, sports, mowed
-		is_grass_zone = (zone_id == 1 || zone_id == 3 || zone_id == 7);
-		is_woodland = false;
-	} else if (biome_id == 1) {
-		// Meadow: maintained park lawn
-		is_grass_zone = (zone_id == 0 || zone_id == 2);
+		// Lawn: all maintained grass (gardens, sports, Sheep Meadow, Great Lawn)
+		is_grass_zone = (zone_id == 0 || zone_id == 1 || zone_id == 2
+		              || zone_id == 3 || zone_id == 7);
 		is_woodland = false;
 	} else if (biome_id == 2) {
 		// Wild: nature reserve
