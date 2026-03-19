@@ -191,10 +191,20 @@ void start() {
 	float patch = smoothstep(patch_min_threshold, patch_max_threshold, noise);
 	float width_modifier = 1.0 + 3.0 * smoothstep(0., max_dist, length(camera_position - pos));
 
-	// Calculate scale
+	// Zone-based grass height — fit the data
+	// 0=lawn(mowed), 1=garden(manicured), 2=maintained, 3=pitch(sports turf),
+	// 5=nature_reserve(wild), 7=sports, 10=wood, 11=forest
+	float zone_height = 0.5;  // default: medium lawn
+	if (zone_id == 3 || zone_id == 7) zone_height = 0.25;        // sports: very short
+	else if (zone_id == 1) zone_height = 0.35;                    // garden: manicured
+	else if (zone_id == 0 || zone_id == 2) zone_height = 0.5;    // maintained lawn
+	else if (zone_id == 5) zone_height = 0.85;                    // nature reserve: tall wild
+	else if (zone_id == 10 || zone_id == 11) zone_height = 0.4;  // woodland: sparse short
+
+	// Calculate scale — height driven by zone data
 	vec3 scale = vec3(
 		mix(min_scale.x, max_scale.x, r.x) * width_modifier,
-		mix(min_scale.y, max_scale.y, r.y) + clods,
+		mix(min_scale.y, max_scale.y, r.y * zone_height) + clods,
 		mix(min_scale.z, max_scale.z, r.z) * width_modifier) * patch;
 
 	// Apply scale to offset
@@ -250,13 +260,20 @@ void start() {
 		}
 	}
 
-	// Woodland: reduce density further (sparse undergrowth, not lawn)
-	if (is_woodland && r.x > 0.35) {
+	// Zone-based density — fit the data
+	float zone_density = 0.9;  // default: most blades kept
+	if (zone_id == 3 || zone_id == 7) zone_density = 1.0;         // sports: dense turf
+	else if (zone_id == 1) zone_density = 0.95;                    // garden: dense manicured
+	else if (zone_id == 0 || zone_id == 2) zone_density = 0.85;   // maintained lawn
+	else if (zone_id == 5) zone_density = 0.6;                     // nature reserve: patchy wild
+	else if (is_woodland) zone_density = 0.25;                     // woodland: sparse floor
+
+	if (r.x > zone_density) {
 		pos.y = 0. / 0.;
 		pos.xz = vec2(100000.0);
 	}
 
-	// Winter dormancy: reduce blade count (grass dies back)
+	// Winter dormancy: reduce blade count
 	float winter_t = smoothstep(2.7, 3.5, season_t);
 	if (winter_t > 0.5 && r.y < winter_t * 0.4) {
 		pos.y = 0. / 0.;
