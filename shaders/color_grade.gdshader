@@ -84,13 +84,13 @@ void fragment() {
 	c.r -= red_excess * mix(0.15, 0.08, night_t);
 	c.g += red_excess * 0.04;
 
-	// Filmic curve — defined shadows, compresses highlights to prevent blowout
-	c = c * (c + 0.08) / (c * c + c * 0.08 + 0.10) * 1.08;
+	// AgX tonemapper handles highlight compression — no manual filmic curve needed.
+	// Only apply a very gentle midtone lift to compensate for AgX's slight desaturation.
 
 	// Saturation — restrained, naturalistic. EGTTR greens are muted olive, not vivid.
 	float lum2 = dot(c, vec3(0.2126, 0.7152, 0.0722));
-	float sat = 1.08;
-	sat = mix(sat, 1.0, night_t);      // neutral at night
+	float sat = 1.12;  // compensate for AgX desaturation
+	sat = mix(sat, 1.02, night_t);     // near-neutral at night
 	sat = mix(sat, sat * 0.85, winter_s * 0.4);  // cooler winter
 	c = mix(vec3(lum2), c, sat);
 
