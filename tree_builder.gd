@@ -563,8 +563,11 @@ func _build_trees(trees: Array) -> void:
 		mmi.multimesh = mm
 		mmi.position = chunk_origin
 		mmi.name = "Tree_%s" % ckey.replace("|", "_")
-		# LOD0: full geometry visible to 500m — push real branches out far
-		mmi.visibility_range_end = 500.0
+		# LOD0: full geometry visible 0-300m, fades out 250-300m
+		mmi.visibility_range_begin = 0.0
+		mmi.visibility_range_end = 300.0
+		mmi.visibility_range_begin_margin = 0.0
+		mmi.visibility_range_end_margin = 50.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		_loader.add_child(mmi)
 
@@ -746,11 +749,11 @@ func _build_canopy_shells() -> void:
 		mmi.multimesh = mm
 		mmi.position = chunk_origin
 		mmi.name = "TreeShell_%s" % ck.replace("|", "_")
-		# LOD1: canopy shells visible from 280m (well past LOD0's 350m fade start)
-		# The 400-500m overlap zone provides a smooth crossfade where both are visible
-		# but at distance where the shell's shape isn't obviously geometric.
-		mmi.visibility_range_begin = 400.0
+		# LOD1: canopy shells visible 250-1200m, fades in 250-300m (overlaps LOD0 fade-out)
+		mmi.visibility_range_begin = 250.0
 		mmi.visibility_range_end = 1200.0
+		mmi.visibility_range_begin_margin = 50.0
+		mmi.visibility_range_end_margin = 100.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_loader.add_child(mmi)
