@@ -18,7 +18,8 @@ models/
 !models/vegetation/Grass_*.glb
 !models/vegetation/Mushroom_*.gltf
 !models/vegetation/ForestFloor_*.glb
-textures/
+textures/*
+!textures/terrain3d/
 sounds/
 
 # Terrain tiles and LiDAR source data (re-download via scripts)

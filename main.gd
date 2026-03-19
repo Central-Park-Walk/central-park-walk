@@ -1592,8 +1592,44 @@ func _apply_time_of_day() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Terrain ground – height-mapped mesh + HeightMapShape3D collision
-# Falls back to a flat plane when heightmap.json is absent.
+# Terrain3D texture setup — grass, meadow, rock, dirt
+# ---------------------------------------------------------------------------
+func _setup_terrain3d_textures() -> void:
+	if not _terrain3d:
+		return
+	# Disable checkerboard, enable auto shader (slope-based blending)
+	_terrain3d.material.show_checkered = false
+	_terrain3d.material.auto_shader = true
+	_terrain3d.material.set_shader_param(&"auto_slope", 15)
+	_terrain3d.material.set_shader_param(&"blend_sharpness", 0.87)
+	# Load channel-packed textures: albedo+height (RGBA), normal+roughness (RGBA)
+	var tex_sets := [
+		["grass", 0.04],   # slot 0: grass (base)
+		["rock", 0.08],    # slot 1: rock (auto-painted on slopes)
+		["meadow", 0.06],  # slot 2: meadow/leaf litter
+		["dirt", 0.05],    # slot 3: dirt
+	]
+	var tex_count := 0
+	for tex_set in tex_sets:
+		var name: String = tex_set[0]
+		var uv_scale: float = tex_set[1]
+		var alb_path := "res://textures/terrain3d/%s_albedo_height.png" % name
+		var nrm_path := "res://textures/terrain3d/%s_normal_rough.png" % name
+		if not FileAccess.file_exists(alb_path):
+			continue
+		var ta := Terrain3DTextureAsset.new()
+		ta.name = name
+		ta.albedo_texture = _load_img_tex(alb_path)
+		if FileAccess.file_exists(nrm_path):
+			ta.normal_texture = _load_img_tex(nrm_path)
+		ta.uv_scale = uv_scale
+		_terrain3d.assets.set_texture(tex_count, ta)
+		tex_count += 1
+	print("Terrain3D textures: %d sets loaded" % tex_count)
+
+
+# ---------------------------------------------------------------------------
+# Terrain ground – Terrain3D clipmap or flat fallback
 # ---------------------------------------------------------------------------
 func _setup_ground() -> void:
 	# grass_albedo is dense green turf; lawn_grass is sparse brown/dead — use green
@@ -1690,6 +1726,8 @@ func _setup_ground() -> void:
 			n_regions, cell_size])
 		# Collision: dynamic around camera (default mode)
 		_terrain3d.collision.radius = 128
+		# Set up terrain textures
+		_setup_terrain3d_textures()
 	else:
 		# Flat fallback
 		print("WARNING: Terrain3D data not found at %s — using flat plane" % terrain3d_dir)
