@@ -590,39 +590,17 @@ func _build_statues(statues: Array) -> void:
 		"giuseppe verdi monument": { "file": "cp_verdi.glb", "height": 7.0 },
 		"women's rights pioneers monument": { "file": "cp_womens_rights.glb", "height": 1.2 },
 	}
-	var cache_dir := "res://cache/statues/"
-	var abs_cache_dir := ProjectSettings.globalize_path(cache_dir)
-	DirAccess.make_dir_recursive_absolute(abs_cache_dir)
 	for skey in named_defs:
 		var def: Dictionary = named_defs[skey]
 		var abs_path := ProjectSettings.globalize_path("res://models/furniture/%s" % def["file"])
 		if not FileAccess.file_exists(abs_path):
 			continue
-		# Try cached PackedScene first (much faster than GLTFDocument parsing)
-		var cache_path: String = cache_dir + str(def["file"]).replace(".glb", ".scn")
-		var abs_cache: String = ProjectSettings.globalize_path(cache_path)
-		if FileAccess.file_exists(abs_cache):
-			var packed = ResourceLoader.load(cache_path)
-			if packed and packed is PackedScene:
-				var root: Node = (packed as PackedScene).instantiate()
-				if root:
-					named_statue_glbs[skey] = { "root": root, "height": def["height"] }
-					print("Statues: loaded named GLB '%s' (cached)" % skey)
-					continue
-		# Fall back to GLTFDocument parsing
-		var gd := GLTFDocument.new()
-		var gs := GLTFState.new()
-		if gd.append_from_file(abs_path, gs) == OK:
-			var root: Node = gd.generate_scene(gs)
-			if root:
-				named_statue_glbs[skey] = { "root": root, "height": def["height"] }
-				# Save as PackedScene for next time
-				var packed := PackedScene.new()
-				if packed.pack(root) == OK:
-					ResourceSaver.save(packed, cache_path)
-				print("Statues: loaded named GLB '%s'" % skey)
-			else:
-				print("Statues: failed to generate scene for '%s'" % skey)
+		var root: Node = _loader._load_glb_scene(abs_path)
+		if root:
+			named_statue_glbs[skey] = { "root": root, "height": def["height"] }
+			print("Statues: loaded named GLB '%s'" % skey)
+		else:
+			print("Statues: failed to load scene for '%s'" % skey)
 	print("Statues: %d named GLBs loaded" % named_statue_glbs.size())
 
 	# Load stone pedestal GLB — 3 variant meshes for label-only statues
@@ -1059,11 +1037,7 @@ func _build_facilities(facilities: Array) -> void:
 				var abs_path := ProjectSettings.globalize_path("res://models/furniture/" + glb_file)
 				if not FileAccess.file_exists(abs_path):
 					break
-				var gltf_doc := GLTFDocument.new()
-				var gltf_state := GLTFState.new()
-				if gltf_doc.append_from_file(abs_path, gltf_state) != OK:
-					break
-				var root: Node3D = gltf_doc.generate_scene(gltf_state)
+				var root: Node3D = _loader._load_glb_scene(abs_path)
 				if root == null:
 					break
 				root.position = Vector3(x, ty, z)
@@ -1201,11 +1175,7 @@ func _build_attractions(attractions: Array) -> void:
 				var abs_path := ProjectSettings.globalize_path("res://models/furniture/" + def_["file"])
 				if not FileAccess.file_exists(abs_path):
 					break
-				var gltf_doc := GLTFDocument.new()
-				var gltf_state := GLTFState.new()
-				if gltf_doc.append_from_file(abs_path, gltf_state) != OK:
-					break
-				var root: Node3D = gltf_doc.generate_scene(gltf_state)
+				var root: Node3D = _loader._load_glb_scene(abs_path)
 				if root == null:
 					break
 				root.position = Vector3(x, ty, z)
@@ -1291,13 +1261,9 @@ func _build_bethesda_terrace() -> void:
 		print("  Bethesda Terrace: GLB not found, skipping")
 		return
 
-	var gltf_doc := GLTFDocument.new()
-	var gltf_state := GLTFState.new()
-	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
-		print("WARNING: failed to load Bethesda Terrace GLB")
-		return
-	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	var root: Node3D = _loader._load_glb_scene(glb_path)
 	if root == null:
+		print("WARNING: failed to load Bethesda Terrace GLB")
 		return
 
 	# Solved analytically from 2 stalagmite wall peaks in heightmap:
@@ -1388,13 +1354,9 @@ func _build_belvedere_castle() -> void:
 		print("  Belvedere Castle: GLB not found, skipping")
 		return
 
-	var gltf_doc := GLTFDocument.new()
-	var gltf_state := GLTFState.new()
-	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
-		print("WARNING: failed to load Belvedere Castle GLB")
-		return
-	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	var root: Node3D = _loader._load_glb_scene(glb_path)
 	if root == null:
+		print("WARNING: failed to load Belvedere Castle GLB")
 		return
 
 	# Belvedere Castle sits on Vista Rock at approximately (0, ?, 525)
@@ -1505,11 +1467,7 @@ func _build_vanderbilt_gate() -> void:
 	if not FileAccess.file_exists(glb_path):
 		print("  Vanderbilt Gate: GLB not found, skipping")
 		return
-	var gltf_doc := GLTFDocument.new()
-	var gltf_state := GLTFState.new()
-	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
-		return
-	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	var root: Node3D = _loader._load_glb_scene(glb_path)
 	if root == null:
 		return
 	# Gate at Conservatory Garden entrance — east side, 105th St
@@ -1547,11 +1505,7 @@ func _build_bandshell() -> void:
 	if not FileAccess.file_exists(glb_path):
 		print("  Bandshell: GLB not found, skipping")
 		return
-	var gltf_doc := GLTFDocument.new()
-	var gltf_state := GLTFState.new()
-	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
-		return
-	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	var root: Node3D = _loader._load_glb_scene(glb_path)
 	if root == null:
 		return
 	var bx := -473.0
@@ -1587,11 +1541,7 @@ func _build_pergola() -> void:
 	if not FileAccess.file_exists(glb_path):
 		print("  Pergola: GLB not found, skipping")
 		return
-	var gltf_doc := GLTFDocument.new()
-	var gltf_state := GLTFState.new()
-	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
-		return
-	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	var root: Node3D = _loader._load_glb_scene(glb_path)
 	if root == null:
 		return
 	# Pergola in the North Garden of Conservatory Garden
@@ -1628,11 +1578,7 @@ func _build_ladies_pavilion() -> void:
 	if not FileAccess.file_exists(glb_path):
 		print("  Ladies' Pavilion: GLB not found, skipping")
 		return
-	var gltf_doc := GLTFDocument.new()
-	var gltf_state := GLTFState.new()
-	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
-		return
-	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	var root: Node3D = _loader._load_glb_scene(glb_path)
 	if root == null:
 		return
 	var lx := -636.0
@@ -1653,11 +1599,7 @@ func _build_cherry_hill_fountain() -> void:
 	if not FileAccess.file_exists(glb_path):
 		print("  Cherry Hill Fountain: GLB not found, skipping")
 		return
-	var gltf_doc := GLTFDocument.new()
-	var gltf_state := GLTFState.new()
-	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
-		return
-	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	var root: Node3D = _loader._load_glb_scene(glb_path)
 	if root == null:
 		return
 	var cx := -615.9
@@ -1676,11 +1618,7 @@ func _build_summerhouse() -> void:
 	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_summerhouse.glb")
 	if not FileAccess.file_exists(glb_path):
 		return
-	var gltf_doc := GLTFDocument.new()
-	var gltf_state := GLTFState.new()
-	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
-		return
-	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	var root: Node3D = _loader._load_glb_scene(glb_path)
 	if root == null:
 		return
 	var sx := -372.0
@@ -1700,11 +1638,7 @@ func _build_model_boathouse() -> void:
 	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_model_boathouse.glb")
 	if not FileAccess.file_exists(glb_path):
 		return
-	var gltf_doc := GLTFDocument.new()
-	var gltf_state := GLTFState.new()
-	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
-		return
-	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	var root: Node3D = _loader._load_glb_scene(glb_path)
 	if root == null:
 		return
 	# West shore of Conservatory Water
@@ -1757,11 +1691,7 @@ func _build_cop_cot() -> void:
 	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_cop_cot.glb")
 	if not FileAccess.file_exists(glb_path):
 		return
-	var gltf_doc := GLTFDocument.new()
-	var gltf_state := GLTFState.new()
-	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
-		return
-	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	var root: Node3D = _loader._load_glb_scene(glb_path)
 	if root == null:
 		return
 	# Cop Cot sits on a rocky knoll southwest of the Lake
@@ -1782,11 +1712,7 @@ func _build_imagine_mosaic() -> void:
 	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_imagine_mosaic.glb")
 	if not FileAccess.file_exists(glb_path):
 		return
-	var gltf_doc := GLTFDocument.new()
-	var gltf_state := GLTFState.new()
-	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
-		return
-	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	var root: Node3D = _loader._load_glb_scene(glb_path)
 	if root == null:
 		return
 	var ix := -787.4
@@ -1805,11 +1731,7 @@ func _build_tennis_house() -> void:
 	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_tennis_house.glb")
 	if not FileAccess.file_exists(glb_path):
 		return
-	var gltf_doc := GLTFDocument.new()
-	var gltf_state := GLTFState.new()
-	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
-		return
-	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	var root: Node3D = _loader._load_glb_scene(glb_path)
 	if root == null:
 		return
 	var tx := 297.0
@@ -1844,11 +1766,7 @@ func _build_maintenance_yard() -> void:
 	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_maintenance_yard.glb")
 	if not FileAccess.file_exists(glb_path):
 		return
-	var gltf_doc := GLTFDocument.new()
-	var gltf_state := GLTFState.new()
-	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
-		return
-	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	var root: Node3D = _loader._load_glb_scene(glb_path)
 	if root == null:
 		return
 	var mx := -476.0
@@ -1868,11 +1786,7 @@ func _build_dana_pier() -> void:
 	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_dana_pier.glb")
 	if not FileAccess.file_exists(glb_path):
 		return
-	var gltf_doc := GLTFDocument.new()
-	var gltf_state := GLTFState.new()
-	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
-		return
-	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	var root: Node3D = _loader._load_glb_scene(glb_path)
 	if root == null:
 		return
 	# Near Dana Discovery Center, extending into Harlem Meer
@@ -1927,11 +1841,7 @@ func _build_bethesda_arcade() -> void:
 	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_bethesda_arcade.glb")
 	if not FileAccess.file_exists(glb_path):
 		return
-	var gltf_doc := GLTFDocument.new()
-	var gltf_state := GLTFState.new()
-	if gltf_doc.append_from_file(glb_path, gltf_state) != OK:
-		return
-	var root: Node3D = gltf_doc.generate_scene(gltf_state)
+	var root: Node3D = _loader._load_glb_scene(glb_path)
 	if root == null:
 		return
 	# Centered between upper Mall terrace and Bethesda Fountain
@@ -1988,34 +1898,28 @@ func _build_conservatory_fountains() -> void:
 	# Untermyer Fountain (Three Dancing Maidens) — south/Italian garden
 	var u_path := ProjectSettings.globalize_path("res://models/furniture/cp_untermyer_fountain.glb")
 	if FileAccess.file_exists(u_path):
-		var gd := GLTFDocument.new()
-		var gs := GLTFState.new()
-		if gd.append_from_file(u_path, gs) == OK:
-			var root: Node3D = gd.generate_scene(gs)
-			if root:
-				var ux := 1134.0
-				var uz := -1256.0
-				var uy: float = _loader._terrain_y(ux, uz)
-				root.position = Vector3(ux, uy, uz)
-				root.name = "UntermyerFountain"
-				_loader.add_child(root)
-				print("  Untermyer Fountain placed at (%.0f, %.1f, %.0f)" % [ux, uy, uz])
+		var root: Node3D = _loader._load_glb_scene(u_path)
+		if root:
+			var ux := 1134.0
+			var uz := -1256.0
+			var uy: float = _loader._terrain_y(ux, uz)
+			root.position = Vector3(ux, uy, uz)
+			root.name = "UntermyerFountain"
+			_loader.add_child(root)
+			print("  Untermyer Fountain placed at (%.0f, %.1f, %.0f)" % [ux, uy, uz])
 
 	# Burnett Memorial Fountain (Secret Garden) — north/English garden
 	var b_path := ProjectSettings.globalize_path("res://models/furniture/cp_burnett_fountain.glb")
 	if FileAccess.file_exists(b_path):
-		var gd := GLTFDocument.new()
-		var gs := GLTFState.new()
-		if gd.append_from_file(b_path, gs) == OK:
-			var root: Node3D = gd.generate_scene(gs)
-			if root:
-				var bx := 1065.0
-				var bz := -1134.0
-				var by: float = _loader._terrain_y(bx, bz)
-				root.position = Vector3(bx, by, bz)
-				root.name = "BurnettFountain"
-				_loader.add_child(root)
-				print("  Burnett Fountain placed at (%.0f, %.1f, %.0f)" % [bx, by, bz])
+		var root: Node3D = _loader._load_glb_scene(b_path)
+		if root:
+			var bx := 1065.0
+			var bz := -1134.0
+			var by: float = _loader._terrain_y(bx, bz)
+			root.position = Vector3(bx, by, bz)
+			root.name = "BurnettFountain"
+			_loader.add_child(root)
+			print("  Burnett Fountain placed at (%.0f, %.1f, %.0f)" % [bx, by, bz])
 
 
 # ---------------------------------------------------------------------------
