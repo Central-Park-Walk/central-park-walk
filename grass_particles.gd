@@ -125,6 +125,7 @@ extends Node3D
 var offsets: Array[Vector3]
 var last_pos: Vector3 = Vector3.ZERO
 var particle_nodes: Array[GPUParticles3D]
+var _debug_printed := false
 
 
 func _ready() -> void:
@@ -246,8 +247,13 @@ func _update_process_parameters() -> void:
 			# Central Park custom uniforms — pass texture RIDs every frame
 			RenderingServer.material_set_param(process_rid, "world_size", world_size)
 			if landuse_texture:
-				RenderingServer.material_set_param(process_rid, "landuse_map",
-					landuse_texture.get_rid())
+				var lu_rid: RID = landuse_texture.get_rid()
+				RenderingServer.material_set_param(process_rid, "landuse_map", lu_rid)
+				if not _debug_printed:
+					print("Grass: landuse RID valid=%s size=%dx%d" % [
+						lu_rid.is_valid(),
+						landuse_texture.get_width(), landuse_texture.get_height()])
+					_debug_printed = true
 			if canopy_texture:
 				RenderingServer.material_set_param(process_rid, "canopy_map",
 					canopy_texture.get_rid())
