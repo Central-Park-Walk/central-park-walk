@@ -12,6 +12,7 @@ global uniform float rain_wetness;
 
 varying vec4 data;
 varying vec3 v_world_pos;
+varying float v_grow_in;
 
 void vertex() {
 	// Wind from model data — vertex Y drives bend amount
@@ -23,6 +24,7 @@ void vertex() {
 
 	// Save random seed data from particle shader
 	data.rg = INSTANCE_CUSTOM.rg;
+	v_grow_in = INSTANCE_CUSTOM[3];
 
 	// World space vertex
 	vec3 w_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -63,8 +65,7 @@ void fragment() {
 	// Tip brightening
 	base_col = mix(base_col, base_col * 1.4, smoothstep(0.7, 1.0, data[2]));
 	// Base darkening (self-shadow)
-	float grow_in = INSTANCE_CUSTOM[3];
-	base_col *= grow_in < 0.35 ? 1.0 : mix(1.0, 0.70, smoothstep(0.35, 0.0, data[2]));
+	base_col *= v_grow_in < 0.35 ? 1.0 : mix(1.0, 0.70, smoothstep(0.35, 0.0, data[2]));
 
 	// Per-blade color variation
 	base_col.rg *= (data.rg * 0.25 + 0.88);

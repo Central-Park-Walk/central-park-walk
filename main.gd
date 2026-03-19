@@ -202,12 +202,13 @@ func _ready() -> void:
 		# GPU particle grass — replaces old hexaquo MultiMesh system
 		if _terrain3d:
 			_setup_grass_particles()
-			# Pass landuse + canopy textures to grass particle system
-			if _grass_particles_node:
+			# Pass landuse + canopy textures to grass particle process shader
+			if _grass_particles_node and _grass_particles_node.process_material:
+				var pm_rid: RID = _grass_particles_node.process_material.get_rid()
 				if _landuse_texture:
-					_grass_particles_node.landuse_texture = _landuse_texture
+					RenderingServer.material_set_param(pm_rid, "landuse_map", _landuse_texture.get_rid())
 				if _park_loader and _park_loader._canopy_texture:
-					_grass_particles_node.canopy_texture = _park_loader._canopy_texture
+					RenderingServer.material_set_param(pm_rid, "canopy_map", _park_loader._canopy_texture.get_rid())
 			print("main: grass particles: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_player = _setup_player()
 	if _park_loader and _park_loader.boundary_polygon.size() > 2:
