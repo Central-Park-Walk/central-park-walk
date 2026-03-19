@@ -1604,9 +1604,12 @@ func _apply_time_of_day() -> void:
 # Terrain ground – Terrain3D clipmap or flat fallback
 # ---------------------------------------------------------------------------
 func _set_terrain_param(param: StringName, value) -> void:
-	## Set a shader parameter on the terrain material (Terrain3D override or legacy).
+	## Set a shader parameter on the Terrain3D override shader via RenderingServer.
+	## (set_shader_param() is editor-only in Terrain3D — use RenderingServer at runtime)
 	if _terrain3d and _terrain3d.material:
-		_terrain3d.material.set_shader_param(param, value)
+		var rid: RID = _terrain3d.material.get_material_rid()
+		if rid.is_valid():
+			RenderingServer.material_set_param(rid, param, value)
 
 func _setup_ground() -> void:
 	# ---- Terrain3D (geometry clipmap + built-in collision) ----
