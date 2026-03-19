@@ -2,50 +2,44 @@
 
 *An AI-human collaboration to reconstruct Central Park in 3D from freely available public data.*
 
-Central Park Walk is a real-time 3D walking simulation of all 843 acres of New York's Central Park, built entirely from freely available public data — LiDAR surveys, OpenStreetMap, the NYC Tree Census, building footprints — and interpreted by Claude (Anthropic). No objectives, no score. Just a place.
+Central Park Walk is a real-time 3D walking simulation of all 843 acres of New York's Central Park, built entirely from public data — LiDAR surveys, OpenStreetMap, the NYC Tree Census, building footprints — and interpreted by Claude (Anthropic). No objectives, no score. Just a place.
 
-Every tree has a real measured height. Every path follows its real-world geometry. Every building has its actual footprint and construction year. The terrain is accurate to one foot. The data has gaps, and we leave them visible — gaps tell us what humans haven't yet measured or mapped.
+Every tree has a real measured height. Every path follows its real-world geometry. Every building has its actual footprint. The terrain is accurate to one foot. The data has gaps, and we leave them visible.
 
-![Spring Dawn — Cherry Hill](screenshots/readme_cherry_hill_spring.png)
-*Spring dawn at Cherry Hill. Golden light through the canopy with sun sparkle on the Lake. Data-driven tree heights from LiDAR, species-specific leaf cards.*
+![Cherry Hill Dawn](screenshots/cpw_000.png)
+*Dawn at Cherry Hill — sycamores over the Lake, 0.61m LiDAR terrain.*
 
-![Summer Noon — The Ramble](screenshots/readme_ramble_noon.png)
-*Walking through the Ramble at noon. Crossed-quad leaf cards on 15 species, FBM bark with 3D normal relief, hexaquo grass at 600 blades/m².*
+![Bethesda Terrace](screenshots/cpw_001.png)
+*Bethesda Terrace at noon. 6,557 buildings from NYC footprints + LiDAR heights.*
 
-![Winter Snow — Great Lawn](screenshots/readme_great_lawn_snow.png)
-*The Great Lawn under snow. Full day/night cycle, 4 seasons, 5 weather modes. Building silhouettes from 6,557 NYC footprints + LiDAR heights.*
+![Central Park Lawn](screenshots/cpw_002.png)
+*Birch trees on the lawn. 15 Mtree species with crossed-quad leaf cards.*
 
-![Morning Fog — North Woods](screenshots/readme_north_woods_fog.png)
-*Morning fog in the North Woods. Volumetric atmosphere, 9,852 trees from census + OSM + woodland scatter, terrain from 1ft LiDAR DEM.*
+![The Lake](screenshots/cpw_003.png)
+*The Lake through spring foliage. 23 water bodies from OpenStreetMap.*
 
 ## Quick Start
 
 ### Prerequisites
 - [Godot 4.6.1](https://godotengine.org/download) (Linux x86_64)
-- Python 3 with: `numpy`, `scipy`, `gdal`, `Pillow`
-- [Blender 4.5 LTS](https://www.blender.org/download/lts/4-5/) (for model regeneration; `blender4` symlink)
-- [Mtree addon v5.5](https://extensions.blender.org/add-ons/modular-tree/) (Blender extension for tree generation)
+- [Terrain3D v1.0.1](https://github.com/TokisanGames/Terrain3D) plugin (included in `addons/`)
+- Python 3 with `numpy`, `scipy`, `gdal`, `Pillow`
+- [Blender 4.5 LTS](https://www.blender.org/download/lts/4-5/) (`blender4` symlink, for model regeneration)
+- [Mtree addon v5.5](https://extensions.blender.org/add-ons/modular-tree/) (Blender, for tree generation)
 - NVIDIA GPU recommended (Forward+ renderer)
 
 ### Setup
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/central-park-walk/central-park-walk.git
 cd central-park-walk
 
-# 2. Download OSM data
 python3 download_osm.py
-
-# 3. Download textures, models, and sounds
 python3 download_assets.py
 python3 download_models.py
 python3 download_sounds.py
-
-# 4. Convert data to Godot format
 python3 convert_to_godot.py
 
-# 5. Run
 /path/to/Godot_v4.6.1-stable_linux.x86_64 --path .
 ```
 
@@ -54,120 +48,103 @@ python3 convert_to_godot.py
 | Input | Action |
 |-------|--------|
 | WASD | Walk |
-| Mouse + RMB | Look around |
-| Scroll / +/- | Adjust speed (Stroll / Walk / Jog / Bike / Drive / Fly) |
-| T | Cycle time speed (1x / 10x / 100x / Paused) |
-| [ / ] | Nudge time ±1 hour |
-| P | Cycle weather (Clear / Rain / Thunderstorm / Snow / Fog) |
-| N / Shift+N | Cycle month (March → April → ... → February) |
-| , / . | Adjust brightness |
-| 9 / 0 | Adjust wind |
-| G | Toggle data gap markers |
-| H | Toggle HUD |
-| M | Toggle audio mute |
-| F11 | Toggle fullscreen |
+| Mouse + RMB | Look |
+| Scroll / +/- | Speed (Stroll / Walk / Jog / Bike / Drive / Fly) |
+| T | Time speed (1x / 10x / 100x / Paused) |
+| [ / ] | Time ±1 hour |
+| P | Weather (Clear / Rain / Thunderstorm / Snow / Fog) |
+| N / Shift+N | Month |
+| G | Data gap markers |
+| H | HUD |
+| F11 | Fullscreen |
 | F12 | Screenshot |
 
-**Gamepad**: Left stick walk, right stick look, right trigger fly, left trigger screenshot. D-pad up/down adjust speed, D-pad left/right ±1 hour. LB cycles weather, RB cycles month.
+**Gamepad**: Left stick walk, right stick look, right trigger fly, left trigger screenshot. D-pad up/down speed, left/right ±1h. LB weather, RB month.
 
-### CLI Options
+### CLI
 
 ```bash
--- --tour              # Automated screenshot tour (340 shots → /tmp/tour/)
--- --tour-showcase     # Curated showcase (22 shots — ground + aerial views)
--- --readme-shots      # Regenerate the 4 README screenshots → screenshots/
--- --pos "x,z,yaw"    # Spawn at specific coordinates
--- --time noon         # Set time (dawn/morning/noon/golden_hour/dusk/night)
--- --weather rain      # Set weather (clear/rain/snow/fog)
--- --season autumn     # Set season (spring/summer/autumn/fall/winter)
+-- --tour              # 340 automated screenshots → /tmp/tour/
+-- --pos "x,z,yaw"    # Spawn at coordinates
+-- --time noon         # dawn/morning/noon/golden_hour/dusk/night
+-- --weather rain      # clear/rain/snow/fog
+-- --season autumn     # spring/summer/autumn/winter
 ```
 
 ## What's In It
 
-| Feature | Count | Source |
-|---------|-------|--------|
-| Terrain | 8192×8192 mesh (14M verts) | LiDAR DEM bare earth 2017 (1ft resolution, 0.61m cells). Terrain mesh holes at terrain-integrated structures (Bethesda Terrace). 3D path mesh strips (2,624 paths). Granite curb faces (316K verts). 1,909 retaining wall segments. Rock outcrops via DSM blend (161K cells). Dappled canopy shade from tree census crown data |
-| Trees | 9,852 | NYC Tree Census + OSM + woodland scatter in 12 ecological zones. **Mtree procedural generation** (Blender 4.5 + Modular Tree v5.5): 15 species × 3 size tiers (small/medium/large) = 46 GLBs with scale-aware branch density. Trees generated at real-world heights with natural branching, normalized to 5m model space. **Data-driven heights**: LiDAR 6M Trees (4,005), canopy height model enrichment (1,450), DBH-estimated (4,397). Crossed-quad leaf cards at branch tips (radius attribute). Per-pixel color noise. Cherry/callery pear/magnolia spring bloom. FBM bark with 3D normal relief. Invasive vines: porcelain berry + oriental bittersweet (13 mesh variants) |
-| Vegetation | 30 undergrowth + 6 ground cover | **Undergrowth**: 7 shrubs, 12 herbs, 4 ferns, 4 wetland, 2 fungi, 1 grass. Zone-specific: NorthWoods fern-dominated, Ramble shrub-diverse, Waterside cattail/iris, WildMeadow tall herbs. **14 species with bloom-season flowers** (cardinal flower scarlet, ironweed purple, coneflower gold, etc.). **11 species upgraded to real 3D foliage** from BD3D Plant Library (shrubs + ferns) with PBR bark/leaf textures and alpha-cutout silhouettes; remaining herbs use procedural geometry. **Ground cover patches**: 6 types (bramble, fern cluster, mixed weeds, tall grass, fallen leaves, twig litter) × 4 variants via shared atlas texture. Seasonal fallen leaves (October–March). Chunk-based MultiMesh with alpha-hash LOD |
-| Grass & Flowers | Hexaquo method | Individual blade geometry at 600/m² via MultiMesh. 4 blade meshes, 10 zone-specific color palettes. 8 wildflower models with seasonal clustering on all lawn zones (4% maintained lawns, 10% default, 15% wild meadow). Per-pixel color noise on every blade. Wind, canopy shade, path-edge wear, seasonal color, winter dormancy |
-| Water | 23 bodies + 10 streams | OpenStreetMap polygons. Canopy shade on water. Stone coping on formal water bodies. Dawn/dusk mist (8 fog volumes) |
-| Buildings | 6,557 | NYC Building Footprints + LiDAR heights. 5 facade materials with per-building variation, floor-accurate windows, cornice bands, awnings, grime weathering |
-| Bridges & Arches | 17 models | Custom Blender models: Bow Bridge (cast iron), Gapstow (schist), Huddlestone (cyclopean boulders), Glen Span (tall gneiss), Trefoil, Oak Bridge, Eaglevale, Winterdale, plus 9 more |
-| Perimeter | 4.8 km wall + 19 gates | Manhattan schist wall from boundary polygon. Paired granite pillars at each gate |
-| Barriers | 364 features | Stone walls, iron fence panels, hedges, Reservoir fence (864 sections), bridle path posts (2,990) |
-| Landmarks | 39 models | Bethesda Terrace, Belvedere Castle, Swedish Cottage, The Dairy, Loeb Boathouse, Delacorte Theater, Tavern on the Green, and 30+ more |
-| Furniture | 2,000+ | **33 PBR-textured models** using ambientCG materials (cast iron, weathered wood, granite, concrete, bronze). Lampposts (201), benches (610), trash cans, drinking fountains (95), decorative fountains, flagpoles, park signs (80), bollards, call boxes, info kiosks, mile markers, fitness stations, balustrades. UV-mapped with normal/roughness/metalness maps |
-| Statues | 106 positions | 4 photogrammetry scans + 32 named Blender GLBs |
-| Sports | 147 fields | Tennis (54 nets), basketball (72 hoops), baseball (30 backstops), soccer (22 goals), handball (4 walls), 21 playgrounds |
-| Seasons | 12 months | Per-species phenology, spring blossoms (cherry/magnolia/callery pear), cherry petal drift, autumn falling leaves, undergrowth bloom colors, seasonal fallen leaf litter. Monthly cycling (N key) |
-| Weather | 5 modes | Clear, rain, thunderstorm, snow, fog — with surface response (wet darkening, puddles, frost, snow accumulation) |
-| Day/night | Full cycle | 48-lamp pool, lit windows, NYC light pollution, moon, volumetric god rays, aerial perspective |
-| Audio | 5 layers | Wind, city ambient, water proximity, surface-aware footsteps, rain |
-| Post-processing | EGTTR-inspired | Soft impressionist bloom (midtone glow), color diffusion (12% neighbor blend), filmic tonemap, per-pixel noise on all natural surfaces (grass/leaves/bark/terrain), split-tone, film grain, seasonal color shifts |
+### Terrain
+Terrain3D geometry clipmaps with 64 regions at native 0.61m LiDAR resolution (8192×8192 heightmap). Auto-shader with BD3D forest floor + ambientCG rock textures. Rock outcrops via DSM blend (161K cells). Built-in collision and LOD.
 
-## Performance
+### Trees (9,852)
+NYC Tree Census + OSM + woodland scatter across 12 ecological zones. 15 Mtree species × 3 size tiers = 46 GLBs. LiDAR heights (4,005 trees), canopy height model enrichment (1,450), DBH-estimated (4,397). Crossed-quad leaf cards, FBM bark, per-pixel noise. Invasive vines: porcelain berry + oriental bittersweet (13 variants).
 
-First launch builds mesh caches (~33s). Subsequent launches load cached geometry for buildings (6,557 extruded footprints), tree models (15 GLBs), furniture models, and prebaked water grids — reducing load time significantly. Caches auto-invalidate when source data changes. Delete `cache/` to force a full rebuild.
+### Vegetation (71 BD3D meshes + 30 undergrowth species)
+7 shrubs, 12 herbs, 4 ferns, 4 wetland, 2 fungi, 1 grass — zone-specific placement. 11 species upgraded to BD3D Plant Library 3D foliage with PBR textures. 13 grass types, 3 mowed lawn variants, 4 clovers, 2 dandelions, 5 fallen leaf types, 3 fallen branches, 2 moss patches, 4 weeds, 4 saplings. 6 ground cover patch types × 4 variants.
+
+### Water (23 bodies + 10 streams)
+OpenStreetMap polygons with stone coping, dawn/dusk mist (8 fog volumes).
+
+### Buildings (6,557)
+NYC Building Footprints + LiDAR heights. 5 facade materials, floor-accurate windows, cornice bands, awnings, grime weathering.
+
+### Infrastructure
+17 bridges (custom Blender models), 4.8km perimeter wall, 364 barriers, 39 landmarks, 106 statue positions, 147 sports fields, 2,000+ furniture items (33 PBR models with ambientCG textures).
+
+### Environment
+Full day/night cycle, 4 seasons, 5 weather modes, 48-lamp lighting pool, 5-layer ambient audio.
 
 ## Data Sources
 
-All data is freely available. No paid APIs. No API keys.
+All data is freely available. No paid APIs.
 
-| Source | What It Provides | License |
-|--------|-----------------|---------|
-| [NYC LiDAR (2017)](https://gis.ny.gov/elevation/lidar-coverage) | 1ft terrain elevation (DEM bare earth) | Public Domain |
-| [NYC 6M Trees](https://data.cityofnewyork.us/Environment/2015-Street-Tree-Census-Tree-Data/uvpi-gqnh) | Tree positions, heights, crown areas | Public Domain |
+| Source | Provides | License |
+|--------|----------|---------|
+| [NYC LiDAR (2017)](https://gis.ny.gov/elevation/lidar-coverage) | 1ft terrain DEM | Public Domain |
 | [OpenStreetMap](https://www.openstreetmap.org/) | Paths, water, buildings, bridges, furniture | ODbL |
-| [NYC Tree Census](https://data.cityofnewyork.us/) | Species, diameter for park trees | Public Domain |
-| [Sketchfab](https://sketchfab.com/) | Photogrammetry scans (3 statues + Bethesda Fountain) | CC-BY |
-| Custom Blender scripts | 46 Mtree tree models (15 species × 3 tiers), 33 PBR furniture models, 30 undergrowth species (11 from BD3D Plant Library), 24 ground cover patches, 17 bridges, 13 vine models | Original (MIT) |
-| [BD3D Plant Library](https://blendermarket.com/products/bd3d-plant-library) | 3D foliage meshes for shrubs + ferns (decimated + relit) | Free (Gumroad) |
-| [ambientCG](https://ambientcg.com/) / [Polyhaven](https://polyhaven.com/) | PBR textures, HDRI sky | CC0 |
-
-## How to Contribute
-
-This project grows with human attention.
-
-**No coding required**: Map furniture in OSM (only ~10% of real lampposts/benches are mapped). Take photogrammetry scans of statues (4 of 106 scanned) or landmarks. Record field audio. Photograph landmarks and materials. Map rock outcrops (~170 named, 1 in OSM). Close-range drone or terrestrial LiDAR of architectural detail is especially valuable.
-
-**Technical**: Custom Blender tree models (all species-specific). Interior spaces. Performance profiling. Cross-platform support.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
-
-## Philosophy
-
-1. **Data-first**: Don't guess — get better data. Gaps are visible because gaps are real.
-2. **Honest interpretation**: Render what data and AI perception together produce.
-3. **Community-driven**: Humans contribute data, AI reinterprets it.
-4. **Accessibility**: A walking simulator. No competition, no violence.
-
-## Support the Project
-
-Central Park Walk is built by Christopher Abbey and Claude, with no institutional backing.
-
-[![Contribute on Open Collective](https://opencollective.com/central-park-walk/contribute/button)](https://opencollective.com/central-park-walk)
-
-See [FUNDING.md](FUNDING.md) for details on how funds are used.
+| [NYC Tree Census](https://data.cityofnewyork.us/) | Tree positions, species, diameter, heights | Public Domain |
+| [BD3D Plant Library](https://blendermarket.com/products/bd3d-plant-library) | 3D foliage meshes (shrubs, ferns, grass) | Free (Gumroad) |
+| [ambientCG](https://ambientcg.com/) | PBR ground + furniture textures | CC0 |
+| [Sketchfab](https://sketchfab.com/) | Photogrammetry statue scans | CC-BY |
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
 | Engine | Godot 4.6.1 (Forward+, GDScript) |
+| Terrain | Terrain3D v1.0.1 (geometry clipmaps, GDExtension) |
 | Data pipeline | Python (GDAL, numpy/scipy, Pillow) |
-| 3D modeling | Blender 4.5.8 LTS + Mtree v5.5 (procedural trees), BD3D Plant Library (undergrowth), ambientCG PBR textures |
-| Rendering | 24 custom GLSL shaders, MultiMesh instancing, buffer-based grass (600/m²), 8K prebaked terrain mesh, shared texture atlases (leaf + ground cover), per-pixel hash noise on all natural surfaces |
+| 3D modeling | Blender 4.5.8 LTS + Mtree v5.5, BD3D Plant Library |
+| Rendering | 24 custom GLSL shaders, MultiMesh instancing, 8K world atlas |
+
+## Philosophy
+
+1. **Data-first**: Render from data or don't render. Gaps stay visible.
+2. **Honest interpretation**: What data and AI perception together produce.
+3. **Community-driven**: Humans contribute data, AI reinterprets it.
+4. **Accessibility**: A walking simulator. No competition, no violence.
+
+## How to Contribute
+
+**No coding required**: Map furniture in OSM (only ~10% mapped). Take photogrammetry scans of statues (4 of 106 scanned). Record field audio. Photograph materials. Map rock outcrops.
+
+**Technical**: Custom tree models. Interior spaces. Performance profiling. Cross-platform support.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+## Support
+
+Central Park Walk is built by Christopher Abbey and Claude, with no institutional backing.
+
+[![Contribute on Open Collective](https://opencollective.com/central-park-walk/contribute/button)](https://opencollective.com/central-park-walk)
 
 ## License
 
-Code: [MIT License](LICENSE)
-Assets and creative content: [CC-BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
+Code: [MIT](LICENSE). Assets: [CC-BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 
 ## Credits
 
-- **Christopher Abbey** — Project creator, technical lead
-- **Claude (Anthropic)** — Co-creator: data interpretation, code, shaders, artistic decisions
+**Christopher Abbey** — Creator, technical lead
+**Claude (Anthropic)** — Co-creator: data interpretation, code, shaders, artistic decisions
 
-Asset sources: [credits.txt](credits.txt)
-
-Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors. LiDAR data from NYS GIS Clearinghouse. Tree data from NYC OpenData.
+Asset sources: [credits.txt](credits.txt). Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors.
