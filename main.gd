@@ -1713,11 +1713,12 @@ func _setup_grass_particles() -> void:
 	## Instantiate Terrain3D's particle grass scene with zone-aware filtering.
 	## Textures MUST be set before add_child() — particles birth instantly
 	## and won't re-filter until camera moves.
-	var scene: PackedScene = load("res://addons/terrain_3d/extras/particle_example/Terrain3DParticles.tscn")
-	if not scene:
-		push_warning("Terrain3DParticles.tscn not found")
+	var gp_script = load("res://grass_particles.gd")
+	if not gp_script:
+		push_warning("grass_particles.gd not found")
 		return
-	var gp: Node3D = scene.instantiate()
+	var gp: Node3D = Node3D.new()
+	gp.set_script(gp_script)
 	gp.name = "GrassParticles"
 	gp.terrain = _terrain3d
 	gp.instance_spacing = 0.125
@@ -1762,11 +1763,25 @@ func _setup_grass_particles() -> void:
 			proc_mat.set_shader_parameter("canopy_map", _park_loader._canopy_texture)
 		gp.process_material = proc_mat
 
+	# Grass blade mesh — RibbonTrailMesh (flat ribbon, same as Terrain3D example)
+	var blade := RibbonTrailMesh.new()
+	blade.shape = RibbonTrailMesh.SHAPE_FLAT
+	blade.section_length = 0.18
+	blade.section_segments = 1
+	gp.mesh = blade
+
 	var render_shader: Shader = load("res://shaders/grass_particle_render.gdshader")
 	if render_shader:
 		var render_mat := ShaderMaterial.new()
 		render_mat.shader = render_shader
 		gp.mesh_material_override = render_mat
+
+	# Pass textures to our controller for per-frame RenderingServer updates
+	if _landuse_texture:
+		gp.landuse_texture = _landuse_texture
+	if _park_loader and _park_loader._canopy_texture:
+		gp.canopy_texture = _park_loader._canopy_texture
+	gp.world_size = _hm_world_size
 
 	add_child(gp)
 	_grass_particles_node = gp

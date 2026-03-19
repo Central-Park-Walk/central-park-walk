@@ -243,10 +243,8 @@ func _update_process_parameters() -> void:
 			RenderingServer.material_set_param(process_rid, "instance_spacing", instance_spacing)
 			RenderingServer.material_set_param(process_rid, "instance_rows", rows)
 			RenderingServer.material_set_param(process_rid, "max_dist", min_draw_distance)
-			# Central Park custom uniforms
+			# Central Park custom uniforms — pass texture RIDs every frame
 			RenderingServer.material_set_param(process_rid, "world_size", world_size)
-			RenderingServer.material_set_param(process_rid, "season_t",
-				RenderingServer.global_shader_parameter_get("season_t"))
 			if landuse_texture:
 				RenderingServer.material_set_param(process_rid, "landuse_map",
 					landuse_texture.get_rid())
