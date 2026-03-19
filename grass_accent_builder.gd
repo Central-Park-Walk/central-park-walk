@@ -95,6 +95,7 @@ const ZONE_ACCENTS := {
 }
 
 var _render_shader: Shader
+var season_t: float = 1.5  # updated by main.gd each frame
 
 
 func _init(loader) -> void:
@@ -267,8 +268,7 @@ func _build_chunk(ck: String) -> void:
 		_active_chunks[ck] = []
 		return
 
-	# Get current season for seasonal filtering
-	var season_t: float = RenderingServer.global_shader_parameter_get("season_t")
+	# Seasonal filtering from cached season_t (updated by main.gd)
 	var is_spring_summer: bool = season_t < 2.0  # spring(0) + summer(1)
 	var is_autumn_winter: bool = season_t >= 2.0  # autumn(2) + winter(3)
 
