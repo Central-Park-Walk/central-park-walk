@@ -1747,21 +1747,21 @@ func _setup_grass_particles() -> void:
 	proc_mat.set_shader_parameter("normal_strength", 0.3)
 	proc_mat.set_shader_parameter("random_rotation", true)
 	proc_mat.set_shader_parameter("random_spacing", 0.5)
-	proc_mat.set_shader_parameter("min_scale", Vector3(0.04, 0.04, 0.04))  # ~4cm lawn
-	proc_mat.set_shader_parameter("max_scale", Vector3(0.08, 0.20, 0.08))  # ~20cm wild
+	proc_mat.set_shader_parameter("min_scale", Vector3(0.03, 0.03, 0.03))  # ~3cm lawn
+	proc_mat.set_shader_parameter("max_scale", Vector3(0.06, 0.12, 0.06))  # ~12cm wild
 	proc_mat.set_shader_parameter("wind_speed", 0.025)
 	proc_mat.set_shader_parameter("wind_strength", 1.0)
 	proc_mat.set_shader_parameter("wind_dithering", 4.0)
 	proc_mat.set_shader_parameter("wind_direction", Vector2(1, 1))
-	proc_mat.set_shader_parameter("clod_scale_boost", 0.5)    # subtle height variation
+	proc_mat.set_shader_parameter("clod_scale_boost", 0.08)   # very subtle height variation
 	proc_mat.set_shader_parameter("surface_slope_min", 0.85)  # no grass on cliffs
 	proc_mat.set_shader_parameter("distance_fade_ammount", 0.6)
 	proc_mat.set_shader_parameter("world_size", _hm_world_size)
 	gp.process_material = proc_mat
 
-	# Grass blade mesh — simple ribbon (BoxMesh with minimal depth)
-	var blade := BoxMesh.new()
-	blade.size = Vector3(0.06, 1.0, 0.01)  # tall thin ribbon
+	# Grass blade mesh — flat quad (2 triangles, cull_disabled renders both sides)
+	var blade := QuadMesh.new()
+	blade.size = Vector2(0.06, 1.0)  # width × height, oriented in XY plane
 	gp.mesh = blade
 
 	# Render material with our seasonal grass shader
