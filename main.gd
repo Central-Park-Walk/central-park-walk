@@ -1715,69 +1715,34 @@ var _grass_particles_node = null
 var _landuse_texture: Texture2D  # cached for grass particle system
 
 func _setup_grass_particles() -> void:
-	## Create GPU particle grass system using Terrain3D height data.
-	var gp_script = load("res://grass_particles.gd")
-	if not gp_script:
-		push_warning("grass_particles.gd not found")
+	## Instantiate Terrain3D's particle grass scene — plug and play.
+	var scene: PackedScene = load("res://addons/terrain_3d/extras/particle_example/Terrain3DParticles.tscn")
+	if not scene:
+		push_warning("Terrain3DParticles.tscn not found")
 		return
-	var gp = gp_script.new()
+	var gp: Node3D = scene.instantiate()
 	gp.name = "GrassParticles"
 	gp.terrain = _terrain3d
-	gp.instance_spacing = 0.25       # dense lawn grass
-	gp.cell_width = 32.0             # match Terrain3D cell size
-	gp.grid_width = 9                # 9×9 grid = ~144m visibility radius
-	gp.shadow_mode = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF  # grass shadows too expensive
+	gp.instance_spacing = 0.25
+	gp.cell_width = 24.0
+	gp.grid_width = 7              # 7×7 grid = ~84m radius
+	gp.shadow_mode = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
-	# Load process material with our custom particle shader
+	# Swap in our custom shaders for zone/season awareness
 	var proc_shader: Shader = load("res://shaders/grass_particles.gdshader")
-	var proc_mat := ShaderMaterial.new()
-	proc_mat.shader = proc_shader
-	# Noise texture for patchiness
-	var noise := FastNoiseLite.new()
-	noise.noise_type = FastNoiseLite.TYPE_CELLULAR
-	noise.frequency = 0.0145
-	noise.cellular_return_type = FastNoiseLite.RETURN_CELL_VALUE
-	var noise_tex := NoiseTexture2D.new()
-	noise_tex.seamless = true
-	noise_tex.noise = noise
-	proc_mat.set_shader_parameter("main_noise", noise_tex)
-	proc_mat.set_shader_parameter("main_noise_scale", 0.01)
-	proc_mat.set_shader_parameter("position_offset", Vector3(0, 0.04, 0))
-	proc_mat.set_shader_parameter("align_to_normal", true)
-	proc_mat.set_shader_parameter("normal_strength", 0.3)
-	proc_mat.set_shader_parameter("random_rotation", true)
-	proc_mat.set_shader_parameter("random_spacing", 0.5)
-	proc_mat.set_shader_parameter("min_scale", Vector3(0.03, 0.03, 0.03))  # ~3cm lawn
-	proc_mat.set_shader_parameter("max_scale", Vector3(0.06, 0.12, 0.06))  # ~12cm wild
-	proc_mat.set_shader_parameter("wind_speed", 0.025)
-	proc_mat.set_shader_parameter("wind_strength", 1.0)
-	proc_mat.set_shader_parameter("wind_dithering", 4.0)
-	proc_mat.set_shader_parameter("wind_direction", Vector2(1, 1))
-	proc_mat.set_shader_parameter("clod_scale_boost", 0.08)   # very subtle height variation
-	proc_mat.set_shader_parameter("surface_slope_min", 0.85)  # no grass on cliffs
-	proc_mat.set_shader_parameter("distance_fade_ammount", 0.6)
-	proc_mat.set_shader_parameter("world_size", _hm_world_size)
-	gp.process_material = proc_mat
+	if proc_shader and gp.process_material:
+		gp.process_material.shader = proc_shader
+		gp.process_material.set_shader_parameter("world_size", _hm_world_size)
 
-	# Grass blade mesh — flat quad (2 triangles, cull_disabled renders both sides)
-	var blade := QuadMesh.new()
-	blade.size = Vector2(0.06, 1.0)  # width × height, oriented in XY plane
-	gp.mesh = blade
-
-	# Render material with our seasonal grass shader
 	var render_shader: Shader = load("res://shaders/grass_particle_render.gdshader")
-	var render_mat := ShaderMaterial.new()
-	render_mat.shader = render_shader
-	gp.mesh_material_override = render_mat
-
-	# Pass landuse and canopy textures (set after park_loader creates them)
-	if _park_loader:
-		# These will be set via _update_process_parameters() each frame
-		gp.world_size = _hm_world_size
+	if render_shader:
+		var render_mat := ShaderMaterial.new()
+		render_mat.shader = render_shader
+		gp.mesh_material_override = render_mat
 
 	add_child(gp)
 	_grass_particles_node = gp
-	print("Grass: GPU particle system — spacing=%.2f, grid=%dx%d" % [
+	print("Grass: Terrain3D GPU particles — spacing=%.2f, grid=%dx%d" % [
 		gp.instance_spacing, gp.grid_width, gp.grid_width])
 
 
