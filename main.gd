@@ -199,6 +199,16 @@ func _ready() -> void:
 		if _park_loader and _park_loader._canopy_texture:
 			_set_terrain_param("canopy_map", _park_loader._canopy_texture)
 		print("main: canopy map: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
+		# GPU particle grass — replaces old hexaquo MultiMesh system
+		if _terrain3d:
+			_setup_grass_particles()
+			# Pass landuse + canopy textures to grass particle system
+			if _grass_particles_node:
+				if _landuse_texture:
+					_grass_particles_node.landuse_texture = _landuse_texture
+				if _park_loader and _park_loader._canopy_texture:
+					_grass_particles_node.canopy_texture = _park_loader._canopy_texture
+			print("main: grass particles: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_player = _setup_player()
 	if _park_loader and _park_loader.boundary_polygon.size() > 2:
 		_player.boundary_polygon = _park_loader.boundary_polygon
@@ -1699,6 +1709,78 @@ func _setup_ground() -> void:
 
 
 # ---------------------------------------------------------------------------
+# GPU Particle Grass (Terrain3D-based)
+# ---------------------------------------------------------------------------
+var _grass_particles_node = null
+var _landuse_texture: Texture2D  # cached for grass particle system
+
+func _setup_grass_particles() -> void:
+	## Create GPU particle grass system using Terrain3D height data.
+	var gp_script = load("res://grass_particles.gd")
+	if not gp_script:
+		push_warning("grass_particles.gd not found")
+		return
+	var gp = gp_script.new()
+	gp.name = "GrassParticles"
+	gp.terrain = _terrain3d
+	gp.instance_spacing = 0.25       # dense lawn grass
+	gp.cell_width = 32.0             # match Terrain3D cell size
+	gp.grid_width = 9                # 9×9 grid = ~144m visibility radius
+	gp.shadow_mode = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF  # grass shadows too expensive
+
+	# Load process material with our custom particle shader
+	var proc_shader: Shader = load("res://shaders/grass_particles.gdshader")
+	var proc_mat := ShaderMaterial.new()
+	proc_mat.shader = proc_shader
+	# Noise texture for patchiness
+	var noise := FastNoiseLite.new()
+	noise.noise_type = FastNoiseLite.TYPE_CELLULAR
+	noise.frequency = 0.0145
+	noise.cellular_return_type = FastNoiseLite.RETURN_CELL_VALUE
+	var noise_tex := NoiseTexture2D.new()
+	noise_tex.seamless = true
+	noise_tex.noise = noise
+	proc_mat.set_shader_parameter("main_noise", noise_tex)
+	proc_mat.set_shader_parameter("main_noise_scale", 0.01)
+	proc_mat.set_shader_parameter("position_offset", Vector3(0, 0.45, 0))
+	proc_mat.set_shader_parameter("align_to_normal", true)
+	proc_mat.set_shader_parameter("normal_strength", 0.3)
+	proc_mat.set_shader_parameter("random_rotation", true)
+	proc_mat.set_shader_parameter("random_spacing", 0.5)
+	proc_mat.set_shader_parameter("min_scale", Vector3(0.08, 0.4, 0.08))
+	proc_mat.set_shader_parameter("max_scale", Vector3(0.12, 1.2, 0.12))
+	proc_mat.set_shader_parameter("wind_speed", 0.025)
+	proc_mat.set_shader_parameter("wind_strength", 1.0)
+	proc_mat.set_shader_parameter("wind_dithering", 4.0)
+	proc_mat.set_shader_parameter("wind_direction", Vector2(1, 1))
+	proc_mat.set_shader_parameter("surface_slope_min", 0.85)  # no grass on cliffs
+	proc_mat.set_shader_parameter("distance_fade_ammount", 0.6)
+	proc_mat.set_shader_parameter("world_size", _hm_world_size)
+	gp.process_material = proc_mat
+
+	# Grass blade mesh — simple ribbon (BoxMesh with minimal depth)
+	var blade := BoxMesh.new()
+	blade.size = Vector3(0.06, 1.0, 0.01)  # tall thin ribbon
+	gp.mesh = blade
+
+	# Render material with our seasonal grass shader
+	var render_shader: Shader = load("res://shaders/grass_particle_render.gdshader")
+	var render_mat := ShaderMaterial.new()
+	render_mat.shader = render_shader
+	gp.mesh_material_override = render_mat
+
+	# Pass landuse and canopy textures (set after park_loader creates them)
+	if _park_loader:
+		# These will be set via _update_process_parameters() each frame
+		gp.world_size = _hm_world_size
+
+	add_child(gp)
+	_grass_particles_node = gp
+	print("Grass: GPU particle system — spacing=%.2f, grid=%dx%d" % [
+		gp.instance_spacing, gp.grid_width, gp.grid_width])
+
+
+# ---------------------------------------------------------------------------
 # Central Park geometry (paths + boundary walls from park_data.json)
 # ---------------------------------------------------------------------------
 var _park_loader = null
@@ -1827,6 +1909,7 @@ func _apply_landuse_map(zones: Array, water: Array = []) -> void:
 		img = _rasterize_landuse_runtime(zones, water)
 
 	var tex := ImageTexture.create_from_image(img)
+	_landuse_texture = tex
 	_set_terrain_param("landuse_map", tex)
 
 	# Load pre-baked shore distance field for smooth water-to-land transitions

@@ -1043,8 +1043,9 @@ func _ready() -> void:
 	print("  trees: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	_canopy_texture = _generate_canopy_map(_tree_builder.canopy_data)
 	print("  canopy map: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
-	_grass_builder._build_grass()
-	print("  grass: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
+	# Old hexaquo grass disabled — replaced by Terrain3D GPU particle grass in main.gd
+	#_grass_builder._build_grass()
+	print("  grass: SKIPPED (GPU particle system)"); _tp = Time.get_ticks_msec()
 	_undergrowth_builder._build_undergrowth()
 	print("  undergrowth: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	_ground_cover_builder._build_ground_cover()
