@@ -4,6 +4,8 @@
 # Placement driven by atlas zone type — data-first, no procedural invention.
 
 var _loader
+var season_t: float = 1.5       # updated by main.gd each frame
+var rain_wetness: float = 0.0   # updated by main.gd each frame
 var _meshes: Dictionary = {}    # species_name -> Mesh
 var _shader: Shader
 var _leaf_atlas: Texture2D       # 2048x2048 leaf texture atlas (4x4 grid)
@@ -387,12 +389,10 @@ func _build_chunk(ck: String) -> void:
 
 	# Seasonal check for fungi (indices 16, 17)
 	# Mushrooms: peak late summer through fall (season_t 1.5-2.8), absent otherwise
-	var season_val = RenderingServer.global_shader_parameter_get("season_t")
-	var cur_season: float = float(season_val) if season_val != null else 1.5
+	var cur_season: float = season_t
 	var mushroom_active: bool = cur_season > 1.3 and cur_season < 2.9
 	# Rain boosts mushroom density
-	var rain_val = RenderingServer.global_shader_parameter_get("rain_wetness")
-	var rain_boost: float = 1.0 + (float(rain_val) if rain_val != null else 0.0) * 0.5
+	var rain_boost: float = 1.0 + rain_wetness * 0.5
 
 	# Pre-allocate buffers per species
 	var bufs: Dictionary = {}
