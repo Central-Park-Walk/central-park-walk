@@ -202,12 +202,7 @@ func _ready() -> void:
 		# GPU particle grass — replaces old hexaquo MultiMesh system
 		if _terrain3d:
 			_setup_grass_particles()
-			# Pass landuse + canopy textures to grass particle process shader
-			if _grass_particles_node and _grass_particles_node.process_material:
-				if _landuse_texture:
-					_grass_particles_node.process_material.set_shader_parameter("landuse_map", _landuse_texture)
-				if _park_loader and _park_loader._canopy_texture:
-					_grass_particles_node.process_material.set_shader_parameter("canopy_map", _park_loader._canopy_texture)
+			# Textures already set on grass process material before add_child()
 			print("main: grass particles: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_player = _setup_player()
 	if _park_loader and _park_loader.boundary_polygon.size() > 2:
@@ -1715,7 +1710,9 @@ var _grass_particles_node = null
 var _landuse_texture: Texture2D  # cached for grass particle system
 
 func _setup_grass_particles() -> void:
-	## Instantiate Terrain3D's particle grass scene — plug and play.
+	## Instantiate Terrain3D's particle grass scene with zone-aware filtering.
+	## Textures MUST be set before add_child() — particles birth instantly
+	## and won't re-filter until camera moves.
 	var scene: PackedScene = load("res://addons/terrain_3d/extras/particle_example/Terrain3DParticles.tscn")
 	if not scene:
 		push_warning("Terrain3DParticles.tscn not found")
@@ -1723,20 +1720,47 @@ func _setup_grass_particles() -> void:
 	var gp: Node3D = scene.instantiate()
 	gp.name = "GrassParticles"
 	gp.terrain = _terrain3d
-	gp.instance_spacing = 0.125      # denser (64 blades/m² vs 16)
-	gp.cell_width = 16.0             # smaller cells for better culling
-	gp.grid_width = 9               # 9×9 grid = ~72m radius
+	gp.instance_spacing = 0.125
+	gp.cell_width = 16.0
+	gp.grid_width = 9
 	gp.shadow_mode = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
-	# Swap in our custom shaders for zone/season awareness
+	# Build a fresh process material with our custom shader + all uniforms set
 	var proc_shader: Shader = load("res://shaders/grass_particles.gdshader")
-	if proc_shader and gp.process_material:
-		gp.process_material.shader = proc_shader
-		gp.process_material.set_shader_parameter("world_size", _hm_world_size)
-		# Smaller blades than default — lawn grass, not wild meadow
-		gp.process_material.set_shader_parameter("min_scale", Vector3(0.08, 0.3, 0.08))
-		gp.process_material.set_shader_parameter("max_scale", Vector3(0.10, 0.7, 0.10))
-		gp.process_material.set_shader_parameter("position_offset", Vector3(0, 0.3, 0))
+	if proc_shader:
+		var proc_mat := ShaderMaterial.new()
+		proc_mat.shader = proc_shader
+		# Copy essential defaults from the Terrain3D example
+		var noise := FastNoiseLite.new()
+		noise.noise_type = FastNoiseLite.TYPE_CELLULAR
+		noise.frequency = 0.0145
+		noise.cellular_return_type = FastNoiseLite.RETURN_CELL_VALUE
+		var noise_tex := NoiseTexture2D.new()
+		noise_tex.seamless = true
+		noise_tex.noise = noise
+		proc_mat.set_shader_parameter("main_noise", noise_tex)
+		proc_mat.set_shader_parameter("main_noise_scale", 0.01)
+		proc_mat.set_shader_parameter("position_offset", Vector3(0, 0.3, 0))
+		proc_mat.set_shader_parameter("align_to_normal", true)
+		proc_mat.set_shader_parameter("normal_strength", 0.3)
+		proc_mat.set_shader_parameter("random_rotation", true)
+		proc_mat.set_shader_parameter("random_spacing", 0.5)
+		proc_mat.set_shader_parameter("min_scale", Vector3(0.08, 0.3, 0.08))
+		proc_mat.set_shader_parameter("max_scale", Vector3(0.10, 0.7, 0.10))
+		proc_mat.set_shader_parameter("wind_speed", 0.025)
+		proc_mat.set_shader_parameter("wind_strength", 1.0)
+		proc_mat.set_shader_parameter("wind_dithering", 4.0)
+		proc_mat.set_shader_parameter("wind_direction", Vector2(1, 1))
+		proc_mat.set_shader_parameter("clod_scale_boost", 0.15)
+		proc_mat.set_shader_parameter("surface_slope_min", 0.85)
+		proc_mat.set_shader_parameter("distance_fade_ammount", 0.6)
+		# Central Park uniforms — set BEFORE add_child so start() has them
+		proc_mat.set_shader_parameter("world_size", _hm_world_size)
+		if _landuse_texture:
+			proc_mat.set_shader_parameter("landuse_map", _landuse_texture)
+		if _park_loader and _park_loader._canopy_texture:
+			proc_mat.set_shader_parameter("canopy_map", _park_loader._canopy_texture)
+		gp.process_material = proc_mat
 
 	var render_shader: Shader = load("res://shaders/grass_particle_render.gdshader")
 	if render_shader:
