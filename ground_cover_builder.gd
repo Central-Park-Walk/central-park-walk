@@ -1,13 +1,11 @@
 # ground_cover_builder.gd
-# Chunk-based MultiMesh placement for dense ground cover patches.
-# Fills the gap between grass blades (0-5cm) and undergrowth (30cm+)
-# with pre-assembled 2x2m patch meshes: bramble, fern clusters,
-# mixed weeds, tall grass, and seasonal fallen leaves/twig litter.
+# Chunk-based MultiMesh placement for ground cover using BD3D plant library.
+# Fallen leaves, branches, moss, weeds, and saplings — all real 3D meshes
+# with embedded PBR textures. No procedural patches, no atlas shader.
 # Data-first: placement driven by atlas zone type and canopy coverage.
 
 var _loader
-var _meshes: Dictionary = {}    # patch_name -> Mesh
-var _shader: Shader
+var _meshes: Dictionary = {}    # model_name -> Mesh
 var _active_chunks: Dictionary = {}
 var _last_update_pos := Vector3(-99999, 0, -99999)
 var _build_queue: Array = []
@@ -25,67 +23,93 @@ var _hm_ws: float
 var _hm_half: float
 
 const CHUNK := 20.0
-const LOAD_RANGE := 120.0
-const UNLOAD_RANGE := 130.0
+const LOAD_RANGE := 100.0
+const UNLOAD_RANGE := 110.0
 const UPDATE_DIST := 3.0
-const VIS_END := 100.0
+const VIS_END := 80.0
 const VIS_FADE_MARGIN := 15.0
 
-# Patch types: name, variants, height range, is_litter, wind_flex
-# Atlas layout: 4 cols × 2 rows (matches ground_cover_atlas.png)
-# Row 0: bramble(0,0), fern_cluster(1,0), mixed_weeds(2,0), tall_grass(3,0)
-# Row 1: fallen_leaves(0,1), twig_litter(1,1)
-const ATLAS_COLS := 4
-const ATLAS_ROWS := 2
-
-const PATCH_TYPES := [
-	{"name": "bramble",       "variants": 4, "flex": 0.30, "litter": 0, "seasonal": 1, "acol": 0, "arow": 0},
-	{"name": "fern_cluster",  "variants": 4, "flex": 0.35, "litter": 0, "seasonal": 1, "acol": 1, "arow": 0},
-	{"name": "mixed_weeds",   "variants": 4, "flex": 0.25, "litter": 0, "seasonal": 1, "acol": 2, "arow": 0},
-	{"name": "tall_grass",    "variants": 4, "flex": 0.45, "litter": 0, "seasonal": 1, "acol": 3, "arow": 0},
-	{"name": "fallen_leaves", "variants": 4, "flex": 0.05, "litter": 1, "seasonal": 0, "acol": 0, "arow": 1},
-	{"name": "twig_litter",   "variants": 4, "flex": 0.02, "litter": 1, "seasonal": 0, "acol": 1, "arow": 1},
+# BD3D ground cover models — each carries its own StandardMaterial3D
+# [index] name (matches GLB filename in models/vegetation/)
+const COVER_MODELS := [
+	# 0-4: Fallen leaves (seasonal: autumn-winter)
+	{"name": "DeadLeaves_Forest_01",  "seasonal": 2},   # 0
+	{"name": "DeadLeaves_Forest_02",  "seasonal": 2},   # 1
+	{"name": "DeadLeaves_Autumn_01",  "seasonal": 2},   # 2
+	{"name": "DeadLeaves_Autumn_02",  "seasonal": 2},   # 3
+	{"name": "Leaves_Scattered_01",   "seasonal": 2},   # 4
+	# 5-7: Fallen branches (year-round)
+	{"name": "Branch_Forest_01",      "seasonal": 0},   # 5
+	{"name": "Branch_Forest_02",      "seasonal": 0},   # 6
+	{"name": "Branch_Dry_01",         "seasonal": 0},   # 7
+	# 8-9: Moss (year-round, woodland)
+	{"name": "Moss_Forest_01",        "seasonal": 0},   # 8
+	{"name": "Moss_Forest_02",        "seasonal": 0},   # 9
+	# 10-13: Small weeds (spring-summer)
+	{"name": "Weed_Small_01",         "seasonal": 1},   # 10
+	{"name": "Weed_Small_02",         "seasonal": 1},   # 11
+	{"name": "Weed_TypeA_01",         "seasonal": 1},   # 12
+	{"name": "Weed_TypeA_02",         "seasonal": 1},   # 13
+	# 14-17: Saplings (year-round, woodland understory)
+	{"name": "Sapling_Deciduous_01",  "seasonal": 0},   # 14
+	{"name": "Sapling_Deciduous_02",  "seasonal": 0},   # 15
+	{"name": "Sapling_Conifer_01",    "seasonal": 0},   # 16
+	{"name": "Sapling_Conifer_02",    "seasonal": 0},   # 17
 ]
 
-# Zone type -> list of [patch_type_index, density_per_100m2, scale_min, scale_max]
-# Patch types: 0=bramble, 1=fern_cluster, 2=mixed_weeds, 3=tall_grass, 4=fallen_leaves, 5=twig_litter
-const ZONE_PATCHES := {
-	5: [  # NorthWoods — fern-heavy ground cover, leaf litter
-		[1, 6.0, 0.8, 1.3],   # Fern clusters (dominant)
-		[0, 2.0, 0.7, 1.1],   # Bramble (scattered)
-		[2, 3.0, 0.6, 1.0],   # Mixed weeds
-		[4, 4.0, 0.8, 1.2],   # Fallen leaves (seasonal)
-		[5, 2.0, 0.7, 1.0],   # Twig litter (seasonal)
+# Zone -> list of [model_index, density_per_100m2, scale_min, scale_max]
+const ZONE_COVER := {
+	5: [  # NorthWoods
+		[0, 3.0, 0.8, 1.3],   # Dead leaves
+		[1, 2.5, 0.8, 1.2],
+		[5, 1.0, 0.7, 1.1],   # Branches
+		[6, 0.8, 0.7, 1.0],
+		[8, 2.0, 0.8, 1.3],   # Moss
+		[9, 1.5, 0.7, 1.2],
+		[10, 1.5, 0.7, 1.1],  # Weeds
+		[12, 1.0, 0.6, 1.0],
+		[14, 0.3, 0.6, 1.0],  # Saplings
+		[16, 0.2, 0.5, 0.9],
 	],
-	6: [  # Ramble — dense thickets, stream-edge weeds
-		[0, 5.0, 0.8, 1.2],   # Bramble (dominant — designed wildness)
-		[2, 4.0, 0.7, 1.1],   # Mixed weeds (diverse)
-		[1, 2.0, 0.7, 1.0],   # Fern clusters
-		[3, 1.5, 0.8, 1.2],   # Tall grass (path edges)
-		[4, 3.0, 0.8, 1.2],   # Fallen leaves (seasonal)
-		[5, 1.5, 0.7, 1.0],   # Twig litter (seasonal)
+	6: [  # Ramble
+		[0, 2.5, 0.8, 1.2],   # Dead leaves
+		[2, 2.0, 0.7, 1.2],
+		[5, 1.2, 0.7, 1.1],   # Branches
+		[7, 0.5, 0.6, 1.0],
+		[8, 1.5, 0.8, 1.2],   # Moss
+		[10, 2.0, 0.7, 1.1],  # Weeds
+		[11, 1.5, 0.6, 1.0],
+		[13, 1.0, 0.6, 1.0],
+		[15, 0.2, 0.6, 1.0],  # Saplings
 	],
-	7: [  # Waterside — tall grasses, weeds
-		[3, 6.0, 0.9, 1.4],   # Tall grass (dominant)
-		[2, 3.0, 0.7, 1.1],   # Mixed weeds
-		[0, 1.0, 0.6, 0.9],   # Bramble (sparse)
-		[4, 2.0, 0.7, 1.0],   # Fallen leaves (seasonal)
+	7: [  # Waterside
+		[3, 2.0, 0.7, 1.1],   # Autumn leaves
+		[4, 1.5, 0.8, 1.2],   # Scattered leaves
+		[7, 0.5, 0.6, 0.9],   # Dry branch
+		[10, 1.5, 0.7, 1.1],  # Weeds
+		[11, 1.0, 0.6, 1.0],
 	],
-	8: [  # WildMeadow — tall grasses and weeds
-		[3, 7.0, 1.0, 1.5],   # Tall grass (dominant, tall)
-		[2, 4.0, 0.8, 1.2],   # Mixed weeds
-		[0, 2.0, 0.7, 1.0],   # Bramble
-		[4, 2.0, 0.8, 1.1],   # Fallen leaves (seasonal)
+	8: [  # WildMeadow
+		[2, 1.5, 0.7, 1.1],   # Autumn leaves
+		[3, 1.0, 0.8, 1.2],
+		[7, 0.3, 0.6, 0.9],   # Dry branch
+		[10, 2.5, 0.8, 1.2],  # Weeds
+		[12, 1.5, 0.7, 1.1],
+		[13, 1.0, 0.6, 1.0],
 	],
 }
 
 # Woodland fallback
-const WOODLAND_PATCHES: Array = [
-	[1, 4.0, 0.7, 1.1],   # Fern clusters
-	[2, 2.0, 0.6, 1.0],   # Mixed weeds
-	[0, 1.5, 0.7, 1.0],   # Bramble
-	[4, 3.0, 0.8, 1.2],   # Fallen leaves
-	[5, 2.0, 0.7, 1.0],   # Twig litter
+const WOODLAND_COVER: Array = [
+	[0, 3.5, 0.8, 1.3],   # Dead leaves (dominant)
+	[1, 2.0, 0.7, 1.2],
+	[4, 1.5, 0.8, 1.2],   # Scattered leaves
+	[5, 1.0, 0.7, 1.0],   # Branches
+	[6, 0.5, 0.6, 1.0],
+	[8, 2.0, 0.8, 1.3],   # Moss
+	[9, 1.5, 0.7, 1.2],
+	[14, 0.3, 0.6, 1.0],  # Saplings
+	[16, 0.2, 0.5, 0.9],
 ]
 
 # Z ranges where woodland fallback is allowed
@@ -95,17 +119,14 @@ const WOODLAND_Z_RANGES: Array = [
 	[1650, 2050],    # Hallett & The Pond
 ]
 
+var season_t: float = 1.5  # updated by main.gd
+
 
 func _init(loader) -> void:
 	_loader = loader
 
 
 func _build_ground_cover() -> void:
-	_shader = load("res://shaders/ground_cover.gdshader")
-	if not _shader:
-		print("ground_cover: shader not found")
-		return
-
 	# Cache data refs
 	_atlas_data = _loader._atlas_data
 	_atlas_res = _loader._atlas_res
@@ -117,63 +138,20 @@ func _build_ground_cover() -> void:
 	_hm_ws = _loader._hm_world_size
 	_hm_half = _hm_ws * 0.5
 
-	# Load shared atlas texture
-	var atlas_path := "res://textures/ground_cover_atlas.png"
-	var atlas_img := Image.load_from_file(ProjectSettings.globalize_path(atlas_path))
-	var _cover_atlas: ImageTexture = null
-	if atlas_img:
-		_cover_atlas = ImageTexture.create_from_image(atlas_img)
-		print("ground_cover: atlas loaded (%dx%d)" % [atlas_img.get_width(), atlas_img.get_height()])
-	else:
-		print("ground_cover: WARNING — atlas not found at %s" % atlas_path)
-
-	# Load patch meshes
+	# Load all BD3D models
 	var loaded := 0
-	for pt in PATCH_TYPES:
-		for vi in range(pt.variants):
-			var mesh_name := "Patch_%s_v%d" % [pt.name, vi]
-			var mesh := _load_model(mesh_name, pt, _cover_atlas)
-			if mesh:
-				_meshes[mesh_name] = mesh
-				loaded += 1
-	print("ground_cover: loaded %d patch meshes" % loaded)
+	for cm in COVER_MODELS:
+		var abs_path := ProjectSettings.globalize_path(
+			"res://models/vegetation/%s.glb" % cm.name)
+		var meshes: Dictionary = _loader._load_glb_meshes(abs_path)
+		if meshes.is_empty():
+			continue
+		_meshes[cm.name] = meshes.values()[0]
+		loaded += 1
+	print("ground_cover: loaded %d/%d BD3D models" % [loaded, COVER_MODELS.size()])
 
 	# Queue initial chunks near spawn
-	var spawn := Vector3(-480, 0, 1020)
-	_update_chunks_near(spawn)
-
-
-func _load_model(mesh_name: String, pt: Dictionary, cover_atlas: Texture2D) -> Mesh:
-	var path := "res://models/vegetation/%s.glb" % mesh_name
-	var abs_path: String = ProjectSettings.globalize_path(path)
-	if not FileAccess.file_exists(abs_path):
-		return null
-	var meshes: Dictionary = _loader._load_glb_meshes(abs_path)
-	if meshes.is_empty():
-		return null
-	var mesh: Mesh = meshes.values()[0]
-
-	# Atlas UV offset for this patch type
-	var a_off := Vector2(float(pt.acol) / ATLAS_COLS, float(pt.arow) / ATLAS_ROWS)
-	var a_cell := Vector2(1.0 / ATLAS_COLS, 1.0 / ATLAS_ROWS)
-
-	# Apply shader material with shared atlas
-	var mat := ShaderMaterial.new()
-	mat.shader = _shader
-	mat.set_shader_parameter("wind_flex", pt.flex)
-	mat.set_shader_parameter("is_seasonal", float(pt.seasonal))
-	mat.set_shader_parameter("is_litter", float(pt.litter))
-	mat.set_shader_parameter("hm_world_size", _hm_ws)
-	if cover_atlas:
-		mat.set_shader_parameter("cover_atlas", cover_atlas)
-	mat.set_shader_parameter("atlas_offset", a_off)
-	mat.set_shader_parameter("atlas_cell_size", a_cell)
-	if _loader._canopy_texture:
-		mat.set_shader_parameter("canopy_map", _loader._canopy_texture)
-
-	for si in range(mesh.get_surface_count()):
-		mesh.surface_set_material(si, mat)
-	return mesh
+	_update_chunks_near(Vector3(-480, 0, 1020))
 
 
 func update_camera(camera_pos: Vector3) -> void:
@@ -199,7 +177,6 @@ func _update_chunks_near(pos: Vector3) -> void:
 			var dz := wz - pos.z
 			if dx * dx + dz * dz > LOAD_RANGE * LOAD_RANGE:
 				continue
-			# Atlas check: must be grass (surface type 1)
 			var ai := int((wx + _atlas_half) * _atlas_scale)
 			var aj := int((wz + _atlas_half) * _atlas_scale)
 			if ai < 0 or ai >= _atlas_res or aj < 0 or aj >= _atlas_res:
@@ -210,19 +187,16 @@ func _update_chunks_near(pos: Vector3) -> void:
 			var ck := "%d|%d" % [cx, cz]
 			needed[ck] = true
 
-	# Unload distant
 	var to_remove: Array = []
 	for ck in _active_chunks:
 		if not needed.has(ck):
-			var parts: Array = _active_chunks[ck]
-			for nd in parts:
+			for nd in _active_chunks[ck]:
 				if is_instance_valid(nd):
 					nd.queue_free()
 			to_remove.append(ck)
 	for ck in to_remove:
 		_active_chunks.erase(ck)
 
-	# Queue new
 	for ck in needed:
 		if not _active_chunks.has(ck) and not _queued_set.has(ck):
 			_build_queue.append(ck)
@@ -232,97 +206,97 @@ func _update_chunks_near(pos: Vector3) -> void:
 func _process_queue(pos: Vector3) -> void:
 	if _build_queue.is_empty():
 		return
-	# Sort by distance, build closest first
 	_build_queue.sort_custom(func(a: String, b: String) -> bool:
-		var pa: PackedStringArray = a.split("|")
-		var pb: PackedStringArray = b.split("|")
-		var ax: float = int(pa[0]) * CHUNK + CHUNK * 0.5
-		var az: float = int(pa[1]) * CHUNK + CHUNK * 0.5
-		var bx: float = int(pb[0]) * CHUNK + CHUNK * 0.5
-		var bz: float = int(pb[1]) * CHUNK + CHUNK * 0.5
-		var da: float = (ax - pos.x) * (ax - pos.x) + (az - pos.z) * (az - pos.z)
-		var db: float = (bx - pos.x) * (bx - pos.x) + (bz - pos.z) * (bz - pos.z)
+		var pa := a.split("|"); var pb := b.split("|")
+		var da := (int(pa[0]) * CHUNK - pos.x) ** 2 + (int(pa[1]) * CHUNK - pos.z) ** 2
+		var db := (int(pb[0]) * CHUNK - pos.x) ** 2 + (int(pb[1]) * CHUNK - pos.z) ** 2
 		return da < db)
 	var ck: String = _build_queue.pop_front()
 	_queued_set.erase(ck)
-	# Check distance still valid
-	var cp: PackedStringArray = ck.split("|")
+	var cp := ck.split("|")
 	var wx := int(cp[0]) * CHUNK + CHUNK * 0.5
 	var wz := int(cp[1]) * CHUNK + CHUNK * 0.5
-	var dd := (wx - pos.x) * (wx - pos.x) + (wz - pos.z) * (wz - pos.z)
-	if dd > UNLOAD_RANGE * UNLOAD_RANGE:
+	if (wx - pos.x) ** 2 + (wz - pos.z) ** 2 > UNLOAD_RANGE * UNLOAD_RANGE:
 		return
 	_build_chunk(ck)
 
 
 func _get_zone_type(cx: int, cz: int) -> int:
-	# Check undergrowth builder's zone map if available
-	var ug_builder = _loader._undergrowth_builder if _loader.has_method("get") else null
-	# Determine from atlas — sample center of chunk
-	var wx := cx * CHUNK + CHUNK * 0.5
 	var wz := cz * CHUNK + CHUNK * 0.5
-	# Check if in woodland Z range
 	for zr in WOODLAND_Z_RANGES:
 		if wz >= zr[0] and wz <= zr[1]:
-			return -1  # woodland fallback
-	return -2  # no coverage
+			return -1
+	return -2
+
+
+func _sample_height(wx: float, wz: float) -> float:
+	var xi: float = (wx + _hm_half) / _hm_ws * (_hm_w - 1)
+	var zi: float = (wz + _hm_half) / _hm_ws * (_hm_d - 1)
+	var xi0: int = clampi(int(xi), 0, _hm_w - 2)
+	var zi0: int = clampi(int(zi), 0, _hm_d - 2)
+	var fx: float = xi - xi0
+	var fz: float = zi - zi0
+	var h00: float = _hm_data[zi0 * _hm_w + xi0]
+	var h10: float = _hm_data[zi0 * _hm_w + xi0 + 1]
+	var h01: float = _hm_data[(zi0 + 1) * _hm_w + xi0]
+	var h11: float = _hm_data[(zi0 + 1) * _hm_w + xi0 + 1]
+	if fz <= fx:
+		return h00 + (h10 - h00) * fx + (h11 - h10) * fz
+	return h00 + (h11 - h01) * fx + (h01 - h00) * fz
 
 
 func _build_chunk(ck: String) -> void:
-	var cp: PackedStringArray = ck.split("|")
+	var cp := ck.split("|")
 	var cx: int = int(cp[0])
 	var cz: int = int(cp[1])
 	var chunk_x := cx * CHUNK
 	var chunk_z := cz * CHUNK
 
-	# Determine zone — check undergrowth builder zone map
-	var zone_key := ck
 	var zone_type := -2
-	if _loader._undergrowth_builder and _loader._undergrowth_builder._zone_map.has(zone_key):
-		zone_type = _loader._undergrowth_builder._zone_map[zone_key]
+	if _loader._undergrowth_builder and _loader._undergrowth_builder._zone_map.has(ck):
+		zone_type = _loader._undergrowth_builder._zone_map[ck]
 	else:
 		zone_type = _get_zone_type(cx, cz)
 
-	# Get patch list for this zone
-	var patch_list: Array
-	if ZONE_PATCHES.has(zone_type):
-		patch_list = ZONE_PATCHES[zone_type]
+	var cover_list: Array
+	if ZONE_COVER.has(zone_type):
+		cover_list = ZONE_COVER[zone_type]
 	elif zone_type == -1:
-		patch_list = WOODLAND_PATCHES
+		cover_list = WOODLAND_COVER
 	else:
-		# No ground cover for maintained lawns (zones 0-4, 9)
 		_active_chunks[ck] = []
 		return
-	#print("GC chunk %s zone=%d patches=%d" % [ck, zone_type, patch_list.size() if patch_list else 0])
+
+	var is_spring_summer: bool = season_t < 2.0
+	var is_autumn_winter: bool = season_t >= 2.0
 
 	var chunk_parts: Array = []
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash(ck) + 7919  # different from undergrowth seed
+	rng.seed = hash(ck) + 7919
 
-	for patch_cfg in patch_list:
-		var pt_idx: int = patch_cfg[0]
-		var density: float = patch_cfg[1]
-		var s_lo: float = patch_cfg[2]
-		var s_hi: float = patch_cfg[3]
+	for cover_cfg in cover_list:
+		var cm_idx: int = cover_cfg[0]
+		var density: float = cover_cfg[1]
+		var s_lo: float = cover_cfg[2]
+		var s_hi: float = cover_cfg[3]
+		if cm_idx >= COVER_MODELS.size():
+			continue
 
-		var pt: Dictionary = PATCH_TYPES[pt_idx]
+		var cm: Dictionary = COVER_MODELS[cm_idx]
+		# Seasonal filter
+		if cm.seasonal == 1 and not is_spring_summer:
+			continue
+		if cm.seasonal == 2 and not is_autumn_winter:
+			continue
+
+		if not _meshes.has(cm.name):
+			continue
+
+		var mesh: Mesh = _meshes[cm.name]
 		var target: int = int(density * CHUNK * CHUNK / 100.0)
 		if target < 1:
 			target = 1
 
-		# Pick random variant
-		var vi: int = rng.randi() % pt.variants
-		var mesh_name := "Patch_%s_v%d" % [pt.name, vi]
-		if not _meshes.has(mesh_name):
-			# Try other variants
-			for try_vi in range(pt.variants):
-				mesh_name = "Patch_%s_v%d" % [pt.name, try_vi]
-				if _meshes.has(mesh_name):
-					break
-			if not _meshes.has(mesh_name):
-				continue
-
-		var mesh: Mesh = _meshes[mesh_name]
 		var buf := PackedFloat32Array()
 		buf.resize(target * 16)
 		var placed := 0
@@ -333,7 +307,6 @@ func _build_chunk(ck: String) -> void:
 			var bx := chunk_x + rng.randf() * CHUNK
 			var bz := chunk_z + rng.randf() * CHUNK
 
-			# Atlas check
 			var ai := int((bx + _atlas_half) * _atlas_scale)
 			var aj := int((bz + _atlas_half) * _atlas_scale)
 			if ai < 0 or ai >= _atlas_res or aj < 0 or aj >= _atlas_res:
@@ -344,30 +317,13 @@ func _build_chunk(ck: String) -> void:
 			if _atlas_data[idx + 1] != 0:
 				continue
 
-			# Heightmap sample
-			var xi: float = (bx + _hm_half) / _hm_ws * (_hm_w - 1)
-			var zi: float = (bz + _hm_half) / _hm_ws * (_hm_d - 1)
-			var xi0: int = clampi(int(xi), 0, _hm_w - 2)
-			var zi0: int = clampi(int(zi), 0, _hm_d - 2)
-			var fx: float = xi - xi0
-			var fz: float = zi - zi0
-			var h00: float = _hm_data[zi0 * _hm_w + xi0]
-			var h10: float = _hm_data[zi0 * _hm_w + xi0 + 1]
-			var h01: float = _hm_data[(zi0 + 1) * _hm_w + xi0]
-			var h11: float = _hm_data[(zi0 + 1) * _hm_w + xi0 + 1]
-			var wy: float
-			if fz <= fx:
-				wy = h00 + (h10 - h00) * fx + (h11 - h10) * fz
-			else:
-				wy = h00 + (h11 - h01) * fx + (h01 - h00) * fz
-
+			var wy := _sample_height(bx, bz)
 			var sc: float = rng.randf_range(s_lo, s_hi)
 			var yr: float = rng.randf() * TAU
-			# Random X-mirror (50%) + slight tilt (±4°) via R_y * R_x
 			var mx: float = 1.0 if rng.randf() > 0.5 else -1.0
 			var tilt: float = rng.randf_range(-0.07, 0.07)
-			var ct: float = cos(tilt)
-			var st: float = sin(tilt)
+			var ct := cos(tilt)
+			var st := sin(tilt)
 			var cos_y := cos(yr)
 			var sin_y := sin(yr)
 
@@ -384,9 +340,8 @@ func _build_chunk(ck: String) -> void:
 			buf[o + 9]  = cos_y * st * sc
 			buf[o + 10] = cos_y * ct * sc
 			buf[o + 11] = bz
-			# INSTANCE_CUSTOM
-			buf[o + 12] = rng.randf()      # seed
-			buf[o + 13] = sc               # scale
+			buf[o + 12] = rng.randf()
+			buf[o + 13] = sc
 			buf[o + 14] = 0.0
 			buf[o + 15] = 0.0
 			placed += 1
@@ -396,7 +351,6 @@ func _build_chunk(ck: String) -> void:
 
 		buf.resize(placed * 16)
 
-		# Relocate to local space
 		var ox := chunk_x + CHUNK * 0.5
 		var oz := chunk_z + CHUNK * 0.5
 		var oy := 0.0
@@ -418,7 +372,7 @@ func _build_chunk(ck: String) -> void:
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		mmi.position = Vector3(ox, oy, oz)
-		mmi.name = "GC_%s_%s" % [pt.name, ck]
+		mmi.name = "GC_%s_%s" % [cm.name, ck]
 		mmi.visibility_range_end = VIS_END
 		mmi.visibility_range_end_margin = VIS_FADE_MARGIN
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
