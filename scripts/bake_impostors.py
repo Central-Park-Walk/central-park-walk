@@ -13,6 +13,7 @@ import bpy
 import os
 import sys
 import math
+import json
 import mathutils
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -231,9 +232,25 @@ def bake_species(species):
     if os.path.exists(tmp_path):
         os.remove(tmp_path)
 
+    # Save metadata (needed by Godot ImpostorShader: scale, positionOffset, aabb_max)
+    meta = {
+        "species": species,
+        "frame_size": FRAME_SIZE,
+        "atlas_res": ATLAS_RES,
+        "center": [center.x, center.y, center.z],
+        "radius": radius,
+        "scale": radius,  # ortho half-size = radius
+        "position_offset": [-center.x, -center.y, -center.z],
+        "aabb_max": radius * 0.5,
+    }
+    meta_path = os.path.join(OUT_DIR, f"{species}_impostor_meta.json")
+    with open(meta_path, 'w') as f:
+        json.dump(meta, f, indent=2)
+
     # Report atlas size
     fsize = os.path.getsize(out_path) / 1024
     print(f"  Atlas: {ATLAS_RES}×{ATLAS_RES}, {FRAME_SIZE}×{FRAME_SIZE} frames, {fsize:.0f} KB")
+    print(f"  Meta: scale={radius:.3f}, offset=({-center.x:.3f}, {-center.y:.3f}, {-center.z:.3f})")
     return True
 
 

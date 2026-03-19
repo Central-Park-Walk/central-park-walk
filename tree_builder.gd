@@ -623,7 +623,7 @@ var _impostor_textures: Dictionary = {}  # model_name -> Texture2D
 var _impostor_materials: Dictionary = {}  # model_name -> ShaderMaterial
 
 func _load_impostor_atlases() -> void:
-	"""Load baked impostor atlas textures for all tree species."""
+	"""Load baked impostor atlas textures + metadata for all tree species."""
 	var impostor_shader: Shader = load(
 		"res://addons/Imposter/imposter/materials/shaders/ImpostorShader.gdshader")
 	if not impostor_shader:
@@ -639,12 +639,32 @@ func _load_impostor_atlases() -> void:
 			continue
 		_impostor_textures[model_name] = tex
 
+		# Load baking metadata (scale, positionOffset, aabb_max)
+		var meta_path := ProjectSettings.globalize_path(
+			"%s/%s_impostor_meta.json" % [IMPOSTOR_DIR, model_name])
+		var imp_scale := 3.5  # fallback: reasonable tree size
+		var imp_offset := Vector3.ZERO
+		var imp_aabb := 1.5
+		if FileAccess.file_exists(meta_path):
+			var f := FileAccess.open(meta_path, FileAccess.READ)
+			var json := JSON.new()
+			if json.parse(f.get_as_text()) == OK:
+				var d: Dictionary = json.data
+				imp_scale = d.get("scale", imp_scale)
+				var off: Array = d.get("position_offset", [0, 0, 0])
+				imp_offset = Vector3(off[0], off[1], off[2])
+				imp_aabb = d.get("aabb_max", imp_aabb)
+			f.close()
+
 		# Create material for this species
 		var mat := ShaderMaterial.new()
 		mat.shader = impostor_shader
 		mat.set_shader_parameter("imposterTextureAlbedo", tex)
 		mat.set_shader_parameter("imposterFrames", Vector2(IMPOSTOR_FRAME_SIZE, IMPOSTOR_FRAME_SIZE))
 		mat.set_shader_parameter("isFullSphere", false)
+		mat.set_shader_parameter("scale", imp_scale)
+		mat.set_shader_parameter("positionOffset", imp_offset)
+		mat.set_shader_parameter("aabb_max", imp_aabb)
 		mat.set_shader_parameter("alpha_clamp", 0.3)
 		mat.set_shader_parameter("dither", true)
 		_impostor_materials[model_name] = mat
