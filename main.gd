@@ -204,11 +204,10 @@ func _ready() -> void:
 			_setup_grass_particles()
 			# Pass landuse + canopy textures to grass particle process shader
 			if _grass_particles_node and _grass_particles_node.process_material:
-				var pm_rid: RID = _grass_particles_node.process_material.get_rid()
 				if _landuse_texture:
-					RenderingServer.material_set_param(pm_rid, "landuse_map", _landuse_texture.get_rid())
+					_grass_particles_node.process_material.set_shader_parameter("landuse_map", _landuse_texture)
 				if _park_loader and _park_loader._canopy_texture:
-					RenderingServer.material_set_param(pm_rid, "canopy_map", _park_loader._canopy_texture.get_rid())
+					_grass_particles_node.process_material.set_shader_parameter("canopy_map", _park_loader._canopy_texture)
 			print("main: grass particles: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_player = _setup_player()
 	if _park_loader and _park_loader.boundary_polygon.size() > 2:
@@ -1724,9 +1723,9 @@ func _setup_grass_particles() -> void:
 	var gp: Node3D = scene.instantiate()
 	gp.name = "GrassParticles"
 	gp.terrain = _terrain3d
-	gp.instance_spacing = 0.25
-	gp.cell_width = 24.0
-	gp.grid_width = 7              # 7×7 grid = ~84m radius
+	gp.instance_spacing = 0.125      # denser (64 blades/m² vs 16)
+	gp.cell_width = 16.0             # smaller cells for better culling
+	gp.grid_width = 9               # 9×9 grid = ~72m radius
 	gp.shadow_mode = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 	# Swap in our custom shaders for zone/season awareness
@@ -1734,6 +1733,10 @@ func _setup_grass_particles() -> void:
 	if proc_shader and gp.process_material:
 		gp.process_material.shader = proc_shader
 		gp.process_material.set_shader_parameter("world_size", _hm_world_size)
+		# Smaller blades than default — lawn grass, not wild meadow
+		gp.process_material.set_shader_parameter("min_scale", Vector3(0.08, 0.3, 0.08))
+		gp.process_material.set_shader_parameter("max_scale", Vector3(0.10, 0.7, 0.10))
+		gp.process_material.set_shader_parameter("position_offset", Vector3(0, 0.3, 0))
 
 	var render_shader: Shader = load("res://shaders/grass_particle_render.gdshader")
 	if render_shader:
