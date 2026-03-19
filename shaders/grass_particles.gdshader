@@ -185,6 +185,15 @@ void start() {
 	TRANSFORM = mat4(1.0);
 	vec3 orientation = vec3(0., 1., 0.);
 
+	// --- Zone lookup (needed before scale) ---
+	vec2 splat_uv = (pos.xz + world_size * 0.5) / world_size;
+	float zone_val = textureLod(landuse_map, splat_uv, 0.0).r * 255.0;
+	int zone_id = int(zone_val + 0.5);
+	bool is_grass_zone = (zone_id == 0 || zone_id == 1 || zone_id == 2
+	                   || zone_id == 3 || zone_id == 7);
+	bool is_woodland = (zone_id == 5 || zone_id == 10 || zone_id == 11);
+	float canopy_cover = textureLod(canopy_map, splat_uv, 0.0).r;
+
 	vec2 uv = (pos.xz) * main_noise_scale;
 	float noise = textureLod(main_noise, uv, 0.0).r;
 	float clods = smoothstep(clod_min_threshold, clod_max_threshold, noise) * clod_scale_boost;
@@ -192,9 +201,7 @@ void start() {
 	float width_modifier = 1.0 + 3.0 * smoothstep(0., max_dist, length(camera_position - pos));
 
 	// Zone-based grass height — fit the data
-	// 0=lawn(mowed), 1=garden(manicured), 2=maintained, 3=pitch(sports turf),
-	// 5=nature_reserve(wild), 7=sports, 10=wood, 11=forest
-	float zone_height = 0.5;  // default: medium lawn
+	float zone_height = 0.5;
 	if (zone_id == 3 || zone_id == 7) zone_height = 0.25;        // sports: very short
 	else if (zone_id == 1) zone_height = 0.35;                    // garden: manicured
 	else if (zone_id == 0 || zone_id == 2) zone_height = 0.5;    // maintained lawn
@@ -234,15 +241,6 @@ void start() {
 	}
 
 	// --- Central Park zone-aware grass filtering ---
-	// Sample landuse map to determine if this position should have grass
-	vec2 splat_uv = (pos.xz + world_size * 0.5) / world_size;
-	float zone_val = textureLod(landuse_map, splat_uv, 0.0).r * 255.0;
-	int zone_id = int(zone_val + 0.5);
-	// Grass zones: unzoned lawn(0), garden(1), maintained grass(2), pitch(3), sports(7)
-	bool is_grass_zone = (zone_id == 0 || zone_id == 1 || zone_id == 2
-	                   || zone_id == 3 || zone_id == 7);
-	// Woodland zones get sparse grass (forest floor)
-	bool is_woodland = (zone_id == 5 || zone_id == 10 || zone_id == 11);
 	// No grass on dirt(4), dog_park(6), pool(8), track(9), water(12), shore(13)
 	if (!is_grass_zone && !is_woodland) {
 		pos.y = 0. / 0.;
@@ -250,7 +248,6 @@ void start() {
 	}
 
 	// Canopy suppression: under dense tree cover, forest floor is leaf litter
-	float canopy_cover = textureLod(canopy_map, splat_uv, 0.0).r;
 	if (canopy_cover > 0.4) {
 		// Skip 70-90% of blades under dense canopy
 		float skip_chance = smoothstep(0.3, 0.8, canopy_cover) * 0.9;
