@@ -118,13 +118,36 @@ EXTRACTIONS = [
     ("GS Dandelion 01",        "Dandelion_01",            0,    False, 0.10, 0.01),
     ("GS Dandelion 02",        "Dandelion_02",            1500, False, 0.12, 0.01),
 
-    # ── Particle-grade grass tufts ── heavily decimated for Terrain3D GPU particles
-    # Same BD3D sources at ~150-300 faces for mass instancing at 0.35-0.5m spacing.
-    # Each biome layer filters to its zone_ids; only ~25% of particles survive.
-    ("GS Lawn mowed 01",       "Tuft_Lawn",               200, False, 0.05, 0.01),  # formal lawn, sports
-    ("GS Grass Clump 01",      "Tuft_Meadow",             250, False, 0.18, 0.02),  # maintained park lawn
-    ("GS Grass Wild Clump 01", "Tuft_Wild",               300, False, 0.35, 0.03),  # nature reserve
-    ("GS Grass Duo 01",        "Tuft_Woodland",           150, False, 0.08, 0.01),  # sparse forest floor
+    # ── Particle-grade grass ── heavily decimated for Terrain3D GPU particles
+    # Same BD3D sources at ~100-300 faces for mass instancing at 0.2-0.5m spacing.
+    # Lawn variants (maintained grass zones)
+    ("GS Lawn mowed 01",       "Tuft_Lawn",               200, False, 0.05, 0.01),
+    ("GS Lawn mowed 02",       "Tuft_Lawn_B",             200, False, 0.04, 0.01),
+    ("GS Lawn mowed 03",       "Tuft_Lawn_C",             200, False, 0.05, 0.01),
+    # Meadow/clump variants (accent on maintained lawns)
+    ("GS Grass Clump 01",      "Tuft_Meadow",             250, False, 0.18, 0.02),
+    ("GS Grass Clump 02",      "Tuft_Meadow_B",           250, False, 0.20, 0.02),
+    ("GS Grass Clump 03",      "Tuft_Meadow_C",           250, False, 0.16, 0.02),
+    # Wild/tall variants (nature reserve, unmowed areas)
+    ("GS Grass Wild Clump 01", "Tuft_Wild",               300, False, 0.35, 0.03),
+    ("GS Grass Wild Clump 02", "Tuft_Wild_B",             300, False, 0.40, 0.03),
+    ("GS Grass 01",            "Tuft_Tall",               200, False, 0.30, 0.02),
+    ("GS Grass 02",            "Tuft_Tall_B",             200, False, 0.25, 0.02),
+    # Woodland floor variants (sparse forest grass)
+    ("GS Grass Duo 01",        "Tuft_Woodland",           150, False, 0.08, 0.01),
+    ("GS Grass Duo 02",        "Tuft_Woodland_B",         150, False, 0.07, 0.01),
+    ("GS Grass tiny 01",       "Tuft_Tiny",               100, False, 0.06, 0.01),
+    # Clover patches (lawn accent, spring-summer)
+    ("GS Clovers 01",          "Tuft_Clover",             200, False, 0.05, 0.01),
+    ("GS Clovers 02",          "Tuft_Clover_B",           200, False, 0.05, 0.01),
+    ("GS Forest clover 01",    "Tuft_Clover_Forest",      150, False, 0.04, 0.01),
+    # Dandelion (lawn weed accent, spring)
+    ("GS Dandelion 01",        "Tuft_Dandelion",          200, False, 0.08, 0.01),
+    ("GS Dandelion 02",        "Tuft_Dandelion_B",        200, False, 0.10, 0.01),
+    # Dry/seasonal (autumn-winter accent)
+    ("GS Dryland grass small",  "Tuft_Dry_Small",         150, False, 0.12, 0.01),
+    ("GS Dryland grass medium", "Tuft_Dry_Medium",        200, False, 0.25, 0.02),
+    ("GS Grass Dry 01",        "Tuft_Dead",               200, False, 0.25, 0.02),
 
     # ── Fallen leaves ── seasonal ground litter
     ("GS Forest dead leaves 01", "DeadLeaves_Forest_01",  0,    False, 0.03, 0.00),
