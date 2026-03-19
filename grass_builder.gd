@@ -148,10 +148,11 @@ func update_camera(camera_pos: Vector3) -> void:
 	if not _build_queue.is_empty():
 		_process_queue(camera_pos)
 
-	# Impostor tier: update on larger movement threshold
-	if camera_pos.distance_to(_imp_last_pos) > 5.0:
-		_imp_last_pos = camera_pos
-		_update_impostors(camera_pos)
+	# Impostor tier disabled — flat planes occlude terrain grass and show grid.
+	# The terrain shader (tier 3) handles mid-distance grass better.
+	#if camera_pos.distance_to(_imp_last_pos) > 5.0:
+	#	_imp_last_pos = camera_pos
+	#	_update_impostors(camera_pos)
 
 
 func _update_chunks_near(pos: Vector3) -> void:
