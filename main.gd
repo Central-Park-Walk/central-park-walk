@@ -39,6 +39,7 @@ var _sky_mat: ShaderMaterial
 var _sun: DirectionalLight3D
 var _lamp_emission: float = 0.0  # cached for SpotLight3D pool
 var _terrain_mat: ShaderMaterial
+var _terrain3d: Terrain3D
 var _time_label: Label
 var _speed_label: Label
 var _location_label: Label
@@ -199,6 +200,9 @@ func _ready() -> void:
 	_player = _setup_player()
 	if _park_loader and _park_loader.boundary_polygon.size() > 2:
 		_player.boundary_polygon = _park_loader.boundary_polygon
+	# Terrain3D needs the camera for clipmap LOD and dynamic collision
+	if _terrain3d and _player and _player.has_node("CameraMount/Camera3D"):
+		_terrain3d.set_camera(_player.get_node("CameraMount/Camera3D"))
 	_setup_hud()
 	_setup_color_grade()
 	if not _terrain_only:
@@ -1664,8 +1668,31 @@ func _setup_ground() -> void:
 			_terrain_mat.set_shader_parameter("shore_tile_m", 3.0)
 		print("Ground: textured grass shader + meadow blend + rock slopes + dirt zones + shore")
 
-	if _hm_data.is_empty():
+	# ---- Terrain3D (geometry clipmap + built-in collision) ----
+	# Replaces old terrain_mesh.bin (558MB) + HeightMapShape3D.
+	# Height data loaded from pre-imported region files in data/terrain3d/.
+	var terrain3d_dir := "res://data/terrain3d"
+	if DirAccess.dir_exists_absolute(terrain3d_dir):
+		_terrain3d = Terrain3D.new()
+		_terrain3d.name = "Terrain3D"
+		var cell_size: float = 0.6104  # LiDAR resolution
+		if _hm_width > 1:
+			cell_size = _hm_world_size / float(_hm_width - 1)
+		add_child(_terrain3d)
+		# Properties must be set AFTER add_child (internal data init)
+		_terrain3d.region_size = Terrain3D.SIZE_1024
+		_terrain3d.vertex_spacing = cell_size
+		# Camera is set later in _ready after _setup_player()
+		# Load saved regions
+		_terrain3d.data_directory = terrain3d_dir
+		var n_regions: int = _terrain3d.data.get_regions_active().size()
+		print("Terrain3D loaded: %d regions, vertex_spacing=%.4f, region_size=1024" % [
+			n_regions, cell_size])
+		# Collision: dynamic around camera (default mode)
+		_terrain3d.collision.radius = 128
+	else:
 		# Flat fallback
+		print("WARNING: Terrain3D data not found at %s — using flat plane" % terrain3d_dir)
 		var plane            := PlaneMesh.new()
 		plane.size            = Vector2(5000.0, 5000.0)
 		plane.subdivide_width  = 1
@@ -1679,113 +1706,13 @@ func _setup_ground() -> void:
 		col.shape = WorldBoundaryShape3D.new()
 		body.add_child(col)
 		add_child(body)
-		return
 
-	# ---- Load pre-baked terrain mesh (8K, built by convert_to_godot.py) ----
-	# At 8192×8192 (0.61m cells), LiDAR detail is preserved: bridge decks,
-	# parapets, steps, retaining walls, rock outcrops — all in the geometry.
-	# Shader heightmap texture provides per-pixel normals for sub-cell shading.
-	# V2 format: vertex colors encode smoothed surface blend weights — GPU
-	# interpolation creates smooth transitions, eliminating the splat map grid.
-	var mesh_path := "res://terrain_mesh.bin"
-	if not FileAccess.file_exists(mesh_path):
-		print("ERROR: terrain_mesh.bin not found — run convert_to_godot.py")
-		return
-	# Try cached ArrayMesh first (C++ ResourceLoader — near instant vs 8s GDScript parse)
-	var cache_path := "res://cache/terrain_mesh.res"
-	var abs_cache := ProjectSettings.globalize_path(cache_path)
-	var abs_bin := ProjectSettings.globalize_path(mesh_path)
-	var mesh: ArrayMesh = null
-	if FileAccess.file_exists(abs_cache):
-		var bin_mod := FileAccess.get_modified_time(abs_bin)
-		var cache_mod := FileAccess.get_modified_time(abs_cache)
-		if cache_mod >= bin_mod:
-			var loaded = ResourceLoader.load(cache_path)
-			if loaded is ArrayMesh:
-				mesh = loaded as ArrayMesh
-				mesh.surface_set_material(0, _terrain_mat)
-				print("Terrain mesh loaded from cache (%d verts)" % mesh.get_faces().size())
-	if mesh == null:
-		# Parse from .bin (slow first run — 13.9M vertex GDScript loop)
-		var mf := FileAccess.open(mesh_path, FileAccess.READ)
-		var n_verts := mf.get_32()
-		var n_indices := mf.get_32()
-		var world_sz := mf.get_float()
-		var mesh_version := mf.get_32()  # v2 = vertex colors present
-		var pos_buf := mf.get_buffer(n_verts * 12)
-		var pos_f32 := pos_buf.to_float32_array()
-		var verts := PackedVector3Array(); verts.resize(n_verts)
-		var uvs := PackedVector2Array(); uvs.resize(n_verts)
-		var half := world_sz * 0.5
-		var inv_ws := 1.0 / world_sz
-		for i in n_verts:
-			var px := pos_f32[i * 3]
-			var pz := pos_f32[i * 3 + 2]
-			verts[i] = Vector3(px, pos_f32[i * 3 + 1], pz)
-			uvs[i] = Vector2((px + half) * inv_ws, (pz + half) * inv_ws)
-		var vert_colors := PackedColorArray()
-		if mesh_version >= 2:
-			var col_buf := mf.get_buffer(n_verts * 4)
-			vert_colors.resize(n_verts)
-			for i in n_verts:
-				vert_colors[i] = Color(
-					col_buf[i * 4] / 255.0,
-					col_buf[i * 4 + 1] / 255.0,
-					col_buf[i * 4 + 2] / 255.0,
-					col_buf[i * 4 + 3] / 255.0)
-		var idx_buf := mf.get_buffer(n_indices * 4)
-		var indices := idx_buf.to_int32_array()
-		mf.close()
-		print("Terrain mesh parsed: %d verts, %d tris (%.1f MB)" % [
-			n_verts, n_indices / 3, FileAccess.open(mesh_path, FileAccess.READ).get_length() / 1e6])
-		var arrays: Array = []; arrays.resize(Mesh.ARRAY_MAX)
-		arrays[Mesh.ARRAY_VERTEX]  = verts
-		arrays[Mesh.ARRAY_TEX_UV]  = uvs
-		if not vert_colors.is_empty():
-			arrays[Mesh.ARRAY_COLOR] = vert_colors
-		arrays[Mesh.ARRAY_INDEX]   = indices
-		mesh = ArrayMesh.new()
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-		mesh.surface_set_material(0, _terrain_mat)
-		# Cache for next run (compressed .res — C++ native load)
-		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://cache"))
-		if ResourceSaver.save(mesh, cache_path, ResourceSaver.FLAG_COMPRESS) == OK:
-			print("Terrain mesh cached → %s" % cache_path)
-
-	var mi       := MeshInstance3D.new()
-	mi.mesh       = mesh
-	mi.name       = "Terrain"
-	add_child(mi)
-
-	# ---- HeightMapShape3D collision (4096 = ~1.2m cells, matching atlas res) ----
-	var COL_RES := 4096
-	var col_cell := _hm_world_size / float(COL_RES - 1)
-	var col_step_x := float(_hm_width - 1) / float(COL_RES - 1)
-	var col_step_z := float(_hm_depth - 1) / float(COL_RES - 1)
-	var hm_shape          := HeightMapShape3D.new()
-	hm_shape.map_width     = COL_RES
-	hm_shape.map_depth     = COL_RES
-	var pf                := PackedFloat32Array(); pf.resize(COL_RES * COL_RES)
-	for czi in COL_RES:
-		var src_row := mini(int(czi * col_step_z + 0.5), _hm_depth - 1) * _hm_width
-		for cxi in COL_RES:
-			pf[czi * COL_RES + cxi] = _hm_data[src_row + mini(int(cxi * col_step_x + 0.5), _hm_width - 1)]
-	hm_shape.map_data      = pf
-
-	# Heightmap texture for per-pixel fragment normals — full-res data
-	var hm_img := Image.create(_hm_width, _hm_depth, false, Image.FORMAT_RF)
-	hm_img.set_data(_hm_width, _hm_depth, false, Image.FORMAT_RF, _hm_data.to_byte_array())
-	var hm_tex := ImageTexture.create_from_image(hm_img)
-	_terrain_mat.set_shader_parameter("heightmap_tex", hm_tex)
-
-	var col               := CollisionShape3D.new()
-	col.shape              = hm_shape
-	col.scale              = Vector3(col_cell, 1.0, col_cell)
-
-	var body              := StaticBody3D.new()
-	body.name              = "TerrainBody"
-	body.add_child(col)
-	add_child(body)
+	# Heightmap texture for shaders that still need it (paths, grass, etc.)
+	if not _hm_data.is_empty():
+		var hm_img := Image.create(_hm_width, _hm_depth, false, Image.FORMAT_RF)
+		hm_img.set_data(_hm_width, _hm_depth, false, Image.FORMAT_RF, _hm_data.to_byte_array())
+		var hm_tex := ImageTexture.create_from_image(hm_img)
+		_terrain_mat.set_shader_parameter("heightmap_tex", hm_tex)
 
 
 # ---------------------------------------------------------------------------
