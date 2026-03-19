@@ -1766,26 +1766,20 @@ func _setup_grass_particles() -> void:
 	noise_tex.noise = noise
 
 	for biome in GRASS_BIOMES:
-		# Load the BD3D tuft GLB and extract mesh + albedo texture
-		var mesh_scene = load(biome.mesh_path)
-		if not mesh_scene:
-			push_warning("Grass tuft not found: %s — skipping biome %s" % [
-				biome.mesh_path, biome.name])
+		# Load tuft GLB via park_loader's GLTFDocument pipeline (same as all other models)
+		var abs_path: String = ProjectSettings.globalize_path(biome.mesh_path)
+		var meshes: Dictionary = _park_loader._load_glb_meshes(abs_path)
+		if meshes.is_empty():
+			push_warning("Grass tuft not loaded: %s — skipping biome %s" % [abs_path, biome.name])
 			continue
-		var inst = mesh_scene.instantiate()
-		var tuft_mesh: Mesh = null
+		var tuft_mesh: Mesh = meshes.values()[0]
+		# Extract albedo texture from the mesh's StandardMaterial3D (BD3D embeds these)
 		var albedo_tex: Texture2D = null
-		for child in inst.get_children():
-			if child is MeshInstance3D:
-				tuft_mesh = child.mesh
-				var mat = tuft_mesh.surface_get_material(0)
-				if mat is StandardMaterial3D:
-					albedo_tex = mat.albedo_texture
+		for si in tuft_mesh.get_surface_count():
+			var mat = tuft_mesh.surface_get_material(si)
+			if mat is StandardMaterial3D and mat.albedo_texture:
+				albedo_tex = mat.albedo_texture
 				break
-		inst.queue_free()
-		if not tuft_mesh:
-			push_warning("No mesh in %s" % biome.mesh_path)
-			continue
 
 		# Create particle controller node
 		var gp: Node3D = Node3D.new()
