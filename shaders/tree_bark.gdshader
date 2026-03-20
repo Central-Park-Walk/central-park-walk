@@ -9,6 +9,14 @@ global uniform float snow_cover;
 global uniform float season_t;
 global uniform vec3 sky_reflect_color;
 
+// PBR bark textures — photogrammetry-scanned real bark surfaces (CC0)
+// One set per bark style, blended with procedural FBM for per-tree variation
+uniform sampler2D bark_albedo_tex : source_color, filter_linear_mipmap_anisotropic;
+uniform sampler2D bark_normal_tex : hint_normal, filter_linear_mipmap_anisotropic;
+uniform sampler2D bark_roughness_tex : filter_linear_mipmap_anisotropic;
+uniform float tex_blend = 0.45;        // 0=pure procedural, 1=pure texture
+uniform float tex_uv_scale = 1.8;      // world-space tiling frequency
+
 varying vec3 world_pos;
 varying vec3 world_nrm;
 
@@ -144,7 +152,45 @@ void fragment() {
 	// fissures recede. This is what makes bark look 3D instead of painted on.
 	float relief_h = furrow + micro * 0.4;
 	vec3 bark_normal_perturb = vec3(dFdx(relief_h), dFdy(relief_h), 0.0);
-	NORMAL = normalize(NORMAL + bark_normal_perturb * 2.5);
+
+	// --- Triplanar PBR texture blending ---
+	// Sample photographic bark textures from 3 orthogonal projections,
+	// weighted by surface normal. Blended with procedural results above.
+	vec3 tri_w = abs(world_nrm);
+	tri_w = pow(tri_w, vec3(4.0));  // sharpen blend for less smearing
+	tri_w /= (tri_w.x + tri_w.y + tri_w.z);
+
+	// Per-tree UV offset to break visible tiling across adjacent trees
+	vec2 tree_uv_ofs = floor(tree_base.xz * 0.37) * 0.31;
+
+	vec2 uv_yz = world_pos.yz * tex_uv_scale + tree_uv_ofs;
+	vec2 uv_xz = world_pos.xz * tex_uv_scale + tree_uv_ofs;
+	vec2 uv_xy = world_pos.xy * tex_uv_scale + tree_uv_ofs;
+
+	// Albedo from texture — tints procedural color, doesn't replace it
+	vec3 tex_alb_yz = texture(bark_albedo_tex, uv_yz).rgb;
+	vec3 tex_alb_xz = texture(bark_albedo_tex, uv_xz).rgb;
+	vec3 tex_alb_xy = texture(bark_albedo_tex, uv_xy).rgb;
+	vec3 tex_albedo = tex_alb_yz * tri_w.x + tex_alb_xz * tri_w.y + tex_alb_xy * tri_w.z;
+
+	// Normal from texture — unpack and triplanar blend
+	vec3 tn_yz = texture(bark_normal_tex, uv_yz).rgb * 2.0 - 1.0;
+	vec3 tn_xz = texture(bark_normal_tex, uv_xz).rgb * 2.0 - 1.0;
+	vec3 tn_xy = texture(bark_normal_tex, uv_xy).rgb * 2.0 - 1.0;
+	vec3 tex_nrm = normalize(tn_yz * tri_w.x + tn_xz * tri_w.y + tn_xy * tri_w.z);
+
+	// Roughness from texture — triplanar blend
+	float tr_yz = texture(bark_roughness_tex, uv_yz).r;
+	float tr_xz = texture(bark_roughness_tex, uv_xz).r;
+	float tr_xy = texture(bark_roughness_tex, uv_xy).r;
+	float tex_rough = tr_yz * tri_w.x + tr_xz * tri_w.y + tr_xy * tri_w.z;
+
+	// Blend: procedural provides structure + per-tree variation,
+	//        texture provides photographic surface detail
+	col = mix(col, col * tex_albedo * 2.2, tex_blend);  // multiply-blend preserves procedural tone
+	rough = mix(rough, tex_rough, tex_blend * 0.6);
+	vec3 final_normal_perturb = mix(bark_normal_perturb, tex_nrm * 0.4, tex_blend);
+	NORMAL = normalize(NORMAL + final_normal_perturb * 2.5);
 
 	// Per-pixel micro-variation: lichen spores, mineral deposits,
 	// moisture stains, insect marks — millions of unique shades

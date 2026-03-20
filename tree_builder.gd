@@ -178,6 +178,40 @@ func _build_trees(trees: Array) -> void:
 	var leaf_shader: Shader = _loader._get_shader("tree_leaf_glb", _tree_glb_leaf_shader_code())
 	var bark_shader: Shader = _loader._get_shader("tree_bark", "res://shaders/tree_bark.gdshader")
 
+	# PBR bark textures — photogrammetry-scanned real bark surfaces, one set per style
+	# Style 0: oak/furrowed, Style 1: birch/smooth, Style 2: london plane/exfoliating,
+	# Style 3: pine/plated, Style 4: magnolia/smooth
+	var bark_tex_paths := {
+		0: { "albedo": "res://textures/bark/oak/Bark012_1K-JPG_Color.jpg",
+		     "normal": "res://textures/bark/oak/Bark012_1K-JPG_NormalGL.jpg",
+		     "roughness": "res://textures/bark/oak/Bark012_1K-JPG_Roughness.jpg" },
+		1: { "albedo": "res://textures/bark/smooth/Bark003_1K-JPG_Color.jpg",
+		     "normal": "res://textures/bark/smooth/Bark003_1K-JPG_NormalGL.jpg",
+		     "roughness": "res://textures/bark/smooth/Bark003_1K-JPG_Roughness.jpg" },
+		2: { "albedo": "res://textures/bark/exfoliating/Bark015_1K-JPG_Color.jpg",
+		     "normal": "res://textures/bark/exfoliating/Bark015_1K-JPG_NormalGL.jpg",
+		     "roughness": "res://textures/bark/exfoliating/Bark015_1K-JPG_Roughness.jpg" },
+		3: { "albedo": "res://textures/bark/pine/pine_bark_diff_1k.jpg",
+		     "normal": "res://textures/bark/pine/pine_bark_nor_gl_1k.jpg",
+		     "roughness": "res://textures/bark/pine/pine_bark_rough_1k.jpg" },
+		4: { "albedo": "res://textures/bark/furrowed/Bark007_1K-JPG_Color.jpg",
+		     "normal": "res://textures/bark/furrowed/Bark007_1K-JPG_NormalGL.jpg",
+		     "roughness": "res://textures/bark/furrowed/Bark007_1K-JPG_Roughness.jpg" },
+	}
+	var bark_textures := {}  # style_id -> { "albedo": Texture2D, "normal": ..., "roughness": ... }
+	for style_id in bark_tex_paths:
+		var paths: Dictionary = bark_tex_paths[style_id]
+		var texs := {}
+		for map_name in paths:
+			var tex = load(paths[map_name])
+			if tex:
+				texs[map_name] = tex
+		if texs.size() == 3:
+			bark_textures[style_id] = texs
+			print("Trees: loaded bark textures for style %d" % style_id)
+		else:
+			push_warning("Trees: missing bark textures for style %d" % style_id)
+
 	var _base_model_names := ["maple", "birch", "deciduous", "pine", "elm", "oak", "cherry", "ginkgo", "honeylocust", "linden", "london_plane", "callery_pear", "dead", "willow", "magnolia", "cathedral_elm"]
 	# Load tiered models (_s, _m, _l) for each base model. Dead has no tiers.
 	for base_name in _base_model_names:
@@ -286,6 +320,11 @@ func _build_trees(trees: Array) -> void:
 							bark_mat.shader = bark_shader
 							bark_mat.set_shader_parameter("bark_color", Vector3(bark_col.r, bark_col.g, bark_col.b))
 							bark_mat.set_shader_parameter("bark_style", bstyle)
+							if bark_textures.has(bstyle):
+								var btex: Dictionary = bark_textures[bstyle]
+								bark_mat.set_shader_parameter("bark_albedo_tex", btex["albedo"])
+								bark_mat.set_shader_parameter("bark_normal_tex", btex["normal"])
+								bark_mat.set_shader_parameter("bark_roughness_tex", btex["roughness"])
 							m.surface_set_material(si, bark_mat)
 					elif smat is ShaderMaterial:
 						var sm: ShaderMaterial = smat as ShaderMaterial
