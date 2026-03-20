@@ -705,11 +705,12 @@ func _build_canopy_shells() -> void:
 		if not chunks.has(ck):
 			chunks[ck] = {"xf": [], "cd": [], "model": model_name}
 
-		# Impostor transform: quad at crown center, scaled to crown diameter
-		var crown_h: float = sd.h * 0.45
-		var crown_y: float = sd.y + sd.h * 0.55
-		var crown_size: float = maxf(sd.r * 2.0, crown_h)  # impostor needs square scale
-		var basis := Basis.IDENTITY * crown_size
+		# Impostor transform: scale ratio = actual tree height / baked model height (5m)
+		# The shader's scale uniform handles the baked model's bounding sphere;
+		# the instance transform only needs to scale from model-space to world-space.
+		var scale_ratio: float = sd.h / 5.0
+		var crown_y: float = sd.y + sd.h * 0.5  # center of tree
+		var basis := Basis.IDENTITY * scale_ratio
 		var tf := Transform3D(basis, Vector3(sd.x, crown_y, sd.z))
 		chunks[ck].xf.append(tf)
 		chunks[ck].cd.append(Color(float(sd.sp) / 13.0, sd.timing, sd.ev, float(sd.sp) / 15.0))
