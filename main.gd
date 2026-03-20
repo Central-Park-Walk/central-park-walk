@@ -1740,14 +1740,9 @@ var _landuse_texture: Texture2D  # cached for grass particle system
 # Biome definitions for multi-layer grass particles.
 # Each biome gets its own Terrain3D particle grid with zone-filtered BD3D tuft mesh.
 const GRASS_BIOMES := [
-	{  # All maintained lawn — Sheep Meadow, Great Lawn, sports, gardens
-		"name": "Lawn", "biome_id": 0,
-		"mesh_path": "res://models/vegetation/Tuft_Lawn.glb",
-		"spacing": 0.2, "cell_width": 16.0, "grid_width": 9,
-		"min_scale": Vector3(1.0, 0.8, 1.0),
-		"max_scale": Vector3(1.6, 1.3, 1.6),
-		"position_offset": Vector3(0, -0.005, 0),
-	},
+	# Mowed lawn (biome 0) — terrain texture handles the short grass look.
+	# Clover/dandelion accents from grass_accent_builder provide detail.
+	# No particle layer needed for 4-5cm mowed turf.
 	{  # Wild meadow — nature reserve, unmowed
 		"name": "Wild", "biome_id": 2,
 		"mesh_path": "res://models/vegetation/Tuft_Wild.glb",
