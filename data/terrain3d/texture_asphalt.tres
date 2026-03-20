@@ -1,0 +1,9 @@
+[gd_resource type="Terrain3DTextureAsset" load_steps=3 format=3]
+
+[ext_resource type="CompressedTexture2D" path="res://textures/terrain3d/asphalt_albedo_height.png" id="1"]
+[ext_resource type="CompressedTexture2D" path="res://textures/terrain3d/asphalt_normal_rough.png" id="2"]
+
+[resource]
+albedo_texture = ExtResource("1")
+normal_texture = ExtResource("2")
+uv_scale = 0.2
