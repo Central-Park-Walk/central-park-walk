@@ -154,8 +154,8 @@ func _do_bake() -> void:
 					terrain.data.set_control(pos, _encode_control(TEX_GRASS, TEX_ROCK, 0.0, false, true))
 					pixels_set += 1
 					continue
-				# Structure detected (LiDAR)
-				elif struct_val > 1 and park_val > 0.5:
+				# Structure detected (LiDAR) — only strong detections
+				elif struct_val > 16 and park_val > 0.5:
 					base_id = TEX_PAVING
 					use_auto = false
 				# Shore zone — blend shore with grass

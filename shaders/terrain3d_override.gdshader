@@ -366,36 +366,14 @@ void fragment() {
 	bool is_grass_zone = (zone_id == 0 || zone_id == 1 || zone_id == 2
 	                   || zone_id == 3 || zone_id == 7);
 
-	// ---- Hexaquo grass impostor (close-range green carpet) ----
-	if (is_grass_zone || is_woodland) {
-		float green_blend = is_grass_zone ? 0.65 : 0.40;
-		float patch = vnoise(v_vertex.xz / 3.0);
-		vec3 imp_col = mix(vec3(0.12, 0.28, 0.06), vec3(0.30, 0.40, 0.12), patch);
-
-		vec3 view_dir = normalize(_camera_pos - v_vertex);
-		float normal_to_view = 1.0 - max(dot(view_dir, v_normal), 0.0);
-		imp_col = mix(imp_col, vec3(0.30, 0.40, 0.12), normal_to_view * 0.4);
-
-		float ao_noise = vnoise(v_vertex.xz * 0.8);
-		float wind_str = length(wind_vec);
-		float wind_bend = vnoise(v_vertex.xz * 0.1 - wind_vec * TIME * 0.1) * wind_str;
-		float ao2 = mix(0.5, 1.0, ao_noise + smoothstep(0.6, 1.0, normal_to_view) * 0.4) - wind_bend * 0.3;
-		imp_col *= clamp(ao2, 0.3, 1.0);
-
-		float spots = vnoise(v_vertex.xz * 2.0);
-		float ground_show = smoothstep(0.4, 0.2, spots);
-		imp_col = mix(imp_col, vec3(0.07, 0.15, 0.04), ground_show);
-
-		// Canopy leaf litter
+	// ---- Canopy leaf litter (under dense tree cover) ----
+	{
 		float canopy_cover = texture(canopy_map, splat_uv).r;
-		if (canopy_cover > 0.3) {
+		if (canopy_cover > 0.3 && (is_grass_zone || is_woodland)) {
 			vec3 litter_col = mix(vec3(0.28, 0.22, 0.14), vec3(0.34, 0.26, 0.16), vnoise(v_vertex.xz * 0.5));
-			imp_col = mix(imp_col, litter_col, smoothstep(0.3, 0.7, canopy_cover) * 0.70);
+			float litter_blend = smoothstep(0.3, 0.7, canopy_cover) * 0.50;
+			ALBEDO = mix(ALBEDO, litter_col, litter_blend);
 		}
-		if (is_woodland) imp_col *= vec3(0.85, 0.88, 0.75);
-
-		float impostor_t = smoothstep(5.0, 15.0, cam_dist);
-		ALBEDO = mix(ALBEDO, mix(vec3(0.07, 0.15, 0.04), imp_col, impostor_t), green_blend);
 	}
 
 	// ---- Seasonal color shift ----
