@@ -80,9 +80,9 @@ void fragment() {
 	float patch_noise = fract(sin(dot(floor(v_world_pos.xz * 0.3), vec2(12.9898, 78.233))) * 43758.5453);
 	base_col = mix(base_col, base_col * 0.82, patch_noise * 0.3);
 
-	// Tip brightening + base darkening
-	base_col = mix(base_col, base_col * 1.3, smoothstep(0.7, 1.0, v_height_t));
-	base_col *= mix(0.65, 1.0, smoothstep(0.0, 0.35, v_height_t));
+	// Tip brightening (subtle) + base darkening
+	base_col = mix(base_col, base_col * 1.1, smoothstep(0.7, 1.0, v_height_t));
+	base_col *= mix(0.60, 0.90, smoothstep(0.0, 0.35, v_height_t));
 
 	// Per-instance color variation
 	base_col.rg *= (data.rg * 0.2 + 0.90);
@@ -113,11 +113,11 @@ void fragment() {
 
 	ALBEDO = base_col;
 
-	// PBR
+	// PBR — muted specular to reduce sparkle
 	float spec_rough = clamp(max(v_height_t, data[2]), 0.0, 1.0);
-	ROUGHNESS = mix(0.75, 0.40, spec_rough);
-	SPECULAR = clamp(spec_rough * 0.12, 0.0, 0.10);
-	BACKLIGHT = vec3(0.25);
+	ROUGHNESS = mix(0.85, 0.55, spec_rough);
+	SPECULAR = clamp(spec_rough * 0.06, 0.0, 0.05);
+	BACKLIGHT = vec3(0.15);
 
 	// Rain
 	ALBEDO *= mix(1.0, 0.70, rain_wetness);
