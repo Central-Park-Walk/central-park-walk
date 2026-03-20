@@ -1049,7 +1049,6 @@ func _grass_tour_teleport() -> void:
 		RenderingServer.global_shader_parameter_set("season_t", _season_t)
 	if spot.has("weather"):
 		_weather_mode = spot["weather"]
-		_apply_weather_particles()
 		if spot["weather"] == "snow":
 			_snow_cover = 1.0
 			RenderingServer.global_shader_parameter_set("snow_cover", _snow_cover)
