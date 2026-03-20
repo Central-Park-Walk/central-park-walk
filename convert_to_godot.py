@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Convert central_park_osm.json → park_data.json + heightmap.json
+Convert central_park_osm.json → park_data.json + heightmap.bin + terrain_mesh.bin
 
 Projects OSM lat/lon into local metres relative to the centre of Central Park,
 using the same coordinate convention as the Godot scene:
@@ -10,8 +10,9 @@ using the same coordinate convention as the Godot scene:
     −Z axis = North   (Godot's default forward is −Z)
 
 If terrain_tiles/ is present (run download_terrain.py first), the converter
-also writes heightmap.json and embeds real terrain heights (metres, relative to
-the lowest point in the dataset) into every feature:
+writes heightmap.bin (8K float32 DEM) and terrain_mesh.bin (prebaked terrain),
+and embeds real terrain heights (metres, relative to the lowest point) into
+every feature:
 
     paths[]     – points now [x, terrain_y, z]  (3 values)
     trees[]     – points now [x, terrain_y, z]  (3 values)

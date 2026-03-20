@@ -10,12 +10,11 @@ const REF_LON            := -73.9654
 const METRES_PER_DEG_LAT := 110_540.0
 const METRES_PER_DEG_LON := 84_264.0   # 111320 × cos(40.7829°)
 
-# Heightmap (loaded once, shared for player spawn positioning)
+# Heightmap (loaded once, shared for height queries + path shader snapping)
 var _hm_data:          PackedFloat32Array = PackedFloat32Array()
 var _hm_width:         int     = 0
 var _hm_depth:         int     = 0
 var _hm_world_size:    float   = 5000.0
-var _hm_origin_height: float   = 0.0
 
 # HUD label references kept for per-frame updates
 var _player:        CharacterBody3D
@@ -163,8 +162,8 @@ func _ready() -> void:
 	var _mt := Time.get_ticks_msec()
 	_build_keyframes()
 	_load_heightmap()
-	_carve_collision_voids()
-	print("main: heightmap + collision voids: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
+	_carve_terrain_voids()
+	print("main: heightmap + terrain voids: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_setup_environment()
 	# Register global shader parameters BEFORE park_loader creates materials
 	RenderingServer.global_shader_parameter_add("wind_vec", RenderingServer.GLOBAL_VAR_TYPE_VEC2, Vector2.ZERO)
@@ -185,7 +184,7 @@ func _ready() -> void:
 	# Pass Terrain3D reference to park_loader (created in _setup_ground)
 	if _terrain3d and _park_loader:
 		_park_loader.terrain3d = _terrain3d
-	print("main: ground mesh: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
+	print("main: Terrain3D setup: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	if not _terrain_only:
 		_apply_structure_textures()
 		if _park_loader and _park_loader.boundary_polygon.size() > 2:
@@ -411,39 +410,25 @@ func _build_readme_shots() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Heightmap helpers
+# Heightmap — fallback height queries + GPU texture for path/curb shaders.
+# Terrain3D handles rendering + collision; heightmap.bin is kept for builders
+# that need _terrain_height() before Terrain3D is initialized.
 # ---------------------------------------------------------------------------
 func _load_heightmap() -> void:
-	# Try binary format first, then fall back to JSON
-	if FileAccess.file_exists("res://heightmap.bin"):
-		var fa := FileAccess.open("res://heightmap.bin", FileAccess.READ)
-		_hm_width         = fa.get_32()
-		_hm_depth         = fa.get_32()
-		_hm_world_size    = fa.get_float()
-		_hm_origin_height = fa.get_float()
-		var byte_count := _hm_width * _hm_depth * 4
-		var buf := fa.get_buffer(byte_count)
-		fa.close()
-		_hm_data = buf.to_float32_array()
-		print("Heightmap loaded (bin): %d×%d  origin_y=%.1f m" % [
-			_hm_width, _hm_depth, _hm_origin_height])
+	if not FileAccess.file_exists("res://heightmap.bin"):
+		push_warning("heightmap.bin not found — height queries will return 0")
 		return
-	if not FileAccess.file_exists("res://heightmap.json"):
-		return
-	var fa  := FileAccess.open("res://heightmap.json", FileAccess.READ)
-	var hm   = JSON.parse_string(fa.get_as_text())
+	var fa := FileAccess.open("res://heightmap.bin", FileAccess.READ)
+	_hm_width      = fa.get_32()
+	_hm_depth      = fa.get_32()
+	_hm_world_size = fa.get_float()
+	var _origin_h  = fa.get_float()  # read past header field (unused)
+	var byte_count := _hm_width * _hm_depth * 4
+	var buf := fa.get_buffer(byte_count)
 	fa.close()
-	if typeof(hm) != TYPE_DICTIONARY:
-		return
-	_hm_width         = int(hm["width"])
-	_hm_depth         = int(hm["depth"])
-	_hm_world_size    = float(hm["world_size"])
-	_hm_origin_height = float(hm["origin_height"])
-	var raw_data: Array = hm["data"]
-	_hm_data.resize(raw_data.size())
-	for i in range(raw_data.size()):
-		_hm_data[i] = float(raw_data[i])
-	print("Heightmap loaded (json): %d×%d  origin_y=%.1f m" % [_hm_width, _hm_depth, _hm_origin_height])
+	_hm_data = buf.to_float32_array()
+	print("Heightmap loaded: %d×%d  (fallback for height queries + path shader)" % [
+		_hm_width, _hm_depth])
 
 
 func _terrain_height(x: float, z: float) -> float:
@@ -489,24 +474,25 @@ func _terrain_height(x: float, z: float) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Collision-only terrain voids — lowers collision heightmap for walkable
-# tunnel interiors WITHOUT modifying the visual terrain mesh.
-# The 3D model provides interior surfaces (vault ceiling hides terrain).
+# Terrain voids — lowers heightmap values for tunnel interiors so that
+# path/curb shaders (which snap to the GPU heightmap texture) conform to
+# the tunnel floor.  Terrain3D handles visual rendering + collision;
+# this only affects the fallback _hm_data passed to park_loader.
 # ---------------------------------------------------------------------------
-func _carve_collision_voids() -> void:
+func _carve_terrain_voids() -> void:
 	if _hm_data.is_empty():
 		return
-	# Bethesda Terrace arcade — carve collision ONLY inside the tunnel passage.
-	# The stairs and lower terrace use terrain collision as-is (DEM provides the slope).
+	# Bethesda Terrace arcade — lower heightmap inside the tunnel passage
+	# so path vertex shaders snap to the arcade floor elevation.
 	# Tunnel zone: between wall peaks Z≈997-1004, narrow to arcade opening width.
 	var floor_h := 17.0
-	_carve_collision_rect(-484.0, -462.0, 995.0, 1005.0, floor_h, 2.0,
+	_carve_terrain_rect(-484.0, -462.0, 995.0, 1005.0, floor_h, 2.0,
 		"bethesda_arcade")
 
 
-func _carve_collision_rect(x_min: float, x_max: float, z_min: float, z_max: float,
+func _carve_terrain_rect(x_min: float, x_max: float, z_min: float, z_max: float,
 		floor_h: float, feather: float, label: String) -> void:
-	## Lower collision heightmap in a rectangle. Visual terrain is untouched.
+	## Lower heightmap values in a rectangle so path/curb GPU snapping matches tunnel floors.
 	var half := _hm_world_size * 0.5
 	var scale_x := float(_hm_width - 1) / _hm_world_size
 	var scale_z := float(_hm_depth - 1) / _hm_world_size
@@ -639,10 +625,6 @@ func _process(delta: float) -> void:
 		_season_t = fmod(_season_t + _season_speed * delta, 4.0)
 		RenderingServer.global_shader_parameter_set("season_t", _season_t)
 
-	# Dynamic grass chunk loading — disabled during Terrain3D migration
-	# (old grass blades use heightmap.bin heights that don't match Terrain3D)
-	#if _player and _park_loader and _park_loader._grass_builder:
-	#	_park_loader._grass_builder.update_camera(_player.global_position)
 	if _player and _park_loader and _park_loader._undergrowth_builder:
 		_park_loader._undergrowth_builder.season_t = _season_t
 		_park_loader._undergrowth_builder.rain_wetness = _rain_wetness
@@ -1612,7 +1594,7 @@ func _apply_time_of_day() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Terrain ground – Terrain3D clipmap or flat fallback
+# Terrain ground – Terrain3D clipmap
 # ---------------------------------------------------------------------------
 func _set_terrain_param(param: StringName, value) -> void:
 	## Set a shader parameter on the Terrain3D override shader.

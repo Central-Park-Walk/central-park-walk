@@ -473,8 +473,9 @@ func _generate_canopy_map(data: Array) -> ImageTexture:
 
 
 # ---------------------------------------------------------------------------
-# Heightmap terrain sampler — matches the bilinear interpolation used by the
-# terrain mesh in main.gd so paths/water sit exactly on the rendered surface.
+# Heightmap sampler — provides _terrain_y() fallback and GPU texture for
+# path/curb vertex-shader terrain snapping.  Terrain3D handles rendering;
+# this data is used when Terrain3D isn't yet available or for shader params.
 # ---------------------------------------------------------------------------
 func set_heightmap(data: Array, width: int, depth: int, world_size: float) -> void:
 	## Receive pre-loaded heightmap data from main.gd (avoids double-parsing JSON).
