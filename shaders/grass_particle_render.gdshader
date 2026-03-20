@@ -84,8 +84,9 @@ void fragment() {
 	base_col = mix(base_col, base_col * 1.1, smoothstep(0.7, 1.0, v_height_t));
 	base_col *= mix(0.60, 0.90, smoothstep(0.0, 0.35, v_height_t));
 
-	// Per-instance color variation
-	base_col.rg *= (data.rg * 0.2 + 0.90);
+	// Per-instance color variation + darken to match terrain
+	base_col *= 0.75;
+	base_col.rg *= (data.rg * 0.15 + 0.92);
 
 	// Seasonal modulation
 	float spring_t = 1.0 - smoothstep(0.0, 1.0, season);
@@ -113,11 +114,10 @@ void fragment() {
 
 	ALBEDO = base_col;
 
-	// PBR — muted specular to reduce sparkle
-	float spec_rough = clamp(max(v_height_t, data[2]), 0.0, 1.0);
-	ROUGHNESS = mix(0.85, 0.55, spec_rough);
-	SPECULAR = clamp(spec_rough * 0.06, 0.0, 0.05);
-	BACKLIGHT = vec3(0.15);
+	// PBR — no specular, fully rough (prevents sparkle on texture cards)
+	ROUGHNESS = 0.95;
+	SPECULAR = 0.0;
+	BACKLIGHT = vec3(0.10);
 
 	// Rain
 	ALBEDO *= mix(1.0, 0.70, rain_wetness);

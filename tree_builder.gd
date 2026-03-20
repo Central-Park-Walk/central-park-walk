@@ -666,7 +666,7 @@ func _load_impostor_atlases() -> void:
 		mat.set_shader_parameter("aabb_max", imp_aabb)
 		mat.set_shader_parameter("alpha_clamp", 0.2)
 		mat.set_shader_parameter("dither", true)
-		mat.set_shader_parameter("albedo", Color(1.4, 1.4, 1.35, 1.0))  # brighten to match scene lighting
+		mat.set_shader_parameter("albedo", Color(1.8, 1.8, 1.7, 1.0))  # strong brighten — bake lighting was dim
 		_impostor_materials[model_name] = mat
 
 	print("Trees LOD1: loaded %d impostor atlases" % _impostor_textures.size())
