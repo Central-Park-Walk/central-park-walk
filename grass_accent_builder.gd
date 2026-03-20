@@ -320,7 +320,9 @@ func _build_chunk(ck: String) -> void:
 				continue
 
 			var wy := _sample_height(bx, bz)
-			var sc: float = rng.randf_range(s_lo, s_hi)
+			var s_mean: float = s_lo + (s_hi - s_lo) * 0.4
+			var s_sd: float = (s_hi - s_lo) * 0.20
+			var sc: float = clampf(rng.randfn(s_mean, s_sd), s_lo, s_hi)
 			var yr: float = rng.randf() * TAU
 			var cos_y := cos(yr)
 			var sin_y := sin(yr)

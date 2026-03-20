@@ -318,7 +318,9 @@ func _build_chunk(ck: String) -> void:
 				continue
 
 			var wy := _sample_height(bx, bz)
-			var sc: float = rng.randf_range(s_lo, s_hi)
+			var s_mean: float = s_lo + (s_hi - s_lo) * 0.4
+			var s_sd: float = (s_hi - s_lo) * 0.20
+			var sc: float = clampf(rng.randfn(s_mean, s_sd), s_lo, s_hi)
 			var yr: float = rng.randf() * TAU
 			var mx: float = 1.0 if rng.randf() > 0.5 else -1.0
 			var tilt: float = rng.randf_range(-0.07, 0.07)

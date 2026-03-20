@@ -456,7 +456,11 @@ func _build_chunk(ck: String) -> void:
 				wy = h00 + (h11 - h01) * fx + (h01 - h00) * fz
 
 			var yr: float = rng.randf() * TAU
-			var sc: float = rng.randf_range(s_lo, s_hi)
+			# Normal distribution (mean at 40% of range, sd = 20% of range)
+			# Biases toward smaller plants — few reach maximum size
+			var s_mean: float = s_lo + (s_hi - s_lo) * 0.4
+			var s_sd: float = (s_hi - s_lo) * 0.20
+			var sc: float = clampf(rng.randfn(s_mean, s_sd), s_lo, s_hi)
 			var seed_val: float = rng.randf()
 			# Random X-mirror (50% chance) — doubles perceived mesh variety
 			var mx: float = 1.0 if rng.randf() > 0.5 else -1.0
