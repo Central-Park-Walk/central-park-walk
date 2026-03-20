@@ -1041,7 +1041,7 @@ func _start_grass_tour() -> void:
 	_grass_tour_active = true
 	_grass_tour_idx = 0
 	_grass_tour_timer = 0.0
-	print("Photo tour: starting (F10) — %d random locations" % _grass_tour_spots.size())
+	print("Photo tour: starting (F10) — %d of %d survived boundary filter (%d attempts)" % [_grass_tour_spots.size(), count, attempts])
 	_grass_tour_teleport()
 
 func _grass_tour_teleport() -> void:

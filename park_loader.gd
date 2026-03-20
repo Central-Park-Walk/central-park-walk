@@ -599,8 +599,19 @@ func _fbm(p: Vector2, octaves: int) -> float:
 
 
 func _in_boundary(px: float, pz: float) -> bool:
-	## O(1) atlas lookup — inside park if surface type > 0.
-	return _atlas_surface(px, pz) > 0
+	## Point-in-convex-hull test (CCW winding).
+	## Falls back to atlas lookup if hull not yet built.
+	var hull := boundary_polygon
+	var n := hull.size()
+	if n < 3:
+		return _atlas_surface(px, pz) > 0
+	var pt := Vector2(px, pz)
+	for i in n:
+		var a := hull[i]
+		var b := hull[(i + 1) % n]
+		if (b - a).cross(pt - a) < 0.0:
+			return false
+	return true
 
 
 static func _convex_hull(points: PackedVector2Array) -> PackedVector2Array:
