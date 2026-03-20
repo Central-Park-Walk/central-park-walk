@@ -24,11 +24,11 @@ var _hm_ws: float
 var _hm_half: float
 
 const CHUNK := 20.0
-const LOAD_RANGE := 80.0
-const UNLOAD_RANGE := 90.0
+const LOAD_RANGE := 100.0
+const UNLOAD_RANGE := 110.0
 const UPDATE_DIST := 4.0
-const VIS_END := 60.0
-const VIS_FADE_MARGIN := 12.0
+const VIS_END := 80.0
+const VIS_FADE_MARGIN := 15.0
 
 # Accent types with their tuft mesh names and zone rules.
 # density = instances per 100 m². seasons: 0=all, 1=spring-summer, 2=autumn-winter
