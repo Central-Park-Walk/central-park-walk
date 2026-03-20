@@ -189,40 +189,47 @@ float cloud_shadow(vec2 world_xz, float cloud_coverage_val, float cloud_speed_va
 // Anti-tiling texture sampling (Inigo Quilez)
 // ===========================================================================
 
+// Two-octave noise lookup breaks the single-frequency banding visible at dawn
+float _nt_noise(vec2 uv) {
+	float k0 = texture(tile_noise, uv * 0.018).x;
+	float k1 = texture(tile_noise, uv * 0.0071 + vec2(0.37, 0.81)).x;
+	return k0 * 0.7 + k1 * 0.3;
+}
+
 vec3 textureNoTile_c(sampler2D tex, vec2 uv) {
-	float k = texture(tile_noise, uv * 0.0085).x;
+	float k = _nt_noise(uv);
 	vec2 duvdx = dFdx(uv); vec2 duvdy = dFdy(uv);
-	float l = k * 12.0;
+	float l = k * 8.0;
 	float f = fract(l);
 	vec2 offa = sin(vec2(3.0, 7.0) * floor(l));
 	vec2 offb = sin(vec2(3.0, 7.0) * ceil(l));
 	vec3 cola = textureGrad(tex, uv + offa, duvdx, duvdy).rgb;
 	vec3 colb = textureGrad(tex, uv + offb, duvdx, duvdy).rgb;
-	return mix(cola, colb, smoothstep(0.15, 0.85, f - 0.1 * dot(cola - colb, vec3(1.0))));
+	return mix(cola, colb, smoothstep(0.2, 0.8, f - 0.1 * dot(cola - colb, vec3(1.0))));
 }
 
 vec3 textureNoTile_n(sampler2D tex, vec2 uv) {
-	float k = texture(tile_noise, uv * 0.0085).x;
+	float k = _nt_noise(uv);
 	vec2 duvdx = dFdx(uv); vec2 duvdy = dFdy(uv);
-	float l = k * 12.0;
+	float l = k * 8.0;
 	float f = fract(l);
 	vec2 offa = sin(vec2(3.0, 7.0) * floor(l));
 	vec2 offb = sin(vec2(3.0, 7.0) * ceil(l));
 	vec3 na = textureGrad(tex, uv + offa, duvdx, duvdy).rgb;
 	vec3 nb = textureGrad(tex, uv + offb, duvdx, duvdy).rgb;
-	return mix(na, nb, smoothstep(0.15, 0.85, f));
+	return mix(na, nb, smoothstep(0.2, 0.8, f));
 }
 
 float textureNoTile_r(sampler2D tex, vec2 uv) {
-	float k = texture(tile_noise, uv * 0.0085).x;
+	float k = _nt_noise(uv);
 	vec2 duvdx = dFdx(uv); vec2 duvdy = dFdy(uv);
-	float l = k * 12.0;
+	float l = k * 8.0;
 	float f = fract(l);
 	vec2 offa = sin(vec2(3.0, 7.0) * floor(l));
 	vec2 offb = sin(vec2(3.0, 7.0) * ceil(l));
 	float ra = textureGrad(tex, uv + offa, duvdx, duvdy).r;
 	float rb = textureGrad(tex, uv + offb, duvdx, duvdy).r;
-	return mix(ra, rb, smoothstep(0.15, 0.85, f));
+	return mix(ra, rb, smoothstep(0.2, 0.8, f));
 }
 
 // ===========================================================================
@@ -405,8 +412,8 @@ void fragment() {
 
 	// Normal map sampling — micro UV warp breaks dawn specular stripes
 	vec2 nrm_warp = vec2(
-		sin(v_vertex.x * 0.37 + v_vertex.z * 0.19) * 0.008,
-		cos(v_vertex.z * 0.31 + v_vertex.x * 0.23) * 0.008);
+		sin(v_vertex.x * 0.37 + v_vertex.z * 0.19) * 0.02,
+		cos(v_vertex.z * 0.31 + v_vertex.x * 0.23) * 0.02);
 	vec3 grass_nrm = textureNoTile_n(grass_normal, g_uv + nrm_warp);
 	grass_nrm = mix(grass_nrm, vec3(0.5, 0.5, 1.0), tex_fade);
 	float grass_rgh = clamp(textureNoTile_r(grass_rough, g_uv) * 0.18 + 0.70, 0.0, 1.0);
@@ -422,18 +429,18 @@ void fragment() {
 	vec2 muv = v_vertex.xz / meadow_tile_m;
 	float s60 = 0.866; float c60 = 0.5;
 	vec2 muv_rot = vec2(muv.x * c60 + muv.y * s60, -muv.x * s60 + muv.y * c60);
-	vec3 m_alb = texture(meadow_albedo, muv_rot).rgb;
+	vec3 m_alb = textureNoTile_c(meadow_albedo, muv_rot);
 	{
 		float m_lum = dot(m_alb, vec3(0.299, 0.587, 0.114));
 		m_alb = mix(m_alb, vec3(m_lum), tex_fade);
 	}
-	vec3 m_nrm_raw = texture(meadow_normal, muv_rot).rgb;
+	vec3 m_nrm_raw = textureNoTile_n(meadow_normal, muv_rot);
 	vec3 m_nrm = vec3(
 		(m_nrm_raw.r - 0.5) * c60 + (m_nrm_raw.g - 0.5) * s60 + 0.5,
 		-(m_nrm_raw.r - 0.5) * s60 + (m_nrm_raw.g - 0.5) * c60 + 0.5,
 		m_nrm_raw.b);
 	m_nrm = mix(m_nrm, vec3(0.5, 0.5, 1.0), tex_fade);
-	float m_rgh = clamp(texture(meadow_rough, muv).r * 0.20 + 0.65, 0.0, 1.0);
+	float m_rgh = clamp(textureNoTile_r(meadow_rough, muv_rot) * 0.20 + 0.65, 0.0, 1.0);
 
 	float meadow_blend = is_woodland ? 1.0 : 0.0;
 	grass_alb = mix(grass_alb, m_alb, meadow_blend);

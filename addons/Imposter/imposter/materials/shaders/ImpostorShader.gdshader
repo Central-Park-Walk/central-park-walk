@@ -4,9 +4,12 @@ render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_sc
 
 uniform vec4 albedo : source_color = vec4(1, 1, 1, 1);
 
+// Dynamic brightness compensation — driven by main.gd based on ambient light energy
+global uniform float impostor_brightness;
+
 uniform float specular = 0.5f;
 
-uniform float metallic = 1.0f;
+uniform float metallic = 0.0f;
 
 uniform float roughness : hint_range(0.0f, 1.0f) = 1.0f;
 
@@ -367,7 +370,7 @@ void fragment()
 								uv_f3, frame3_normal,
 								TANGENT, BINORMAL,
 									quad_blend_weights, imposterTextureNormal);
-	ALBEDO = baseTex.rgb * albedo.rgb;
+	ALBEDO = baseTex.rgb * albedo.rgb * max(impostor_brightness, 0.5);
 	NORMAL =normalTex.xyz;
 	
 	if(dither)

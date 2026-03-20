@@ -177,6 +177,7 @@ func _ready() -> void:
 	RenderingServer.global_shader_parameter_add("lamp_glow", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	RenderingServer.global_shader_parameter_add("cloud_coverage_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.5)
 	RenderingServer.global_shader_parameter_add("cloud_speed_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.004)
+	RenderingServer.global_shader_parameter_add("impostor_brightness", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 1.0)
 	print("main: environment: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	if not _terrain_only:
 		_setup_park()
@@ -1012,12 +1013,24 @@ func _start_grass_tour() -> void:
 	rng.seed = Time.get_ticks_msec()
 	var weathers := ["clear", "clear", "clear", "rain", "snow", "fog"]  # bias toward clear
 	var count := 60
+	var attempts := 0
 	for i in count:
+		if attempts > 500:
+			break  # safety limit
 		var x := rng.randf_range(-1100.0, 1100.0)
 		var z := rng.randf_range(-2000.0, 2100.0)
+		attempts += 1
+		# Must be inside park boundary (atlas surface > 0)
+		if _park_loader and not _park_loader._in_boundary(x, z):
+			continue
+		# Skip water (surface type 4) and buildings (5)
+		if _park_loader:
+			var surf := _park_loader._atlas_surface(x, z)
+			if surf == 4 or surf == 5:
+				continue
 		var h := _terrain_height(x, z)
 		if h < 1.0:
-			continue  # skip water/outside
+			continue  # skip invalid terrain
 		var yaw := rng.randf_range(0.0, 360.0)
 		var pitch := rng.randf_range(-8.0, 3.0)
 		var hour := rng.randf_range(5.5, 20.0)  # dawn to dusk
@@ -1472,6 +1485,11 @@ func _apply_time_of_day() -> void:
 	# Ambient
 	_env.ambient_light_color  = _lerp_kf("ambient_color", a, b, t)
 	_env.ambient_light_energy = _lerp_kf("ambient_energy", a, b, t)
+
+	# Impostor brightness tracks ambient — brighter at noon, dimmer at night
+	# Normalized to 1.0 at noon (ambient_energy ~0.95), scales proportionally
+	var _imp_bright: float = clamp(_env.ambient_light_energy / 0.95, 0.3, 1.5)
+	RenderingServer.global_shader_parameter_set("impostor_brightness", _imp_bright)
 
 	# Tonemapping
 	_env.tonemap_exposure = _lerp_kf("exposure", a, b, t)
