@@ -1414,7 +1414,7 @@ func _apply_time_of_day() -> void:
 	var _cc_val: float = _lerp_kf("cloud_coverage", a, b, t)
 	var _cs_val: float = _lerp_kf("cloud_speed", a, b, t)
 	if _vol_sky:
-		_vol_sky.cloud_coverage = clampf(_cc_val, 0.1, 0.75)
+		_vol_sky.cloud_coverage = clampf(_cc_val, 0.25, 0.75)  # always partly cloudy
 		_vol_sky.density = clampf(_lerp_kf("cloud_density", a, b, t) * 0.08, 0.02, 0.10)
 		_vol_sky.wind_speed = _cs_val * 2.0
 	else:
@@ -1596,7 +1596,7 @@ func _apply_time_of_day() -> void:
 	var data_cover: float = lerpf(monthly_cover[month_idx], monthly_cover[month_next], month_frac)
 	if _weather_mode == "clear":
 		if _vol_sky:
-			_vol_sky.cloud_coverage = lerpf(_vol_sky.cloud_coverage, data_cover, 0.7)
+			_vol_sky.cloud_coverage = maxf(lerpf(_vol_sky.cloud_coverage, data_cover, 0.7), 0.25)
 		else:
 			var cc: float = _sky_mat.get_shader_parameter("cloud_coverage")
 			_sky_mat.set_shader_parameter("cloud_coverage", lerpf(cc, data_cover, 0.7))
