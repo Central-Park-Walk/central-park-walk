@@ -35,6 +35,7 @@ const TIME_SPEED_NAMES: Array = ["1x", "10x", "100x", "Paused"]
 
 var _env: Environment
 var _sky_mat: ShaderMaterial
+var _vol_sky = null  # clayjohn volumetric cloud sky (if loaded)
 var _sun: DirectionalLight3D
 var _lamp_emission: float = 0.0  # cached for SpotLight3D pool
 var _terrain3d: Terrain3D
@@ -1081,13 +1082,27 @@ func _load_img_tex(path: String) -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 
 func _setup_environment() -> void:
-	var sky_shader: Shader = load("res://shaders/cloud_sky.gdshader")
-	_sky_mat = ShaderMaterial.new()
-	_sky_mat.shader = sky_shader
-
-	var sky := Sky.new()
-	sky.sky_material = _sky_mat
-	sky.process_mode = Sky.PROCESS_MODE_REALTIME
+	# Volumetric cloud sky (clayjohn compute pipeline)
+	var sky: Sky
+	var vol_sky = load("res://cloud_sky/clouds_sky.tres")
+	if vol_sky:
+		vol_sky.cloud_coverage = 0.25
+		vol_sky.density = 0.05
+		vol_sky.wind_speed = 2.0
+		vol_sky.texture_size = 512   # performance: walking sim, slow sun
+		vol_sky.frames_to_update = 256
+		vol_sky.sun = _sun  # will be set after _sun is created — deferred below
+		_sky_mat = vol_sky.sky_material
+		_vol_sky = vol_sky
+		sky = vol_sky
+	else:
+		# Fallback to old procedural sky
+		var sky_shader: Shader = load("res://shaders/cloud_sky.gdshader")
+		_sky_mat = ShaderMaterial.new()
+		_sky_mat.shader = sky_shader
+		sky = Sky.new()
+		sky.sky_material = _sky_mat
+		sky.process_mode = Sky.PROCESS_MODE_REALTIME
 
 	_env = Environment.new()
 	_env.background_mode       = Environment.BG_SKY
@@ -1139,6 +1154,10 @@ func _setup_environment() -> void:
 	_sun.directional_shadow_max_distance = 200.0
 	_sun.directional_shadow_pancake_size = 20.0
 	add_child(_sun)
+
+	# Wire sun to volumetric cloud sky (deferred because _sun created after sky)
+	if vol_sky:
+		vol_sky.sun = _sun
 
 	print("Sky: day/night cycle — start 6:00 AM")
 
@@ -1389,25 +1408,29 @@ func _apply_time_of_day() -> void:
 	var b: Dictionary = pair[1]
 	var t: float = float(pair[2])
 
-	# Sky shader material
-	var sky_top: Color = _lerp_kf("sky_top", a, b, t)
-	var sky_hor: Color = _lerp_kf("sky_horizon", a, b, t)
-	var gnd_bot: Color = _lerp_kf("gnd_bottom", a, b, t)
-	var gnd_hor: Color = _lerp_kf("gnd_horizon", a, b, t)
-	_sky_mat.set_shader_parameter("sky_top_color", Vector3(sky_top.r, sky_top.g, sky_top.b))
-	_sky_mat.set_shader_parameter("sky_horizon_color", Vector3(sky_hor.r, sky_hor.g, sky_hor.b))
-	_sky_mat.set_shader_parameter("ground_bottom_color", Vector3(gnd_bot.r, gnd_bot.g, gnd_bot.b))
-	_sky_mat.set_shader_parameter("ground_horizon_color", Vector3(gnd_hor.r, gnd_hor.g, gnd_hor.b))
-	# Cloud properties
-	_sky_mat.set_shader_parameter("cloud_coverage", _lerp_kf("cloud_coverage", a, b, t))
-	_sky_mat.set_shader_parameter("cloud_density", _lerp_kf("cloud_density", a, b, t))
-	var cc_top: Color = _lerp_kf("cloud_color_top", a, b, t)
-	var cc_bot: Color = _lerp_kf("cloud_color_bottom", a, b, t)
-	_sky_mat.set_shader_parameter("cloud_color_top", Vector3(cc_top.r, cc_top.g, cc_top.b))
-	_sky_mat.set_shader_parameter("cloud_color_bottom", Vector3(cc_bot.r, cc_bot.g, cc_bot.b))
+	# Cloud properties — route to volumetric sky or old shader
 	var _cc_val: float = _lerp_kf("cloud_coverage", a, b, t)
 	var _cs_val: float = _lerp_kf("cloud_speed", a, b, t)
-	_sky_mat.set_shader_parameter("cloud_speed", _cs_val)
+	if _vol_sky:
+		_vol_sky.cloud_coverage = _cc_val
+		_vol_sky.density = _lerp_kf("cloud_density", a, b, t) * 0.15  # scale for vol clouds
+		_vol_sky.wind_speed = _cs_val * 3.0
+	else:
+		var sky_top: Color = _lerp_kf("sky_top", a, b, t)
+		var sky_hor: Color = _lerp_kf("sky_horizon", a, b, t)
+		var gnd_bot: Color = _lerp_kf("gnd_bottom", a, b, t)
+		var gnd_hor: Color = _lerp_kf("gnd_horizon", a, b, t)
+		_sky_mat.set_shader_parameter("sky_top_color", Vector3(sky_top.r, sky_top.g, sky_top.b))
+		_sky_mat.set_shader_parameter("sky_horizon_color", Vector3(sky_hor.r, sky_hor.g, sky_hor.b))
+		_sky_mat.set_shader_parameter("ground_bottom_color", Vector3(gnd_bot.r, gnd_bot.g, gnd_bot.b))
+		_sky_mat.set_shader_parameter("ground_horizon_color", Vector3(gnd_hor.r, gnd_hor.g, gnd_hor.b))
+		_sky_mat.set_shader_parameter("cloud_coverage", _cc_val)
+		_sky_mat.set_shader_parameter("cloud_density", _lerp_kf("cloud_density", a, b, t))
+		var cc_top: Color = _lerp_kf("cloud_color_top", a, b, t)
+		var cc_bot: Color = _lerp_kf("cloud_color_bottom", a, b, t)
+		_sky_mat.set_shader_parameter("cloud_color_top", Vector3(cc_top.r, cc_top.g, cc_top.b))
+		_sky_mat.set_shader_parameter("cloud_color_bottom", Vector3(cc_bot.r, cc_bot.g, cc_bot.b))
+		_sky_mat.set_shader_parameter("cloud_speed", _cs_val)
 	# Push to globals for cloud shadows on terrain/grass
 	RenderingServer.global_shader_parameter_set("cloud_coverage_g", _cc_val)
 	RenderingServer.global_shader_parameter_set("cloud_speed_g", _cs_val)
@@ -1444,22 +1467,23 @@ func _apply_time_of_day() -> void:
 	_env.volumetric_fog_density    = _lerp_kf("vol_fog_density", a, b, t)
 	_env.volumetric_fog_anisotropy = _lerp_kf("vol_fog_anisotropy", a, b, t)
 
-	# Weather overrides — use absolute values for fog/clouds so the effect
-	# is clearly visible regardless of time-of-day keyframe base values.
-	# Default: fair weather cumulus (cloud_type 0)
-	_sky_mat.set_shader_parameter("cloud_type", 0.0)
+	# Weather overrides — route to volumetric sky or old shader
 	if _weather_mode == "fog":
-		_env.fog_density = 0.018  # moderate fade: visible at 30m, thick by 80m
+		_env.fog_density = 0.018
 		_env.fog_light_energy = 0.6
 		_env.fog_light_color = Color(0.78, 0.80, 0.82)
 		_env.fog_sun_scatter = 0.05
 		if _env.volumetric_fog_enabled:
-			_env.volumetric_fog_density = 0.005  # atmospheric, not opaque
+			_env.volumetric_fog_density = 0.005
 		_env.adjustment_saturation = 0.45
 		_env.adjustment_brightness = 0.90
-		_sky_mat.set_shader_parameter("cloud_coverage", 0.99)
-		_sky_mat.set_shader_parameter("cloud_density", 0.95)
-		_sky_mat.set_shader_parameter("cloud_type", 1.0)  # stratus overcast
+		if _vol_sky:
+			_vol_sky.cloud_coverage = 0.85
+			_vol_sky.density = 0.12
+		else:
+			_sky_mat.set_shader_parameter("cloud_coverage", 0.99)
+			_sky_mat.set_shader_parameter("cloud_density", 0.95)
+			_sky_mat.set_shader_parameter("cloud_type", 1.0)
 	elif _weather_mode == "rain":
 		_env.fog_density = 0.012
 		_env.fog_light_energy *= 0.7
@@ -1467,9 +1491,13 @@ func _apply_time_of_day() -> void:
 			_env.volumetric_fog_density = 0.006
 		_env.adjustment_saturation *= 0.7
 		_env.adjustment_brightness *= 0.88
-		_sky_mat.set_shader_parameter("cloud_coverage", 0.95)
-		_sky_mat.set_shader_parameter("cloud_density", 0.90)
-		_sky_mat.set_shader_parameter("cloud_type", 1.0)  # stratus — heavy rain overcast
+		if _vol_sky:
+			_vol_sky.cloud_coverage = 0.80
+			_vol_sky.density = 0.10
+		else:
+			_sky_mat.set_shader_parameter("cloud_coverage", 0.95)
+			_sky_mat.set_shader_parameter("cloud_density", 0.90)
+			_sky_mat.set_shader_parameter("cloud_type", 1.0)
 	elif _weather_mode == "thunderstorm":
 		_env.fog_density = 0.018
 		_env.fog_light_energy *= 0.4
@@ -1477,15 +1505,23 @@ func _apply_time_of_day() -> void:
 			_env.volumetric_fog_density = 0.010
 		_env.adjustment_saturation *= 0.50
 		_env.adjustment_brightness *= 0.75
-		_sky_mat.set_shader_parameter("cloud_coverage", 0.98)
-		_sky_mat.set_shader_parameter("cloud_density", 0.95)
-		_sky_mat.set_shader_parameter("cloud_type", 2.0)  # cumulonimbus — dark towering storm
+		if _vol_sky:
+			_vol_sky.cloud_coverage = 0.90
+			_vol_sky.density = 0.14
+		else:
+			_sky_mat.set_shader_parameter("cloud_coverage", 0.98)
+			_sky_mat.set_shader_parameter("cloud_density", 0.95)
+			_sky_mat.set_shader_parameter("cloud_type", 2.0)
 	elif _weather_mode == "snow":
 		_env.fog_density = 0.008
 		_env.adjustment_saturation *= 0.75
-		_sky_mat.set_shader_parameter("cloud_coverage", 0.88)
-		_sky_mat.set_shader_parameter("cloud_density", 0.80)
-		_sky_mat.set_shader_parameter("cloud_type", 1.0)  # stratus — snow overcast with some gaps
+		if _vol_sky:
+			_vol_sky.cloud_coverage = 0.70
+			_vol_sky.density = 0.08
+		else:
+			_sky_mat.set_shader_parameter("cloud_coverage", 0.88)
+			_sky_mat.set_shader_parameter("cloud_density", 0.80)
+			_sky_mat.set_shader_parameter("cloud_type", 1.0)
 
 	# Wind reduces fog density slightly (wind disperses mist)
 	var wind_str: float = _wind_vec.length()
@@ -1557,11 +1593,13 @@ func _apply_time_of_day() -> void:
 	var month_frac: float = fmod(_season_t * 3.0, 1.0)
 	var data_cover: float = lerpf(monthly_cover[month_idx], monthly_cover[month_next], month_frac)
 	if _weather_mode == "clear":
-		var cc: float = _sky_mat.get_shader_parameter("cloud_coverage")
-		_sky_mat.set_shader_parameter("cloud_coverage", lerpf(cc, data_cover, 0.7))
-		# Winter stratus type (Dec-Feb)
-		if s_winter > 0.3:
-			_sky_mat.set_shader_parameter("cloud_type", lerpf(0.0, 1.0, s_winter))
+		if _vol_sky:
+			_vol_sky.cloud_coverage = lerpf(_vol_sky.cloud_coverage, data_cover, 0.7)
+		else:
+			var cc: float = _sky_mat.get_shader_parameter("cloud_coverage")
+			_sky_mat.set_shader_parameter("cloud_coverage", lerpf(cc, data_cover, 0.7))
+			if s_winter > 0.3:
+				_sky_mat.set_shader_parameter("cloud_type", lerpf(0.0, 1.0, s_winter))
 
 	# Sun / moon directional light
 	_sun.light_energy    = _lerp_kf("sun_energy", a, b, t)
