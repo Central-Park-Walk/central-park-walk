@@ -1006,11 +1006,12 @@ var _grass_tour_idx := 0
 var _grass_tour_timer := 0.0
 
 func _start_grass_tour() -> void:
-	# Generate random positions across the park boundary
+	# Generate random positions, times, seasons, weather across the park
 	_grass_tour_spots.clear()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = Time.get_ticks_msec()
-	var count := 50
+	var weathers := ["clear", "clear", "clear", "rain", "snow", "fog"]  # bias toward clear
+	var count := 60
 	for i in count:
 		var x := rng.randf_range(-1100.0, 1100.0)
 		var z := rng.randf_range(-2000.0, 2100.0)
@@ -1018,8 +1019,12 @@ func _start_grass_tour() -> void:
 		if h < 1.0:
 			continue  # skip water/outside
 		var yaw := rng.randf_range(0.0, 360.0)
-		var pitch := rng.randf_range(-8.0, 2.0)  # mostly horizon, slight variation
-		_grass_tour_spots.append({"name": "rnd_%03d" % i, "x": x, "z": z, "yaw": yaw, "pitch": pitch})
+		var pitch := rng.randf_range(-8.0, 3.0)
+		var hour := rng.randf_range(5.5, 20.0)  # dawn to dusk
+		var season := rng.randf_range(0.0, 4.0)  # full year
+		var weather: String = weathers[rng.randi() % weathers.size()]
+		_grass_tour_spots.append({"name": "rnd_%03d" % i, "x": x, "z": z,
+			"yaw": yaw, "pitch": pitch, "hour": hour, "season": season, "weather": weather})
 	_grass_tour_active = true
 	_grass_tour_idx = 0
 	_grass_tour_timer = 0.0
@@ -1036,7 +1041,24 @@ func _grass_tour_teleport() -> void:
 	var head: Node3D = _player.get_node("Head")
 	if head:
 		head.rotation_degrees.x = spot["pitch"]
-	print("Grass tour: %s at (%.0f, %.0f)" % [spot["name"], x, z])
+	# Set time, season, weather for this shot
+	if spot.has("hour"):
+		_time_of_day = spot["hour"]
+	if spot.has("season"):
+		_season_t = spot["season"]
+		RenderingServer.global_shader_parameter_set("season_t", _season_t)
+	if spot.has("weather"):
+		_weather_mode = spot["weather"]
+		_apply_weather_particles()
+		if spot["weather"] == "snow":
+			_snow_cover = 1.0
+			RenderingServer.global_shader_parameter_set("snow_cover", _snow_cover)
+		else:
+			_snow_cover = 0.0
+			RenderingServer.global_shader_parameter_set("snow_cover", 0.0)
+	_apply_time_of_day()
+	print("Photo tour: %s (%.0f,%.0f) %s %.1fh %s" % [
+		spot["name"], x, z, _month_name(_season_t), spot.get("hour", 12.0), spot.get("weather", "clear")])
 	_grass_tour_timer = 0.0
 
 func _grass_tour_process(delta: float) -> void:
