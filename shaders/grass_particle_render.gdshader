@@ -106,10 +106,9 @@ void fragment() {
 		base_col *= mix(1.0, 0.65, smoothstep(0.1, 0.6, canopy_cover));
 	}
 
-	// Snow on tips
+	// Snow — match terrain coverage (full blend, not just tips)
 	if (snow_cover > 0.01) {
-		float snow_on = smoothstep(0.2, 0.6, v_height_t) * snow_cover;
-		base_col = mix(base_col, vec3(0.90, 0.91, 0.94), snow_on * 0.7);
+		base_col = mix(base_col, vec3(0.92, 0.93, 0.96), snow_cover * 0.85);
 	}
 
 	ALBEDO = base_col;

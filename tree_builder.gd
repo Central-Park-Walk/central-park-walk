@@ -562,7 +562,7 @@ func _build_trees(trees: Array) -> void:
 		mmi.visibility_range_begin = 0.0
 		mmi.visibility_range_end = 300.0
 		mmi.visibility_range_begin_margin = 0.0
-		mmi.visibility_range_end_margin = 50.0
+		mmi.visibility_range_end_margin = 75.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		_loader.add_child(mmi)
 
@@ -665,7 +665,7 @@ func _load_impostor_atlases() -> void:
 		mat.set_shader_parameter("scale", imp_scale)
 		mat.set_shader_parameter("positionOffset", imp_offset)
 		mat.set_shader_parameter("aabb_max", imp_aabb)
-		mat.set_shader_parameter("alpha_clamp", 0.3)
+		mat.set_shader_parameter("alpha_clamp", 0.2)
 		mat.set_shader_parameter("dither", true)
 		_impostor_materials[model_name] = mat
 
@@ -758,7 +758,7 @@ func _build_canopy_shells() -> void:
 		# LOD1: impostors visible 250-1200m
 		mmi.visibility_range_begin = 250.0
 		mmi.visibility_range_end = 1200.0
-		mmi.visibility_range_begin_margin = 50.0
+		mmi.visibility_range_begin_margin = 75.0
 		mmi.visibility_range_end_margin = 100.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
