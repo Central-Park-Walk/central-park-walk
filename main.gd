@@ -1851,6 +1851,13 @@ func _setup_grass_particles() -> void:
 		render_mat.set_shader_parameter("use_texture", true)
 		if albedo_tex:
 			render_mat.set_shader_parameter("grass_albedo", albedo_tex)
+		# Load per-blade normal map (baked alongside albedo)
+		var mesh_name: String = biome.mesh_path.get_file().get_basename()
+		var nrm_path := "res://textures/grass/%s_normal.png" % mesh_name
+		var nrm_tex: Texture2D = load(nrm_path)
+		if nrm_tex:
+			render_mat.set_shader_parameter("grass_normal", nrm_tex)
+			render_mat.set_shader_parameter("has_normal_map", true)
 		gp.mesh_material_override = render_mat
 
 		# Pass zone textures for per-frame RenderingServer updates

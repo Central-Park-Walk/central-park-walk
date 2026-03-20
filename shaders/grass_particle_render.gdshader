@@ -7,6 +7,8 @@ shader_type spatial;
 render_mode skip_vertex_transform, cull_disabled;
 
 uniform sampler2D grass_albedo : source_color, filter_linear_mipmap;
+uniform sampler2D grass_normal : hint_normal, filter_linear_mipmap;
+uniform bool has_normal_map = false;
 // When true, sample grass_albedo for color+alpha. When false, use procedural color (legacy ribbon).
 uniform bool use_texture = true;
 
@@ -114,12 +116,17 @@ void fragment() {
 
 	ALBEDO = base_col;
 
-	// PBR — very soft specular sheen (grass has waxy cuticle)
-	// High roughness diffuses the highlight across the card surface.
-	// A per-blade normal map would break this into natural sheen — future work.
-	ROUGHNESS = 0.92;
-	SPECULAR = 0.02;
-	BACKLIGHT = vec3(0.12);
+	// Per-blade normal map breaks specular into natural grass sheen
+	if (has_normal_map) {
+		vec3 nrm = texture(grass_normal, UV).rgb;
+		NORMAL_MAP = nrm;
+		NORMAL_MAP_DEPTH = 1.5;
+	}
+
+	// PBR — grass waxy cuticle sheen, broken up by per-blade normals
+	ROUGHNESS = 0.82;
+	SPECULAR = 0.04;
+	BACKLIGHT = vec3(0.15);
 
 	// Rain
 	ALBEDO *= mix(1.0, 0.70, rain_wetness);

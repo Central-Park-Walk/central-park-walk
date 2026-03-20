@@ -142,6 +142,67 @@ def render_side_view(obj, angle_deg, out_path):
     bpy.ops.render.render(write_still=True)
 
 
+def _make_normal_capture_material():
+    """Create a material that renders world-space normals as RGB emission."""
+    mat = bpy.data.materials.new("NormalCapture")
+    mat.use_nodes = True
+    mat.use_backface_culling = False
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+    nodes.clear()
+
+    # Geometry node → Normal output → map from [-1,1] to [0,1] → Emission
+    geom = nodes.new('ShaderNodeNewGeometry')
+    geom.location = (-400, 0)
+
+    # Map normal from [-1,1] to [0,1]: (N * 0.5) + 0.5
+    multiply = nodes.new('ShaderNodeVectorMath')
+    multiply.operation = 'SCALE'
+    multiply.inputs[3].default_value = 0.5
+    multiply.location = (-200, 0)
+
+    add = nodes.new('ShaderNodeVectorMath')
+    add.operation = 'ADD'
+    add.inputs[1].default_value = (0.5, 0.5, 0.5)
+    add.location = (0, 0)
+
+    emission = nodes.new('ShaderNodeEmission')
+    emission.location = (200, 0)
+
+    output = nodes.new('ShaderNodeOutputMaterial')
+    output.location = (400, 0)
+
+    links.new(geom.outputs['Normal'], multiply.inputs[0])
+    links.new(multiply.outputs[0], add.inputs[0])
+    links.new(add.outputs[0], emission.inputs['Color'])
+    links.new(emission.outputs['Emission'], output.inputs['Surface'])
+
+    return mat
+
+
+def _override_materials(obj, override_mat):
+    """Override all materials on obj and children with the given material."""
+    saved = {}
+    for child in [obj] + list(obj.children_recursive):
+        if child.type != 'MESH':
+            continue
+        saved[child.name] = []
+        for i in range(len(child.data.materials)):
+            saved[child.name].append(child.data.materials[i])
+            child.data.materials[i] = override_mat
+    return saved
+
+
+def _restore_materials(obj, saved):
+    """Restore original materials from saved dict."""
+    for child in [obj] + list(obj.children_recursive):
+        if child.type != 'MESH' or child.name not in saved:
+            continue
+        for i, mat in enumerate(saved[child.name]):
+            if i < len(child.data.materials):
+                child.data.materials[i] = mat
+
+
 def composite_views(view_paths, out_path):
     """Composite 4 side views into one texture by taking max alpha per pixel."""
     images = []
@@ -315,15 +376,49 @@ def bake_grass_card(card_cfg):
         render_side_view(dup, angle, tmp_path)
         view_paths.append(tmp_path)
 
-    # Composite best-alpha from 4 views
+    # Composite best-alpha from 4 views (albedo)
     tex_path = os.path.join(TEX_DIR, f"{name}_card.png")
     composite_views(view_paths, tex_path)
     tex_kb = os.path.getsize(tex_path) // 1024
-    print(f"  Texture: {tex_path} ({tex_kb} KB, {CARD_RES}x{CARD_RES})")
+    print(f"  Albedo: {tex_path} ({tex_kb} KB)")
 
-    # Clean up renders + scene objects
-    for p in view_paths:
-        os.remove(p)
+    # --- Normal pass: override materials, re-render same 4 angles ---
+    normal_mat = _make_normal_capture_material()
+    saved_mats = _override_materials(dup, normal_mat)
+
+    # Disable scene lighting for clean normals (emission-only)
+    scene = bpy.context.scene
+    old_bg_strength = 0.0
+    bg = scene.world.node_tree.nodes.get("Background")
+    if bg:
+        old_bg_strength = bg.inputs[1].default_value
+        bg.inputs[1].default_value = 0.0
+    light_obj.hide_render = True
+
+    normal_view_paths = []
+    for i, angle in enumerate([0, 90, 180, 270]):
+        tmp_path = os.path.join(tmp_dir, f"{name}_n{i}.png")
+        render_side_view(dup, angle, tmp_path)
+        normal_view_paths.append(tmp_path)
+
+    # Restore lighting + materials
+    if bg:
+        bg.inputs[1].default_value = old_bg_strength
+    light_obj.hide_render = False
+    _restore_materials(dup, saved_mats)
+    bpy.data.materials.remove(normal_mat)
+
+    # Composite normal views (same max-alpha approach — uses albedo alpha for coverage)
+    # We need to use the albedo alpha to mask the normal map
+    nrm_path = os.path.join(TEX_DIR, f"{name}_normal.png")
+    composite_views(normal_view_paths, nrm_path)
+    nrm_kb = os.path.getsize(nrm_path) // 1024
+    print(f"  Normal: {nrm_path} ({nrm_kb} KB)")
+
+    # Clean up all temp renders
+    for p in view_paths + normal_view_paths:
+        if os.path.exists(p):
+            os.remove(p)
     try:
         os.rmdir(tmp_dir)
     except OSError:
