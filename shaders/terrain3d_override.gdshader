@@ -1,13 +1,22 @@
-// Terrain3D shader override: clipmap vertex + Central Park zone/weather/season fragment
-// Combines Terrain3D v1.0.1 geometry (minimum.gdshader) with our custom terrain effects.
-
+// Terrain3D hybrid shader: native lightweight base + Central Park custom overlays
+// Base: Terrain3D lightweight.gdshader (autoshader, height blending, macro variation)
+// Overlays: seasons, weather, canopy shade, cloud shadows, atmosphere
 shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx, skip_vertex_transform;
 
-// ---- Terrain3D constants ----
+// ---- Constants ----
 #define SKIP_PASS 0
 #define VERTEX_PASS 1
 #define FRAGMENT_PASS 2
+#define COLOR_MAP vec4(1.0, 1.0, 1.0, 0.5)
+#define DIV_255 0.003921568627450
+
+// Control map bit layout
+#define DECODE_BLEND(control) float(control >> 14u & 0xFFu) * DIV_255
+#define DECODE_AUTO(control) bool(control & 0x1u)
+#define DECODE_BASE(control) int(control >> 27u & 0x1Fu)
+#define DECODE_OVER(control) int(control >> 22u & 0x1Fu)
+#define DECODE_HOLE(control) bool(control >> 2u & 0x1u)
 
 #if CURRENT_RENDERER == RENDERER_COMPATIBILITY
 	#define fma(a, b, c) ((a) * (b) + (c))
@@ -26,57 +35,42 @@ uniform float _region_size = 1024.0;
 uniform float _region_texel_size = 0.0009765625;
 uniform int _region_map_size = 32;
 uniform int _region_map[1024];
+uniform vec2 _region_locations[1024];
+uniform float _texture_normal_depth_array[32];
+uniform float _texture_ao_strength_array[32];
+uniform float _texture_roughness_mod_array[32];
+uniform float _texture_uv_scale_array[32];
+uniform vec4 _texture_color_array[32];
 uniform highp sampler2DArray _height_maps : repeat_disable;
 uniform highp sampler2DArray _control_maps : repeat_disable;
+uniform highp sampler2DArray _color_maps : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
+uniform highp sampler2DArray _texture_array_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform highp sampler2DArray _texture_array_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 
-// ---- Our custom uniforms ----
+// ---- Terrain3D public uniforms ----
+uniform float blend_sharpness : hint_range(0, 1) = 0.5;
+// Autoshader
+uniform float auto_slope : hint_range(0, 10) = 2.0;
+uniform float auto_height_reduction : hint_range(0, 1) = 0.1;
+uniform int auto_base_texture : hint_range(0, 31) = 0;
+uniform int auto_overlay_texture : hint_range(0, 31) = 2; // rock
+// Macro variation
+uniform bool enable_macro_variation = true;
+uniform vec3 macro_variation1 : source_color = vec3(0.90, 0.92, 0.88);
+uniform vec3 macro_variation2 : source_color = vec3(1.0, 0.97, 0.95);
+uniform float macro_variation_slope : hint_range(0., 1.) = 0.333;
+uniform highp sampler2D noise_texture : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform float noise1_scale : hint_range(0.001, 1.) = 0.04;
+uniform float noise1_angle : hint_range(0, 6.283) = 0.0;
+uniform vec2 noise1_offset = vec2(0.5);
+uniform float noise2_scale : hint_range(0.001, 1.) = 0.076;
 
-// Grass textures
-uniform sampler2D grass_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D grass_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D grass_rough : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform float tile_m = 10.0;
-
-// Meadow/wild grass
-uniform sampler2D meadow_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D meadow_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D meadow_rough : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform float meadow_tile_m = 4.0;
-
-// Rock (Manhattan schist)
-uniform sampler2D rock_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D rock_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D rock_rough : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform float rock_tile_m = 3.0;
-
-// Dirt (playgrounds, dog parks)
-uniform sampler2D dirt_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D dirt_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D dirt_rough : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform float dirt_tile_m = 2.0;
-
-// Shore/mud
-uniform sampler2D shore_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D shore_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D shore_rough : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform float shore_tile_m = 3.0;
-
-// Anti-tiling noise
-uniform sampler2D tile_noise : filter_linear_mipmap, repeat_enable;
-
-// Data maps
+// ---- Central Park custom uniforms ----
 uniform float world_size = 5000.0;
-uniform sampler2DArray path_alb_arr : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2DArray path_nrm_arr : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2DArray path_rgh_arr : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform float path_tile_m = 2.5;
-uniform sampler2D park_mask : filter_linear, repeat_disable;
 uniform sampler2D landuse_map : filter_nearest, repeat_disable;
-uniform sampler2D shore_distance : filter_linear, repeat_disable;
-uniform sampler2D structure_mask : filter_linear, repeat_disable;
 uniform sampler2D canopy_map : filter_linear, repeat_disable;
 
-// Global uniforms (set by main.gd via RenderingServer)
+// Global uniforms (set by main.gd)
 global uniform float snow_cover;
 global uniform float rain_wetness;
 global uniform float season_t;
@@ -86,12 +80,13 @@ global uniform float dew_amount;
 global uniform float cloud_coverage_g;
 global uniform float cloud_speed_g;
 
-// ---- Terrain3D varyings ----
-varying float v_vertex_xz_dist;
+// ---- Varyings ----
+varying vec3 v_normal;
 varying vec3 v_vertex;
+varying mat3 TBN;
 
 // ===========================================================================
-// Terrain3D vertex functions (from minimum.gdshader — DO NOT MODIFY)
+// Terrain3D vertex (from lightweight.gdshader)
 // ===========================================================================
 
 ivec3 get_index_coord(const vec2 uv, const int search) {
@@ -110,9 +105,16 @@ ivec3 get_index_coord(const vec2 uv, const int search) {
 	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
 }
 
+vec3 get_index_uv(const vec2 uv2) {
+	ivec2 pos = ivec2(floor(uv2)) + (_region_map_size / 2);
+	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
+	int layer_index = _region_map[pos.y * _region_map_size + pos.x] * bounds - 1;
+	return vec3(uv2 - _region_locations[layer_index], float(layer_index));
+}
+
 void vertex() {
 	v_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	v_vertex_xz_dist = length(v_vertex.xz - _camera_pos.xz);
+	float v_vertex_xz_dist = length(v_vertex.xz - _camera_pos.xz);
 
 	float scale = MODEL_MATRIX[0][0];
 	float vertex_lerp = smoothstep(0.55, 0.95, (v_vertex_xz_dist / scale - _mesh_size - 4.0) / (_mesh_size - 2.0));
@@ -131,26 +133,38 @@ void vertex() {
 
 	ivec3 v_region = get_index_coord(start_pos, VERTEX_PASS);
 	uint control = floatBitsToUint(texelFetch(_control_maps, v_region, 0)).r;
-	bool hole = bool(control >> 2u & 0x1u);
+	bool hole = DECODE_HOLE(control);
 
 	if (!(CAMERA_VISIBLE_LAYERS == _mouse_layer) &&
-			(hole || (_background_mode == 0u && v_region.z < 0))) {
+			(hole || (_background_mode == 0u && v_region.z == -1))) {
 		v_vertex.x = 0.0 / 0.0;
 	} else {
 		ivec3 uv_a = get_index_coord(start_pos, VERTEX_PASS);
 		ivec3 uv_b = get_index_coord(end_pos, VERTEX_PASS);
 		float h = mix(texelFetch(_height_maps, uv_a, 0).r, texelFetch(_height_maps, uv_b, 0).r, vertex_lerp);
 		v_vertex.y = h;
+
+		float u = mix(texelFetch(_height_maps, get_index_coord(start_pos + vec2(1, 0), VERTEX_PASS), 0).r,
+			texelFetch(_height_maps, get_index_coord(end_pos + vec2(1, 0), VERTEX_PASS), 0).r, vertex_lerp);
+		float v = mix(texelFetch(_height_maps, get_index_coord(start_pos + vec2(0, 1), VERTEX_PASS), 0).r,
+			texelFetch(_height_maps, get_index_coord(end_pos + vec2(0, 1), VERTEX_PASS), 0).r, vertex_lerp);
+
+		v_normal = normalize(vec3(h - u, _vertex_spacing, h - v));
 	}
 
 	VERTEX = (VIEW_MATRIX * vec4(v_vertex, 1.0)).xyz;
-	NORMAL = normalize((MODELVIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
-	BINORMAL = normalize((MODELVIEW_MATRIX * vec4(BINORMAL, 0.0)).xyz);
-	TANGENT = normalize((MODELVIEW_MATRIX * vec4(TANGENT, 0.0)).xyz);
+
+	vec3 w_tangent = normalize(cross(v_normal, vec3(0.0, 0.0, 1.0)));
+	vec3 w_binormal = normalize(cross(v_normal, w_tangent));
+	TBN = mat3(w_tangent, w_binormal, v_normal);
+
+	NORMAL = normalize((VIEW_MATRIX * vec4(v_normal, 0.0)).xyz);
+	BINORMAL = normalize((VIEW_MATRIX * vec4(w_binormal, 0.0)).xyz);
+	TANGENT = normalize((VIEW_MATRIX * vec4(w_tangent, 0.0)).xyz);
 }
 
 // ===========================================================================
-// Hash & noise (inlined from hash_noise.gdshaderinc)
+// Hash & noise utilities
 // ===========================================================================
 
 float hash2(vec2 p) {
@@ -172,74 +186,32 @@ float fbm(vec2 p, int oct) {
 	return v;
 }
 
-float cloud_shadow(vec2 world_xz, float cloud_coverage_val, float cloud_speed_val,
-                   float time_val, vec2 wind_val) {
-	vec2 cloud_uv = world_xz * 0.00016;
-	vec2 drift = vec2(cloud_speed_val, cloud_speed_val * 0.7) + wind_val * 0.002;
-	cloud_uv += time_val * drift;
-	float n = vnoise(cloud_uv * 3.0) * 0.5
-	        + vnoise(cloud_uv * 6.0) * 0.3
-	        + vnoise(cloud_uv * 12.0) * 0.2;
-	float shadow = smoothstep(1.0 - cloud_coverage_val - 0.05,
-	                          1.0 - cloud_coverage_val + 0.15, n);
-	return shadow * 0.25;
+float cloud_shadow(vec2 world_xz, float cc, float cs, float t, vec2 w) {
+	vec2 uv = world_xz * 0.00016;
+	vec2 drift = vec2(cs, cs * 0.7) + w * 0.002;
+	uv += t * drift;
+	float n = vnoise(uv * 3.0) * 0.5 + vnoise(uv * 6.0) * 0.3 + vnoise(uv * 12.0) * 0.2;
+	return smoothstep(1.0 - cc - 0.05, 1.0 - cc + 0.15, n) * 0.25;
 }
 
 // ===========================================================================
-// Anti-tiling texture sampling (Inigo Quilez)
+// Fragment
 // ===========================================================================
 
-// Two-octave noise lookup breaks the single-frequency banding visible at dawn
-float _nt_noise(vec2 uv) {
-	float k0 = texture(tile_noise, uv * 0.018).x;
-	float k1 = texture(tile_noise, uv * 0.0071 + vec2(0.37, 0.81)).x;
-	return k0 * 0.7 + k1 * 0.3;
+mat2 rotate_plane(float angle) {
+	float c = cos(angle), s = sin(angle);
+	return mat2(vec2(c, s), vec2(-s, c));
 }
-
-vec3 textureNoTile_c(sampler2D tex, vec2 uv) {
-	float k = _nt_noise(uv);
-	vec2 duvdx = dFdx(uv); vec2 duvdy = dFdy(uv);
-	float l = k * 8.0;
-	float f = fract(l);
-	vec2 offa = sin(vec2(3.0, 7.0) * floor(l));
-	vec2 offb = sin(vec2(3.0, 7.0) * ceil(l));
-	vec3 cola = textureGrad(tex, uv + offa, duvdx, duvdy).rgb;
-	vec3 colb = textureGrad(tex, uv + offb, duvdx, duvdy).rgb;
-	return mix(cola, colb, smoothstep(0.2, 0.8, f - 0.1 * dot(cola - colb, vec3(1.0))));
-}
-
-vec3 textureNoTile_n(sampler2D tex, vec2 uv) {
-	float k = _nt_noise(uv);
-	vec2 duvdx = dFdx(uv); vec2 duvdy = dFdy(uv);
-	float l = k * 8.0;
-	float f = fract(l);
-	vec2 offa = sin(vec2(3.0, 7.0) * floor(l));
-	vec2 offb = sin(vec2(3.0, 7.0) * ceil(l));
-	vec3 na = textureGrad(tex, uv + offa, duvdx, duvdy).rgb;
-	vec3 nb = textureGrad(tex, uv + offb, duvdx, duvdy).rgb;
-	return mix(na, nb, smoothstep(0.2, 0.8, f));
-}
-
-float textureNoTile_r(sampler2D tex, vec2 uv) {
-	float k = _nt_noise(uv);
-	vec2 duvdx = dFdx(uv); vec2 duvdy = dFdy(uv);
-	float l = k * 8.0;
-	float f = fract(l);
-	vec2 offa = sin(vec2(3.0, 7.0) * floor(l));
-	vec2 offb = sin(vec2(3.0, 7.0) * ceil(l));
-	float ra = textureGrad(tex, uv + offa, duvdx, duvdy).r;
-	float rb = textureGrad(tex, uv + offb, duvdx, duvdy).r;
-	return mix(ra, rb, smoothstep(0.2, 0.8, f));
-}
-
-// ===========================================================================
-// Fragment: Terrain3D normal calculation + Central Park terrain effects
-// ===========================================================================
 
 void fragment() {
 	vec2 uv = UV;
+	vec2 uv2 = UV2;
 
-	// ---- Terrain3D normal calculation (from minimum.gdshader) ----
+	// =====================================================================
+	// PART 1: Terrain3D native texturing (from lightweight.gdshader)
+	// =====================================================================
+
+	vec3 region_uv = get_index_uv(uv2);
 	const vec3 offsets = vec3(0, 1, 2);
 	vec2 index_id = floor(uv);
 	vec2 weight = fract(uv);
@@ -251,454 +223,193 @@ void fragment() {
 		invert.x * invert.y
 	);
 
-	vec3 base_ddx = dFdxCoarse(v_vertex);
-	vec3 base_ddy = dFdyCoarse(v_vertex);
-	float region_mip = log2(max(length(base_ddx.xz), length(base_ddy.xz)) * _vertex_density);
-	bool bilerp = region_mip < 0.0;
-
 	ivec3 index[4];
 	index[0] = get_index_coord(index_id + offsets.xy, FRAGMENT_PASS);
 	index[1] = get_index_coord(index_id + offsets.yy, FRAGMENT_PASS);
 	index[2] = get_index_coord(index_id + offsets.yx, FRAGMENT_PASS);
 	index[3] = get_index_coord(index_id + offsets.xx, FRAGMENT_PASS);
 
-	vec3 index_normal[4];
-	float h[4];
-	float u_deriv = 0.0;
-	float v_deriv = 0.0;
+	vec3 base_ddx = dFdxCoarse(v_vertex);
+	vec3 base_ddy = dFdyCoarse(v_vertex);
+	vec4 base_dd = vec4(base_ddx.xz, base_ddy.xz);
+	float region_mip = log2(max(length(base_ddx.xz), length(base_ddy.xz)) * _vertex_density);
 
-	h[3] = texelFetch(_height_maps, index[3], 0).r;
-	h[2] = texelFetch(_height_maps, index[2], 0).r;
-	h[0] = texelFetch(_height_maps, index[0], 0).r;
-	index_normal[3] = normalize(vec3(h[3] - h[2] + u_deriv, _vertex_spacing, h[3] - h[0] + v_deriv));
+	vec4 color_map = region_uv.z > -1.0 ? textureLod(_color_maps, region_uv, region_mip) : COLOR_MAP;
 
-	vec3 w_normal = index_normal[3];
+	vec4 normal_rough = vec4(0.0, 1.0, 0.0, 0.7);
+	vec4 albedo_height = vec4(1.0);
+	float normal_map_depth = 1.0;
+	float ao_strength = 0.0;
 
-	if (bilerp) {
-		h[1] = texelFetch(_height_maps, index[1], 0).r;
-		float h_4 = texelFetch(_height_maps, get_index_coord(index_id + offsets.yz, FRAGMENT_PASS), 0).r;
-		float h_5 = texelFetch(_height_maps, get_index_coord(index_id + offsets.zy, FRAGMENT_PASS), 0).r;
-		float h_6 = texelFetch(_height_maps, get_index_coord(index_id + offsets.zx, FRAGMENT_PASS), 0).r;
-		float h_7 = texelFetch(_height_maps, get_index_coord(index_id + offsets.xz, FRAGMENT_PASS), 0).r;
+	// Texture accumulation
+	{
+		albedo_height = vec4(0.0);
+		normal_rough = vec4(0.0);
+		normal_map_depth = 0.0;
+		ao_strength = 0.0;
+		float total_weight = 0.0;
+		float sharpness = fma(56.0, blend_sharpness, 8.0);
 
-		index_normal[0] = normalize(vec3(h[0] - h[1] + u_deriv, _vertex_spacing, h[0] - h_7 + v_deriv));
-		index_normal[1] = normalize(vec3(h[1] - h_5 + u_deriv, _vertex_spacing, h[1] - h_4 + v_deriv));
-		index_normal[2] = normalize(vec3(h[2] - h_6 + u_deriv, _vertex_spacing, h[2] - h[1] + v_deriv));
+		uvec4 control = floatBitsToUint(vec4(
+			texelFetch(_control_maps, index[0], 0).r,
+			texelFetch(_control_maps, index[1], 0).r,
+			texelFetch(_control_maps, index[2], 0).r,
+			texelFetch(_control_maps, index[3], 0).r));
 
-		w_normal =
-			index_normal[0] * weights[0] +
-			index_normal[1] * weights[1] +
-			index_normal[2] * weights[2] +
-			index_normal[3] * weights[3];
+		// Autoshader
+		{
+			float auto_blend = clamp(fma(auto_slope * 2.0, (v_normal.y - 1.0), 1.0)
+				- auto_height_reduction * 0.01 * v_vertex.y, 0.0, 1.0);
+			uvec4 is_auto = (control & uvec4(0x1u)) | uvec4(uint(region_uv.z < 0.0));
+			uint u_auto =
+				((uint(auto_base_texture) & 0x1Fu) << 27u) |
+				((uint(auto_overlay_texture) & 0x1Fu) << 22u) |
+				((uint(fma(auto_blend, 255.0, 0.5)) & 0xFFu) << 14u);
+			control = control * (1u - is_auto) + u_auto * is_auto;
+		}
+
+		// Texture weights
+		ivec4 t_id[2] = {ivec4(control >> uvec4(27u) & uvec4(0x1Fu)),
+			ivec4(control >> uvec4(22u) & uvec4(0x1Fu))};
+		ivec2 texture_ids[4] = ivec2[4](
+			ivec2(t_id[0].x, t_id[1].x),
+			ivec2(t_id[0].y, t_id[1].y),
+			ivec2(t_id[0].z, t_id[1].z),
+			ivec2(t_id[0].w, t_id[1].w));
+
+		vec4 weights_id_1 = vec4(control >> uvec4(14u) & uvec4(0xFFu)) * DIV_255 * weights;
+		vec4 weights_id_0 = weights - weights_id_1;
+		vec2 t_weights[4] = {vec2(0), vec2(0), vec2(0), vec2(0)};
+		for (int i = 0; i < 4; i++) {
+			vec2 w_0 = vec2(weights_id_0[i]);
+			vec2 w_1 = vec2(weights_id_1[i]);
+			ivec2 id_0 = texture_ids[i].xx;
+			ivec2 id_1 = texture_ids[i].yy;
+			t_weights[0] += fma(w_0, vec2(equal(texture_ids[0], id_0)), w_1 * vec2(equal(texture_ids[0], id_1)));
+			t_weights[1] += fma(w_0, vec2(equal(texture_ids[1], id_0)), w_1 * vec2(equal(texture_ids[1], id_1)));
+			t_weights[2] += fma(w_0, vec2(equal(texture_ids[2], id_0)), w_1 * vec2(equal(texture_ids[2], id_1)));
+			t_weights[3] += fma(w_0, vec2(equal(texture_ids[3], id_0)), w_1 * vec2(equal(texture_ids[3], id_1)));
+		}
+
+		// Sample textures (one read per unique ID)
+		uint id_read = 0u;
+		vec4 nrm = vec4(0.0, 1.0, 0.0, 1.0);
+		uv *= _vertex_spacing;
+		for (int i = 0; i < 4; i++) {
+			for (int t = 0; t < 2; t++) {
+				int id = texture_ids[i][t];
+				uint mask = 1u << uint(id);
+				if ((id_read & mask) == 0u) {
+					id_read |= mask;
+					float id_w = t_weights[i][t];
+					float id_scale = _texture_uv_scale_array[id] * 0.5;
+					vec2 id_uv = fma(uv, vec2(id_scale), vec2(0.5));
+					vec4 i_dd = base_dd * id_scale;
+					vec4 alb = textureGrad(_texture_array_albedo, vec3(id_uv, float(id)), i_dd.xy, i_dd.zw);
+					float world_normal = clamp(fma(TBN[0], vec3(nrm.x), fma(TBN[1], vec3(nrm.z), v_normal * vec3(nrm.y))).y, 0.0, 1.0);
+					nrm = textureGrad(_texture_array_normal, vec3(id_uv, float(id)), i_dd.xy, i_dd.zw);
+					alb.rgb *= _texture_color_array[id].rgb;
+					nrm.a = clamp(nrm.a + _texture_roughness_mod_array[id], 0.0, 1.0);
+					nrm.xyz = fma(nrm.xzy, vec3(2.0), vec3(-1.0));
+					float id_weight = exp2(sharpness * log2(id_w + alb.a * world_normal));
+					albedo_height += alb * id_weight;
+					normal_rough += nrm * id_weight;
+					normal_map_depth += _texture_normal_depth_array[id] * id_weight;
+					ao_strength += _texture_ao_strength_array[id] * id_weight;
+					total_weight += id_weight;
+				}
+			}
+		}
+		float weight_inv = 1.0 / total_weight;
+		albedo_height *= weight_inv;
+		normal_rough *= weight_inv;
+		normal_map_depth *= weight_inv;
+		ao_strength *= weight_inv;
 	}
 
-	// TBN from terrain normal
-	vec3 w_tangent = normalize(cross(w_normal, vec3(0.0, 0.0, 1.0)));
-	vec3 w_binormal = normalize(cross(w_normal, w_tangent));
-	NORMAL = mat3(VIEW_MATRIX) * w_normal;
-	TANGENT = mat3(VIEW_MATRIX) * w_tangent;
-	BINORMAL = mat3(VIEW_MATRIX) * w_binormal;
+	// Macro variation
+	vec3 macrov = vec3(1.0);
+	if (enable_macro_variation) {
+		float noise1 = texture(noise_texture, (uv * noise1_scale * 0.1 + noise1_offset) * rotate_plane(noise1_angle)).r;
+		float noise2 = texture(noise_texture, uv * noise2_scale * 0.1).r;
+		macrov = mix(macro_variation1, vec3(1.0), noise1);
+		macrov *= mix(macro_variation2, vec3(1.0), noise2);
+		macrov = mix(vec3(1.0), macrov, clamp(v_normal.y + macro_variation_slope, 0.0, 1.0));
+	}
 
-	// ==================================================================
-	// Central Park terrain texturing — everything below uses:
-	//   v_vertex  (world position)
-	//   w_normal  (terrain normal, y-up)
-	//   w_tangent / w_binormal (for TBN normal mapping)
-	// ==================================================================
+	float roughness = clamp(fma(color_map.a - 0.5, 2.0, normal_rough.a), 0.0, 1.0);
 
-	// Atlas UV for data map lookups
+	// Apply native PBR
+	ALBEDO = albedo_height.rgb * color_map.rgb * macrov;
+	ROUGHNESS = roughness;
+	SPECULAR = 1.0 - normal_rough.a;
+	NORMAL_MAP = fma(normalize(normal_rough.xzy), vec3(0.5), vec3(0.5));
+	NORMAL_MAP_DEPTH = normal_map_depth;
+
+	float ao = (1.0 - (albedo_height.a * log(2.1 - ao_strength))) * (1.0 - normal_rough.y);
+	AO = clamp(1.0 - ao * ao_strength, albedo_height.a, 1.0);
+	AO_LIGHT_AFFECT = (1.0 - albedo_height.a) * clamp(normal_rough.y, 0.0, 1.0);
+	METALLIC = 0.0;
+
+	// =====================================================================
+	// PART 2: Central Park custom overlays
+	// Applied on top of native Terrain3D output
+	// =====================================================================
+
+	float cam_dist = length(v_vertex - _camera_pos);
 	vec2 splat_uv = (v_vertex.xz + world_size * 0.5) / world_size;
-	float park_inside = texture(park_mask, splat_uv).r;
 
-	// Zone lookup
+	// Zone lookup (for season/weather zone awareness)
 	float zone_val = texture(landuse_map, splat_uv).r * 255.0;
 	int zone_id = int(zone_val + 0.5);
 	bool is_woodland = (zone_id == 5 || zone_id == 10 || zone_id == 11);
 	bool is_grass_zone = (zone_id == 0 || zone_id == 1 || zone_id == 2
 	                   || zone_id == 3 || zone_id == 7);
 
-	// Camera metrics
-	float cam_dist = length(v_vertex - _camera_pos);
-	float cam_height = _camera_pos.y - v_vertex.y;
-	float tex_fade = max(
-		smoothstep(15.0, 50.0, cam_height),
-		smoothstep(100.0, 250.0, cam_dist)
-	);
-
-	// ---- Base surface: zone-aware ----
-	vec2 g_uv;
-	vec3 grass_alb;
+	// ---- Hexaquo grass impostor (close-range green carpet) ----
 	if (is_grass_zone || is_woodland) {
-		g_uv = v_vertex.xz / tile_m;
-		grass_alb = textureNoTile_c(grass_albedo, g_uv);
-		float avg_g = dot(grass_alb, vec3(0.299, 0.587, 0.114));
-		grass_alb = mix(grass_alb, vec3(avg_g), tex_fade);
-		grass_alb *= 0.85;
-	} else {
-		g_uv = v_vertex.xz / dirt_tile_m;
-		grass_alb = textureNoTile_c(dirt_albedo, g_uv);
-		float avg_g = dot(grass_alb, vec3(0.299, 0.587, 0.114));
-		grass_alb = mix(grass_alb, vec3(avg_g), tex_fade);
-		grass_alb *= 0.75;
-	}
-
-	// ---- Hexaquo grass impostor ----
-	vec3 grass_ground = vec3(0.07, 0.15, 0.04);
-	float green_blend = is_grass_zone ? 0.85 : (is_woodland ? 0.55 : 0.0);
-
-	if (is_grass_zone || is_woodland) {
+		float green_blend = is_grass_zone ? 0.65 : 0.40;
 		float patch = vnoise(v_vertex.xz / 3.0);
-		vec3 color_small = vec3(0.12, 0.28, 0.06);
-		vec3 color_large = vec3(0.30, 0.40, 0.12);
-		vec3 imp_col = mix(color_small, color_large, patch);
+		vec3 imp_col = mix(vec3(0.12, 0.28, 0.06), vec3(0.30, 0.40, 0.12), patch);
 
 		vec3 view_dir = normalize(_camera_pos - v_vertex);
-		float normal_to_view = 1.0 - max(dot(view_dir, w_normal), 0.0);
-		imp_col = mix(imp_col, color_large, normal_to_view * 0.4);
-
-		float wind_str = length(wind_vec);
-		vec2 wind_pos = v_vertex.xz * 0.1 - wind_vec * TIME * 0.1;
-		float wind_bend = vnoise(wind_pos) * wind_str;
+		float normal_to_view = 1.0 - max(dot(view_dir, v_normal), 0.0);
+		imp_col = mix(imp_col, vec3(0.30, 0.40, 0.12), normal_to_view * 0.4);
 
 		float ao_noise = vnoise(v_vertex.xz * 0.8);
-		float btt_sim = ao_noise + smoothstep(0.6, 1.0, normal_to_view) * 0.4;
-		float ao = mix(0.5, 1.0, btt_sim) - wind_bend * 0.3;
-		imp_col *= clamp(ao, 0.3, 1.0);
+		float wind_str = length(wind_vec);
+		float wind_bend = vnoise(v_vertex.xz * 0.1 - wind_vec * TIME * 0.1) * wind_str;
+		float ao2 = mix(0.5, 1.0, ao_noise + smoothstep(0.6, 1.0, normal_to_view) * 0.4) - wind_bend * 0.3;
+		imp_col *= clamp(ao2, 0.3, 1.0);
 
 		float spots = vnoise(v_vertex.xz * 2.0);
-		float spottiness = (1.0 - normal_to_view) * 0.5 - patch * 0.2;
-		float ground_show = smoothstep(spottiness + 0.1, spottiness - 0.1, spots);
-		imp_col = mix(imp_col, grass_ground, ground_show);
+		float ground_show = smoothstep(0.4, 0.2, spots);
+		imp_col = mix(imp_col, vec3(0.07, 0.15, 0.04), ground_show);
 
-		// Canopy → leaf litter under dense canopy
-		vec2 can_uv = splat_uv;
-		float canopy_cover = texture(canopy_map, can_uv).r;
+		// Canopy leaf litter
+		float canopy_cover = texture(canopy_map, splat_uv).r;
 		if (canopy_cover > 0.3) {
-			vec3 litter_col = vec3(0.28, 0.22, 0.14);
-			float litter_noise = vnoise(v_vertex.xz * 0.5);
-			litter_col = mix(litter_col, vec3(0.34, 0.26, 0.16), litter_noise);
-			float litter_blend = smoothstep(0.3, 0.7, canopy_cover) * 0.70;
-			imp_col = mix(imp_col, litter_col, litter_blend);
+			vec3 litter_col = mix(vec3(0.28, 0.22, 0.14), vec3(0.34, 0.26, 0.16), vnoise(v_vertex.xz * 0.5));
+			imp_col = mix(imp_col, litter_col, smoothstep(0.3, 0.7, canopy_cover) * 0.70);
 		}
-		if (is_woodland) {
-			imp_col *= vec3(0.85, 0.88, 0.75);
-		}
+		if (is_woodland) imp_col *= vec3(0.85, 0.88, 0.75);
 
 		float impostor_t = smoothstep(5.0, 15.0, cam_dist);
-		vec3 grass_target = mix(grass_ground, imp_col, impostor_t);
-		grass_alb = mix(grass_alb, grass_target, green_blend);
+		ALBEDO = mix(ALBEDO, mix(vec3(0.07, 0.15, 0.04), imp_col, impostor_t), green_blend);
 	}
 
-	// Distance darkening + aerial perspective
-	float dist_darken = smoothstep(30.0, 150.0, cam_dist) * 0.25;
-	grass_alb *= (1.0 - dist_darken);
-	float aerial_t = smoothstep(60.0, 300.0, cam_dist);
-	float g_lum = dot(grass_alb, vec3(0.2126, 0.7152, 0.0722));
-	grass_alb = mix(grass_alb, vec3(g_lum), aerial_t * 0.25);
-	grass_alb = mix(grass_alb, grass_alb * vec3(0.94, 0.96, 1.04), aerial_t);
-
-	// ---- Seasonal grass color ----
+	// ---- Seasonal color shift ----
 	{
 		float spring_t = 1.0 - smoothstep(0.0, 1.0, season_t);
 		float autumn_t = smoothstep(2.0, 2.6, season_t) * (1.0 - smoothstep(2.8, 3.5, season_t));
 		float winter_t = smoothstep(2.7, 3.1, season_t);
-		vec3 spring_grass = grass_alb * vec3(1.1, 1.15, 0.75);
-		vec3 autumn_grass = vec3(0.16, 0.12, 0.04);
-		vec3 winter_grass = vec3(0.12, 0.10, 0.06);
-		grass_alb = mix(grass_alb, spring_grass, spring_t * 0.6);
-		grass_alb = mix(grass_alb, autumn_grass, autumn_t * 0.7);
-		grass_alb = mix(grass_alb, winter_grass, winter_t);
-	}
-
-	// Normal map sampling — micro UV warp breaks dawn specular stripes
-	vec2 nrm_warp = vec2(
-		sin(v_vertex.x * 0.37 + v_vertex.z * 0.19) * 0.02,
-		cos(v_vertex.z * 0.31 + v_vertex.x * 0.23) * 0.02);
-	vec3 grass_nrm = textureNoTile_n(grass_normal, g_uv + nrm_warp);
-	grass_nrm = mix(grass_nrm, vec3(0.5, 0.5, 1.0), tex_fade);
-	float grass_rgh = clamp(textureNoTile_r(grass_rough, g_uv) * 0.18 + 0.70, 0.0, 1.0);
-
-	// Winter: flatten normals + force rough
-	{
-		float w_t = smoothstep(2.7, 3.1, season_t);
-		grass_nrm = mix(grass_nrm, vec3(0.5, 0.5, 1.0), w_t);
-		grass_rgh = mix(grass_rgh, 0.95, w_t);
-	}
-
-	// ---- Meadow blend (woodland zones) ----
-	vec2 muv = v_vertex.xz / meadow_tile_m;
-	float s60 = 0.866; float c60 = 0.5;
-	vec2 muv_rot = vec2(muv.x * c60 + muv.y * s60, -muv.x * s60 + muv.y * c60);
-	vec3 m_alb = textureNoTile_c(meadow_albedo, muv_rot);
-	{
-		float m_lum = dot(m_alb, vec3(0.299, 0.587, 0.114));
-		m_alb = mix(m_alb, vec3(m_lum), tex_fade);
-	}
-	vec3 m_nrm_raw = textureNoTile_n(meadow_normal, muv_rot);
-	vec3 m_nrm = vec3(
-		(m_nrm_raw.r - 0.5) * c60 + (m_nrm_raw.g - 0.5) * s60 + 0.5,
-		-(m_nrm_raw.r - 0.5) * s60 + (m_nrm_raw.g - 0.5) * c60 + 0.5,
-		m_nrm_raw.b);
-	m_nrm = mix(m_nrm, vec3(0.5, 0.5, 1.0), tex_fade);
-	float m_rgh = clamp(textureNoTile_r(meadow_rough, muv_rot) * 0.20 + 0.65, 0.0, 1.0);
-
-	float meadow_blend = is_woodland ? 1.0 : 0.0;
-	grass_alb = mix(grass_alb, m_alb, meadow_blend);
-	grass_nrm = mix(grass_nrm, m_nrm, meadow_blend);
-	grass_rgh = mix(grass_rgh, m_rgh, meadow_blend);
-
-	// ---- Olmsted landscape modes ----
-	if (is_woodland) {
-		grass_alb = mix(grass_alb, vec3(0.04, 0.06, 0.03), 0.5);
-	} else if (zone_id == 1) {
-		grass_alb *= 1.15;
-		float sat = dot(grass_alb, vec3(0.299, 0.587, 0.114));
-		grass_alb = mix(vec3(sat), grass_alb, 0.80);
-	} else if (zone_id == 2) {
-		grass_alb.r *= 1.08; grass_alb.g *= 1.06; grass_alb.b *= 0.85;
-	} else if (zone_id == 3 || zone_id == 7) {
-		grass_alb.g *= 1.12; grass_alb *= 1.08;
-	} else if (zone_id == 5) {
-		grass_alb.r *= 1.12; grass_alb.b *= 0.80;
-	}
-
-	// ---- Dirt/mulch for playgrounds, dog parks ----
-	bool is_dirt = (zone_id == 4 || zone_id == 6);
-	if (is_dirt) {
-		vec2 duv = v_vertex.xz / dirt_tile_m;
-		vec3 d_alb = textureNoTile_c(dirt_albedo, duv);
-		vec3 d_nrm = textureNoTile_n(dirt_normal, duv);
-		float d_rgh = clamp(textureNoTile_r(dirt_rough, duv) * 0.15 + 0.80, 0.0, 1.0);
-		grass_alb = mix(grass_alb, d_alb, 0.85);
-		grass_nrm = mix(grass_nrm, d_nrm, 0.85);
-		grass_rgh = mix(grass_rgh, d_rgh, 0.85);
-	}
-
-	// ---- Slope + rock detection ----
-	float slope = 1.0 - w_normal.y;
-
-	// Running track (zone 9)
-	if (zone_id == 9) {
-		vec2 duv = v_vertex.xz / dirt_tile_m;
-		vec3 d_alb = textureNoTile_c(dirt_albedo, duv);
-		vec3 d_nrm = textureNoTile_n(dirt_normal, duv);
-		float d_rgh = clamp(textureNoTile_r(dirt_rough, duv) * 0.15 + 0.72, 0.0, 1.0);
-		vec3 cinder_tint = vec3(0.52, 0.32, 0.22);
-		d_alb = mix(d_alb, d_alb * cinder_tint * 2.5, 0.6);
-		grass_alb = mix(grass_alb, d_alb, 0.90);
-		grass_nrm = mix(grass_nrm, d_nrm, 0.90);
-		grass_rgh = mix(grass_rgh, d_rgh, 0.90);
-	}
-
-	// ---- Shore transition ----
-	vec2 shore_sample = texture(shore_distance, splat_uv).ra;
-	float shore_dist_m = shore_sample.r * 30.0;
-	if (shore_dist_m < 15.0) {
-		vec2 suv = v_vertex.xz / shore_tile_m;
-		vec3 sh_alb = textureNoTile_c(shore_albedo, suv);
-		vec3 sh_nrm = textureNoTile_n(shore_normal, suv);
-		float sh_rgh = clamp(textureNoTile_r(shore_rough, suv) * 0.15 + 0.80, 0.0, 1.0);
-		float shore_blend = smoothstep(15.0, 2.0, shore_dist_m);
-		shore_blend = clamp(shore_blend, 0.0, 1.0);
-		grass_alb = mix(grass_alb, sh_alb, shore_blend);
-		grass_nrm = mix(grass_nrm, sh_nrm, shore_blend);
-		grass_rgh = mix(grass_rgh, sh_rgh, shore_blend);
-	}
-
-	// Water zone (12) — muddy ground
-	float water_near = 0.0;
-	if (zone_id == 12) {
-		water_near = 1.0;
-	} else if (shore_dist_m < 3.0) {
-		water_near = smoothstep(3.0, 0.5, shore_dist_m);
-	}
-	if (water_near > 0.01) {
-		vec3 mud_col = vec3(0.16, 0.13, 0.09);
-		grass_alb = mix(grass_alb, mud_col, clamp(water_near, 0.0, 1.0));
-		grass_rgh = mix(grass_rgh, 0.92, clamp(water_near, 0.0, 1.0));
-	}
-
-	// ---- Rock on steep slopes (Manhattan schist) ----
-	float rock_blend = smoothstep(0.10, 0.25, slope);
-	float struct_pre = texture(structure_mask, splat_uv).r * 254.0;
-	rock_blend *= (1.0 - smoothstep(0.5, 4.0, struct_pre));
-	float rock_specular = 0.0;
-	if (rock_blend > 0.01) {
-		vec2 ruv = v_vertex.xz / rock_tile_m;
-		vec3 r_alb = textureNoTile_c(rock_albedo, ruv);
-		float r_lum = dot(r_alb, vec3(0.2126, 0.7152, 0.0722));
-		vec3 schist_gray = vec3(0.13, 0.14, 0.16) + vec3(0.30, 0.30, 0.32) * r_lum;
-		r_alb = mix(r_alb, schist_gray, 0.70);
-		vec3 r_nrm = textureNoTile_n(rock_normal, ruv);
-		float r_rgh = clamp(textureNoTile_r(rock_rough, ruv) * 0.15 + 0.70, 0.0, 1.0);
-		grass_alb = mix(grass_alb, r_alb, rock_blend);
-		grass_nrm = mix(grass_nrm, r_nrm, rock_blend);
-		grass_rgh = mix(grass_rgh, r_rgh, rock_blend);
-		rock_specular = rock_blend * 0.30;
-	}
-
-	// ---- Structure mask: LiDAR-detected built features ----
-	float struct_val = texture(structure_mask, splat_uv).r * 254.0;
-	struct_val *= smoothstep(0.3, 0.9, park_inside);
-	if (struct_val > 0.5) {
-		vec2 stuv = v_vertex.xz / path_tile_m;
-		float struct_h = struct_val;
-		float struct_slope = slope;
-		float warmth = 0.5;
-		if (struct_slope > 0.35) warmth = mix(warmth, 0.15, struct_slope);
-		// Named location material overrides
-		float d_beth_s = length(v_vertex.xz - vec2(-458.0, 949.0));
-		if (d_beth_s < 60.0) warmth = 0.85;
-		float d_belv = length(v_vertex.xz - vec2(-215.0, 372.0));
-		if (d_belv < 50.0) warmth = 0.15;
-		float d_gap = length(v_vertex.xz - vec2(-355.0, 1640.0));
-		if (d_gap < 25.0) warmth = 0.18;
-		float d_hudd = length(v_vertex.xz - vec2(300.0, -1050.0));
-		if (d_hudd < 20.0) warmth = 0.10;
-		float d_dairy = length(v_vertex.xz - vec2(-500.0, 1425.0));
-		if (d_dairy < 25.0) warmth = 0.65;
-		float d_dana = length(v_vertex.xz - vec2(400.0, -1800.0));
-		if (d_dana < 20.0) warmth = 0.70;
-		float d_naum = length(v_vertex.xz - vec2(-600.0, 1500.0));
-		if (d_naum < 15.0) warmth = 0.75;
-		vec3 s_tint;
-		float tex_layer;
-		if (struct_slope > 0.35) {
-			tex_layer = 2.0;
-			vec3 cool_base = vec3(0.32, 0.33, 0.35);
-			vec3 warm_base = vec3(0.52, 0.47, 0.35);
-			s_tint = mix(cool_base, warm_base, smoothstep(0.4, 0.6, warmth));
-		} else if (struct_slope > 0.08) {
-			tex_layer = 2.0;
-			vec3 cool_step = vec3(0.58, 0.56, 0.52);
-			vec3 warm_step = vec3(0.62, 0.56, 0.46);
-			s_tint = mix(cool_step, warm_step, smoothstep(0.4, 0.6, warmth));
-		} else {
-			if (struct_h > 16.0) {
-				tex_layer = 0.0;
-				s_tint = vec3(0.44, 0.42, 0.40);
-			} else {
-				tex_layer = 1.0;
-				s_tint = vec3(0.66, 0.63, 0.58);
-			}
+		ALBEDO = mix(ALBEDO, ALBEDO * vec3(1.1, 1.15, 0.75), spring_t * 0.6);
+		ALBEDO = mix(ALBEDO, vec3(0.16, 0.12, 0.04), autumn_t * 0.7);
+		ALBEDO = mix(ALBEDO, vec3(0.12, 0.10, 0.06), winter_t);
+		if (winter_t > 0.01) {
+			NORMAL_MAP = mix(NORMAL_MAP, vec3(0.5, 0.5, 1.0), winter_t);
+			ROUGHNESS = mix(ROUGHNESS, 0.95, winter_t);
 		}
-		vec3 s_alb = texture(path_alb_arr, vec3(stuv, tex_layer)).rgb * s_tint;
-		vec3 s_nrm = texture(path_nrm_arr, vec3(stuv, tex_layer)).rgb;
-		float s_rgh = clamp(texture(path_rgh_arr, vec3(stuv, tex_layer)).r + 0.08, 0.0, 1.0);
-		float s_blend = smoothstep(0.5, 2.0, struct_val);
-		grass_alb = mix(grass_alb, s_alb, s_blend);
-		grass_nrm = mix(grass_nrm, s_nrm, s_blend);
-		grass_rgh = mix(grass_rgh, s_rgh, s_blend);
-	}
-
-	// ---- Named plaza overrides ----
-	// Bethesda herringbone brick
-	float d_beth = length(v_vertex.xz - vec2(-458.0, 949.0));
-	if (d_beth < 35.0 && slope < 0.15) {
-		vec2 brick_uv = v_vertex.xz * 4.0;
-		float bx = fract(brick_uv.x * 0.707 + brick_uv.y * 0.707);
-		float bz = fract(brick_uv.x * 0.707 - brick_uv.y * 0.707);
-		float herring = step(0.5, bx) * step(0.5, bz) + (1.0 - step(0.5, bx)) * (1.0 - step(0.5, bz));
-		float mortar = smoothstep(0.02, 0.04, min(fract(bx * 2.0), fract(bz * 2.0)));
-		vec3 brick_col = mix(vec3(0.63, 0.32, 0.18), vec3(0.55, 0.28, 0.15), herring);
-		brick_col = mix(vec3(0.72, 0.68, 0.62), brick_col, mortar);
-		float beth_blend = smoothstep(35.0, 28.0, d_beth);
-		grass_alb = mix(grass_alb, brick_col, beth_blend);
-		grass_rgh = mix(grass_rgh, 0.78, beth_blend);
-	}
-
-	// Conservatory Garden
-	float d_cg = length(v_vertex.xz - vec2(1080.0, -1195.0));
-	if (d_cg < 100.0 && slope < 0.10) {
-		float cg_blend = smoothstep(100.0, 70.0, d_cg);
-		float sat = dot(grass_alb, vec3(0.299, 0.587, 0.114));
-		vec3 formal_green = mix(vec3(sat), grass_alb, 0.80) * 1.08;
-		grass_alb = mix(grass_alb, formal_green, cg_blend);
-	}
-
-	// Shakespeare Garden
-	float d_shk = length(v_vertex.xz - vec2(-389.0, 343.0));
-	if (d_shk < 55.0) {
-		float shk_blend = smoothstep(55.0, 35.0, d_shk);
-		grass_alb = mix(grass_alb, grass_alb * vec3(1.08, 0.98, 0.85), shk_blend);
-		grass_rgh = mix(grass_rgh, grass_rgh + 0.05, shk_blend);
-	}
-
-	// Cherry Hill bluestone
-	float d_ch = length(v_vertex.xz - vec2(-580.0, 920.0));
-	if (d_ch < 30.0 && slope < 0.12) {
-		float ch_blend = smoothstep(30.0, 18.0, d_ch);
-		grass_alb = mix(grass_alb, vec3(0.42, 0.46, 0.50), ch_blend);
-		grass_rgh = mix(grass_rgh, 0.72, ch_blend);
-	}
-
-	// Naumburg Bandshell plaza
-	float d_naum_p = length(v_vertex.xz - vec2(-600.0, 1500.0));
-	if (d_naum_p < 20.0 && slope < 0.10) {
-		float naum_blend = smoothstep(20.0, 12.0, d_naum_p);
-		grass_alb = mix(grass_alb, vec3(0.50, 0.48, 0.45), naum_blend);
-		grass_rgh = mix(grass_rgh, 0.65, naum_blend);
-	}
-
-	// The Mall corridor
-	bool in_mall_corridor = (v_vertex.x > -680.0 && v_vertex.x < -430.0 && v_vertex.z > 1200.0 && v_vertex.z < 1520.0);
-	if (in_mall_corridor && slope < 0.08) {
-		vec3 formal_green = grass_alb * vec3(1.0, 1.08, 0.88);
-		float sat = dot(formal_green, vec3(0.299, 0.587, 0.114));
-		formal_green = mix(vec3(sat), formal_green, 0.85);
-		grass_alb = mix(grass_alb, formal_green, 0.35);
-		grass_rgh = mix(grass_rgh, grass_rgh * 0.95, 0.35);
-	}
-
-	// Great Lawn
-	float d_gl = length(v_vertex.xz - vec2(0.0, 100.0));
-	if (d_gl < 200.0 && slope < 0.08) {
-		float gl_blend = smoothstep(200.0, 150.0, d_gl);
-		grass_alb = mix(grass_alb, vec3(0.04, 0.10, 0.03), gl_blend * 0.3);
-	}
-
-	// Harlem Meer
-	float d_hm = length(v_vertex.xz - vec2(350.0, -1750.0));
-	if (d_hm < 80.0) {
-		float hm_blend = smoothstep(80.0, 40.0, d_hm);
-		grass_alb = mix(grass_alb, grass_alb * vec3(0.92, 1.06, 0.90), hm_blend);
-	}
-
-	// Conservatory Water surround
-	float d_cw = length(v_vertex.xz - vec2(-152.0, 958.0));
-	if (d_cw < 45.0 && d_cw > 20.0 && slope < 0.10) {
-		float cw_blend = smoothstep(45.0, 35.0, d_cw) * smoothstep(20.0, 28.0, d_cw);
-		grass_alb = mix(grass_alb, vec3(0.55, 0.53, 0.50), cw_blend * 0.6);
-		grass_rgh = mix(grass_rgh, 0.60, cw_blend * 0.5);
-	}
-
-	// Sheep Meadow
-	float d_sm = length(v_vertex.xz - vec2(-750.0, 1800.0));
-	if (d_sm < 200.0 && slope < 0.06) {
-		float sm_blend = smoothstep(200.0, 120.0, d_sm);
-		grass_alb = mix(grass_alb, grass_alb * vec3(1.04, 1.02, 0.92), sm_blend);
-	}
-
-	// Strawberry Fields
-	float d_sf = length(v_vertex.xz - vec2(-790.0, 820.0));
-	if (d_sf < 60.0 && slope < 0.10) {
-		float sf_blend = smoothstep(60.0, 30.0, d_sf);
-		float sf_lum = dot(grass_alb, vec3(0.299, 0.587, 0.114));
-		vec3 formal = mix(vec3(sf_lum), grass_alb, 0.80) * vec3(0.98, 1.06, 0.92);
-		grass_alb = mix(grass_alb, formal, sf_blend);
-		grass_rgh = mix(grass_rgh, grass_rgh * 0.95, sf_blend);
-	}
-
-	// North Woods / Ramble woodland proximity
-	float d_ramble = length(v_vertex.xz - vec2(-400.0, 600.0));
-	float d_nwoods = length(v_vertex.xz - vec2(100.0, -1200.0));
-	float woodland_prox = max(
-		smoothstep(250.0, 100.0, d_ramble),
-		smoothstep(300.0, 100.0, d_nwoods)
-	);
-	if (woodland_prox > 0.01) {
-		grass_alb = mix(grass_alb, grass_alb * vec3(0.90, 0.98, 0.95), woodland_prox * 0.5);
-		grass_alb *= mix(1.0, 0.88, woodland_prox);
 	}
 
 	// ---- Dappled canopy shade ----
@@ -714,70 +425,27 @@ void fragment() {
 			seasonal_canopy *= mix(0.5, 1.0, spring_fill);
 
 			vec2 dapple_uv = v_vertex.xz * 0.35 + wind_vec * TIME * 0.08;
-			float dapple = vnoise(dapple_uv);
-			float dapple_fine = vnoise(v_vertex.xz * 1.2 + wind_vec * TIME * 0.15);
-			float light_gap = smoothstep(0.35, 0.65, dapple) * 0.6
-				+ smoothstep(0.55, 0.75, dapple_fine) * 0.4;
+			float light_gap = smoothstep(0.35, 0.65, vnoise(dapple_uv)) * 0.6
+				+ smoothstep(0.55, 0.75, vnoise(v_vertex.xz * 1.2 + wind_vec * TIME * 0.15)) * 0.4;
 
 			float sky_lum = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
 			float sun_factor = smoothstep(0.02, 0.20, sky_lum);
 
 			float shade = seasonal_canopy * sun_factor;
-			float shade_amount = shade * (1.0 - light_gap) * 0.50;
-			grass_alb *= (1.0 - shade_amount);
+			ALBEDO *= (1.0 - shade * (1.0 - light_gap) * 0.50);
 			float warm_spots = light_gap * shade;
-			grass_alb *= vec3(1.0 + warm_spots * 0.15, 1.0 + warm_spots * 0.10, 1.0 - warm_spots * 0.05);
+			ALBEDO *= vec3(1.0 + warm_spots * 0.15, 1.0 + warm_spots * 0.10, 1.0 - warm_spots * 0.05);
 		}
 	}
 
-	// ---- NYC sidewalk outside park ----
-	if (park_inside < 0.95) {
-		vec2 city_uv = v_vertex.xz / path_tile_m;
-		float is_street = smoothstep(0.02, 0.005, slope);
-		float city_layer = mix(1.0, 0.0, is_street);
-		vec3 city_alb = texture(path_alb_arr, vec3(city_uv, city_layer)).rgb;
-		vec3 city_nrm = texture(path_nrm_arr, vec3(city_uv, city_layer)).rgb;
-		float city_rgh = texture(path_rgh_arr, vec3(city_uv, city_layer)).r;
-		city_alb *= mix(vec3(0.72, 0.70, 0.66), vec3(0.42, 0.40, 0.38), is_street);
-		city_rgh = mix(0.78, 0.68, is_street);
-		float city_blend = 1.0 - smoothstep(0.3, 0.95, park_inside);
-		grass_alb = mix(grass_alb, city_alb, city_blend);
-		grass_nrm = mix(grass_nrm, city_nrm, city_blend);
-		grass_rgh = mix(grass_rgh, city_rgh, city_blend);
-	}
-
-	// Per-pixel micro-variation
+	// ---- Per-pixel micro-variation ----
 	vec2 terr_px = v_vertex.xz * 23.7 + vec2(v_vertex.y * 5.1);
-	float terr_pn = hash2(terr_px) * 0.05 - 0.025;
-	float terr_hr = hash2(terr_px + vec2(71.9, 0.0)) * 0.02;
-	float terr_hb = hash2(terr_px + vec2(0.0, 53.1)) * 0.02;
-	grass_alb += vec3(terr_pn + terr_hr, terr_pn, terr_pn + terr_hb);
+	ALBEDO += vec3(hash2(terr_px) * 0.05 - 0.025);
 
-	// Cloud shadows
+	// ---- Cloud shadows ----
 	float sky_lum_cs = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
 	float daytime = smoothstep(0.05, 0.20, sky_lum_cs);
-	float c_shadow = cloud_shadow(v_vertex.xz, cloud_coverage_g, cloud_speed_g,
-	                               TIME, wind_vec) * daytime;
-	grass_alb *= (1.0 - c_shadow);
-
-	// ---- Apply PBR ----
-	ALBEDO = grass_alb;
-	// Normal mapping via TBN
-	vec3 _gn = grass_nrm * 2.0 - 1.0;
-	_gn.xy *= 0.8;
-	vec3 _gfn = normalize(w_tangent * _gn.x + w_binormal * _gn.y + w_normal * _gn.z);
-	NORMAL = normalize(mat3(VIEW_MATRIX) * _gfn);
-	ROUGHNESS = grass_rgh;
-	SPECULAR = max(0.15, rock_specular);
-	METALLIC = 0.0;
-
-	// Grass impostor material at distance
-	if (is_grass_zone) {
-		float imp_mat_t = smoothstep(15.0, 25.0, cam_dist) * green_blend;
-		ROUGHNESS = mix(ROUGHNESS, 0.4, imp_mat_t);
-		SPECULAR = mix(SPECULAR, 0.2, imp_mat_t);
-		BACKLIGHT = vec3(0.2) * imp_mat_t;
-	}
+	ALBEDO *= (1.0 - cloud_shadow(v_vertex.xz, cloud_coverage_g, cloud_speed_g, TIME, wind_vec) * daytime);
 
 	// ---- Rain wetness ----
 	if (rain_wetness > 0.01) {
@@ -786,12 +454,11 @@ void fragment() {
 		ROUGHNESS = mix(ROUGHNESS, max(ROUGHNESS * 0.3, 0.08), wet);
 		SPECULAR = mix(SPECULAR, 0.5, wet);
 
-		float flatness = w_normal.y;
-		if (flatness > 0.95) {
+		// Puddles on flat terrain
+		if (v_normal.y > 0.95) {
 			float puddle_noise = fbm(v_vertex.xz * 0.06, 3);
 			float puddle_threshold = mix(0.6, 0.25, wet);
-			float puddle = smoothstep(puddle_threshold, puddle_threshold - 0.08, puddle_noise);
-			puddle *= flatness;
+			float puddle = smoothstep(puddle_threshold, puddle_threshold - 0.08, puddle_noise) * v_normal.y;
 			if (puddle > 0.01) {
 				float p_sky_lum = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
 				float p_night = smoothstep(0.15, 0.02, p_sky_lum);
@@ -800,8 +467,6 @@ void fragment() {
 				ALBEDO = mix(ALBEDO, puddle_col, puddle);
 				ROUGHNESS = mix(ROUGHNESS, 0.02, puddle);
 				SPECULAR = mix(SPECULAR, 0.8, puddle);
-				vec3 puddle_n = normalize(mat3(VIEW_MATRIX) * vec3(0.0, 1.0, 0.0));
-				NORMAL = mix(NORMAL, puddle_n, puddle * 0.9);
 			}
 		}
 	}
@@ -809,39 +474,38 @@ void fragment() {
 	// ---- Fallen leaf scatter (autumn) ----
 	{
 		float leaf_autumn = smoothstep(2.0, 2.6, season_t) * (1.0 - smoothstep(3.3, 3.8, season_t));
+		float slope = 1.0 - v_normal.y;
 		if (leaf_autumn > 0.01 && slope < 0.25) {
-			float wind_str = length(wind_vec);
 			vec2 leaf_drift = wind_vec * TIME * 0.015;
 			float leaf_clump = vnoise(v_vertex.xz * 0.08 - leaf_drift * 0.3);
 			float leaf_detail = vnoise(v_vertex.xz * 0.6 - leaf_drift);
 			float gather = is_woodland ? 0.5 : 0.15;
-			float topo_low = 1.0 - smoothstep(0.3, 0.6, fbm(v_vertex.xz * 0.02, 2));
-			gather += topo_low * 0.15 + wind_str * 0.08;
+			gather += (1.0 - smoothstep(0.3, 0.6, fbm(v_vertex.xz * 0.02, 2))) * 0.15;
 			float leaf_mask = smoothstep(0.3, 0.7, leaf_clump) * gather * leaf_autumn;
 			leaf_mask *= smoothstep(0.2, 0.5, leaf_detail);
 			if (leaf_mask > 0.01) {
 				float col_var = vnoise(v_vertex.xz * 1.2);
-				vec3 leaf_col = mix(
-					vec3(0.45, 0.28, 0.10),
+				vec3 leaf_col = mix(vec3(0.45, 0.28, 0.10),
 					mix(vec3(0.65, 0.35, 0.10), vec3(0.55, 0.20, 0.08), col_var),
-					smoothstep(0.3, 0.7, leaf_clump)
-				);
+					smoothstep(0.3, 0.7, leaf_clump));
 				ALBEDO = mix(ALBEDO, leaf_col, leaf_mask * 0.65);
 				ROUGHNESS = mix(ROUGHNESS, 0.92, leaf_mask * 0.5);
 			}
 		}
 	}
 
-	// ---- Morning dew (spring/summer after rain) ----
-	{
-		float dew_season = smoothstep(0.0, 1.0, season_t) * (1.0 - smoothstep(2.5, 3.5, season_t));
-		if (dew_season > 0.01 && rain_wetness > 0.05 && rain_wetness < 0.5) {
-			float dew_noise = hash2(floor(v_vertex.xz * 12.0));
-			float dew = step(0.6, dew_noise) * dew_season * rain_wetness * 2.0;
-			ROUGHNESS = mix(ROUGHNESS, 0.12, dew * 0.5);
-			SPECULAR = mix(SPECULAR, 0.55, dew * 0.4);
-			ALBEDO *= mix(1.0, 1.06, dew * 0.4);
+	// ---- Dawn dew ----
+	if (dew_amount > 0.01 && v_normal.y > 0.80) {
+		float dew = dew_amount * v_normal.y;
+		ROUGHNESS = mix(ROUGHNESS, 0.20, dew * 0.35);
+		SPECULAR = mix(SPECULAR, 0.35, dew * 0.30);
+		float dew_noise = vnoise(v_vertex.xz * 25.0);
+		float sparkle_mask = smoothstep(0.55, 0.75, dew_noise) * dew;
+		if (sparkle_mask > 0.01) {
+			SPECULAR = mix(SPECULAR, 0.65, sparkle_mask * 0.4);
+			ROUGHNESS = mix(ROUGHNESS, 0.08, sparkle_mask * 0.25);
 		}
+		ALBEDO *= mix(1.0, 1.08, dew * 0.3);
 	}
 
 	// ---- Winter frost ----
@@ -850,8 +514,7 @@ void fragment() {
 		if (frost_season > 0.01 && snow_cover < 0.3) {
 			float frost_noise = hash2(floor(v_vertex.xz * 8.0));
 			float frost_mask = step(0.4, frost_noise) * frost_season;
-			float exposed = is_woodland ? 0.3 : 1.0;
-			frost_mask *= exposed * w_normal.y;
+			frost_mask *= (is_woodland ? 0.3 : 1.0) * v_normal.y;
 			ALBEDO = mix(ALBEDO, vec3(0.85, 0.88, 0.92), frost_mask * 0.35);
 			ROUGHNESS = mix(ROUGHNESS, 0.10, frost_mask * 0.5);
 			SPECULAR = mix(SPECULAR, 0.6, frost_mask * 0.4);
@@ -860,9 +523,8 @@ void fragment() {
 
 	// ---- Snow accumulation ----
 	if (snow_cover > 0.01) {
-		float flatness = w_normal.y;
 		float snow_noise = fbm(v_vertex.xz * 0.08, 2) * 0.25;
-		float snow_amt = smoothstep(0.3, 0.7, flatness + snow_noise - 0.2) * snow_cover;
+		float snow_amt = smoothstep(0.3, 0.7, v_normal.y + snow_noise - 0.2) * snow_cover;
 		ALBEDO = mix(ALBEDO, vec3(0.92, 0.93, 0.96), snow_amt);
 		ROUGHNESS = mix(ROUGHNESS, 0.90, snow_amt);
 		SPECULAR = mix(SPECULAR, 0.3, snow_amt);
@@ -877,28 +539,12 @@ void fragment() {
 		}
 	}
 
-	// ---- Dawn dew ----
-	if (dew_amount > 0.01 && !is_dirt && slope < 0.20) {
-		float dew = dew_amount * w_normal.y * (1.0 - rock_blend);
-		ROUGHNESS = mix(ROUGHNESS, 0.20, dew * 0.35);
-		SPECULAR = mix(SPECULAR, 0.35, dew * 0.30);
-		float dew_noise = vnoise(v_vertex.xz * 25.0);
-		float sparkle_mask = smoothstep(0.55, 0.75, dew_noise) * dew;
-		if (sparkle_mask > 0.01) {
-			SPECULAR = mix(SPECULAR, 0.65, sparkle_mask * 0.4);
-			ROUGHNESS = mix(ROUGHNESS, 0.08, sparkle_mask * 0.25);
-		}
-		ALBEDO *= mix(1.0, 1.08, dew * 0.3);
-	}
-
 	// ---- Atmospheric distance haze ----
-	float terr_dist = length(v_vertex - _camera_pos);
-	float terr_fade = smoothstep(200.0, 600.0, terr_dist);
+	float terr_fade = smoothstep(200.0, 600.0, cam_dist);
 	if (terr_fade > 0.01) {
 		float sky_lum2 = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
 		vec3 haze_col = mix(vec3(0.58, 0.56, 0.52), sky_reflect_color * 0.8 + vec3(0.20), 0.35);
-		float night_t2 = smoothstep(0.15, 0.02, sky_lum2);
-		haze_col = mix(haze_col, vec3(0.14, 0.10, 0.06), night_t2 * 0.6);
+		haze_col = mix(haze_col, vec3(0.14, 0.10, 0.06), smoothstep(0.15, 0.02, sky_lum2) * 0.6);
 		float autumn_h = smoothstep(1.5, 2.5, season_t) * (1.0 - smoothstep(2.5, 3.5, season_t));
 		haze_col = mix(haze_col, haze_col * vec3(1.10, 1.00, 0.82), autumn_h * 0.4);
 		float winter_h = smoothstep(2.5, 3.5, season_t);

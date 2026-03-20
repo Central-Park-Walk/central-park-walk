@@ -188,15 +188,11 @@ func _ready() -> void:
 		_park_loader.terrain3d = _terrain3d
 	print("main: Terrain3D setup: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	if not _terrain_only:
-		_apply_structure_textures()
-		if _park_loader and _park_loader.boundary_polygon.size() > 2:
-			_apply_boundary_mask(_park_loader.boundary_polygon)
-		print("main: boundary mask: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
+		# Structure textures + boundary mask + structure mask now handled by
+		# Terrain3D native control map — only data maps for overlay effects needed
 		if _park_loader and not _park_loader.landuse_zones.is_empty():
 			_apply_landuse_map(_park_loader.landuse_zones, _park_loader.water_bodies)
 		print("main: landuse map: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
-		_apply_structure_mask()
-		print("main: structure mask: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 		if _park_loader and _park_loader._canopy_texture:
 			_set_terrain_param("canopy_map", _park_loader._canopy_texture)
 		print("main: canopy map: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
@@ -1686,74 +1682,33 @@ func _setup_ground() -> void:
 		else:
 			push_warning("Terrain3D: override shader not found, using default auto-shader")
 
-	# ---- Load ground textures and apply to Terrain3D override shader ----
-	var tex_alb := _load_img_tex("res://textures/grass_albedo.jpg")
-	if tex_alb == null:
-		tex_alb = _load_img_tex("res://textures/lawn_grass_Color.jpg")
-	var tex_nrm := _load_img_tex("res://textures/grass_normal.jpg")
-	if tex_nrm == null:
-		tex_nrm = _load_img_tex("res://textures/lawn_grass_NormalGL.jpg")
-	var tex_rgh := _load_img_tex("res://textures/grass_rough.jpg")
-	if tex_rgh == null:
-		tex_rgh = _load_img_tex("res://textures/lawn_grass_Roughness.jpg")
-	if tex_alb != null:
-		_set_terrain_param(&"grass_albedo", tex_alb)
-		_set_terrain_param(&"grass_normal", tex_nrm)
-		_set_terrain_param(&"grass_rough",  tex_rgh)
-		_set_terrain_param(&"tile_m",       6.0)
-		# Anti-tiling noise texture
-		var noise_tex := _load_img_tex("res://textures/tile_noise.png")
-		if noise_tex:
-			_set_terrain_param(&"tile_noise", noise_tex)
-		# Meadow/wild grass blend
-		var m_alb := _load_img_tex("res://textures/leaf_litter_Color.jpg")
-		if m_alb == null:
-			m_alb = _load_img_tex("res://textures/forrest_ground_01_Color.jpg")
-		var m_nrm := _load_img_tex("res://textures/leaf_litter_NormalGL.jpg")
-		if m_nrm == null:
-			m_nrm = _load_img_tex("res://textures/forrest_ground_01_NormalGL.jpg")
-		var m_rgh := _load_img_tex("res://textures/leaf_litter_Roughness.jpg")
-		if m_rgh == null:
-			m_rgh = _load_img_tex("res://textures/forrest_ground_01_Roughness.jpg")
-		if m_alb:
-			_set_terrain_param(&"meadow_albedo", m_alb)
-			_set_terrain_param(&"meadow_normal", m_nrm)
-			_set_terrain_param(&"meadow_rough",  m_rgh)
-			_set_terrain_param(&"meadow_tile_m", 4.0)
-		# Rock texture for steep slopes
-		var r_alb := _load_img_tex("res://textures/schist_rock_Color.jpg")
-		if r_alb == null:
-			r_alb = _load_img_tex("res://textures/rock_wall_diff.jpg")
-		var r_nrm := _load_img_tex("res://textures/schist_rock_NormalGL.jpg")
-		if r_nrm == null:
-			r_nrm = _load_img_tex("res://textures/rock_wall_nrm.jpg")
-		var r_rgh := _load_img_tex("res://textures/schist_rock_Roughness.jpg")
-		if r_rgh == null:
-			r_rgh = _load_img_tex("res://textures/rock_wall_rgh.jpg")
-		if r_alb:
-			_set_terrain_param(&"rock_albedo", r_alb)
-			_set_terrain_param(&"rock_normal", r_nrm)
-			_set_terrain_param(&"rock_rough",  r_rgh)
-			_set_terrain_param(&"rock_tile_m", 3.0)
-		# Dirt texture for playgrounds, dog parks, tracks
-		var d_alb := _load_img_tex("res://textures/park_dirt_Color.jpg")
-		var d_nrm := _load_img_tex("res://textures/park_dirt_NormalGL.jpg")
-		var d_rgh := _load_img_tex("res://textures/park_dirt_Roughness.jpg")
-		if d_alb:
-			_set_terrain_param(&"dirt_albedo", d_alb)
-			_set_terrain_param(&"dirt_normal", d_nrm)
-			_set_terrain_param(&"dirt_rough",  d_rgh)
-			_set_terrain_param(&"dirt_tile_m", 2.0)
-		# Shore/mud texture for water edges
-		var s_alb := _load_img_tex("res://textures/shore_mud_Color.jpg")
-		var s_nrm := _load_img_tex("res://textures/shore_mud_NormalGL.jpg")
-		var s_rgh := _load_img_tex("res://textures/shore_mud_Roughness.jpg")
-		if s_alb:
-			_set_terrain_param(&"shore_albedo", s_alb)
-			_set_terrain_param(&"shore_normal", s_nrm)
-			_set_terrain_param(&"shore_rough",  s_rgh)
-			_set_terrain_param(&"shore_tile_m", 3.0)
-		print("Ground: Terrain3D override + meadow + rock + dirt + shore textures")
+	# World size for data map UV lookups in overlay shader
+	_set_terrain_param(&"world_size", _hm_world_size)
+
+	# ---- Terrain3D native textures handle all surface materials via control map ----
+	# The shader override only needs data maps for custom overlays (seasons, weather, canopy)
+	# Textures (grass, meadow, rock, dirt, shore, asphalt, concrete, paving, gravel, wood)
+	# are registered in terrain_assets.tres and painted via control map — no manual loading needed.
+
+	# Anti-tiling noise texture for macro variation
+	var noise_tex := _load_img_tex("res://textures/tile_noise.png")
+	if noise_tex:
+		_set_terrain_param(&"noise_texture", noise_tex)
+
+	# Configure macro variation for distance pattern breakup
+	_set_terrain_param(&"enable_macro_variation", true)
+	_set_terrain_param(&"macro_variation1", Vector3(0.90, 0.92, 0.88))
+	_set_terrain_param(&"macro_variation2", Vector3(1.0, 0.97, 0.95))
+	_set_terrain_param(&"noise1_scale", 0.04)
+	_set_terrain_param(&"noise2_scale", 0.076)
+
+	# Autoshader: grass on flat, rock on slopes
+	_set_terrain_param(&"auto_slope", 2.0)
+	_set_terrain_param(&"auto_base_texture", 0)      # grass
+	_set_terrain_param(&"auto_overlay_texture", 2)    # rock
+	_set_terrain_param(&"blend_sharpness", 0.5)
+
+	print("Ground: Terrain3D native textures (10 slots) + overlay shader")
 
 
 # ---------------------------------------------------------------------------
