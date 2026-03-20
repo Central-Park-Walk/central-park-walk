@@ -107,7 +107,7 @@ SPECIES = {
         "branch_flatness": 0.30,
         "branch_break_chance": 0.02,
         "branch_resolution": 0.8,
-        "sub_density": 1.5,
+        "sub_density": 1.6,            # Red oak: dense rounded crown (was 1.5)
         "sub_length_ratio": 0.15,
         "sub_angle": 50,
         "sub_gravity": 12.0,
@@ -154,7 +154,7 @@ SPECIES = {
         "branch_flatness": 0.20,
         "branch_break_chance": 0.02,
         "branch_resolution": 0.8,
-        "sub_density": 1.2,            # Reduced from 1.8 for game perf
+        "sub_density": 1.5,            # Vase elm: famously dense canopy (was 1.2, orig 1.8)
         "sub_length_ratio": 0.15,
         "sub_angle": 55,
         "sub_gravity": 15.0,           # Heavy droop on sub-branches
@@ -201,7 +201,7 @@ SPECIES = {
         "branch_flatness": 0.35,       # Wider spread
         "branch_break_chance": 0.01,
         "branch_resolution": 0.7,
-        "sub_density": 1.0,            # Reduced from 2.0
+        "sub_density": 1.4,            # Cathedral elm: dense canopy tunnel (was 1.0, orig 2.0)
         "sub_length_ratio": 0.16,      # Reduced from 0.20
         "sub_angle": 60,
         "sub_gravity": 14.0,
@@ -634,7 +634,7 @@ SPECIES = {
         "branch_flatness": 0.25,
         "branch_break_chance": 0.02,
         "branch_resolution": 0.8,
-        "sub_density": 1.4,
+        "sub_density": 1.6,            # London plane: massive broad canopy (was 1.4)
         "sub_length_ratio": 0.14,
         "sub_angle": 50,
         "sub_gravity": 10.0,
@@ -939,7 +939,7 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng):
         return []
 
     # Cluster nearby tips (grid-based spatial hash)
-    cell_size = target_height * 0.06  # ~1.5m cells for 25m tree
+    cell_size = target_height * 0.042  # ~1.05m cells for 25m tree (was 0.06 = 1.5m)
     clusters = {}
     for pos in tip_positions:
         key = (
