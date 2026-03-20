@@ -114,10 +114,12 @@ void fragment() {
 
 	ALBEDO = base_col;
 
-	// PBR — no specular, fully rough (prevents sparkle on texture cards)
-	ROUGHNESS = 0.95;
-	SPECULAR = 0.0;
-	BACKLIGHT = vec3(0.10);
+	// PBR — very soft specular sheen (grass has waxy cuticle)
+	// High roughness diffuses the highlight across the card surface.
+	// A per-blade normal map would break this into natural sheen — future work.
+	ROUGHNESS = 0.92;
+	SPECULAR = 0.02;
+	BACKLIGHT = vec3(0.12);
 
 	// Rain
 	ALBEDO *= mix(1.0, 0.70, rain_wetness);
