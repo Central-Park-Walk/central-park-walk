@@ -2,6 +2,10 @@
 .godot/
 *.uid
 
+# Loose .import sidecar files at root and reference dirs
+/*.import
+/reference_photos/*.import
+
 # Downloaded binary assets (re-download via scripts)
 models/
 !models/furniture/cp_bench.glb
