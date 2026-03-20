@@ -42,24 +42,24 @@ const ATLAS_COLS := 4
 const ATLAS_ROWS := 7
 const SPECIES := [
 	# Shrubs (0-4) — moderate scale variation for natural juvenile/mature mix
-	{"name": "Shrub_Spicebush",        "s": [0.65, 1.25], "flex": 0.25, "green": 0, "fall": [0.70, 0.65, 0.15], "ai": 0},
-	{"name": "Shrub_WitchHazel",        "s": [0.70, 1.20], "flex": 0.20, "green": 0, "fall": [0.65, 0.60, 0.12], "ai": 1},
-	{"name": "Shrub_Viburnum",          "s": [0.65, 1.25], "flex": 0.25, "green": 0, "fall": [0.60, 0.25, 0.15], "ai": 2},
-	{"name": "Shrub_Sumac",             "s": [0.70, 1.20], "flex": 0.20, "green": 0, "fall": [0.80, 0.20, 0.08], "ai": 3},
-	{"name": "Shrub_Elderberry",        "s": [0.70, 1.20], "flex": 0.30, "green": 0, "fall": [0.55, 0.45, 0.10], "ai": 4, "fc": [1.00, 0.99, 0.91], "bl": [0.78, 1.33]},  # creamy white #FFFDE8; May-Jul
+	{"name": "Shrub_Spicebush",        "s": [0.50, 1.40], "flex": 0.25, "green": 0, "fall": [0.70, 0.65, 0.15], "ai": 0},
+	{"name": "Shrub_WitchHazel",        "s": [0.50, 1.35], "flex": 0.20, "green": 0, "fall": [0.65, 0.60, 0.12], "ai": 1},
+	{"name": "Shrub_Viburnum",          "s": [0.50, 1.40], "flex": 0.25, "green": 0, "fall": [0.60, 0.25, 0.15], "ai": 2},
+	{"name": "Shrub_Sumac",             "s": [0.50, 1.35], "flex": 0.20, "green": 0, "fall": [0.80, 0.20, 0.08], "ai": 3},
+	{"name": "Shrub_Elderberry",        "s": [0.50, 1.35], "flex": 0.30, "green": 0, "fall": [0.55, 0.45, 0.10], "ai": 4, "fc": [1.00, 0.99, 0.91], "bl": [0.78, 1.33]},  # creamy white #FFFDE8; May-Jul
 	# Tall herbs (5-9) — fc=flower color (RGB from iNaturalist), bl=bloom season_t (from observation histograms)
-	{"name": "Herb_Pokeweed",           "s": [0.70, 1.30], "flex": 0.45, "green": 0, "fall": [0.50, 0.15, 0.30], "ai": 5, "fc": [0.95, 0.88, 0.92], "bl": [1.0, 2.33]},   # white-pink; Jun-Oct
-	{"name": "Herb_JapaneseKnotweed",   "s": [0.80, 1.20], "flex": 0.35, "green": 0, "fall": [0.40, 0.30, 0.12], "ai": 6, "fc": [0.92, 0.92, 0.90], "bl": [1.22, 2.0]},  # white plumes; late Jun-Sep
-	{"name": "Herb_JoePyeWeed",         "s": [0.75, 1.25], "flex": 0.50, "green": 0, "fall": [0.45, 0.30, 0.20], "ai": 7, "fc": [0.79, 0.53, 0.62], "bl": [1.22, 2.0]},  # dusty mauve-pink #C9879F; late Jun-Sep
-	{"name": "Herb_Coneflower",         "s": [0.75, 1.25], "flex": 0.55, "green": 0, "fall": [0.50, 0.40, 0.12], "ai": 8, "fc": [1.00, 0.72, 0.11], "bl": [1.0, 2.33]},   # golden yellow #FFB81C; Jun-Oct
-	{"name": "Herb_CardinalFlower",     "s": [0.80, 1.20], "flex": 0.40, "green": 0, "fall": [0.30, 0.18, 0.08], "ai": 9, "fc": [0.89, 0.09, 0.22], "bl": [1.33, 2.0]},   # scarlet #E31837; Jul-Sep
+	{"name": "Herb_Pokeweed",           "s": [0.50, 1.45], "flex": 0.45, "green": 0, "fall": [0.50, 0.15, 0.30], "ai": 5, "fc": [0.95, 0.88, 0.92], "bl": [1.0, 2.33]},   # white-pink; Jun-Oct
+	{"name": "Herb_JapaneseKnotweed",   "s": [0.60, 1.40], "flex": 0.35, "green": 0, "fall": [0.40, 0.30, 0.12], "ai": 6, "fc": [0.92, 0.92, 0.90], "bl": [1.22, 2.0]},  # white plumes; late Jun-Sep
+	{"name": "Herb_JoePyeWeed",         "s": [0.55, 1.40], "flex": 0.50, "green": 0, "fall": [0.45, 0.30, 0.20], "ai": 7, "fc": [0.79, 0.53, 0.62], "bl": [1.22, 2.0]},  # dusty mauve-pink #C9879F; late Jun-Sep
+	{"name": "Herb_Coneflower",         "s": [0.55, 1.40], "flex": 0.55, "green": 0, "fall": [0.50, 0.40, 0.12], "ai": 8, "fc": [1.00, 0.72, 0.11], "bl": [1.0, 2.33]},   # golden yellow #FFB81C; Jun-Oct
+	{"name": "Herb_CardinalFlower",     "s": [0.60, 1.35], "flex": 0.40, "green": 0, "fall": [0.30, 0.18, 0.08], "ai": 9, "fc": [0.89, 0.09, 0.22], "bl": [1.33, 2.0]},   # scarlet #E31837; Jul-Sep
 	# Billboard herbs (10-12)
 	{"name": "Herb_WhiteWoodAster",     "s": [0.55, 1.00], "flex": 0.35, "green": 0, "fall": [0.35, 0.28, 0.10], "ai": 10, "fc": [0.96, 0.96, 0.96], "bl": [1.56, 2.33]},  # white #F5F5F5; late Jul-Oct
 	{"name": "Herb_Jewelweed",          "s": [0.80, 1.30], "flex": 0.50, "green": 0, "fall": [0.40, 0.30, 0.08], "ai": 11, "fc": [1.00, 0.55, 0.00], "bl": [1.0, 2.33]},   # orange #FF8C00; Jun-Oct
 	{"name": "Herb_Mugwort",            "s": [1.00, 1.50], "flex": 0.30, "green": 0, "fall": [0.45, 0.38, 0.20], "ai": 12},  # inconspicuous greenish; not worth rendering
 	# Ferns (13-14) — moderate variation, never taller than waist
-	{"name": "Fern_Ostrich",            "s": [0.60, 1.10], "flex": 0.40, "green": 0, "fall": [0.50, 0.40, 0.10], "ai": 13},
-	{"name": "Fern_Christmas",          "s": [0.70, 1.25], "flex": 0.20, "green": 1, "fall": [0.10, 0.28, 0.06], "ai": 14},
+	{"name": "Fern_Ostrich",            "s": [0.45, 1.25], "flex": 0.40, "green": 0, "fall": [0.50, 0.40, 0.10], "ai": 13},
+	{"name": "Fern_Christmas",          "s": [0.50, 1.35], "flex": 0.20, "green": 1, "fall": [0.10, 0.28, 0.06], "ai": 14},
 	# Wetland (15)
 	{"name": "Wetland_Cattail",         "s": [0.75, 1.25], "flex": 0.35, "green": 0, "fall": [0.35, 0.25, 0.10], "ai": -1},  # vertex-colored (green stalks + brown catkin)
 	# Fungi (16-17) — no leaf atlas
