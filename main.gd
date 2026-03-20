@@ -1740,10 +1740,30 @@ var _landuse_texture: Texture2D  # cached for grass particle system
 # Biome definitions for multi-layer grass particles.
 # Each biome gets its own Terrain3D particle grid with zone-filtered BD3D tuft mesh.
 const GRASS_BIOMES := [
-	# Particle grass disabled — decimated BD3D tufts render as dark slivers
-	# ("hair implants") on the terrain. The terrain shader's grass texture
-	# handles the base, grass_accent_builder places clover/dandelion/meadow
-	# clumps, and undergrowth fills the mid-layer. No particle carpet needed.
+	{  # Maintained lawn — baked texture cards from BD3D Lawn mowed
+		"name": "Lawn", "biome_id": 0,
+		"mesh_path": "res://models/vegetation/GrassCard_Lawn.glb",
+		"spacing": 0.15, "cell_width": 16.0, "grid_width": 9,
+		"min_scale": Vector3(1.0, 0.8, 1.0),
+		"max_scale": Vector3(1.5, 1.2, 1.5),
+		"position_offset": Vector3(0, -0.005, 0),
+	},
+	{  # Wild meadow — baked texture cards from BD3D Wild Clump
+		"name": "Wild", "biome_id": 2,
+		"mesh_path": "res://models/vegetation/GrassCard_Wild.glb",
+		"spacing": 0.35, "cell_width": 16.0, "grid_width": 9,
+		"min_scale": Vector3(0.8, 0.7, 0.8),
+		"max_scale": Vector3(1.3, 1.3, 1.3),
+		"position_offset": Vector3(0, -0.01, 0),
+	},
+	{  # Woodland floor — baked texture cards from BD3D Duo
+		"name": "Woodland", "biome_id": 3,
+		"mesh_path": "res://models/vegetation/GrassCard_Duo.glb",
+		"spacing": 0.35, "cell_width": 16.0, "grid_width": 9,
+		"min_scale": Vector3(0.8, 0.6, 0.8),
+		"max_scale": Vector3(1.3, 1.0, 1.3),
+		"position_offset": Vector3(0, -0.005, 0),
+	},
 ]
 
 func _setup_grass_particles() -> void:
