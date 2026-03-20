@@ -1128,20 +1128,22 @@ func _setup_environment() -> void:
 	_env.sdfgi_enabled         = false   # causes diamond-shaped probe flash artifacts
 	_env.adjustment_enabled    = true
 	_env.adjustment_brightness = 1.02
-	_env.fog_enabled           = true
+	_env.fog_enabled           = false  # volumetric fog handles aerial perspective
 
-	# Volumetric fog — light shafts (god rays at sunrise/sunset via high anisotropy)
+	# Volumetric fog — realistic NYC atmospheric haze + light shafts
+	# NYC clear-day visibility: 10-16km. At 1-2km (building distance),
+	# aerial perspective should noticeably desaturate + lighten objects.
 	_env.volumetric_fog_enabled = true
-	_env.volumetric_fog_density = 0.0001
-	_env.volumetric_fog_albedo = Color(1.0, 1.0, 1.0)
-	_env.volumetric_fog_emission = Color(0.8, 0.85, 0.9)
-	_env.volumetric_fog_emission_energy = 0.08
-	_env.volumetric_fog_anisotropy = 0.3
-	_env.volumetric_fog_length = 100.0
+	_env.volumetric_fog_density = 0.0002
+	_env.volumetric_fog_albedo = Color(0.92, 0.93, 0.96)  # slightly blue-white haze
+	_env.volumetric_fog_emission = Color(0.75, 0.80, 0.88)
+	_env.volumetric_fog_emission_energy = 0.06
+	_env.volumetric_fog_anisotropy = 0.35
+	_env.volumetric_fog_length = 800.0  # reach the buildings (was 100m!)
 	_env.volumetric_fog_detail_spread = 2.0
-	_env.volumetric_fog_ambient_inject = 0.15
-	_env.volumetric_fog_gi_inject = 0.2
-	_env.volumetric_fog_sky_affect = 0.20
+	_env.volumetric_fog_ambient_inject = 0.12
+	_env.volumetric_fog_gi_inject = 0.15
+	_env.volumetric_fog_sky_affect = 0.25
 	_env.volumetric_fog_temporal_reprojection_enabled = false
 
 	var world_env := WorldEnvironment.new()
@@ -1457,26 +1459,13 @@ func _apply_time_of_day() -> void:
 	if _lightning_flash > 0.01:
 		_env.adjustment_brightness *= (1.0 + _lightning_flash * 0.8)
 
-	# Fog
-	_env.fog_light_color       = _lerp_kf("fog_color", a, b, t)
-	_env.fog_light_energy      = _lerp_kf("fog_energy", a, b, t)
-	_env.fog_sun_scatter       = _lerp_kf("fog_scatter", a, b, t)
-	_env.fog_density           = _lerp_kf("fog_density", a, b, t)
-	_env.fog_aerial_perspective = _lerp_kf("fog_aerial", a, b, t)
-	_env.fog_sky_affect        = _lerp_kf("fog_sky_affect", a, b, t)
-
-	# Volumetric fog
+	# Volumetric fog only — standard fog disabled (was double-dipping)
 	_env.volumetric_fog_density    = _lerp_kf("vol_fog_density", a, b, t)
 	_env.volumetric_fog_anisotropy = _lerp_kf("vol_fog_anisotropy", a, b, t)
 
 	# Weather overrides — route to volumetric sky or old shader
 	if _weather_mode == "fog":
-		_env.fog_density = 0.018
-		_env.fog_light_energy = 0.6
-		_env.fog_light_color = Color(0.78, 0.80, 0.82)
-		_env.fog_sun_scatter = 0.05
-		if _env.volumetric_fog_enabled:
-			_env.volumetric_fog_density = 0.005
+		_env.volumetric_fog_density = 0.005
 		_env.adjustment_saturation = 0.45
 		_env.adjustment_brightness = 0.90
 		if _vol_sky:
@@ -1487,10 +1476,7 @@ func _apply_time_of_day() -> void:
 			_sky_mat.set_shader_parameter("cloud_density", 0.95)
 			_sky_mat.set_shader_parameter("cloud_type", 1.0)
 	elif _weather_mode == "rain":
-		_env.fog_density = 0.012
-		_env.fog_light_energy *= 0.7
-		if _env.volumetric_fog_enabled:
-			_env.volumetric_fog_density = 0.006
+		_env.volumetric_fog_density = 0.004
 		_env.adjustment_saturation *= 0.7
 		_env.adjustment_brightness *= 0.88
 		if _vol_sky:
@@ -1501,10 +1487,7 @@ func _apply_time_of_day() -> void:
 			_sky_mat.set_shader_parameter("cloud_density", 0.90)
 			_sky_mat.set_shader_parameter("cloud_type", 1.0)
 	elif _weather_mode == "thunderstorm":
-		_env.fog_density = 0.018
-		_env.fog_light_energy *= 0.4
-		if _env.volumetric_fog_enabled:
-			_env.volumetric_fog_density = 0.010
+		_env.volumetric_fog_density = 0.008
 		_env.adjustment_saturation *= 0.50
 		_env.adjustment_brightness *= 0.75
 		if _vol_sky:
@@ -1515,7 +1498,7 @@ func _apply_time_of_day() -> void:
 			_sky_mat.set_shader_parameter("cloud_density", 0.95)
 			_sky_mat.set_shader_parameter("cloud_type", 2.0)
 	elif _weather_mode == "snow":
-		_env.fog_density = 0.008
+		_env.volumetric_fog_density = 0.003
 		_env.adjustment_saturation *= 0.75
 		if _vol_sky:
 			_vol_sky.cloud_coverage = 0.55
@@ -1525,10 +1508,10 @@ func _apply_time_of_day() -> void:
 			_sky_mat.set_shader_parameter("cloud_density", 0.80)
 			_sky_mat.set_shader_parameter("cloud_type", 1.0)
 
-	# Wind reduces fog density slightly (wind disperses mist)
+	# Wind reduces volumetric fog slightly (wind disperses mist)
 	var wind_str: float = _wind_vec.length()
-	if wind_str > 0.1 and _env.fog_density > 0.001:
-		_env.fog_density *= lerpf(1.0, 0.82, clampf(wind_str * 0.3, 0.0, 1.0))
+	if wind_str > 0.1:
+		_env.volumetric_fog_density *= lerpf(1.0, 0.85, clampf(wind_str * 0.3, 0.0, 1.0))
 
 	# Sky reflection color for water surfaces — tracks time-of-day sky tone
 	var sky_r: Color = _lerp_kf("fog_color", a, b, t)
@@ -1562,9 +1545,7 @@ func _apply_time_of_day() -> void:
 				dawn_mist = smoothstep(4.5, 5.5, _time_of_day)
 			else:
 				dawn_mist = 1.0 - smoothstep(5.5, 7.5, _time_of_day)
-			_env.fog_density += dawn_mist * 0.008  # subtle ground fog
-			if _env.volumetric_fog_enabled:
-				_env.volumetric_fog_density += dawn_mist * 0.003
+			_env.volumetric_fog_density += dawn_mist * 0.002
 			_env.adjustment_saturation *= (1.0 - dawn_mist * 0.15)  # slightly desaturated mist
 
 	# Seasonal fog and atmosphere modulation
@@ -1574,15 +1555,11 @@ func _apply_time_of_day() -> void:
 	var s_autumn := smoothstep(1.5, 2.5, _season_t) * (1.0 - smoothstep(2.5, 3.5, _season_t))
 	var s_winter := smoothstep(2.5, 3.5, _season_t)
 	if s_autumn > 0.01:
-		# Warm golden haze from humidity + pollen/leaf particles
-		var fog_c: Color = _env.fog_light_color
-		_env.fog_light_color = fog_c.lerp(Color(0.82, 0.72, 0.55), s_autumn * 0.25)
-		_env.fog_density *= (1.0 + s_autumn * 0.15)
+		# Warm golden haze — slightly denser volumetric
+		_env.volumetric_fog_density *= (1.0 + s_autumn * 0.12)
 	if s_winter > 0.01:
-		# Cold, blue-gray winter atmosphere — shorter days, lower sun angle
-		var fog_c: Color = _env.fog_light_color
-		_env.fog_light_color = fog_c.lerp(Color(0.72, 0.75, 0.82), s_winter * 0.3)
-		_env.fog_density *= (1.0 + s_winter * 0.2)
+		# Cold atmosphere — denser, more desaturated
+		_env.volumetric_fog_density *= (1.0 + s_winter * 0.15)
 		_env.adjustment_saturation *= (1.0 - s_winter * 0.2)
 	# Monthly cloud coverage from NOAA/Weather Atlas data for NYC
 	# season_t: 0=Mar(47%), 0.33=Apr(45%), 0.67=May(44%), 1.0=Jun(36%),
