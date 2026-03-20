@@ -55,29 +55,52 @@ const ZONE_TO_TEX := {
 const STRUCT_FLAT  := TEX_PAVING
 const STRUCT_SLOPE := TEX_CONCRETE
 
+var _terrain: Terrain3D
+var _landuse_img: Image
+var _structure_img: Image
+var _shore_img: Image
+var _park_mask_img: Image
+var _frame := 0
+
 func _init() -> void:
 	print("=== Baking Terrain3D control maps ===")
 
-	# Load data maps
-	var landuse_img := _load_grayscale("res://landuse_map.png")
-	var structure_img := _load_grayscale("res://structure_mask.png")
-	var shore_img := _load_grayscale("res://shore_distance.png")
-	var park_mask_img := _load_grayscale("res://boundary_mask.png")
+func _process(_delta: float) -> bool:
+	_frame += 1
+	if _frame == 1:
+		# Frame 1: load data maps and create Terrain3D
+		_landuse_img = _load_grayscale("res://landuse_map.png")
+		_structure_img = _load_grayscale("res://lidar_data/structure_mask.png")
+		_shore_img = _load_grayscale("res://shore_distance.png")
+		_park_mask_img = _load_grayscale("res://boundary_mask.png")
 
-	if not landuse_img or not structure_img:
-		push_error("Cannot load landuse_map.png or structure_mask.png")
-		quit(1)
-		return
+		if not _landuse_img:
+			push_error("Cannot load landuse_map.png")
+			quit(1)
+			return false
+		if not _structure_img:
+			push_warning("structure_mask.png not found — structures will use default grass")
 
-	# Load existing Terrain3D
-	var terrain := Terrain3D.new()
-	get_root().add_child(terrain)
-	terrain.region_size = Terrain3D.SIZE_1024
-	terrain.vertex_spacing = VERTEX_SPACING
-	terrain.data_directory = "res://data/terrain3d/"
+		_terrain = Terrain3D.new()
+		get_root().add_child(_terrain)
+		_terrain.region_size = Terrain3D.SIZE_1024
+		_terrain.vertex_spacing = VERTEX_SPACING
+		_terrain.data_directory = "res://data/terrain3d/"
+		return false
 
-	# Wait for data to load
-	await get_process_frames(3)
+	elif _frame == 5:
+		# Frame 5: Terrain3D data should be loaded, run bake
+		_do_bake()
+
+	return false
+
+
+func _do_bake() -> void:
+	var terrain := _terrain
+	var landuse_img := _landuse_img
+	var structure_img := _structure_img
+	var shore_img := _shore_img
+	var park_mask_img := _park_mask_img
 
 	if not terrain.data:
 		push_error("Terrain3D data not loaded")
