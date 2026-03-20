@@ -23,7 +23,7 @@ layout(push_constant, std430) uniform Params {
 	vec2 detailed_pos;
 
 	vec2 weather_pos;
-	vec2 pad1;
+	vec2 noise_offset;  // random per-session offset for cloud shape variety
 
 	vec4 ground_color;
 
@@ -33,7 +33,7 @@ layout(push_constant, std430) uniform Params {
 	vec3 LIGHT_COLOR;
 	float time;
 
-	float pad2;
+	float noise_offset_z;  // third axis offset
 	float density;
 	float cloud_coverage;
 	float time_offset;
@@ -108,6 +108,8 @@ float intersectSphere(vec3 pos, vec3 dir,float r) {
 // Heavily based on method from Schneider
 float density(vec3 pip, vec3 weather, float mip) {
 	vec3 p = pip;
+	// Per-session random offset — samples different region of 3D noise each launch
+	p += vec3(params.noise_offset.x, params.noise_offset_z, params.noise_offset.y) * 50000.0;
 	float height_fraction = GetHeightFractionForPoint(length(p));
 
 	// Base wind.

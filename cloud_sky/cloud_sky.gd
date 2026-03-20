@@ -81,6 +81,7 @@ class FrameData:
 		LIGHT_COLOR = light.light_color.srgb_to_linear()
 
 var frame_data : FrameData = FrameData.new()
+var _noise_offset := Vector3(randf(), randf(), randf())  # random cloud shapes per session
 var update_position : Vector2i = Vector2i(0, 0)
 var update_region_size : int = 96 # texture_size / sqrt(frames_to_update)
 var num_workgroups : int = 12 # update_region_size / 8
@@ -265,8 +266,8 @@ func _fill_push_constant():
 
 	push_constant.push_back(frame_data._weather_pos.x)
 	push_constant.push_back(frame_data._weather_pos.y)
-	push_constant.push_back(0.0) # vec2 pad1
-	push_constant.push_back(0.0) #
+	push_constant.push_back(_noise_offset.x)  # noise_offset xy
+	push_constant.push_back(_noise_offset.y)
 	
 	push_constant.push_back(frame_data.ground_color.r)
 	push_constant.push_back(frame_data.ground_color.g)
@@ -283,7 +284,7 @@ func _fill_push_constant():
 	push_constant.push_back(frame_data.LIGHT_COLOR.b)
 	push_constant.push_back(frame_data._time)
 	
-	push_constant.push_back(0.0) # float pad2
+	push_constant.push_back(_noise_offset.z)  # noise_offset_z
 	push_constant.push_back(frame_data.density)
 	push_constant.push_back(frame_data.cloud_coverage)
 	push_constant.push_back(frame_data.time_offset)

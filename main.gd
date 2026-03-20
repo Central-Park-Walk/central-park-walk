@@ -1117,10 +1117,13 @@ func _setup_environment() -> void:
 		vol_sky.cloud_coverage = 0.30
 		vol_sky.density = 0.04
 		vol_sky.wind_speed = 1.5
-		vol_sky.texture_size = 768   # higher res reduces tile seams
-		vol_sky.frames_to_update = 64  # faster update reduces stair-stepping
+		vol_sky.texture_size = 768
+		vol_sky.frames_to_update = 64
 		vol_sky.sun_disk_scale = 1.5
-		vol_sky.ground_color = Color(0.15, 0.18, 0.08)  # green park ground bounce
+		vol_sky.ground_color = Color(0.15, 0.18, 0.08)
+		# Randomize cloud pattern each session
+		vol_sky.time_offset = randf_range(0.0, 100.0)
+		vol_sky.wind_direction = randf_range(-PI, PI)
 		vol_sky.sun = _sun  # will be set after _sun is created — deferred below
 		_sky_mat = vol_sky.sky_material
 		_vol_sky = vol_sky
