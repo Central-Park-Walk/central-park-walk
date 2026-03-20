@@ -23,11 +23,11 @@ var _hm_ws: float
 var _hm_half: float
 
 const CHUNK := 20.0
-const LOAD_RANGE := 120.0
-const UNLOAD_RANGE := 130.0
+const LOAD_RANGE := 180.0
+const UNLOAD_RANGE := 195.0
 const UPDATE_DIST := 3.0
-const VIS_END := 100.0
-const VIS_FADE_MARGIN := 15.0
+const VIS_END := 140.0
+const VIS_FADE_MARGIN := 25.0
 
 # BD3D ground cover models — each carries its own StandardMaterial3D
 # [index] name (matches GLB filename in models/vegetation/)

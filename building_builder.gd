@@ -561,6 +561,9 @@ func _build_buildings(buildings: Array) -> void:
 		mesh.surface_set_material(0, style_mats[s])
 		var mi := MeshInstance3D.new(); mi.mesh = mesh
 		mi.name = "BuildingWalls_" + style_names[s]
+		mi.visibility_range_end = 800.0
+		mi.visibility_range_end_margin = 100.0
+		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		_loader.add_child(mi)
 
 	# Roof mesh with per-building vertex colors + weather-responsive shader
@@ -573,6 +576,9 @@ func _build_buildings(buildings: Array) -> void:
 		var r_mi := MeshInstance3D.new()
 		r_mi.mesh = r_mesh
 		r_mi.name = "BuildingRoofs"
+		r_mi.visibility_range_end = 800.0
+		r_mi.visibility_range_end_margin = 100.0
+		r_mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		_loader.add_child(r_mi)
 
 	# NYC rooftop water towers — Rosenwach/Isseks cedar barrel + steel frame

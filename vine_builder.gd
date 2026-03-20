@@ -320,6 +320,7 @@ func _create_mmi(parent: Node3D, mesh_name: String, chunk_key: String,
 	mmi.multimesh = mm
 	mmi.position = centroid
 	mmi.visibility_range_end = vis_range
+	mmi.visibility_range_end_margin = vis_range * 0.15  # ~30m for strands, ~22m for wraps
 	mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 	mmi.name = "V_%s_%s" % [mesh_name.get_file(), chunk_key]
 	parent.add_child(mmi)
