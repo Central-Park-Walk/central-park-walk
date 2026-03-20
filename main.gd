@@ -1000,24 +1000,30 @@ func _month_name(t: float) -> String:
 
 
 # --- Grass tour: F10 visits all grass type locations + screenshots ---
-var _grass_tour_spots := [
-	{"name": "WildMeadow", "x": -786.0, "z": 1850.0, "yaw": 0.0, "pitch": -25.0},
-	{"name": "NorthMeadow", "x": 905.0, "z": -1024.0, "yaw": 45.0, "pitch": -25.0},
-	{"name": "OpenLawn", "x": -571.0, "z": 1202.0, "yaw": -30.0, "pitch": -25.0},
-	{"name": "Waterside", "x": -210.0, "z": 417.0, "yaw": 90.0, "pitch": -25.0},
-	{"name": "SheepMeadow", "x": -894.0, "z": 1191.0, "yaw": 180.0, "pitch": -25.0},
-	{"name": "GreatLawn", "x": 780.0, "z": -800.0, "yaw": 0.0, "pitch": -25.0},
-	{"name": "SportsTurf", "x": -997.0, "z": 1398.0, "yaw": 60.0, "pitch": -25.0},
-]
+var _grass_tour_spots := []  # populated at runtime with random positions
 var _grass_tour_active := false
 var _grass_tour_idx := 0
 var _grass_tour_timer := 0.0
 
 func _start_grass_tour() -> void:
+	# Generate random positions across the park boundary
+	_grass_tour_spots.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = Time.get_ticks_msec()
+	var count := 50
+	for i in count:
+		var x := rng.randf_range(-1100.0, 1100.0)
+		var z := rng.randf_range(-2000.0, 2100.0)
+		var h := _terrain_height(x, z)
+		if h < 1.0:
+			continue  # skip water/outside
+		var yaw := rng.randf_range(0.0, 360.0)
+		var pitch := rng.randf_range(-8.0, 2.0)  # mostly horizon, slight variation
+		_grass_tour_spots.append({"name": "rnd_%03d" % i, "x": x, "z": z, "yaw": yaw, "pitch": pitch})
 	_grass_tour_active = true
 	_grass_tour_idx = 0
 	_grass_tour_timer = 0.0
-	print("Grass tour: starting (F10) — %d locations" % _grass_tour_spots.size())
+	print("Photo tour: starting (F10) — %d random locations" % _grass_tour_spots.size())
 	_grass_tour_teleport()
 
 func _grass_tour_teleport() -> void:
