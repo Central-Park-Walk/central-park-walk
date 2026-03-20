@@ -6,17 +6,17 @@ Central Park Walk is a real-time 3D walking simulation of all 843 acres of New Y
 
 Every tree has a real measured height. Every path follows its real-world geometry. Every building has its actual footprint. The terrain is accurate to one foot. The data has gaps, and we leave them visible.
 
-![Cherry Hill Dawn](screenshots/cpw_000.png)
-*Dawn at Cherry Hill — sycamores over the Lake, 0.61m LiDAR terrain.*
+![The Pool at Afternoon](screenshots/cpw_023.png)
+*The Pool — smooth lawn flowing into the North Woods treeline. Terrain3D clipmaps, octahedral tree impostors.*
 
-![Bethesda Terrace](screenshots/cpw_001.png)
-*Bethesda Terrace at noon. 6,557 buildings from NYC footprints + LiDAR heights.*
+![Wagner Cove Woodland](screenshots/cpw_019.png)
+*Wagner Cove understory — BD3D shrubs, ferns, and herbs fill the mid-canopy layer. 30 species, botanically-accurate scale ranges.*
 
-![Central Park Lawn](screenshots/cpw_002.png)
-*Birch trees on the lawn. 15 Mtree species with crossed-quad leaf cards.*
+![Literary Walk](screenshots/cpw_021.png)
+*Literary Walk at 4pm July. Grass texture cards on mowed lawn, statue pedestals, elm canopy overhead.*
 
-![The Lake](screenshots/cpw_003.png)
-*The Lake through spring foliage. 23 water bodies from OpenStreetMap.*
+![North Woods Autumn](screenshots/cpw_021.png)
+*North Woods in October — seasonal phenology drives leaf color across 15 species. Volumetric clouds above.*
 
 ## Quick Start
 
@@ -74,13 +74,20 @@ python3 convert_to_godot.py
 ## What's In It
 
 ### Terrain
-Terrain3D geometry clipmaps with 64 regions at native 0.61m LiDAR resolution (8192×8192 heightmap). Custom shader override: 12 OSM zone types, 15+ named location materials, 4 seasons, 5 weather modes, dappled canopy shade, cloud shadows, Manhattan schist rock outcrops via DSM blend (161K cells). AGX tonemapping with glow-before-tonemap. Built-in collision and clipmap LOD.
+Terrain3D geometry clipmaps with 64 regions at native 0.61m LiDAR resolution (8192x8192 heightmap). Custom shader override: 12 OSM zone types, 15+ named location materials, 4 seasons, 5 weather modes, dappled canopy shade, cloud shadows, Manhattan schist rock outcrops via DSM blend (161K cells). AgX tonemapping with glow-before-tonemap.
 
 ### Trees (9,852)
-NYC Tree Census + OSM + woodland scatter across 12 ecological zones. 15 Mtree species × 3 size tiers = 46 GLBs. LiDAR heights (4,005 trees), canopy height model enrichment (1,450), DBH-estimated (4,397). Crossed-quad leaf cards, FBM bark, per-pixel noise. Invasive vines: porcelain berry + oriental bittersweet (13 variants).
+NYC Tree Census + OSM + woodland scatter across 12 ecological zones. 15 Mtree species x 3 size tiers = 46 GLBs. LiDAR heights (4,005 trees), canopy height model enrichment (1,450), DBH-estimated (4,397). Crossed-quad leaf cards, FBM bark, per-pixel noise. Octahedral impostors (8x8 hemisphere atlases, 15 species) replace LOD1 canopy domes. Invasive vines: porcelain berry + oriental bittersweet (13 variants).
 
-### Vegetation (71 BD3D meshes + 30 undergrowth species)
-7 shrubs, 12 herbs, 4 ferns, 4 wetland, 2 fungi, 1 grass — zone-specific placement. 11 species upgraded to BD3D Plant Library 3D foliage with PBR textures. 13 grass types, 3 mowed lawn variants, 4 clovers, 2 dandelions, 5 fallen leaf types, 3 fallen branches, 2 moss patches, 4 weeds, 4 saplings. 6 ground cover patch types × 4 variants.
+### Vegetation (90+ BD3D meshes)
+Full BD3D Plant Library pipeline — all models loaded via native Godot `load()`:
+- **Undergrowth** (30 species): 7 shrubs, 12 herbs, 4 ferns, 4 wetland, 2 fungi, 1 grass. Per-species scale ranges from botanical references (MBG, USDA, Wildflower Center). Zone-specific placement across NorthWoods, Ramble, Waterside, WildMeadow.
+- **Grass** (16 texture cards): BD3D grass models rendered as alpha-cutout textures on crossed-quad carriers (12 tris each). 3 biome layers (lawn/wild/woodland) via Terrain3D GPU particles.
+- **Accents** (13 types): Clover, dandelion, meadow clumps, tall wild grass, dry/dead seasonal grass. Chunk-based MultiMesh streaming.
+- **Ground cover** (18 BD3D models): Fallen leaves, branches, moss, weeds, saplings. Seasonal filtering (autumn leaves, spring weeds).
+
+### Sky
+Volumetric clouds via clayjohn's compute shader raymarching (Perlin-Worley noise, Beer-Lambert lighting, Henyey-Greenstein phase). Physically-based atmosphere LUTs (Rayleigh/Mie/ozone). Triple-buffered hemisphere textures with tiled incremental updates. Weather-driven coverage and density.
 
 ### Water (23 bodies + 10 streams)
 OpenStreetMap polygons with stone coping, dawn/dusk mist (8 fog volumes).
@@ -91,11 +98,8 @@ NYC Building Footprints + LiDAR heights. 5 facade materials, floor-accurate wind
 ### Infrastructure
 17 bridges (custom Blender models), 4.8km perimeter wall, 364 barriers, 39 landmarks, 106 statue positions, 147 sports fields, 2,000+ furniture items (33 PBR models with ambientCG textures).
 
-### Grass
-Terrain3D GPU particle system — procedural blade placement around camera with zone-aware filtering, seasonal color, canopy suppression, wind response. Biome-specific tuft meshes in progress.
-
 ### Environment
-Full day/night cycle, 4 seasons, 5 weather modes, AGX tonemapping, 48-lamp lighting pool, 5-layer ambient audio.
+Full day/night cycle, 4 seasons, 5 weather modes, AgX tonemapping, 48-lamp lighting pool, 5-layer ambient audio.
 
 ## Data Sources
 
@@ -106,7 +110,7 @@ All data is freely available. No paid APIs.
 | [NYC LiDAR (2017)](https://gis.ny.gov/elevation/lidar-coverage) | 1ft terrain DEM | Public Domain |
 | [OpenStreetMap](https://www.openstreetmap.org/) | Paths, water, buildings, bridges, furniture | ODbL |
 | [NYC Tree Census](https://data.cityofnewyork.us/) | Tree positions, species, diameter, heights | Public Domain |
-| [BD3D Plant Library](https://blendermarket.com/products/bd3d-plant-library) | 3D foliage meshes (shrubs, ferns, grass) | Free (Gumroad) |
+| [BD3D Plant Library](https://bd3d.gumroad.com/l/plant-library) | 3D foliage meshes (shrubs, ferns, grass) | Free (Gumroad) |
 | [ambientCG](https://ambientcg.com/) | PBR ground + furniture textures | CC0 |
 | [Sketchfab](https://sketchfab.com/) | Photogrammetry statue scans | CC-BY |
 
@@ -116,9 +120,11 @@ All data is freely available. No paid APIs.
 |-------|-----------|
 | Engine | Godot 4.6.1 (Forward+, GDScript) |
 | Terrain | Terrain3D v1.0.1 (geometry clipmaps, GPU particle grass, GDExtension) |
+| Clouds | clayjohn volumetric cloud demo v2 (compute shader raymarching) |
+| Tree impostors | GodotImposter octahedral shader + custom Blender atlas baker |
 | Data pipeline | Python (GDAL, numpy/scipy, Pillow) |
 | 3D modeling | Blender 4.5.8 LTS + Mtree v5.5, BD3D Plant Library |
-| Rendering | 24 custom GLSL shaders, AgX tonemapping, MultiMesh instancing, 8K world atlas |
+| Rendering | 24+ custom GLSL shaders, AgX tonemapping, MultiMesh instancing, 8K world atlas |
 
 ## Philosophy
 
