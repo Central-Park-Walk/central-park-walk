@@ -2635,7 +2635,8 @@ def main() -> None:
                 ],
             },
         ]
-        prebake_terrain_mesh(hm_arr, boundary_pts, surface_arr, terrain_holes)
+        # terrain_mesh.bin no longer needed — Terrain3D handles terrain rendering
+        # prebake_terrain_mesh(hm_arr, boundary_pts, surface_arr, terrain_holes)
 
 
 def prebake_water_grids(water_bodies, terrain_func, boundary_pts):
