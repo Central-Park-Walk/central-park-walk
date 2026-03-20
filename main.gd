@@ -1025,7 +1025,7 @@ func _start_grass_tour() -> void:
 			continue
 		# Skip water (surface type 4) and buildings (5)
 		if _park_loader:
-			var surf := _park_loader._atlas_surface(x, z)
+			var surf: int = _park_loader._atlas_surface(x, z)
 			if surf == 4 or surf == 5:
 				continue
 		var h := _terrain_height(x, z)
