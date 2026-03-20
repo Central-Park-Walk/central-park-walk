@@ -37,19 +37,19 @@ EXTRACTIONS = [
     # ── Shrubs ── BD3D "Deciduous bush A" → 7 species
     # Central Park shrubs are maintained/trimmed — use 4-5ft range, not wild max.
     # Builder jitter 0.65-1.25x makes these span roughly 3-6ft in-game.
-    ("GS Deciduous bush A 1", "Shrub_Spicebush",          4000, False, 1.50, 0.20),  # wild 2-4m → park 5ft
-    ("GS Deciduous bush A 3", "Shrub_WitchHazel",         4000, False, 1.80, 0.20),  # wild 3-5m → park 6ft (larger species)
-    ("GS Deciduous bush A 2", "Shrub_Viburnum",           4000, False, 1.40, 0.20),  # wild 2-3m → park 4.5ft
-    ("GS Deciduous bush A 4", "Shrub_Sumac",              4500, False, 1.80, 0.18),  # wild 3-5m → park 6ft (flat-topped)
-    ("GS Deciduous bush A 3", "Shrub_Elderberry",         4000, True,  1.50, 0.20),  # wild 2-3.5m → park 5ft
-    ("GS Deciduous bush A 1", "Shrub_SweetPepperbush",    4000, True,  1.30, 0.20),  # wild 1-2.5m → park 4.5ft
-    ("GS Deciduous bush A 2", "Shrub_FloweringRaspberry", 4000, True,  1.20, 0.20),  # wild 1-2m → park 4ft
+    ("GS Deciduous bush A 1", "Shrub_Spicebush",          4000, False, 2.50, 0.15),  # real 2-4m, dominant understory
+    ("GS Deciduous bush A 3", "Shrub_WitchHazel",         4000, False, 3.00, 0.15),  # real 3-5m
+    ("GS Deciduous bush A 2", "Shrub_Viburnum",           4000, False, 2.00, 0.15),  # real 2-3m
+    ("GS Deciduous bush A 4", "Shrub_Sumac",              4500, False, 3.00, 0.12),  # real 3-5m, flat-topped
+    ("GS Deciduous bush A 3", "Shrub_Elderberry",         4000, True,  2.20, 0.15),  # real 2-3.5m
+    ("GS Deciduous bush A 1", "Shrub_SweetPepperbush",    4000, True,  1.60, 0.18),  # real 1-2.5m
+    ("GS Deciduous bush A 2", "Shrub_FloweringRaspberry", 4000, True,  1.40, 0.18),  # real 1-2m
 
     # ── Ferns ── BD3D "Forest ferns" → 4 species
     # Use lower end of real range — builder scale jitter (0.40-1.45x) pushes them up further.
     # These are understory plants, should be knee-to-waist height, never overhead.
-    ("GS Forest ferns A 01",  "Fern_Ostrich",             2000, False, 0.90, 0.08),  # real 1-1.8m, use low end
-    ("GS Forest ferns A 02",  "Fern_Cinnamon",            2000, False, 0.65, 0.08),  # real 0.6-1.2m
+    ("GS Forest ferns A 01",  "Fern_Ostrich",             2000, False, 1.20, 0.08),  # real 1-1.8m, tallest fern
+    ("GS Forest ferns A 02",  "Fern_Cinnamon",            2000, False, 0.80, 0.08),  # real 0.6-1.2m
     ("GS Forest ferns B 01",  "Fern_Christmas",           0,    False, 0.32, 0.06),  # real 0.3-0.6m, stays
     ("GS Forest ferns B 02",  "Fern_Sensitive",           0,    False, 0.45, 0.06),  # real 0.3-1m, use low
 
@@ -62,11 +62,11 @@ EXTRACTIONS = [
 
     # ── Medium herbs ── smaller leafy forms (waist height and below)
     ("GS Autumn plant A 03",  "Herb_Mugwort",             1200, False, 0.80, 0.10),  # real 0.6-1.5m
-    ("GS Autumn plant A 02",  "Herb_WhiteSnakeroot",      900,  False, 0.70, 0.10),  # real 0.5-1.5m
+    ("GS Autumn plant A 02",  "Herb_WhiteSnakeroot",      900,  False, 0.90, 0.10),  # real 0.5-1.5m, taller than wood aster
     ("GS Autumn plant B 01",  "Herb_Burdock",             4000, True,  0.80, 0.15),  # real 0.6-1.5m
 
     # ── Flowering herbs ── BD3D meadow flowers
-    ("GS Dryland meadow flower 01", "Herb_Coneflower",    1400, False, 1.40, 0.08),  # real 1.5-3m; tall but thin
+    ("GS Dryland meadow flower 01", "Herb_Coneflower",    1400, False, 2.00, 0.08),  # real 1.5-3m; stands above most wildflowers
     ("GS Dryland meadow flower 02", "Herb_CardinalFlower", 900, False, 0.70, 0.08),  # real 0.6-1m
     ("GS PaperWhite",         "Herb_RoseMallow",          3000, False, 1.20, 0.10),  # real 1-2m
 

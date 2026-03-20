@@ -402,8 +402,7 @@ func _build_trees(trees: Array) -> void:
 		var desired_h: float
 		if typeof(tree_entry) == TYPE_DICTIONARY and tree_entry.has("lidar_h") and float(tree_entry["lidar_h"]) > 0.0:
 			desired_h = float(tree_entry["lidar_h"])
-			if desired_h < 3.0:
-				desired_h = 3.0
+			desired_h = clampf(desired_h, 3.0, float(height_ranges.get(species, [10.0, 35.0])[1]) * 1.2)
 		else:
 			var h_range: Array = height_ranges.get(species, [10.0, 22.0])
 			var h_min := float(h_range[0])
