@@ -15,7 +15,7 @@ Every tree has a real measured height. Every path follows its real-world geometr
 ![Literary Walk](screenshots/cpw_021.png)
 *Literary Walk at 4pm July. Grass texture cards on mowed lawn, statue pedestals, elm canopy overhead.*
 
-![North Woods Autumn](screenshots/cpw_021.png)
+![North Woods Autumn](screenshots/cpw_027.png)
 *North Woods in October — seasonal phenology drives leaf color across 15 species. Volumetric clouds above.*
 
 ## Quick Start
