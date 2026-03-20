@@ -35,7 +35,7 @@ uniform highp sampler2DArray _control_maps : repeat_disable;
 uniform sampler2D grass_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D grass_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D grass_rough : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform float tile_m = 6.0;
+uniform float tile_m = 10.0;
 
 // Meadow/wild grass
 uniform sampler2D meadow_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
@@ -403,10 +403,13 @@ void fragment() {
 		grass_alb = mix(grass_alb, winter_grass, winter_t);
 	}
 
-	// Normal map sampling
-	vec3 grass_nrm = textureNoTile_n(grass_normal, g_uv);
+	// Normal map sampling — micro UV warp breaks dawn specular stripes
+	vec2 nrm_warp = vec2(
+		sin(v_vertex.x * 0.37 + v_vertex.z * 0.19) * 0.008,
+		cos(v_vertex.z * 0.31 + v_vertex.x * 0.23) * 0.008);
+	vec3 grass_nrm = textureNoTile_n(grass_normal, g_uv + nrm_warp);
 	grass_nrm = mix(grass_nrm, vec3(0.5, 0.5, 1.0), tex_fade);
-	float grass_rgh = clamp(textureNoTile_r(grass_rough, g_uv) * 0.20 + 0.65, 0.0, 1.0);
+	float grass_rgh = clamp(textureNoTile_r(grass_rough, g_uv) * 0.18 + 0.70, 0.0, 1.0);
 
 	// Winter: flatten normals + force rough
 	{
