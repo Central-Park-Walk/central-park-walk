@@ -1086,11 +1086,13 @@ func _setup_environment() -> void:
 	var sky: Sky
 	var vol_sky = load("res://cloud_sky/clouds_sky.tres")
 	if vol_sky:
-		vol_sky.cloud_coverage = 0.25
-		vol_sky.density = 0.05
-		vol_sky.wind_speed = 2.0
-		vol_sky.texture_size = 512   # performance: walking sim, slow sun
-		vol_sky.frames_to_update = 256
+		vol_sky.cloud_coverage = 0.30
+		vol_sky.density = 0.04
+		vol_sky.wind_speed = 1.5
+		vol_sky.texture_size = 768   # higher res reduces tile seams
+		vol_sky.frames_to_update = 64  # faster update reduces stair-stepping
+		vol_sky.sun_disk_scale = 1.5
+		vol_sky.ground_color = Color(0.15, 0.18, 0.08)  # green park ground bounce
 		vol_sky.sun = _sun  # will be set after _sun is created — deferred below
 		_sky_mat = vol_sky.sky_material
 		_vol_sky = vol_sky
@@ -1412,9 +1414,9 @@ func _apply_time_of_day() -> void:
 	var _cc_val: float = _lerp_kf("cloud_coverage", a, b, t)
 	var _cs_val: float = _lerp_kf("cloud_speed", a, b, t)
 	if _vol_sky:
-		_vol_sky.cloud_coverage = _cc_val
-		_vol_sky.density = _lerp_kf("cloud_density", a, b, t) * 0.15  # scale for vol clouds
-		_vol_sky.wind_speed = _cs_val * 3.0
+		_vol_sky.cloud_coverage = clampf(_cc_val, 0.1, 0.75)
+		_vol_sky.density = clampf(_lerp_kf("cloud_density", a, b, t) * 0.08, 0.02, 0.10)
+		_vol_sky.wind_speed = _cs_val * 2.0
 	else:
 		var sky_top: Color = _lerp_kf("sky_top", a, b, t)
 		var sky_hor: Color = _lerp_kf("sky_horizon", a, b, t)
@@ -1478,8 +1480,8 @@ func _apply_time_of_day() -> void:
 		_env.adjustment_saturation = 0.45
 		_env.adjustment_brightness = 0.90
 		if _vol_sky:
-			_vol_sky.cloud_coverage = 0.85
-			_vol_sky.density = 0.12
+			_vol_sky.cloud_coverage = 0.65
+			_vol_sky.density = 0.08
 		else:
 			_sky_mat.set_shader_parameter("cloud_coverage", 0.99)
 			_sky_mat.set_shader_parameter("cloud_density", 0.95)
@@ -1492,8 +1494,8 @@ func _apply_time_of_day() -> void:
 		_env.adjustment_saturation *= 0.7
 		_env.adjustment_brightness *= 0.88
 		if _vol_sky:
-			_vol_sky.cloud_coverage = 0.80
-			_vol_sky.density = 0.10
+			_vol_sky.cloud_coverage = 0.60
+			_vol_sky.density = 0.07
 		else:
 			_sky_mat.set_shader_parameter("cloud_coverage", 0.95)
 			_sky_mat.set_shader_parameter("cloud_density", 0.90)
@@ -1506,8 +1508,8 @@ func _apply_time_of_day() -> void:
 		_env.adjustment_saturation *= 0.50
 		_env.adjustment_brightness *= 0.75
 		if _vol_sky:
-			_vol_sky.cloud_coverage = 0.90
-			_vol_sky.density = 0.14
+			_vol_sky.cloud_coverage = 0.75
+			_vol_sky.density = 0.10
 		else:
 			_sky_mat.set_shader_parameter("cloud_coverage", 0.98)
 			_sky_mat.set_shader_parameter("cloud_density", 0.95)
@@ -1516,8 +1518,8 @@ func _apply_time_of_day() -> void:
 		_env.fog_density = 0.008
 		_env.adjustment_saturation *= 0.75
 		if _vol_sky:
-			_vol_sky.cloud_coverage = 0.70
-			_vol_sky.density = 0.08
+			_vol_sky.cloud_coverage = 0.55
+			_vol_sky.density = 0.06
 		else:
 			_sky_mat.set_shader_parameter("cloud_coverage", 0.88)
 			_sky_mat.set_shader_parameter("cloud_density", 0.80)
