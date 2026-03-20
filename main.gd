@@ -48,6 +48,11 @@ var _lamp_lights: Array = []  # Array of SpotLight3D
 var _lamp_positions: PackedVector3Array = PackedVector3Array()
 
 var _hud_canvas: CanvasLayer
+var _perf_canvas: CanvasLayer
+var _perf_label: Label
+var _perf_visible := false
+var _perf_update_timer := 0.0
+const PERF_UPDATE_INTERVAL := 0.25  # update 4x/sec to avoid flicker
 var _lamp_light_timer: float = 0.0
 var _lightning_timer: float = 0.0
 var _lightning_flash: float = 0.0     # 0-1 current flash intensity (decays rapidly)
@@ -529,6 +534,8 @@ func _process(delta: float) -> void:
 		if _hud_canvas and _hud_canvas.visible:
 			_hud_canvas.visible = false  # hide HUD for clean screenshots
 			_set_labels_visible(false)
+		if _perf_canvas and _perf_canvas.visible:
+			_perf_canvas.visible = false
 		_tour_timer += delta
 		match _tour_state:
 			0:  # WAIT_LOAD — let scene fully build
@@ -572,6 +579,8 @@ func _process(delta: float) -> void:
 			_player.velocity = Vector3.ZERO
 		if _screenshot_timer >= 6.0 and _hud_canvas and _hud_canvas.visible:
 			_hud_canvas.visible = false  # hide HUD before capture
+		if _screenshot_timer >= 6.0 and _perf_canvas and _perf_canvas.visible:
+			_perf_canvas.visible = false
 		if _screenshot_timer >= 6.0 and not _labels_hidden_for_screenshot:
 			_labels_hidden_for_screenshot = true
 			_set_labels_visible(false)   # hide Label3D (building names, etc.)
@@ -706,6 +715,75 @@ func _process(delta: float) -> void:
 		_apply_time_of_day()
 
 	_update_hud()
+	_update_perf_overlay(delta)
+
+
+func _update_perf_overlay(delta: float) -> void:
+	if not _perf_visible or not _perf_label:
+		return
+	_perf_update_timer += delta
+	if _perf_update_timer < PERF_UPDATE_INTERVAL:
+		return
+	_perf_update_timer = 0.0
+
+	var fps := Performance.get_monitor(Performance.TIME_FPS)
+	var frame_ms := 1000.0 / maxf(fps, 1.0)
+	var process_ms := Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+	var physics_ms := Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
+
+	var draw_calls := int(RenderingServer.get_rendering_info(
+		RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME))
+	var primitives := int(RenderingServer.get_rendering_info(
+		RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME))
+	var objects := int(RenderingServer.get_rendering_info(
+		RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME))
+
+	var vram_tex := RenderingServer.get_rendering_info(
+		RenderingServer.RENDERING_INFO_TEXTURE_MEM_USED)
+	var vram_buf := RenderingServer.get_rendering_info(
+		RenderingServer.RENDERING_INFO_BUFFER_MEM_USED)
+	var vram_total := RenderingServer.get_rendering_info(
+		RenderingServer.RENDERING_INFO_VIDEO_MEM_USED)
+
+	var node_count := Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
+
+	# Format triangle count with K/M suffix
+	var tri_str: String
+	if primitives >= 1_000_000:
+		tri_str = "%.1fM" % (primitives / 1_000_000.0)
+	elif primitives >= 1_000:
+		tri_str = "%.0fK" % (primitives / 1_000.0)
+	else:
+		tri_str = str(primitives)
+
+	# Frame budget bar: 16.67ms = 60fps target
+	var budget_pct := frame_ms / 16.667 * 100.0
+	var budget_bar: String
+	if budget_pct <= 80.0:
+		budget_bar = "[OK]"
+	elif budget_pct <= 100.0:
+		budget_bar = "[WARN]"
+	else:
+		budget_bar = "[OVER]"
+
+	_perf_label.text = (
+		"--- PERFORMANCE BUDGET ---\n" +
+		"FPS: %d  (%.1f ms)\n" % [int(fps), frame_ms] +
+		"Budget: %.0f%% of 60fps %s\n" % [budget_pct, budget_bar] +
+		"\n" +
+		"Process:  %5.1f ms\n" % process_ms +
+		"Physics:  %5.1f ms\n" % physics_ms +
+		"Render:   %5.1f ms (est)\n" % maxf(frame_ms - process_ms - physics_ms, 0.0) +
+		"\n" +
+		"Draw calls:  %d\n" % draw_calls +
+		"Triangles:   %s\n" % tri_str +
+		"Objects:     %d\n" % objects +
+		"Nodes:       %d\n" % int(node_count) +
+		"\n" +
+		"VRAM total:  %d MB\n" % (vram_total / 1_048_576) +
+		"  Textures:  %d MB\n" % (vram_tex / 1_048_576) +
+		"  Buffers:   %d MB\n" % (vram_buf / 1_048_576)
+	)
 
 
 func _update_hud() -> void:
@@ -939,6 +1017,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.keycode == KEY_H:
 		if _hud_canvas:
 			_hud_canvas.visible = not _hud_canvas.visible
+	elif event.keycode == KEY_F9:
+		_perf_visible = not _perf_visible
+		if _perf_canvas:
+			_perf_canvas.visible = _perf_visible
+		print("Perf overlay: %s" % ("ON" if _perf_visible else "OFF"))
 	elif event.keycode == KEY_F11:
 		if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
@@ -2595,10 +2678,47 @@ func _setup_hud() -> void:
 	vbox.add_child(_location_label)
 
 	var hint := Label.new()
-	hint.text = "WASD: move   Mouse+RMB: look   Scroll/+/-: speed   9/0: wind   T: time   [/]: ±1h   P: weather   N: month   H: HUD"
+	hint.text = "WASD: move   Mouse+RMB: look   Scroll/+/-: speed   9/0: wind   T: time   [/]: ±1h   P: weather   N: month   H: HUD   F9: perf"
 	hint.add_theme_font_size_override("font_size", 15)
 	hint.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
 	vbox.add_child(hint)
+
+	# --- Performance budget overlay (top-right, hidden by default) ---
+	_perf_canvas = CanvasLayer.new()
+	_perf_canvas.name = "PerfOverlay"
+	_perf_canvas.visible = false
+	add_child(_perf_canvas)
+
+	var perf_style := StyleBoxFlat.new()
+	perf_style.bg_color                   = Color(0.0, 0.0, 0.0, 0.72)
+	perf_style.corner_radius_top_left     = 7
+	perf_style.corner_radius_top_right    = 7
+	perf_style.corner_radius_bottom_left  = 7
+	perf_style.corner_radius_bottom_right = 7
+	perf_style.content_margin_left   = 14.0
+	perf_style.content_margin_right  = 14.0
+	perf_style.content_margin_top    = 10.0
+	perf_style.content_margin_bottom = 10.0
+
+	# Anchor to top-right via a MarginContainer that fills the viewport
+	var perf_margin := MarginContainer.new()
+	perf_margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	perf_margin.add_theme_constant_override("margin_top", 18)
+	perf_margin.add_theme_constant_override("margin_right", 18)
+	_perf_canvas.add_child(perf_margin)
+
+	var perf_panel := PanelContainer.new()
+	perf_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	perf_panel.size_flags_horizontal = Control.SIZE_SHRINK_END
+	perf_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	perf_panel.add_theme_stylebox_override("panel", perf_style)
+	perf_margin.add_child(perf_panel)
+
+	_perf_label = Label.new()
+	_perf_label.text = "--- PERFORMANCE BUDGET ---\nLoading..."
+	_perf_label.add_theme_font_size_override("font_size", 18)
+	_perf_label.add_theme_color_override("font_color", Color(0.9, 1.0, 0.85))
+	perf_panel.add_child(_perf_label)
 
 
 
