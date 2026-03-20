@@ -755,11 +755,11 @@ func _build_canopy_shells() -> void:
 		mmi.material_override = mat
 		mmi.position = chunk_origin
 		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
-		# LOD1: impostors visible 250-1200m
+		# LOD1: impostors visible 250-2500m
 		mmi.visibility_range_begin = 250.0
-		mmi.visibility_range_end = 1200.0
+		mmi.visibility_range_end = 2500.0
 		mmi.visibility_range_begin_margin = 75.0
-		mmi.visibility_range_end_margin = 100.0
+		mmi.visibility_range_end_margin = 200.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_loader.add_child(mmi)
