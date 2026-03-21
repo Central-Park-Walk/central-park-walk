@@ -6,17 +6,17 @@ Central Park Walk is a real-time 3D walking simulation of all 843 acres of New Y
 
 Every tree has a real measured height. Every path follows its real-world geometry. Every building has its actual footprint. The terrain is accurate to one foot. The data has gaps, and we leave them visible.
 
-![The Pool at Afternoon](screenshots/cpw_023.png)
-*The Pool — smooth lawn flowing into the North Woods treeline. Terrain3D clipmaps, octahedral tree impostors.*
+![Bethesda Summer](screenshots/grass_rnd_025.png)
+*Near Bethesda Terrace, July 5:16 PM — volumetric clouds, NYC skyline through atmospheric haze, Mtree canopies.*
 
-![Wagner Cove Woodland](screenshots/cpw_019.png)
-*Wagner Cove understory — BD3D shrubs, ferns, and herbs fill the mid-canopy layer. 30 species, botanically-accurate scale ranges.*
+![North Woods Undergrowth](screenshots/grass_rnd_056.png)
+*North Woods in September — BD3D shrubs, ferns, and herbs across 30 species. Zone-specific placement, botanically-accurate scale ranges.*
 
-![Literary Walk](screenshots/cpw_021.png)
-*Literary Walk at 4pm July. Grass texture cards on mowed lawn, statue pedestals, elm canopy overhead.*
+![Great Lawn Winter](screenshots/grass_rnd_034.png)
+*Great Lawn in January snow — GPU particle grass fully hidden under snow cover, bare deciduous canopies, building silhouettes.*
 
-![North Woods Autumn](screenshots/cpw_027.png)
-*North Woods in October — seasonal phenology drives leaf color across 15 species. Volumetric clouds above.*
+![November Woodland](screenshots/grass_rnd_026.png)
+*North Meadow in November — photogrammetry bark textures, autumn phenology, first snowflakes, perimeter buildings.*
 
 ## Quick Start
 
