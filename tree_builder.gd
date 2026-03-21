@@ -650,7 +650,7 @@ func _build_trees(trees: Array) -> void:
 	print("Trees: %d placed, %d LOD0 chunks (skipped %d non-grass, nudged %d from paths)" % [
 		all_trunk_xf.size(), lod0_chunks.size(), _skip_surface, _nudged])
 
-	# --- LOD1: Canopy shell domes for distant trees ---
+	# --- LOD2: Crossed-quad impostors for distant trees ---
 	_build_canopy_shells()
 
 
@@ -750,7 +750,7 @@ func _tree_glb_leaf_shader_code() -> String:
 
 
 # ---------------------------------------------------------------------------
-# LOD1: Octahedral impostors — baked atlas textures + GodotImposter shader
+# LOD2: Crossed-quad impostors — baked atlas textures + view-dependent shader
 # ---------------------------------------------------------------------------
 
 const IMPOSTOR_FRAME_SIZE := 8  # 8×8 octahedral grid (hemisphere)
@@ -759,13 +759,13 @@ const IMPOSTOR_DIR := "res://textures/impostors"
 # Map archetype model name → impostor atlas filename
 var _impostor_textures: Dictionary = {}  # model_name -> Texture2D
 var _impostor_materials: Dictionary = {}  # model_name -> ShaderMaterial
+var _impostor_meta: Dictionary = {}      # model_name -> {"scale": float}
 
 func _load_impostor_atlases() -> void:
 	"""Load baked impostor atlas textures + metadata for all tree species."""
-	var impostor_shader: Shader = load(
-		"res://addons/Imposter/imposter/materials/shaders/ImpostorShader.gdshader")
+	var impostor_shader: Shader = load("res://shaders/tree_impostor_crossed.gdshader")
 	if not impostor_shader:
-		print("Trees LOD1: ImpostorShader not found")
+		print("Trees LOD2: crossed-quad impostor shader not found")
 		return
 
 	for model_name in ARCHETYPE_MODEL.values():
@@ -777,38 +777,55 @@ func _load_impostor_atlases() -> void:
 			continue
 		_impostor_textures[model_name] = tex
 
-		# Load baking metadata (scale, positionOffset, aabb_max)
+		# Load baking metadata (scale = bounding sphere radius)
 		var meta_path := ProjectSettings.globalize_path(
 			"%s/%s_impostor_meta.json" % [IMPOSTOR_DIR, model_name])
-		var imp_scale := 3.5  # fallback: reasonable tree size
-		var imp_offset := Vector3.ZERO
-		var imp_aabb := 1.5
+		var imp_scale := 3.5  # fallback
 		if FileAccess.file_exists(meta_path):
 			var f := FileAccess.open(meta_path, FileAccess.READ)
 			var json := JSON.new()
 			if json.parse(f.get_as_text()) == OK:
 				var d: Dictionary = json.data
 				imp_scale = d.get("scale", imp_scale)
-				var off: Array = d.get("position_offset", [0, 0, 0])
-				imp_offset = Vector3(off[0], off[1], off[2])
-				imp_aabb = d.get("aabb_max", imp_aabb)
 			f.close()
+		_impostor_meta[model_name] = {"scale": imp_scale}
 
-		# Create material for this species
+		# Create material — crossed-quad shader (view-dependent atlas sampling)
 		var mat := ShaderMaterial.new()
 		mat.shader = impostor_shader
-		mat.set_shader_parameter("imposterTextureAlbedo", tex)
-		mat.set_shader_parameter("imposterFrames", Vector2(IMPOSTOR_FRAME_SIZE, IMPOSTOR_FRAME_SIZE))
-		mat.set_shader_parameter("isFullSphere", false)
-		mat.set_shader_parameter("scale", imp_scale)
-		mat.set_shader_parameter("positionOffset", imp_offset)
-		mat.set_shader_parameter("aabb_max", imp_aabb)
+		mat.set_shader_parameter("atlas", tex)
+		mat.set_shader_parameter("frames", Vector2(IMPOSTOR_FRAME_SIZE, IMPOSTOR_FRAME_SIZE))
 		mat.set_shader_parameter("alpha_clamp", 0.2)
-		mat.set_shader_parameter("dither", true)
-		mat.set_shader_parameter("albedo", Color(1.3, 1.3, 1.25, 1.0))  # mild boost — metallic=0.0 already brightens diffuse
+		mat.set_shader_parameter("tint", Color(1.3, 1.3, 1.25, 1.0))
 		_impostor_materials[model_name] = mat
 
-	print("Trees LOD1: loaded %d impostor atlases" % _impostor_textures.size())
+	print("Trees LOD2: loaded %d impostor atlases" % _impostor_textures.size())
+
+
+func _create_crossed_quad_mesh() -> ArrayMesh:
+	"""Build a mesh with 3 intersecting quads at 0°/60°/120° around Y.
+	Unit scale (-0.5 to 0.5), UVs match Godot QuadMesh convention."""
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in 3:
+		var angle := float(i) * PI / 3.0  # 0°, 60°, 120°
+		var ca := cos(angle)
+		var sa := sin(angle)
+		# Rotate base quad (XY plane, facing +Z) around Y axis
+		var tl := Vector3(-0.5 * ca, 0.5, 0.5 * sa)
+		var tr := Vector3(0.5 * ca, 0.5, -0.5 * sa)
+		var br := Vector3(0.5 * ca, -0.5, -0.5 * sa)
+		var bl := Vector3(-0.5 * ca, -0.5, 0.5 * sa)
+		var normal := Vector3(sa, 0.0, ca)
+		# Tri 1: bl, br, tr (CCW from front)
+		st.set_normal(normal); st.set_uv(Vector2(0, 1)); st.add_vertex(bl)
+		st.set_normal(normal); st.set_uv(Vector2(1, 1)); st.add_vertex(br)
+		st.set_normal(normal); st.set_uv(Vector2(1, 0)); st.add_vertex(tr)
+		# Tri 2: bl, tr, tl (CCW from front)
+		st.set_normal(normal); st.set_uv(Vector2(0, 1)); st.add_vertex(bl)
+		st.set_normal(normal); st.set_uv(Vector2(1, 0)); st.add_vertex(tr)
+		st.set_normal(normal); st.set_uv(Vector2(0, 0)); st.add_vertex(tl)
+	return st.commit()
 
 
 func _build_canopy_shells() -> void:
@@ -817,13 +834,12 @@ func _build_canopy_shells() -> void:
 
 	_load_impostor_atlases()
 
-	# Fall back to old dome system if no impostors available
 	if _impostor_materials.is_empty():
-		print("Trees LOD1: no impostor atlases found — skipping LOD1")
+		print("Trees LOD2: no impostor atlases found — skipping")
 		return
 
-	# Shared quad mesh for all impostors
-	var quad := QuadMesh.new()
+	# Shared crossed-quad mesh: 3 intersecting planes for volumetric impostors
+	var crossed_mesh := _create_crossed_quad_mesh()
 
 	# Bucket into spatial chunks × species (each species needs its own material)
 	const CHUNK := 80.0
@@ -834,7 +850,7 @@ func _build_canopy_shells() -> void:
 			continue
 		var model_name: String = ARCHETYPE_MODEL.get(sd.archetype, "deciduous")
 		if not _impostor_materials.has(model_name):
-			model_name = "deciduous"  # fallback
+			model_name = "deciduous"
 		if not _impostor_materials.has(model_name):
 			continue
 
@@ -844,12 +860,17 @@ func _build_canopy_shells() -> void:
 		if not chunks.has(ck):
 			chunks[ck] = {"xf": [], "cd": [], "model": model_name}
 
-		# Impostor transform: scale ratio = actual tree height / baked model height (5m)
-		# The shader's scale uniform handles the baked model's bounding sphere;
-		# the instance transform only needs to scale from model-space to world-space.
+		# Scale: mesh is unit-sized, needs to cover 2×radius at the tree's world height
+		var meta: Dictionary = _impostor_meta.get(model_name, {"scale": 3.5})
+		var imp_scale: float = meta.scale
 		var scale_ratio: float = sd.h / 5.0
-		var crown_y: float = sd.y + sd.h * 0.5  # center of tree
-		var basis := Basis.IDENTITY * scale_ratio
+		var mesh_scale: float = 2.0 * imp_scale * scale_ratio
+
+		# Per-tree deterministic Y rotation for visual variety
+		var rot_y := fmod(abs(sd.x * 7.3 + sd.z * 13.7), TAU)
+		var basis := Basis(Vector3.UP, rot_y).scaled(Vector3.ONE * mesh_scale)
+
+		var crown_y: float = sd.y + sd.h * 0.5
 		var tf := Transform3D(basis, Vector3(sd.x, crown_y, sd.z))
 		chunks[ck].xf.append(tf)
 		chunks[ck].cd.append(Color(float(sd.sp) / 13.0, sd.timing, sd.ev, float(sd.sp) / 15.0))
@@ -874,14 +895,10 @@ func _build_canopy_shells() -> void:
 		var n := float(xf_list.size())
 		var chunk_origin := Vector3(cx_sum / n, cy_sum / n, cz_sum / n)
 
-		# Set impostor scale + position offset on material
-		var mat: ShaderMaterial = _impostor_materials[model_name]
-		# Scale and positionOffset are set per-instance via the transform
-
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.use_custom_data = true
-		mm.mesh = quad
+		mm.mesh = crossed_mesh
 		mm.instance_count = xf_list.size()
 		for i in xf_list.size():
 			var tf: Transform3D = xf_list[i]
@@ -891,10 +908,10 @@ func _build_canopy_shells() -> void:
 
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
-		mmi.material_override = mat
+		mmi.material_override = _impostor_materials[model_name]
 		mmi.position = chunk_origin
 		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
-		# LOD2: impostors visible 350-2500m, overlaps with LOD1 _s models
+		# LOD2: crossed-quad impostors, overlaps with LOD1 _s models
 		mmi.visibility_range_begin = 350.0
 		mmi.visibility_range_end = 2500.0
 		mmi.visibility_range_begin_margin = 100.0
@@ -904,5 +921,5 @@ func _build_canopy_shells() -> void:
 		_loader.add_child(mmi)
 		impostor_count += xf_list.size()
 
-	print("Trees LOD1: %d octahedral impostors in %d chunks (%d species)" % [
+	print("Trees LOD2: %d crossed-quad impostors in %d chunks (%d species)" % [
 		impostor_count, chunks.size(), _impostor_materials.size()])
