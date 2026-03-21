@@ -1562,6 +1562,11 @@ func _spawn_multimesh(mesh: Mesh, mat: Material,
 					  vis_end: float = 0.0, vis_fade: float = 0.0) -> MultiMeshInstance3D:
 	if transforms.is_empty():
 		return null
+	# Auto-chunk large sets so visibility_range works per chunk, not park-wide.
+	# Small sets (<40 instances) stay as a single MMI — chunking overhead not worth it.
+	if transforms.size() >= 40 and vis_end == 0.0:
+		_spawn_multimesh_chunked(mesh, mat, transforms, node_name, 200.0, 500.0, 80.0)
+		return null
 	var mm             := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.mesh             = mesh
@@ -1580,6 +1585,46 @@ func _spawn_multimesh(mesh: Mesh, mat: Material,
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 	add_child(mmi)
 	return mmi
+
+
+func _spawn_multimesh_chunked(mesh: Mesh, mat: Material,
+							  transforms: Array, node_name: String,
+							  chunk_size: float, vis_range: float,
+							  vis_fade: float) -> void:
+	## Split transforms into spatial chunks, one MMI per chunk.
+	## Each chunk's AABB is local so visibility_range culls correctly.
+	var buckets: Dictionary = {}  # "cx|cz" -> Array[Transform3D]
+	for xf in transforms:
+		var pos: Vector3 = (xf as Transform3D).origin
+		var cx := int(floorf(pos.x / chunk_size))
+		var cz := int(floorf(pos.z / chunk_size))
+		var key := "%d|%d" % [cx, cz]
+		if not buckets.has(key):
+			buckets[key] = []
+		buckets[key].append(xf)
+
+	var chunk_count := 0
+	for key in buckets:
+		var chunk_xf: Array = buckets[key]
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.mesh = mesh
+		mm.instance_count = chunk_xf.size()
+		for i in chunk_xf.size():
+			mm.set_instance_transform(i, chunk_xf[i])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.name = "%s_%s" % [node_name, key]
+		if mat != null:
+			mmi.material_override = mat
+		mmi.visibility_range_end = vis_range
+		mmi.visibility_range_end_margin = vis_fade
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		add_child(mmi)
+		chunk_count += 1
+
+	print("%s: %d instances in %d spatial chunks (%.0fm cells, %.0fm vis)" % [
+		node_name, transforms.size(), chunk_count, chunk_size, vis_range])
 
 
 
