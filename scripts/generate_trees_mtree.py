@@ -184,32 +184,32 @@ SPECIES = {
     "cathedral_elm": {
         "name": "Cathedral American Elm (Literary Walk)",
         "crown_shape": "Spherical",
-        "trunk_frac": 0.18,
+        "trunk_frac": 0.16,            # Short trunk — fork low for vase shape
         "trunk_shape": 0.5,
-        "up_attraction": 0.6,
-        "trunk_randomness": 0.5,
-        "branch_start": 0.16,
-        "branch_end": 0.90,
-        "branch_density": 1.0,         # Reduced from 1.5 (geometry was 679MB)
-        "branch_length_ratio": 0.45,   # Reduced from 0.55
-        "branch_angle": 40,
-        "branch_gravity": 10.0,
-        "branch_stiffness": 0.15,
-        "branch_up_attraction": 0.5,
+        "up_attraction": 0.4,          # Less vertical pull — let branches spread
+        "trunk_randomness": 0.4,
+        "branch_start": 0.14,          # Fork very low (typical mature elm)
+        "branch_end": 0.85,
+        "branch_density": 1.1,
+        "branch_length_ratio": 0.52,   # Longer main branches to reach across path
+        "branch_angle": 55,            # Wide vase angle (was 40) — 55° creates arch
+        "branch_gravity": 6.0,         # Less gravity — branches sweep UP then out
+        "branch_stiffness": 0.20,
+        "branch_up_attraction": 0.35,  # Moderate upward pull for vase arch shape
         "branch_split_prob": 0.55,
-        "branch_split_angle": 45.0,
-        "branch_flatness": 0.35,       # Wider spread
+        "branch_split_angle": 50.0,    # Wide secondary splits (was 45)
+        "branch_flatness": 0.50,       # Strong lateral spread (was 0.35)
         "branch_break_chance": 0.01,
         "branch_resolution": 0.7,
-        "sub_density": 1.4,            # Cathedral elm: dense canopy tunnel (was 1.0, orig 2.0)
-        "sub_length_ratio": 0.16,      # Reduced from 0.20
-        "sub_angle": 60,
-        "sub_gravity": 14.0,
-        "sub_stiffness": 0.08,
-        "sub_up_attraction": -0.3,     # Heavy droop for curtain
-        "sub_split_prob": 0.3,
-        "sub_split_angle": 30.0,
-        "sub_flatness": 0.30,
+        "sub_density": 1.5,            # Dense canopy curtain
+        "sub_length_ratio": 0.18,
+        "sub_angle": 55,               # Sub-branches spread wide too
+        "sub_gravity": 16.0,           # Heavy droop — canopy curtain hangs down
+        "sub_stiffness": 0.06,
+        "sub_up_attraction": -0.4,     # Strong downward pull for drooping curtain
+        "sub_split_prob": 0.35,
+        "sub_split_angle": 35.0,
+        "sub_flatness": 0.35,
         "sub_resolution": 0.4,
         "bark_color": (0.28, 0.23, 0.16),
         "bark_roughness": 0.90,

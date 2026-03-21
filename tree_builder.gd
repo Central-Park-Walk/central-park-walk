@@ -492,7 +492,9 @@ func _build_trees(trees: Array) -> void:
 		var sx := sy
 		if species == "cathedral_elm":
 			# Cathedral elms MUST stay wide — override crown scaling
-			sx = sy * 1.35  # force 35% wider than tall for canopy convergence
+			# Literary Walk path is ~15m wide; elms are ~10m apart per row.
+			# Need each crown to reach 8-10m laterally to converge overhead.
+			sx = sy * 1.50  # force 50% wider than tall for canopy convergence
 
 		# Random Y rotation for variety
 		var y_rot := rng.randf() * TAU
