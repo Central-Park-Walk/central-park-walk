@@ -105,14 +105,15 @@ func _build_furniture(bench_data: Array, lamppost_data: Array, paths: Array) -> 
 	print("ParkLoader: lampposts = %d  benches = %d (pre-baked heights)" % [lamp_xf.size(), bench_xf.size()])
 
 	# Spawn lamppost iron parts (cast iron shader for weather response)
+	# NOTE: no visibility_range — single MMI spans entire park, range culls everything at once
 	if not lamp_xf.is_empty():
-		_loader._spawn_multimesh(lamp_iron_mesh, lamp_post_mat, lamp_xf, "Lampposts", 250.0, 30.0)
+		_loader._spawn_multimesh(lamp_iron_mesh, lamp_post_mat, lamp_xf, "Lampposts")
 	# Spawn luminaire globes (emissive at night)
 	if lamp_globe_mesh and globe_mat and not lamp_xf.is_empty():
-		_loader._spawn_multimesh(lamp_globe_mesh, globe_mat, lamp_xf, "LampGlobes", 250.0, 30.0)
+		_loader._spawn_multimesh(lamp_globe_mesh, globe_mat, lamp_xf, "LampGlobes")
 	# Spawn all benches with the CP bench model (materials baked into GLB)
 	if not bench_xf.is_empty():
-		_loader._spawn_multimesh(bench_mesh, null, bench_xf, "Benches_0", 150.0, 20.0)
+		_loader._spawn_multimesh(bench_mesh, null, bench_xf, "Benches_0")
 
 
 func _build_trash_cans(trash_data: Array, paths: Array) -> void:
@@ -155,7 +156,7 @@ func _build_trash_cans(trash_data: Array, paths: Array) -> void:
 		xforms.append(Transform3D(Basis.IDENTITY, Vector3(tx, ty, tz)))
 
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(mesh, mat, xforms, "TrashCans", 150.0, 20.0)
+		_loader._spawn_multimesh(mesh, mat, xforms, "TrashCans")
 	print("ParkLoader: trash cans = %d (pre-baked heights)" % xforms.size())
 
 
@@ -187,7 +188,7 @@ func _build_flagpoles(flagpole_data: Array) -> void:
 			continue
 		xforms.append(Transform3D(Basis.IDENTITY, Vector3(fx, fy, fz)))
 	if not xforms.is_empty():
-		_loader._spawn_multimesh(pole_mesh, pole_mat, xforms, "Flagpoles", 200.0, 25.0)
+		_loader._spawn_multimesh(pole_mesh, pole_mat, xforms, "Flagpoles")
 	print("ParkLoader: flagpoles = %d (GLB model)" % xforms.size())
 
 
