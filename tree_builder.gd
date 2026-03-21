@@ -31,6 +31,8 @@ const ARCHETYPE_MODEL := {
 const CATHEDRAL_ELM_ZONE := Rect2(-720.0, 1180.0, 90.0, 340.0)  # x, z, w, h
 
 var canopy_data: Array = []  # [{x, z, radius}] for canopy map generation
+var _lod1_xf: Dictionary = {}  # LOD1 mid-range: _s model transforms per key
+var _lod1_cd: Dictionary = {}  # LOD1 mid-range: custom data per key
 
 func _init(loader) -> void:
 	_loader = loader
@@ -514,7 +516,29 @@ func _build_trees(trees: Array) -> void:
 		var pheno_idx: int = PHENOLOGY_INDEX.get(species, 4)
 		var timing_off := rng.randf_range(-0.15, 0.15)
 		var is_evergreen := 1.0 if species == "conifer" else 0.0
-		cd_by_key[key].append(Color(float(pheno_idx) / 13.0, timing_off + 0.5, is_evergreen, 0.0))
+		var cd := Color(float(pheno_idx) / 13.0, timing_off + 0.5, is_evergreen, 0.0)
+		cd_by_key[key].append(cd)
+
+		# LOD1 mid-range: _s model for ALL trees (low-poly 3D fill)
+		var lod1_species := species + "_s"
+		if species == "dead" or not species_meshes.has(lod1_species):
+			lod1_species = species_tier  # fallback to same model
+		var lod1_variants: Array = species_meshes.get(lod1_species, [])
+		if not lod1_variants.is_empty():
+			var lod1_vi := i % lod1_variants.size()
+			var lod1_mesh_h: float = species_heights.get(lod1_species, mesh_h)
+			var lod1_sy := desired_h / maxf(lod1_mesh_h, 0.06)
+			var lod1_sx := lod1_sy
+			if species == "cathedral_elm":
+				lod1_sx = lod1_sy * 1.50
+			var lod1_basis := Basis(Vector3.UP, y_rot) * Basis().scaled(Vector3(lod1_sx, lod1_sy, lod1_sx))
+			var lod1_tf := Transform3D(lod1_basis, Vector3(tx, ty, tz))
+			var lod1_key := "%s_%d" % [lod1_species, lod1_vi]
+			if not _lod1_xf.has(lod1_key):
+				_lod1_xf[lod1_key] = []
+				_lod1_cd[lod1_key] = []
+			_lod1_xf[lod1_key].append(lod1_tf)
+			_lod1_cd[lod1_key].append(cd)
 
 		# Canopy data for dappled shade map + LOD1 shells.
 		# LiDAR crown_a measures only the dense inner canopy (often 10-30m²
@@ -598,13 +622,16 @@ func _build_trees(trees: Array) -> void:
 		mmi.multimesh = mm
 		mmi.position = chunk_origin
 		mmi.name = "Tree_%s" % ckey.replace("|", "_")
-		# LOD0: full geometry visible 0-400m, fades out 300-400m
+		# LOD0: full geometry visible 0-150m, fades out 100-150m
 		mmi.visibility_range_begin = 0.0
-		mmi.visibility_range_end = 400.0
+		mmi.visibility_range_end = 150.0
 		mmi.visibility_range_begin_margin = 0.0
-		mmi.visibility_range_end_margin = 100.0
+		mmi.visibility_range_end_margin = 50.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		_loader.add_child(mmi)
+
+	# --- LOD1: simplified _s models for mid-range (100-500m) ---
+	_build_lod1_chunks()
 
 	_build_tree_collision(all_trunk_xf)
 	# Debug: print a few tree heights to verify scale
@@ -625,6 +652,77 @@ func _build_trees(trees: Array) -> void:
 
 	# --- LOD1: Canopy shell domes for distant trees ---
 	_build_canopy_shells()
+
+
+func _build_lod1_chunks() -> void:
+	## Spawn LOD1 mid-range tree chunks using _s (small) models.
+	## Provides real 3D geometry at 300-1700 verts per tree, filling
+	## the gap between full LOD0 geometry and flat impostor billboards.
+	if _lod1_xf.is_empty():
+		return
+	const CHUNK := 80.0
+	var lod1_chunks: Dictionary = {}
+	for key in _lod1_xf:
+		var xf_arr: Array = _lod1_xf[key]
+		var cd_arr: Array = _lod1_cd[key]
+		for j in xf_arr.size():
+			var tf: Transform3D = xf_arr[j]
+			var cx := int(floorf(tf.origin.x / CHUNK))
+			var cz := int(floorf(tf.origin.z / CHUNK))
+			var ck := "%s|%d|%d" % [key, cx, cz]
+			if not lod1_chunks.has(ck):
+				lod1_chunks[ck] = {"mesh_key": key, "xf": [], "cd": []}
+			lod1_chunks[ck]["xf"].append(tf)
+			lod1_chunks[ck]["cd"].append(cd_arr[j])
+
+	for ckey in lod1_chunks:
+		var info: Dictionary = lod1_chunks[ckey]
+		var mesh_key: String = info["mesh_key"]
+		var xf_list: Array = info["xf"]
+		var cd_list: Array = info["cd"]
+		if xf_list.is_empty():
+			continue
+		var last_us := mesh_key.rfind("_")
+		var sp_name: String = mesh_key.substr(0, last_us)
+		var vi: int = int(mesh_key.substr(last_us + 1))
+		if not species_meshes.has(sp_name):
+			continue
+		var variants: Array = species_meshes[sp_name]
+		if vi >= variants.size():
+			continue
+		var mesh: Mesh = variants[vi]
+		var cx_sum := 0.0; var cy_sum := 0.0; var cz_sum := 0.0
+		for tf: Transform3D in xf_list:
+			cx_sum += tf.origin.x; cy_sum += tf.origin.y; cz_sum += tf.origin.z
+		var n := float(xf_list.size())
+		var chunk_origin := Vector3(cx_sum / n, cy_sum / n, cz_sum / n)
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_custom_data = true
+		mm.mesh = mesh
+		mm.instance_count = xf_list.size()
+		for i in xf_list.size():
+			var tf: Transform3D = xf_list[i]
+			mm.set_instance_transform(i, Transform3D(tf.basis, tf.origin - chunk_origin))
+			mm.set_instance_custom_data(i, cd_list[i])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.position = chunk_origin
+		mmi.name = "TreeL1_%s" % ckey.replace("|", "_")
+		# LOD1: simplified 3D, visible 100-500m with 50m fade margins
+		mmi.visibility_range_begin = 100.0
+		mmi.visibility_range_end = 500.0
+		mmi.visibility_range_begin_margin = 50.0
+		mmi.visibility_range_end_margin = 50.0
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		_loader.add_child(mmi)
+
+	print("Trees LOD1: %d _s model instances in %d chunks (100-500m)" % [
+		_lod1_xf.values().reduce(func(acc, a): return acc + a.size(), 0),
+		lod1_chunks.size()])
+	# Free LOD1 data — no longer needed after spawning
+	_lod1_xf.clear()
+	_lod1_cd.clear()
 
 
 func _build_tree_collision(trunk_xf: Array) -> void:
@@ -796,8 +894,8 @@ func _build_canopy_shells() -> void:
 		mmi.material_override = mat
 		mmi.position = chunk_origin
 		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
-		# LOD1: impostors visible 200-2500m, wider overlap with LOD0
-		mmi.visibility_range_begin = 200.0
+		# LOD2: impostors visible 350-2500m, overlaps with LOD1 _s models
+		mmi.visibility_range_begin = 350.0
 		mmi.visibility_range_end = 2500.0
 		mmi.visibility_range_begin_margin = 100.0
 		mmi.visibility_range_end_margin = 200.0
