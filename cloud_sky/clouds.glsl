@@ -108,9 +108,9 @@ float intersectSphere(vec3 pos, vec3 dir,float r) {
 // Heavily based on method from Schneider
 float density(vec3 pip, vec3 weather, float mip) {
 	vec3 p = pip;
-	// Per-session random offset — samples different region of 3D noise each launch
-	p += vec3(params.noise_offset.x, params.noise_offset_z, params.noise_offset.y) * 50000.0;
 	float height_fraction = GetHeightFractionForPoint(length(p));
+	// Per-session random offset — shifts noise sampling only, not altitude
+	p += vec3(params.noise_offset.x, params.noise_offset_z, params.noise_offset.y) * 50000.0;
 
 	// Base wind.
 	p.xz += 20.0 * params.cloud_pos * 0.6;
