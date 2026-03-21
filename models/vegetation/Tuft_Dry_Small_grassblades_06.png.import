@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cwokxyg64x87a"
-path="res://.godot/imported/Tuft_Dry_Small_grassblades_06.png-27613e6ac5c699e8f3dd2d53d63ddfb3.ctex"
+path.s3tc="res://.godot/imported/Tuft_Dry_Small_grassblades_06.png-27613e6ac5c699e8f3dd2d53d63ddfb3.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "35398aaa569a1b7eabb9ac8e267ceee0"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Tuft_Dry_Small_grassblades_06.png"
-dest_files=["res://.godot/imported/Tuft_Dry_Small_grassblades_06.png-27613e6ac5c699e8f3dd2d53d63ddfb3.ctex"]
+dest_files=["res://.godot/imported/Tuft_Dry_Small_grassblades_06.png-27613e6ac5c699e8f3dd2d53d63ddfb3.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +41,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

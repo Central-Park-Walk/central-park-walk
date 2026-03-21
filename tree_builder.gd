@@ -31,8 +31,12 @@ const ARCHETYPE_MODEL := {
 const CATHEDRAL_ELM_ZONE := Rect2(-720.0, 1180.0, 90.0, 340.0)  # x, z, w, h
 
 var canopy_data: Array = []  # [{x, z, radius}] for canopy map generation
-var _lod1_xf: Dictionary = {}  # LOD1 mid-range: _s model transforms per key
-var _lod1_cd: Dictionary = {}  # LOD1 mid-range: custom data per key
+var _lod1_xf: Dictionary = {}  # LOD1: _m model transforms per key
+var _lod1_cd: Dictionary = {}  # LOD1: custom data per key
+var _lod2_xf: Dictionary = {}  # LOD2: _s model transforms per key
+var _lod2_cd: Dictionary = {}  # LOD2: custom data per key
+var _species_meshes: Dictionary = {}  # archetype_name -> Array[Mesh]
+var _species_heights: Dictionary = {} # archetype_name -> float (mesh height)
 
 func _init(loader) -> void:
 	_loader = loader
@@ -170,8 +174,9 @@ func _build_trees(trees: Array) -> void:
 		"cathedral_elm": Color(0.30, 0.25, 0.18),     # same as elm
 	}
 	# --- Load 5 base GLB models, then create per-archetype colored copies ---
-	var species_meshes: Dictionary = {}  # archetype_name -> Array[Mesh]
-	var species_heights: Dictionary = {} # archetype_name -> float (mesh height in raw units)
+	# Uses class members _species_meshes and _species_heights (shared with _build_lod1_chunks)
+	_species_meshes.clear()
+	_species_heights.clear()
 
 	# Step 1: Load raw meshes + heights from 5 GLB files
 	var base_meshes: Dictionary = {}     # model_name -> Array[Mesh]
@@ -335,11 +340,11 @@ func _build_trees(trees: Array) -> void:
 						m.surface_set_material(si, new_mat)
 				arch_meshes.append(m)
 			var arch_key: String = archetype + tier_suffix
-			species_meshes[arch_key] = arch_meshes
-			species_heights[arch_key] = base_heights[model_key]
-	print("Trees: %d archetype×tier combos from %d model files" % [species_meshes.size(), base_meshes.size()])
+			_species_meshes[arch_key] = arch_meshes
+			_species_heights[arch_key] = base_heights[model_key]
+	print("Trees: %d archetype×tier combos from %d model files" % [_species_meshes.size(), base_meshes.size()])
 
-	if species_meshes.is_empty():
+	if _species_meshes.is_empty():
 		print("WARNING: no tree GLB models loaded, falling back skipped")
 		return
 
@@ -460,20 +465,20 @@ func _build_trees(trees: Array) -> void:
 		var species_tier: String = species + tier_suffix
 
 		# Validate mesh exists for this species+tier; fallback chain
-		if not species_meshes.has(species_tier):
+		if not _species_meshes.has(species_tier):
 			# Try without tier (backward compat with old single-tier models)
-			if species_meshes.has(species):
+			if _species_meshes.has(species):
 				species_tier = species
-			elif species_meshes.has("deciduous" + tier_suffix):
+			elif _species_meshes.has("deciduous" + tier_suffix):
 				species = "deciduous"
 				species_tier = "deciduous" + tier_suffix
-			elif species_meshes.has("deciduous"):
+			elif _species_meshes.has("deciduous"):
 				species = "deciduous"
 				species_tier = "deciduous"
 			else:
 				continue
 
-		var variants: Array = species_meshes[species_tier]
+		var variants: Array = _species_meshes[species_tier]
 		var n_variants := variants.size()
 		if n_variants == 0:
 			continue
@@ -482,7 +487,7 @@ func _build_trees(trees: Array) -> void:
 		var variant_idx := i % n_variants
 
 		# Scale factor: desired_height / mesh_height_in_raw_units
-		var mesh_h: float = species_heights[species_tier]
+		var mesh_h: float = _species_heights[species_tier]
 		if mesh_h < 0.001:
 			mesh_h = 0.06
 		var sy := desired_h / mesh_h
@@ -519,26 +524,49 @@ func _build_trees(trees: Array) -> void:
 		var cd := Color(float(pheno_idx) / 13.0, timing_off + 0.5, is_evergreen, 0.0)
 		cd_by_key[key].append(cd)
 
-		# LOD1 mid-range: _s model for ALL trees (low-poly 3D fill)
-		var lod1_species := species + "_s"
-		if species == "dead" or not species_meshes.has(lod1_species):
-			lod1_species = species_tier  # fallback to same model
-		var lod1_variants: Array = species_meshes.get(lod1_species, [])
-		if not lod1_variants.is_empty():
-			var lod1_vi := i % lod1_variants.size()
-			var lod1_mesh_h: float = species_heights.get(lod1_species, mesh_h)
-			var lod1_sy := desired_h / maxf(lod1_mesh_h, 0.06)
-			var lod1_sx := lod1_sy
-			if species == "cathedral_elm":
-				lod1_sx = lod1_sy * 1.50
-			var lod1_basis := Basis(Vector3.UP, y_rot) * Basis().scaled(Vector3(lod1_sx, lod1_sy, lod1_sx))
-			var lod1_tf := Transform3D(lod1_basis, Vector3(tx, ty, tz))
-			var lod1_key := "%s_%d" % [lod1_species, lod1_vi]
-			if not _lod1_xf.has(lod1_key):
-				_lod1_xf[lod1_key] = []
-				_lod1_cd[lod1_key] = []
-			_lod1_xf[lod1_key].append(lod1_tf)
-			_lod1_cd[lod1_key].append(cd)
+		# 4-tier LOD chain: LOD0=best, LOD1=_m, LOD2=_s, LOD3=impostor
+		# Every tree populates ALL tiers to avoid distance gaps.
+		# If the tree's own tier is already _m or _s, the same model
+		# is reused at that tier — crossfade is invisible (same mesh).
+		if species != "dead":
+			for lod_idx in [1, 2]:
+				var lod_tier_suffix: String
+				if lod_idx == 1:
+					# LOD1 prefers _m; falls back to _s, then same tier
+					if _species_meshes.has(species + "_m"):
+						lod_tier_suffix = "_m"
+					elif _species_meshes.has(species + "_s"):
+						lod_tier_suffix = "_s"
+					else:
+						lod_tier_suffix = tier_suffix
+				else:
+					# LOD2 always _s (cheapest 3D)
+					if _species_meshes.has(species + "_s"):
+						lod_tier_suffix = "_s"
+					elif _species_meshes.has(species + "_m"):
+						lod_tier_suffix = "_m"
+					else:
+						lod_tier_suffix = tier_suffix
+				var lod_sp := species + lod_tier_suffix
+				if not _species_meshes.has(lod_sp):
+					lod_sp = "deciduous" + lod_tier_suffix
+				if not _species_meshes.has(lod_sp):
+					continue
+				var lod_vars: Array = _species_meshes[lod_sp]
+				var lod_vi := i % lod_vars.size()
+				var lod_mh: float = _species_heights.get(lod_sp, mesh_h)
+				var lod_sy := desired_h / maxf(lod_mh, 0.06)
+				var lod_sx := lod_sy * (1.50 if species == "cathedral_elm" else 1.0)
+				var lod_basis := Basis(Vector3.UP, y_rot) * Basis().scaled(Vector3(lod_sx, lod_sy, lod_sx))
+				var lod_tf := Transform3D(lod_basis, Vector3(tx, ty, tz))
+				var lod_key := "%s_%d" % [lod_sp, lod_vi]
+				var xf_dict: Dictionary = _lod1_xf if lod_idx == 1 else _lod2_xf
+				var cd_dict: Dictionary = _lod1_cd if lod_idx == 1 else _lod2_cd
+				if not xf_dict.has(lod_key):
+					xf_dict[lod_key] = []
+					cd_dict[lod_key] = []
+				xf_dict[lod_key].append(lod_tf)
+				cd_dict[lod_key].append(cd)
 
 		# Canopy data for dappled shade map + LOD1 shells.
 		# LiDAR crown_a measures only the dense inner canopy (often 10-30m²
@@ -598,7 +626,7 @@ func _build_trees(trees: Array) -> void:
 		var last_us := mesh_key.rfind("_")
 		var sp_name: String = mesh_key.substr(0, last_us)
 		var vi: int = int(mesh_key.substr(last_us + 1))
-		var mesh: Mesh = species_meshes[sp_name][vi]
+		var mesh: Mesh = _species_meshes[sp_name][vi]
 		var cx_sum := 0.0
 		var cy_sum := 0.0
 		var cz_sum := 0.0
@@ -622,16 +650,20 @@ func _build_trees(trees: Array) -> void:
 		mmi.multimesh = mm
 		mmi.position = chunk_origin
 		mmi.name = "Tree_%s" % ckey.replace("|", "_")
-		# LOD0: full geometry visible 0-150m, fades out 100-150m
+		# LOD0: full geometry, shorter range — LOD1 _m takes over at 100m
 		mmi.visibility_range_begin = 0.0
-		mmi.visibility_range_end = 150.0
+		mmi.visibility_range_end = 100.0
 		mmi.visibility_range_begin_margin = 0.0
-		mmi.visibility_range_end_margin = 50.0
+		mmi.visibility_range_end_margin = 40.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		_loader.add_child(mmi)
 
-	# --- LOD1: simplified _s models for mid-range (100-500m) ---
-	_build_lod1_chunks()
+	# --- LOD1: _m models for mid-range (60-300m) ---
+	_build_lod_tier_chunks(_lod1_xf, _lod1_cd, "TreeL1",
+		60.0, 300.0, 40.0, 50.0)
+	# --- LOD2: _s models for far-range (250-800m) ---
+	_build_lod_tier_chunks(_lod2_xf, _lod2_cd, "TreeL2",
+		250.0, 800.0, 50.0, 100.0)
 
 	_build_tree_collision(all_trunk_xf)
 	# Debug: print a few tree heights to verify scale
@@ -642,7 +674,7 @@ func _build_trees(trees: Array) -> void:
 		if xfs.size() > 0:
 			var tf: Transform3D = xfs[0]
 			var sy := tf.basis.y.length()  # Y basis length = scale factor
-			var mesh_h_val: float = species_heights.get(key.split("_")[0], 5.0)
+			var mesh_h_val: float = _species_heights.get(key.split("_")[0], 5.0)
 			var actual_h := sy * mesh_h_val  # true world height in metres
 			print("  Tree '%s': mesh=%.1fm × sy=%.2f = %.1fm tall, at y=%.1f" % [
 				key, mesh_h_val, sy, actual_h, tf.origin.y])
@@ -654,29 +686,31 @@ func _build_trees(trees: Array) -> void:
 	_build_canopy_shells()
 
 
-func _build_lod1_chunks() -> void:
-	## Spawn LOD1 mid-range tree chunks using _s (small) models.
-	## Provides real 3D geometry at 300-1700 verts per tree, filling
-	## the gap between full LOD0 geometry and flat impostor billboards.
-	if _lod1_xf.is_empty():
+func _build_lod_tier_chunks(xf_data: Dictionary, cd_data: Dictionary,
+		prefix: String, vis_begin: float, vis_end: float,
+		begin_margin: float, end_margin: float) -> void:
+	## Generic LOD tier chunk builder. Spawns MultiMesh chunks from
+	## pre-collected transform/custom-data dictionaries.
+	if xf_data.is_empty():
 		return
 	const CHUNK := 80.0
-	var lod1_chunks: Dictionary = {}
-	for key in _lod1_xf:
-		var xf_arr: Array = _lod1_xf[key]
-		var cd_arr: Array = _lod1_cd[key]
+	var chunks: Dictionary = {}
+	for key in xf_data:
+		var xf_arr: Array = xf_data[key]
+		var cd_arr: Array = cd_data[key]
 		for j in xf_arr.size():
 			var tf: Transform3D = xf_arr[j]
 			var cx := int(floorf(tf.origin.x / CHUNK))
 			var cz := int(floorf(tf.origin.z / CHUNK))
 			var ck := "%s|%d|%d" % [key, cx, cz]
-			if not lod1_chunks.has(ck):
-				lod1_chunks[ck] = {"mesh_key": key, "xf": [], "cd": []}
-			lod1_chunks[ck]["xf"].append(tf)
-			lod1_chunks[ck]["cd"].append(cd_arr[j])
+			if not chunks.has(ck):
+				chunks[ck] = {"mesh_key": key, "xf": [], "cd": []}
+			chunks[ck]["xf"].append(tf)
+			chunks[ck]["cd"].append(cd_arr[j])
 
-	for ckey in lod1_chunks:
-		var info: Dictionary = lod1_chunks[ckey]
+	var instance_count := 0
+	for ckey in chunks:
+		var info: Dictionary = chunks[ckey]
 		var mesh_key: String = info["mesh_key"]
 		var xf_list: Array = info["xf"]
 		var cd_list: Array = info["cd"]
@@ -685,9 +719,9 @@ func _build_lod1_chunks() -> void:
 		var last_us := mesh_key.rfind("_")
 		var sp_name: String = mesh_key.substr(0, last_us)
 		var vi: int = int(mesh_key.substr(last_us + 1))
-		if not species_meshes.has(sp_name):
+		if not _species_meshes.has(sp_name):
 			continue
-		var variants: Array = species_meshes[sp_name]
+		var variants: Array = _species_meshes[sp_name]
 		if vi >= variants.size():
 			continue
 		var mesh: Mesh = variants[vi]
@@ -708,21 +742,19 @@ func _build_lod1_chunks() -> void:
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		mmi.position = chunk_origin
-		mmi.name = "TreeL1_%s" % ckey.replace("|", "_")
-		# LOD1: simplified 3D, visible 100-500m with 50m fade margins
-		mmi.visibility_range_begin = 100.0
-		mmi.visibility_range_end = 500.0
-		mmi.visibility_range_begin_margin = 50.0
-		mmi.visibility_range_end_margin = 50.0
+		mmi.name = "%s_%s" % [prefix, ckey.replace("|", "_")]
+		mmi.visibility_range_begin = vis_begin
+		mmi.visibility_range_end = vis_end
+		mmi.visibility_range_begin_margin = begin_margin
+		mmi.visibility_range_end_margin = end_margin
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		_loader.add_child(mmi)
+		instance_count += xf_list.size()
 
-	print("Trees LOD1: %d _s model instances in %d chunks (100-500m)" % [
-		_lod1_xf.values().reduce(func(acc, a): return acc + a.size(), 0),
-		lod1_chunks.size()])
-	# Free LOD1 data — no longer needed after spawning
-	_lod1_xf.clear()
-	_lod1_cd.clear()
+	print("%s: %d instances in %d chunks (%.0f-%.0fm)" % [
+		prefix, instance_count, chunks.size(), vis_begin, vis_end])
+	xf_data.clear()
+	cd_data.clear()
 
 
 func _build_tree_collision(trunk_xf: Array) -> void:
@@ -796,7 +828,7 @@ func _load_impostor_atlases() -> void:
 		mat.set_shader_parameter("atlas", tex)
 		mat.set_shader_parameter("frames", Vector2(IMPOSTOR_FRAME_SIZE, IMPOSTOR_FRAME_SIZE))
 		mat.set_shader_parameter("alpha_clamp", 0.2)
-		mat.set_shader_parameter("tint", Color(1.3, 1.3, 1.25, 1.0))
+		mat.set_shader_parameter("tint", Color(1.0, 1.0, 0.97, 1.0))  # neutral with SDFGI providing real GI
 		_impostor_materials[model_name] = mat
 
 	print("Trees LOD2: loaded %d impostor atlases" % _impostor_textures.size())
@@ -911,8 +943,8 @@ func _build_canopy_shells() -> void:
 		mmi.material_override = _impostor_materials[model_name]
 		mmi.position = chunk_origin
 		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
-		# LOD2: crossed-quad impostors, overlaps with LOD1 _s models
-		mmi.visibility_range_begin = 350.0
+		# LOD3: crossed-quad impostors, far enough that haze masks card edges
+		mmi.visibility_range_begin = 700.0
 		mmi.visibility_range_end = 2500.0
 		mmi.visibility_range_begin_margin = 100.0
 		mmi.visibility_range_end_margin = 200.0
@@ -921,5 +953,5 @@ func _build_canopy_shells() -> void:
 		_loader.add_child(mmi)
 		impostor_count += xf_list.size()
 
-	print("Trees LOD2: %d crossed-quad impostors in %d chunks (%d species)" % [
+	print("Trees LOD3: %d crossed-quad impostors in %d chunks (%d species)" % [
 		impostor_count, chunks.size(), _impostor_materials.size()])

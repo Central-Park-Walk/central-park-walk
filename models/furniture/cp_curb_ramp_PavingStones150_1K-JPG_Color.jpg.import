@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cskytlfg5spji"
-path="res://.godot/imported/cp_curb_ramp_PavingStones150_1K-JPG_Color.jpg-b4b02c14927b7ea2351384b5b3b72b5d.ctex"
+path.s3tc="res://.godot/imported/cp_curb_ramp_PavingStones150_1K-JPG_Color.jpg-b4b02c14927b7ea2351384b5b3b72b5d.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "57067c2a0f91cd06c9d3589da5825ff7"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://models/furniture/cp_curb_ramp_PavingStones150_1K-JPG_Color.jpg"
-dest_files=["res://.godot/imported/cp_curb_ramp_PavingStones150_1K-JPG_Color.jpg-b4b02c14927b7ea2351384b5b3b72b5d.ctex"]
+dest_files=["res://.godot/imported/cp_curb_ramp_PavingStones150_1K-JPG_Color.jpg-b4b02c14927b7ea2351384b5b3b72b5d.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +41,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

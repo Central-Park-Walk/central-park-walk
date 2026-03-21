@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dvxwt5wmtoiie"
-path="res://.godot/imported/Herb_Coneflower_grass _06.png-c88c28c5a88b7839f94e74e339051a41.ctex"
+path.s3tc="res://.godot/imported/Herb_Coneflower_grass _06.png-c88c28c5a88b7839f94e74e339051a41.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "62bd08d6dfd2f253d91202ceece5515a"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Herb_Coneflower_grass _06.png"
-dest_files=["res://.godot/imported/Herb_Coneflower_grass _06.png-c88c28c5a88b7839f94e74e339051a41.ctex"]
+dest_files=["res://.godot/imported/Herb_Coneflower_grass _06.png-c88c28c5a88b7839f94e74e339051a41.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +41,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

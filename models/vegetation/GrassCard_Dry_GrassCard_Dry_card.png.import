@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://df7503fj5tdju"
-path="res://.godot/imported/GrassCard_Dry_GrassCard_Dry_card.png-5350fa540d235f4fbd3529a4e83c2315.ctex"
+path.s3tc="res://.godot/imported/GrassCard_Dry_GrassCard_Dry_card.png-5350fa540d235f4fbd3529a4e83c2315.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "85fca19a113e47ab5d23219fc0055973"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/GrassCard_Dry_GrassCard_Dry_card.png"
-dest_files=["res://.godot/imported/GrassCard_Dry_GrassCard_Dry_card.png-5350fa540d235f4fbd3529a4e83c2315.ctex"]
+dest_files=["res://.godot/imported/GrassCard_Dry_GrassCard_Dry_card.png-5350fa540d235f4fbd3529a4e83c2315.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +41,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dix0yhpmtxbji"
-path="res://.godot/imported/Branch_Dry_01_moss.png-01e41342b31f7d9a96f3588b200e45f7.ctex"
+path.s3tc="res://.godot/imported/Branch_Dry_01_moss.png-01e41342b31f7d9a96f3588b200e45f7.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "a09f036d79bd6854603f2b437ba87550"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Branch_Dry_01_moss.png"
-dest_files=["res://.godot/imported/Branch_Dry_01_moss.png-01e41342b31f7d9a96f3588b200e45f7.ctex"]
+dest_files=["res://.godot/imported/Branch_Dry_01_moss.png-01e41342b31f7d9a96f3588b200e45f7.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +41,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0
