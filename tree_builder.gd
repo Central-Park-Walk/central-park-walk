@@ -596,11 +596,11 @@ func _build_trees(trees: Array) -> void:
 		mmi.multimesh = mm
 		mmi.position = chunk_origin
 		mmi.name = "Tree_%s" % ckey.replace("|", "_")
-		# LOD0: full geometry visible 0-300m, fades out 250-300m
+		# LOD0: full geometry visible 0-400m, fades out 300-400m
 		mmi.visibility_range_begin = 0.0
-		mmi.visibility_range_end = 300.0
+		mmi.visibility_range_end = 400.0
 		mmi.visibility_range_begin_margin = 0.0
-		mmi.visibility_range_end_margin = 75.0
+		mmi.visibility_range_end_margin = 100.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		_loader.add_child(mmi)
 
@@ -794,10 +794,10 @@ func _build_canopy_shells() -> void:
 		mmi.material_override = mat
 		mmi.position = chunk_origin
 		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
-		# LOD1: impostors visible 250-2500m
-		mmi.visibility_range_begin = 250.0
+		# LOD1: impostors visible 200-2500m, wider overlap with LOD0
+		mmi.visibility_range_begin = 200.0
 		mmi.visibility_range_end = 2500.0
-		mmi.visibility_range_begin_margin = 75.0
+		mmi.visibility_range_begin_margin = 100.0
 		mmi.visibility_range_end_margin = 200.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
