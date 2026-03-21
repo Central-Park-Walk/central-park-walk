@@ -1245,9 +1245,20 @@ func _setup_environment() -> void:
 	_env.glow_hdr_luminance_cap = 8.0
 	_env.ssao_enabled          = true
 	_env.ssao_detail           = 0.5
-	_env.ssil_enabled          = false   # causes yellow shield artifacts (temporal accumulation)
+	_env.ssil_enabled          = true
+	_env.ssil_radius           = 3.0    # meters — moderate reach for under-canopy bounce
+	_env.ssil_intensity        = 0.6    # conservative — was causing yellow shield artifacts pre-overhaul
+	_env.ssil_normal_rejection = 1.2
 	_env.ssr_enabled           = false   # causes multi-colored artifacts on water from aerial view
-	_env.sdfgi_enabled         = false   # causes diamond-shaped probe flash artifacts
+	_env.sdfgi_enabled         = true
+	_env.sdfgi_cascades        = 6      # large outdoor scene needs range
+	_env.sdfgi_min_cell_size   = 0.5    # ~0.5m matches our atlas resolution
+	_env.sdfgi_energy          = 0.8    # moderate — avoid over-brightening foliage
+	_env.sdfgi_normal_bias     = 1.1
+	_env.sdfgi_probe_bias      = 1.1
+	_env.sdfgi_bounce_feedback = 0.3    # subtle multi-bounce
+	_env.sdfgi_read_sky_light  = true
+	_env.sdfgi_use_occlusion   = true
 	_env.adjustment_enabled    = true
 	_env.adjustment_brightness = 1.02
 	_env.fog_enabled           = false  # volumetric fog handles aerial perspective
@@ -1264,7 +1275,7 @@ func _setup_environment() -> void:
 	_env.volumetric_fog_length = 800.0  # reach the buildings (was 100m!)
 	_env.volumetric_fog_detail_spread = 2.0
 	_env.volumetric_fog_ambient_inject = 0.12
-	_env.volumetric_fog_gi_inject = 0.15
+	_env.volumetric_fog_gi_inject = 0.25  # higher now that SDFGI provides real GI data
 	_env.volumetric_fog_sky_affect = 0.25
 	_env.volumetric_fog_temporal_reprojection_enabled = false
 
