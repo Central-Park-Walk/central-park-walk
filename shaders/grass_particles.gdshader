@@ -289,9 +289,10 @@ void start() {
 		pos.xz = vec2(100000.0);
 	}
 
-	// Winter dormancy: reduce blade count
+	// Winter dormancy + snow: cull nearly all blades under heavy snow
 	float winter_t = smoothstep(2.7, 3.5, season_t);
-	if (winter_t > 0.5 && r.y < winter_t * 0.4) {
+	float cull_factor = max(winter_t, snow_cover);
+	if (cull_factor > 0.1 && r.y < cull_factor * 0.95) {
 		pos.y = 0. / 0.;
 		pos.xz = vec2(100000.0);
 	}

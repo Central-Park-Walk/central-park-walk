@@ -40,14 +40,24 @@ void vertex() {
 	vec3 w_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	v_world_pos = w_vertex;
 
-	// Wind bending
+	// Winter: shrink blades toward ground (lawns to 8%, woodland to 25%)
+	float w_season = INSTANCE_CUSTOM.r; // passed via COLOR.a in process, but we read season_t directly
+	float w_winter = smoothstep(2.7, 3.5, season_t);
+	float w_snow = max(w_winter, snow_cover);
+	if (w_snow > 0.0) {
+		float shrink = mix(1.0, 0.08, w_snow);
+		VERTEX.y *= shrink;
+	}
+
+	// Wind bending — suppress in winter/snow
+	float wind_suppression = 1.0 - w_snow;
 	float grass_scale = pow(INSTANCE_CUSTOM[3] * INSTANCE_CUSTOM[3], 0.707);
-	float force = INSTANCE_CUSTOM[2] * bend_factor * grass_scale;
+	float force = INSTANCE_CUSTOM[2] * bend_factor * grass_scale * wind_suppression;
 	force -= fract(force * 256.0) * force * 0.05;
 	force = pow(max(force, 0.0), 0.707);
 
 	vec2 direction = normalize(wind_vec + vec2(0.001));
-	float lateral_wobble = sin(TIME * 2.0 * (1.0 + data.r + data.g)) * 0.25 * (1.0 - INSTANCE_CUSTOM[2]);
+	float lateral_wobble = sin(TIME * 2.0 * (1.0 + data.r + data.g)) * 0.25 * (1.0 - INSTANCE_CUSTOM[2]) * wind_suppression;
 	w_vertex.xz -= (vec2(-direction.y, direction.x) * lateral_wobble + direction) * force;
 	w_vertex.y -= INSTANCE_CUSTOM[2] * force * bend_factor;
 

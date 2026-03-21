@@ -312,9 +312,7 @@ func _create_noise_uniform_set() -> RID:
 	noise_sampler = rd.sampler_create(sampler_state)
 
 	var large_scale_noise = preload("perlworlnoise.tga")
-	print("CloudSky: large_noise type=%s class=%s rid_valid=%s" % [typeof(large_scale_noise), large_scale_noise.get_class(), large_scale_noise.get_rid().is_valid()])
 	var LSN_rd = RenderingServer.texture_get_rd_texture(large_scale_noise.get_rid())
-	print("CloudSky: large_noise RD rid_valid=%s" % LSN_rd.is_valid())
 	
 	var uniform := RDUniform.new()
 	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE
@@ -324,9 +322,7 @@ func _create_noise_uniform_set() -> RID:
 	uniforms.push_back(uniform)
 	
 	var small_scale_noise = preload("worlnoise.bmp")
-	print("CloudSky: small_noise type=%s class=%s rid_valid=%s" % [typeof(small_scale_noise), small_scale_noise.get_class(), small_scale_noise.get_rid().is_valid()])
 	var SSN_rd = RenderingServer.texture_get_rd_texture(small_scale_noise.get_rid())
-	print("CloudSky: small_noise RD rid_valid=%s" % SSN_rd.is_valid())
 	
 	uniform = RDUniform.new()
 	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE
@@ -336,9 +332,7 @@ func _create_noise_uniform_set() -> RID:
 	uniforms.push_back(uniform)
 	
 	var weather_noise = preload("weather.bmp")
-	print("CloudSky: weather type=%s class=%s rid_valid=%s" % [typeof(weather_noise), weather_noise.get_class(), weather_noise.get_rid().is_valid()])
 	var W_rd = RenderingServer.texture_get_rd_texture(weather_noise.get_rid())
-	print("CloudSky: weather RD rid_valid=%s" % W_rd.is_valid())
 	
 	uniform = RDUniform.new()
 	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE

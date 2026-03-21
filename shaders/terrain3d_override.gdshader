@@ -490,8 +490,11 @@ void fragment() {
 	{
 		float frost_season = smoothstep(2.8, 3.5, season_t);
 		if (frost_season > 0.01 && snow_cover < 0.3) {
-			float frost_noise = hash2(floor(v_vertex.xz * 8.0));
-			float frost_mask = step(0.4, frost_noise) * frost_season;
+			// Multi-frequency smooth noise — no grid artifacts
+			float frost_noise = vnoise(v_vertex.xz * 0.5) * 0.5
+				+ vnoise(v_vertex.xz * 1.7) * 0.3
+				+ vnoise(v_vertex.xz * 5.0) * 0.2;
+			float frost_mask = smoothstep(0.35, 0.55, frost_noise) * frost_season;
 			frost_mask *= (is_woodland ? 0.3 : 1.0) * v_normal.y;
 			ALBEDO = mix(ALBEDO, vec3(0.85, 0.88, 0.92), frost_mask * 0.35);
 			ROUGHNESS = mix(ROUGHNESS, 0.10, frost_mask * 0.5);
@@ -501,18 +504,20 @@ void fragment() {
 
 	// ---- Snow accumulation ----
 	if (snow_cover > 0.01) {
-		float snow_noise = fbm(v_vertex.xz * 0.08, 2) * 0.25;
+		float snow_noise = fbm(v_vertex.xz * 0.12, 4) * 0.20
+			+ vnoise(v_vertex.xz * 0.03) * 0.10;  // broad undulation
 		float snow_amt = smoothstep(0.3, 0.7, v_normal.y + snow_noise - 0.2) * snow_cover;
 		ALBEDO = mix(ALBEDO, vec3(0.92, 0.93, 0.96), snow_amt);
 		ROUGHNESS = mix(ROUGHNESS, 0.90, snow_amt);
 		SPECULAR = mix(SPECULAR, 0.3, snow_amt);
 		if (snow_amt > 0.3) {
-			float sparkle = hash2(floor(v_vertex.xz * 30.0));
-			if (sparkle > 0.97) {
-				float intensity = (sparkle - 0.97) * 33.3;
-				SPECULAR = mix(SPECULAR, 0.95, intensity * snow_amt);
-				ROUGHNESS = mix(ROUGHNESS, 0.02, intensity * snow_amt * 0.5);
-				ALBEDO += vec3(0.05) * intensity * snow_amt;
+			// Smooth sparkle — no grid
+			float sparkle = vnoise(v_vertex.xz * 30.0);
+			float sparkle_mask = smoothstep(0.85, 0.95, sparkle);
+			if (sparkle_mask > 0.01) {
+				SPECULAR = mix(SPECULAR, 0.95, sparkle_mask * snow_amt);
+				ROUGHNESS = mix(ROUGHNESS, 0.02, sparkle_mask * snow_amt * 0.5);
+				ALBEDO += vec3(0.05) * sparkle_mask * snow_amt;
 			}
 		}
 	}
