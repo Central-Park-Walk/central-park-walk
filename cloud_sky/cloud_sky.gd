@@ -364,6 +364,10 @@ func _initialize_compute_code(p_texture_size):
 	shader_rd = rd.shader_create_from_spirv(shader_spirv)
 	if not shader_rd.is_valid():
 		can_run = false
+		printerr("CloudSky: compute shader compilation FAILED — clouds disabled")
+		var err_msg = shader_spirv.get_stage_compile_error(RenderingDevice.SHADER_STAGE_COMPUTE)
+		if err_msg:
+			printerr("  Compute stage error: ", err_msg)
 		return
 	pipeline = rd.compute_pipeline_create(shader_rd)
 
@@ -409,3 +413,4 @@ func _initialize_compute_code(p_texture_size):
 		textures.push_back(Texture2DRD.new())
 
 	can_run = true
+	print("CloudSky: compute pipeline initialized — volumetric clouds active")
