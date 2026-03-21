@@ -201,13 +201,13 @@ SPECIES = {
         "branch_flatness": 0.50,       # Strong lateral spread (was 0.35)
         "branch_break_chance": 0.01,
         "branch_resolution": 0.7,
-        "sub_density": 1.5,            # Dense canopy curtain
-        "sub_length_ratio": 0.18,
+        "sub_density": 1.2,            # Dense canopy curtain (1.5 → 1.2 to keep _l under 100MB)
+        "sub_length_ratio": 0.16,
         "sub_angle": 55,               # Sub-branches spread wide too
         "sub_gravity": 16.0,           # Heavy droop — canopy curtain hangs down
         "sub_stiffness": 0.06,
         "sub_up_attraction": -0.4,     # Strong downward pull for drooping curtain
-        "sub_split_prob": 0.35,
+        "sub_split_prob": 0.30,
         "sub_split_angle": 35.0,
         "sub_flatness": 0.35,
         "sub_resolution": 0.4,
