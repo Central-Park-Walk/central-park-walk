@@ -107,7 +107,7 @@ cd central-park-walk
 - Standard PEP 8
 - Blender scripts follow the `make_*.py` pattern: build geometry, apply materials, export GLB
 - Data pipeline scripts are idempotent: safe to re-run
-- `convert_to_godot.py` pre-bakes: park_data.json/bin, heightmap.bin, terrain_mesh.bin, world_atlas.bin, landuse_map.png, boundary_mask.png — all spatial grids at 8192×8192 (0.61m/cell) matching LiDAR resolution
+- `convert_to_godot.py` pre-bakes: park_data.json/bin, heightmap.bin, world_atlas.bin, landuse_map.png, boundary_mask.png — all spatial grids at 8192×8192 (0.61m/cell) matching LiDAR resolution
 
 ### Priority Areas
 

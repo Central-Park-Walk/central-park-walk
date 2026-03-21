@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Convert central_park_osm.json → park_data.json + heightmap.bin + terrain_mesh.bin
+Convert central_park_osm.json → park_data.json + heightmap.bin
 
 Projects OSM lat/lon into local metres relative to the centre of Central Park,
 using the same coordinate convention as the Godot scene:
@@ -10,7 +10,7 @@ using the same coordinate convention as the Godot scene:
     −Z axis = North   (Godot's default forward is −Z)
 
 If terrain_tiles/ is present (run download_terrain.py first), the converter
-writes heightmap.bin (8K float32 DEM) and terrain_mesh.bin (prebaked terrain),
+writes heightmap.bin (8K float32 DEM),
 and embeds real terrain heights (metres, relative to the lowest point) into
 every feature:
 
@@ -2635,8 +2635,7 @@ def main() -> None:
                 ],
             },
         ]
-        # terrain_mesh.bin no longer needed — Terrain3D handles terrain rendering
-        # prebake_terrain_mesh(hm_arr, boundary_pts, surface_arr, terrain_holes)
+        # Terrain3D handles terrain rendering — no prebaked mesh needed
 
 
 def prebake_water_grids(water_bodies, terrain_func, boundary_pts):
@@ -3606,211 +3605,6 @@ def prebake_landuse_map(landuse_zones, water_bodies):
         print(f"  Shore distance: saved → shore_distance.png ({RES}×{RES}, {sd_kb:.0f} KB)")
 
 
-def prebake_terrain_mesh(hm_arr, boundary_pts, surface_arr=None, hole_polygons=None):
-    """Pre-bake terrain mesh at full 8K resolution → terrain_mesh.bin.
-
-    Generates the terrain ArrayMesh in Python rather than GDScript.
-    At 8192×8192, the mesh has 0.61m cells — enough to capture bridge decks,
-    parapets, steps, retaining walls, and rock outcrop detail from LiDAR.
-
-    Only emits triangles inside the park boundary + 200m buffer.
-    Triangles inside hole_polygons are REMOVED — 3D models fill these holes.
-    Vertices are re-indexed so only used vertices are stored.
-
-    Vertex colors encode smoothed surface blend weights (replaces the GPU
-    splat map atlas — GPU hardware interpolates vertex colors across triangle
-    faces, eliminating the hard 0.61m cell boundaries that caused grid artifacts):
-        R = paved path/bridge blend (0-255)
-        G = unpaved trail blend (0-255)
-        B = rock blend (0-255)
-        A = structure mask / special (0-255)
-
-    Format v2:
-        uint32 vertex_count
-        uint32 index_count
-        float32 world_size
-        uint32  version (2 = has vertex colors)
-        float32[vertex_count * 3] positions (x, y, z interleaved)
-        uint8[vertex_count * 4] colors (RGBA8 interleaved)
-        uint32[index_count] indices
-    """
-    import struct
-    import numpy as np
-    from PIL import Image, ImageDraw
-    from scipy.ndimage import binary_dilation
-
-    W = hm_arr.shape[1]  # 8192
-    H = hm_arr.shape[0]  # 8192
-    HALF = WORLD_SIZE / 2.0
-    cell = WORLD_SIZE / (W - 1)
-    print(f"Pre-baking terrain mesh at {W}×{H} ({cell:.2f} m/cell)...")
-
-    # Rasterize boundary + buffer as a mask at grid resolution
-    def world_to_pixel(wx, wz):
-        px = (wx + HALF) / WORLD_SIZE * W
-        pz = (wz + HALF) / WORLD_SIZE * H
-        return px, pz
-
-    mask_img = Image.new('L', (W, H), 0)
-    draw = ImageDraw.Draw(mask_img)
-    if len(boundary_pts) >= 3:
-        poly = [world_to_pixel(float(bp[0]), float(bp[1])) for bp in boundary_pts]
-        draw.polygon(poly, fill=255)
-
-    inside = np.array(mask_img, dtype=np.uint8) > 0
-    del mask_img
-
-    # Dilate by ~200m buffer (streets between park and buildings)
-    buf_cells = int(np.ceil(200.0 / cell))
-    dilated = binary_dilation(inside, iterations=buf_cells)
-    # Use dilated mask for vertex inclusion
-    vertex_mask = dilated
-    inside_count = int(inside.sum())
-    buffer_count = int(vertex_mask.sum()) - inside_count
-    print(f"  Boundary: {inside_count} cells inside + {buffer_count} buffer = {int(vertex_mask.sum())} total")
-    del inside, dilated
-
-    # Determine which cells emit triangles (any corner inside mask)
-    print("  Building cell and vertex maps...")
-    cell_mask = (vertex_mask[:-1, :-1] | vertex_mask[:-1, 1:] |
-                 vertex_mask[1:, :-1]  | vertex_mask[1:, 1:])
-
-    # Cut holes for terrain-integrated structures (tunnels, bridges)
-    # 3D models fill these holes with complete geometry
-    if hole_polygons:
-        hole_img = Image.new('L', (W, H), 0)
-        hole_draw = ImageDraw.Draw(hole_img)
-        for hp in hole_polygons:
-            name = hp.get("name", "unnamed")
-            pts = hp["points"]
-            poly = [world_to_pixel(float(p[0]), float(p[1])) for p in pts]
-            hole_draw.polygon(poly, fill=255)
-        hole_mask = np.array(hole_img, dtype=np.uint8) > 0
-        # Remove cells where ALL 4 corners are inside the hole
-        hole_cells = (hole_mask[:-1, :-1] & hole_mask[:-1, 1:] &
-                      hole_mask[1:, :-1]  & hole_mask[1:, 1:])
-        removed = int(hole_cells.sum())
-        cell_mask = cell_mask & ~hole_cells
-        del hole_img, hole_mask, hole_cells
-        print(f"  Terrain holes: {len(hole_polygons)} polygons, {removed:,} cells removed")
-
-    # Mark vertices needed: all 4 corners of every emitting cell
-    needed = np.zeros((H, W), dtype=bool)
-    cell_zi, cell_xi = np.where(cell_mask)
-    needed[cell_zi,     cell_xi]     = True  # top-left
-    needed[cell_zi,     cell_xi + 1] = True  # top-right
-    needed[cell_zi + 1, cell_xi]     = True  # bottom-left
-    needed[cell_zi + 1, cell_xi + 1] = True  # bottom-right
-
-    n_verts = int(needed.sum())
-    print(f"  Vertices: {n_verts:,} ({n_verts * 12 / 1e6:.1f} MB positions)")
-
-    # Assign sequential indices to needed vertices
-    vert_idx = np.full((H, W), -1, dtype=np.int32)
-    vert_idx[needed] = np.arange(n_verts, dtype=np.int32)
-
-    # Generate vertex positions (UVs derived at load time from position)
-    print("  Generating positions...")
-    zi_all, xi_all = np.where(needed)
-    positions = np.empty((n_verts, 3), dtype=np.float32)
-    positions[:, 0] = -HALF + xi_all.astype(np.float32) * cell  # x
-    positions[:, 1] = hm_arr[zi_all, xi_all]                     # y (height)
-    positions[:, 2] = -HALF + zi_all.astype(np.float32) * cell  # z
-
-    # --- Vertex colors: smoothed surface blend weights ---
-    # GPU hardware interpolation across triangle faces eliminates the hard
-    # 0.61m cell boundaries that caused visible grid artifacts with the atlas.
-    # Pre-blur each surface mask with Gaussian kernel for natural ~2m transitions.
-    print("  Computing vertex colors (smoothed surface blends)...")
-    colors = np.zeros((n_verts, 4), dtype=np.uint8)
-    if surface_arr is not None:
-        from scipy.ndimage import gaussian_filter
-        # Ensure surface array matches heightmap resolution
-        assert surface_arr.shape == (H, W), \
-            f"Surface array {surface_arr.shape} != heightmap {(H, W)}"
-        # Sigma in pixels: 2.5 px × 0.61 m/px ≈ 1.5m blur radius.
-        # This creates ~3m wide transitions at surface boundaries —
-        # natural for grass-to-path edges (real paths have worn dirt borders).
-        SIGMA = 2.5
-        # R channel: paved path + bridge blend
-        paved_mask = ((surface_arr == 2) | (surface_arr == 6)).astype(np.float32)
-        paved_smooth = gaussian_filter(paved_mask, sigma=SIGMA)
-        del paved_mask
-        # G channel: unpaved trail blend
-        unpaved_mask = (surface_arr == 3).astype(np.float32)
-        unpaved_smooth = gaussian_filter(unpaved_mask, sigma=SIGMA)
-        del unpaved_mask
-        # B channel: rock blend (from atlas type 7 + slope detection)
-        rock_mask = (surface_arr == 7).astype(np.float32)
-        # Also add slope-based rock: compute terrain slope from heightmap
-        # Finite differences for slope magnitude
-        dy_dz = np.zeros_like(hm_arr)
-        dy_dx = np.zeros_like(hm_arr)
-        dy_dz[1:-1, :] = (hm_arr[2:, :] - hm_arr[:-2, :]) / (2.0 * cell)
-        dy_dx[:, 1:-1] = (hm_arr[:, 2:] - hm_arr[:, :-2]) / (2.0 * cell)
-        slope = np.sqrt(dy_dx**2 + dy_dz**2)
-        # Steep slopes (>30°, slope>0.577) get rock material
-        slope_rock = np.clip((slope - 0.4) / 0.3, 0.0, 1.0)
-        # Combine atlas rock + slope rock
-        rock_combined = np.maximum(rock_mask, slope_rock).astype(np.float32)
-        rock_smooth = gaussian_filter(rock_combined, sigma=SIGMA)
-        del rock_mask, slope_rock, rock_combined, slope, dy_dx, dy_dz
-        # A channel: building area (surface_arr == 5) — shader can skip detail
-        bldg_mask = (surface_arr == 5).astype(np.float32)
-        bldg_smooth = gaussian_filter(bldg_mask, sigma=1.0)  # tighter transition
-        del bldg_mask
-        # Sample smoothed fields at vertex positions and encode as uint8
-        colors[:, 0] = np.clip(paved_smooth[zi_all, xi_all] * 255.0, 0, 255).astype(np.uint8)
-        colors[:, 1] = np.clip(unpaved_smooth[zi_all, xi_all] * 255.0, 0, 255).astype(np.uint8)
-        colors[:, 2] = np.clip(rock_smooth[zi_all, xi_all] * 255.0, 0, 255).astype(np.uint8)
-        colors[:, 3] = np.clip(bldg_smooth[zi_all, xi_all] * 255.0, 0, 255).astype(np.uint8)
-        del paved_smooth, unpaved_smooth, rock_smooth, bldg_smooth
-        paved_verts = int((colors[:, 0] > 128).sum())
-        unpaved_verts = int((colors[:, 1] > 128).sum())
-        rock_verts = int((colors[:, 2] > 128).sum())
-        print(f"  Vertex colors: {paved_verts:,} paved, {unpaved_verts:,} unpaved, "
-              f"{rock_verts:,} rock (with ~1.5m Gaussian transition)")
-    else:
-        print("  WARNING: No surface array — vertex colors will be all-zero (grass)")
-
-    # Generate triangle indices from cell_mask (already computed above)
-    print("  Generating triangles...")
-    n_cells = len(cell_zi)
-    n_tris = n_cells * 2
-    n_indices = n_tris * 3
-    print(f"  Triangles: {n_tris:,} ({n_indices:,} indices, {n_indices * 4 / 1e6:.1f} MB)")
-
-    # Look up vertex indices for each cell's 4 corners
-    i00 = vert_idx[cell_zi,     cell_xi]      # top-left
-    i10 = vert_idx[cell_zi,     cell_xi + 1]  # top-right
-    i01 = vert_idx[cell_zi + 1, cell_xi]      # bottom-left
-    i11 = vert_idx[cell_zi + 1, cell_xi + 1]  # bottom-right
-
-    # Two triangles per cell: (i00, i10, i11) and (i00, i11, i01)
-    indices = np.empty((n_cells, 6), dtype=np.uint32)
-    indices[:, 0] = i00; indices[:, 1] = i10; indices[:, 2] = i11
-    indices[:, 3] = i00; indices[:, 4] = i11; indices[:, 5] = i01
-    indices = indices.ravel()
-
-    # Verify no -1 indices (should never happen with correct needed mask)
-    bad = int((indices == 0xFFFFFFFF).sum())
-    if bad > 0:
-        print(f"  WARNING: {bad} invalid indices — vertex mask error")
-
-    # Write binary v2 (positions + vertex colors + indices)
-    print("  Writing terrain_mesh.bin (v2 with vertex colors)...")
-    with open("terrain_mesh.bin", "wb") as f:
-        f.write(struct.pack("<II", n_verts, len(indices)))
-        f.write(struct.pack("<f", WORLD_SIZE))
-        f.write(struct.pack("<I", 2))  # version 2: has vertex colors
-        f.write(positions.tobytes())
-        f.write(colors.tobytes())  # RGBA8, n_verts × 4 bytes
-        f.write(indices.tobytes())
-
-    mesh_mb = os.path.getsize("terrain_mesh.bin") / 1e6
-    color_mb = n_verts * 4 / 1e6
-    print(f"  Saved → terrain_mesh.bin ({n_verts:,} verts, {n_tris:,} tris, "
-          f"{mesh_mb:.1f} MB, vertex colors {color_mb:.1f} MB)")
 
     del vert_idx, needed, positions, colors, indices
 
