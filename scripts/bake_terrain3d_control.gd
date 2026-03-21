@@ -5,11 +5,11 @@ extends SceneTree
 ##   godot --headless -s scripts/bake_terrain3d_control.gd
 ##
 ## Texture slot allocation:
-##   0 = grass       5 = asphalt
-##   1 = meadow      6 = concrete
-##   2 = rock        7 = paving
-##   3 = dirt        8 = gravel
-##   4 = shore       9 = wood
+##   0 = grass          5 = asphalt       10 = leaf_litter
+##   1 = meadow         6 = concrete      11 = flagstone
+##   2 = rock           7 = paving        12 = wet_earth
+##   3 = dirt           8 = gravel        13 = sparse_grass
+##   4 = shore          9 = wood
 
 const WORLD_SIZE := 5000.0
 const HALF := WORLD_SIZE / 2.0
@@ -21,16 +21,20 @@ const VERTEX_SPACING := 0.6104
 const REGION_SIZE := 1024  # vertices per region side
 
 # Texture slot IDs
-const TEX_GRASS    := 0
-const TEX_MEADOW   := 1
-const TEX_ROCK     := 2
-const TEX_DIRT     := 3
-const TEX_SHORE    := 4
-const TEX_ASPHALT  := 5
-const TEX_CONCRETE := 6
-const TEX_PAVING   := 7
-const TEX_GRAVEL   := 8
-const TEX_WOOD     := 9
+const TEX_GRASS        := 0
+const TEX_MEADOW       := 1
+const TEX_ROCK         := 2
+const TEX_DIRT         := 3
+const TEX_SHORE        := 4
+const TEX_ASPHALT      := 5
+const TEX_CONCRETE     := 6
+const TEX_PAVING       := 7
+const TEX_GRAVEL       := 8
+const TEX_WOOD         := 9
+const TEX_LEAF_LITTER  := 10
+const TEX_FLAGSTONE    := 11
+const TEX_WET_EARTH    := 12
+const TEX_SPARSE_GRASS := 13
 
 # Landuse zone → texture slot
 const ZONE_TO_TEX := {
@@ -39,20 +43,19 @@ const ZONE_TO_TEX := {
 	2:  TEX_GRASS,    # grass
 	3:  TEX_GRASS,    # pitch
 	4:  TEX_DIRT,     # playground
-	5:  TEX_GRASS,    # nature reserve
+	5:  TEX_SPARSE_GRASS, # nature reserve (thin, patchy grass)
 	6:  TEX_DIRT,     # dog park
 	7:  TEX_GRASS,    # sports
 	8:  TEX_CONCRETE, # pool
-	9:  TEX_DIRT,     # track (cinder)
-	10: TEX_MEADOW,   # wood
-	11: TEX_MEADOW,   # forest
+	9:  TEX_GRAVEL,   # track (cinder/gravel, not bare dirt)
+	10: TEX_LEAF_LITTER, # wood (forest floor with fallen leaves)
+	11: TEX_LEAF_LITTER, # forest (same)
 	12: TEX_GRASS,    # water (hole, but fallback to grass)
 	13: TEX_SHORE,    # shore
 }
 
-# Structure mask values → texture slot (crude mapping based on slope in shader)
-# We'll use asphalt as default for structures, paving for flat areas
-const STRUCT_FLAT  := TEX_PAVING
+# Structure mask values → texture slot
+const STRUCT_FLAT  := TEX_FLAGSTONE  # plazas, terraces, flat stone areas
 const STRUCT_SLOPE := TEX_CONCRETE
 
 var _terrain: Terrain3D
@@ -156,21 +159,25 @@ func _do_bake() -> void:
 					continue
 				# Structure detected (LiDAR) — only strong detections
 				elif struct_val > 16 and park_val > 0.5:
-					base_id = TEX_PAVING
+					base_id = STRUCT_FLAT
 					use_auto = false
-				# Shore zone — blend shore with grass
+				# Shore zone — blend shore/wet_earth with base texture
 				elif zone_id == 13 or (shore_val > 0.0 and shore_val < 0.5):
 					var shore_dist_m: float = shore_val * 30.0
 					if shore_dist_m < 15.0:
 						blend = clampf(1.0 - shore_dist_m / 15.0, 0.0, 1.0)
-						base_id = TEX_GRASS
-						over_id = TEX_SHORE
+						base_id = ZONE_TO_TEX.get(zone_id, TEX_GRASS)
+						# Woodland shores → wet earth; open shores → muddy shore
+						if zone_id == 10 or zone_id == 11:
+							over_id = TEX_WET_EARTH
+						else:
+							over_id = TEX_SHORE
 						use_auto = false
 					else:
 						base_id = ZONE_TO_TEX.get(zone_id, TEX_GRASS)
 				else:
 					base_id = ZONE_TO_TEX.get(zone_id, TEX_GRASS)
-					# Woodland/forest: disable autoshader (want meadow, not rock)
+					# Woodland/forest: disable autoshader (want leaf litter, not rock)
 					if zone_id == 10 or zone_id == 11:
 						use_auto = false
 

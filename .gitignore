@@ -47,6 +47,7 @@ __pycache__/
 *.odp
 *.png
 !screenshots/*.png
+!textures/terrain3d/*.png
 example pics/
 
 # Internal planning docs (not part of the project)

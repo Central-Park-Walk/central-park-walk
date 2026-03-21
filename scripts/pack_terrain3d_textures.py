@@ -69,6 +69,26 @@ TEXTURE_SETS = {
         "WoodFloor041_1K-JPG_NormalGL.jpg",
         "WoodFloor041_1K-JPG_Roughness.jpg",
     ),
+    "leaf_litter": (
+        "leaf_litter_Color.jpg",
+        "leaf_litter_NormalGL.jpg",
+        "leaf_litter_Roughness.jpg",
+    ),
+    "flagstone": (
+        "pbr/granite/Granite002A_1K-JPG_Color.jpg",
+        "pbr/granite/Granite002A_1K-JPG_NormalGL.jpg",
+        "pbr/granite/Granite002A_1K-JPG_Roughness.jpg",
+    ),
+    "wet_earth": (
+        "Ground037_2K-JPG_Color.jpg",
+        "Ground037_2K-JPG_NormalGL.jpg",
+        "Ground037_2K-JPG_Roughness.jpg",
+    ),
+    "sparse_grass": (
+        "sparse_grass_Color.jpg",
+        "sparse_grass_NormalGL.jpg",
+        "sparse_grass_Roughness.jpg",
+    ),
 }
 
 
