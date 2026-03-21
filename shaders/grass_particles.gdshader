@@ -43,7 +43,8 @@ group_uniforms central_park;
 uniform sampler2D landuse_map : filter_nearest, repeat_disable;
 uniform sampler2D canopy_map : filter_linear, repeat_disable;
 uniform float world_size = 5000.0;
-uniform float season_t = 1.5;  // 0=spring, 1=summer, 2=autumn, 3=winter
+global uniform float season_t;
+global uniform float snow_cover;
 // Biome filter: 0=lawn(1,3,7) 1=meadow(0,2) 2=wild(5) 3=woodland(10,11) -1=all(legacy)
 uniform int biome_id = -1;
 
