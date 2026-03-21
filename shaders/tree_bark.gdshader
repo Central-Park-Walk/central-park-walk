@@ -15,7 +15,7 @@ uniform sampler2D bark_albedo_tex : source_color, filter_linear_mipmap_anisotrop
 uniform sampler2D bark_normal_tex : hint_normal, filter_linear_mipmap_anisotropic;
 uniform sampler2D bark_roughness_tex : filter_linear_mipmap_anisotropic;
 uniform float tex_blend = 0.45;        // 0=pure procedural, 1=pure texture
-uniform float tex_uv_scale = 1.8;      // world-space tiling frequency
+uniform float tex_uv_scale = 0.7;      // world-space tiling frequency
 
 varying vec3 world_pos;
 varying vec3 world_nrm;
@@ -43,8 +43,8 @@ void fragment() {
 	// UV approximation: vertical = world_pos.y, horizontal = angular position
 	// Scale chosen so crack patterns read at walking distance (not microscopic)
 	float local_h = world_pos.y - tree_base.y;
-	float bark_y = local_h * 2.0;
-	float bark_u = world_pos.x * 1.8 + world_pos.z * 1.4;
+	float bark_y = local_h * 1.2;
+	float bark_u = world_pos.x * 1.1 + world_pos.z * 0.85;
 	float furrow = 0.5;  // shared variable for lichen/moss/snow to use
 	float rough = 0.88;
 	float micro = 0.0;
@@ -61,7 +61,7 @@ void fragment() {
 		col *= mix(0.62, 1.08, furrow);
 		// Coarse flaky texture on ridge surfaces
 		micro = fbm(vec2(bark_u * 8.0, bark_y * 6.0), 3);
-		float grit = vnoise(vec2(bark_u * 22.0, bark_y * 18.0));
+		float grit = vnoise(vec2(bark_u * 14.0, bark_y * 12.0));
 		col *= (0.88 + micro * 0.16 + grit * 0.08);
 		rough = mix(0.78, 0.96, furrow) + micro * 0.04;
 	} else if (bark_style == 1) {
