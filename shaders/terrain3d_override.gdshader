@@ -341,8 +341,10 @@ void fragment() {
 
 	// Apply native PBR
 	ALBEDO = albedo_height.rgb * color_map.rgb * macrov;
-	ROUGHNESS = roughness;
-	SPECULAR = 1.0 - normal_rough.a;
+	// Grass and natural surfaces need higher roughness — raw texture values
+	// produce waxy specular sheen in side light. Raise floor to 0.82.
+	ROUGHNESS = max(roughness, 0.82);
+	SPECULAR = 0.04;  // dielectric minimum — grass has no specular sheen
 	NORMAL_MAP = fma(normalize(normal_rough.xzy), vec3(0.5), vec3(0.5));
 	NORMAL_MAP_DEPTH = normal_map_depth;
 
