@@ -70,6 +70,12 @@ void vertex() {
 }
 
 void fragment() {
+	// Heavy snow/winter: hide grass entirely
+	float frag_snow = max(smoothstep(2.7, 3.5, season_t), snow_cover);
+	if (frag_snow > 0.6) {
+		discard;
+	}
+
 	// Texture-based color + alpha
 	vec3 base_col;
 	if (use_texture) {
