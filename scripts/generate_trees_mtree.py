@@ -125,6 +125,7 @@ SPECIES = {
         "leaf_seed": 881,
         "leaf_cluster_size_range": (0.25, 0.55),
         "leaf_flatten_range": (0.40, 0.70),
+        "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
         "base_seed": 100,
         "seed_step": 23,
         "tiers": {
@@ -172,6 +173,7 @@ SPECIES = {
         "leaf_seed": 777,
         "leaf_cluster_size_range": (0.25, 0.55),
         "leaf_flatten_range": (0.40, 0.70),
+        "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
         "base_seed": 42,
         "seed_step": 17,
         "tiers": {
@@ -219,6 +221,7 @@ SPECIES = {
         "leaf_seed": 888,
         "leaf_cluster_size_range": (0.30, 0.60),
         "leaf_flatten_range": (0.40, 0.70),
+        "leaf_density": 0.85,  # canopy density (0-1, from real-world LAI)
         "base_seed": 101,
         "seed_step": 23,
         "tiers": {
@@ -266,6 +269,7 @@ SPECIES = {
         "leaf_seed": 552,
         "leaf_cluster_size_range": (0.22, 0.50),
         "leaf_flatten_range": (0.45, 0.60),
+        "leaf_density": 0.9,  # canopy density (0-1, from real-world LAI)
         "base_seed": 300,
         "seed_step": 29,
         "tiers": {
@@ -314,6 +318,7 @@ SPECIES = {
         "leaf_seed": 601,
         "leaf_cluster_size_range": (0.28, 0.55),
         "leaf_flatten_range": (0.40, 0.60),
+        "leaf_density": 0.85,  # canopy density (0-1, from real-world LAI)
         "base_seed": 400,
         "seed_step": 29,
         "tiers": {
@@ -362,6 +367,7 @@ SPECIES = {
         "leaf_seed": 443,
         "leaf_cluster_size_range": (0.20, 0.45),
         "leaf_flatten_range": (0.50, 0.75),
+        "leaf_density": 0.7,  # canopy density (0-1, from real-world LAI)
         "base_seed": 200,
         "seed_step": 19,
         "tiers": {
@@ -410,6 +416,7 @@ SPECIES = {
         "leaf_seed": 551,
         "leaf_cluster_size_range": (0.18, 0.40),
         "leaf_flatten_range": (0.40, 0.70),
+        "leaf_density": 0.5,  # canopy density (0-1, from real-world LAI)
         "base_seed": 300,
         "seed_step": 23,
         "tiers": {
@@ -458,6 +465,7 @@ SPECIES = {
         "leaf_seed": 661,
         "leaf_cluster_size_range": (0.20, 0.42),
         "leaf_flatten_range": (0.45, 0.65),
+        "leaf_density": 0.45,  # canopy density (0-1, from real-world LAI)
         "base_seed": 400,
         "seed_step": 29,
         "tiers": {
@@ -506,6 +514,7 @@ SPECIES = {
         "leaf_seed": 557,
         "leaf_cluster_size_range": (0.22, 0.48),
         "leaf_flatten_range": (0.50, 0.70),
+        "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
         "base_seed": 350,
         "seed_step": 23,
         "tiers": {
@@ -555,6 +564,7 @@ SPECIES = {
         "leaf_seed": 801,
         "leaf_cluster_size_range": (0.18, 0.40),
         "leaf_flatten_range": (0.55, 0.75),
+        "leaf_density": 0.6,  # canopy density (0-1, from real-world LAI)
         "sub_min_height": 14,          # Sub-branches only on mature willows
         "base_seed": 50,
         "seed_step": 41,
@@ -604,6 +614,7 @@ SPECIES = {
         "leaf_seed": 773,
         "leaf_cluster_size_range": (0.22, 0.48),
         "leaf_flatten_range": (0.45, 0.60),
+        "leaf_density": 0.9,  # canopy density (0-1, from real-world LAI)
         "base_seed": 500,
         "seed_step": 37,
         "tiers": {
@@ -652,6 +663,7 @@ SPECIES = {
         "leaf_seed": 447,
         "leaf_cluster_size_range": (0.25, 0.55),
         "leaf_flatten_range": (0.45, 0.65),
+        "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
         "base_seed": 200,
         "seed_step": 31,
         "tiers": {
@@ -700,6 +712,7 @@ SPECIES = {
         "leaf_seed": 557,
         "leaf_cluster_size_range": (0.18, 0.40),
         "leaf_flatten_range": (0.50, 0.70),
+        "leaf_density": 0.55,  # canopy density (0-1, from real-world LAI)
         "sub_min_height": 999,          # Spur shoots crash mesher; use primary-only
         "base_seed": 50,
         "seed_step": 31,
@@ -749,6 +762,7 @@ SPECIES = {
         "leaf_seed": 663,
         "leaf_cluster_size_range": (0.25, 0.55),
         "leaf_flatten_range": (0.45, 0.65),
+        "leaf_density": 0.7,  # canopy density (0-1, from real-world LAI)
         "base_seed": 500,
         "seed_step": 29,
         "tiers": {
@@ -797,6 +811,7 @@ SPECIES = {
         "leaf_seed": 700,
         "leaf_cluster_size_range": (0.22, 0.50),
         "leaf_flatten_range": (0.45, 0.65),
+        "leaf_density": 0.75,  # canopy density (0-1, from real-world LAI)
         "base_seed": 700,
         "seed_step": 31,
         "tiers": {
@@ -902,11 +917,15 @@ def generate_tree_skeleton(sp, height, seed):
     return mesher.mesh_tree(tree)
 
 
-def extract_leaf_positions(mesh_obj, sp, target_height, rng):
+def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
     """Extract branch tip positions for leaf card placement.
 
     Uses the 'radius' vertex attribute: small radius = branch tip.
     Clusters nearby tips and returns placement positions + sizes.
+
+    Tier affects density: _l=many small clusters (close-up detail),
+    _s=fewer larger clusters (reads at distance). leaf_density per species
+    scales cluster count to match real-world canopy density (LAI-derived).
     """
     mesh = mesh_obj.data
     verts = mesh.vertices
@@ -938,8 +957,14 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng):
     if not tip_positions:
         return []
 
-    # Cluster nearby tips (grid-based spatial hash)
-    cell_size = target_height * 0.042  # ~1.05m cells for 25m tree (was 0.06 = 1.5m)
+    # Per-species canopy density (0-1, from real-world LAI)
+    density = sp.get("leaf_density", 0.75)
+
+    # Cell size uniform across tiers — cluster count driven by branch structure,
+    # not artificial tier scaling. Denser species get smaller cells (more clusters).
+    base_cell = target_height * 0.035  # baseline ~0.875m for 25m tree
+    cell_size = base_cell / max(density, 0.3)
+
     clusters = {}
     for pos in tip_positions:
         key = (
@@ -951,6 +976,10 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng):
             clusters[key] = []
         clusters[key].append(pos)
 
+    # Per-tier card size: _s models get larger cards to fill canopy at distance
+    tier_size_factor = {"l": 1.0, "m": 1.15, "s": 1.4}
+    size_mult = tier_size_factor.get(tier, 1.0)
+
     # Compute cluster centroids
     placements = []
     lo, hi = sp["leaf_cluster_size_range"]
@@ -959,7 +988,7 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng):
         cx = sum(p.x for p in cell_tips) / len(cell_tips)
         cy = sum(p.y for p in cell_tips) / len(cell_tips)
         cz = sum(p.z for p in cell_tips) / len(cell_tips)
-        size = rng.uniform(lo, hi) * (target_height / 25.0)  # Scale with tree
+        size = rng.uniform(lo, hi) * (target_height / 25.0) * size_mult
         flatten = rng.uniform(flo, fhi)
         placements.append((Vector((cx, cy, cz)), size, flatten))
 
@@ -1008,11 +1037,11 @@ def create_leaf_cards_at_positions(placements, leaf_mat, rng):
             for loop, uv in zip(face.loops, uvs):
                 loop[uv_layer].uv = uv
 
-        # --- 1-2 near-horizontal canopy cards ---
+        # --- 2 near-horizontal canopy cards ---
         # These fill the canopy from overhead. Tilted 15-30° from horizontal
         # so they have depth from the side and don't look like flat tables.
-        n_horiz = rng.choice([1, 1, 2])  # 1 card 67%, 2 cards 33%
-        horiz_size = card_w * rng.uniform(0.8, 1.1)  # similar size to vertical
+        n_horiz = 2
+        horiz_size = card_w * rng.uniform(0.9, 1.2)  # slightly larger for canopy fill
         for h in range(n_horiz):
             h_angle = rng.uniform(0, math.pi * 2)  # random yaw
             # Tilt 15-30° from horizontal (more natural than pure flat)
@@ -1116,7 +1145,7 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg):
         actual_h, actual_w = clean_nan_vertices(trunk_obj)
 
         # --- Place leaf cards ---
-        placements = extract_leaf_positions(trunk_obj, sp, target_h, rng)
+        placements = extract_leaf_positions(trunk_obj, sp, target_h, rng, tier=tier_name)
         leaf_objs = create_leaf_cards_at_positions(placements, leaf_mat, rng)
 
         # --- Join all objects ---
