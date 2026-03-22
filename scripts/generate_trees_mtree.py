@@ -967,13 +967,17 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng):
 
 
 def create_leaf_cards_at_positions(placements, leaf_mat, rng):
-    """Create crossed-quad leaf card clusters at the given positions.
+    """Create mixed-orientation leaf card clusters at the given positions.
+
+    AAA standard: 3 vertical crossed-quads + 1-2 near-horizontal cards per
+    cluster. Vertical cards read from side views, horizontal cards fill the
+    canopy from overhead. Horizontal cards tilted 15-30° from flat so they
+    have depth from any angle (pure horizontal looks like a table).
 
     Returns a list of bmesh objects to be joined into the tree mesh.
     """
     all_objects = []
     for pos, size, flatten in placements:
-        n_quads = 3
         card_w = size * 2.0 * rng.uniform(0.85, 1.15)
         card_h = card_w * flatten * rng.uniform(0.8, 1.2)
         base_angle = rng.uniform(0, math.pi)
@@ -981,9 +985,10 @@ def create_leaf_cards_at_positions(placements, leaf_mat, rng):
         bm = bmesh.new()
         uv_layer = bm.loops.layers.uv.new("UVMap")
 
+        # --- 3 vertical crossed-quads (existing) ---
+        n_quads = 3
         for q in range(n_quads):
             angle = base_angle + q * math.pi / n_quads
-            # Random tilt for organic look
             tilt_x = rng.uniform(-0.15, 0.15)
             tilt_z = rng.uniform(-0.15, 0.15)
 
@@ -999,8 +1004,52 @@ def create_leaf_cards_at_positions(placements, leaf_mat, rng):
             ]
             bm_verts = [bm.verts.new(c) for c in corners]
             face = bm.faces.new(bm_verts)
+            uvs = [(0, 0), (1, 0), (1, 1), (0, 1)]
+            for loop, uv in zip(face.loops, uvs):
+                loop[uv_layer].uv = uv
 
-            # UV: full 0-1 space
+        # --- 1-2 near-horizontal canopy cards ---
+        # These fill the canopy from overhead. Tilted 15-30° from horizontal
+        # so they have depth from the side and don't look like flat tables.
+        n_horiz = rng.choice([1, 1, 2])  # 1 card 67%, 2 cards 33%
+        horiz_size = card_w * rng.uniform(0.8, 1.1)  # similar size to vertical
+        for h in range(n_horiz):
+            h_angle = rng.uniform(0, math.pi * 2)  # random yaw
+            # Tilt 15-30° from horizontal (more natural than pure flat)
+            pitch = rng.uniform(0.26, 0.52)  # ~15-30° in radians
+            pitch_dir = rng.uniform(0, math.pi * 2)  # tilt direction
+
+            half_w = horiz_size * 0.5
+            half_h_card = horiz_size * flatten * rng.uniform(0.7, 1.0) * 0.5
+            # Slight vertical offset: top cards sit near cluster top
+            z_off = card_h * rng.uniform(0.0, 0.3)
+
+            # Build quad in XY plane (horizontal in Blender Z-up), then tilt
+            ca, sa = math.cos(h_angle), math.sin(h_angle)
+            cp, sp = math.cos(pitch), math.sin(pitch)
+            cpd, spd = math.cos(pitch_dir), math.sin(pitch_dir)
+
+            # 4 corners of a flat quad rotated by h_angle around Z
+            flat_corners = [
+                (-half_w, -half_h_card),
+                ( half_w, -half_h_card),
+                ( half_w,  half_h_card),
+                (-half_w,  half_h_card),
+            ]
+            corners = []
+            for fx, fy in flat_corners:
+                # Rotate in XY plane by h_angle
+                rx = fx * ca - fy * sa
+                ry = fx * sa + fy * ca
+                rz = 0.0
+                # Apply pitch tilt around the pitch_dir axis
+                # Simplified: tilt the Z component based on distance from center
+                dist_along_tilt = rx * cpd + ry * spd
+                rz += dist_along_tilt * math.sin(pitch)
+                corners.append(Vector((rx, ry, rz + z_off)) + pos)
+
+            bm_verts = [bm.verts.new(c) for c in corners]
+            face = bm.faces.new(bm_verts)
             uvs = [(0, 0), (1, 0), (1, 1), (0, 1)]
             for loop, uv in zip(face.loops, uvs):
                 loop[uv_layer].uv = uv
