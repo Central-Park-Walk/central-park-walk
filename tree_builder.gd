@@ -76,7 +76,7 @@ func _get_tier(species: String, desired_h: float) -> String:
 	else:
 		return "l"
 
-const CACHE_DIR := "res://cache/trees/"
+const CACHE_DIR := "user://cache/trees/"
 
 func _try_load_cached_tree(model_name: String) -> Dictionary:
 	## Load tree meshes from .res cache (much faster than GLTF parsing).

@@ -4,7 +4,7 @@
 
 var _loader  # Reference to park_loader for shared utilities
 const MAX_BUILDING_DIST := 350.0  # metres — first 1-2 rows of skyline buildings
-const BLDG_CACHE_PATH := "res://cache/buildings.bin"
+const BLDG_CACHE_PATH := "user://cache/buildings.bin"
 
 func _init(loader) -> void:
 	_loader = loader
@@ -55,7 +55,7 @@ func _save_building_cache(n_buildings: int, sv: Array, sn: Array, su: Array, sc:
 		roof_verts: PackedVector3Array, roof_normals: PackedVector3Array,
 		roof_colors: PackedColorArray, water_tower_xf: Array,
 		built_count: int, skipped_dist: int) -> void:
-	var abs_dir := ProjectSettings.globalize_path("res://cache/")
+	var abs_dir := ProjectSettings.globalize_path("user://cache/")
 	DirAccess.make_dir_recursive_absolute(abs_dir)
 	var fa := FileAccess.open(BLDG_CACHE_PATH, FileAccess.WRITE)
 	if fa == null:
