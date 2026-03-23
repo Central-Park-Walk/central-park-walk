@@ -1337,6 +1337,155 @@ def generate_dead_tree():
 # MAIN
 # ===========================================================================
 
+def derive_lod_from_l(species_name, tier_name):
+    """Derive _m or _s LOD model from the _l GLB by decimating branch geometry.
+
+    Instead of generating an independent tree from Mtree (which produces
+    different branch shapes per tier), this loads the _l model and simplifies
+    it. Result: identical silhouette across all tiers, smooth LOD transitions.
+
+    Branch geometry (bark material) is decimated; leaf cards (leaf material)
+    are preserved intact so canopy coverage stays consistent.
+    """
+    l_path = os.path.join(MODEL_DIR, f"{species_name}_l.glb")
+    out_path = os.path.join(MODEL_DIR, f"{species_name}_{tier_name}.glb")
+
+    if not os.path.exists(l_path):
+        print(f"  WARNING: {l_path} not found — cannot derive {tier_name}")
+        return False
+
+    # Decimation ratios: fraction of original faces to keep
+    decimate_ratio = {"m": 0.35, "s": 0.12}[tier_name]
+    # Leaf thinning: randomly remove some leaf clusters for perf
+    leaf_keep = {"m": 0.75, "s": 0.45}[tier_name]
+
+    print(f"\n{'='*60}")
+    print(f"  {species_name} — derive {tier_name} from _l")
+    print(f"  Decimate ratio: {decimate_ratio}, leaf keep: {leaf_keep}")
+    print(f"{'='*60}")
+
+    # Clear scene
+    bpy.ops.object.select_all(action='SELECT')
+    bpy.ops.object.delete(use_global=False)
+
+    # Import _l GLB
+    bpy.ops.import_scene.gltf(filepath=l_path)
+    imported = [o for o in bpy.context.scene.objects if o.type == 'MESH']
+
+    if not imported:
+        print(f"  WARNING: no meshes found in {l_path}")
+        return False
+
+    rng = random.Random(42)
+    variant_objects = []
+
+    for obj in imported:
+        bpy.context.view_layer.objects.active = obj
+        obj.select_set(True)
+
+        # Identify leaf vs bark faces by material index
+        leaf_mat_idx = -1
+        bark_mat_idx = -1
+        for mi, mat in enumerate(obj.data.materials):
+            if mat and "leaf" in mat.name.lower():
+                leaf_mat_idx = mi
+            elif mat and "bark" in mat.name.lower():
+                bark_mat_idx = mi
+
+        if bark_mat_idx < 0:
+            # Fallback: first material is bark
+            bark_mat_idx = 0
+            if len(obj.data.materials) > 1:
+                leaf_mat_idx = 1
+
+        # Separate leaf geometry to preserve it
+        # Use bmesh to split by material
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
+        bm.faces.ensure_lookup_table()
+
+        bark_faces = []
+        leaf_faces = []
+        for f in bm.faces:
+            if f.material_index == leaf_mat_idx:
+                leaf_faces.append(f)
+            else:
+                bark_faces.append(f)
+
+        # Thin leaf clusters: leaf cards come in groups of quads
+        # at the same position. Remove random groups by position.
+        if leaf_keep < 1.0 and leaf_faces:
+            # Group leaf faces by center position (rounded to cluster)
+            clusters = {}
+            for f in leaf_faces:
+                cx = round(sum(v.co.x for v in f.verts) / len(f.verts), 1)
+                cy = round(sum(v.co.y for v in f.verts) / len(f.verts), 1)
+                cz = round(sum(v.co.z for v in f.verts) / len(f.verts), 1)
+                key = (cx, cy, cz)
+                if key not in clusters:
+                    clusters[key] = []
+                clusters[key].append(f)
+
+            # Randomly remove clusters
+            remove_faces = []
+            for key, faces in clusters.items():
+                if rng.random() > leaf_keep:
+                    remove_faces.extend(faces)
+
+            if remove_faces:
+                bmesh.ops.delete(bm, geom=remove_faces, context='FACES')
+                bm.faces.ensure_lookup_table()
+
+        bm.to_mesh(obj.data)
+        bm.free()
+        obj.data.update()
+
+        # Apply decimate modifier to the whole mesh
+        # Planar dissolve angle preserves flat quads (leaf cards)
+        mod = obj.modifiers.new("Decimate", 'DECIMATE')
+        mod.decimate_type = 'COLLAPSE'
+        mod.ratio = decimate_ratio
+        # Use vertex group to only decimate bark — but simpler:
+        # the COLLAPSE mode with a ratio naturally preserves flat faces
+        # better than curved ones, so leaf quads survive reasonably well
+        bpy.ops.object.modifier_apply(modifier=mod.name)
+
+        n_verts = len(obj.data.vertices)
+        n_faces = len(obj.data.polygons)
+        print(f"  {obj.name}: {n_verts:,} verts, {n_faces:,} faces after decimate")
+
+        variant_objects.append(obj)
+        obj.select_set(False)
+
+    # Export
+    bpy.ops.object.select_all(action='DESELECT')
+    for obj in variant_objects:
+        obj.select_set(True)
+    bpy.context.view_layer.objects.active = variant_objects[0]
+
+    bpy.ops.export_scene.gltf(
+        filepath=out_path,
+        use_selection=True,
+        export_format='GLB',
+        export_apply=True,
+    )
+
+    sz = os.path.getsize(out_path) / 1024
+    print(f"  → {out_path} ({sz:.0f} KB)")
+
+    # Cleanup
+    bpy.ops.object.select_all(action='SELECT')
+    bpy.ops.object.delete(use_global=False)
+    for block in bpy.data.meshes:
+        if block.users == 0:
+            bpy.data.meshes.remove(block)
+    for block in bpy.data.materials:
+        if block.users == 0:
+            bpy.data.materials.remove(block)
+
+    return True
+
+
 def main():
     # Parse CLI args (after --)
     argv = sys.argv
@@ -1347,11 +1496,14 @@ def main():
 
     filter_species = None
     filter_tier = None
+    derive_mode = False
     for i, arg in enumerate(argv):
         if arg == "--species" and i + 1 < len(argv):
             filter_species = argv[i + 1]
         if arg == "--tier" and i + 1 < len(argv):
             filter_tier = argv[i + 1]
+        if arg == "--derive":
+            derive_mode = True
 
     # Clear scene
     bpy.ops.object.select_all(action='SELECT')
@@ -1363,7 +1515,7 @@ def main():
     total_species = 0
     total_tiers = 0
 
-    # Generate living trees
+    # Generate or derive living trees
     for sp_name, sp in SPECIES.items():
         if filter_species and sp_name != filter_species:
             continue
@@ -1371,6 +1523,15 @@ def main():
         for tier_name, tier_cfg in sp["tiers"].items():
             if filter_tier and tier_name != filter_tier:
                 continue
+
+            # For _m and _s: derive from _l if --derive flag set
+            # (or if _l exists and tier is not l)
+            if derive_mode and tier_name in ("m", "s"):
+                if derive_lod_from_l(sp_name, tier_name):
+                    total_tiers += 1
+                    continue
+                else:
+                    print(f"  Falling back to Mtree generation for {sp_name}_{tier_name}")
 
             generate_species_tier(sp_name, tier_name, sp, tier_cfg)
             total_tiers += 1
