@@ -289,6 +289,7 @@ def process_glb(filepath):
         use_selection=True,
         export_format='GLB',
         export_apply=True,
+        export_vertex_color='ACTIVE',
     )
     sz = os.path.getsize(filepath) / 1024
     print(f"    → {basename} ({sz:.0f} KB)")

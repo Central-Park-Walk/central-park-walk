@@ -1320,6 +1320,7 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg):
         use_selection=True,
         export_format='GLB',
         export_apply=True,
+        export_vertex_color='ACTIVE',
     )
 
     sz = os.path.getsize(out_path) / 1024
@@ -1436,6 +1437,7 @@ def generate_dead_tree():
     bpy.ops.export_scene.gltf(
         filepath=out_path, use_selection=True,
         export_format='GLB', export_apply=True,
+        export_vertex_color='ACTIVE',
     )
     sz = os.path.getsize(out_path) / 1024
     print(f"  → {out_path} ({sz:.0f} KB)")
@@ -1614,6 +1616,7 @@ def derive_lod_from_l(species_name, tier_name):
         use_selection=True,
         export_format='GLB',
         export_apply=True,
+        export_vertex_color='ACTIVE',
     )
 
     sz = os.path.getsize(out_path) / 1024
