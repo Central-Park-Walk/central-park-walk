@@ -74,10 +74,10 @@ python3 convert_to_godot.py
 ## What's In It
 
 ### Terrain
-Terrain3D geometry clipmaps with 64 regions at native 0.61m LiDAR resolution (8192x8192 heightmap). Custom shader override: 12 OSM zone types, 15+ named location materials, 4 seasons, 5 weather modes, dappled canopy shade, cloud shadows, Manhattan schist rock outcrops via DSM blend (161K cells). AgX tonemapping with glow-before-tonemap.
+Terrain3D geometry clipmaps with 64 regions at native 0.61m LiDAR resolution (8192x8192 heightmap). 14 PBR texture slots (grass, meadow, rock, dirt, shore, asphalt, concrete, paving, gravel, wood, leaf litter, flagstone, wet earth, sparse grass). Custom shader override: 12 OSM zone types, 15+ named location materials, 4 seasons, 5 weather modes, dappled canopy shade, cloud shadows, Manhattan schist rock outcrops via DSM blend (161K cells). AgX tonemapping.
 
 ### Trees (9,852)
-NYC Tree Census + OSM + woodland scatter across 12 ecological zones. 15 Mtree species x 3 size tiers = 46 GLBs. LiDAR heights (4,005 trees), canopy height model enrichment (1,450), DBH-estimated (4,397). Crossed-quad leaf cards, FBM bark, per-pixel noise. Octahedral impostors (8x8 hemisphere atlases, 15 species) replace LOD1 canopy domes. Invasive vines: porcelain berry + oriental bittersweet (13 variants).
+NYC Tree Census + OSM + woodland scatter across 12 ecological zones. 15 Mtree species x 3 size tiers = 46 GLBs. LiDAR heights (4,005 trees), canopy height model enrichment (1,450), DBH-estimated (4,397). Crossed-quad leaf cards, FBM bark, per-pixel noise. 4-tier SpeedTree-standard LOD chain: full geo → _m → _s → octahedral billboard impostors (8x8 hemisphere atlases with albedo + normal + depth parallax, 15 species). Invasive vines: porcelain berry + oriental bittersweet (13 variants).
 
 ### Vegetation (90+ BD3D meshes)
 Full BD3D Plant Library pipeline — all models loaded via native Godot `load()`:
