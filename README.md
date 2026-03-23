@@ -20,7 +20,11 @@ Every tree has a real measured height. Every path follows its real-world geometr
 
 ## Download
 
-**[Latest Release](https://github.com/Central-Park-Walk/central-park-walk/releases/latest)** — pre-built for Linux and Windows. No setup required.
+> **This is a work in progress.** Central Park is 843 acres of trees, paths, water, bridges, statues, and buildings — all driven by real data. Some of it looks great already; some of it is rough. We need contributors: photogrammetry scans of statues, 3D models of bridges and buildings, field audio recordings, better textures. If you can help, see [Contributing](#how-to-contribute).
+>
+> Pre-built releases update **every Monday**. Check back regularly.
+
+**[Download Latest Release](https://github.com/Central-Park-Walk/central-park-walk/releases/latest)** — pre-built for Linux and Windows. No setup required.
 
 | Platform | File |
 |----------|------|
