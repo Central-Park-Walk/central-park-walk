@@ -24,7 +24,7 @@ Every tree has a real measured height. Every path follows its real-world geometr
 >
 > Pre-built releases update **every Monday**. Check back regularly.
 
-**[Download Latest Release](https://github.com/Central-Park-Walk/central-park-walk/releases/latest)** — pre-built for Linux and Windows. No setup required.
+**[Download Latest Release](https://github.com/Central-Park-Walk/central-park-walk/releases/latest)** — pre-built for Linux, MacOS, and Windows. No setup required.
 
 | Platform | Download |
 |----------|----------|
