@@ -30,13 +30,18 @@ Every tree has a real measured height. Every path follows its real-world geometr
 |----------|------|
 | Linux x86_64 | `central-park-walk-linux-x86_64.tar.gz` |
 | Windows x86_64 | `central-park-walk-windows-x86_64.zip` |
+| macOS (Intel + Apple Silicon) | `central-park-walk-macos-universal.zip` |
 
-Extract and run. NVIDIA GPU recommended (Forward+ renderer).
+Extract and run. Dedicated GPU recommended (Forward+ renderer).
 
 ```bash
 # Linux
 tar xzf central-park-walk-linux-x86_64.tar.gz
 ./central-park-walk.x86_64
+
+# macOS — unsigned, so bypass Gatekeeper on first run:
+xattr -cr "Central Park Walk.app"
+open "Central Park Walk.app"
 ```
 
 ## Build from Source

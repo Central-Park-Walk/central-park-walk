@@ -87,6 +87,11 @@ jobs:
           mkdir -p build/windows
           godot --headless --export-release "Windows" build/windows/central-park-walk.exe
 
+      - name: Export macOS
+        run: |
+          mkdir -p build/macos
+          godot --headless --export-release "macOS" "build/macos/Central Park Walk.app"
+
       # ── Package ──
 
       - name: Package Linux
@@ -100,6 +105,11 @@ jobs:
           cd build/windows
           zip -qr ../../central-park-walk-windows-x86_64.zip *
 
+      - name: Package macOS
+        run: |
+          cd build/macos
+          zip -qr ../../central-park-walk-macos-universal.zip "Central Park Walk.app"
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -107,6 +117,7 @@ jobs:
           path: |
             central-park-walk-linux-x86_64.tar.gz
             central-park-walk-windows-x86_64.zip
+            central-park-walk-macos-universal.zip
 
       # ── Release (tag pushes only) ──
 
@@ -117,5 +128,6 @@ jobs:
           files: |
             central-park-walk-linux-x86_64.tar.gz
             central-park-walk-windows-x86_64.zip
+            central-park-walk-macos-universal.zip
           generate_release_notes: true
           draft: false

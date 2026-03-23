@@ -27,14 +27,19 @@ export-windows:
 	@mkdir -p build/windows
 	$(GODOT) --headless --export-release "Windows" build/windows/central-park-walk.exe
 
+export-macos:
+	@mkdir -p build/macos
+	$(GODOT) --headless --export-release "macOS" "build/macos/Central Park Walk.app"
+
 # ---------- Package for distribution ----------
 
-release: export-linux export-windows
+release: export-linux export-windows export-macos
 	cd build/linux   && chmod +x central-park-walk.x86_64 && tar czf ../../central-park-walk-$(VERSION)-linux-x86_64.tar.gz *
 	cd build/windows && zip -qr ../../central-park-walk-$(VERSION)-windows-x86_64.zip *
+	cd build/macos   && zip -qr ../../central-park-walk-$(VERSION)-macos-universal.zip "Central Park Walk.app"
 	@echo ""
 	@echo "Packages:"
-	@ls -lh central-park-walk-$(VERSION)-linux-x86_64.tar.gz central-park-walk-$(VERSION)-windows-x86_64.zip
+	@ls -lh central-park-walk-$(VERSION)-*
 
 clean:
 	rm -rf build/ central-park-walk-*.tar.gz central-park-walk-*.zip
