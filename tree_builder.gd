@@ -521,7 +521,10 @@ func _build_trees(trees: Array) -> void:
 		var pheno_idx: int = PHENOLOGY_INDEX.get(species, 4)
 		var timing_off := rng.randf_range(-0.15, 0.15)
 		var is_evergreen := 1.0 if species == "conifer" else 0.0
-		var cd := Color(float(pheno_idx) / 13.0, timing_off + 0.5, is_evergreen, 0.0)
+		# Per-tree color jitter (0-1): deterministic hash from position.
+		# Consistent across all LOD tiers since they share the same tx/tz.
+		var color_jitter := fmod(abs(sin(tx * 127.1 + tz * 311.7) * 43758.5453), 1.0)
+		var cd := Color(float(pheno_idx) / 13.0, timing_off + 0.5, is_evergreen, color_jitter)
 		cd_by_key[key].append(cd)
 
 		# 4-tier LOD chain: LOD0=best, LOD1=_m, LOD2=_s, LOD3=impostor
@@ -579,7 +582,7 @@ func _build_trees(trees: Array) -> void:
 		_shell_data.append({"x": tx, "y": ty, "z": tz, "h": desired_h,
 			"r": crown_r, "sp": pheno_idx, "ev": is_evergreen,
 			"timing": timing_off + 0.5, "dead": species == "dead",
-			"archetype": species})
+			"archetype": species, "jitter": color_jitter})
 
 		# Collision: trunk cylinder from actual DBH data (census measurement)
 		var trunk_r: float
@@ -926,7 +929,7 @@ func _build_canopy_shells() -> void:
 		var crown_y: float = sd.y + sd.h * 0.5
 		var tf := Transform3D(basis, Vector3(sd.x, crown_y, sd.z))
 		chunks[ck].xf.append(tf)
-		chunks[ck].cd.append(Color(float(sd.sp) / 13.0, sd.timing, sd.ev, float(sd.sp) / 15.0))
+		chunks[ck].cd.append(Color(float(sd.sp) / 13.0, sd.timing, sd.ev, sd.jitter))
 
 	# Create MultiMesh chunks per species
 	var impostor_count := 0

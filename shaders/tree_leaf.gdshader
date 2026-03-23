@@ -165,6 +165,12 @@ void vertex() {
 		blossom_col += (timing_off * 0.06) * vec3(0.08, -0.04, -0.02);
 		leaf_color = mix(leaf_color, blossom_col, blossom * 0.9);
 	}
+	// Per-tree color variation: brightness ±12%, warm/cool ±shift
+	float jitter = INSTANCE_CUSTOM.a;
+	float bright_off = (jitter - 0.5) * 0.25;
+	leaf_color *= 1.0 + bright_off;
+	float warm_off = fract(jitter * 7.37) - 0.5;
+	leaf_color += warm_off * vec3(0.025, -0.008, -0.03);
 	v_leaf_color = leaf_color;
 
 	vec3 tree_origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;

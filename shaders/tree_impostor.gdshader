@@ -86,6 +86,7 @@ varying flat vec3 v_frame3_normal;
 varying vec4 v_blend_weights;
 varying flat float v_leaf_density;
 varying flat vec3 v_season_color;
+varying flat float v_color_jitter;
 
 // ── Octahedral hemisphere mapping ────────────────────────────────────────────
 
@@ -168,6 +169,7 @@ void vertex() {
 	int sp_idx = int(INSTANCE_CUSTOM.r * 13.0 + 0.5);
 	float is_evergreen = INSTANCE_CUSTOM.b;
 	float timing_off = INSTANCE_CUSTOM.g - 0.5;
+	float jitter = INSTANCE_CUSTOM.a;  // per-tree color variation (0-1)
 	float s = mod(season_t + timing_off, 4.0);
 
 	float leaf_density = 1.0;
@@ -186,8 +188,14 @@ void vertex() {
 		float late_fall = smoothstep(ph.y, ph.z, s);
 		season_color = mix(season_color, fall_col * 0.5, late_fall * 0.6);
 	}
+	// Per-tree color variation: brightness ±12%, warm/cool ±shift
+	float bright_off = (jitter - 0.5) * 0.25;
+	season_color *= 1.0 + bright_off;
+	float warm_off = fract(jitter * 7.37) - 0.5;
+	season_color += warm_off * vec3(0.025, -0.008, -0.03);
 	v_leaf_density = leaf_density;
 	v_season_color = season_color;
+	v_color_jitter = jitter;
 
 	// --- Billboard projection ---
 	vec2 frames_m1 = frames - vec2(1.0);
