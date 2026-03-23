@@ -45,8 +45,9 @@ lidar_data/
 !park_data.bin
 !grass_instances.bin
 
-# Build output
+# Build output and download tests
 build/
+linux download test/
 
 # Mesh cache (auto-generated from GLB models, speeds up load times)
 cache/

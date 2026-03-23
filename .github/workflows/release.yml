@@ -96,19 +96,71 @@ jobs:
 
       - name: Package Linux
         run: |
-          cd build/linux
+          mkdir -p pkg-linux/central-park-walk
+          cp build/linux/* pkg-linux/central-park-walk/
+          chmod +x pkg-linux/central-park-walk/central-park-walk.x86_64
+          cat > pkg-linux/central-park-walk/central-park-walk.sh << 'LAUNCH'
+          #!/bin/bash
+          cd "$(dirname "$0")"
           chmod +x central-park-walk.x86_64
-          tar czf ../../central-park-walk-linux-x86_64.tar.gz *
+          exec ./central-park-walk.x86_64 "$@"
+          LAUNCH
+          chmod +x pkg-linux/central-park-walk/central-park-walk.sh
+          cat > pkg-linux/central-park-walk/README.txt << 'README'
+          Central Park Walk
+          =================
+
+          Run:  ./central-park-walk.sh
+          Or:   chmod +x central-park-walk.x86_64 && ./central-park-walk.x86_64
+
+          Controls: WASD walk, right-click+mouse look, scroll wheel speed.
+          Full controls: https://github.com/Central-Park-Walk/central-park-walk#controls
+
+          Dedicated GPU recommended (Forward+ renderer).
+          README
+          cd pkg-linux
+          tar czf ../central-park-walk-linux-x86_64.tar.gz central-park-walk
 
       - name: Package Windows
         run: |
-          cd build/windows
-          zip -qr ../../central-park-walk-windows-x86_64.zip *
+          mkdir -p pkg-win/central-park-walk
+          cp build/windows/* pkg-win/central-park-walk/
+          cat > pkg-win/central-park-walk/README.txt << 'README'
+          Central Park Walk
+          =================
+
+          Double-click central-park-walk.exe to play.
+
+          Controls: WASD walk, right-click+mouse look, scroll wheel speed.
+          Full controls: https://github.com/Central-Park-Walk/central-park-walk#controls
+
+          Dedicated GPU recommended (Forward+ renderer).
+          README
+          cd pkg-win
+          zip -qr ../central-park-walk-windows-x86_64.zip central-park-walk
 
       - name: Package macOS
         run: |
-          cd build/macos
-          zip -qr ../../central-park-walk-macos-universal.zip "Central Park Walk.app"
+          mkdir -p pkg-mac
+          cp -r "build/macos/Central Park Walk.app" pkg-mac/
+          cat > pkg-mac/README.txt << 'README'
+          Central Park Walk
+          =================
+
+          First launch (app is unsigned):
+            Right-click "Central Park Walk.app" → Open → click "Open" in the dialog.
+
+          Or from Terminal:
+            xattr -cr "Central Park Walk.app"
+            open "Central Park Walk.app"
+
+          Controls: WASD walk, right-click+mouse look, scroll wheel speed.
+          Full controls: https://github.com/Central-Park-Walk/central-park-walk#controls
+
+          Dedicated GPU recommended (Forward+ renderer).
+          README
+          cd pkg-mac
+          zip -qr ../central-park-walk-macos-universal.zip "Central Park Walk.app" README.txt
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
