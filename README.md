@@ -121,10 +121,10 @@ All data is freely available. No paid APIs.
 | Engine | Godot 4.6.1 (Forward+, GDScript) |
 | Terrain | Terrain3D v1.0.1 (geometry clipmaps, GPU particle grass, GDExtension) |
 | Clouds | clayjohn volumetric cloud demo v2 (compute shader raymarching) |
-| Tree impostors | GodotImposter octahedral shader + custom Blender atlas baker |
+| Tree impostors | Custom octahedral shader (SpriteProjection, normal + depth parallax) + Blender atlas baker |
 | Data pipeline | Python (GDAL, numpy/scipy, Pillow) |
 | 3D modeling | Blender 4.5.8 LTS + Mtree v5.5, BD3D Plant Library |
-| Rendering | 24+ custom GLSL shaders, AgX tonemapping, MultiMesh instancing, 8K world atlas |
+| Rendering | 27 custom GLSL shaders, AgX tonemapping, MultiMesh instancing, 8K world atlas |
 
 ## Philosophy
 
