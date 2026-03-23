@@ -37,7 +37,7 @@ const TEX_WET_EARTH    := 12
 const TEX_SPARSE_GRASS := 13
 
 # Landuse zone → texture slot
-# NOTE: slots 10-13 defined but not yet in terrain_assets.tres (need VRAM compressed import)
+# All 14 texture slots registered in terrain_assets.tres
 const ZONE_TO_TEX := {
 	0:  TEX_GRASS,    # unzoned
 	1:  TEX_GRASS,    # garden (formal lawn)
@@ -49,14 +49,14 @@ const ZONE_TO_TEX := {
 	7:  TEX_GRASS,    # sports
 	8:  TEX_CONCRETE, # pool
 	9:  TEX_DIRT,     # track (cinder)
-	10: TEX_MEADOW,   # wood
-	11: TEX_MEADOW,   # forest
+	10: TEX_LEAF_LITTER,  # wood (forest floor)
+	11: TEX_LEAF_LITTER,  # forest (dense canopy → leaf litter)
 	12: TEX_GRASS,    # water (hole, but fallback to grass)
 	13: TEX_SHORE,    # shore
 }
 
 # Structure mask values → texture slot
-const STRUCT_FLAT  := TEX_PAVING     # plazas, terraces (flagstone when slot 11 imported)
+const STRUCT_FLAT  := TEX_FLAGSTONE   # plazas, terraces
 const STRUCT_SLOPE := TEX_CONCRETE
 
 var _terrain: Terrain3D

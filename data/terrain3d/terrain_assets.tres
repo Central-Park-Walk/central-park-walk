@@ -1,4 +1,4 @@
-[gd_resource type="Terrain3DAssets" load_steps=11 format=3]
+[gd_resource type="Terrain3DAssets" load_steps=15 format=3]
 
 [ext_resource type="Terrain3DTextureAsset" path="res://data/terrain3d/texture_grass.tres" id="1"]
 [ext_resource type="Terrain3DTextureAsset" path="res://data/terrain3d/texture_meadow.tres" id="2"]
@@ -10,6 +10,10 @@
 [ext_resource type="Terrain3DTextureAsset" path="res://data/terrain3d/texture_paving.tres" id="8"]
 [ext_resource type="Terrain3DTextureAsset" path="res://data/terrain3d/texture_gravel.tres" id="9"]
 [ext_resource type="Terrain3DTextureAsset" path="res://data/terrain3d/texture_wood.tres" id="10"]
+[ext_resource type="Terrain3DTextureAsset" path="res://data/terrain3d/texture_leaf_litter.tres" id="11"]
+[ext_resource type="Terrain3DTextureAsset" path="res://data/terrain3d/texture_flagstone.tres" id="12"]
+[ext_resource type="Terrain3DTextureAsset" path="res://data/terrain3d/texture_wet_earth.tres" id="13"]
+[ext_resource type="Terrain3DTextureAsset" path="res://data/terrain3d/texture_sparse_grass.tres" id="14"]
 
 [resource]
-texture_list = Array[Terrain3DTextureAsset]([ExtResource("1"), ExtResource("2"), ExtResource("3"), ExtResource("4"), ExtResource("5"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("9"), ExtResource("10")])
+texture_list = Array[Terrain3DTextureAsset]([ExtResource("1"), ExtResource("2"), ExtResource("3"), ExtResource("4"), ExtResource("5"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("9"), ExtResource("10"), ExtResource("11"), ExtResource("12"), ExtResource("13"), ExtResource("14")])
