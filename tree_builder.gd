@@ -782,81 +782,104 @@ func _tree_glb_leaf_shader_code() -> String:
 
 
 # ---------------------------------------------------------------------------
-# LOD2: Crossed-quad impostors — baked atlas textures + view-dependent shader
+# LOD3: Octahedral billboard impostors — single quad per tree with
+# view-dependent atlas sampling, normal maps, and depth parallax.
 # ---------------------------------------------------------------------------
 
 const IMPOSTOR_FRAME_SIZE := 8  # 8×8 octahedral grid (hemisphere)
 const IMPOSTOR_DIR := "res://textures/impostors"
 
 # Map archetype model name → impostor atlas filename
-var _impostor_textures: Dictionary = {}  # model_name -> Texture2D
+var _impostor_textures: Dictionary = {}  # model_name -> Texture2D (albedo)
+var _impostor_normals: Dictionary = {}   # model_name -> Texture2D (normal)
+var _impostor_depths: Dictionary = {}    # model_name -> Texture2D (depth)
 var _impostor_materials: Dictionary = {}  # model_name -> ShaderMaterial
-var _impostor_meta: Dictionary = {}      # model_name -> {"scale": float}
+var _impostor_meta: Dictionary = {}      # model_name -> {"scale": float, ...}
 
 func _load_impostor_atlases() -> void:
 	"""Load baked impostor atlas textures + metadata for all tree species."""
-	var impostor_shader: Shader = load("res://shaders/tree_impostor_crossed.gdshader")
+	var impostor_shader: Shader = load("res://shaders/tree_impostor.gdshader")
 	if not impostor_shader:
-		print("Trees LOD2: crossed-quad impostor shader not found")
+		print("Trees LOD3: impostor shader not found")
 		return
 
 	for model_name in ARCHETYPE_MODEL.values():
 		if _impostor_textures.has(model_name):
 			continue
-		var atlas_path := "%s/%s_impostor_albedo.png" % [IMPOSTOR_DIR, model_name]
-		var tex: Texture2D = load(atlas_path)
+		var albedo_path := "%s/%s_impostor_albedo.png" % [IMPOSTOR_DIR, model_name]
+		var tex: Texture2D = load(albedo_path)
 		if not tex:
 			continue
 		_impostor_textures[model_name] = tex
 
-		# Load baking metadata (scale = bounding sphere radius)
+		# Load normal and depth atlases (optional — shader has fallbacks)
+		var normal_path := "%s/%s_impostor_normal.png" % [IMPOSTOR_DIR, model_name]
+		var depth_path := "%s/%s_impostor_depth.png" % [IMPOSTOR_DIR, model_name]
+		var normal_tex: Texture2D = load(normal_path)
+		var depth_tex: Texture2D = load(depth_path)
+		if normal_tex:
+			_impostor_normals[model_name] = normal_tex
+		if depth_tex:
+			_impostor_depths[model_name] = depth_tex
+
+		# Load baking metadata
 		var meta_path := ProjectSettings.globalize_path(
 			"%s/%s_impostor_meta.json" % [IMPOSTOR_DIR, model_name])
 		var imp_scale := 3.5  # fallback
+		var pos_offset := Vector3.ZERO
+		var aabb_max := 1.75
 		if FileAccess.file_exists(meta_path):
 			var f := FileAccess.open(meta_path, FileAccess.READ)
 			var json := JSON.new()
 			if json.parse(f.get_as_text()) == OK:
 				var d: Dictionary = json.data
 				imp_scale = d.get("scale", imp_scale)
+				aabb_max = d.get("aabb_max", imp_scale * 0.5)
+				var po: Array = d.get("position_offset", [0, 0, 0])
+				pos_offset = Vector3(po[0], po[1], po[2])
 			f.close()
-		_impostor_meta[model_name] = {"scale": imp_scale}
+		_impostor_meta[model_name] = {
+			"scale": imp_scale,
+			"position_offset": pos_offset,
+			"aabb_max": aabb_max,
+		}
 
-		# Create material — crossed-quad shader (view-dependent atlas sampling)
+		# Create material — billboard impostor shader
 		var mat := ShaderMaterial.new()
 		mat.shader = impostor_shader
 		mat.set_shader_parameter("atlas", tex)
 		mat.set_shader_parameter("frames", Vector2(IMPOSTOR_FRAME_SIZE, IMPOSTOR_FRAME_SIZE))
 		mat.set_shader_parameter("alpha_clamp", 0.2)
-		mat.set_shader_parameter("tint", Color(1.0, 1.0, 0.97, 1.0))  # neutral with SDFGI providing real GI
+		mat.set_shader_parameter("scale", imp_scale)
+		mat.set_shader_parameter("aabb_max", aabb_max)
+		mat.set_shader_parameter("position_offset", pos_offset)
+		if normal_tex:
+			mat.set_shader_parameter("atlas_normal", normal_tex)
+		if depth_tex:
+			mat.set_shader_parameter("atlas_depth", depth_tex)
+			mat.set_shader_parameter("depth_scale", 0.3)
 		_impostor_materials[model_name] = mat
 
-	print("Trees LOD2: loaded %d impostor atlases" % _impostor_textures.size())
+	var n_with_normals := _impostor_normals.size()
+	var n_with_depth := _impostor_depths.size()
+	print("Trees LOD3: loaded %d impostor atlases (%d with normals, %d with depth)" % [
+		_impostor_textures.size(), n_with_normals, n_with_depth])
 
 
-func _create_crossed_quad_mesh() -> ArrayMesh:
-	"""Build a mesh with 3 intersecting quads at 0°/60°/120° around Y.
-	Unit scale (-0.5 to 0.5), UVs match Godot QuadMesh convention."""
+func _create_billboard_quad_mesh() -> ArrayMesh:
+	"""Build a single quad (2 triangles) in XY plane, unit scale.
+	Billboard rotation happens in shader via SpriteProjection."""
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for i in 3:
-		var angle := float(i) * PI / 3.0  # 0°, 60°, 120°
-		var ca := cos(angle)
-		var sa := sin(angle)
-		# Rotate base quad (XY plane, facing +Z) around Y axis
-		var tl := Vector3(-0.5 * ca, 0.5, 0.5 * sa)
-		var tr := Vector3(0.5 * ca, 0.5, -0.5 * sa)
-		var br := Vector3(0.5 * ca, -0.5, -0.5 * sa)
-		var bl := Vector3(-0.5 * ca, -0.5, 0.5 * sa)
-		var normal := Vector3(sa, 0.0, ca)
-		# Tri 1: bl, br, tr (CCW from front)
-		st.set_normal(normal); st.set_uv(Vector2(0, 1)); st.add_vertex(bl)
-		st.set_normal(normal); st.set_uv(Vector2(1, 1)); st.add_vertex(br)
-		st.set_normal(normal); st.set_uv(Vector2(1, 0)); st.add_vertex(tr)
-		# Tri 2: bl, tr, tl (CCW from front)
-		st.set_normal(normal); st.set_uv(Vector2(0, 1)); st.add_vertex(bl)
-		st.set_normal(normal); st.set_uv(Vector2(1, 0)); st.add_vertex(tr)
-		st.set_normal(normal); st.set_uv(Vector2(0, 0)); st.add_vertex(tl)
+	var normal := Vector3(0.0, 0.0, 1.0)
+	# Tri 1: bl, br, tr
+	st.set_normal(normal); st.set_uv(Vector2(0, 1)); st.add_vertex(Vector3(-0.5, -0.5, 0))
+	st.set_normal(normal); st.set_uv(Vector2(1, 1)); st.add_vertex(Vector3(0.5, -0.5, 0))
+	st.set_normal(normal); st.set_uv(Vector2(1, 0)); st.add_vertex(Vector3(0.5, 0.5, 0))
+	# Tri 2: bl, tr, tl
+	st.set_normal(normal); st.set_uv(Vector2(0, 1)); st.add_vertex(Vector3(-0.5, -0.5, 0))
+	st.set_normal(normal); st.set_uv(Vector2(1, 0)); st.add_vertex(Vector3(0.5, 0.5, 0))
+	st.set_normal(normal); st.set_uv(Vector2(0, 0)); st.add_vertex(Vector3(-0.5, 0.5, 0))
 	return st.commit()
 
 
@@ -867,11 +890,11 @@ func _build_canopy_shells() -> void:
 	_load_impostor_atlases()
 
 	if _impostor_materials.is_empty():
-		print("Trees LOD2: no impostor atlases found — skipping")
+		print("Trees LOD3: no impostor atlases found — skipping")
 		return
 
-	# Shared crossed-quad mesh: 3 intersecting planes for volumetric impostors
-	var crossed_mesh := _create_crossed_quad_mesh()
+	# Single billboard quad — shader handles orientation via SpriteProjection
+	var billboard_mesh := _create_billboard_quad_mesh()
 
 	# Bucket into spatial chunks × species (each species needs its own material)
 	const CHUNK := 80.0
@@ -892,15 +915,13 @@ func _build_canopy_shells() -> void:
 		if not chunks.has(ck):
 			chunks[ck] = {"xf": [], "cd": [], "model": model_name}
 
-		# Scale: mesh is unit-sized, needs to cover 2×radius at the tree's world height
-		var meta: Dictionary = _impostor_meta.get(model_name, {"scale": 3.5})
-		var imp_scale: float = meta.scale
+		# Scale: billboard is unit-sized, needs to cover the tree at world height.
+		# The shader's scale uniform controls atlas projection; the mesh scale
+		# handles world-space sizing. scale_ratio maps the 5m model to actual height.
 		var scale_ratio: float = sd.h / 5.0
-		var mesh_scale: float = 2.0 * imp_scale * scale_ratio
-
-		# Per-tree deterministic Y rotation for visual variety
-		var rot_y := fmod(abs(sd.x * 7.3 + sd.z * 13.7), TAU)
-		var basis := Basis(Vector3.UP, rot_y).scaled(Vector3.ONE * mesh_scale)
+		var mesh_scale: float = scale_ratio
+		# No Y rotation — billboard shader faces camera automatically from every angle
+		var basis := Basis().scaled(Vector3.ONE * mesh_scale)
 
 		var crown_y: float = sd.y + sd.h * 0.5
 		var tf := Transform3D(basis, Vector3(sd.x, crown_y, sd.z))
@@ -930,7 +951,7 @@ func _build_canopy_shells() -> void:
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.use_custom_data = true
-		mm.mesh = crossed_mesh
+		mm.mesh = billboard_mesh
 		mm.instance_count = xf_list.size()
 		for i in xf_list.size():
 			var tf: Transform3D = xf_list[i]
@@ -943,15 +964,15 @@ func _build_canopy_shells() -> void:
 		mmi.material_override = _impostor_materials[model_name]
 		mmi.position = chunk_origin
 		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
-		# LOD3: crossed-quad impostors, far enough that haze masks card edges
-		mmi.visibility_range_begin = 700.0
+		# LOD3: octahedral billboard impostors — can be closer than crossed-quads
+		mmi.visibility_range_begin = 500.0
 		mmi.visibility_range_end = 2500.0
-		mmi.visibility_range_begin_margin = 100.0
+		mmi.visibility_range_begin_margin = 80.0
 		mmi.visibility_range_end_margin = 200.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_loader.add_child(mmi)
 		impostor_count += xf_list.size()
 
-	print("Trees LOD3: %d crossed-quad impostors in %d chunks (%d species)" % [
+	print("Trees LOD3: %d octahedral billboard impostors in %d chunks (%d species)" % [
 		impostor_count, chunks.size(), _impostor_materials.size()])

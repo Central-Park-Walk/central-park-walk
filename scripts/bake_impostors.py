@@ -1,12 +1,17 @@
 """Bake octahedral impostor atlases for all tree species in Blender.
 
-Renders each tree model from 8×8 hemisphere viewing angles into a single
-2048×2048 RGBA atlas image. Compatible with the GodotImposter plugin's
-ImpostorShader (hemisphere mode, frame_size=8).
+Renders each tree model from 8×8 hemisphere viewing angles into three
+2048×2048 atlas images: albedo (RGBA), normal (RGB), and depth (grayscale).
+Compatible with the GodotImposter-style shader (hemisphere mode).
 
 Run: blender4 --background --python scripts/bake_impostors.py
+     blender4 --background --python scripts/bake_impostors.py -- --only=oak
 
-Output: textures/impostors/<species>_impostor_albedo.png (one per species)
+Output per species in textures/impostors/:
+  <species>_impostor_albedo.png  (RGBA, alpha = leaf mask)
+  <species>_impostor_normal.png  (RGB, camera-space normals encoded 0-1)
+  <species>_impostor_depth.png   (grayscale, 0=near 1=far)
+  <species>_impostor_meta.json   (bounding sphere, clip range)
 """
 
 import bpy
@@ -15,6 +20,7 @@ import sys
 import math
 import json
 import mathutils
+import numpy as np
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
@@ -25,6 +31,7 @@ os.makedirs(OUT_DIR, exist_ok=True)
 FRAME_SIZE = 8          # 8×8 grid of views
 ATLAS_RES = 2048        # total atlas resolution
 FRAME_RES = ATLAS_RES // FRAME_SIZE  # 256px per frame
+DILATE_PIXELS = 16      # edge dilation distance
 
 SPECIES = [
     "birch", "callery_pear", "cathedral_elm", "cherry", "deciduous",
@@ -45,24 +52,6 @@ def hemisphere_octa(u, v):
     return mathutils.Vector((x / length, y / length, z / length))
 
 
-def setup_render_settings():
-    """Configure Blender for impostor atlas rendering."""
-    scene = bpy.context.scene
-    scene.render.engine = 'BLENDER_EEVEE_NEXT'
-    scene.render.resolution_x = FRAME_RES
-    scene.render.resolution_y = FRAME_RES
-    scene.render.film_transparent = True
-    scene.render.image_settings.file_format = 'PNG'
-    scene.render.image_settings.color_mode = 'RGBA'
-
-    # Simple lighting for clean albedo capture
-    scene.world.use_nodes = True
-    bg = scene.world.node_tree.nodes.get("Background")
-    if bg:
-        bg.inputs[0].default_value = (0.8, 0.8, 0.85, 1.0)  # soft neutral sky
-        bg.inputs[1].default_value = 1.5  # moderate strength
-
-
 def clear_scene():
     """Remove all objects from the scene."""
     bpy.ops.object.select_all(action='SELECT')
@@ -81,19 +70,15 @@ def import_tree(species):
         return None
 
     bpy.ops.import_scene.gltf(filepath=glb_path)
-
-    # Find imported objects
     imported = [o for o in bpy.context.scene.objects if o.type == 'MESH']
     if not imported:
         print(f"  WARNING: no mesh objects in {species}_m.glb")
         return None
 
-    # Create empty parent and parent all imported meshes
     parent = bpy.data.objects.new(species, None)
     bpy.context.scene.collection.objects.link(parent)
     for obj in imported:
         obj.parent = parent
-
     return parent
 
 
@@ -132,30 +117,253 @@ def setup_camera(center, radius, direction):
         cam_obj = bpy.data.objects.new("ImpostorCamObj", cam_data)
         bpy.context.scene.collection.objects.link(cam_obj)
     cam_obj.data = cam_data
-
-    # Position camera
     cam_pos = center + direction * radius * 2.0
     cam_obj.location = cam_pos
-
-    # Look at center
     look_dir = center - cam_pos
     rot = look_dir.to_track_quat('-Z', 'Y')
     cam_obj.rotation_euler = rot.to_euler()
-
     bpy.context.scene.camera = cam_obj
     return cam_obj
 
 
+def setup_albedo_render():
+    """Configure for standard albedo rendering."""
+    scene = bpy.context.scene
+    scene.render.engine = 'BLENDER_EEVEE_NEXT'
+    scene.render.resolution_x = FRAME_RES
+    scene.render.resolution_y = FRAME_RES
+    scene.render.film_transparent = True
+    scene.render.image_settings.file_format = 'PNG'
+    scene.render.image_settings.color_mode = 'RGBA'
+
+    # Ensure world exists
+    if not scene.world:
+        scene.world = bpy.data.worlds.new("World")
+    scene.world.use_nodes = True
+    bg = scene.world.node_tree.nodes.get("Background")
+    if bg:
+        bg.inputs[0].default_value = (0.8, 0.8, 0.85, 1.0)
+        bg.inputs[1].default_value = 1.5
+
+    # Disable compositor (render direct)
+    scene.use_nodes = False
+
+
+def create_normal_capture_material():
+    """Create a material that outputs camera-space normals as emission.
+
+    Leaf alpha is handled by applying this material alongside the original
+    mesh's alpha clip. The material itself is fully opaque — we rely on
+    the original mesh's alpha-clip geometry (GLTF import sets it up).
+    """
+    mat = bpy.data.materials.new("NormCap")
+    mat.use_nodes = True
+    mat.use_backface_culling = False
+    tree = mat.node_tree
+    tree.nodes.clear()
+
+    # Geometry normal → Vector Transform (World → Camera)
+    geom = tree.nodes.new('ShaderNodeNewGeometry')
+    vec_xf = tree.nodes.new('ShaderNodeVectorTransform')
+    vec_xf.vector_type = 'NORMAL'
+    vec_xf.convert_from = 'WORLD'
+    vec_xf.convert_to = 'CAMERA'
+    tree.links.new(geom.outputs['Normal'], vec_xf.inputs['Vector'])
+
+    # Encode [-1,1] → [0,1]: (normal + 1) * 0.5
+    # Use VectorMath ADD then SCALE
+    add_node = tree.nodes.new('ShaderNodeVectorMath')
+    add_node.operation = 'ADD'
+    add_node.inputs[1].default_value = (1.0, 1.0, 1.0)
+    tree.links.new(vec_xf.outputs['Vector'], add_node.inputs[0])
+
+    scale_node = tree.nodes.new('ShaderNodeVectorMath')
+    scale_node.operation = 'SCALE'
+    scale_node.inputs['Scale'].default_value = 0.5
+    tree.links.new(add_node.outputs['Vector'], scale_node.inputs[0])
+
+    # Emission (unlit — normals should not be affected by scene lighting)
+    emission = tree.nodes.new('ShaderNodeEmission')
+    emission.inputs['Strength'].default_value = 1.0
+    tree.links.new(scale_node.outputs['Vector'], emission.inputs['Color'])
+
+    output = tree.nodes.new('ShaderNodeOutputMaterial')
+    tree.links.new(emission.outputs['Emission'], output.inputs['Surface'])
+
+    return mat
+
+
+def setup_depth_compositor(clip_start, clip_end):
+    """Configure compositor to output normalized depth as grayscale."""
+    scene = bpy.context.scene
+    scene.use_nodes = True
+    # Enable Z pass in EEVEE
+    scene.view_layers[0].use_pass_z = True
+
+    tree = scene.node_tree
+    tree.nodes.clear()
+
+    rl = tree.nodes.new('CompositorNodeRLayers')
+    # Map depth: clip_start→0, clip_end→1, clamp
+    map_r = tree.nodes.new('CompositorNodeMapRange')
+    map_r.inputs['From Min'].default_value = clip_start
+    map_r.inputs['From Max'].default_value = clip_end
+    map_r.inputs['To Min'].default_value = 0.0
+    map_r.inputs['To Max'].default_value = 1.0
+    map_r.use_clamp = True
+    tree.links.new(rl.outputs['Depth'], map_r.inputs['Value'])
+
+    composite = tree.nodes.new('CompositorNodeComposite')
+    tree.links.new(map_r.outputs['Value'], composite.inputs['Image'])
+
+
+def store_original_materials(tree_obj):
+    """Store original materials from all mesh children."""
+    originals = {}
+    for child in [tree_obj] + list(tree_obj.children_recursive):
+        if child.type != 'MESH':
+            continue
+        mats = []
+        for i in range(len(child.data.materials)):
+            mats.append(child.data.materials[i])
+        originals[child.name] = mats
+    return originals
+
+
+def apply_material_override(tree_obj, mat):
+    """Override all mesh materials with the given material."""
+    for child in [tree_obj] + list(tree_obj.children_recursive):
+        if child.type != 'MESH':
+            continue
+        for i in range(len(child.data.materials)):
+            child.data.materials[i] = mat
+
+
+def restore_materials(tree_obj, originals):
+    """Restore original materials."""
+    for child in [tree_obj] + list(tree_obj.children_recursive):
+        if child.type != 'MESH':
+            continue
+        if child.name in originals:
+            for i, m in enumerate(originals[child.name]):
+                if i < len(child.data.materials):
+                    child.data.materials[i] = m
+
+
+def read_frame_pixels(tmp_path, channels=4):
+    """Load rendered frame from disk as numpy array."""
+    frame_img = bpy.data.images.load(tmp_path)
+    pixels = np.array(frame_img.pixels[:], dtype=np.float32)
+    bpy.data.images.remove(frame_img)
+    pixels = pixels.reshape((FRAME_RES, FRAME_RES, 4))
+    return pixels
+
+
+def paste_frame(atlas, frame_pixels, ix, iy, channels=4):
+    """Paste a frame into the atlas at grid position (ix, iy)."""
+    ax = ix * FRAME_RES
+    ay = iy * FRAME_RES
+    atlas[ay:ay + FRAME_RES, ax:ax + FRAME_RES, :channels] = frame_pixels[:, :, :channels]
+
+
+def dilate_atlas(atlas, alpha_channel=3, distance=DILATE_PIXELS):
+    """Extend opaque pixels into transparent borders to prevent seam artifacts.
+
+    For each transparent pixel within `distance` of an opaque pixel, copy the
+    color of the nearest opaque pixel. Works per-frame within the atlas to
+    avoid bleeding across frame boundaries.
+    """
+    h, w, c = atlas.shape
+    has_alpha = c >= 4 and alpha_channel >= 0
+
+    for fy in range(FRAME_SIZE):
+        for fx in range(FRAME_SIZE):
+            y0 = fy * FRAME_RES
+            x0 = fx * FRAME_RES
+            frame = atlas[y0:y0 + FRAME_RES, x0:x0 + FRAME_RES].copy()
+
+            if has_alpha:
+                mask = frame[:, :, alpha_channel] > 0.01
+            else:
+                # For normal/depth: assume fully black (0,0,0) is empty
+                mask = np.any(frame[:, :, :3] > 0.01, axis=2)
+
+            if not np.any(mask) or np.all(mask):
+                continue
+
+            result = frame.copy()
+            for d in range(1, distance + 1):
+                # Expand mask by 1 pixel per iteration
+                expanded = np.zeros_like(mask)
+                expanded[1:, :] |= mask[:-1, :]
+                expanded[:-1, :] |= mask[1:, :]
+                expanded[:, 1:] |= mask[:, :-1]
+                expanded[:, :-1] |= mask[:, 1:]
+                # Diagonals
+                expanded[1:, 1:] |= mask[:-1, :-1]
+                expanded[1:, :-1] |= mask[:-1, 1:]
+                expanded[:-1, 1:] |= mask[1:, :-1]
+                expanded[:-1, :-1] |= mask[1:, 1:]
+
+                new_pixels = expanded & ~mask
+                if not np.any(new_pixels):
+                    break
+
+                # For each new pixel, average from neighboring opaque pixels
+                for dy in [-1, 0, 1]:
+                    for dx in [-1, 0, 1]:
+                        if dy == 0 and dx == 0:
+                            continue
+                        shifted_mask = np.zeros_like(mask)
+                        sy = max(0, -dy)
+                        ey = FRAME_RES + min(0, -dy)
+                        sx = max(0, -dx)
+                        ex = FRAME_RES + min(0, -dx)
+                        ty = max(0, dy)
+                        tey = FRAME_RES + min(0, dy)
+                        tx = max(0, dx)
+                        tex = FRAME_RES + min(0, dx)
+                        shifted_mask[ty:tey, tx:tex] = mask[sy:ey, sx:ex]
+                        fill = new_pixels & shifted_mask
+                        ys, xs = np.where(fill)
+                        if len(ys) > 0:
+                            src_ys = np.clip(ys - dy, 0, FRAME_RES - 1)
+                            src_xs = np.clip(xs - dx, 0, FRAME_RES - 1)
+                            result[ys, xs, :3] = frame[src_ys, src_xs, :3]
+
+                mask = expanded
+                frame = result.copy()
+
+            atlas[y0:y0 + FRAME_RES, x0:x0 + FRAME_RES] = result
+
+
+def save_atlas(atlas, path, mode='RGBA'):
+    """Save numpy atlas array as PNG via Blender."""
+    h, w, c = atlas.shape
+    img = bpy.data.images.new("_tmp_atlas", width=w, height=h, alpha=(c >= 4))
+    flat = atlas.flatten().tolist()
+    if c == 3:
+        # Expand to RGBA for Blender
+        rgba = np.ones((h, w, 4), dtype=np.float32)
+        rgba[:, :, :3] = atlas
+        flat = rgba.flatten().tolist()
+    img.pixels = flat
+    img.filepath_raw = path
+    img.file_format = 'PNG'
+    img.save()
+    bpy.data.images.remove(img)
+
+
 def bake_species(species):
-    """Bake 8×8 hemisphere impostor atlas for one tree species."""
+    """Bake 8×8 hemisphere impostor atlas (albedo + normal + depth) for one species."""
     print(f"\n{'='*50}")
     print(f"Baking impostor: {species}")
     print(f"{'='*50}")
 
     clear_scene()
-    setup_render_settings()
+    setup_albedo_render()
 
-    # Add a sun light for consistent shading
+    # Add sun light for albedo
     light_data = bpy.data.lights.new("Sun", 'SUN')
     light_data.energy = 3.0
     light_obj = bpy.data.objects.new("Sun", light_data)
@@ -167,90 +375,109 @@ def bake_species(species):
         return False
 
     center, radius = get_bounding_sphere(tree)
+    clip_start = 0.01
+    clip_end = radius * 4.0
     print(f"  Bounding sphere: center={center}, radius={radius:.3f}")
 
-    # Create atlas image
-    atlas = bpy.data.images.new(
-        f"{species}_impostor",
-        width=ATLAS_RES, height=ATLAS_RES,
-        alpha=True, float_buffer=False)
-    # Initialize fully transparent
-    atlas.pixels = [0.0] * (ATLAS_RES * ATLAS_RES * 4)
+    # Create normal capture material
+    norm_mat = create_normal_capture_material()
+    orig_mats = store_original_materials(tree)
 
-    # Render from each octahedral direction
+    # Allocate atlas arrays (numpy, float32)
+    albedo_atlas = np.zeros((ATLAS_RES, ATLAS_RES, 4), dtype=np.float32)
+    normal_atlas = np.zeros((ATLAS_RES, ATLAS_RES, 4), dtype=np.float32)
+    depth_atlas = np.zeros((ATLAS_RES, ATLAS_RES, 4), dtype=np.float32)
+
+    tmp_path = os.path.join(OUT_DIR, f"_tmp_frame.png")
     frames_done = 0
+
     for ix in range(FRAME_SIZE):
         for iy in range(FRAME_SIZE):
             u = ix / (FRAME_SIZE - 1) if FRAME_SIZE > 1 else 0.5
             v = iy / (FRAME_SIZE - 1) if FRAME_SIZE > 1 else 0.5
-
             direction = hemisphere_octa(u, v)
             setup_camera(center, radius, direction)
 
-            # Render to temp file
-            tmp_path = os.path.join(OUT_DIR, f"_tmp_frame.png")
+            # --- Pass 1: Albedo ---
+            restore_materials(tree, orig_mats)
+            light_obj.hide_render = False
+            bpy.context.scene.use_nodes = False
             bpy.context.scene.render.filepath = tmp_path
             bpy.ops.render.render(write_still=True)
+            pixels = read_frame_pixels(tmp_path)
+            paste_frame(albedo_atlas, pixels, ix, iy)
 
-            # Load rendered frame and paste into atlas
-            frame_img = bpy.data.images.load(tmp_path)
-            frame_pixels = list(frame_img.pixels)
+            # --- Pass 2: Normals (material override) ---
+            apply_material_override(tree, norm_mat)
+            light_obj.hide_render = True  # no lighting for normal capture
+            bpy.context.scene.use_nodes = False
+            bpy.context.scene.render.filepath = tmp_path
+            bpy.ops.render.render(write_still=True)
+            npx = read_frame_pixels(tmp_path)
+            # Copy alpha from albedo pass (normal material may not preserve it)
+            npx[:, :, 3] = pixels[:, :, 3]
+            paste_frame(normal_atlas, npx, ix, iy)
 
-            # Paste at grid position (ix, iy) — match ImpostorShader layout
-            # x = column (left to right), y = row (bottom to top in Blender)
-            atlas_x = ix * FRAME_RES
-            atlas_y = iy * FRAME_RES
-
-            atlas_pixels = list(atlas.pixels)
-            for py in range(FRAME_RES):
-                for px in range(FRAME_RES):
-                    src_idx = (py * FRAME_RES + px) * 4
-                    dst_x = atlas_x + px
-                    dst_y = atlas_y + py
-                    dst_idx = (dst_y * ATLAS_RES + dst_x) * 4
-                    atlas_pixels[dst_idx + 0] = frame_pixels[src_idx + 0]
-                    atlas_pixels[dst_idx + 1] = frame_pixels[src_idx + 1]
-                    atlas_pixels[dst_idx + 2] = frame_pixels[src_idx + 2]
-                    atlas_pixels[dst_idx + 3] = frame_pixels[src_idx + 3]
-
-            atlas.pixels = atlas_pixels
-            bpy.data.images.remove(frame_img)
+            # --- Pass 3: Depth (compositor) ---
+            restore_materials(tree, orig_mats)
+            light_obj.hide_render = False
+            setup_depth_compositor(clip_start, clip_end)
+            bpy.context.scene.render.filepath = tmp_path
+            bpy.ops.render.render(write_still=True)
+            dpx = read_frame_pixels(tmp_path)
+            # Alpha from albedo pass
+            dpx[:, :, 3] = pixels[:, :, 3]
+            paste_frame(depth_atlas, dpx, ix, iy)
 
             frames_done += 1
             if frames_done % 8 == 0:
-                print(f"  Rendered {frames_done}/{FRAME_SIZE * FRAME_SIZE} frames")
+                print(f"  Rendered {frames_done}/{FRAME_SIZE * FRAME_SIZE} frames "
+                      f"(3 passes each)")
 
-    # Save atlas
-    out_path = os.path.join(OUT_DIR, f"{species}_impostor_albedo.png")
-    atlas.filepath_raw = out_path
-    atlas.file_format = 'PNG'
-    atlas.save()
-    print(f"  Saved: {out_path}")
+    # Dilation: extend opaque pixels into transparent borders
+    print("  Dilating atlas edges...")
+    dilate_atlas(albedo_atlas, alpha_channel=3)
+    dilate_atlas(normal_atlas, alpha_channel=3)
+    dilate_atlas(depth_atlas, alpha_channel=3)
+
+    # Save atlases
+    albedo_path = os.path.join(OUT_DIR, f"{species}_impostor_albedo.png")
+    normal_path = os.path.join(OUT_DIR, f"{species}_impostor_normal.png")
+    depth_path = os.path.join(OUT_DIR, f"{species}_impostor_depth.png")
+
+    save_atlas(albedo_atlas, albedo_path)
+    save_atlas(normal_atlas, normal_path)
+    save_atlas(depth_atlas, depth_path)
+
+    print(f"  Saved: {albedo_path}")
+    print(f"  Saved: {normal_path}")
+    print(f"  Saved: {depth_path}")
 
     # Clean up temp
-    tmp_path = os.path.join(OUT_DIR, f"_tmp_frame.png")
     if os.path.exists(tmp_path):
         os.remove(tmp_path)
 
-    # Save metadata (needed by Godot ImpostorShader: scale, positionOffset, aabb_max)
+    # Save metadata
     meta = {
         "species": species,
         "frame_size": FRAME_SIZE,
         "atlas_res": ATLAS_RES,
         "center": [center.x, center.y, center.z],
         "radius": radius,
-        "scale": radius,  # ortho half-size = radius
+        "scale": radius,
         "position_offset": [-center.x, -center.y, -center.z],
         "aabb_max": radius * 0.5,
+        "clip_start": clip_start,
+        "clip_end": clip_end,
     }
     meta_path = os.path.join(OUT_DIR, f"{species}_impostor_meta.json")
     with open(meta_path, 'w') as f:
         json.dump(meta, f, indent=2)
 
-    # Report atlas size
-    fsize = os.path.getsize(out_path) / 1024
-    print(f"  Atlas: {ATLAS_RES}×{ATLAS_RES}, {FRAME_SIZE}×{FRAME_SIZE} frames, {fsize:.0f} KB")
-    print(f"  Meta: scale={radius:.3f}, offset=({-center.x:.3f}, {-center.y:.3f}, {-center.z:.3f})")
+    for p in [albedo_path, normal_path, depth_path]:
+        fsize = os.path.getsize(p) / 1024
+        print(f"  {os.path.basename(p)}: {fsize:.0f} KB")
+    print(f"  Meta: scale={radius:.3f}, clip=[{clip_start}, {clip_end:.2f}]")
     return True
 
 
@@ -258,10 +485,10 @@ def main():
     print("\n" + "=" * 60)
     print("Octahedral Impostor Baker — Central Park Walk Trees")
     print(f"Atlas: {ATLAS_RES}×{ATLAS_RES}, {FRAME_SIZE}×{FRAME_SIZE} frames")
+    print(f"Passes: albedo + normal + depth")
     print(f"Output: {OUT_DIR}")
     print("=" * 60)
 
-    # Optional filter
     filter_species = ""
     for arg in sys.argv:
         if arg.startswith("--only="):
@@ -276,7 +503,7 @@ def main():
 
     total = len(SPECIES) if not filter_species else 1
     print(f"\n{'='*60}")
-    print(f"Done: {success}/{total} impostor atlases baked")
+    print(f"Done: {success}/{total} impostor atlases baked (3 textures each)")
     print("=" * 60)
 
 
