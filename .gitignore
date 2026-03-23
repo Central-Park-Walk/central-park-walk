@@ -24,6 +24,7 @@ models/
 !models/vegetation/ForestFloor_*.glb
 textures/*
 !textures/terrain3d/
+!textures/impostors/
 sounds/
 
 # Terrain tiles and LiDAR source data (re-download via scripts)
