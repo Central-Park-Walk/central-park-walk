@@ -976,8 +976,10 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
             clusters[key] = []
         clusters[key].append(pos)
 
-    # Per-tier card size: _s models get larger cards to fill canopy at distance
-    tier_size_factor = {"l": 1.0, "m": 1.15, "s": 1.4}
+    # Per-tier card size: smaller tiers need much larger cards to fill canopy
+    # at distance. _s has 10-20× fewer branch tips than _l, so cards must
+    # compensate aggressively to avoid bare-stick appearance.
+    tier_size_factor = {"l": 1.0, "m": 1.5, "s": 2.8}
     size_mult = tier_size_factor.get(tier, 1.0)
 
     # Compute cluster centroids

@@ -653,22 +653,20 @@ func _build_trees(trees: Array) -> void:
 		mmi.multimesh = mm
 		mmi.position = chunk_origin
 		mmi.name = "Tree_%s" % ckey.replace("|", "_")
-		# LOD0: full geometry — extended range so leafy canopies stay visible longer
+		# LOD0: full geometry — extended range for leafy canopy visibility
 		mmi.visibility_range_begin = 0.0
-		mmi.visibility_range_end = 200.0
+		mmi.visibility_range_end = 180.0
 		mmi.visibility_range_begin_margin = 0.0
 		mmi.visibility_range_end_margin = 50.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		_loader.add_child(mmi)
 
-	# --- LOD1: _m models bridge to impostors (150-450m) ---
-	# _s tier dropped — too few leaf cards makes trees look bare/dead at distance.
-	# _m has enough geometry to read as a tree; impostors take over beyond 450m.
+	# --- LOD1: _m models for mid-range ---
 	_build_lod_tier_chunks(_lod1_xf, _lod1_cd, "TreeL1",
-		150.0, 450.0, 50.0, 60.0)
-	# Skip LOD2 _s — impostors look better than sparse _s models
-	_lod2_xf.clear()
-	_lod2_cd.clear()
+		130.0, 400.0, 50.0, 60.0)
+	# --- LOD2: _s models for far-range (leaf cards 2.8× larger to fill canopy) ---
+	_build_lod_tier_chunks(_lod2_xf, _lod2_cd, "TreeL2",
+		350.0, 800.0, 60.0, 100.0)
 
 	_build_tree_collision(all_trunk_xf)
 	# Debug: print a few tree heights to verify scale
@@ -969,10 +967,10 @@ func _build_canopy_shells() -> void:
 		mmi.material_override = _impostor_materials[model_name]
 		mmi.position = chunk_origin
 		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
-		# LOD3: octahedral billboard impostors — bridge from _m geo to far distance
-		mmi.visibility_range_begin = 400.0
+		# LOD3: octahedral billboard impostors — far distance
+		mmi.visibility_range_begin = 700.0
 		mmi.visibility_range_end = 2500.0
-		mmi.visibility_range_begin_margin = 60.0
+		mmi.visibility_range_begin_margin = 100.0
 		mmi.visibility_range_end_margin = 200.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
