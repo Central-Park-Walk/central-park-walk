@@ -1342,7 +1342,80 @@ func _build_bethesda_terrace() -> void:
 			stack.append(c)
 
 	_loader.add_child(root)
-	print("ParkLoader: Bethesda Terrace placed at (%.0f, %.1f, %.0f)" % [tx, ty, tz])
+
+	# Arcade walkthrough collision — walls, floor, and ceiling as box shapes.
+	# Arcade is ~22m wide (wall-to-wall), ~10m long (N-S), ~5m tall.
+	# Aligned to model rotation (2.834 rad).
+	var arcade_body := StaticBody3D.new()
+	arcade_body.name = "BethesdaArcadeCollision"
+	arcade_body.position = Vector3(tx, ty, tz)
+	arcade_body.rotation.y = 2.834
+
+	# Floor: flat box at arcade level
+	var floor_shape := BoxShape3D.new()
+	floor_shape.size = Vector3(22.0, 0.3, 10.0)
+	var floor_col := CollisionShape3D.new()
+	floor_col.shape = floor_shape
+	floor_col.position = Vector3(0, -0.15, 0)
+	arcade_body.add_child(floor_col)
+
+	# Ceiling: flat box at vault top (~5m above floor)
+	var ceil_shape := BoxShape3D.new()
+	ceil_shape.size = Vector3(22.0, 0.3, 10.0)
+	var ceil_col := CollisionShape3D.new()
+	ceil_col.shape = ceil_shape
+	ceil_col.position = Vector3(0, 5.15, 0)
+	arcade_body.add_child(ceil_col)
+
+	# West wall
+	var west_shape := BoxShape3D.new()
+	west_shape.size = Vector3(0.8, 5.0, 10.0)
+	var west_col := CollisionShape3D.new()
+	west_col.shape = west_shape
+	west_col.position = Vector3(-11.4, 2.5, 0)
+	arcade_body.add_child(west_col)
+
+	# East wall
+	var east_shape := BoxShape3D.new()
+	east_shape.size = Vector3(0.8, 5.0, 10.0)
+	var east_col := CollisionShape3D.new()
+	east_col.shape = east_shape
+	east_col.position = Vector3(11.4, 2.5, 0)
+	arcade_body.add_child(east_col)
+
+	_loader.add_child(arcade_body)
+	print("ParkLoader: Bethesda Terrace placed at (%.0f, %.1f, %.0f) with arcade collision" % [tx, ty, tz])
+
+	# Bethesda Fountain — photogrammetry model at fountain center
+	_build_bethesda_fountain(ty)
+
+
+func _build_bethesda_fountain(terrace_floor_y: float) -> void:
+	var glb_path := ProjectSettings.globalize_path("res://models/bethesda_fountain_photogrammetry.glb")
+	if not FileAccess.file_exists(glb_path):
+		print("  Bethesda Fountain: photogrammetry GLB not found, skipping")
+		return
+
+	var root: Node3D = _loader._load_glb_scene(glb_path)
+	if root == null:
+		print("WARNING: failed to load Bethesda Fountain GLB")
+		return
+
+	# Position from park_data.json OSM amenity data
+	var fx := -457.28
+	var fz := 948.97
+	# Fountain sits on the lower terrace floor (same elevation as arcade floor)
+	var fy: float = _loader._terrain_y(fx, fz)
+	# Use lower terrace elevation if terrain query returns upper terrace height
+	# (the terrain hole means Terrain3D may return 0). Use terrace floor as fallback.
+	if fy < 1.0 or fy > 25.0:
+		fy = terrace_floor_y
+
+	root.position = Vector3(fx, fy, fz)
+	root.name = "BethesdaFountain"
+
+	_loader.add_child(root)
+	print("ParkLoader: Bethesda Fountain placed at (%.0f, %.1f, %.0f)" % [fx, fy, fz])
 
 
 # ---------------------------------------------------------------------------

@@ -66,6 +66,21 @@ var _shore_img: Image
 var _park_mask_img: Image
 var _frame := 0
 
+# Terrain hole polygons — structures where terrain must be invisible.
+# Points in world XZ coordinates (same as park_data.json).
+const HOLE_POLYGONS := [
+	{
+		"name": "Bethesda Terrace",
+		"points": [
+			Vector2(-454.4, 1019.5), Vector2(-459.5, 1018.0), Vector2(-493.6, 1008.0),
+			Vector2(-499.0, 1006.4), Vector2(-497.6, 1001.6), Vector2(-496.2, 997.0),
+			Vector2(-491.0, 998.5), Vector2(-486.9, 999.7), Vector2(-485.5, 1001.1),
+			Vector2(-483.8, 995.4), Vector2(-472.7, 998.7), Vector2(-462.2, 1001.8),
+			Vector2(-457.3, 1009.2), Vector2(-451.8, 1010.8), Vector2(-453.1, 1015.2),
+		],
+	},
+]
+
 func _init() -> void:
 	print("=== Baking Terrain3D control maps ===")
 
@@ -99,6 +114,55 @@ func _process(_delta: float) -> bool:
 	return false
 
 
+func _point_in_polygon(p: Vector2, poly: Array) -> bool:
+	## Raycasting point-in-polygon test.
+	var inside := false
+	var n := poly.size()
+	var j := n - 1
+	for i in range(n):
+		var pi: Vector2 = poly[i]
+		var pj: Vector2 = poly[j]
+		if ((pi.y > p.y) != (pj.y > p.y)) and \
+			(p.x < (pj.x - pi.x) * (p.y - pi.y) / (pj.y - pi.y) + pi.x):
+			inside = not inside
+		j = i
+	return inside
+
+
+func _build_hole_mask() -> PackedByteArray:
+	## Precompute an atlas-resolution bitmask for terrain hole polygons.
+	## Returns empty array if no holes defined.
+	if HOLE_POLYGONS.is_empty():
+		return PackedByteArray()
+	# Find bounding box of all polygons to avoid scanning entire 8192x8192
+	var mask := PackedByteArray()
+	mask.resize(ATLAS_RES * ATLAS_RES)
+	mask.fill(0)
+	for hole in HOLE_POLYGONS:
+		var pts: Array = hole.points
+		# Compute AABB in atlas pixels
+		var xmin := 99999.0; var xmax := -99999.0
+		var zmin := 99999.0; var zmax := -99999.0
+		for pt: Vector2 in pts:
+			xmin = minf(xmin, pt.x); xmax = maxf(xmax, pt.x)
+			zmin = minf(zmin, pt.y); zmax = maxf(zmax, pt.y)
+		# Convert world bounds to atlas pixel bounds (with 2-cell margin)
+		var ax0 := maxi(int((xmin + HALF) / WORLD_SIZE * ATLAS_RES) - 2, 0)
+		var ax1 := mini(int((xmax + HALF) / WORLD_SIZE * ATLAS_RES) + 2, ATLAS_RES - 1)
+		var az0 := maxi(int((zmin + HALF) / WORLD_SIZE * ATLAS_RES) - 2, 0)
+		var az1 := mini(int((zmax + HALF) / WORLD_SIZE * ATLAS_RES) + 2, ATLAS_RES - 1)
+		var hole_pixels := 0
+		for az in range(az0, az1 + 1):
+			var wz: float = float(az) / float(ATLAS_RES) * WORLD_SIZE - HALF
+			for ax in range(ax0, ax1 + 1):
+				var wx: float = float(ax) / float(ATLAS_RES) * WORLD_SIZE - HALF
+				if _point_in_polygon(Vector2(wx, wz), pts):
+					mask[az * ATLAS_RES + ax] = 1
+					hole_pixels += 1
+		print("  Hole '%s': %d pixels" % [hole.name, hole_pixels])
+	return mask
+
+
 func _do_bake() -> void:
 	var terrain := _terrain
 	var landuse_img := _landuse_img
@@ -112,6 +176,9 @@ func _do_bake() -> void:
 		return
 
 	print("Terrain3D loaded: %d regions" % terrain.data.get_region_count())
+
+	# Precompute terrain hole mask (structure polygons that carve through terrain)
+	var hole_mask := _build_hole_mask()
 
 	# Iterate over all regions and set control map data
 	var regions_updated := 0
@@ -140,6 +207,13 @@ func _do_bake() -> void:
 				var struct_val: int = _pixel_val(structure_img, ax, az)
 				var shore_val: float = _pixel_valf(shore_img, ax, az) if shore_img else 0.0
 				var park_val: float = _pixel_valf(park_mask_img, ax, az) if park_mask_img else 1.0
+
+				# Structure holes (Bethesda Terrace etc.) — terrain invisible here
+				if not hole_mask.is_empty() and hole_mask[az * ATLAS_RES + ax] > 0:
+					var pos := Vector3(wx, 0, wz)
+					terrain.data.set_control(pos, _encode_control(TEX_GRASS, TEX_ROCK, 0.0, false, true))
+					pixels_set += 1
+					continue
 
 				# Determine base texture and overlay
 				var base_id: int = TEX_GRASS
