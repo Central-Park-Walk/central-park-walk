@@ -68,6 +68,25 @@ const vec4 PHENOLOGY[14] = vec4[14](
 	vec4(2.3, 2.6, 3.0, 0.2)   // 13 magnolia: late fall, early spring bloom
 );
 
+// Per-species wind biomechanics: (trunk_flex, branch_flex, sway_freq, gust_response)
+// Sources: forestry drag coefficients, Gardiner 1995, James et al 2006
+const vec4 WIND_PARAMS[14] = vec4[14](
+	vec4(0.15, 0.45, 0.70, 0.50),  // 0 oak: massive stiff trunk, slow sway
+	vec4(0.35, 0.55, 0.90, 0.60),  // 1 maple: medium all-around
+	vec4(0.45, 0.70, 0.85, 0.65),  // 2 elm: flexible vase-form, long arching branches
+	vec4(0.70, 0.50, 1.20, 0.80),  // 3 birch: whip-like trunk, lightweight, fast
+	vec4(0.35, 0.50, 0.90, 0.55),  // 4 deciduous: balanced baseline
+	vec4(0.20, 0.25, 0.60, 0.35),  // 5 conifer: deep roots, stiff, dense dampening
+	vec4(0.40, 0.65, 1.05, 0.70),  // 6 honeylocust: airy compound leaves, supple
+	vec4(0.25, 0.40, 0.95, 0.45),  // 7 callery_pear: tight upright branching
+	vec4(0.20, 0.30, 0.75, 0.40),  // 8 ginkgo: ancient rigid wood, sparse crown
+	vec4(0.30, 0.45, 0.80, 0.50),  // 9 london_plane: large solid trunk
+	vec4(0.35, 0.50, 0.90, 0.55),  // 10 linden: medium rounded crown
+	vec4(0.50, 0.55, 1.15, 0.65),  // 11 cherry: smaller, limber, fast sway
+	vec4(0.85, 0.95, 0.75, 0.90),  // 12 willow: extremely flexible, flowing, high drag
+	vec4(0.25, 0.35, 0.80, 0.40)   // 13 magnolia: stiff, heavy waxy leaves dampen
+);
+
 varying float v_leaf_density;
 varying vec3 v_leaf_color;
 varying float v_blossom;     // 0-1 blossom intensity (cherry/callery pear spring bloom)
@@ -173,28 +192,50 @@ void vertex() {
 	leaf_color += warm_off * vec3(0.025, -0.008, -0.03);
 	v_leaf_color = leaf_color;
 
+	// --- Per-species wind biomechanics (vertex-color driven) ---
+	vec4 wp = WIND_PARAMS[sp_idx];
+	float trunk_flex = wp.x;
+	float branch_flex = wp.y;
+	float sway_freq = wp.z;
+	float gust_resp = wp.w;
+
 	vec3 tree_origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-	// GLB models are Y-up (standard GLTF). Model Y = height, model XZ = horizontal.
-	float sway = max(VERTEX.y, 0.0);
 	float wind_str = length(wind_vec);
 	float rustle = (0.3 + wind_str * 0.7) * mix(0.3, 1.0, leaf_density);
-	// Base sway: gentle continuous oscillation
-	VERTEX.x += sin(TIME * 0.7 + tree_origin.x * 0.04 + tree_origin.z * 0.06) * 0.09 * sway * rustle;
-	VERTEX.z += sin(TIME * 1.1 + tree_origin.z * 0.05) * 0.05 * sway * rustle;
+	float phase = tree_origin.x * 0.04 + tree_origin.z * 0.06;
+
+	// Baked wind weights: R=trunk depth, G=branch extent, B=phase hash
+	// Fallback: if no vertex colors baked yet, use VERTEX.y as trunk weight
+	float trunk_w = COLOR.r;   // hierarchy depth (0=base, 1=crown)
+	float branch_w = COLOR.g;  // branch extent (0=attachment, 1=tip)
+	float branch_phase = COLOR.b * 6.283 + phase;  // per-branch unique phase
+
+	// Trunk sway: cantilever bending (displacement ∝ weight²)
+	float trunk_bend = trunk_w * trunk_w;
+	VERTEX.x += sin(TIME * 0.7 * sway_freq + phase) * trunk_flex * trunk_bend * rustle * 0.35;
+	VERTEX.z += sin(TIME * 1.1 * sway_freq + phase * 1.3) * trunk_flex * trunk_bend * rustle * 0.20;
+
+	// Branch sway: secondary oscillation at ~2× trunk frequency
+	VERTEX.x += sin(TIME * 1.4 * sway_freq + branch_phase) * branch_flex * branch_w * rustle * 0.12;
+	VERTEX.z += sin(TIME * 1.9 * sway_freq + branch_phase * 0.7) * branch_flex * branch_w * rustle * 0.08;
+
 	// Wind push: constant lean in wind direction
-	VERTEX.x += wind_vec.x * sway * 0.18;
-	VERTEX.z += wind_vec.y * sway * 0.18;
-	// Wind gusts: periodic stronger push that travels across the canopy
-	float gust_phase = tree_origin.x * 0.02 + tree_origin.z * 0.03;  // spatial wave
-	float gust = sin(TIME * 0.3 + gust_phase) * 0.5 + 0.5;  // 0-1 gust intensity
+	float lean = 0.12 * mix(0.5, 1.0, trunk_flex);
+	VERTEX.x += wind_vec.x * trunk_w * lean;
+	VERTEX.z += wind_vec.y * trunk_w * lean;
+
+	// Gusts: periodic stronger push traveling across the canopy
+	float gust_ph = tree_origin.x * 0.02 + tree_origin.z * 0.03;
+	float gust = sin(TIME * 0.3 + gust_ph) * 0.5 + 0.5;
 	gust = gust * gust * gust;  // sharpen peaks: brief strong gusts, long calm
-	float gust_strength = gust * wind_str * 0.25;
-	VERTEX.x += wind_vec.x * sway * gust_strength;
-	VERTEX.z += wind_vec.y * sway * gust_strength;
+	float gust_strength = gust * wind_str * 0.25 * gust_resp;
+	VERTEX.x += wind_vec.x * trunk_w * gust_strength;
+	VERTEX.z += wind_vec.y * trunk_w * gust_strength;
+
 	// Leaf flutter: high-frequency per-leaf vibration
 	float flutter = sin(TIME * 3.5 + VERTEX.x * 11.0 + VERTEX.z * 7.0) * 0.012 * rustle;
-	flutter += sin(TIME * 5.7 + VERTEX.z * 17.0) * 0.006 * gust_strength;  // gust flutter
-	VERTEX.y += flutter * sway;
+	flutter += sin(TIME * 5.7 + VERTEX.z * 17.0) * 0.006 * gust_strength;
+	VERTEX.y += flutter * trunk_w;
 
 	// Winter: shrink canopy toward trunk
 	if (is_evergreen < 0.5 && leaf_density < 0.5) {

@@ -7,7 +7,31 @@ uniform int bark_style = 0;
 global uniform float rain_wetness;
 global uniform float snow_cover;
 global uniform float season_t;
+global uniform vec2 wind_vec;
 global uniform vec3 sky_reflect_color;
+
+// Per-species wind biomechanics: (trunk_flex, branch_flex, sway_freq, gust_response)
+// Sources: forestry drag coefficients, Gardiner 1995, James et al 2006
+// trunk_flex:    cantilever stiffness — how much the whole trunk bends
+// branch_flex:   secondary limb oscillation amplitude
+// sway_freq:     natural frequency scalar (taller/denser wood = slower)
+// gust_response: crown sail area / drag — how much gusts push the tree
+const vec4 WIND_PARAMS[14] = vec4[14](
+	vec4(0.15, 0.45, 0.70, 0.50),  // 0 oak: massive stiff trunk, slow sway
+	vec4(0.35, 0.55, 0.90, 0.60),  // 1 maple: medium all-around
+	vec4(0.45, 0.70, 0.85, 0.65),  // 2 elm: flexible vase-form, long arching branches
+	vec4(0.70, 0.50, 1.20, 0.80),  // 3 birch: whip-like trunk, lightweight, fast
+	vec4(0.35, 0.50, 0.90, 0.55),  // 4 deciduous: balanced baseline
+	vec4(0.20, 0.25, 0.60, 0.35),  // 5 conifer: deep roots, stiff, dense dampening
+	vec4(0.40, 0.65, 1.05, 0.70),  // 6 honeylocust: airy compound leaves, supple wood
+	vec4(0.25, 0.40, 0.95, 0.45),  // 7 callery_pear: tight upright branching
+	vec4(0.20, 0.30, 0.75, 0.40),  // 8 ginkgo: ancient rigid wood, sparse crown
+	vec4(0.30, 0.45, 0.80, 0.50),  // 9 london_plane: large solid trunk, moderate
+	vec4(0.35, 0.50, 0.90, 0.55),  // 10 linden: medium rounded crown
+	vec4(0.50, 0.55, 1.15, 0.65),  // 11 cherry: smaller tree, limber, fast sway
+	vec4(0.85, 0.95, 0.75, 0.90),  // 12 willow: extremely flexible, flowing, high drag
+	vec4(0.25, 0.35, 0.80, 0.40)   // 13 magnolia: stiff trunk, heavy waxy leaves dampen
+);
 
 // PBR bark textures — photogrammetry-scanned real bark surfaces (CC0)
 // One set per bark style, blended with procedural FBM for per-tree variation
@@ -30,6 +54,46 @@ float fbm(vec2 p, int oct) {
 }
 
 void vertex() {
+	// --- Per-species wind sway (reads baked vertex colors + INSTANCE_CUSTOM) ---
+	int sp_idx = int(INSTANCE_CUSTOM.r * 13.0 + 0.5);
+	vec4 wp = WIND_PARAMS[sp_idx];
+	float trunk_flex = wp.x;
+	float branch_flex = wp.y;
+	float sway_freq = wp.z;
+	float gust_resp = wp.w;
+
+	vec3 tree_origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	float wind_str = length(wind_vec);
+	float rustle = 0.3 + wind_str * 0.7;
+	float phase = tree_origin.x * 0.04 + tree_origin.z * 0.06;
+
+	// Read baked wind weights (R=trunk depth, G=branch extent, B=phase)
+	float trunk_w = COLOR.r;   // 0 at base, 1 at crown
+	float branch_w = COLOR.g;  // 0 at branch base, 1 at branch tip
+	float branch_phase = COLOR.b * 6.283 + phase;  // per-branch unique phase
+
+	// Trunk sway: cantilever bending (displacement ∝ weight²)
+	float trunk_bend = trunk_w * trunk_w;
+	VERTEX.x += sin(TIME * 0.7 * sway_freq + phase) * trunk_flex * trunk_bend * rustle * 0.35;
+	VERTEX.z += sin(TIME * 1.1 * sway_freq + phase * 1.3) * trunk_flex * trunk_bend * rustle * 0.20;
+
+	// Branch sway: secondary oscillation at ~2× trunk frequency
+	VERTEX.x += sin(TIME * 1.4 * sway_freq + branch_phase) * branch_flex * branch_w * rustle * 0.12;
+	VERTEX.z += sin(TIME * 1.9 * sway_freq + branch_phase * 0.7) * branch_flex * branch_w * rustle * 0.08;
+
+	// Wind push: constant lean in wind direction
+	float lean = 0.10 * mix(0.5, 1.0, trunk_flex);
+	VERTEX.x += wind_vec.x * trunk_w * lean;
+	VERTEX.z += wind_vec.y * trunk_w * lean;
+
+	// Gusts: periodic stronger push traveling across the canopy
+	float gust_ph = tree_origin.x * 0.02 + tree_origin.z * 0.03;
+	float gust = sin(TIME * 0.3 + gust_ph) * 0.5 + 0.5;
+	gust = gust * gust * gust;  // sharpen peaks
+	float gust_strength = gust * wind_str * 0.20 * gust_resp;
+	VERTEX.x += wind_vec.x * trunk_w * gust_strength;
+	VERTEX.z += wind_vec.y * trunk_w * gust_strength;
+
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_nrm = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }

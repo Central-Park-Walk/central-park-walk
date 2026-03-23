@@ -19,6 +19,7 @@ import os
 import math
 import random
 import time
+import numpy as np
 from mathutils import Vector, Matrix
 
 # ---------------------------------------------------------------------------
@@ -42,6 +43,116 @@ MODEL_H = 5.0       # Normalized model height for Godot pipeline
 N_VARIANTS = 5       # Variants per tier
 RADIAL_PTS = 6       # Radial segments for trunk/branch cylinders (game quality)
 SMOOTH_ITER = 1      # Mesh smoothing iterations
+
+
+def bake_wind_vertex_colors(obj):
+    """Bake MTree attributes into vertex colors for GPU wind animation.
+
+    Reads hierarchy_depth, branch_extent, stem_id from MTree's mesher output
+    and packs them into COLOR_0 vertex attribute for GLTF export.
+
+    Vertex color encoding (AAA Pivot Painter convention):
+        R: Normalized hierarchy depth (trunk=0 → branch tip=1) — trunk sway
+        G: Normalized branch extent (branch base=0 → tip=1) — branch sway
+        B: Stem ID hash (golden ratio) — per-branch phase variation
+        A: 1.0
+
+    Leaf card vertices (from joined leaf geometry) get position-based fallbacks.
+    """
+    mesh = obj.data
+    n_verts = len(mesh.vertices)
+    if n_verts == 0:
+        return
+
+    # Read MTree attributes (present on bark verts, zero on joined leaf cards)
+    hierarchy_depth = np.zeros(n_verts)
+    branch_extent = np.zeros(n_verts)
+    stem_id = np.zeros(n_verts)
+
+    hd_attr = mesh.attributes.get("hierarchy_depth")
+    be_attr = mesh.attributes.get("branch_extent")
+    si_attr = mesh.attributes.get("stem_id")
+
+    has_mtree = bool(hd_attr and be_attr and si_attr)
+    if has_mtree:
+        hd_attr.data.foreach_get("value", hierarchy_depth)
+        be_attr.data.foreach_get("value", branch_extent)
+        si_attr.data.foreach_get("value", stem_id)
+
+        max_depth = max(hierarchy_depth.max(), 1.0)
+        hierarchy_depth /= max_depth
+        max_extent = max(branch_extent.max(), 1.0)
+        branch_extent /= max_extent
+        stem_hash = np.mod(stem_id * 0.61803398875, 1.0)
+    else:
+        # Geometry fallback: use height and horizontal distance
+        zs = np.array([mesh.vertices[i].co.z for i in range(n_verts)])
+        min_z, max_z = zs.min(), zs.max()
+        z_range = max(max_z - min_z, 0.01)
+        hierarchy_depth = (zs - min_z) / z_range
+
+        # Trunk axis from bottom 10%
+        base_thresh = min_z + z_range * 0.1
+        base_xs = [mesh.vertices[i].co.x for i in range(n_verts) if zs[i] <= base_thresh]
+        base_ys = [mesh.vertices[i].co.y for i in range(n_verts) if zs[i] <= base_thresh]
+        cx = sum(base_xs) / max(len(base_xs), 1)
+        cy = sum(base_ys) / max(len(base_ys), 1)
+        for i in range(n_verts):
+            v = mesh.vertices[i]
+            branch_extent[i] = math.sqrt((v.co.x - cx)**2 + (v.co.y - cy)**2)
+        max_ext = max(branch_extent.max(), 0.01)
+        branch_extent /= max_ext
+        stem_hash = np.array([
+            math.fmod(abs(math.sin(mesh.vertices[i].co.x * 127.1 +
+                                    mesh.vertices[i].co.y * 311.7 +
+                                    mesh.vertices[i].co.z * 74.7) * 43758.5453), 1.0)
+            for i in range(n_verts)
+        ])
+
+    # Identify leaf vertices and fix their zero MTree data
+    leaf_verts = set()
+    for poly in mesh.polygons:
+        mat = obj.material_slots[poly.material_index].material \
+              if poly.material_index < len(obj.material_slots) else None
+        if mat and "leaf" in mat.name.lower():
+            for vi in poly.vertices:
+                leaf_verts.add(vi)
+
+    if leaf_verts and has_mtree:
+        zs = np.array([mesh.vertices[i].co.z for i in range(n_verts)])
+        min_z, max_z = zs.min(), zs.max()
+        z_range = max(max_z - min_z, 0.01)
+        for vi in leaf_verts:
+            h_frac = (zs[vi] - min_z) / z_range
+            hierarchy_depth[vi] = max(hierarchy_depth[vi], h_frac * 0.85 + 0.15)
+            branch_extent[vi] = max(branch_extent[vi], 0.85)
+            if stem_hash[vi] < 0.001:
+                v = mesh.vertices[vi]
+                stem_hash[vi] = math.fmod(
+                    abs(math.sin(v.co.x * 127.1 + v.co.y * 311.7 + v.co.z * 74.7) * 43758.5453),
+                    1.0)
+
+    # Create vertex color attribute (COLOR_0 in GLTF)
+    attr_name = "Col"
+    if attr_name in mesh.color_attributes:
+        mesh.color_attributes.remove(mesh.color_attributes[attr_name])
+    color_attr = mesh.color_attributes.new(
+        name=attr_name, type='BYTE_COLOR', domain='CORNER'
+    )
+
+    for poly in mesh.polygons:
+        for li in range(poly.loop_start, poly.loop_start + poly.loop_total):
+            vi = mesh.loops[li].vertex_index
+            color_attr.data[li].color = (
+                hierarchy_depth[vi],
+                branch_extent[vi],
+                stem_hash[vi],
+                1.0,
+            )
+
+    idx = mesh.color_attributes.find(attr_name)
+    mesh.color_attributes.active_color_index = idx
+    mesh.color_attributes.render_color_index = idx
 
 
 def clean_nan_vertices(obj):
@@ -1186,6 +1297,9 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg):
                 v.co.z -= min_z
             trunk_obj.data.update()
 
+        # --- Bake wind vertex colors from MTree attributes ---
+        bake_wind_vertex_colors(trunk_obj)
+
         dt = time.time() - t0
         n_leaves = len(placements)
         n_verts = len(trunk_obj.data.vertices)
@@ -1308,6 +1422,9 @@ def generate_dead_tree():
             for v in obj.data.vertices:
                 v.co.z -= min_z
             obj.data.update()
+
+        # Bake wind vertex colors (dead trees = bark only, no leaves)
+        bake_wind_vertex_colors(obj)
 
         print(f"  v{vi}: {len(obj.data.vertices):,} verts, h={actual_h:.1f}m")
         variant_objects.append(obj)

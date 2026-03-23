@@ -50,15 +50,32 @@ const vec3 FALL_COLORS[16] = vec3[16](
 	vec3(0.0)                  // 15 dead
 );
 
+// Per-species wind biomechanics: (trunk_flex, branch_flex, sway_freq, gust_response)
+const vec4 WIND_PARAMS[14] = vec4[14](
+	vec4(0.15, 0.45, 0.70, 0.50),  // 0 oak
+	vec4(0.35, 0.55, 0.90, 0.60),  // 1 maple
+	vec4(0.45, 0.70, 0.85, 0.65),  // 2 elm
+	vec4(0.70, 0.50, 1.20, 0.80),  // 3 birch
+	vec4(0.35, 0.50, 0.90, 0.55),  // 4 deciduous
+	vec4(0.20, 0.25, 0.60, 0.35),  // 5 conifer
+	vec4(0.40, 0.65, 1.05, 0.70),  // 6 honeylocust
+	vec4(0.25, 0.40, 0.95, 0.45),  // 7 callery_pear
+	vec4(0.20, 0.30, 0.75, 0.40),  // 8 ginkgo
+	vec4(0.30, 0.45, 0.80, 0.50),  // 9 london_plane
+	vec4(0.35, 0.50, 0.90, 0.55),  // 10 linden
+	vec4(0.50, 0.55, 1.15, 0.65),  // 11 cherry
+	vec4(0.85, 0.95, 0.75, 0.90),  // 12 willow
+	vec4(0.25, 0.35, 0.80, 0.40)   // 13 magnolia
+);
+
 varying vec3 v_canopy_color;
 varying float v_canopy_alpha;
 
 void vertex() {
-	// INSTANCE_CUSTOM: R=phenology_idx, G=timing_offset, B=evergreen, A=species_idx
-	float pheno_idx = INSTANCE_CUSTOM.r;
+	// INSTANCE_CUSTOM: R=phenology/13, G=timing+0.5, B=evergreen, A=color_jitter
+	int sp = int(INSTANCE_CUSTOM.r * 13.0 + 0.5);
 	float timing = INSTANCE_CUSTOM.g;
 	float evergreen = INSTANCE_CUSTOM.b;
-	int sp = int(INSTANCE_CUSTOM.a * 15.0 + 0.5);
 
 	// Seasonal color (same logic as tree_leaf)
 	float s = season_t + timing * 0.3;
@@ -101,11 +118,23 @@ void vertex() {
 	float equator_weight = sin(acos(clamp(NORMAL.y, 0.0, 1.0)));
 	VERTEX += NORMAL * bump * equator_weight;
 
-	// ---- Wind sway ----
+	// ---- Species-specific wind sway (simplified LOD1) ----
+	vec4 wp = WIND_PARAMS[sp];
 	float wind_str = length(wind_vec);
 	float phase = world_pos.x * 0.07 + world_pos.z * 0.11;
-	float sway = sin(TIME * 0.8 + phase) * 0.02 * wind_str;
+	// Trunk sway: amplitude scaled by species flexibility
+	float sway_amp = 0.02 * mix(0.5, 1.0, wp.x);
+	float sway = sin(TIME * 0.8 * wp.z + phase) * sway_amp * wind_str;
 	VERTEX.x += sway * VERTEX.y;
+	// Branch shimmer: slight cross-axis flutter
+	float shimmer = sin(TIME * 1.6 * wp.z + phase * 1.5) * 0.008 * wp.y * wind_str;
+	VERTEX.z += shimmer * VERTEX.y;
+	// Gust response
+	float gust_ph = world_pos.x * 0.02 + world_pos.z * 0.03;
+	float gust = sin(TIME * 0.3 + gust_ph) * 0.5 + 0.5;
+	gust = gust * gust * gust;
+	VERTEX.x += wind_vec.x * VERTEX.y * gust * wind_str * 0.015 * wp.w;
+	VERTEX.z += wind_vec.y * VERTEX.y * gust * wind_str * 0.015 * wp.w;
 }
 
 void fragment() {

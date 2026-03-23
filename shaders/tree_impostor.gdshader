@@ -70,6 +70,24 @@ const vec4 PHENOLOGY[14] = vec4[14](
 	vec4(2.3, 2.6, 3.0, 0.2)   // 13 magnolia
 );
 
+// Per-species wind biomechanics: (trunk_flex, branch_flex, sway_freq, gust_response)
+const vec4 WIND_PARAMS[14] = vec4[14](
+	vec4(0.15, 0.45, 0.70, 0.50),  // 0 oak
+	vec4(0.35, 0.55, 0.90, 0.60),  // 1 maple
+	vec4(0.45, 0.70, 0.85, 0.65),  // 2 elm
+	vec4(0.70, 0.50, 1.20, 0.80),  // 3 birch
+	vec4(0.35, 0.50, 0.90, 0.55),  // 4 deciduous
+	vec4(0.20, 0.25, 0.60, 0.35),  // 5 conifer
+	vec4(0.40, 0.65, 1.05, 0.70),  // 6 honeylocust
+	vec4(0.25, 0.40, 0.95, 0.45),  // 7 callery_pear
+	vec4(0.20, 0.30, 0.75, 0.40),  // 8 ginkgo
+	vec4(0.30, 0.45, 0.80, 0.50),  // 9 london_plane
+	vec4(0.35, 0.50, 0.90, 0.55),  // 10 linden
+	vec4(0.50, 0.55, 1.15, 0.65),  // 11 cherry
+	vec4(0.85, 0.95, 0.75, 0.90),  // 12 willow
+	vec4(0.25, 0.35, 0.80, 0.40)   // 13 magnolia
+);
+
 // --- Varyings ---
 varying vec2 v_uv_frame1;
 varying vec2 v_uv_frame2;
@@ -204,16 +222,25 @@ void vertex() {
 	vec3 pivot_to_cam_ray = cam_os * 10.0;
 	vec3 pivot_to_cam_dir = normalize(cam_os);
 
-	// Wind sway: shift the billboard origin slightly
+	// Species-specific wind sway: shift billboard origin
+	vec4 wp = WIND_PARAMS[sp_idx];
 	vec3 tree_pos = MODEL_MATRIX[3].xyz;
 	float wind_str = length(wind_vec);
 	float rustle = 0.3 + wind_str * 0.7;
+	float phase = tree_pos.x * 0.04 + tree_pos.z * 0.06;
+	// Trunk sway scaled by species flexibility
 	vec3 wind_offset = vec3(
-		sin(TIME * 0.7 + tree_pos.x * 0.04 + tree_pos.z * 0.06) * 0.04 * rustle,
+		sin(TIME * 0.7 * wp.z + phase) * 0.04 * rustle * mix(0.5, 1.0, wp.x),
 		0.0,
-		sin(TIME * 1.1 + tree_pos.z * 0.05) * 0.025 * rustle
+		sin(TIME * 1.1 * wp.z + phase * 1.3) * 0.025 * rustle * mix(0.5, 1.0, wp.x)
 	);
-	wind_offset += vec3(wind_vec.x * 0.08, 0.0, wind_vec.y * 0.08);
+	// Wind push + gust
+	float lean = 0.08 * mix(0.5, 1.0, wp.x);
+	wind_offset += vec3(wind_vec.x * lean, 0.0, wind_vec.y * lean);
+	float gust_ph = tree_pos.x * 0.02 + tree_pos.z * 0.03;
+	float gust = sin(TIME * 0.3 + gust_ph) * 0.5 + 0.5;
+	gust = gust * gust * gust;
+	wind_offset += vec3(wind_vec.x, 0.0, wind_vec.y) * gust * wind_str * 0.06 * wp.w;
 
 	// Atlas frame selection (octahedral hemisphere)
 	vec2 grid = hemi_octa(pivot_to_cam_dir);
