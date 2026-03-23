@@ -108,9 +108,11 @@ void fragment() {
 		if (!FRONT_FACING) NORMAL = -NORMAL;
 	}
 
-	// Winter discard
+	// Winter discard — deciduous shrubs disappear under snow
 	float winter_discard = smoothstep(3.2, 3.8, season_t);
-	if (winter_discard > 0.95 && is_evergreen < 0.5) discard;
+	// Snow accelerates hiding: heavy snow hides shrubs earlier
+	float snow_hide = snow_cover * 0.6;
+	if ((winter_discard + snow_hide) > 0.7 && is_evergreen < 0.5) discard;
 
 	// ---- COLOR ----
 	vec3 col = tex_color;
