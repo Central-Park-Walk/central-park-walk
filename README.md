@@ -6,17 +6,17 @@ Central Park Walk is a real-time 3D walking simulation of all 843 acres of New Y
 
 Every tree has a real measured height. Every path follows its real-world geometry. Every building has its actual footprint. The terrain is accurate to one foot. The data has gaps, and we leave them visible.
 
-![Bethesda Summer](screenshots/grass_rnd_025.png)
-*Near Bethesda Terrace, July 5:16 PM — volumetric clouds, NYC skyline through atmospheric haze, Mtree canopies.*
+![Cherry Hill Autumn](screenshots/readme_cherry_hill_autumn.png)
+*Cherry Hill in October — afternoon sun through autumn canopy, long shadows on the lawn, 9,852 trees from NYC Census + OSM + woodland scatter.*
 
-![North Woods Undergrowth](screenshots/grass_rnd_056.png)
-*North Woods in September — BD3D shrubs, ferns, and herbs across 30 species. Zone-specific placement, botanically-accurate scale ranges.*
+![The Ramble Summer](screenshots/readme_ramble_summer.png)
+*The Ramble in July — dappled light under dense summer canopy, 30 undergrowth species, BD3D shrubs and ferns.*
 
-![Great Lawn Winter](screenshots/grass_rnd_034.png)
-*Great Lawn in January snow — GPU particle grass fully hidden under snow cover, bare deciduous canopies, building silhouettes.*
+![Bow Bridge Winter](screenshots/readme_bow_bridge_snow.png)
+*Near Bow Bridge in January — snow cover, bare deciduous canopies, photogrammetry bark textures, 4-tier LOD chain.*
 
-![November Woodland](screenshots/grass_rnd_026.png)
-*North Meadow in November — photogrammetry bark textures, autumn phenology, first snowflakes, perimeter buildings.*
+![Literary Walk Winter](screenshots/readme_literary_walk_winter.png)
+*Literary Walk in December snow — bare elms, GPU particle grass hidden under snow, volumetric clouds, seasonal phenology.*
 
 ## Download
 

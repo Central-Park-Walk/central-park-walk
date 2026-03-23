@@ -376,33 +376,55 @@ func _build_showcase_shots() -> void:
 		_tour_shots.back()["filename"] = shot["name"]
 
 
-# README candidate shots — 12 diverse locations/times/seasons/weather.
+# README candidate shots — bright, well-lit, showcasing variety.
 # Best 4 chosen for README.md. Saves to screenshots/.
 const README_SHOTS: Array = [
-	# 1. North Woods morning fog — atmospheric forest depth
-	{"name": "readme_north_woods_fog", "x": 850.0, "z": -1300.0, "yaw": 45.0, "pitch": 0.0, "hour": 7.5, "season": 1.5, "weather": "fog"},
-	# 2. Bow Bridge autumn golden hour — iconic landmark + fall color
-	{"name": "readme_bow_bridge_autumn", "x": -540.0, "z": 740.0, "yaw": 310.0, "pitch": -3.0, "hour": 17.5, "season": 2.5, "weather": "clear"},
-	# 3. Ramble summer noon — under-canopy forest walk
-	{"name": "readme_ramble_noon", "x": -350.0, "z": 650.0, "yaw": 200.0, "pitch": 0.0, "hour": 12.0, "season": 1.5, "weather": "clear"},
-	# 4. Cherry Hill spring dawn — blossoms + lake
-	{"name": "readme_cherry_hill_spring", "x": -630.0, "z": 880.0, "yaw": 90.0, "pitch": -5.0, "hour": 6.5, "season": 0.3, "weather": "clear"},
-	# 5. Great Lawn winter snow — open space + skyline
-	{"name": "readme_great_lawn_snow", "x": -99.0, "z": 173.0, "yaw": 270.0, "pitch": 0.0, "hour": 14.0, "season": 3.5, "weather": "snow"},
-	# 6. Bethesda Terrace rain — architecture + weather
-	{"name": "readme_bethesda_rain", "x": -480.0, "z": 1020.0, "yaw": 350.0, "pitch": -5.0, "hour": 16.0, "season": 1.5, "weather": "rain"},
-	# 7. Conservatory Water summer dusk — water + reflections
-	{"name": "readme_conservatory_dusk", "x": -152.0, "z": 958.0, "yaw": 200.0, "pitch": -3.0, "hour": 19.5, "season": 1.5, "weather": "clear"},
-	# 8. Reservoir south winter dawn — frozen water + skyline
-	{"name": "readme_reservoir_dawn", "x": -200.0, "z": -300.0, "yaw": 0.0, "pitch": -2.0, "hour": 7.0, "season": 3.5, "weather": "clear"},
-	# 9. Wagner Cove summer thunderstorm — drama
-	{"name": "readme_wagner_storm", "x": -370.0, "z": 800.0, "yaw": 340.0, "pitch": 0.0, "hour": 15.0, "season": 1.5, "weather": "thunderstorm"},
-	# 10. Sheep Meadow autumn afternoon — open meadow + perimeter trees
-	{"name": "readme_sheep_meadow_autumn", "x": -750.0, "z": 1700.0, "yaw": 120.0, "pitch": 0.0, "hour": 15.0, "season": 2.3, "weather": "clear"},
-	# 11. Cleopatra's Needle spring morning — landmark
-	{"name": "readme_obelisk_spring", "x": 40.0, "z": 360.0, "yaw": 250.0, "pitch": 5.0, "hour": 9.0, "season": 0.5, "weather": "clear"},
-	# 12. The Lake summer night — city glow + water
-	{"name": "readme_lake_night", "x": -500.0, "z": 780.0, "yaw": 90.0, "pitch": -3.0, "hour": 22.0, "season": 1.5, "weather": "clear"},
+	# --- SUMMER ---
+	# Literary Walk summer midday — flagship tree-lined path
+	{"name": "readme_literary_walk_summer", "x": -600.0, "z": 1420.0, "yaw": 30.0, "pitch": 0.0, "hour": 11.0, "season": 1.5, "weather": "clear"},
+	# Ramble summer late morning — dappled forest walk
+	{"name": "readme_ramble_summer", "x": -350.0, "z": 650.0, "yaw": 200.0, "pitch": 0.0, "hour": 10.5, "season": 1.5, "weather": "clear"},
+	# Bethesda Terrace summer noon — fountain + terrace
+	{"name": "readme_bethesda_summer", "x": -480.0, "z": 1020.0, "yaw": 350.0, "pitch": -5.0, "hour": 12.0, "season": 1.5, "weather": "clear"},
+	# Sheep Meadow summer afternoon — open green with skyline
+	{"name": "readme_sheep_meadow_summer", "x": -750.0, "z": 1700.0, "yaw": 120.0, "pitch": 0.0, "hour": 14.0, "season": 1.5, "weather": "clear"},
+	# Bow Bridge summer — lake + bridge
+	{"name": "readme_bow_bridge_summer", "x": -540.0, "z": 740.0, "yaw": 310.0, "pitch": -3.0, "hour": 13.0, "season": 1.5, "weather": "clear"},
+	# CPW skyline summer golden hour
+	{"name": "readme_cpw_skyline_golden", "x": -600.0, "z": 1420.0, "yaw": 90.0, "pitch": 0.0, "hour": 16.5, "season": 1.5, "weather": "clear"},
+	# --- AUTUMN ---
+	# Literary Walk autumn midday — fall colors on the Mall
+	{"name": "readme_literary_walk_autumn", "x": -600.0, "z": 1420.0, "yaw": 30.0, "pitch": 0.0, "hour": 12.0, "season": 2.5, "weather": "clear"},
+	# Sheep Meadow autumn afternoon — foliage + skyline
+	{"name": "readme_sheep_meadow_autumn", "x": -750.0, "z": 1700.0, "yaw": 120.0, "pitch": 0.0, "hour": 14.0, "season": 2.3, "weather": "clear"},
+	# Cherry Hill autumn — fall trees + lake view
+	{"name": "readme_cherry_hill_autumn", "x": -630.0, "z": 880.0, "yaw": 90.0, "pitch": -3.0, "hour": 13.0, "season": 2.5, "weather": "clear"},
+	# North Woods autumn — dense forest fall color
+	{"name": "readme_north_woods_autumn", "x": 600.0, "z": -1315.0, "yaw": 180.0, "pitch": 0.0, "hour": 11.0, "season": 2.5, "weather": "clear"},
+	# --- WINTER ---
+	# Great Lawn winter snow midday — open space + skyline
+	{"name": "readme_great_lawn_snow", "x": -99.0, "z": 173.0, "yaw": 270.0, "pitch": 0.0, "hour": 12.0, "season": 3.5, "weather": "snow"},
+	# Bow Bridge winter snow — snowy bridge over lake
+	{"name": "readme_bow_bridge_snow", "x": -540.0, "z": 740.0, "yaw": 310.0, "pitch": -3.0, "hour": 11.0, "season": 3.5, "weather": "snow"},
+	# Literary Walk winter noon — bare elms, snow-covered
+	{"name": "readme_literary_walk_winter", "x": -600.0, "z": 1420.0, "yaw": 30.0, "pitch": 0.0, "hour": 12.0, "season": 3.5, "weather": "snow"},
+	# --- SPRING ---
+	# Cherry Hill spring midday — blossoms + lake
+	{"name": "readme_cherry_hill_spring", "x": -630.0, "z": 880.0, "yaw": 90.0, "pitch": -3.0, "hour": 11.0, "season": 0.5, "weather": "clear"},
+	# Conservatory Water spring afternoon
+	{"name": "readme_conservatory_spring", "x": -152.0, "z": 958.0, "yaw": 200.0, "pitch": -3.0, "hour": 13.0, "season": 0.5, "weather": "clear"},
+	# --- WEATHER ---
+	# Bethesda rain afternoon — moody weather showcase
+	{"name": "readme_bethesda_rain", "x": -480.0, "z": 1020.0, "yaw": 350.0, "pitch": -5.0, "hour": 13.0, "season": 1.5, "weather": "rain"},
+	# North Woods fog late morning
+	{"name": "readme_north_woods_fog", "x": 850.0, "z": -1300.0, "yaw": 45.0, "pitch": 0.0, "hour": 10.0, "season": 1.5, "weather": "fog"},
+	# --- GOLDEN HOUR ---
+	# Sheep Meadow golden hour — warm light across open meadow
+	{"name": "readme_sheep_golden", "x": -700.0, "z": 1600.0, "yaw": 270.0, "pitch": -3.0, "hour": 16.5, "season": 1.5, "weather": "clear"},
+	# Lake autumn golden hour
+	{"name": "readme_lake_autumn_golden", "x": -560.0, "z": 780.0, "yaw": 60.0, "pitch": 0.0, "hour": 16.0, "season": 2.5, "weather": "clear"},
+	# Reservoir autumn afternoon — water + fall foliage + skyline
+	{"name": "readme_reservoir_autumn", "x": -200.0, "z": -300.0, "yaw": 0.0, "pitch": -2.0, "hour": 14.0, "season": 2.5, "weather": "clear"},
 ]
 
 func _build_readme_shots() -> void:
@@ -538,8 +560,8 @@ func _process(delta: float) -> void:
 			_perf_canvas.visible = false
 		_tour_timer += delta
 		match _tour_state:
-			0:  # WAIT_LOAD — let scene fully build
-				if _tour_timer >= 8.0:
+			0:  # WAIT_LOAD — let scene fully build (Terrain3D textures, trees, sky, grass)
+				if _tour_timer >= 12.0:
 					_tour_state = 1
 					_tour_timer = 0.0
 					_tour_teleport(_tour_idx)
@@ -1232,7 +1254,7 @@ func _setup_environment() -> void:
 	_env.background_mode       = Environment.BG_SKY
 	_env.sky                   = sky
 	_env.ambient_light_source  = Environment.AMBIENT_SOURCE_SKY
-	_env.ambient_light_sky_contribution = 0.55  # under-canopy needs more sky bounce
+	_env.ambient_light_sky_contribution = 0.72  # under-canopy needs sky bounce
 	_env.tonemap_mode          = Environment.TONE_MAPPER_AGX
 	_env.tonemap_white         = 6.0
 	_env.glow_enabled          = true
@@ -1253,14 +1275,14 @@ func _setup_environment() -> void:
 	_env.sdfgi_enabled         = true
 	_env.sdfgi_cascades        = 6      # large outdoor scene needs range
 	_env.sdfgi_min_cell_size   = 0.5    # ~0.5m matches our atlas resolution
-	_env.sdfgi_energy          = 0.8    # moderate — avoid over-brightening foliage
+	_env.sdfgi_energy          = 1.0    # full GI bounce for natural lighting
 	_env.sdfgi_normal_bias     = 1.1
 	_env.sdfgi_probe_bias      = 1.1
 	_env.sdfgi_bounce_feedback = 0.3    # subtle multi-bounce
 	_env.sdfgi_read_sky_light  = true
 	_env.sdfgi_use_occlusion   = true
 	_env.adjustment_enabled    = true
-	_env.adjustment_brightness = 1.02
+	_env.adjustment_brightness = 1.06
 	_env.fog_enabled           = false  # volumetric fog handles aerial perspective
 
 	# Volumetric fog — realistic NYC atmospheric haze + light shafts
@@ -1312,15 +1334,15 @@ func _build_keyframes() -> void:
 		"gnd_bottom":     Color(0.02, 0.02, 0.035),
 		"gnd_horizon":    Color(0.10, 0.07, 0.12),
 		"ambient_color":  Color(0.16, 0.14, 0.22),
-		"ambient_energy": 0.40,   # NYC ambient from light pollution
-		"exposure":       1.0,
+		"ambient_energy": 0.45,   # NYC ambient from light pollution
+		"exposure":       1.05,
 		"white":          6.0,
 		"ssao_radius":    2.0,
 		"ssao_intensity": 1.4,
 		"ssao_power":     1.5,
 		"saturation":     0.75,
 		"contrast":       1.02,
-		"brightness":     0.93,
+		"brightness":     0.96,
 		"fog_color":      Color(0.12, 0.10, 0.14),
 		"fog_energy":     0.20,
 		"fog_scatter":    0.05,
@@ -1352,15 +1374,15 @@ func _build_keyframes() -> void:
 		"gnd_bottom":     Color(0.10, 0.08, 0.06),
 		"gnd_horizon":    Color(0.46, 0.34, 0.22),
 		"ambient_color":  Color(0.48, 0.38, 0.26),
-		"ambient_energy": 0.65,
-		"exposure":       0.85,
+		"ambient_energy": 0.75,
+		"exposure":       0.95,
 		"white":          5.5,
 		"ssao_radius":    1.5,
 		"ssao_intensity": 1.5,
 		"ssao_power":     1.5,
 		"saturation":     1.0,
 		"contrast":       1.02,
-		"brightness":     0.95,
+		"brightness":     1.0,
 		"fog_color":      Color(0.50, 0.42, 0.34),   # subtle warm haze, not amber wash
 		"fog_energy":     0.45,
 		"fog_scatter":    0.18,
@@ -1390,15 +1412,15 @@ func _build_keyframes() -> void:
 		"gnd_bottom":     Color(0.12, 0.12, 0.10),
 		"gnd_horizon":    Color(0.38, 0.36, 0.32),
 		"ambient_color":  Color(0.50, 0.46, 0.38),
-		"ambient_energy": 0.85,
-		"exposure":       0.82,
+		"ambient_energy": 0.95,
+		"exposure":       1.0,
 		"white":          6.0,
 		"ssao_radius":    2.0,
 		"ssao_intensity": 1.3,
 		"ssao_power":     1.4,
 		"saturation":     1.0,
 		"contrast":       1.01,
-		"brightness":     0.95,
+		"brightness":     1.0,
 		"fog_color":      Color(0.62, 0.60, 0.56),  # warmer haze — NYC summer atmosphere
 		"fog_energy":     0.5,
 		"fog_scatter":    0.06,
@@ -1430,15 +1452,15 @@ func _build_keyframes() -> void:
 		"gnd_bottom":     Color(0.10, 0.07, 0.04),
 		"gnd_horizon":    Color(0.48, 0.35, 0.20),    # warm ground reflection
 		"ambient_color":  Color(0.48, 0.42, 0.32),    # warm ambient but not saturated amber
-		"ambient_energy": 0.80,
-		"exposure":       0.85,
+		"ambient_energy": 0.88,
+		"exposure":       0.95,
 		"white":          5.5,
 		"ssao_radius":    2.0,
 		"ssao_intensity": 1.4,
 		"ssao_power":     1.5,
 		"saturation":     1.0,    # natural — let sun color do the work
 		"contrast":       1.02,   # soft long shadows
-		"brightness":     0.93,
+		"brightness":     0.98,
 		"fog_color":      Color(0.55, 0.45, 0.35),    # neutral warm haze, not amber blanket
 		"fog_energy":     0.45,
 		"fog_scatter":    0.18,
@@ -1470,15 +1492,15 @@ func _build_keyframes() -> void:
 		"gnd_bottom":     Color(0.02, 0.015, 0.01),
 		"gnd_horizon":    Color(0.08, 0.06, 0.04),  # warm ground glow from city
 		"ambient_color":  Color(0.85, 0.65, 0.40),  # warm amber city glow — NYC sodium vapor spill
-		"ambient_energy": 0.04,   # deep dark — only lamppost pools provide real light
-		"exposure":       0.82,   # dark night but AgX needs more exposure than Filmic
+		"ambient_energy": 0.06,   # deep dark — only lamppost pools provide real light
+		"exposure":       0.90,   # dark night but AgX needs more exposure than Filmic
 		"white":          6.0,
 		"ssao_radius":    2.0,
 		"ssao_intensity": 1.4,
 		"ssao_power":     1.5,
 		"saturation":     0.50,   # colors are very muted at night — olive/brown, not green
 		"contrast":       1.01,
-		"brightness":     0.82,
+		"brightness":     0.88,
 		"fog_color":      Color(0.08, 0.06, 0.04),  # dimmer amber night haze
 		"fog_energy":     0.20,
 		"fog_scatter":    0.06,
