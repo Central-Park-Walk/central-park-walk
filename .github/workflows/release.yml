@@ -1,0 +1,121 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: "4.6.1"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # ── Cache downloaded assets (models + textures from CC0 CDNs) ──
+
+      - name: Cache downloaded assets
+        uses: actions/cache@v4
+        with:
+          path: |
+            models/
+            textures/
+          key: assets-${{ hashFiles('download_models.py', 'download_assets.py') }}
+
+      - name: Download models
+        run: python3 download_models.py
+
+      - name: Download textures
+        run: python3 download_assets.py
+
+      - name: Generate placeholder sounds
+        run: python3 download_sounds.py
+
+      # ── Godot setup ──
+
+      - name: Cache Godot export templates
+        id: cache-templates
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/godot/export_templates
+          key: godot-templates-${{ env.GODOT_VERSION }}
+
+      - name: Install Godot
+        run: |
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip" -O godot.zip
+          unzip -q godot.zip
+          sudo install -m 755 "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+          rm godot.zip "Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+
+      - name: Install export templates
+        if: steps.cache-templates.outputs.cache-hit != 'true'
+        run: |
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz" -O templates.tpz
+          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          unzip -q templates.tpz -d /tmp/export-templates
+          mv /tmp/export-templates/templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+          rm templates.tpz
+
+      # ── Import + Export ──
+
+      - name: Import project resources
+        run: |
+          godot --headless --import 2>&1 | tail -5 || true
+          godot --headless --import 2>&1 | tail -5 || true
+
+      - name: Export Linux
+        run: |
+          mkdir -p build/linux
+          godot --headless --export-release "Linux" build/linux/central-park-walk.x86_64
+
+      - name: Export Windows
+        run: |
+          mkdir -p build/windows
+          godot --headless --export-release "Windows" build/windows/central-park-walk.exe
+
+      # ── Package ──
+
+      - name: Package Linux
+        run: |
+          cd build/linux
+          chmod +x central-park-walk.x86_64
+          tar czf ../../central-park-walk-linux-x86_64.tar.gz *
+
+      - name: Package Windows
+        run: |
+          cd build/windows
+          zip -qr ../../central-park-walk-windows-x86_64.zip *
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-packages
+          path: |
+            central-park-walk-linux-x86_64.tar.gz
+            central-park-walk-windows-x86_64.zip
+
+      # ── Release (tag pushes only) ──
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            central-park-walk-linux-x86_64.tar.gz
+            central-park-walk-windows-x86_64.zip
+          generate_release_notes: true
+          draft: false

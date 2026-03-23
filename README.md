@@ -18,7 +18,24 @@ Every tree has a real measured height. Every path follows its real-world geometr
 ![November Woodland](screenshots/grass_rnd_026.png)
 *North Meadow in November — photogrammetry bark textures, autumn phenology, first snowflakes, perimeter buildings.*
 
-## Quick Start
+## Download
+
+**[Latest Release](https://github.com/Central-Park-Walk/central-park-walk/releases/latest)** — pre-built for Linux and Windows. No setup required.
+
+| Platform | File |
+|----------|------|
+| Linux x86_64 | `central-park-walk-linux-x86_64.tar.gz` |
+| Windows x86_64 | `central-park-walk-windows-x86_64.zip` |
+
+Extract and run. NVIDIA GPU recommended (Forward+ renderer).
+
+```bash
+# Linux
+tar xzf central-park-walk-linux-x86_64.tar.gz
+./central-park-walk.x86_64
+```
+
+## Build from Source
 
 ### Prerequisites
 - [Godot 4.6.1](https://godotengine.org/download) (Linux x86_64)
@@ -31,7 +48,7 @@ Every tree has a real measured height. Every path follows its real-world geometr
 ### Setup
 
 ```bash
-git clone https://github.com/central-park-walk/central-park-walk.git
+git clone https://github.com/Central-Park-Walk/central-park-walk.git
 cd central-park-walk
 
 python3 download_osm.py

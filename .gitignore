@@ -36,6 +36,17 @@ lidar_data/
 *.json
 *.bin
 !project.godot
+# Runtime .bin files tracked in LFS for release builds
+!heightmap.bin
+!heightmap_gpu.bin
+!world_atlas.bin
+!water_grids.bin
+!ground_cover_instances.bin
+!park_data.bin
+!grass_instances.bin
+
+# Build output
+build/
 
 # Mesh cache (auto-generated from GLB models, speeds up load times)
 cache/
