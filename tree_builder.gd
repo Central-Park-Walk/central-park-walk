@@ -661,12 +661,12 @@ func _build_trees(trees: Array) -> void:
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		_loader.add_child(mmi)
 
-	# --- LOD1: _m models for mid-range ---
+	# --- LOD1: _m models (derived from _l — same silhouette) ---
 	_build_lod_tier_chunks(_lod1_xf, _lod1_cd, "TreeL1",
-		130.0, 400.0, 50.0, 60.0)
-	# --- LOD2: _s models for far-range (leaf cards 2.8× larger to fill canopy) ---
+		130.0, 350.0, 50.0, 60.0)
+	# --- LOD2: _s models (derived from _l — same silhouette, thinned) ---
 	_build_lod_tier_chunks(_lod2_xf, _lod2_cd, "TreeL2",
-		350.0, 800.0, 60.0, 100.0)
+		300.0, 600.0, 60.0, 80.0)
 
 	_build_tree_collision(all_trunk_xf)
 	# Debug: print a few tree heights to verify scale
@@ -967,8 +967,8 @@ func _build_canopy_shells() -> void:
 		mmi.material_override = _impostor_materials[model_name]
 		mmi.position = chunk_origin
 		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
-		# LOD3: octahedral billboard impostors — far distance
-		mmi.visibility_range_begin = 700.0
+		# LOD3: octahedral billboard impostors — overlap with _s for smooth handoff
+		mmi.visibility_range_begin = 500.0
 		mmi.visibility_range_end = 2500.0
 		mmi.visibility_range_begin_margin = 100.0
 		mmi.visibility_range_end_margin = 200.0

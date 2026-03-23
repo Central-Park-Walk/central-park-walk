@@ -1440,14 +1440,43 @@ def derive_lod_from_l(species_name, tier_name):
         bm.free()
         obj.data.update()
 
-        # Apply decimate modifier to the whole mesh
-        # Planar dissolve angle preserves flat quads (leaf cards)
+        # Separate bark from leaves, decimate ONLY bark, then rejoin.
+        # This preserves leaf cards perfectly while simplifying branches.
+        bpy.ops.object.select_all(action='DESELECT')
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+
+        # Use vertex groups to isolate bark for decimation
+        # Create vertex group for bark vertices
+        bark_vg = obj.vertex_groups.new(name="bark")
+        leaf_vg = obj.vertex_groups.new(name="leaves")
+
+        bm2 = bmesh.new()
+        bm2.from_mesh(obj.data)
+        bm2.faces.ensure_lookup_table()
+        bm2.verts.ensure_lookup_table()
+
+        bark_verts = set()
+        leaf_verts = set()
+        for f in bm2.faces:
+            for v in f.verts:
+                if f.material_index == leaf_mat_idx:
+                    leaf_verts.add(v.index)
+                else:
+                    bark_verts.add(v.index)
+        bm2.free()
+
+        # Assign vertex groups
+        if bark_verts:
+            bark_vg.add(list(bark_verts), 1.0, 'REPLACE')
+        if leaf_verts:
+            leaf_vg.add(list(leaf_verts), 1.0, 'REPLACE')
+
+        # Decimate only bark vertices
         mod = obj.modifiers.new("Decimate", 'DECIMATE')
         mod.decimate_type = 'COLLAPSE'
         mod.ratio = decimate_ratio
-        # Use vertex group to only decimate bark — but simpler:
-        # the COLLAPSE mode with a ratio naturally preserves flat faces
-        # better than curved ones, so leaf quads survive reasonably well
+        mod.vertex_group = "bark"
         bpy.ops.object.modifier_apply(modifier=mod.name)
 
         n_verts = len(obj.data.vertices)
