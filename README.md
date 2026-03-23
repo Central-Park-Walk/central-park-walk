@@ -169,9 +169,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Support
 
-Central Park Walk is built by Christopher Abbey and Claude, with no institutional backing.
-
-[![Contribute on Open Collective](https://opencollective.com/central-park-walk/contribute/button)](https://opencollective.com/central-park-walk)
+Central Park Walk is built by [Christopher Abbey](https://github.com/chrisabbeytx) and Claude, with no institutional backing.
 
 ## License
 
