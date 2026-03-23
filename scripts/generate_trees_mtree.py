@@ -960,10 +960,12 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
     # Per-species canopy density (0-1, from real-world LAI)
     density = sp.get("leaf_density", 0.75)
 
-    # Cell size uniform across tiers — cluster count driven by branch structure,
-    # not artificial tier scaling. Denser species get smaller cells (more clusters).
+    # Cell size scaled per tier — _s/_m have fewer branch tips, so tighter
+    # grid ensures tips still generate adequate cluster density.
+    # Without this, _s models get 10-20× fewer clusters than _l.
+    tier_cell_factor = {"l": 1.0, "m": 0.75, "s": 0.5}
     base_cell = target_height * 0.035  # baseline ~0.875m for 25m tree
-    cell_size = base_cell / max(density, 0.3)
+    cell_size = base_cell / max(density, 0.3) * tier_cell_factor.get(tier, 1.0)
 
     clusters = {}
     for pos in tip_positions:
@@ -976,10 +978,11 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
             clusters[key] = []
         clusters[key].append(pos)
 
-    # Per-tier card size: smaller tiers need much larger cards to fill canopy
-    # at distance. _s has 10-20× fewer branch tips than _l, so cards must
-    # compensate aggressively to avoid bare-stick appearance.
-    tier_size_factor = {"l": 1.0, "m": 1.5, "s": 2.8}
+    # Per-tier card size: proportionally consistent with tree data.
+    # Modest increase on smaller tiers — real leaves don't change size,
+    # but LOD models have fewer branch tips so slightly larger cards
+    # keep canopy coverage honest without looking disproportionate.
+    tier_size_factor = {"l": 1.0, "m": 1.2, "s": 1.5}
     size_mult = tier_size_factor.get(tier, 1.0)
 
     # Compute cluster centroids
@@ -997,16 +1000,23 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
     return placements
 
 
-def create_leaf_cards_at_positions(placements, leaf_mat, rng):
+def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l"):
     """Create mixed-orientation leaf card clusters at the given positions.
 
-    AAA standard: 3 vertical crossed-quads + 1-2 near-horizontal cards per
+    AAA standard: 3+ vertical crossed-quads + 2 near-horizontal cards per
     cluster. Vertical cards read from side views, horizontal cards fill the
     canopy from overhead. Horizontal cards tilted 15-30° from flat so they
     have depth from any angle (pure horizontal looks like a table).
 
+    _s/_m tiers get more quads per cluster to compensate for fewer placements.
+
     Returns a list of bmesh objects to be joined into the tree mesh.
     """
+    # More quads per cluster on sparser tiers — fills canopy with
+    # proportionally-sized cards rather than oversized ones
+    tier_quad_count = {"l": 3, "m": 4, "s": 5}
+    n_quads_base = tier_quad_count.get(tier, 3)
+
     all_objects = []
     for pos, size, flatten in placements:
         card_w = size * 2.0 * rng.uniform(0.85, 1.15)
@@ -1016,8 +1026,8 @@ def create_leaf_cards_at_positions(placements, leaf_mat, rng):
         bm = bmesh.new()
         uv_layer = bm.loops.layers.uv.new("UVMap")
 
-        # --- 3 vertical crossed-quads (existing) ---
-        n_quads = 3
+        # --- Vertical crossed-quads ---
+        n_quads = n_quads_base
         for q in range(n_quads):
             angle = base_angle + q * math.pi / n_quads
             tilt_x = rng.uniform(-0.15, 0.15)
@@ -1148,7 +1158,7 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg):
 
         # --- Place leaf cards ---
         placements = extract_leaf_positions(trunk_obj, sp, target_h, rng, tier=tier_name)
-        leaf_objs = create_leaf_cards_at_positions(placements, leaf_mat, rng)
+        leaf_objs = create_leaf_cards_at_positions(placements, leaf_mat, rng, tier=tier_name)
 
         # --- Join all objects ---
         bpy.ops.object.select_all(action='DESELECT')
