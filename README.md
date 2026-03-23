@@ -26,11 +26,11 @@ Every tree has a real measured height. Every path follows its real-world geometr
 
 **[Download Latest Release](https://github.com/Central-Park-Walk/central-park-walk/releases/latest)** — pre-built for Linux and Windows. No setup required.
 
-| Platform | File |
-|----------|------|
-| Linux x86_64 | `central-park-walk-linux-x86_64.tar.gz` |
-| Windows x86_64 | `central-park-walk-windows-x86_64.zip` |
-| macOS (Intel + Apple Silicon) | `central-park-walk-macos-universal.zip` |
+| Platform | Download |
+|----------|----------|
+| Linux x86_64 | [central-park-walk-linux-x86_64.tar.gz](https://github.com/Central-Park-Walk/central-park-walk/releases/latest/download/central-park-walk-linux-x86_64.tar.gz) |
+| Windows x86_64 | [central-park-walk-windows-x86_64.zip](https://github.com/Central-Park-Walk/central-park-walk/releases/latest/download/central-park-walk-windows-x86_64.zip) |
+| macOS (Intel + Apple Silicon) | [central-park-walk-macos-universal.zip](https://github.com/Central-Park-Walk/central-park-walk/releases/latest/download/central-park-walk-macos-universal.zip) |
 
 Extract and run. Dedicated GPU recommended (Forward+ renderer).
 
