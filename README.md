@@ -74,10 +74,10 @@ python3 convert_to_godot.py
 ## What's In It
 
 ### Terrain
-Terrain3D geometry clipmaps with 64 regions at native 0.61m LiDAR resolution (8192x8192 heightmap). 14 PBR texture slots (grass, meadow, rock, dirt, shore, asphalt, concrete, paving, gravel, wood, leaf litter, flagstone, wet earth, sparse grass). Custom shader override: 12 OSM zone types, 15+ named location materials, 4 seasons, 5 weather modes, dappled canopy shade, cloud shadows, Manhattan schist rock outcrops via DSM blend (161K cells). AgX tonemapping.
+Terrain3D geometry clipmaps with 64 regions at native 0.61m LiDAR resolution (8192x8192 heightmap). 14 PBR texture slots (grass, meadow, rock, dirt, shore, asphalt, concrete, paving, gravel, wood, leaf litter, flagstone, wet earth, sparse grass). Custom shader override: 12 OSM zone types, 15+ named location materials, 4 seasons, 5 weather modes, dappled canopy shade, cloud shadows, Manhattan schist rock outcrops via DSM blend (161K cells). Polygon-based terrain holes for landmark structures. AgX tonemapping.
 
 ### Trees (9,852)
-NYC Tree Census + OSM + woodland scatter across 12 ecological zones. 15 Mtree species x 3 size tiers = 46 GLBs. LiDAR heights (4,005 trees), canopy height model enrichment (1,450), DBH-estimated (4,397). Crossed-quad leaf cards, FBM bark, per-pixel noise. 4-tier SpeedTree-standard LOD chain: full geo → _m → _s → octahedral billboard impostors (8x8 hemisphere atlases with albedo + normal + depth parallax, 15 species). Invasive vines: porcelain berry + oriental bittersweet (13 variants).
+NYC Tree Census + OSM + woodland scatter across 12 ecological zones. 15 Mtree species x 3 size tiers = 46 GLBs. LiDAR heights (4,005 trees), canopy height model enrichment (1,450), DBH-estimated (4,397). Crossed-quad leaf cards, FBM bark, per-pixel noise. 4-tier SpeedTree-standard LOD chain: full geo → _m → _s → octahedral billboard impostors (8x8 hemisphere atlases with albedo + normal + depth parallax, 15 species). Per-tree color variation (position-hashed brightness ±12% + warm/cool tint) breaks monochromatic distant forest. Invasive vines: porcelain berry + oriental bittersweet (13 variants).
 
 ### Vegetation (90+ BD3D meshes)
 Full BD3D Plant Library pipeline — all models loaded via native Godot `load()`:
@@ -96,7 +96,7 @@ OpenStreetMap polygons with stone coping, dawn/dusk mist (8 fog volumes).
 NYC Building Footprints + LiDAR heights. 5 facade materials, floor-accurate windows, cornice bands, awnings, grime weathering.
 
 ### Infrastructure
-17 bridges (custom Blender models), 4.8km perimeter wall, 364 barriers, 39 landmarks, 106 statue positions, 147 sports fields, 2,000+ furniture items (33 PBR models with ambientCG textures).
+17 bridges (custom Blender models), 4.8km perimeter wall, 364 barriers, 39 landmarks, 106 statue positions, 147 sports fields, 2,000+ furniture items (33 PBR models with ambientCG textures). Bethesda Terrace with arcade walkthrough (terrain hole, collision, photogrammetry fountain).
 
 ### Environment
 Full day/night cycle, 4 seasons, 5 weather modes, AgX tonemapping, 48-lamp lighting pool, 5-layer ambient audio.
