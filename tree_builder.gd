@@ -190,20 +190,20 @@ func _build_trees(trees: Array) -> void:
 	# Style 3: pine/plated, Style 4: magnolia/smooth
 	var bark_tex_paths := {
 		0: { "albedo": "res://textures/bark/oak/Bark012_1K-JPG_Color.jpg",
-		     "normal": "res://textures/bark/oak/Bark012_1K-JPG_NormalGL.jpg",
-		     "roughness": "res://textures/bark/oak/Bark012_1K-JPG_Roughness.jpg" },
+			 "normal": "res://textures/bark/oak/Bark012_1K-JPG_NormalGL.jpg",
+			 "roughness": "res://textures/bark/oak/Bark012_1K-JPG_Roughness.jpg" },
 		1: { "albedo": "res://textures/bark/smooth/Bark003_1K-JPG_Color.jpg",
-		     "normal": "res://textures/bark/smooth/Bark003_1K-JPG_NormalGL.jpg",
-		     "roughness": "res://textures/bark/smooth/Bark003_1K-JPG_Roughness.jpg" },
+			 "normal": "res://textures/bark/smooth/Bark003_1K-JPG_NormalGL.jpg",
+			 "roughness": "res://textures/bark/smooth/Bark003_1K-JPG_Roughness.jpg" },
 		2: { "albedo": "res://textures/bark/exfoliating/Bark015_1K-JPG_Color.jpg",
-		     "normal": "res://textures/bark/exfoliating/Bark015_1K-JPG_NormalGL.jpg",
-		     "roughness": "res://textures/bark/exfoliating/Bark015_1K-JPG_Roughness.jpg" },
+			 "normal": "res://textures/bark/exfoliating/Bark015_1K-JPG_NormalGL.jpg",
+			 "roughness": "res://textures/bark/exfoliating/Bark015_1K-JPG_Roughness.jpg" },
 		3: { "albedo": "res://textures/bark/pine/pine_bark_diff_1k.jpg",
-		     "normal": "res://textures/bark/pine/pine_bark_nor_gl_1k.jpg",
-		     "roughness": "res://textures/bark/pine/pine_bark_rough_1k.jpg" },
+			 "normal": "res://textures/bark/pine/pine_bark_nor_gl_1k.jpg",
+			 "roughness": "res://textures/bark/pine/pine_bark_rough_1k.jpg" },
 		4: { "albedo": "res://textures/bark/furrowed/Bark007_1K-JPG_Color.jpg",
-		     "normal": "res://textures/bark/furrowed/Bark007_1K-JPG_NormalGL.jpg",
-		     "roughness": "res://textures/bark/furrowed/Bark007_1K-JPG_Roughness.jpg" },
+			 "normal": "res://textures/bark/furrowed/Bark007_1K-JPG_NormalGL.jpg",
+			 "roughness": "res://textures/bark/furrowed/Bark007_1K-JPG_Roughness.jpg" },
 	}
 	var bark_textures := {}  # style_id -> { "albedo": Texture2D, "normal": ..., "roughness": ... }
 	for style_id in bark_tex_paths:
@@ -653,20 +653,22 @@ func _build_trees(trees: Array) -> void:
 		mmi.multimesh = mm
 		mmi.position = chunk_origin
 		mmi.name = "Tree_%s" % ckey.replace("|", "_")
-		# LOD0: full geometry, shorter range — LOD1 _m takes over at 100m
+		# LOD0: full geometry — extended range so leafy canopies stay visible longer
 		mmi.visibility_range_begin = 0.0
-		mmi.visibility_range_end = 100.0
+		mmi.visibility_range_end = 200.0
 		mmi.visibility_range_begin_margin = 0.0
-		mmi.visibility_range_end_margin = 40.0
+		mmi.visibility_range_end_margin = 50.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		_loader.add_child(mmi)
 
-	# --- LOD1: _m models for mid-range (60-300m) ---
+	# --- LOD1: _m models bridge to impostors (150-450m) ---
+	# _s tier dropped — too few leaf cards makes trees look bare/dead at distance.
+	# _m has enough geometry to read as a tree; impostors take over beyond 450m.
 	_build_lod_tier_chunks(_lod1_xf, _lod1_cd, "TreeL1",
-		60.0, 300.0, 40.0, 50.0)
-	# --- LOD2: _s models for far-range (250-800m) ---
-	_build_lod_tier_chunks(_lod2_xf, _lod2_cd, "TreeL2",
-		250.0, 800.0, 50.0, 100.0)
+		150.0, 450.0, 50.0, 60.0)
+	# Skip LOD2 _s — impostors look better than sparse _s models
+	_lod2_xf.clear()
+	_lod2_cd.clear()
 
 	_build_tree_collision(all_trunk_xf)
 	# Debug: print a few tree heights to verify scale
@@ -967,10 +969,10 @@ func _build_canopy_shells() -> void:
 		mmi.material_override = _impostor_materials[model_name]
 		mmi.position = chunk_origin
 		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
-		# LOD3: octahedral billboard impostors — can be closer than crossed-quads
-		mmi.visibility_range_begin = 500.0
+		# LOD3: octahedral billboard impostors — bridge from _m geo to far distance
+		mmi.visibility_range_begin = 400.0
 		mmi.visibility_range_end = 2500.0
-		mmi.visibility_range_begin_margin = 80.0
+		mmi.visibility_range_begin_margin = 60.0
 		mmi.visibility_range_end_margin = 200.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
