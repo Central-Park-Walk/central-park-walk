@@ -74,7 +74,7 @@ jobs:
 
       - name: Setup virtual display for texture import
         run: |
-          sudo apt-get install -y xvfb libgl1-mesa-dri libegl1-mesa
+          sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils
           Xvfb :99 -screen 0 1280x720x24 &
           echo "DISPLAY=:99" >> $GITHUB_ENV
 
