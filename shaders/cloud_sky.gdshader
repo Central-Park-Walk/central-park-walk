@@ -228,8 +228,11 @@ void sky() {
 	if (elev > -0.05) {
 		float cloud_y = max(elev, 0.01);
 		vec2 cloud_uv = dir.xz / (cloud_y + 0.1) * 0.8;
-		vec2 drift = vec2(cloud_speed, cloud_speed * 0.4);
-		cloud_uv += TIME * drift;
+		// Wind-driven cloud drift
+		float wind_mag = length(wind_vec);
+		vec2 wind_dir = wind_mag > 0.001 ? wind_vec / wind_mag : vec2(0.7, 0.3);
+		float drift_speed = cloud_speed + wind_mag * 0.08;
+		cloud_uv += TIME * wind_dir * drift_speed;
 
 		float sun_illum = max(dot(LIGHT0_DIRECTION, vec3(0.0, 1.0, 0.0)), 0.0);
 		float cloud_mask = 0.0;
@@ -307,12 +310,24 @@ void sky() {
 
 		// --- Common cloud effects (all types) ---
 
-		// Golden hour drama
-		float cloud_golden = smoothstep(0.15, -0.05, LIGHT0_DIRECTION.y);
+		// Sunset/sunrise: clouds blaze with dramatic warm colors
+		float cloud_golden = smoothstep(0.20, -0.08, LIGHT0_DIRECTION.y);
 		if (cloud_golden > 0.01) {
-			float rim = pow(max(sun_dot, 0.0), 2.0) * 0.3;
-			cloud_col += LIGHT0_COLOR * vec3(1.2, 0.6, 0.3) * rim * cloud_golden;
-			cloud_col = mix(cloud_col, cloud_col * vec3(1.15, 0.9, 0.75), cloud_golden * 0.4);
+			// Sunward clouds: deep orange to crimson blaze
+			float sun_face = pow(max(sun_dot, 0.0), 1.5);
+			vec3 blaze = mix(vec3(1.2, 0.55, 0.18), vec3(1.0, 0.30, 0.10), cloud_golden);
+			cloud_col += blaze * sun_face * cloud_golden * 0.55;
+			// Anti-sun clouds: pink-magenta tones (reflected light through atmosphere)
+			float anti_face = pow(max(-sun_dot, 0.0), 2.0);
+			cloud_col += vec3(0.50, 0.22, 0.38) * anti_face * cloud_golden * 0.30;
+			// Overall warm shift — entire cloud layer goes golden/orange
+			cloud_col *= mix(vec3(1.0), vec3(1.25, 0.88, 0.68), cloud_golden * 0.45);
+			// Bright rim/silver lining on cloud edges facing sun
+			float rim = pow(max(sun_dot, 0.0), 3.0) * 0.35;
+			cloud_col += LIGHT0_COLOR * vec3(1.3, 0.7, 0.35) * rim * cloud_golden;
+			// Deep sunset: clouds go from orange to deep red at the very end
+			float deep_sunset = smoothstep(-0.02, -0.10, LIGHT0_DIRECTION.y);
+			cloud_col += vec3(0.35, 0.05, 0.02) * deep_sunset * cloud_depth * 0.40;
 		}
 
 		// Night darkening
@@ -333,7 +348,9 @@ void sky() {
 		// --- Cirrus wisps (only with fair weather or light stratus) ---
 		if (cloud_type < 1.5 && elev > 0.15) {
 			vec2 cirrus_uv = dir.xz / (cloud_y + 0.05) * 0.3;
-			cirrus_uv += TIME * vec2(cloud_speed * 3.5, cloud_speed * 0.4);
+			// Cirrus blown faster by wind (high altitude = stronger wind)
+			vec2 cirrus_wind = wind_mag > 0.001 ? wind_dir * (cloud_speed * 2.0 + wind_mag * 0.20) : vec2(cloud_speed * 3.5, cloud_speed * 0.4);
+			cirrus_uv += TIME * cirrus_wind;
 			float cn = sky_gnoise(cirrus_uv * vec2(2.0, 6.0));
 			cn += sky_gnoise(cirrus_uv * vec2(4.0, 12.0)) * 0.4;
 			float cirrus = smoothstep(0.3, 0.8, cn) * 0.12;
@@ -348,7 +365,9 @@ void sky() {
 		float lf = lightning_flash;
 		// Clouds glow bright blue-white from internal lightning
 		float cloud_y2 = max(elev, 0.01);
-		vec2 lf_uv = dir.xz / (cloud_y2 + 0.1) * 0.8 + TIME * vec2(cloud_speed, cloud_speed * 0.7);
+		float lf_wm = length(wind_vec);
+		vec2 lf_wd = lf_wm > 0.001 ? wind_vec / lf_wm : vec2(0.7, 0.7);
+		vec2 lf_uv = dir.xz / (cloud_y2 + 0.1) * 0.8 + TIME * lf_wd * (cloud_speed + lf_wm * 0.08);
 		float lf_cloud = sky_fbm(lf_uv * 3.0, 3);
 		float lf_mask = smoothstep(0.4, 0.8, lf_cloud);
 		// Lightning illuminates from below: brighter cloud bases

@@ -111,6 +111,29 @@ void sky() {
 	vec4 blend_to = textureLod(blend_to_texture, norm.xz, 0.0);
 	vec4 clouds = mix(blend_from, blend_to, blend_amount);
 	vec3 background = get_atmo(EYEDIR);
+
+	// Sunset/sunrise: volumetric clouds blaze with warm colors when sun is low
+	float sun_elev = LIGHT0_DIRECTION.y;
+	float golden = smoothstep(0.25, -0.05, sun_elev);
+	if (golden > 0.01 && clouds.a > 0.01) {
+		float sun_dot_c = dot(normalize(EYEDIR), LIGHT0_DIRECTION);
+		// Sunward clouds: deep orange to crimson
+		float sun_face = pow(max(sun_dot_c, 0.0), 1.5);
+		vec3 blaze = mix(vec3(1.2, 0.55, 0.18), vec3(1.0, 0.30, 0.10), golden);
+		clouds.rgb += blaze * sun_face * golden * clouds.a * 0.45;
+		// Anti-sun clouds: pink-purple tones (scattered skylight)
+		float anti_face = pow(max(-sun_dot_c, 0.0), 2.0);
+		clouds.rgb += vec3(0.45, 0.20, 0.35) * anti_face * golden * clouds.a * 0.25;
+		// Overall warm shift on all clouds at golden hour
+		clouds.rgb *= mix(vec3(1.0), vec3(1.20, 0.90, 0.72), golden * 0.40);
+		// Bright rim on backlit cloud edges
+		float rim = pow(max(sun_dot_c, 0.0), 4.0);
+		clouds.rgb += LIGHT0_COLOR * rim * golden * 0.25;
+		// Deep sunset: clouds go red at the very end
+		float deep = smoothstep(-0.02, -0.10, sun_elev);
+		clouds.rgb += vec3(0.30, 0.05, 0.02) * deep * clouds.a * 0.35;
+	}
+
 	COLOR = background * (1.0-clouds.a) + clouds.xyz;
 	COLOR = mix(clamp(COLOR, vec3(0.0), vec3(100.0)), clamp(background, vec3(0.0), vec3(100.0)), smoothstep(0.6, 1.0, 1.0 - EYEDIR.y));
 }

@@ -1308,6 +1308,7 @@ func _setup_environment() -> void:
 	_sun = DirectionalLight3D.new()
 	_sun.shadow_enabled = true
 	_sun.light_angular_distance = 1.5  # soft penumbra — velvety shadows
+	_sun.light_volumetric_fog_energy = 2.0  # god rays through volumetric fog
 	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	_sun.directional_shadow_split_1      = 0.08
 	_sun.directional_shadow_max_distance = 200.0
@@ -1357,7 +1358,7 @@ func _build_keyframes() -> void:
 		"lamp_emission":  5.0,  # pre-dawn: lamps on (direct SpotLight3D energy)
 		"vol_fog_density":    0.0004,
 		"vol_fog_anisotropy": 0.45,
-		"cloud_coverage":     0.50,
+		"cloud_coverage":     0.30,
 		"cloud_density":      0.60,
 		"cloud_color_top":    Color(0.42, 0.40, 0.44),
 		"cloud_color_bottom": Color(0.16, 0.14, 0.18),
@@ -1397,7 +1398,7 @@ func _build_keyframes() -> void:
 		"lamp_emission":  0.0,
 		"vol_fog_density":    0.0003,  # subtle sunrise haze
 		"vol_fog_anisotropy": 0.80,    # moderate forward scatter
-		"cloud_coverage":     0.50,
+		"cloud_coverage":     0.30,
 		"cloud_density":      0.55,
 		"cloud_color_top":    Color(0.95, 0.85, 0.72),   # gold-lit cloud tops
 		"cloud_color_bottom": Color(0.52, 0.42, 0.32),
@@ -1435,7 +1436,7 @@ func _build_keyframes() -> void:
 		"lamp_emission":  0.0,
 		"vol_fog_density":    0.0001,  # very subtle volumetric — just enough for depth
 		"vol_fog_anisotropy": 0.45,
-		"cloud_coverage":     0.60,
+		"cloud_coverage":     0.35,
 		"cloud_density":      0.55,
 		"cloud_color_top":    Color(0.95, 0.95, 0.93),
 		"cloud_color_bottom": Color(0.68, 0.68, 0.66),
@@ -1475,7 +1476,7 @@ func _build_keyframes() -> void:
 		"lamp_emission":  0.0,  # lamps off until after sunset (ramp 19h→21h)
 		"vol_fog_density":    0.0003,  # subtle haze — clarity over drama
 		"vol_fog_anisotropy": 0.80,    # moderate forward scatter
-		"cloud_coverage":     0.60,
+		"cloud_coverage":     0.35,
 		"cloud_density":      0.55,
 		"cloud_color_top":    Color(0.85, 0.55, 0.38),  # golden-lit cloud tops
 		"cloud_color_bottom": Color(0.55, 0.30, 0.18),  # warm undersides
@@ -1515,7 +1516,7 @@ func _build_keyframes() -> void:
 		"lamp_emission":  5.0,  # night: direct SpotLight3D energy (was 110 via 22x multiplier)
 		"vol_fog_density":    0.0005,  # slight night haze catches lamplight scatter
 		"vol_fog_anisotropy": 0.35,
-		"cloud_coverage":     0.45,
+		"cloud_coverage":     0.25,
 		"cloud_density":      0.55,
 		"cloud_color_top":    Color(0.14, 0.12, 0.18),
 		"cloud_color_bottom": Color(0.06, 0.05, 0.08),
@@ -1571,9 +1572,8 @@ func _apply_time_of_day() -> void:
 	var _cc_val: float = _lerp_kf("cloud_coverage", a, b, t)
 	var _cs_val: float = _lerp_kf("cloud_speed", a, b, t)
 	if _vol_sky:
-		_vol_sky.cloud_coverage = clampf(_cc_val, 0.25, 0.75)  # always partly cloudy
+		_vol_sky.cloud_coverage = clampf(_cc_val, 0.20, 0.50)  # partly cloudy for clear weather
 		_vol_sky.density = clampf(_lerp_kf("cloud_density", a, b, t) * 0.08, 0.02, 0.10)
-		_vol_sky.wind_speed = _cs_val * 2.0
 	else:
 		var sky_top: Color = _lerp_kf("sky_top", a, b, t)
 		var sky_hor: Color = _lerp_kf("sky_horizon", a, b, t)
@@ -1621,41 +1621,45 @@ func _apply_time_of_day() -> void:
 
 	# Volumetric fog only — standard fog disabled (was double-dipping)
 	_env.volumetric_fog_density    = _lerp_kf("vol_fog_density", a, b, t)
-	_env.volumetric_fog_anisotropy = _lerp_kf("vol_fog_anisotropy", a, b, t)
+	var base_aniso: float = _lerp_kf("vol_fog_anisotropy", a, b, t)
+	# Boost anisotropy for god rays when sun is low (light shafts through trees/clouds)
+	var pitch_val: float = _lerp_kf("sun_pitch", a, b, t)
+	var sun_low_factor: float = smoothstep(-25.0, -5.0, pitch_val) * smoothstep(5.0, -5.0, pitch_val)
+	_env.volumetric_fog_anisotropy = lerpf(base_aniso, 0.88, sun_low_factor * 0.5)
 
-	# Weather overrides — route to volumetric sky or old shader
+	# Weather overrides — mostly cloudy (not overcast) for non-clear weather
 	if _weather_mode == "fog":
 		_env.volumetric_fog_density = 0.005
 		_env.adjustment_saturation = 0.45
 		_env.adjustment_brightness = 0.90
 		if _vol_sky:
-			_vol_sky.cloud_coverage = 0.65
+			_vol_sky.cloud_coverage = 0.60
 			_vol_sky.density = 0.08
 		else:
-			_sky_mat.set_shader_parameter("cloud_coverage", 0.99)
-			_sky_mat.set_shader_parameter("cloud_density", 0.95)
+			_sky_mat.set_shader_parameter("cloud_coverage", 0.75)
+			_sky_mat.set_shader_parameter("cloud_density", 0.80)
 			_sky_mat.set_shader_parameter("cloud_type", 1.0)
 	elif _weather_mode == "rain":
 		_env.volumetric_fog_density = 0.004
 		_env.adjustment_saturation *= 0.7
 		_env.adjustment_brightness *= 0.88
 		if _vol_sky:
-			_vol_sky.cloud_coverage = 0.60
+			_vol_sky.cloud_coverage = 0.58
 			_vol_sky.density = 0.07
 		else:
-			_sky_mat.set_shader_parameter("cloud_coverage", 0.95)
-			_sky_mat.set_shader_parameter("cloud_density", 0.90)
+			_sky_mat.set_shader_parameter("cloud_coverage", 0.72)
+			_sky_mat.set_shader_parameter("cloud_density", 0.78)
 			_sky_mat.set_shader_parameter("cloud_type", 1.0)
 	elif _weather_mode == "thunderstorm":
 		_env.volumetric_fog_density = 0.008
 		_env.adjustment_saturation *= 0.50
 		_env.adjustment_brightness *= 0.75
 		if _vol_sky:
-			_vol_sky.cloud_coverage = 0.75
+			_vol_sky.cloud_coverage = 0.68
 			_vol_sky.density = 0.10
 		else:
-			_sky_mat.set_shader_parameter("cloud_coverage", 0.98)
-			_sky_mat.set_shader_parameter("cloud_density", 0.95)
+			_sky_mat.set_shader_parameter("cloud_coverage", 0.82)
+			_sky_mat.set_shader_parameter("cloud_density", 0.85)
 			_sky_mat.set_shader_parameter("cloud_type", 2.0)
 	elif _weather_mode == "snow":
 		_env.volumetric_fog_density = 0.003
@@ -1664,8 +1668,8 @@ func _apply_time_of_day() -> void:
 			_vol_sky.cloud_coverage = 0.55
 			_vol_sky.density = 0.06
 		else:
-			_sky_mat.set_shader_parameter("cloud_coverage", 0.88)
-			_sky_mat.set_shader_parameter("cloud_density", 0.80)
+			_sky_mat.set_shader_parameter("cloud_coverage", 0.70)
+			_sky_mat.set_shader_parameter("cloud_density", 0.72)
 			_sky_mat.set_shader_parameter("cloud_type", 1.0)
 
 	# Wind reduces volumetric fog slightly (wind disperses mist)
@@ -2382,6 +2386,13 @@ func _update_wind(delta: float) -> void:
 
 	# Push to global shader uniform
 	RenderingServer.global_shader_parameter_set("wind_vec", _wind_vec)
+
+	# Drive volumetric cloud movement from wind
+	if _vol_sky:
+		var wlen: float = _wind_vec.length()
+		if wlen > 0.01:
+			_vol_sky.wind_direction = atan2(_wind_vec.y, _wind_vec.x)
+		_vol_sky.wind_speed = maxf(wlen * 20.0, 0.5)
 
 
 const WEATHER_MODES: Array = ["clear", "rain", "thunderstorm", "snow", "fog"]
