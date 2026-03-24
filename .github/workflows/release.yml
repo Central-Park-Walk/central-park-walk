@@ -74,8 +74,25 @@ jobs:
 
       - name: Import project resources
         run: |
-          godot --headless --import 2>&1 | tail -5 || true
-          godot --headless --import 2>&1 | tail -5 || true
+          # Do NOT pipe through tail — SIGPIPE kills Godot mid-import (exit 144)
+          godot --headless --import > /tmp/import1.log 2>&1 || true
+          godot --headless --import > /tmp/import2.log 2>&1 || true
+          tail -10 /tmp/import2.log
+          # Verify all terrain textures were imported to .ctex
+          missing=0
+          for f in textures/terrain3d/*.png; do
+            ctex_path=$(grep 'path.s3tc=' "${f}.import" | head -1 | sed 's/.*="\(.*\)"/\1/' | sed 's|^res://||')
+            if [ -n "$ctex_path" ] && [ ! -f "$ctex_path" ]; then
+              echo "MISSING: $ctex_path (from $f)"
+              missing=$((missing + 1))
+            fi
+          done
+          if [ "$missing" -gt 0 ]; then
+            echo "ERROR: $missing terrain textures failed to import"
+            cat /tmp/import1.log | grep -i "error" | head -20
+            exit 1
+          fi
+          echo "All terrain textures imported successfully"
 
       - name: Export Linux
         run: |
