@@ -74,10 +74,16 @@ jobs:
 
       - name: Import project resources
         run: |
-          # Do NOT pipe through tail — SIGPIPE kills Godot mid-import (exit 144)
-          godot --headless --import > /tmp/import1.log 2>&1 || true
-          godot --headless --import > /tmp/import2.log 2>&1 || true
-          tail -10 /tmp/import2.log
+          # Force fresh reimport: touch source files so they're newer than .import sidecars
+          # Without this, Godot sees existing .import files and skips reimport even though
+          # the .ctex destination files don't exist (CI starts with empty .godot/imported/)
+          find textures/ models/ -name "*.png" -o -name "*.jpg" -o -name "*.glb" -o -name "*.gltf" | xargs touch 2>/dev/null || true
+          # First pass: full import
+          godot --headless --import 2>&1 | tee /tmp/import1.log | tail -20
+          echo "--- Import pass 1 done ($(ls .godot/imported/*.ctex 2>/dev/null | wc -l) ctex files) ---"
+          # Second pass: catch dependency-order issues
+          godot --headless --import 2>&1 | tee /tmp/import2.log | tail -20
+          echo "--- Import pass 2 done ($(ls .godot/imported/*.ctex 2>/dev/null | wc -l) ctex files) ---"
           # Verify all terrain textures were imported to .ctex
           missing=0
           for f in textures/terrain3d/*.png; do
@@ -89,7 +95,8 @@ jobs:
           done
           if [ "$missing" -gt 0 ]; then
             echo "ERROR: $missing terrain textures failed to import"
-            cat /tmp/import1.log | grep -i "error" | head -20
+            echo "--- Files in .godot/imported/ ---"
+            ls .godot/imported/ 2>/dev/null | head -30
             exit 1
           fi
           echo "All terrain textures imported successfully"
