@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://70c5b3a777ad"
 path.s3tc="res://.godot/imported/leaf_litter_normal_rough.png-201b40fd1abd0dc7b487c86dabb33af3.s3tc.ctex"
+path.etc2="res://.godot/imported/leaf_litter_normal_rough.png-201b40fd1abd0dc7b487c86dabb33af3.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/terrain3d/leaf_litter_normal_rough.png"
-dest_files=["res://.godot/imported/leaf_litter_normal_rough.png-201b40fd1abd0dc7b487c86dabb33af3.s3tc.ctex"]
+dest_files=["res://.godot/imported/leaf_litter_normal_rough.png-201b40fd1abd0dc7b487c86dabb33af3.s3tc.ctex", "res://.godot/imported/leaf_litter_normal_rough.png-201b40fd1abd0dc7b487c86dabb33af3.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://70e1ed2f74c2"
 path.s3tc="res://.godot/imported/sparse_grass_albedo_height.png-218bd4776d67748aa64a52e39b44e8e9.s3tc.ctex"
+path.etc2="res://.godot/imported/sparse_grass_albedo_height.png-218bd4776d67748aa64a52e39b44e8e9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/terrain3d/sparse_grass_albedo_height.png"
-dest_files=["res://.godot/imported/sparse_grass_albedo_height.png-218bd4776d67748aa64a52e39b44e8e9.s3tc.ctex"]
+dest_files=["res://.godot/imported/sparse_grass_albedo_height.png-218bd4776d67748aa64a52e39b44e8e9.s3tc.ctex", "res://.godot/imported/sparse_grass_albedo_height.png-218bd4776d67748aa64a52e39b44e8e9.etc2.ctex"]
 
 [params]
 

@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c4mu0rwm3rd3d"
 path.s3tc="res://.godot/imported/cp_park_sign_Wood035_1K-JPG_Color.jpg-c82ad73fbc46920f95474ba92ef4b8bc.s3tc.ctex"
+path.etc2="res://.godot/imported/cp_park_sign_Wood035_1K-JPG_Color.jpg-c82ad73fbc46920f95474ba92ef4b8bc.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/furniture/cp_park_sign_Wood035_1K-JPG_Color.jpg"
-dest_files=["res://.godot/imported/cp_park_sign_Wood035_1K-JPG_Color.jpg-c82ad73fbc46920f95474ba92ef4b8bc.s3tc.ctex"]
+dest_files=["res://.godot/imported/cp_park_sign_Wood035_1K-JPG_Color.jpg-c82ad73fbc46920f95474ba92ef4b8bc.s3tc.ctex", "res://.godot/imported/cp_park_sign_Wood035_1K-JPG_Color.jpg-c82ad73fbc46920f95474ba92ef4b8bc.etc2.ctex"]
 
 [params]
 

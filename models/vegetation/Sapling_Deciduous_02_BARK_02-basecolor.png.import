@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b2biulae46wco"
 path.s3tc="res://.godot/imported/Sapling_Deciduous_02_BARK_02-basecolor.png-68cc9279734915162524164cc123384d.s3tc.ctex"
+path.etc2="res://.godot/imported/Sapling_Deciduous_02_BARK_02-basecolor.png-68cc9279734915162524164cc123384d.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Sapling_Deciduous_02_BARK_02-basecolor.png"
-dest_files=["res://.godot/imported/Sapling_Deciduous_02_BARK_02-basecolor.png-68cc9279734915162524164cc123384d.s3tc.ctex"]
+dest_files=["res://.godot/imported/Sapling_Deciduous_02_BARK_02-basecolor.png-68cc9279734915162524164cc123384d.s3tc.ctex", "res://.godot/imported/Sapling_Deciduous_02_BARK_02-basecolor.png-68cc9279734915162524164cc123384d.etc2.ctex"]
 
 [params]
 

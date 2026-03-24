@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://rwhedhc45mt4"
 path.s3tc="res://.godot/imported/hans_christian_andersen_Image_0.jpg-462bb8f92a9316b3239b6bc925e2bb52.s3tc.ctex"
+path.etc2="res://.godot/imported/hans_christian_andersen_Image_0.jpg-462bb8f92a9316b3239b6bc925e2bb52.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/furniture/hans_christian_andersen_Image_0.jpg"
-dest_files=["res://.godot/imported/hans_christian_andersen_Image_0.jpg-462bb8f92a9316b3239b6bc925e2bb52.s3tc.ctex"]
+dest_files=["res://.godot/imported/hans_christian_andersen_Image_0.jpg-462bb8f92a9316b3239b6bc925e2bb52.s3tc.ctex", "res://.godot/imported/hans_christian_andersen_Image_0.jpg-462bb8f92a9316b3239b6bc925e2bb52.etc2.ctex"]
 
 [params]
 

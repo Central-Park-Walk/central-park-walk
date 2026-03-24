@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c714f12b1g2kk"
 path.s3tc="res://.godot/imported/Shrub_Sumac_bark_04-basecolor.png-cf076d90d0e9ed7d55c240b9888757e9.s3tc.ctex"
+path.etc2="res://.godot/imported/Shrub_Sumac_bark_04-basecolor.png-cf076d90d0e9ed7d55c240b9888757e9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Shrub_Sumac_bark_04-basecolor.png"
-dest_files=["res://.godot/imported/Shrub_Sumac_bark_04-basecolor.png-cf076d90d0e9ed7d55c240b9888757e9.s3tc.ctex"]
+dest_files=["res://.godot/imported/Shrub_Sumac_bark_04-basecolor.png-cf076d90d0e9ed7d55c240b9888757e9.s3tc.ctex", "res://.godot/imported/Shrub_Sumac_bark_04-basecolor.png-cf076d90d0e9ed7d55c240b9888757e9.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://csubx8x32edsx"
 path.s3tc="res://.godot/imported/shore_albedo_height.png-217b33d8795e3cba3fb0c7f94c321241.s3tc.ctex"
+path.etc2="res://.godot/imported/shore_albedo_height.png-217b33d8795e3cba3fb0c7f94c321241.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/terrain3d/shore_albedo_height.png"
-dest_files=["res://.godot/imported/shore_albedo_height.png-217b33d8795e3cba3fb0c7f94c321241.s3tc.ctex"]
+dest_files=["res://.godot/imported/shore_albedo_height.png-217b33d8795e3cba3fb0c7f94c321241.s3tc.ctex", "res://.godot/imported/shore_albedo_height.png-217b33d8795e3cba3fb0c7f94c321241.etc2.ctex"]
 
 [params]
 

@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dsk0un7wup73p"
 path.s3tc="res://.godot/imported/cp_bike_rack_Metal027_1K-JPG_Metalness-Metal027_1K-JPG_Roughness.jpg-5751be055a5c16353f790bd6d9cbf3b7.s3tc.ctex"
+path.etc2="res://.godot/imported/cp_bike_rack_Metal027_1K-JPG_Metalness-Metal027_1K-JPG_Roughness.jpg-5751be055a5c16353f790bd6d9cbf3b7.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/furniture/cp_bike_rack_Metal027_1K-JPG_Metalness-Metal027_1K-JPG_Roughness.jpg"
-dest_files=["res://.godot/imported/cp_bike_rack_Metal027_1K-JPG_Metalness-Metal027_1K-JPG_Roughness.jpg-5751be055a5c16353f790bd6d9cbf3b7.s3tc.ctex"]
+dest_files=["res://.godot/imported/cp_bike_rack_Metal027_1K-JPG_Metalness-Metal027_1K-JPG_Roughness.jpg-5751be055a5c16353f790bd6d9cbf3b7.s3tc.ctex", "res://.godot/imported/cp_bike_rack_Metal027_1K-JPG_Metalness-Metal027_1K-JPG_Roughness.jpg-5751be055a5c16353f790bd6d9cbf3b7.etc2.ctex"]
 
 [params]
 

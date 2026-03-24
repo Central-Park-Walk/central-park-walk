@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cwi6e30hv3i7y"
 path.s3tc="res://.godot/imported/Shrub_WitchHazel_Bush _02.png-7a34e4859295e04449b2e8eadb09669d.s3tc.ctex"
+path.etc2="res://.godot/imported/Shrub_WitchHazel_Bush _02.png-7a34e4859295e04449b2e8eadb09669d.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Shrub_WitchHazel_Bush _02.png"
-dest_files=["res://.godot/imported/Shrub_WitchHazel_Bush _02.png-7a34e4859295e04449b2e8eadb09669d.s3tc.ctex"]
+dest_files=["res://.godot/imported/Shrub_WitchHazel_Bush _02.png-7a34e4859295e04449b2e8eadb09669d.s3tc.ctex", "res://.godot/imported/Shrub_WitchHazel_Bush _02.png-7a34e4859295e04449b2e8eadb09669d.etc2.ctex"]
 
 [params]
 

@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://s3f7rxditohl"
 path.s3tc="res://.godot/imported/Tuft_Dry_Medium_grassblades_06 copy.png-ae7472f86013cf771ea497a7e57704fd.s3tc.ctex"
+path.etc2="res://.godot/imported/Tuft_Dry_Medium_grassblades_06 copy.png-ae7472f86013cf771ea497a7e57704fd.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Tuft_Dry_Medium_grassblades_06 copy.png"
-dest_files=["res://.godot/imported/Tuft_Dry_Medium_grassblades_06 copy.png-ae7472f86013cf771ea497a7e57704fd.s3tc.ctex"]
+dest_files=["res://.godot/imported/Tuft_Dry_Medium_grassblades_06 copy.png-ae7472f86013cf771ea497a7e57704fd.s3tc.ctex", "res://.godot/imported/Tuft_Dry_Medium_grassblades_06 copy.png-ae7472f86013cf771ea497a7e57704fd.etc2.ctex"]
 
 [params]
 

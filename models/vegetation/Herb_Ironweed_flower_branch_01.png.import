@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://84uc12wevk2m"
 path.s3tc="res://.godot/imported/Herb_Ironweed_flower_branch_01.png-4b7ab0d29a4d9262a156c24a7612898a.s3tc.ctex"
+path.etc2="res://.godot/imported/Herb_Ironweed_flower_branch_01.png-4b7ab0d29a4d9262a156c24a7612898a.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Herb_Ironweed_flower_branch_01.png"
-dest_files=["res://.godot/imported/Herb_Ironweed_flower_branch_01.png-4b7ab0d29a4d9262a156c24a7612898a.s3tc.ctex"]
+dest_files=["res://.godot/imported/Herb_Ironweed_flower_branch_01.png-4b7ab0d29a4d9262a156c24a7612898a.s3tc.ctex", "res://.godot/imported/Herb_Ironweed_flower_branch_01.png-4b7ab0d29a4d9262a156c24a7612898a.etc2.ctex"]
 
 [params]
 

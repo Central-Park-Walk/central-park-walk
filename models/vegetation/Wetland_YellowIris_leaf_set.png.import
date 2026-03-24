@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dbvsduuxjj6yd"
 path.s3tc="res://.godot/imported/Wetland_YellowIris_leaf_set.png-49d6c62c056ac5789c76fd7e70f54e7f.s3tc.ctex"
+path.etc2="res://.godot/imported/Wetland_YellowIris_leaf_set.png-49d6c62c056ac5789c76fd7e70f54e7f.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Wetland_YellowIris_leaf_set.png"
-dest_files=["res://.godot/imported/Wetland_YellowIris_leaf_set.png-49d6c62c056ac5789c76fd7e70f54e7f.s3tc.ctex"]
+dest_files=["res://.godot/imported/Wetland_YellowIris_leaf_set.png-49d6c62c056ac5789c76fd7e70f54e7f.s3tc.ctex", "res://.godot/imported/Wetland_YellowIris_leaf_set.png-49d6c62c056ac5789c76fd7e70f54e7f.etc2.ctex"]
 
 [params]
 

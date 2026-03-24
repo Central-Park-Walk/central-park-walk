@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c3tv050aknp3l"
 path.s3tc="res://.godot/imported/GrassCard_Lawn_GrassCard_Lawn_card.png-3e5cb988d858a35ca6979685af9b8a5c.s3tc.ctex"
+path.etc2="res://.godot/imported/GrassCard_Lawn_GrassCard_Lawn_card.png-3e5cb988d858a35ca6979685af9b8a5c.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/GrassCard_Lawn_GrassCard_Lawn_card.png"
-dest_files=["res://.godot/imported/GrassCard_Lawn_GrassCard_Lawn_card.png-3e5cb988d858a35ca6979685af9b8a5c.s3tc.ctex"]
+dest_files=["res://.godot/imported/GrassCard_Lawn_GrassCard_Lawn_card.png-3e5cb988d858a35ca6979685af9b8a5c.s3tc.ctex", "res://.godot/imported/GrassCard_Lawn_GrassCard_Lawn_card.png-3e5cb988d858a35ca6979685af9b8a5c.etc2.ctex"]
 
 [params]
 

@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cvfbkfyy5t2cp"
 path.s3tc="res://.godot/imported/Wetland_Cattail_stem01.png-2b330ad6aadd83d6d367383e128990b9.s3tc.ctex"
+path.etc2="res://.godot/imported/Wetland_Cattail_stem01.png-2b330ad6aadd83d6d367383e128990b9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Wetland_Cattail_stem01.png"
-dest_files=["res://.godot/imported/Wetland_Cattail_stem01.png-2b330ad6aadd83d6d367383e128990b9.s3tc.ctex"]
+dest_files=["res://.godot/imported/Wetland_Cattail_stem01.png-2b330ad6aadd83d6d367383e128990b9.s3tc.ctex", "res://.godot/imported/Wetland_Cattail_stem01.png-2b330ad6aadd83d6d367383e128990b9.etc2.ctex"]
 
 [params]
 

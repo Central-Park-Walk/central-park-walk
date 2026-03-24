@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ct6vcr550715k"
 path.s3tc="res://.godot/imported/fence_panel_Metal027_1K-JPG_Color.jpg-f48c046af24641b5ddc65cb741a79370.s3tc.ctex"
+path.etc2="res://.godot/imported/fence_panel_Metal027_1K-JPG_Color.jpg-f48c046af24641b5ddc65cb741a79370.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/furniture/fence_panel_Metal027_1K-JPG_Color.jpg"
-dest_files=["res://.godot/imported/fence_panel_Metal027_1K-JPG_Color.jpg-f48c046af24641b5ddc65cb741a79370.s3tc.ctex"]
+dest_files=["res://.godot/imported/fence_panel_Metal027_1K-JPG_Color.jpg-f48c046af24641b5ddc65cb741a79370.s3tc.ctex", "res://.godot/imported/fence_panel_Metal027_1K-JPG_Color.jpg-f48c046af24641b5ddc65cb741a79370.etc2.ctex"]
 
 [params]
 

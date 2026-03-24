@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://x0wktxiuy6e0"
 path.s3tc="res://.godot/imported/Shrub_SweetPepperbush_Bush _02.png-c11bfd5c717492db4277808cb8b0707e.s3tc.ctex"
+path.etc2="res://.godot/imported/Shrub_SweetPepperbush_Bush _02.png-c11bfd5c717492db4277808cb8b0707e.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Shrub_SweetPepperbush_Bush _02.png"
-dest_files=["res://.godot/imported/Shrub_SweetPepperbush_Bush _02.png-c11bfd5c717492db4277808cb8b0707e.s3tc.ctex"]
+dest_files=["res://.godot/imported/Shrub_SweetPepperbush_Bush _02.png-c11bfd5c717492db4277808cb8b0707e.s3tc.ctex", "res://.godot/imported/Shrub_SweetPepperbush_Bush _02.png-c11bfd5c717492db4277808cb8b0707e.etc2.ctex"]
 
 [params]
 

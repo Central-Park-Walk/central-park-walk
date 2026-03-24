@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b1r756t3gadd0"
 path.s3tc="res://.godot/imported/cp_bench_Wood035_1K-JPG_Roughness.jpg-1f9e3ec5560a13a742ee7c36d42e59e8.s3tc.ctex"
+path.etc2="res://.godot/imported/cp_bench_Wood035_1K-JPG_Roughness.jpg-1f9e3ec5560a13a742ee7c36d42e59e8.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/furniture/cp_bench_Wood035_1K-JPG_Roughness.jpg"
-dest_files=["res://.godot/imported/cp_bench_Wood035_1K-JPG_Roughness.jpg-1f9e3ec5560a13a742ee7c36d42e59e8.s3tc.ctex"]
+dest_files=["res://.godot/imported/cp_bench_Wood035_1K-JPG_Roughness.jpg-1f9e3ec5560a13a742ee7c36d42e59e8.s3tc.ctex", "res://.godot/imported/cp_bench_Wood035_1K-JPG_Roughness.jpg-1f9e3ec5560a13a742ee7c36d42e59e8.etc2.ctex"]
 
 [params]
 

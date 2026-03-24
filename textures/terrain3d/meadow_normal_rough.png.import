@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ct2as077hrdki"
 path.s3tc="res://.godot/imported/meadow_normal_rough.png-6a35ae8b20b493f6550713449a917261.s3tc.ctex"
+path.etc2="res://.godot/imported/meadow_normal_rough.png-6a35ae8b20b493f6550713449a917261.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/terrain3d/meadow_normal_rough.png"
-dest_files=["res://.godot/imported/meadow_normal_rough.png-6a35ae8b20b493f6550713449a917261.s3tc.ctex"]
+dest_files=["res://.godot/imported/meadow_normal_rough.png-6a35ae8b20b493f6550713449a917261.s3tc.ctex", "res://.godot/imported/meadow_normal_rough.png-6a35ae8b20b493f6550713449a917261.etc2.ctex"]
 
 [params]
 

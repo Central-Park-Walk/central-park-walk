@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://p28f7qu4tol6"
 path.s3tc="res://.godot/imported/cp_curb_ramp_PavingStones150_1K-JPG_NormalGL.jpg-1f7f0f0474c7b1dcf6c5e0dd60a33412.s3tc.ctex"
+path.etc2="res://.godot/imported/cp_curb_ramp_PavingStones150_1K-JPG_NormalGL.jpg-1f7f0f0474c7b1dcf6c5e0dd60a33412.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/furniture/cp_curb_ramp_PavingStones150_1K-JPG_NormalGL.jpg"
-dest_files=["res://.godot/imported/cp_curb_ramp_PavingStones150_1K-JPG_NormalGL.jpg-1f7f0f0474c7b1dcf6c5e0dd60a33412.s3tc.ctex"]
+dest_files=["res://.godot/imported/cp_curb_ramp_PavingStones150_1K-JPG_NormalGL.jpg-1f7f0f0474c7b1dcf6c5e0dd60a33412.s3tc.ctex", "res://.godot/imported/cp_curb_ramp_PavingStones150_1K-JPG_NormalGL.jpg-1f7f0f0474c7b1dcf6c5e0dd60a33412.etc2.ctex"]
 
 [params]
 

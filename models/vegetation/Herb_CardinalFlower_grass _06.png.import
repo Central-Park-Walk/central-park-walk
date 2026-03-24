@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://6vg4ssb1ed7u"
 path.s3tc="res://.godot/imported/Herb_CardinalFlower_grass _06.png-eba4bfc497b8f1a9eea3b54499416ff9.s3tc.ctex"
+path.etc2="res://.godot/imported/Herb_CardinalFlower_grass _06.png-eba4bfc497b8f1a9eea3b54499416ff9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Herb_CardinalFlower_grass _06.png"
-dest_files=["res://.godot/imported/Herb_CardinalFlower_grass _06.png-eba4bfc497b8f1a9eea3b54499416ff9.s3tc.ctex"]
+dest_files=["res://.godot/imported/Herb_CardinalFlower_grass _06.png-eba4bfc497b8f1a9eea3b54499416ff9.s3tc.ctex", "res://.godot/imported/Herb_CardinalFlower_grass _06.png-eba4bfc497b8f1a9eea3b54499416ff9.etc2.ctex"]
 
 [params]
 

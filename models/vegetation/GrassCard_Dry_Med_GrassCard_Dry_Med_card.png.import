@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://qo2math34ewi"
 path.s3tc="res://.godot/imported/GrassCard_Dry_Med_GrassCard_Dry_Med_card.png-221188187756d98986312a7f720a0354.s3tc.ctex"
+path.etc2="res://.godot/imported/GrassCard_Dry_Med_GrassCard_Dry_Med_card.png-221188187756d98986312a7f720a0354.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/GrassCard_Dry_Med_GrassCard_Dry_Med_card.png"
-dest_files=["res://.godot/imported/GrassCard_Dry_Med_GrassCard_Dry_Med_card.png-221188187756d98986312a7f720a0354.s3tc.ctex"]
+dest_files=["res://.godot/imported/GrassCard_Dry_Med_GrassCard_Dry_Med_card.png-221188187756d98986312a7f720a0354.s3tc.ctex", "res://.godot/imported/GrassCard_Dry_Med_GrassCard_Dry_Med_card.png-221188187756d98986312a7f720a0354.etc2.ctex"]
 
 [params]
 

@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bg8p00e67pi7w"
 path.s3tc="res://.godot/imported/Tuft_Dead_grass _06.png-e22f564f387c053a8babe38e7acd8808.s3tc.ctex"
+path.etc2="res://.godot/imported/Tuft_Dead_grass _06.png-e22f564f387c053a8babe38e7acd8808.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Tuft_Dead_grass _06.png"
-dest_files=["res://.godot/imported/Tuft_Dead_grass _06.png-e22f564f387c053a8babe38e7acd8808.s3tc.ctex"]
+dest_files=["res://.godot/imported/Tuft_Dead_grass _06.png-e22f564f387c053a8babe38e7acd8808.s3tc.ctex", "res://.godot/imported/Tuft_Dead_grass _06.png-e22f564f387c053a8babe38e7acd8808.etc2.ctex"]
 
 [params]
 

@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dp18acs1aqlcs"
 path.s3tc="res://.godot/imported/Branch_Forest_01_moss.png-fa1980b8f0ac2a221264197502bfca86.s3tc.ctex"
+path.etc2="res://.godot/imported/Branch_Forest_01_moss.png-fa1980b8f0ac2a221264197502bfca86.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Branch_Forest_01_moss.png"
-dest_files=["res://.godot/imported/Branch_Forest_01_moss.png-fa1980b8f0ac2a221264197502bfca86.s3tc.ctex"]
+dest_files=["res://.godot/imported/Branch_Forest_01_moss.png-fa1980b8f0ac2a221264197502bfca86.s3tc.ctex", "res://.godot/imported/Branch_Forest_01_moss.png-fa1980b8f0ac2a221264197502bfca86.etc2.ctex"]
 
 [params]
 

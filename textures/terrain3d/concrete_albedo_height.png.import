@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c5m1obmybx6qm"
 path.s3tc="res://.godot/imported/concrete_albedo_height.png-28cbd5e143768547a2c4ef178b6f1fcd.s3tc.ctex"
+path.etc2="res://.godot/imported/concrete_albedo_height.png-28cbd5e143768547a2c4ef178b6f1fcd.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/terrain3d/concrete_albedo_height.png"
-dest_files=["res://.godot/imported/concrete_albedo_height.png-28cbd5e143768547a2c4ef178b6f1fcd.s3tc.ctex"]
+dest_files=["res://.godot/imported/concrete_albedo_height.png-28cbd5e143768547a2c4ef178b6f1fcd.s3tc.ctex", "res://.godot/imported/concrete_albedo_height.png-28cbd5e143768547a2c4ef178b6f1fcd.etc2.ctex"]
 
 [params]
 

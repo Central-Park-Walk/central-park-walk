@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://v1vphl6hj10c"
 path.s3tc="res://.godot/imported/gravel_albedo_height.png-9d9f38e1c77247da5b5e7e4bef349d64.s3tc.ctex"
+path.etc2="res://.godot/imported/gravel_albedo_height.png-9d9f38e1c77247da5b5e7e4bef349d64.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/terrain3d/gravel_albedo_height.png"
-dest_files=["res://.godot/imported/gravel_albedo_height.png-9d9f38e1c77247da5b5e7e4bef349d64.s3tc.ctex"]
+dest_files=["res://.godot/imported/gravel_albedo_height.png-9d9f38e1c77247da5b5e7e4bef349d64.s3tc.ctex", "res://.godot/imported/gravel_albedo_height.png-9d9f38e1c77247da5b5e7e4bef349d64.etc2.ctex"]
 
 [params]
 

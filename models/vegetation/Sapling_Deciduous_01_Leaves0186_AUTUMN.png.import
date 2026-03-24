@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bcfo871harkx8"
 path.s3tc="res://.godot/imported/Sapling_Deciduous_01_Leaves0186_AUTUMN.png-195fd721ef70185a3715640467f1f976.s3tc.ctex"
+path.etc2="res://.godot/imported/Sapling_Deciduous_01_Leaves0186_AUTUMN.png-195fd721ef70185a3715640467f1f976.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Sapling_Deciduous_01_Leaves0186_AUTUMN.png"
-dest_files=["res://.godot/imported/Sapling_Deciduous_01_Leaves0186_AUTUMN.png-195fd721ef70185a3715640467f1f976.s3tc.ctex"]
+dest_files=["res://.godot/imported/Sapling_Deciduous_01_Leaves0186_AUTUMN.png-195fd721ef70185a3715640467f1f976.s3tc.ctex", "res://.godot/imported/Sapling_Deciduous_01_Leaves0186_AUTUMN.png-195fd721ef70185a3715640467f1f976.etc2.ctex"]
 
 [params]
 

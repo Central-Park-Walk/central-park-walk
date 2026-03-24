@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://m6k812tv0jvy"
 path.s3tc="res://.godot/imported/Herb_JoePyeWeed_vegetation_strawberry_03.png-43bcb04e4b1b1efe7d6c7f251253be90.s3tc.ctex"
+path.etc2="res://.godot/imported/Herb_JoePyeWeed_vegetation_strawberry_03.png-43bcb04e4b1b1efe7d6c7f251253be90.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Herb_JoePyeWeed_vegetation_strawberry_03.png"
-dest_files=["res://.godot/imported/Herb_JoePyeWeed_vegetation_strawberry_03.png-43bcb04e4b1b1efe7d6c7f251253be90.s3tc.ctex"]
+dest_files=["res://.godot/imported/Herb_JoePyeWeed_vegetation_strawberry_03.png-43bcb04e4b1b1efe7d6c7f251253be90.s3tc.ctex", "res://.godot/imported/Herb_JoePyeWeed_vegetation_strawberry_03.png-43bcb04e4b1b1efe7d6c7f251253be90.etc2.ctex"]
 
 [params]
 

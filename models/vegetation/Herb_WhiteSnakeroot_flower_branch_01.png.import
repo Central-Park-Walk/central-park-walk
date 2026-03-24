@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b8s0ioy1khc7b"
 path.s3tc="res://.godot/imported/Herb_WhiteSnakeroot_flower_branch_01.png-0e7f1e4ef24df269d8bbd9eb66b957d9.s3tc.ctex"
+path.etc2="res://.godot/imported/Herb_WhiteSnakeroot_flower_branch_01.png-0e7f1e4ef24df269d8bbd9eb66b957d9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Herb_WhiteSnakeroot_flower_branch_01.png"
-dest_files=["res://.godot/imported/Herb_WhiteSnakeroot_flower_branch_01.png-0e7f1e4ef24df269d8bbd9eb66b957d9.s3tc.ctex"]
+dest_files=["res://.godot/imported/Herb_WhiteSnakeroot_flower_branch_01.png-0e7f1e4ef24df269d8bbd9eb66b957d9.s3tc.ctex", "res://.godot/imported/Herb_WhiteSnakeroot_flower_branch_01.png-0e7f1e4ef24df269d8bbd9eb66b957d9.etc2.ctex"]
 
 [params]
 

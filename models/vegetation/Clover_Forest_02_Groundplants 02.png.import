@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b87umusac3mip"
 path.s3tc="res://.godot/imported/Clover_Forest_02_Groundplants 02.png-594bd0a46a90429bb7a8df5f27becff3.s3tc.ctex"
+path.etc2="res://.godot/imported/Clover_Forest_02_Groundplants 02.png-594bd0a46a90429bb7a8df5f27becff3.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Clover_Forest_02_Groundplants 02.png"
-dest_files=["res://.godot/imported/Clover_Forest_02_Groundplants 02.png-594bd0a46a90429bb7a8df5f27becff3.s3tc.ctex"]
+dest_files=["res://.godot/imported/Clover_Forest_02_Groundplants 02.png-594bd0a46a90429bb7a8df5f27becff3.s3tc.ctex", "res://.godot/imported/Clover_Forest_02_Groundplants 02.png-594bd0a46a90429bb7a8df5f27becff3.etc2.ctex"]
 
 [params]
 

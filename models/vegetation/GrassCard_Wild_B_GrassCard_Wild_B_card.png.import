@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c52pa7oecuhjk"
 path.s3tc="res://.godot/imported/GrassCard_Wild_B_GrassCard_Wild_B_card.png-c96fa39de8186d30f12d4a314340f609.s3tc.ctex"
+path.etc2="res://.godot/imported/GrassCard_Wild_B_GrassCard_Wild_B_card.png-c96fa39de8186d30f12d4a314340f609.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/GrassCard_Wild_B_GrassCard_Wild_B_card.png"
-dest_files=["res://.godot/imported/GrassCard_Wild_B_GrassCard_Wild_B_card.png-c96fa39de8186d30f12d4a314340f609.s3tc.ctex"]
+dest_files=["res://.godot/imported/GrassCard_Wild_B_GrassCard_Wild_B_card.png-c96fa39de8186d30f12d4a314340f609.s3tc.ctex", "res://.godot/imported/GrassCard_Wild_B_GrassCard_Wild_B_card.png-c96fa39de8186d30f12d4a314340f609.etc2.ctex"]
 
 [params]
 

@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://nmvfvftb84j1"
 path.s3tc="res://.godot/imported/cp_lamppost_Metal027_1K-JPG_Color.jpg-f6f0f84005ca37ab944003dad2629a9c.s3tc.ctex"
+path.etc2="res://.godot/imported/cp_lamppost_Metal027_1K-JPG_Color.jpg-f6f0f84005ca37ab944003dad2629a9c.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/furniture/cp_lamppost_Metal027_1K-JPG_Color.jpg"
-dest_files=["res://.godot/imported/cp_lamppost_Metal027_1K-JPG_Color.jpg-f6f0f84005ca37ab944003dad2629a9c.s3tc.ctex"]
+dest_files=["res://.godot/imported/cp_lamppost_Metal027_1K-JPG_Color.jpg-f6f0f84005ca37ab944003dad2629a9c.s3tc.ctex", "res://.godot/imported/cp_lamppost_Metal027_1K-JPG_Color.jpg-f6f0f84005ca37ab944003dad2629a9c.etc2.ctex"]
 
 [params]
 

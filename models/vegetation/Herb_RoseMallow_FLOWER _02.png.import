@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bwilh33iv1gat"
 path.s3tc="res://.godot/imported/Herb_RoseMallow_FLOWER _02.png-0ce952aca719a3f6c9d35f6d55c1ee45.s3tc.ctex"
+path.etc2="res://.godot/imported/Herb_RoseMallow_FLOWER _02.png-0ce952aca719a3f6c9d35f6d55c1ee45.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Herb_RoseMallow_FLOWER _02.png"
-dest_files=["res://.godot/imported/Herb_RoseMallow_FLOWER _02.png-0ce952aca719a3f6c9d35f6d55c1ee45.s3tc.ctex"]
+dest_files=["res://.godot/imported/Herb_RoseMallow_FLOWER _02.png-0ce952aca719a3f6c9d35f6d55c1ee45.s3tc.ctex", "res://.godot/imported/Herb_RoseMallow_FLOWER _02.png-0ce952aca719a3f6c9d35f6d55c1ee45.etc2.ctex"]
 
 [params]
 

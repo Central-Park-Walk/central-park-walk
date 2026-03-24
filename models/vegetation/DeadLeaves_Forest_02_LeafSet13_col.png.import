@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://weivanpgkpm"
 path.s3tc="res://.godot/imported/DeadLeaves_Forest_02_LeafSet13_col.png-daeaa618be726050718f034b6d198cfd.s3tc.ctex"
+path.etc2="res://.godot/imported/DeadLeaves_Forest_02_LeafSet13_col.png-daeaa618be726050718f034b6d198cfd.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/DeadLeaves_Forest_02_LeafSet13_col.png"
-dest_files=["res://.godot/imported/DeadLeaves_Forest_02_LeafSet13_col.png-daeaa618be726050718f034b6d198cfd.s3tc.ctex"]
+dest_files=["res://.godot/imported/DeadLeaves_Forest_02_LeafSet13_col.png-daeaa618be726050718f034b6d198cfd.s3tc.ctex", "res://.godot/imported/DeadLeaves_Forest_02_LeafSet13_col.png-daeaa618be726050718f034b6d198cfd.etc2.ctex"]
 
 [params]
 

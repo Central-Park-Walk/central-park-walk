@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c2coplia4dsgb"
 path.s3tc="res://.godot/imported/Shrub_Spicebush_Bush _02.png-c6002f73b2d60f0e08ed6b4d04a83358.s3tc.ctex"
+path.etc2="res://.godot/imported/Shrub_Spicebush_Bush _02.png-c6002f73b2d60f0e08ed6b4d04a83358.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Shrub_Spicebush_Bush _02.png"
-dest_files=["res://.godot/imported/Shrub_Spicebush_Bush _02.png-c6002f73b2d60f0e08ed6b4d04a83358.s3tc.ctex"]
+dest_files=["res://.godot/imported/Shrub_Spicebush_Bush _02.png-c6002f73b2d60f0e08ed6b4d04a83358.s3tc.ctex", "res://.godot/imported/Shrub_Spicebush_Bush _02.png-c6002f73b2d60f0e08ed6b4d04a83358.etc2.ctex"]
 
 [params]
 

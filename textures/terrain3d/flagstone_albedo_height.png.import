@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://23ec7b2af621"
 path.s3tc="res://.godot/imported/flagstone_albedo_height.png-1c5bc3e6938c7be1496cb51bbf08e519.s3tc.ctex"
+path.etc2="res://.godot/imported/flagstone_albedo_height.png-1c5bc3e6938c7be1496cb51bbf08e519.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/terrain3d/flagstone_albedo_height.png"
-dest_files=["res://.godot/imported/flagstone_albedo_height.png-1c5bc3e6938c7be1496cb51bbf08e519.s3tc.ctex"]
+dest_files=["res://.godot/imported/flagstone_albedo_height.png-1c5bc3e6938c7be1496cb51bbf08e519.s3tc.ctex", "res://.godot/imported/flagstone_albedo_height.png-1c5bc3e6938c7be1496cb51bbf08e519.etc2.ctex"]
 
 [params]
 

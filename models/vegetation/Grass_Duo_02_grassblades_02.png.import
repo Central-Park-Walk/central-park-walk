@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://vvhkn388m5w3"
 path.s3tc="res://.godot/imported/Grass_Duo_02_grassblades_02.png-b340b5b8b939e958943ca89aa2a55144.s3tc.ctex"
+path.etc2="res://.godot/imported/Grass_Duo_02_grassblades_02.png-b340b5b8b939e958943ca89aa2a55144.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Grass_Duo_02_grassblades_02.png"
-dest_files=["res://.godot/imported/Grass_Duo_02_grassblades_02.png-b340b5b8b939e958943ca89aa2a55144.s3tc.ctex"]
+dest_files=["res://.godot/imported/Grass_Duo_02_grassblades_02.png-b340b5b8b939e958943ca89aa2a55144.s3tc.ctex", "res://.godot/imported/Grass_Duo_02_grassblades_02.png-b340b5b8b939e958943ca89aa2a55144.etc2.ctex"]
 
 [params]
 

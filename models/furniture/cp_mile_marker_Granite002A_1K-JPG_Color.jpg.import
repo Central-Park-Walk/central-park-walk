@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://qvhgfa5pkb1g"
 path.s3tc="res://.godot/imported/cp_mile_marker_Granite002A_1K-JPG_Color.jpg-25d868bd4ff6227b85bd1eb5d7abce9a.s3tc.ctex"
+path.etc2="res://.godot/imported/cp_mile_marker_Granite002A_1K-JPG_Color.jpg-25d868bd4ff6227b85bd1eb5d7abce9a.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/furniture/cp_mile_marker_Granite002A_1K-JPG_Color.jpg"
-dest_files=["res://.godot/imported/cp_mile_marker_Granite002A_1K-JPG_Color.jpg-25d868bd4ff6227b85bd1eb5d7abce9a.s3tc.ctex"]
+dest_files=["res://.godot/imported/cp_mile_marker_Granite002A_1K-JPG_Color.jpg-25d868bd4ff6227b85bd1eb5d7abce9a.s3tc.ctex", "res://.godot/imported/cp_mile_marker_Granite002A_1K-JPG_Color.jpg-25d868bd4ff6227b85bd1eb5d7abce9a.etc2.ctex"]
 
 [params]
 

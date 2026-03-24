@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://d1jvnk0pwqryo"
 path.s3tc="res://.godot/imported/GrassCard_Clump_C_GrassCard_Clump_C_card.png-7eb2912d209324bc7c9c9b32e16ca36b.s3tc.ctex"
+path.etc2="res://.godot/imported/GrassCard_Clump_C_GrassCard_Clump_C_card.png-7eb2912d209324bc7c9c9b32e16ca36b.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/GrassCard_Clump_C_GrassCard_Clump_C_card.png"
-dest_files=["res://.godot/imported/GrassCard_Clump_C_GrassCard_Clump_C_card.png-7eb2912d209324bc7c9c9b32e16ca36b.s3tc.ctex"]
+dest_files=["res://.godot/imported/GrassCard_Clump_C_GrassCard_Clump_C_card.png-7eb2912d209324bc7c9c9b32e16ca36b.s3tc.ctex", "res://.godot/imported/GrassCard_Clump_C_GrassCard_Clump_C_card.png-7eb2912d209324bc7c9c9b32e16ca36b.etc2.ctex"]
 
 [params]
 

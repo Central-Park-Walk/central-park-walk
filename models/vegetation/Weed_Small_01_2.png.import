@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://csbe3lrg5he2o"
 path.s3tc="res://.godot/imported/Weed_Small_01_2.png-c3e54eae81fe253e8953df18d027025e.s3tc.ctex"
+path.etc2="res://.godot/imported/Weed_Small_01_2.png-c3e54eae81fe253e8953df18d027025e.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Weed_Small_01_2.png"
-dest_files=["res://.godot/imported/Weed_Small_01_2.png-c3e54eae81fe253e8953df18d027025e.s3tc.ctex"]
+dest_files=["res://.godot/imported/Weed_Small_01_2.png-c3e54eae81fe253e8953df18d027025e.s3tc.ctex", "res://.godot/imported/Weed_Small_01_2.png-c3e54eae81fe253e8953df18d027025e.etc2.ctex"]
 
 [params]
 

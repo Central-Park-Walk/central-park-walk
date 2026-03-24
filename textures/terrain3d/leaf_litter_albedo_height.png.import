@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://6b566eaaf44a"
 path.s3tc="res://.godot/imported/leaf_litter_albedo_height.png-1ef41e49389525c410306a98da4f295d.s3tc.ctex"
+path.etc2="res://.godot/imported/leaf_litter_albedo_height.png-1ef41e49389525c410306a98da4f295d.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/terrain3d/leaf_litter_albedo_height.png"
-dest_files=["res://.godot/imported/leaf_litter_albedo_height.png-1ef41e49389525c410306a98da4f295d.s3tc.ctex"]
+dest_files=["res://.godot/imported/leaf_litter_albedo_height.png-1ef41e49389525c410306a98da4f295d.s3tc.ctex", "res://.godot/imported/leaf_litter_albedo_height.png-1ef41e49389525c410306a98da4f295d.etc2.ctex"]
 
 [params]
 

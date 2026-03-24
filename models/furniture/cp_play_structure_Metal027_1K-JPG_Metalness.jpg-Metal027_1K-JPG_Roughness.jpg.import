@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://n5wojxv458lj"
 path.s3tc="res://.godot/imported/cp_play_structure_Metal027_1K-JPG_Metalness.jpg-Metal027_1K-JPG_Roughness.jpg-6cb295d18c7583851d980cdb0dd5d1a5.s3tc.ctex"
+path.etc2="res://.godot/imported/cp_play_structure_Metal027_1K-JPG_Metalness.jpg-Metal027_1K-JPG_Roughness.jpg-6cb295d18c7583851d980cdb0dd5d1a5.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/furniture/cp_play_structure_Metal027_1K-JPG_Metalness.jpg-Metal027_1K-JPG_Roughness.jpg"
-dest_files=["res://.godot/imported/cp_play_structure_Metal027_1K-JPG_Metalness.jpg-Metal027_1K-JPG_Roughness.jpg-6cb295d18c7583851d980cdb0dd5d1a5.s3tc.ctex"]
+dest_files=["res://.godot/imported/cp_play_structure_Metal027_1K-JPG_Metalness.jpg-Metal027_1K-JPG_Roughness.jpg-6cb295d18c7583851d980cdb0dd5d1a5.s3tc.ctex", "res://.godot/imported/cp_play_structure_Metal027_1K-JPG_Metalness.jpg-Metal027_1K-JPG_Roughness.jpg-6cb295d18c7583851d980cdb0dd5d1a5.etc2.ctex"]
 
 [params]
 

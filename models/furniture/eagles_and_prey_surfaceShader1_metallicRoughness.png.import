@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c4mma2um5cpd1"
 path.s3tc="res://.godot/imported/eagles_and_prey_surfaceShader1_metallicRoughness.png-92023469de1844c4ffe62e75f58de637.s3tc.ctex"
+path.etc2="res://.godot/imported/eagles_and_prey_surfaceShader1_metallicRoughness.png-92023469de1844c4ffe62e75f58de637.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/furniture/eagles_and_prey_surfaceShader1_metallicRoughness.png"
-dest_files=["res://.godot/imported/eagles_and_prey_surfaceShader1_metallicRoughness.png-92023469de1844c4ffe62e75f58de637.s3tc.ctex"]
+dest_files=["res://.godot/imported/eagles_and_prey_surfaceShader1_metallicRoughness.png-92023469de1844c4ffe62e75f58de637.s3tc.ctex", "res://.godot/imported/eagles_and_prey_surfaceShader1_metallicRoughness.png-92023469de1844c4ffe62e75f58de637.etc2.ctex"]
 
 [params]
 

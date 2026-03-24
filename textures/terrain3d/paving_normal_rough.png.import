@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ctrugtl4oh6nu"
 path.s3tc="res://.godot/imported/paving_normal_rough.png-af3f6e8e0474202415e0602b0ea153b7.s3tc.ctex"
+path.etc2="res://.godot/imported/paving_normal_rough.png-af3f6e8e0474202415e0602b0ea153b7.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/terrain3d/paving_normal_rough.png"
-dest_files=["res://.godot/imported/paving_normal_rough.png-af3f6e8e0474202415e0602b0ea153b7.s3tc.ctex"]
+dest_files=["res://.godot/imported/paving_normal_rough.png-af3f6e8e0474202415e0602b0ea153b7.s3tc.ctex", "res://.godot/imported/paving_normal_rough.png-af3f6e8e0474202415e0602b0ea153b7.etc2.ctex"]
 
 [params]
 

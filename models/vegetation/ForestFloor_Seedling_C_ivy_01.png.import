@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c8ptlkwvjihyl"
 path.s3tc="res://.godot/imported/ForestFloor_Seedling_C_ivy_01.png-47ecd97d556aa19ccd4e7146f535086f.s3tc.ctex"
+path.etc2="res://.godot/imported/ForestFloor_Seedling_C_ivy_01.png-47ecd97d556aa19ccd4e7146f535086f.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/ForestFloor_Seedling_C_ivy_01.png"
-dest_files=["res://.godot/imported/ForestFloor_Seedling_C_ivy_01.png-47ecd97d556aa19ccd4e7146f535086f.s3tc.ctex"]
+dest_files=["res://.godot/imported/ForestFloor_Seedling_C_ivy_01.png-47ecd97d556aa19ccd4e7146f535086f.s3tc.ctex", "res://.godot/imported/ForestFloor_Seedling_C_ivy_01.png-47ecd97d556aa19ccd4e7146f535086f.etc2.ctex"]
 
 [params]
 

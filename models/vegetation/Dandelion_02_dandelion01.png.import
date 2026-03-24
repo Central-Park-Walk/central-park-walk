@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://d3iepou28ls1y"
 path.s3tc="res://.godot/imported/Dandelion_02_dandelion01.png-acda08c246c6a1d05c8337af051803f7.s3tc.ctex"
+path.etc2="res://.godot/imported/Dandelion_02_dandelion01.png-acda08c246c6a1d05c8337af051803f7.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/vegetation/Dandelion_02_dandelion01.png"
-dest_files=["res://.godot/imported/Dandelion_02_dandelion01.png-acda08c246c6a1d05c8337af051803f7.s3tc.ctex"]
+dest_files=["res://.godot/imported/Dandelion_02_dandelion01.png-acda08c246c6a1d05c8337af051803f7.s3tc.ctex", "res://.godot/imported/Dandelion_02_dandelion01.png-acda08c246c6a1d05c8337af051803f7.etc2.ctex"]
 
 [params]
 
