@@ -74,20 +74,17 @@ jobs:
 
       - name: Import project resources
         run: |
-          # Delete .import sidecars for terrain textures to force fresh import.
-          # Godot's --import skips files with existing sidecars even when .ctex
-          # destinations are missing. Removing sidecars forces full reimport.
-          rm -f textures/terrain3d/*.import
-          # First pass: discovers new files and imports them
-          godot --headless --import 2>&1 | tee /tmp/import1.log | grep -E "reimport|DONE|error|ERROR" | tail -30
-          echo "--- Pass 1: $(ls .godot/imported/*.ctex 2>/dev/null | wc -l) ctex files ---"
-          # Second pass: catch anything missed
-          godot --headless --import 2>&1 | tee /tmp/import2.log | grep -E "reimport|DONE|error|ERROR" | tail -30
-          echo "--- Pass 2: $(ls .godot/imported/*.ctex 2>/dev/null | wc -l) ctex files ---"
+          # godot --import does NOT reimport files when .ctex destinations are missing.
+          # Only the editor's filesystem scanner triggers proper reimport.
+          # Use editor mode with timeout to force a full scan + import cycle.
+          timeout 120 godot --headless --editor > /tmp/import.log 2>&1 || true
+          echo "--- Editor import: $(ls .godot/imported/*.ctex 2>/dev/null | wc -l) ctex files ---"
+          # Second pass to catch dependency-order issues
+          timeout 60 godot --headless --editor > /tmp/import2.log 2>&1 || true
+          echo "--- Editor pass 2: $(ls .godot/imported/*.ctex 2>/dev/null | wc -l) ctex files ---"
           # Verify terrain textures were imported
           missing=0
           for f in textures/terrain3d/*.png; do
-            # Check for any .ctex variant (s3tc or etc2)
             base=$(basename "$f" .png)
             found=$(ls .godot/imported/${base}.png-*.ctex 2>/dev/null | wc -l)
             if [ "$found" -eq 0 ]; then
@@ -97,13 +94,10 @@ jobs:
           done
           if [ "$missing" -gt 0 ]; then
             echo "ERROR: $missing terrain textures failed to import"
-            echo "--- .godot/imported/ contents (terrain) ---"
-            ls .godot/imported/ 2>/dev/null | grep -i "terrain\|grass\|rock\|dirt\|meadow\|shore\|asphalt\|concrete\|paving\|gravel\|wood\|leaf\|flagstone\|wet_earth\|sparse" | head -30
-            echo "--- .import files in textures/terrain3d/ ---"
-            ls textures/terrain3d/*.import 2>/dev/null
+            grep -i "error\|reimport\|terrain" /tmp/import.log | tail -20
             exit 1
           fi
-          echo "All terrain textures imported successfully ($(ls .godot/imported/*.ctex 2>/dev/null | wc -l) total ctex)"
+          echo "All terrain textures imported successfully"
 
       - name: Export Linux
         run: |
