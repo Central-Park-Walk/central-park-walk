@@ -72,16 +72,22 @@ jobs:
 
       # ── Import + Export ──
 
+      - name: Setup virtual display
+        run: |
+          sudo apt-get install -y xvfb
+          Xvfb :99 -screen 0 1280x720x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
+
       - name: Import project resources
         run: |
-          # godot --import does NOT reimport files when .ctex destinations are missing.
-          # Only the editor's filesystem scanner triggers proper reimport.
-          # Use editor mode with timeout to force a full scan + import cycle.
-          timeout 120 godot --headless --editor > /tmp/import.log 2>&1 || true
-          echo "--- Editor import: $(ls .godot/imported/*.ctex 2>/dev/null | wc -l) ctex files ---"
-          # Second pass to catch dependency-order issues
-          timeout 60 godot --headless --editor > /tmp/import2.log 2>&1 || true
-          echo "--- Editor pass 2: $(ls .godot/imported/*.ctex 2>/dev/null | wc -l) ctex files ---"
+          # Verify terrain PNGs exist
+          echo "--- Terrain PNGs: $(ls textures/terrain3d/*.png 2>/dev/null | wc -l) files ---"
+          ls -la textures/terrain3d/*.png 2>/dev/null | head -5
+          # Import with display server — headless mode may skip VRAM texture compression
+          godot --import > /tmp/import1.log 2>&1 || true
+          echo "--- Pass 1: $(ls .godot/imported/*.ctex 2>/dev/null | wc -l) ctex files ---"
+          godot --import > /tmp/import2.log 2>&1 || true
+          echo "--- Pass 2: $(ls .godot/imported/*.ctex 2>/dev/null | wc -l) ctex files ---"
           # Verify terrain textures were imported
           missing=0
           for f in textures/terrain3d/*.png; do
@@ -94,7 +100,9 @@ jobs:
           done
           if [ "$missing" -gt 0 ]; then
             echo "ERROR: $missing terrain textures failed to import"
-            grep -i "error\|reimport\|terrain" /tmp/import.log | tail -20
+            grep -i "reimport\|terrain3d\|compress" /tmp/import1.log | head -20
+            echo "--- All ctex files ---"
+            ls .godot/imported/*.ctex 2>/dev/null | head -40
             exit 1
           fi
           echo "All terrain textures imported successfully"
