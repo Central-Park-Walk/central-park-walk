@@ -72,23 +72,25 @@ jobs:
 
       # ── Import + Export ──
 
-      - name: Setup virtual display
+      - name: Setup virtual display for texture import
         run: |
-          sudo apt-get install -y xvfb
+          sudo apt-get install -y xvfb libgl1-mesa-dri libegl1-mesa
           Xvfb :99 -screen 0 1280x720x24 &
           echo "DISPLAY=:99" >> $GITHUB_ENV
 
       - name: Import project resources
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
         run: |
-          # Verify terrain PNGs exist
           echo "--- Terrain PNGs: $(ls textures/terrain3d/*.png 2>/dev/null | wc -l) files ---"
-          ls -la textures/terrain3d/*.png 2>/dev/null | head -5
-          # Import with display server — headless mode may skip VRAM texture compression
-          godot --import > /tmp/import1.log 2>&1 || true
+          # Use software OpenGL rendering for VRAM texture compression
+          # --headless skips VRAM compression; Vulkan hangs on CI.
+          # OpenGL3 + Mesa software rendering allows import to complete.
+          timeout 600 godot --rendering-driver opengl3 --import > /tmp/import1.log 2>&1 || true
           echo "--- Pass 1: $(ls .godot/imported/*.ctex 2>/dev/null | wc -l) ctex files ---"
-          godot --import > /tmp/import2.log 2>&1 || true
+          timeout 300 godot --rendering-driver opengl3 --import > /tmp/import2.log 2>&1 || true
           echo "--- Pass 2: $(ls .godot/imported/*.ctex 2>/dev/null | wc -l) ctex files ---"
-          # Verify terrain textures were imported
+          # Verify terrain textures
           missing=0
           for f in textures/terrain3d/*.png; do
             base=$(basename "$f" .png)
@@ -100,9 +102,7 @@ jobs:
           done
           if [ "$missing" -gt 0 ]; then
             echo "ERROR: $missing terrain textures failed to import"
-            grep -i "reimport\|terrain3d\|compress" /tmp/import1.log | head -20
-            echo "--- All ctex files ---"
-            ls .godot/imported/*.ctex 2>/dev/null | head -40
+            grep -i "reimport\|terrain\|compress\|error" /tmp/import1.log | tail -30
             exit 1
           fi
           echo "All terrain textures imported successfully"
