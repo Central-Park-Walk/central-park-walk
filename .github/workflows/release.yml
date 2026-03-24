@@ -72,25 +72,18 @@ jobs:
 
       # ── Import + Export ──
 
-      - name: Setup virtual display for texture import
-        run: |
-          sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils
-          Xvfb :99 -screen 0 1280x720x24 &
-          echo "DISPLAY=:99" >> $GITHUB_ENV
-
       - name: Import project resources
-        env:
-          LIBGL_ALWAYS_SOFTWARE: "1"
         run: |
-          echo "--- Terrain PNGs: $(ls textures/terrain3d/*.png 2>/dev/null | wc -l) files ---"
-          # Use software OpenGL rendering for VRAM texture compression
-          # --headless skips VRAM compression; Vulkan hangs on CI.
-          # OpenGL3 + Mesa software rendering allows import to complete.
-          timeout 600 godot --rendering-driver opengl3 --import > /tmp/import1.log 2>&1 || true
-          echo "--- Pass 1: $(ls .godot/imported/*.ctex 2>/dev/null | wc -l) ctex files ---"
-          timeout 300 godot --rendering-driver opengl3 --import > /tmp/import2.log 2>&1 || true
-          echo "--- Pass 2: $(ls .godot/imported/*.ctex 2>/dev/null | wc -l) ctex files ---"
-          # Verify terrain textures
+          # Godot's headless --import cannot do VRAM texture compression (no rendering device).
+          # Pre-built .ctex files (S3TC + ETC2) are committed in prebuilt/terrain_ctex/.
+          mkdir -p .godot/imported
+          cp prebuilt/terrain_ctex/* .godot/imported/
+          echo "Installed $(ls .godot/imported/*.ctex 2>/dev/null | wc -l) pre-built terrain ctex files"
+          # Run headless import for everything else (GLB scenes, SVG icons, etc.)
+          godot --headless --import > /dev/null 2>&1 || true
+          godot --headless --import > /dev/null 2>&1 || true
+          echo "Total: $(ls .godot/imported/*.ctex 2>/dev/null | wc -l) ctex files after import"
+          # Verify terrain textures are present
           missing=0
           for f in textures/terrain3d/*.png; do
             base=$(basename "$f" .png)
@@ -101,11 +94,10 @@ jobs:
             fi
           done
           if [ "$missing" -gt 0 ]; then
-            echo "ERROR: $missing terrain textures failed to import"
-            grep -i "reimport\|terrain\|compress\|error" /tmp/import1.log | tail -30
+            echo "ERROR: $missing terrain textures missing"
             exit 1
           fi
-          echo "All terrain textures imported successfully"
+          echo "All terrain textures verified"
 
       - name: Export Linux
         run: |

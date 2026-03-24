@@ -8,3 +8,5 @@ water_grids.bin filter=lfs diff=lfs merge=lfs -text
 ground_cover_instances.bin filter=lfs diff=lfs merge=lfs -text
 park_data.bin filter=lfs diff=lfs merge=lfs -text
 grass_instances.bin filter=lfs diff=lfs merge=lfs -text
+prebuilt/terrain_ctex/*.ctex filter=lfs diff=lfs merge=lfs -text
+prebuilt/terrain_ctex/*.md5 filter=lfs diff=lfs merge=lfs -text
