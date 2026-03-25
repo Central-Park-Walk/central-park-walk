@@ -20,12 +20,16 @@ every feature:
     buildings[] – points stay [x, z] but each building gains "base"
 """
 
+import argparse
+import hashlib
 import json
 import math
 import os
 import struct
 import sys
+import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ---------------------------------------------------------------------------
 # Projection constants  (tuned for ~40.78 ° N)
@@ -56,6 +60,159 @@ GRID_H      = 8192
 ATLAS_RES   = 8192         # world atlas / boundary / landuse grid — matches heightmap (0.61 m/cell)
 WORLD_SIZE  = 5000.0       # metres – must match main.gd ground plane size
 FT_TO_M     = 0.3048006096  # US Survey Foot → metres
+
+
+# ---------------------------------------------------------------------------
+# Pipeline infrastructure — caching, timing, parallelism
+# ---------------------------------------------------------------------------
+class PipelineCache:
+    """Hash-based incremental rebuild cache.
+
+    Tracks input file signatures (mtime+size for large files, sha256 for small)
+    so that expensive prebake stages can be skipped when inputs are unchanged.
+    """
+    CACHE_FILE = ".pipeline_cache.json"
+
+    def __init__(self, force: bool = False):
+        self.force = force
+        self._cache: dict = {}
+        if not force and os.path.exists(self.CACHE_FILE):
+            try:
+                with open(self.CACHE_FILE) as f:
+                    self._cache = json.load(f)
+            except (json.JSONDecodeError, IOError):
+                pass
+
+    def save(self):
+        with open(self.CACHE_FILE, "w") as f:
+            json.dump(self._cache, f, indent=2)
+
+    @staticmethod
+    def _file_sig(path: str) -> str | None:
+        """Content-based file signature.
+
+        Small files (<10 MB): full sha256.
+        Large files: sha256 of first 1 MB + last 1 MB + size.
+        """
+        if not os.path.exists(path):
+            return None
+        st = os.stat(path)
+        h = hashlib.sha256()
+        if st.st_size > 10_000_000:
+            with open(path, "rb") as f:
+                h.update(f.read(1 << 20))          # first 1 MB
+                f.seek(max(0, st.st_size - (1 << 20)))
+                h.update(f.read(1 << 20))          # last 1 MB
+            h.update(str(st.st_size).encode())
+        else:
+            with open(path, "rb") as f:
+                for chunk in iter(lambda: f.read(1 << 20), b""):
+                    h.update(chunk)
+        return h.hexdigest()
+
+    def is_current(self, stage: str, input_files: list[str],
+                   output_files: list[str]) -> bool:
+        """Check whether a stage's outputs are up-to-date with its inputs."""
+        if self.force:
+            return False
+        entry = self._cache.get(stage)
+        if not entry:
+            return False
+        for f in input_files:
+            if entry.get("inputs", {}).get(f) != self._file_sig(f):
+                return False
+        for f in output_files:
+            if not os.path.exists(f):
+                return False
+        return True
+
+    def record(self, stage: str, input_files: list[str],
+               output_files: list[str]):
+        """Record a stage completion with current input signatures."""
+        self._cache[stage] = {
+            "inputs": {f: self._file_sig(f) for f in input_files
+                       if os.path.exists(f)},
+            "outputs": output_files,
+            "time": time.time(),
+        }
+        self.save()
+
+
+class StageTimer:
+    """Context manager that prints stage name and elapsed time."""
+    all_timings: list = []
+
+    def __init__(self, name: str):
+        self.name = name
+        self.start = 0.0
+
+    def __enter__(self):
+        self.start = time.monotonic()
+        print(f"\n{'─'*60}")
+        print(f"  ▶ {self.name}")
+        print(f"{'─'*60}")
+        return self
+
+    def __exit__(self, *_):
+        elapsed = time.monotonic() - self.start
+        print(f"  ✓ {self.name} — {elapsed:.1f}s")
+        StageTimer.all_timings.append((self.name, elapsed))
+
+
+def _load_and_index_osm() -> tuple:
+    """Load OSM + building JSON files and build index dicts.
+
+    Returns (elements, nodes_ll, ways_tags, ways_nodes, relations).
+    Safe to call from a thread.
+    """
+    src = "central_park_osm.json"
+    if not os.path.exists(src):
+        print(f"ERROR: {src} not found – run download_osm.py first.",
+              file=sys.stderr)
+        sys.exit(1)
+
+    with open(src) as fh:
+        raw = json.load(fh)
+    elements = raw.get("elements", [])
+
+    b_src = "buildings_osm.json"
+    if os.path.exists(b_src):
+        with open(b_src) as fh:
+            b_raw = json.load(fh)
+        elements = elements + b_raw.get("elements", [])
+        print(f"Merged {len(b_raw.get('elements', []))} elements from {b_src}")
+
+    nodes_ll:   dict[int, tuple] = {}
+    ways_tags:  dict[int, dict]  = {}
+    ways_nodes: dict[int, list]  = {}
+    relations:  list             = []
+
+    for e in elements:
+        t = e["type"]
+        if t == "node" and "lat" in e:
+            nodes_ll[e["id"]] = (e["lat"], e["lon"])
+        elif t == "way":
+            ways_tags[e["id"]]  = e.get("tags", {})
+            ways_nodes[e["id"]] = e.get("nodes", [])
+        elif t == "relation":
+            relations.append(e)
+
+    return elements, nodes_ll, ways_tags, ways_nodes, relations
+
+
+def _load_cached_heightmap() -> tuple[list, float, float]:
+    """Reload terrain from heightmap.bin for sampler creation (skip LiDAR).
+
+    heightmap.bin stores min_elev-subtracted values, so we pass min_elev=0
+    to the sampler.
+    """
+    with open("heightmap.bin", "rb") as f:
+        w, h = struct.unpack("<II", f.read(8))
+        _world_size = struct.unpack("<f", f.read(4))[0]
+        origin_height = struct.unpack("<f", f.read(4))[0]
+        import numpy as np
+        grid = np.frombuffer(f.read(), dtype=np.float32).tolist()
+    return grid, 0.0, origin_height
 
 
 def project(lat: float, lon: float) -> tuple[float, float]:
@@ -716,101 +873,112 @@ def write_park_data_bin(filename, data_dict):
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-def main() -> None:
-    src = "central_park_osm.json"
-    if not os.path.exists(src):
-        print(f"ERROR: {src} not found – run download_osm.py first.", file=sys.stderr)
-        sys.exit(1)
+def main(args=None) -> None:
+    pipeline_start = time.monotonic()
+    cache = PipelineCache(force=getattr(args, "force", False))
+    only_stages = set(getattr(args, "stage", None) or [])
 
-    with open(src) as fh:
-        raw = json.load(fh)
-    elements = raw.get("elements", [])
-
-    b_src = "buildings_osm.json"
-    if os.path.exists(b_src):
-        with open(b_src) as fh:
-            b_raw = json.load(fh)
-        elements = elements + b_raw.get("elements", [])
-        print(f"Merged {len(b_raw.get('elements', []))} elements from {b_src}")
-
-    # Index raw data
-    nodes_ll:   dict[int, tuple] = {}
-    ways_tags:  dict[int, dict]  = {}
-    ways_nodes: dict[int, list]  = {}
-    relations:  list             = []
-
-    for e in elements:
-        t = e["type"]
-        if t == "node" and "lat" in e:
-            nodes_ll[e["id"]] = (e["lat"], e["lon"])
-        elif t == "way":
-            ways_tags[e["id"]]  = e.get("tags", {})
-            ways_nodes[e["id"]] = e.get("nodes", [])
-        elif t == "relation":
-            relations.append(e)
+    def _should_run(stage_name: str) -> bool:
+        return not only_stages or stage_name in only_stages
 
     # -------------------------------------------------------------------
-    # Terrain heightmap (LiDAR preferred, Terrarium fallback)
+    # Phase 1: Parallel loading — OSM indexing + terrain in parallel
     # -------------------------------------------------------------------
-    have_terrain = os.path.exists(LIDAR_DEM) or os.path.isdir(TERRAIN_DIR)
-    if have_terrain:
-        print("Building terrain height grid…")
-        hm_grid, min_elev, origin_height = build_height_grid()
-        have_terrain = hm_grid is not None
-    else:
-        hm_grid, min_elev, origin_height = None, 0.0, 0.0
+    with StageTimer("Load data (OSM + terrain)"):
+        have_terrain = os.path.exists(LIDAR_DEM) or os.path.isdir(TERRAIN_DIR)
+
+        # Check if terrain can be loaded from cache
+        terrain_cached = (
+            have_terrain
+            and os.path.exists("heightmap.bin")
+            and cache.is_current("terrain",
+                                 [LIDAR_DEM],
+                                 ["heightmap.bin", "heightmap_gpu.bin"])
+        )
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            future_osm = pool.submit(_load_and_index_osm)
+
+            if have_terrain and not terrain_cached:
+                future_terrain = pool.submit(build_height_grid)
+            else:
+                future_terrain = None
+
+            elements, nodes_ll, ways_tags, ways_nodes, relations = \
+                future_osm.result()
+
+            if future_terrain is not None:
+                hm_grid, min_elev, origin_height = future_terrain.result()
+                have_terrain = hm_grid is not None
+            elif terrain_cached:
+                print("  Terrain: loading from cache (inputs unchanged)")
+                hm_grid, min_elev, origin_height = _load_cached_heightmap()
+            else:
+                hm_grid, min_elev, origin_height = None, 0.0, 0.0
 
     terrain = make_sampler(hm_grid, min_elev)
 
     if have_terrain:
-        # Subtract min_elev so values start near 0
-        flat_grid = [v - min_elev for v in hm_grid]
         hm_out = {
             "width":         GRID_W,
             "depth":         GRID_H,
             "world_size":    WORLD_SIZE,
             "origin_height": round(origin_height, 2),
         }
-        # Binary format: uint32 width, uint32 height, float32 world_size,
-        #   float32 origin_height, then width*height float32 values
-        import struct
-        with open("heightmap.bin", "wb") as fh:
-            fh.write(struct.pack("<II", GRID_W, GRID_H))
-            fh.write(struct.pack("<f", WORLD_SIZE))
-            fh.write(struct.pack("<f", origin_height))
-            fh.write(struct.pack(f"<{GRID_W * GRID_H}f", *flat_grid))
-        hm_mb = os.path.getsize("heightmap.bin") / 1e6
-        print(f"  Saved → heightmap.bin  ({hm_mb:.1f} MB)")
+        if not terrain_cached:
+            # Subtract min_elev so values start near 0
+            flat_grid = [v - min_elev for v in hm_grid]
+            # Binary format: uint32 width, uint32 height, float32 world_size,
+            #   float32 origin_height, then width*height float32 values
+            with open("heightmap.bin", "wb") as fh:
+                fh.write(struct.pack("<II", GRID_W, GRID_H))
+                fh.write(struct.pack("<f", WORLD_SIZE))
+                fh.write(struct.pack("<f", origin_height))
+                fh.write(struct.pack(f"<{GRID_W * GRID_H}f", *flat_grid))
+            hm_mb = os.path.getsize("heightmap.bin") / 1e6
+            print(f"  Saved → heightmap.bin  ({hm_mb:.1f} MB)")
 
-        # Pre-bake 4K GPU texture (RG8 16-bit encoded heights)
-        # Matches park_loader.gd _build_hm_gpu_texture() encoding exactly
+            # Pre-bake 4K GPU texture (RG8 16-bit encoded heights)
+            # Matches park_loader.gd _build_hm_gpu_texture() encoding exactly
+            import numpy as np
+            hm_arr = np.array(flat_grid, dtype=np.float32).reshape(GRID_H, GRID_W)
+            hm_min_h = float(hm_arr.min())
+            hm_max_h = float(hm_arr.max())
+            hm_range = max(hm_max_h - hm_min_h, 0.01)
+            TEX_RES = ATLAS_RES
+            # Nearest-neighbor downsample matching GDScript: int(i * scale + 0.5)
+            sx = (GRID_W - 1) / (TEX_RES - 1)
+            sz = (GRID_H - 1) / (TEX_RES - 1)
+            xi_src = np.clip(np.round(np.arange(TEX_RES) * sx).astype(int), 0, GRID_W - 1)
+            zi_src = np.clip(np.round(np.arange(TEX_RES) * sz).astype(int), 0, GRID_H - 1)
+            arr4k = hm_arr[np.ix_(zi_src, xi_src)]
+            norm = np.clip((arr4k - hm_min_h) / hm_range, 0.0, 1.0)
+            h16 = (norm * 65535.0).astype(np.uint16)
+            rg8 = np.empty((TEX_RES, TEX_RES, 2), dtype=np.uint8)
+            rg8[:, :, 0] = (h16 >> 8).astype(np.uint8)    # R = high byte
+            rg8[:, :, 1] = (h16 & 0xFF).astype(np.uint8)  # G = low byte
+            with open("heightmap_gpu.bin", "wb") as fh:
+                fh.write(struct.pack("<II", TEX_RES, TEX_RES))
+                fh.write(struct.pack("<ff", hm_min_h, hm_max_h))
+                fh.write(rg8.tobytes())
+            gpu_kb = os.path.getsize("heightmap_gpu.bin") / 1024
+            print(f"  Saved → heightmap_gpu.bin ({TEX_RES}×{TEX_RES} RG8, {gpu_kb:.0f} KB)")
+
+            cache.record("terrain", [LIDAR_DEM],
+                         ["heightmap.bin", "heightmap_gpu.bin"])
+
+        # Always build hm_arr for rock restoration (from grid or cache)
         import numpy as np
-        hm_arr = np.array(flat_grid, dtype=np.float32).reshape(GRID_H, GRID_W)
-        hm_min_h = float(hm_arr.min())
-        hm_max_h = float(hm_arr.max())
-        hm_range = max(hm_max_h - hm_min_h, 0.01)
-        TEX_RES = ATLAS_RES
-        # Nearest-neighbor downsample matching GDScript: int(i * scale + 0.5)
-        sx = (GRID_W - 1) / (TEX_RES - 1)
-        sz = (GRID_H - 1) / (TEX_RES - 1)
-        xi_src = np.clip(np.round(np.arange(TEX_RES) * sx).astype(int), 0, GRID_W - 1)
-        zi_src = np.clip(np.round(np.arange(TEX_RES) * sz).astype(int), 0, GRID_H - 1)
-        arr4k = hm_arr[np.ix_(zi_src, xi_src)]
-        norm = np.clip((arr4k - hm_min_h) / hm_range, 0.0, 1.0)
-        h16 = (norm * 65535.0).astype(np.uint16)
-        rg8 = np.empty((TEX_RES, TEX_RES, 2), dtype=np.uint8)
-        rg8[:, :, 0] = (h16 >> 8).astype(np.uint8)    # R = high byte
-        rg8[:, :, 1] = (h16 & 0xFF).astype(np.uint8)  # G = low byte
-        with open("heightmap_gpu.bin", "wb") as fh:
-            fh.write(struct.pack("<II", TEX_RES, TEX_RES))
-            fh.write(struct.pack("<ff", hm_min_h, hm_max_h))
-            fh.write(rg8.tobytes())
-        gpu_kb = os.path.getsize("heightmap_gpu.bin") / 1024
-        print(f"  Saved → heightmap_gpu.bin ({TEX_RES}×{TEX_RES} RG8, {gpu_kb:.0f} KB)")
-
+        hm_arr = np.array([v - min_elev for v in hm_grid],
+                          dtype=np.float32).reshape(GRID_H, GRID_W)
         # Terrain mesh prebake deferred — needs boundary_pts loaded below
     else:
         hm_out = {}
+
+    # -------------------------------------------------------------------
+    # Phase 2: Feature extraction
+    # -------------------------------------------------------------------
+    _feat_start = time.monotonic()
 
     # -------------------------------------------------------------------
     # Paths  – points become [x, terrain_y, z]
@@ -2395,6 +2563,10 @@ def main() -> None:
     if oriented:
         print(f"  Bench orientation: {oriented} / {len(benches_out)} oriented toward nearest path")
 
+    _feat_elapsed = time.monotonic() - _feat_start
+    StageTimer.all_timings.append(("Extract features", _feat_elapsed))
+    print(f"\n  ✓ Extract features — {_feat_elapsed:.1f}s")
+
     # -------------------------------------------------------------------
     # Write park_data.json
     # -------------------------------------------------------------------
@@ -2465,14 +2637,102 @@ def main() -> None:
             bcx = sum(float(pt[0]) for pt in pts) / len(pts)
             bcz = sum(float(pt[2]) for pt in pts) / len(pts)
             bridge_centroids.append((bcx, bcz))
-    surface_arr = prebake_world_atlas(boundary_pts, paths_out, water_out, buildings_out,
-                        trees_out, benches_out, lampposts_out, trash_cans_out,
-                        barriers_out, bridge_outlines, terrain, bridge_centroids)
-    prebake_landuse_map(landuse_out, water_out)
-    prebake_grass_instances(landuse_out)
-    prebake_boundary_mask(boundary_pts)
-    prebake_water_grids(water_out, terrain, boundary_pts)
-    if have_terrain:
+
+    # -------------------------------------------------------------------
+    # Prebake spatial grids — parallel where dependencies allow
+    #
+    # Batch 1 (parallel): world_atlas, landuse_map, boundary_mask, water_grids
+    # Batch 2 (sequential, needs batch 1): grass_instances
+    # -------------------------------------------------------------------
+    prebake_inputs = ["park_data.json"]  # all prebakes depend on park data
+
+    surface_arr = None  # set by world_atlas prebake
+
+    with StageTimer("Prebake spatial grids (batch 1 — parallel)"):
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            futures = {}
+
+            # World atlas
+            if _should_run("prebake") and not cache.is_current(
+                    "world_atlas", prebake_inputs, ["world_atlas.bin"]):
+                futures[pool.submit(
+                    prebake_world_atlas, boundary_pts, paths_out, water_out,
+                    buildings_out, trees_out, benches_out, lampposts_out,
+                    trash_cans_out, barriers_out, bridge_outlines, terrain,
+                    bridge_centroids
+                )] = "world_atlas"
+            elif _should_run("prebake"):
+                print("  World atlas: cached (skipping)")
+                # Load surface_arr from cached world_atlas.bin for rock restoration
+                import numpy as np
+                with open("world_atlas.bin", "rb") as f:
+                    aw, ah = struct.unpack("<II", f.read(8))
+                    atlas_raw = np.frombuffer(f.read(), dtype=np.uint8)
+                    surface_arr = atlas_raw.reshape(ah, aw, 2)[:, :, 0].copy()
+                print(f"    Loaded surface_arr ({aw}×{ah}) from world_atlas.bin")
+
+            # Landuse map
+            if _should_run("prebake") and not cache.is_current(
+                    "landuse", prebake_inputs, ["landuse_map.png"]):
+                futures[pool.submit(
+                    prebake_landuse_map, landuse_out, water_out
+                )] = "landuse"
+            elif _should_run("prebake"):
+                print("  Landuse map: cached (skipping)")
+
+            # Boundary mask
+            if _should_run("prebake") and not cache.is_current(
+                    "boundary_mask", prebake_inputs, ["boundary_mask.png"]):
+                futures[pool.submit(
+                    prebake_boundary_mask, boundary_pts
+                )] = "boundary_mask"
+            elif _should_run("prebake"):
+                print("  Boundary mask: cached (skipping)")
+
+            # Water grids
+            if _should_run("prebake") and not cache.is_current(
+                    "water_grids", prebake_inputs + ["heightmap.bin"],
+                    ["water_grids.bin"]):
+                futures[pool.submit(
+                    prebake_water_grids, water_out, terrain, boundary_pts
+                )] = "water_grids"
+            elif _should_run("prebake"):
+                print("  Water grids: cached (skipping)")
+
+            # Collect results
+            for future in as_completed(futures):
+                name = futures[future]
+                try:
+                    result = future.result()
+                    if name == "world_atlas":
+                        surface_arr = result
+                        cache.record("world_atlas", prebake_inputs,
+                                     ["world_atlas.bin"])
+                    elif name == "landuse":
+                        cache.record("landuse", prebake_inputs,
+                                     ["landuse_map.png"])
+                    elif name == "boundary_mask":
+                        cache.record("boundary_mask", prebake_inputs,
+                                     ["boundary_mask.png"])
+                    elif name == "water_grids":
+                        cache.record("water_grids",
+                                     prebake_inputs + ["heightmap.bin"],
+                                     ["water_grids.bin"])
+                except Exception as e:
+                    print(f"  ERROR in {name}: {e}", file=sys.stderr)
+                    raise
+
+    # Batch 2: grass instances (needs world_atlas.bin + landuse_map.png)
+    with StageTimer("Prebake grass instances"):
+        grass_inputs = ["world_atlas.bin", "landuse_map.png", "heightmap.bin"]
+        grass_outputs = ["grass_instances.bin", "ground_cover_instances.bin"]
+        if _should_run("prebake") and not cache.is_current(
+                "grass", grass_inputs, grass_outputs):
+            prebake_grass_instances(landuse_out)
+            cache.record("grass", grass_inputs, grass_outputs)
+        elif _should_run("prebake"):
+            print("  Grass instances: cached (skipping)")
+    if have_terrain and _should_run("prebake"):
         # --- Targeted rock outcrop restoration ---
         # DEM-only terrain is clean (no building stalagmites) but loses rock
         # outcrops that the DSM captures. The DSM has tree canopy already masked,
@@ -2480,7 +2740,10 @@ def main() -> None:
         # features: Manhattan schist outcrops, retaining walls, stone steps.
         # Strategy: blend DSM back into DEM ONLY where moderate-height features
         # exist in natural (grass/rock) areas — never near buildings or outside park.
-        if os.path.exists(LIDAR_DSM) and surface_arr is not None:
+        rock_inputs = [LIDAR_DSM, LIDAR_DEM]
+        rock_outputs = ["heightmap.bin", "heightmap_gpu.bin", "world_atlas.bin"]
+        rock_cached = cache.is_current("rock_restore", rock_inputs, rock_outputs)
+        if os.path.exists(LIDAR_DSM) and surface_arr is not None and not rock_cached:
             import numpy as np
             from scipy.ndimage import gaussian_filter, binary_opening, binary_dilation, median_filter, label
             print("\n--- Targeted rock outcrop restoration (DSM blend) ---")
@@ -2612,6 +2875,9 @@ def main() -> None:
                         f.write(atlas_data.tobytes())
                     print(f"  Re-wrote world_atlas.bin with rock surface types")
                     del atlas_data
+                cache.record("rock_restore", rock_inputs, rock_outputs)
+        elif rock_cached:
+            print("\n--- Rock restoration: cached (skipping) ---")
         else:
             print("  DSM not available — using bare-earth DEM only")
 
@@ -2636,6 +2902,18 @@ def main() -> None:
             },
         ]
         # Terrain3D handles terrain rendering — no prebaked mesh needed
+
+    # -------------------------------------------------------------------
+    # Pipeline summary
+    # -------------------------------------------------------------------
+    total_elapsed = time.monotonic() - pipeline_start
+    print(f"\n{'='*60}")
+    print(f"  Pipeline complete — {total_elapsed:.1f}s total")
+    print(f"{'='*60}")
+    if StageTimer.all_timings:
+        for name, elapsed in StageTimer.all_timings:
+            print(f"    {elapsed:6.1f}s  {name}")
+        print()
 
 
 def prebake_water_grids(water_bodies, terrain_func, boundary_pts):
@@ -3605,10 +3883,6 @@ def prebake_landuse_map(landuse_zones, water_bodies):
         print(f"  Shore distance: saved → shore_distance.png ({RES}×{RES}, {sd_kb:.0f} KB)")
 
 
-
-    del vert_idx, needed, positions, colors, indices
-
-
 def prebake_boundary_mask(boundary_pts):
     """Pre-bake park boundary mask at 8192×8192 → boundary_mask.png.
 
@@ -3642,4 +3916,14 @@ def prebake_boundary_mask(boundary_pts):
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description="Convert OSM + LiDAR data → Godot park_data + spatial grids")
+    parser.add_argument("--force", action="store_true",
+                        help="Force full rebuild, ignoring cache")
+    parser.add_argument("--stage", nargs="+",
+                        choices=["terrain", "features", "prebake", "all"],
+                        help="Run only specific stages (default: all)")
+    args = parser.parse_args()
+    if args.stage and "all" in args.stage:
+        args.stage = None  # run everything
+    main(args)
