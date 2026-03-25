@@ -2,6 +2,7 @@ shader_type spatial;
 render_mode cull_disabled, depth_prepass_alpha;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
+#include "res://shaders/include/aerial_perspective.gdshaderinc"
 
 global uniform vec2 wind_vec;
 global uniform float season_t;
@@ -158,16 +159,7 @@ void fragment() {
 	vec3 shell_world = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	float shell_dist = length(shell_world - INV_VIEW_MATRIX[3].xyz);
 	float shell_aerial = smoothstep(200.0, 500.0, shell_dist);
-	if (shell_aerial > 0.01) {
-		float al = dot(col, vec3(0.2126, 0.7152, 0.0722));
-		col = mix(col, vec3(al), shell_aerial * 0.30);
-		col = mix(col, col * vec3(0.94, 0.96, 1.04), shell_aerial);
-		float sky_l = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
-		vec3 haze = mix(vec3(0.58, 0.56, 0.52), sky_reflect_color * 0.8 + vec3(0.20), 0.35);
-		float night_f = smoothstep(0.15, 0.02, sky_l);
-		haze = mix(haze, vec3(0.14, 0.10, 0.06), night_f * 0.6);
-		col = mix(col, haze, shell_aerial * 0.30);
-	}
+	col = apply_aerial(col, shell_aerial, 0.30, 0.30, sky_reflect_color);
 
 	ALBEDO = col;
 	ROUGHNESS = 0.85;

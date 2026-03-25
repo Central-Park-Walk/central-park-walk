@@ -11,6 +11,7 @@ global uniform float rain_wetness;
 global uniform vec3 sky_reflect_color;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
+#include "res://shaders/include/aerial_perspective.gdshaderinc"
 
 // Per-species summer leaf color — each species has a distinct green
 // Data: field observation + USDA plant database
@@ -397,19 +398,7 @@ void fragment() {
 	vec3 leaf_world = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	float leaf_dist = length(leaf_world - INV_VIEW_MATRIX[3].xyz);
 	float leaf_aerial = smoothstep(60.0, 300.0, leaf_dist);
-	if (leaf_aerial > 0.01) {
-		// Desaturate
-		float al = dot(ALBEDO, vec3(0.2126, 0.7152, 0.0722));
-		ALBEDO = mix(ALBEDO, vec3(al), leaf_aerial * 0.30);
-		// Cool shift
-		ALBEDO = mix(ALBEDO, ALBEDO * vec3(0.94, 0.96, 1.04), leaf_aerial);
-		// Haze blend — match facade shader's atmospheric haze
-		float sky_l = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
-		vec3 haze = mix(vec3(0.58, 0.56, 0.52), sky_reflect_color * 0.8 + vec3(0.20), 0.35);
-		float night_f = smoothstep(0.15, 0.02, sky_l);
-		haze = mix(haze, vec3(0.14, 0.10, 0.06), night_f * 0.6);
-		ALBEDO = mix(ALBEDO, haze, leaf_aerial * 0.30);
-	}
+	ALBEDO = apply_aerial(ALBEDO, leaf_aerial, 0.30, 0.30, sky_reflect_color);
 
 	// Distance-adaptive alpha: counteract mipmap erosion that thins leaves at distance.
 	// At distance, mipmapped alpha textures lose coverage — leaf cards become transparent
