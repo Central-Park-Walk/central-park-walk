@@ -59,7 +59,10 @@ __pycache__/
 # Presentations, screenshots, reference images
 *.odp
 *.png
-!screenshots/*.png
+!screenshots/readme_cherry_hill_autumn.png
+!screenshots/readme_ramble_summer.png
+!screenshots/readme_bow_bridge_snow.png
+!screenshots/readme_literary_walk_winter.png
 !textures/terrain3d/*.png
 example pics/
 
