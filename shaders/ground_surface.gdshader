@@ -14,6 +14,7 @@ global uniform float season_t;
 global uniform vec3 sky_reflect_color;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
+#include "res://shaders/include/seasonal.gdshaderinc"
 
 varying vec3 world_pos;
 varying vec3 world_nrm;
@@ -98,7 +99,7 @@ void fragment() {
 	SPECULAR = surface_specular;
 
 	// Seasonal aging
-	float winter_t = smoothstep(2.8, 3.5, season_t);
+	float winter_t = sn_frost(season_t);
 	if (winter_t > 0.01) {
 		// Winter: salt residue on hard surfaces, faded colors
 		float salt = hash2(floor(world_pos.xz * 3.0));

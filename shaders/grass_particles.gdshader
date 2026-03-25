@@ -45,6 +45,9 @@ uniform sampler2D canopy_map : filter_linear, repeat_disable;
 uniform float world_size = 5000.0;
 global uniform float season_t;
 global uniform float snow_cover;
+
+#include "res://shaders/include/seasonal.gdshaderinc"
+
 // Biome filter: 0=lawn(1,3,7) 1=meadow(0,2) 2=wild(5) 3=woodland(10,11) -1=all(legacy)
 uniform int biome_id = -1;
 

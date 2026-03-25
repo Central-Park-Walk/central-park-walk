@@ -2,6 +2,7 @@ shader_type spatial;
 render_mode cull_disabled;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
+#include "res://shaders/include/seasonal.gdshaderinc"
 
 global uniform vec2 wind_vec;
 global uniform float season_t;
@@ -103,7 +104,7 @@ void vertex() {
 	VERTEX.y += flutter * sway;
 
 	// Winter dormancy
-	float winter_t = smoothstep(3.0, 3.5, season_t);
+	float winter_t = sn_canopy_bare(season_t);
 	if (winter_t > 0.0 && (v_grass_type < 4.5 || v_grass_type > 8.5)) {
 		VERTEX.y *= mix(1.0, 0.08, winter_t);
 	}
@@ -118,7 +119,7 @@ void fragment() {
 	if (!FRONT_FACING) NORMAL = -NORMAL;
 
 	// Winter discard — maintained lawns fully, woodland mostly
-	float winter_discard = smoothstep(3.2, 3.8, season_t);
+	float winter_discard = sn_winter_kill(season_t);
 	if (winter_discard > 0.95 && v_grass_type < 4.5) discard;
 	// Woodland grass (types 5-7): discard 80% in winter (sparse dormant remnants)
 	if (winter_discard > 0.5 && v_grass_type > 4.5 && v_grass_type < 7.5) {
@@ -229,9 +230,9 @@ void fragment() {
 	AO_LIGHT_AFFECT = 1.0;
 
 	// Seasonal colour
-	float spring_t = 1.0 - smoothstep(0.0, 1.0, season_t);
-	float autumn_t = smoothstep(2.0, 2.6, season_t) * (1.0 - smoothstep(2.8, 3.5, season_t));
-	float winter_t = smoothstep(2.7, 3.1, season_t);
+	float spring_t = sn_veg_spring(season_t);
+	float autumn_t = sn_veg_autumn(season_t);
+	float winter_t = sn_veg_winter(season_t);
 	col = mix(col, col * vec3(1.1, 1.15, 0.75), spring_t * 0.6);
 	col = mix(col, vec3(0.16, 0.12, 0.04), autumn_t * 0.7);
 	col = mix(col, vec3(0.12, 0.10, 0.06), winter_t);
@@ -249,9 +250,9 @@ void fragment() {
 		vec2 canopy_uv = (v_world_blade.xz + hm_world_size * 0.5) / hm_world_size;
 		float canopy = texture(canopy_map, canopy_uv).r;
 		if (canopy > 0.01) {
-			float deciduous_loss = smoothstep(2.5, 3.2, season_t);
-			float winter_bare = smoothstep(3.0, 3.5, season_t);
-			float spring_fill = smoothstep(0.0, 0.4, season_t);
+			float deciduous_loss = sn_canopy_loss(season_t);
+			float winter_bare = sn_canopy_bare(season_t);
+			float spring_fill = sn_canopy_fill(season_t);
 			float sc = canopy * mix(1.0, 0.3, deciduous_loss) * mix(1.0, 0.15, winter_bare) * mix(0.5, 1.0, spring_fill);
 			vec2 dapple_uv = v_world_blade.xz * 0.35 + wind_vec * TIME * 0.08;
 			float dapple = vnoise(dapple_uv);

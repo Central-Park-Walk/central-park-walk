@@ -25,6 +25,7 @@ varying flat float depth_jitter;
 varying vec3 world_pos;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
+#include "res://shaders/include/seasonal.gdshaderinc"
 
 void vertex() {
 	vec3 world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -52,9 +53,9 @@ void fragment() {
 		vec2 canopy_uv = (world_pos.xz + hm_world_size * 0.5) / hm_world_size;
 		float canopy = texture(canopy_map, canopy_uv).r;
 		if (canopy > 0.01) {
-			float deciduous_loss = smoothstep(2.5, 3.2, season_t);
-			float winter_bare = smoothstep(3.0, 3.5, season_t);
-			float spring_fill = smoothstep(0.0, 0.4, season_t);
+			float deciduous_loss = sn_canopy_loss(season_t);
+			float winter_bare = sn_canopy_bare(season_t);
+			float spring_fill = sn_canopy_fill(season_t);
 			float sc = canopy * mix(1.0, 0.3, deciduous_loss) * mix(1.0, 0.15, winter_bare) * mix(0.5, 1.0, spring_fill);
 			vec2 dapple_uv = world_pos.xz * 0.35 + wind_vec * TIME * 0.08;
 			float dapple = vnoise(dapple_uv);
@@ -83,7 +84,7 @@ void fragment() {
 		ALBEDO *= mix(vec3(1.0), vec3(1.04, 0.98, 0.90), autumn_t * 0.3);
 	}
 	// Winter: paths look grayer, salt stains, slightly lighter
-	float winter_t = smoothstep(2.8, 3.5, season_t);
+	float winter_t = sn_frost(season_t);
 	if (winter_t > 0.01) {
 		// Road salt residue: lighter streaks on pavement
 		float salt_noise = hash2(floor(UV * 20.0));

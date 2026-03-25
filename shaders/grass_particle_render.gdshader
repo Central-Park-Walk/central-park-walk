@@ -17,6 +17,8 @@ global uniform vec2 wind_vec;
 global uniform float snow_cover;
 global uniform float rain_wetness;
 
+#include "res://shaders/include/seasonal.gdshaderinc"
+
 varying vec4 data;
 varying vec3 v_world_pos;
 varying float v_height_t;

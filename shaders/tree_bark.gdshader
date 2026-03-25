@@ -45,6 +45,7 @@ varying vec3 world_pos;
 varying vec3 world_nrm;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
+#include "res://shaders/include/seasonal.gdshaderinc"
 
 // Variable-octave FBM for bark texture detail
 float fbm(vec2 p, int oct) {
@@ -286,7 +287,7 @@ void fragment() {
 	}
 
 	// --- Moss at trunk base: more in spring/summer, north-facing ---
-	float spring_summer = smoothstep(0.0, 1.0, season_t) * (1.0 - smoothstep(2.5, 3.5, season_t));
+	float spring_summer = sn_warm_season(season_t);
 	float moss_height = smoothstep(3.0, 0.0, local_h);  // bottom 3m of trunk
 	float moss_facing = max(0.0, -world_nrm.z) * 0.5 + max(0.0, -world_nrm.x) * 0.3 + 0.2;
 	float moss_noise = fbm(vec2(bark_u * 3.0, bark_y * 2.0), 2);
