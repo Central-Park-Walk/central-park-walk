@@ -24,6 +24,8 @@ render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_sc
 	#define dFdyCoarse(a) dFdy(a)
 #endif
 
+#include "res://shaders/include/seasonal.gdshaderinc"
+
 // ---- Terrain3D private uniforms (set by C++ engine) ----
 uniform vec3 _camera_pos = vec3(0.0);
 uniform float _mesh_size = 48.0;
@@ -380,9 +382,9 @@ void fragment() {
 
 	// ---- Seasonal color shift ----
 	{
-		float spring_t = 1.0 - smoothstep(0.0, 1.0, season_t);
-		float autumn_t = smoothstep(2.0, 2.6, season_t) * (1.0 - smoothstep(2.8, 3.5, season_t));
-		float winter_t = smoothstep(2.7, 3.1, season_t);
+		float spring_t = sn_veg_spring(season_t);
+		float autumn_t = sn_veg_autumn(season_t);
+		float winter_t = sn_veg_winter(season_t);
 		ALBEDO = mix(ALBEDO, ALBEDO * vec3(1.1, 1.15, 0.75), spring_t * 0.6);
 		ALBEDO = mix(ALBEDO, vec3(0.16, 0.12, 0.04), autumn_t * 0.7);
 		ALBEDO = mix(ALBEDO, vec3(0.12, 0.10, 0.06), winter_t);
@@ -396,9 +398,9 @@ void fragment() {
 	{
 		float canopy = texture(canopy_map, splat_uv).r;
 		if (canopy > 0.01) {
-			float deciduous_loss = smoothstep(2.5, 3.2, season_t);
-			float winter_bare = smoothstep(3.0, 3.5, season_t);
-			float spring_fill = smoothstep(0.0, 0.4, season_t);
+			float deciduous_loss = sn_canopy_loss(season_t);
+			float winter_bare = sn_canopy_bare(season_t);
+			float spring_fill = sn_canopy_fill(season_t);
 			float seasonal_canopy = canopy;
 			seasonal_canopy *= mix(1.0, 0.3, deciduous_loss);
 			seasonal_canopy *= mix(1.0, 0.15, winter_bare);
@@ -490,7 +492,7 @@ void fragment() {
 
 	// ---- Winter frost ----
 	{
-		float frost_season = smoothstep(2.8, 3.5, season_t);
+		float frost_season = sn_frost(season_t);
 		if (frost_season > 0.01 && snow_cover < 0.3) {
 			// Multi-frequency smooth noise — no grid artifacts
 			float frost_noise = vnoise(v_vertex.xz * 0.5) * 0.5
@@ -530,9 +532,9 @@ void fragment() {
 		float sky_lum2 = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
 		vec3 haze_col = mix(vec3(0.58, 0.56, 0.52), sky_reflect_color * 0.8 + vec3(0.20), 0.35);
 		haze_col = mix(haze_col, vec3(0.14, 0.10, 0.06), smoothstep(0.15, 0.02, sky_lum2) * 0.6);
-		float autumn_h = smoothstep(1.5, 2.5, season_t) * (1.0 - smoothstep(2.5, 3.5, season_t));
+		float autumn_h = sn_atmo_autumn(season_t);
 		haze_col = mix(haze_col, haze_col * vec3(1.10, 1.00, 0.82), autumn_h * 0.4);
-		float winter_h = smoothstep(2.5, 3.5, season_t);
+		float winter_h = sn_atmo_winter(season_t);
 		haze_col = mix(haze_col, haze_col * vec3(0.90, 0.95, 1.08), winter_h * 0.3);
 		ALBEDO = mix(ALBEDO, haze_col, terr_fade * 0.35);
 		ROUGHNESS = mix(ROUGHNESS, 0.95, terr_fade * 0.25);

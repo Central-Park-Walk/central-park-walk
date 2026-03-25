@@ -79,6 +79,7 @@ global uniform float cloud_speed_g;
 varying vec3 world_pos;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
+#include "res://shaders/include/seasonal.gdshaderinc"
 
 // Variable-octave FBM (terrain needs more than 3 octaves in places)
 float fbm(vec2 p, int oct) {
@@ -260,9 +261,9 @@ void fragment() {
 	// Spring (0-1): fresh bright green, Summer (1-2): rich green (baseline),
 	// Autumn (2-3): golden-brown, Winter (3-4): dormant brown
 	{
-		float spring_t = 1.0 - smoothstep(0.0, 1.0, season_t);
-		float autumn_t = smoothstep(2.0, 2.6, season_t) * (1.0 - smoothstep(2.8, 3.5, season_t));
-		float winter_t = smoothstep(2.7, 3.1, season_t);  // dormancy starts in late autumn
+		float spring_t = sn_veg_spring(season_t);
+		float autumn_t = sn_veg_autumn(season_t);
+		float winter_t = sn_veg_winter(season_t);  // dormancy starts in late autumn
 		// Spring: brighter, more yellow-green
 		vec3 spring_grass = grass_alb * vec3(1.1, 1.15, 0.75);
 		// Autumn: golden-amber — use flat target color to prevent texture noise
@@ -283,7 +284,7 @@ void fragment() {
 	// a flat mat of straw with no texture detail. Fully flattened normals eliminate
 	// anti-tiling cell boundaries that become visible as checkerboard in winter fog.
 	{
-		float w_t = smoothstep(2.7, 3.1, season_t);
+		float w_t = sn_veg_winter(season_t);
 		grass_nrm = mix(grass_nrm, vec3(0.5, 0.5, 1.0), w_t);  // 100% flat in full winter
 		grass_rgh = mix(grass_rgh, 0.95, w_t);  // fully rough
 	}
@@ -653,9 +654,9 @@ void fragment() {
 		if (canopy > 0.01) {
 			// Seasonal canopy density: deciduous trees thin in autumn, bare in winter
 			// Evergreen coverage stays constant (pine groves)
-			float deciduous_loss = smoothstep(2.5, 3.2, season_t);  // autumn thinning
-			float winter_bare = smoothstep(3.0, 3.5, season_t);     // full bare
-			float spring_fill = smoothstep(0.0, 0.4, season_t);      // spring leaf-out
+			float deciduous_loss = sn_canopy_loss(season_t);  // autumn thinning
+			float winter_bare = sn_canopy_bare(season_t);     // full bare
+			float spring_fill = sn_canopy_fill(season_t);      // spring leaf-out
 			float seasonal_canopy = canopy;
 			// Reduce canopy in autumn/winter (leaves falling/gone)
 			seasonal_canopy *= mix(1.0, 0.3, deciduous_loss);
@@ -819,7 +820,7 @@ void fragment() {
 	// --- Spring/summer morning dew: grass glistens with tiny water droplets ---
 	// Dew appears when rain is recent (wetness > 0) on grass in spring/summer
 	{
-		float dew_season = smoothstep(0.0, 1.0, season_t) * (1.0 - smoothstep(2.5, 3.5, season_t));
+		float dew_season = sn_warm_season(season_t);
 		if (dew_season > 0.01 && rain_wetness > 0.05 && rain_wetness < 0.5) {
 			// After rain stops, residual wetness creates dew-like droplets
 			float dew_noise = hash2(floor(world_pos.xz * 12.0));
@@ -834,7 +835,7 @@ void fragment() {
 	// --- Winter ground frost: rime on grass blades in cold weather ---
 	// Visible in late autumn and winter mornings — white rime on grass tips
 	{
-		float frost_season = smoothstep(2.8, 3.5, season_t);
+		float frost_season = sn_frost(season_t);
 		if (frost_season > 0.01 && snow_cover < 0.3) {
 			float frost_noise = hash2(floor(world_pos.xz * 8.0));
 			float frost_mask = step(0.4, frost_noise) * frost_season;
@@ -900,9 +901,9 @@ void fragment() {
 		float night_t2 = smoothstep(0.15, 0.02, sky_lum2);
 		haze_col = mix(haze_col, vec3(0.14, 0.10, 0.06), night_t2 * 0.6);
 		// Seasonal haze tint (matching facade shader)
-		float autumn_h = smoothstep(1.5, 2.5, season_t) * (1.0 - smoothstep(2.5, 3.5, season_t));
+		float autumn_h = sn_atmo_autumn(season_t);
 		haze_col = mix(haze_col, haze_col * vec3(1.10, 1.00, 0.82), autumn_h * 0.4);
-		float winter_h = smoothstep(2.5, 3.5, season_t);
+		float winter_h = sn_atmo_winter(season_t);
 		haze_col = mix(haze_col, haze_col * vec3(0.90, 0.95, 1.08), winter_h * 0.3);
 		ALBEDO = mix(ALBEDO, haze_col, terr_fade * 0.35);
 		ROUGHNESS = mix(ROUGHNESS, 0.95, terr_fade * 0.25);
