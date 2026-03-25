@@ -8,6 +8,7 @@ global uniform vec2 wind_vec;
 global uniform vec3 sky_reflect_color;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
+#include "res://shaders/include/seasonal.gdshaderinc"
 
 varying vec3 world_pos;
 
@@ -48,11 +49,10 @@ void fragment() {
 	vec3 winter_col = vec3(0.22, 0.18, 0.12) * (0.80 + var_h * 0.30);
 
 	// Seasonal blend (season_t: 0=spring, 1=summer, 2=autumn, 3=winter)
-	float spring_f = smoothstep(1.0, 0.0, season_t) + smoothstep(3.5, 4.0, season_t);
-	spring_f = clamp(spring_f, 0.0, 1.0);
+	float spring_f = sn_atmo_spring(season_t);
 	float summer_f = smoothstep(0.5, 1.5, season_t) * smoothstep(2.0, 1.0, season_t);
-	float autumn_f = smoothstep(1.5, 2.5, season_t) * smoothstep(3.5, 2.5, season_t);
-	float winter_f = smoothstep(2.5, 3.5, season_t);
+	float autumn_f = sn_atmo_autumn(season_t);
+	float winter_f = sn_atmo_winter(season_t);
 
 	vec3 col = summer_col;
 	col = mix(col, spring_col, spring_f);

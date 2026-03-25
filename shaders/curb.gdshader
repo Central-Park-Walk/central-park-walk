@@ -16,6 +16,7 @@ global uniform float season_t;
 
 #include "res://shaders/include/decode_terrain.gdshaderinc"
 #include "res://shaders/include/hash_noise.gdshaderinc"
+#include "res://shaders/include/seasonal.gdshaderinc"
 
 varying vec3 world_pos;
 varying vec3 world_nrm;
@@ -86,7 +87,7 @@ void fragment() {
 	}
 
 	// Moss at base in spring/summer
-	float spring_summer = smoothstep(0.0, 1.0, season_t) * (1.0 - smoothstep(2.5, 3.5, season_t));
+	float spring_summer = sn_warm_season(season_t);
 	float moss_zone = smoothstep(0.3, 0.0, height_frac) * spring_summer;
 	float moss_noise = vnoise(world_pos.xz * 3.0 + vec2(42.0));
 	float moss = moss_zone * smoothstep(0.4, 0.65, moss_noise) * 0.35;
@@ -103,7 +104,7 @@ void fragment() {
 	}
 
 	// Winter frost
-	float winter_t = smoothstep(2.5, 3.5, season_t);
+	float winter_t = sn_atmo_winter(season_t);
 	if (winter_t > 0.01 && rain_wetness < 0.1) {
 		float frost_n = hash2(floor(world_pos.xz * 8.0 + world_pos.yy * 6.0));
 		float frost = step(0.55, frost_n) * winter_t * 0.25 * face_vert;

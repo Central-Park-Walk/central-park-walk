@@ -5,6 +5,8 @@ global uniform vec3 sky_reflect_color;
 global uniform float season_t;
 global uniform float lightning_flash;
 
+#include "res://shaders/include/seasonal.gdshaderinc"
+
 void fragment() {
 	vec2 px = SCREEN_PIXEL_SIZE;
 	vec3 c = texture(SCREEN_TEXTURE, SCREEN_UV).rgb;
@@ -29,10 +31,9 @@ void fragment() {
 	float golden_t = smoothstep(0.1, 0.3, sky_lum) * smoothstep(0.5, 0.3, sky_lum);  // warm hours
 
 	// Season detection
-	float autumn_s = smoothstep(1.5, 2.5, season_t) * (1.0 - smoothstep(2.5, 3.5, season_t));
-	float winter_s = smoothstep(2.5, 3.5, season_t);
-	float spring_s = smoothstep(1.0, 0.0, season_t) + smoothstep(3.5, 4.0, season_t);
-	spring_s = clamp(spring_s, 0.0, 1.0);
+	float autumn_s = sn_atmo_autumn(season_t);
+	float winter_s = sn_atmo_winter(season_t);
+	float spring_s = sn_atmo_spring(season_t);
 
 	// Warm dark floor — keep shadow detail, NYC is never pitch black
 	// Slightly brighter floor at night (city light pollution)

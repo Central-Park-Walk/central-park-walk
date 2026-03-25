@@ -14,6 +14,7 @@ varying vec3 world_pos;
 varying vec3 world_nrm;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
+#include "res://shaders/include/seasonal.gdshaderinc"
 
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -115,7 +116,7 @@ void fragment() {
 
 	// Moss growth: north-facing surfaces in shaded, moist areas
 	// Moss is more prevalent in spring/summer, dies back in winter
-	float spring_summer = smoothstep(0.0, 1.0, season_t) * (1.0 - smoothstep(2.5, 3.5, season_t));
+	float spring_summer = sn_warm_season(season_t);
 	float moss_facing = max(0.0, -world_nrm.z) * 0.5 + max(0.0, -world_nrm.x) * 0.3;
 	// Moss prefers sheltered lower portions of walls and shaded faces
 	float moss_noise = fbm3(world_pos.xz * 0.25 + vec2(100.0));
@@ -140,7 +141,7 @@ void fragment() {
 	}
 
 	// Winter frost on stone — ice crystals in crevices
-	float winter_t = smoothstep(2.5, 3.5, season_t);
+	float winter_t = sn_atmo_winter(season_t);
 	if (winter_t > 0.01 && rain_wetness < 0.1) {
 		float frost_noise = hash2(floor(world_pos.xz * 6.0));
 		float frost = step(0.5, frost_noise) * winter_t * 0.3;

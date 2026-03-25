@@ -10,6 +10,7 @@ global uniform float season_t;
 global uniform vec3 sky_reflect_color;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
+#include "res://shaders/include/seasonal.gdshaderinc"
 
 varying vec3 world_pos;
 varying vec3 world_nrm;
@@ -91,7 +92,7 @@ void fragment() {
 	}
 
 	// Green algae staining on north-facing and shaded surfaces
-	float spring_summer = smoothstep(0.0, 1.0, season_t) * (1.0 - smoothstep(2.5, 3.5, season_t));
+	float spring_summer = sn_warm_season(season_t);
 	float algae_facing = max(0.0, -world_nrm.z) * 0.4 + (1.0 - upward_face) * 0.3;
 	float algae_noise = vnoise(world_pos.xz * 2.5 + world_pos.yy * 1.8);
 	float algae = algae_facing * smoothstep(0.4, 0.7, algae_noise) * spring_summer;

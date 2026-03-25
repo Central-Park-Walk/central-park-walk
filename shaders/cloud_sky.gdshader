@@ -16,6 +16,8 @@ global uniform float season_t;
 global uniform float rain_wetness;
 global uniform float lightning_flash;
 
+#include "res://shaders/include/seasonal.gdshaderinc"
+
 // Scalar hash — used for stars (cell-based)
 float sky_hash(vec2 p) {
 	p = fract(p * vec2(127.1, 311.7));
@@ -97,10 +99,9 @@ void sky() {
 	// Spring: fresh, slightly cooler blue
 	// Summer: deep rich blue (baseline)
 	if (elev >= 0.0) {
-		float s_autumn = smoothstep(1.5, 2.5, season_t) * (1.0 - smoothstep(2.5, 3.5, season_t));
-		float s_winter = smoothstep(2.5, 3.5, season_t);
-		float s_spring = smoothstep(1.0, 0.0, season_t) + smoothstep(3.5, 4.0, season_t);
-		s_spring = clamp(s_spring, 0.0, 1.0);
+		float s_autumn = sn_atmo_autumn(season_t);
+		float s_winter = sn_atmo_winter(season_t);
+		float s_spring = sn_atmo_spring(season_t);
 		// Winter: pale blue-gray, washed out
 		sky_col = mix(sky_col, sky_col * vec3(0.92, 0.95, 1.02) + vec3(0.04, 0.04, 0.05), s_winter * 0.25);
 		// Autumn: warmer amber-gold in lower sky
@@ -117,7 +118,7 @@ void sky() {
 		float haze_band = exp(-elev * 12.0);  // concentrated at horizon, decays above
 		// Summer smog is thicker; winter air is cleaner
 		float s_summer = smoothstep(0.5, 1.2, season_t) * smoothstep(2.0, 1.2, season_t);
-		float s_winter2 = smoothstep(2.5, 3.5, season_t);
+		float s_winter2 = sn_atmo_winter(season_t);
 		float haze_density = mix(0.12, 0.22, s_summer) * (1.0 - s_winter2 * 0.3);
 		// Rain cleans air, reducing haze
 		haze_density *= (1.0 - rain_wetness * 0.6);

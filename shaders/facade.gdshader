@@ -37,6 +37,7 @@ uniform sampler2D win_gradient : source_color, filter_linear_mipmap;
 varying vec3 world_pos;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
+#include "res://shaders/include/seasonal.gdshaderinc"
 
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -298,7 +299,7 @@ void fragment() {
 	}
 
 	// Winter frost on windows — ice crystal patterns in corners
-	float winter_f = smoothstep(2.8, 3.5, season_t);
+	float winter_f = sn_frost(season_t);
 	if (winter_f > 0.01 && in_win && !in_reveal && snow_cover > 0.05) {
 		// Frost forms at window edges, spreading inward with colder temperatures
 		vec2 win_uv_f = in_win && !gnd_win
@@ -329,10 +330,10 @@ void fragment() {
 	float night_t = smoothstep(0.15, 0.02, sky_lum);
 	haze_col = mix(haze_col, vec3(0.14, 0.10, 0.06), night_t * 0.6);  // NYC amber at night
 	// Autumn: warmer, golden haze
-	float autumn_s = smoothstep(1.5, 2.5, season_t) * (1.0 - smoothstep(2.5, 3.5, season_t));
+	float autumn_s = sn_atmo_autumn(season_t);
 	haze_col = mix(haze_col, haze_col * vec3(1.10, 1.00, 0.82), autumn_s * 0.4);
 	// Winter: cooler, bluer haze
-	float winter_s = smoothstep(2.5, 3.5, season_t);
+	float winter_s = sn_atmo_winter(season_t);
 	haze_col = mix(haze_col, haze_col * vec3(0.90, 0.95, 1.08), winter_s * 0.3);
 	ALBEDO = mix(ALBEDO, haze_col, atm_fade * 0.45);
 	ROUGHNESS = mix(ROUGHNESS, 0.95, atm_fade * 0.3);
