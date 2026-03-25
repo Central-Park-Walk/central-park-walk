@@ -3,6 +3,7 @@ render_mode cull_disabled, depth_prepass_alpha;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/aerial_perspective.gdshaderinc"
+#include "res://shaders/include/tree_species.gdshaderinc"
 
 global uniform vec2 wind_vec;
 global uniform float season_t;
@@ -11,63 +12,6 @@ global uniform float rain_wetness;
 global uniform vec3 sky_reflect_color;
 
 uniform sampler2D canopy_tex : source_color, filter_linear_mipmap;
-
-// Species color data (same as tree_leaf.gdshader)
-const vec3 SUMMER_COLORS[16] = vec3[16](
-	vec3(0.20, 0.42, 0.12),   // 0 oak
-	vec3(0.22, 0.44, 0.14),   // 1 maple
-	vec3(0.18, 0.40, 0.12),   // 2 elm
-	vec3(0.28, 0.48, 0.18),   // 3 birch
-	vec3(0.20, 0.42, 0.14),   // 4 deciduous
-	vec3(0.08, 0.22, 0.06),   // 5 conifer
-	vec3(0.24, 0.46, 0.12),   // 6 honeylocust
-	vec3(0.28, 0.48, 0.18),   // 7 callery_pear
-	vec3(0.32, 0.52, 0.10),   // 8 ginkgo
-	vec3(0.22, 0.40, 0.14),   // 9 london_plane
-	vec3(0.22, 0.42, 0.14),   // 10 linden
-	vec3(0.30, 0.50, 0.20),   // 11 cherry
-	vec3(0.20, 0.40, 0.12),   // 12 willow
-	vec3(0.18, 0.35, 0.12),   // 13 magnolia
-	vec3(0.20, 0.42, 0.12),   // 14 cathedral_elm
-	vec3(0.0)                  // 15 dead (unused)
-);
-
-const vec3 FALL_COLORS[16] = vec3[16](
-	vec3(0.55, 0.25, 0.08),   // 0 oak: russet-brown
-	vec3(0.75, 0.30, 0.08),   // 1 maple: flame red-orange
-	vec3(0.60, 0.52, 0.18),   // 2 elm: muted gold
-	vec3(0.72, 0.62, 0.15),   // 3 birch: bright gold
-	vec3(0.55, 0.42, 0.12),   // 4 deciduous: generic amber
-	vec3(0.08, 0.22, 0.06),   // 5 conifer: stays green
-	vec3(0.68, 0.58, 0.12),   // 6 honeylocust: golden yellow
-	vec3(0.60, 0.28, 0.15),   // 7 callery_pear: red-purple
-	vec3(0.80, 0.72, 0.10),   // 8 ginkgo: brilliant yellow
-	vec3(0.52, 0.38, 0.12),   // 9 london_plane: tan-brown
-	vec3(0.62, 0.55, 0.12),   // 10 linden: gold-yellow
-	vec3(0.65, 0.30, 0.12),   // 11 cherry: orange-red
-	vec3(0.58, 0.50, 0.15),   // 12 willow: muted gold
-	vec3(0.50, 0.35, 0.10),   // 13 magnolia: brown-gold
-	vec3(0.60, 0.52, 0.18),   // 14 cathedral_elm
-	vec3(0.0)                  // 15 dead
-);
-
-// Per-species wind biomechanics: (trunk_flex, branch_flex, sway_freq, gust_response)
-const vec4 WIND_PARAMS[14] = vec4[14](
-	vec4(0.15, 0.45, 0.70, 0.50),  // 0 oak
-	vec4(0.35, 0.55, 0.90, 0.60),  // 1 maple
-	vec4(0.45, 0.70, 0.85, 0.65),  // 2 elm
-	vec4(0.70, 0.50, 1.20, 0.80),  // 3 birch
-	vec4(0.35, 0.50, 0.90, 0.55),  // 4 deciduous
-	vec4(0.20, 0.25, 0.60, 0.35),  // 5 conifer
-	vec4(0.40, 0.65, 1.05, 0.70),  // 6 honeylocust
-	vec4(0.25, 0.40, 0.95, 0.45),  // 7 callery_pear
-	vec4(0.20, 0.30, 0.75, 0.40),  // 8 ginkgo
-	vec4(0.30, 0.45, 0.80, 0.50),  // 9 london_plane
-	vec4(0.35, 0.50, 0.90, 0.55),  // 10 linden
-	vec4(0.50, 0.55, 1.15, 0.65),  // 11 cherry
-	vec4(0.85, 0.95, 0.75, 0.90),  // 12 willow
-	vec4(0.25, 0.35, 0.80, 0.40)   // 13 magnolia
-);
 
 varying vec3 v_canopy_color;
 varying float v_canopy_alpha;

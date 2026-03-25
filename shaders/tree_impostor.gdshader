@@ -18,75 +18,7 @@ global uniform vec2 wind_vec;
 global uniform float snow_cover;
 global uniform float season_t;
 
-// --- Species color data (matches tree_leaf.gdshader) ---
-const vec3 SUMMER_COLORS[14] = vec3[14](
-	vec3(0.22, 0.42, 0.14),  // 0 oak
-	vec3(0.26, 0.48, 0.16),  // 1 maple
-	vec3(0.30, 0.52, 0.20),  // 2 elm
-	vec3(0.32, 0.54, 0.18),  // 3 birch
-	vec3(0.28, 0.48, 0.18),  // 4 deciduous
-	vec3(0.12, 0.28, 0.10),  // 5 conifer
-	vec3(0.30, 0.50, 0.14),  // 6 honeylocust
-	vec3(0.24, 0.44, 0.16),  // 7 callery_pear
-	vec3(0.35, 0.52, 0.12),  // 8 ginkgo
-	vec3(0.26, 0.45, 0.20),  // 9 london_plane
-	vec3(0.24, 0.46, 0.16),  // 10 linden
-	vec3(0.28, 0.48, 0.18),  // 11 cherry
-	vec3(0.30, 0.50, 0.16),  // 12 willow
-	vec3(0.22, 0.42, 0.14)   // 13 magnolia
-);
-
-const vec3 FALL_COLORS[14] = vec3[14](
-	vec3(0.55, 0.25, 0.12),  // 0 oak
-	vec3(0.85, 0.22, 0.08),  // 1 maple
-	vec3(0.78, 0.72, 0.18),  // 2 elm
-	vec3(0.82, 0.75, 0.22),  // 3 birch
-	vec3(0.65, 0.45, 0.15),  // 4 deciduous
-	vec3(0.14, 0.30, 0.10),  // 5 conifer
-	vec3(0.80, 0.75, 0.28),  // 6 honeylocust
-	vec3(0.72, 0.18, 0.12),  // 7 callery_pear
-	vec3(0.92, 0.85, 0.20),  // 8 ginkgo
-	vec3(0.70, 0.52, 0.18),  // 9 london_plane
-	vec3(0.78, 0.70, 0.22),  // 10 linden
-	vec3(0.80, 0.30, 0.15),  // 11 cherry
-	vec3(0.82, 0.78, 0.25),  // 12 willow
-	vec3(0.60, 0.42, 0.18)   // 13 magnolia
-);
-
-const vec4 PHENOLOGY[14] = vec4[14](
-	vec4(2.3, 2.7, 3.1, 0.4),  // 0 oak
-	vec4(2.1, 2.5, 2.9, 0.3),  // 1 maple
-	vec4(2.2, 2.6, 3.0, 0.3),  // 2 elm
-	vec4(2.0, 2.4, 2.8, 0.2),  // 3 birch
-	vec4(2.2, 2.6, 3.0, 0.3),  // 4 deciduous
-	vec4(0.0, 0.0, 0.0, 0.0),  // 5 conifer
-	vec4(2.0, 2.3, 2.6, 0.4),  // 6 honeylocust
-	vec4(2.3, 2.7, 3.1, 0.3),  // 7 callery_pear
-	vec4(2.4, 2.6, 2.8, 0.5),  // 8 ginkgo
-	vec4(2.2, 2.6, 3.0, 0.3),  // 9 london_plane
-	vec4(2.1, 2.5, 2.9, 0.3),  // 10 linden
-	vec4(2.0, 2.4, 2.8, 0.3),  // 11 cherry
-	vec4(2.0, 2.3, 2.7, 0.2),  // 12 willow
-	vec4(2.3, 2.6, 3.0, 0.2)   // 13 magnolia
-);
-
-// Per-species wind biomechanics: (trunk_flex, branch_flex, sway_freq, gust_response)
-const vec4 WIND_PARAMS[14] = vec4[14](
-	vec4(0.15, 0.45, 0.70, 0.50),  // 0 oak
-	vec4(0.35, 0.55, 0.90, 0.60),  // 1 maple
-	vec4(0.45, 0.70, 0.85, 0.65),  // 2 elm
-	vec4(0.70, 0.50, 1.20, 0.80),  // 3 birch
-	vec4(0.35, 0.50, 0.90, 0.55),  // 4 deciduous
-	vec4(0.20, 0.25, 0.60, 0.35),  // 5 conifer
-	vec4(0.40, 0.65, 1.05, 0.70),  // 6 honeylocust
-	vec4(0.25, 0.40, 0.95, 0.45),  // 7 callery_pear
-	vec4(0.20, 0.30, 0.75, 0.40),  // 8 ginkgo
-	vec4(0.30, 0.45, 0.80, 0.50),  // 9 london_plane
-	vec4(0.35, 0.50, 0.90, 0.55),  // 10 linden
-	vec4(0.50, 0.55, 1.15, 0.65),  // 11 cherry
-	vec4(0.85, 0.95, 0.75, 0.90),  // 12 willow
-	vec4(0.25, 0.35, 0.80, 0.40)   // 13 magnolia
-);
+#include "res://shaders/include/tree_species.gdshaderinc"
 
 // --- Varyings ---
 varying vec2 v_uv_frame1;

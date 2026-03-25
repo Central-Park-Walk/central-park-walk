@@ -10,29 +10,6 @@ global uniform float season_t;
 global uniform vec2 wind_vec;
 global uniform vec3 sky_reflect_color;
 
-// Per-species wind biomechanics: (trunk_flex, branch_flex, sway_freq, gust_response)
-// Sources: forestry drag coefficients, Gardiner 1995, James et al 2006
-// trunk_flex:    cantilever stiffness — how much the whole trunk bends
-// branch_flex:   secondary limb oscillation amplitude
-// sway_freq:     natural frequency scalar (taller/denser wood = slower)
-// gust_response: crown sail area / drag — how much gusts push the tree
-const vec4 WIND_PARAMS[14] = vec4[14](
-	vec4(0.15, 0.45, 0.70, 0.50),  // 0 oak: massive stiff trunk, slow sway
-	vec4(0.35, 0.55, 0.90, 0.60),  // 1 maple: medium all-around
-	vec4(0.45, 0.70, 0.85, 0.65),  // 2 elm: flexible vase-form, long arching branches
-	vec4(0.70, 0.50, 1.20, 0.80),  // 3 birch: whip-like trunk, lightweight, fast
-	vec4(0.35, 0.50, 0.90, 0.55),  // 4 deciduous: balanced baseline
-	vec4(0.20, 0.25, 0.60, 0.35),  // 5 conifer: deep roots, stiff, dense dampening
-	vec4(0.40, 0.65, 1.05, 0.70),  // 6 honeylocust: airy compound leaves, supple wood
-	vec4(0.25, 0.40, 0.95, 0.45),  // 7 callery_pear: tight upright branching
-	vec4(0.20, 0.30, 0.75, 0.40),  // 8 ginkgo: ancient rigid wood, sparse crown
-	vec4(0.30, 0.45, 0.80, 0.50),  // 9 london_plane: large solid trunk, moderate
-	vec4(0.35, 0.50, 0.90, 0.55),  // 10 linden: medium rounded crown
-	vec4(0.50, 0.55, 1.15, 0.65),  // 11 cherry: smaller tree, limber, fast sway
-	vec4(0.85, 0.95, 0.75, 0.90),  // 12 willow: extremely flexible, flowing, high drag
-	vec4(0.25, 0.35, 0.80, 0.40)   // 13 magnolia: stiff trunk, heavy waxy leaves dampen
-);
-
 // PBR bark textures — photogrammetry-scanned real bark surfaces (CC0)
 // One set per bark style, blended with procedural FBM for per-tree variation
 uniform sampler2D bark_albedo_tex : source_color, filter_linear_mipmap_anisotropic;
@@ -47,6 +24,7 @@ varying vec3 world_nrm;
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/seasonal.gdshaderinc"
 #include "res://shaders/include/aerial_perspective.gdshaderinc"
+#include "res://shaders/include/tree_species.gdshaderinc"
 
 // Variable-octave FBM for bark texture detail
 float fbm(vec2 p, int oct) {
