@@ -136,7 +136,7 @@ void fragment() {
 	// ---- SEASONAL COLOR ----
 	float spring_t = sn_veg_spring(season_t);
 	float autumn_t = sn_veg_autumn(season_t);
-	winter_t = sn_veg_winter(season_t);
+	float winter_t = sn_veg_winter(season_t);
 
 	col = mix(col, col * vec3(1.1, 1.15, 0.80), spring_t * 0.5);
 	if (is_evergreen < 0.5) {
