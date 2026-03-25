@@ -3,31 +3,7 @@
 # Fallen leaves, branches, moss, weeds, and saplings — all real 3D meshes
 # with embedded PBR textures. No procedural patches, no atlas shader.
 # Data-first: placement driven by atlas zone type and canopy coverage.
-
-var _loader
-var _meshes: Dictionary = {}    # model_name -> Mesh
-var _active_chunks: Dictionary = {}
-var _last_update_pos := Vector3(-99999, 0, -99999)
-var _build_queue: Array = []
-var _queued_set: Dictionary = {}
-
-# Cached data refs
-var _atlas_data: PackedByteArray
-var _atlas_res: int
-var _atlas_scale: float
-var _atlas_half: float
-var _hm_data: Array
-var _hm_w: int
-var _hm_d: int
-var _hm_ws: float
-var _hm_half: float
-
-const CHUNK := 20.0
-const LOAD_RANGE := 180.0
-const UNLOAD_RANGE := 195.0
-const UPDATE_DIST := 3.0
-const VIS_END := 140.0
-const VIS_FADE_MARGIN := 25.0
+extends "res://chunk_builder.gd"
 
 # BD3D ground cover models — each carries its own StandardMaterial3D
 # [index] name (matches GLB filename in models/vegetation/)
@@ -119,24 +95,8 @@ const WOODLAND_Z_RANGES: Array = [
 	[1650, 2050],    # Hallett & The Pond
 ]
 
-var season_t: float = 1.5  # updated by main.gd
-
-
-func _init(loader) -> void:
-	_loader = loader
-
-
 func _build_ground_cover() -> void:
-	# Cache data refs
-	_atlas_data = _loader._atlas_data
-	_atlas_res = _loader._atlas_res
-	_atlas_scale = float(_atlas_res) / _loader._hm_world_size
-	_atlas_half = _loader._hm_world_size * 0.5
-	_hm_data = _loader._hm_data
-	_hm_w = _loader._hm_width
-	_hm_d = _loader._hm_depth
-	_hm_ws = _loader._hm_world_size
-	_hm_half = _hm_ws * 0.5
+	_init_chunks(20.0, 180.0, 195.0, 3.0, 140.0, 25.0)
 
 	# Load all BD3D models
 	var loaded := 0
@@ -154,103 +114,20 @@ func _build_ground_cover() -> void:
 	_update_chunks_near(Vector3(-480, 0, 1020))
 
 
-func update_camera(camera_pos: Vector3) -> void:
-	var dv := camera_pos - _last_update_pos
-	if dv.x * dv.x + dv.z * dv.z > UPDATE_DIST * UPDATE_DIST:
-		_last_update_pos = camera_pos
-		_update_chunks_near(camera_pos)
-	_process_queue(camera_pos)
-
-
-func _update_chunks_near(pos: Vector3) -> void:
-	var cx0 := int(floor((pos.x - LOAD_RANGE) / CHUNK))
-	var cx1 := int(floor((pos.x + LOAD_RANGE) / CHUNK))
-	var cz0 := int(floor((pos.z - LOAD_RANGE) / CHUNK))
-	var cz1 := int(floor((pos.z + LOAD_RANGE) / CHUNK))
-
-	var needed: Dictionary = {}
-	for cx in range(cx0, cx1 + 1):
-		for cz in range(cz0, cz1 + 1):
-			var wx := cx * CHUNK + CHUNK * 0.5
-			var wz := cz * CHUNK + CHUNK * 0.5
-			var dx := wx - pos.x
-			var dz := wz - pos.z
-			if dx * dx + dz * dz > LOAD_RANGE * LOAD_RANGE:
-				continue
-			var ai := int((wx + _atlas_half) * _atlas_scale)
-			var aj := int((wz + _atlas_half) * _atlas_scale)
-			if ai < 0 or ai >= _atlas_res or aj < 0 or aj >= _atlas_res:
-				continue
-			var surf: int = _atlas_data[(aj * _atlas_res + ai) * 2]
-			if surf != 1:
-				continue
-			var ck := "%d|%d" % [cx, cz]
-			needed[ck] = true
-
-	var to_remove: Array = []
-	for ck in _active_chunks:
-		if not needed.has(ck):
-			for nd in _active_chunks[ck]:
-				if is_instance_valid(nd):
-					nd.queue_free()
-			to_remove.append(ck)
-	for ck in to_remove:
-		_active_chunks.erase(ck)
-
-	for ck in needed:
-		if not _active_chunks.has(ck) and not _queued_set.has(ck):
-			_build_queue.append(ck)
-			_queued_set[ck] = true
-
-
-func _process_queue(pos: Vector3) -> void:
-	if _build_queue.is_empty():
-		return
-	_build_queue.sort_custom(func(a: String, b: String) -> bool:
-		var pa := a.split("|"); var pb := b.split("|")
-		var da := (int(pa[0]) * CHUNK - pos.x) ** 2 + (int(pa[1]) * CHUNK - pos.z) ** 2
-		var db := (int(pb[0]) * CHUNK - pos.x) ** 2 + (int(pb[1]) * CHUNK - pos.z) ** 2
-		return da < db)
-	var ck: String = _build_queue.pop_front()
-	_queued_set.erase(ck)
-	var cp := ck.split("|")
-	var wx := int(cp[0]) * CHUNK + CHUNK * 0.5
-	var wz := int(cp[1]) * CHUNK + CHUNK * 0.5
-	if (wx - pos.x) ** 2 + (wz - pos.z) ** 2 > UNLOAD_RANGE * UNLOAD_RANGE:
-		return
-	_build_chunk(ck)
-
-
 func _get_zone_type(cx: int, cz: int) -> int:
-	var wz := cz * CHUNK + CHUNK * 0.5
+	var wz := cz * _chunk_size + _chunk_size * 0.5
 	for zr in WOODLAND_Z_RANGES:
 		if wz >= zr[0] and wz <= zr[1]:
 			return -1
 	return -2
 
 
-func _sample_height(wx: float, wz: float) -> float:
-	var xi: float = (wx + _hm_half) / _hm_ws * (_hm_w - 1)
-	var zi: float = (wz + _hm_half) / _hm_ws * (_hm_d - 1)
-	var xi0: int = clampi(int(xi), 0, _hm_w - 2)
-	var zi0: int = clampi(int(zi), 0, _hm_d - 2)
-	var fx: float = xi - xi0
-	var fz: float = zi - zi0
-	var h00: float = _hm_data[zi0 * _hm_w + xi0]
-	var h10: float = _hm_data[zi0 * _hm_w + xi0 + 1]
-	var h01: float = _hm_data[(zi0 + 1) * _hm_w + xi0]
-	var h11: float = _hm_data[(zi0 + 1) * _hm_w + xi0 + 1]
-	if fz <= fx:
-		return h00 + (h10 - h00) * fx + (h11 - h10) * fz
-	return h00 + (h11 - h01) * fx + (h01 - h00) * fz
-
-
 func _build_chunk(ck: String) -> void:
 	var cp := ck.split("|")
 	var cx: int = int(cp[0])
 	var cz: int = int(cp[1])
-	var chunk_x := cx * CHUNK
-	var chunk_z := cz * CHUNK
+	var chunk_x := cx * _chunk_size
+	var chunk_z := cz * _chunk_size
 
 	var zone_type := -2
 	if _loader._undergrowth_builder and _loader._undergrowth_builder._zone_map.has(ck):
@@ -293,7 +170,7 @@ func _build_chunk(ck: String) -> void:
 			continue
 
 		var mesh: Mesh = _meshes[cm.name]
-		var target: int = int(density * CHUNK * CHUNK / 100.0)
+		var target: int = int(density * _chunk_size * _chunk_size / 100.0)
 		if target < 1:
 			target = 1
 
@@ -304,8 +181,8 @@ func _build_chunk(ck: String) -> void:
 		for _attempt in range(target * 3):
 			if placed >= target:
 				break
-			var bx := chunk_x + rng.randf() * CHUNK
-			var bz := chunk_z + rng.randf() * CHUNK
+			var bx := chunk_x + rng.randf() * _chunk_size
+			var bz := chunk_z + rng.randf() * _chunk_size
 
 			var ai := int((bx + _atlas_half) * _atlas_scale)
 			var aj := int((bz + _atlas_half) * _atlas_scale)
@@ -353,8 +230,8 @@ func _build_chunk(ck: String) -> void:
 
 		buf.resize(placed * 16)
 
-		var ox := chunk_x + CHUNK * 0.5
-		var oz := chunk_z + CHUNK * 0.5
+		var ox := chunk_x + _chunk_size * 0.5
+		var oz := chunk_z + _chunk_size * 0.5
 		var oy := 0.0
 		for i in range(placed):
 			oy += buf[i * 16 + 7]
@@ -375,8 +252,8 @@ func _build_chunk(ck: String) -> void:
 		mmi.multimesh = mm
 		mmi.position = Vector3(ox, oy, oz)
 		mmi.name = "GC_%s_%s" % [cm.name, ck]
-		mmi.visibility_range_end = VIS_END
-		mmi.visibility_range_end_margin = VIS_FADE_MARGIN
+		mmi.visibility_range_end = _vis_end
+		mmi.visibility_range_end_margin = _vis_fade_margin
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_loader.add_child(mmi)
