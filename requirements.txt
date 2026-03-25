@@ -1,0 +1,10 @@
+# Central Park Walk — Python dependencies
+# Install: pip install -r requirements.txt
+
+# Data pipeline (convert_to_godot.py, scripts/)
+numpy>=1.24
+Pillow>=9.0
+GDAL>=3.4
+
+# Optional: Freesound ambient audio downloads (download_sounds.py)
+# requests>=2.28
