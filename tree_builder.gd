@@ -602,6 +602,17 @@ func _build_trees(trees: Array) -> void:
 	# visibility_range works per-chunk (distance from camera to node).
 	const CHUNK := 80.0
 
+	# Woodland Z ranges where canopy is dense enough for occlusion culling
+	const WOODLAND_Z := [
+		[-1800.0, -1050.0],  # North Woods + The Pool
+		[375.0, 975.0],      # The Ramble
+		[1650.0, 2050.0],    # Hallett & The Pond
+	]
+
+	# Per-spatial-chunk canopy bounds for occluder generation
+	# Key: "cx|cz" → {y_min, y_max, x_min, x_max, z_min, z_max, count}
+	var chunk_bounds: Dictionary = {}
+
 	# Bucket transforms by spatial chunk per-species-variant
 	var lod0_chunks: Dictionary = {}
 
@@ -617,6 +628,26 @@ func _build_trees(trees: Array) -> void:
 				lod0_chunks[ck0] = {"mesh_key": key, "cx": cx, "cz": cz, "xf": [], "cd": []}
 			lod0_chunks[ck0]["xf"].append(tf)
 			lod0_chunks[ck0]["cd"].append(cd_arr[j])
+			# Accumulate per-spatial-chunk canopy bounds for occluders
+			var bk := "%d|%d" % [cx, cz]
+			var px := tf.origin.x
+			var py := tf.origin.y
+			var pz := tf.origin.z
+			var tree_h := tf.basis.y.length() * _species_heights.get(key.substr(0, key.rfind("_")), 15.0)
+			var crown_top := py + tree_h
+			var crown_base := py + tree_h * 0.4
+			if not chunk_bounds.has(bk):
+				chunk_bounds[bk] = {"x0": px, "x1": px, "z0": pz, "z1": pz,
+					"yb": crown_base, "yt": crown_top, "n": 1}
+			else:
+				var b: Dictionary = chunk_bounds[bk]
+				b["x0"] = minf(b["x0"], px)
+				b["x1"] = maxf(b["x1"], px)
+				b["z0"] = minf(b["z0"], pz)
+				b["z1"] = maxf(b["z1"], pz)
+				b["yb"] = minf(b["yb"], crown_base)
+				b["yt"] = maxf(b["yt"], crown_top)
+				b["n"] += 1
 
 	# Spawn LOD0 chunks — position MMI at instance centroid for accurate culling
 	for ckey in lod0_chunks:
@@ -660,6 +691,42 @@ func _build_trees(trees: Array) -> void:
 		mmi.visibility_range_end_margin = 50.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		_loader.add_child(mmi)
+
+	# --- Canopy occluders for dense woodland chunks ---
+	var occ_count := 0
+	for bk in chunk_bounds:
+		var b: Dictionary = chunk_bounds[bk]
+		if b["n"] < 6:
+			continue  # too sparse to occlude
+		var parts := bk.split("|")
+		var cx_i := int(parts[0])
+		var cz_i := int(parts[1])
+		var chunk_center_z := (cz_i + 0.5) * CHUNK
+		var in_woodland := false
+		for zr in WOODLAND_Z:
+			if chunk_center_z >= zr[0] and chunk_center_z <= zr[1]:
+				in_woodland = true
+				break
+		if not in_woodland:
+			continue
+		# Build box occluder spanning the canopy volume
+		var sx := maxf(b["x1"] - b["x0"], 4.0)
+		var sz := maxf(b["z1"] - b["z0"], 4.0)
+		var sy := maxf(b["yt"] - b["yb"], 3.0)
+		# Shrink slightly so camera inside canopy doesn't trigger self-occlusion
+		var occ := BoxOccluder3D.new()
+		occ.size = Vector3(sx * 0.85, sy * 0.7, sz * 0.85)
+		var oi := OccluderInstance3D.new()
+		oi.occluder = occ
+		var cx_mid := (b["x0"] + b["x1"]) * 0.5
+		var cz_mid := (b["z0"] + b["z1"]) * 0.5
+		var cy_mid := (b["yb"] + b["yt"]) * 0.5
+		oi.position = Vector3(cx_mid, cy_mid, cz_mid)
+		oi.name = "TreeOcc_%d_%d" % [cx_i, cz_i]
+		_loader.add_child(oi)
+		occ_count += 1
+	if occ_count > 0:
+		print("Trees: %d canopy occluders in woodland zones" % occ_count)
 
 	# --- LOD1: _m models (derived from _l — same silhouette) ---
 	_build_lod_tier_chunks(_lod1_xf, _lod1_cd, "TreeL1",

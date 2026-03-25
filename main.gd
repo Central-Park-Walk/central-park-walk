@@ -165,6 +165,8 @@ func _ready() -> void:
 			print("Unknown --time '%s'. Options: dawn morning noon golden_hour dusk night (or 0-24)" % cli_time)
 	if _weather_mode != "clear":
 		print("Weather: %s" % _weather_mode)
+	# Enable GPU-based occlusion culling (used by canopy occluders in woodland)
+	get_viewport().use_occlusion_culling = true
 	var _mt := Time.get_ticks_msec()
 	_build_keyframes()
 	_load_heightmap()
