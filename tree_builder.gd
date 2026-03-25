@@ -633,9 +633,9 @@ func _build_trees(trees: Array) -> void:
 			var px := tf.origin.x
 			var py := tf.origin.y
 			var pz := tf.origin.z
-			var tree_h := tf.basis.y.length() * _species_heights.get(key.substr(0, key.rfind("_")), 15.0)
-			var crown_top := py + tree_h
-			var crown_base := py + tree_h * 0.4
+			var tree_h: float = tf.basis.y.length() * float(_species_heights.get(key.substr(0, key.rfind("_")), 15.0))
+			var crown_top: float = py + tree_h
+			var crown_base: float = py + tree_h * 0.4
 			if not chunk_bounds.has(bk):
 				chunk_bounds[bk] = {"x0": px, "x1": px, "z0": pz, "z1": pz,
 					"yb": crown_base, "yt": crown_top, "n": 1}
@@ -698,7 +698,7 @@ func _build_trees(trees: Array) -> void:
 		var b: Dictionary = chunk_bounds[bk]
 		if b["n"] < 6:
 			continue  # too sparse to occlude
-		var parts := bk.split("|")
+		var parts: PackedStringArray = bk.split("|")
 		var cx_i := int(parts[0])
 		var cz_i := int(parts[1])
 		var chunk_center_z := (cz_i + 0.5) * CHUNK
@@ -710,17 +710,17 @@ func _build_trees(trees: Array) -> void:
 		if not in_woodland:
 			continue
 		# Build box occluder spanning the canopy volume
-		var sx := maxf(b["x1"] - b["x0"], 4.0)
-		var sz := maxf(b["z1"] - b["z0"], 4.0)
-		var sy := maxf(b["yt"] - b["yb"], 3.0)
+		var sx: float = maxf(float(b["x1"]) - float(b["x0"]), 4.0)
+		var sz: float = maxf(float(b["z1"]) - float(b["z0"]), 4.0)
+		var sy: float = maxf(float(b["yt"]) - float(b["yb"]), 3.0)
 		# Shrink slightly so camera inside canopy doesn't trigger self-occlusion
 		var occ := BoxOccluder3D.new()
 		occ.size = Vector3(sx * 0.85, sy * 0.7, sz * 0.85)
 		var oi := OccluderInstance3D.new()
 		oi.occluder = occ
-		var cx_mid := (b["x0"] + b["x1"]) * 0.5
-		var cz_mid := (b["z0"] + b["z1"]) * 0.5
-		var cy_mid := (b["yb"] + b["yt"]) * 0.5
+		var cx_mid: float = (float(b["x0"]) + float(b["x1"])) * 0.5
+		var cz_mid: float = (float(b["z0"]) + float(b["z1"])) * 0.5
+		var cy_mid: float = (float(b["yb"]) + float(b["yt"])) * 0.5
 		oi.position = Vector3(cx_mid, cy_mid, cz_mid)
 		oi.name = "TreeOcc_%d_%d" % [cx_i, cz_i]
 		_loader.add_child(oi)
