@@ -117,14 +117,20 @@ func _ready() -> void:
 	var cli_time := ""
 	for i in OS.get_cmdline_user_args().size():
 		var arg: String = OS.get_cmdline_user_args()[i]
+		# Support both "--key value" and "--key=value" formats
+		var key := arg.split("=")[0]
+		var has_eq := arg.contains("=")
+		var eq_val := arg.substr(arg.find("=") + 1) if has_eq else ""
+		var next_val := OS.get_cmdline_user_args()[i + 1] if (i + 1 < OS.get_cmdline_user_args().size()) else ""
+		var val := eq_val if has_eq else next_val
 		if arg == "--terrain-only":
 			_terrain_only = true
-		elif arg == "--time" and i + 1 < OS.get_cmdline_user_args().size():
-			cli_time = OS.get_cmdline_user_args()[i + 1]
-		elif arg == "--weather" and i + 1 < OS.get_cmdline_user_args().size():
-			_weather_mode = OS.get_cmdline_user_args()[i + 1]
-		elif arg == "--pos" and i + 1 < OS.get_cmdline_user_args().size():
-			var parts := OS.get_cmdline_user_args()[i + 1].split(",")
+		elif key == "--time" and val != "":
+			cli_time = val
+		elif key == "--weather" and val != "":
+			_weather_mode = val
+		elif key == "--pos" and val != "":
+			var parts := val.split(",")
 			if parts.size() >= 2:
 				_cli_pos.x = float(parts[0])
 				_cli_pos.z = float(parts[1])
@@ -133,10 +139,10 @@ func _ready() -> void:
 				if parts.size() >= 4:
 					_cli_height = float(parts[3])  # height above terrain
 				_cli_pos_set = true
-		elif arg == "--pitch" and i + 1 < OS.get_cmdline_user_args().size():
-			_cli_pitch = float(OS.get_cmdline_user_args()[i + 1])
-		elif arg == "--season" and i + 1 < OS.get_cmdline_user_args().size():
-			var s_val: String = OS.get_cmdline_user_args()[i + 1]
+		elif key == "--pitch" and val != "":
+			_cli_pitch = float(val)
+		elif key == "--season" and val != "":
+			var s_val: String = val
 			if SEASON_PRESETS.has(s_val):
 				_season_t = SEASON_PRESETS[s_val]
 				print("Season: %s (%.1f)" % [s_val, _season_t])
