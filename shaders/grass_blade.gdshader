@@ -308,9 +308,10 @@ void fragment() {
 		float crystal = hash2(floor(v_world_blade.xz * 12.0 + vec2(blade_t * 5.0)));
 		float sparkle = step(0.80, crystal) * frost_mask;
 		ALBEDO = mix(ALBEDO, ALBEDO * vec3(1.10, 1.12, 1.18), frost_mask * 0.4);
+		// Frost base: slightly rough ice coating; sparkle crystals punch through to shiny
+		ROUGHNESS = mix(ROUGHNESS, 0.40, frost_mask * 0.3);
 		ROUGHNESS = mix(ROUGHNESS, 0.10, sparkle * 0.8);
 		SPECULAR = mix(SPECULAR, 0.60, sparkle * 0.9);
-		ROUGHNESS = mix(ROUGHNESS, 0.40, frost_mask * 0.3);
 	}
 
 	if (dew_amount > 0.01 && blade_t > 0.5) {

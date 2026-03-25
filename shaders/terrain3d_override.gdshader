@@ -25,6 +25,7 @@ render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_sc
 #endif
 
 #include "res://shaders/include/seasonal.gdshaderinc"
+#include "res://shaders/include/hash_noise.gdshaderinc"
 
 // ---- Terrain3D private uniforms (set by C++ engine) ----
 uniform vec3 _camera_pos = vec3(0.0);
@@ -169,31 +170,12 @@ void vertex() {
 // Hash & noise utilities
 // ===========================================================================
 
-float hash2(vec2 p) {
-	p = fract(p * vec2(127.1, 311.7));
-	p += dot(p, p + 43.21);
-	return fract(p.x * p.y);
-}
-
-float vnoise(vec2 p) {
-	vec2 i = floor(p); vec2 f = fract(p);
-	vec2 u = f * f * (3.0 - 2.0 * f);
-	return mix(mix(hash2(i), hash2(i + vec2(1.0, 0.0)), u.x),
-	           mix(hash2(i + vec2(0.0, 1.0)), hash2(i + vec2(1.0, 1.0)), u.x), u.y);
-}
+// hash2, vnoise, cloud_shadow now from hash_noise.gdshaderinc
 
 float fbm(vec2 p, int oct) {
 	float v = 0.0, a = 0.5;
 	for (int i = 0; i < oct; i++) { v += a * vnoise(p); p *= 2.13; a *= 0.47; }
 	return v;
-}
-
-float cloud_shadow(vec2 world_xz, float cc, float cs, float t, vec2 w) {
-	vec2 uv = world_xz * 0.00016;
-	vec2 drift = vec2(cs, cs * 0.7) + w * 0.002;
-	uv += t * drift;
-	float n = vnoise(uv * 3.0) * 0.5 + vnoise(uv * 6.0) * 0.3 + vnoise(uv * 12.0) * 0.2;
-	return smoothstep(1.0 - cc - 0.05, 1.0 - cc + 0.15, n) * 0.25;
 }
 
 // ===========================================================================

@@ -283,7 +283,7 @@ void fragment() {
 
 	// Alpha: modulated by leaf density (deciduous shedding)
 	float alpha = tex.a * v_leaf_density;
-	if (snow_cover > 0.6 && v_leaf_density < 0.3) alpha = 0.0;
+	if (snow_cover > 0.6 && v_leaf_density < 0.3) discard;
 	if (alpha < alpha_clamp) discard;
 
 	// Normal map
