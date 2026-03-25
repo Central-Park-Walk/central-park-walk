@@ -1310,8 +1310,10 @@ func _setup_environment() -> void:
 	_sun.light_angular_distance = 1.5  # soft penumbra — velvety shadows
 	_sun.light_volumetric_fog_energy = 2.0  # god rays through volumetric fog
 	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
-	_sun.directional_shadow_split_1      = 0.08
-	_sun.directional_shadow_max_distance = 200.0
+	_sun.directional_shadow_split_1      = 0.05   # tighter first cascade for near-field detail
+	_sun.directional_shadow_split_2      = 0.15
+	_sun.directional_shadow_split_3      = 0.4
+	_sun.directional_shadow_max_distance = 300.0
 	_sun.directional_shadow_pancake_size = 20.0
 	add_child(_sun)
 
@@ -1354,7 +1356,7 @@ func _build_keyframes() -> void:
 		"sun_color":      Color(0.65, 0.72, 0.95),
 		"sun_pitch":      -10.0,
 		"sun_yaw":        -100.0,
-		"shadow_dist":    180.0,
+		"shadow_dist":    250.0,
 		"lamp_emission":  5.0,  # pre-dawn: lamps on (direct SpotLight3D energy)
 		"vol_fog_density":    0.0004,
 		"vol_fog_anisotropy": 0.45,
@@ -1394,7 +1396,7 @@ func _build_keyframes() -> void:
 		"sun_color":      Color(1.0, 0.75, 0.50),    # warm but not deep amber
 		"sun_pitch":      -12.0,
 		"sun_yaw":        -95.0,
-		"shadow_dist":    250.0,
+		"shadow_dist":    350.0,
 		"lamp_emission":  0.0,
 		"vol_fog_density":    0.0003,  # subtle sunrise haze
 		"vol_fog_anisotropy": 0.80,    # moderate forward scatter
@@ -1432,7 +1434,7 @@ func _build_keyframes() -> void:
 		"sun_color":      Color(0.95, 0.92, 0.85),
 		"sun_pitch":      -55.0,
 		"sun_yaw":        -20.0,
-		"shadow_dist":    300.0,
+		"shadow_dist":    400.0,
 		"lamp_emission":  0.0,
 		"vol_fog_density":    0.0001,  # very subtle volumetric — just enough for depth
 		"vol_fog_anisotropy": 0.45,
@@ -1472,7 +1474,7 @@ func _build_keyframes() -> void:
 		"sun_color":      Color(1.0, 0.72, 0.45),     # warm golden, not deep amber
 		"sun_pitch":      -12.0,   # lower sun angle for longer shadows
 		"sun_yaw":        95.0,
-		"shadow_dist":    250.0,
+		"shadow_dist":    350.0,
 		"lamp_emission":  0.0,  # lamps off until after sunset (ramp 19h→21h)
 		"vol_fog_density":    0.0003,  # subtle haze — clarity over drama
 		"vol_fog_anisotropy": 0.80,    # moderate forward scatter
@@ -1512,7 +1514,7 @@ func _build_keyframes() -> void:
 		"sun_color":      Color(0.70, 0.78, 1.00),
 		"sun_pitch":      -65.0,
 		"sun_yaw":        40.0,
-		"shadow_dist":    200.0,
+		"shadow_dist":    250.0,
 		"lamp_emission":  5.0,  # night: direct SpotLight3D energy (was 110 via 22x multiplier)
 		"vol_fog_density":    0.0005,  # slight night haze catches lamplight scatter
 		"vol_fog_anisotropy": 0.35,
