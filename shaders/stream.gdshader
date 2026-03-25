@@ -22,6 +22,7 @@ varying float v_water_depth;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/decode_terrain.gdshaderinc"
+#include "res://shaders/include/seasonal.gdshaderinc"
 
 // Gradient noise for wave patterns
 vec2 ghash(vec2 p) {
@@ -120,8 +121,8 @@ void fragment() {
 	vec3 shallow = vec3(0.055, 0.078, 0.055);   // brighter shallow
 
 	// Seasonal shifts
-	float autumn_t = smoothstep(1.5, 2.5, season_t) * smoothstep(3.5, 2.5, season_t);
-	float winter_t = smoothstep(2.5, 3.5, season_t);
+	float autumn_t = sn_veg_autumn(season_t);
+	float winter_t = sn_atmo_winter(season_t);
 	if (autumn_t > 0.01) {
 		deep    = mix(deep,    deep    * vec3(1.15, 0.90, 0.65), autumn_t * 0.5);
 		shallow = mix(shallow, shallow * vec3(1.20, 0.90, 0.60), autumn_t * 0.5);
@@ -166,9 +167,9 @@ void fragment() {
 		vec2 canopy_uv = (world_pos.xz + canopy_world_size * 0.5) / canopy_world_size;
 		float canopy = texture(canopy_map, canopy_uv).r;
 		if (canopy > 0.01) {
-			float deciduous_loss = smoothstep(2.5, 3.2, season_t);
-			float winter_bare2 = smoothstep(3.0, 3.5, season_t);
-			float spring_fill = smoothstep(0.0, 0.4, season_t);
+			float deciduous_loss = sn_canopy_loss(season_t);
+			float winter_bare2 = sn_canopy_bare(season_t);
+			float spring_fill = sn_canopy_fill(season_t);
 			float sc = canopy * mix(1.0, 0.3, deciduous_loss) * mix(1.0, 0.15, winter_bare2) * mix(0.5, 1.0, spring_fill);
 			float sky_lum2 = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
 			float sun_factor = smoothstep(0.02, 0.20, sky_lum2);

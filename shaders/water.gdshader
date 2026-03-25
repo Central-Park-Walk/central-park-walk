@@ -39,6 +39,7 @@ float raindrop_ripple(vec2 p) {
 }
 
 #include "res://shaders/include/decode_terrain.gdshaderinc"
+#include "res://shaders/include/seasonal.gdshaderinc"
 
 // Gradient noise (returns -1..1)
 vec2 ghash(vec2 p) {
@@ -187,10 +188,9 @@ void fragment() {
 	// Summer (1): base colors (tuned above)
 	// Autumn (2): brown-amber tint from leaf tannins
 	// Winter (3): lighter, grayer, less saturated
-	float autumn_t = smoothstep(1.5, 2.5, season_t) * smoothstep(3.5, 2.5, season_t);
-	float winter_t = smoothstep(2.5, 3.5, season_t);
-	float spring_t = smoothstep(1.0, 0.0, season_t) + smoothstep(3.5, 4.0, season_t);
-	spring_t = clamp(spring_t, 0.0, 1.0);
+	float autumn_t = sn_veg_autumn(season_t);
+	float winter_t = sn_atmo_winter(season_t);
+	float spring_t = sn_atmo_spring(season_t);
 	if (autumn_t > 0.01) {
 		// Fallen leaves leach tannins: amber-brown tint
 		deep    = mix(deep,    deep    * vec3(1.15, 0.95, 0.70), autumn_t * 0.4);
@@ -310,9 +310,9 @@ void fragment() {
 		vec2 canopy_uv = (world_pos.xz + canopy_world_size * 0.5) / canopy_world_size;
 		float canopy = texture(canopy_map, canopy_uv).r;
 		if (canopy > 0.01) {
-			float deciduous_loss = smoothstep(2.5, 3.2, season_t);
-			float winter_bare = smoothstep(3.0, 3.5, season_t);
-			float spring_fill = smoothstep(0.0, 0.4, season_t);
+			float deciduous_loss = sn_canopy_loss(season_t);
+			float winter_bare = sn_canopy_bare(season_t);
+			float spring_fill = sn_canopy_fill(season_t);
 			float sc = canopy * mix(1.0, 0.3, deciduous_loss) * mix(1.0, 0.15, winter_bare) * mix(0.5, 1.0, spring_fill);
 			// Dappled light pattern — larger scale on water (light travels further)
 			vec2 dapple_uv = world_pos.xz * 0.25 + wind_vec * TIME * 0.06;
