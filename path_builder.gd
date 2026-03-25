@@ -15,7 +15,7 @@ func _init(loader) -> void:
 func _build_paths(paths: Array) -> void:
 	var t0 := Time.get_ticks_msec()
 
-	# Separate bridges from ground-level paths, skip steps (built by infrastructure_builder)
+	# Separate bridges from ground-level paths, skip steps (built by detail_builder)
 	var ground_groups: Dictionary = {}  # "hw|surface" -> Array of paths
 	var bridge_groups: Dictionary = {}  # "hw|surface" -> Array of paths
 	var skipped_steps := 0
@@ -23,7 +23,7 @@ func _build_paths(paths: Array) -> void:
 
 	for path in paths:
 		var hw: String = str(path.get("highway", "path"))
-		# Steps are built as staircases by infrastructure_builder
+		# Steps are built as staircases by detail_builder
 		if hw == "steps":
 			skipped_steps += 1
 			continue
