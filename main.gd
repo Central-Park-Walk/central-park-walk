@@ -184,14 +184,12 @@ func _ready() -> void:
 	RenderingServer.global_shader_parameter_add("cloud_speed_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.004)
 	RenderingServer.global_shader_parameter_add("impostor_brightness", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 1.0)
 	print("main: environment: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
+	# Terrain3D MUST init before park — builders need accurate terrain height
+	_setup_ground()
+	print("main: Terrain3D setup: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	if not _terrain_only:
 		_setup_park()
 		print("main: park_loader: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
-	_setup_ground()
-	# Pass Terrain3D reference to park_loader (created in _setup_ground)
-	if _terrain3d and _park_loader:
-		_park_loader.terrain3d = _terrain3d
-	print("main: Terrain3D setup: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	if not _terrain_only:
 		# Structure textures + boundary mask + structure mask now handled by
 		# Terrain3D native control map — only data maps for overlay effects needed
@@ -1984,7 +1982,9 @@ func _setup_park() -> void:
 	loader.name = "CentralPark"
 	if not _hm_data.is_empty():
 		loader.set_heightmap(_hm_data, _hm_width, _hm_depth, _hm_world_size)
-	# terrain3d is set after _setup_ground() in _ready()
+	# Terrain3D reference for accurate height queries (_terrain_y)
+	if _terrain3d:
+		loader.terrain3d = _terrain3d
 	add_child(loader)
 	_park_loader = loader
 
