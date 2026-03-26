@@ -55,6 +55,28 @@ const ZONE_TO_TEX := {
 	13: TEX_SHORE,    # shore
 }
 
+# Zone → terrain color tint (multiplicative on texture albedo).
+# Aligns with grass_particle_render.gdshader zone palettes so terrain
+# surface matches grass roots. The grass shader samples color_maps at
+# particle positions, so these tints feed directly into root blending.
+# Alpha = 0.5 = neutral roughness modifier for Terrain3D color map.
+const ZONE_TO_COLOR := {
+	0:  Color(0.92, 1.00, 1.06, 0.5),  # unzoned: cool blue-green
+	1:  Color(0.93, 0.97, 0.95, 0.5),  # garden: deep emerald
+	2:  Color(1.08, 1.02, 0.86, 0.5),  # grass: warm golden
+	3:  Color(0.97, 1.04, 0.96, 0.5),  # pitch: bright formal green
+	4:  Color(1.04, 0.98, 0.90, 0.5),  # playground: sandy warm
+	5:  Color(0.88, 0.90, 0.86, 0.5),  # nature_reserve: dark cool shade
+	6:  Color(1.02, 0.96, 0.88, 0.5),  # dog_park: worn earth
+	7:  Color(0.93, 1.03, 1.01, 0.5),  # sports: lush cool green
+	8:  Color(1.00, 1.00, 1.00, 0.5),  # pool: neutral concrete
+	9:  Color(1.06, 0.96, 0.86, 0.5),  # track: warm cinder
+	10: Color(0.86, 0.84, 0.78, 0.5),  # wood: brown-green understory
+	11: Color(0.84, 0.82, 0.76, 0.5),  # forest: darker brown understory
+	12: Color(1.00, 1.00, 1.00, 0.5),  # water: neutral
+	13: Color(0.98, 0.94, 0.88, 0.5),  # shore: sandy warm
+}
+
 # Structure mask values → texture slot
 const STRUCT_FLAT  := TEX_FLAGSTONE   # plazas, terraces
 const STRUCT_SLOPE := TEX_CONCRETE
@@ -208,10 +230,13 @@ func _do_bake() -> void:
 				var shore_val: float = _pixel_valf(shore_img, ax, az) if shore_img else 0.0
 				var park_val: float = _pixel_valf(park_mask_img, ax, az) if park_mask_img else 1.0
 
+				var pos := Vector3(wx, 0, wz)
+				var zone_color: Color = ZONE_TO_COLOR.get(zone_id, Color(1.0, 1.0, 1.0, 0.5))
+
 				# Structure holes (Bethesda Terrace etc.) — terrain invisible here
 				if not hole_mask.is_empty() and hole_mask[az * ATLAS_RES + ax] > 0:
-					var pos := Vector3(wx, 0, wz)
 					terrain.data.set_control(pos, _encode_control(TEX_GRASS, TEX_ROCK, 0.0, false, true))
+					terrain.data.set_color(pos, zone_color)
 					pixels_set += 1
 					continue
 
@@ -224,17 +249,19 @@ func _do_bake() -> void:
 				# Outside park boundary → concrete (city sidewalk/road)
 				if park_val < 0.5:
 					base_id = TEX_CONCRETE
+					zone_color = Color(0.85, 0.85, 0.87, 0.5)
 					use_auto = false
 				# Water zone → mark as hole
 				elif zone_id == 12:
 					# Set hole bit — Terrain3D handles water separately
-					var pos := Vector3(wx, 0, wz)
 					terrain.data.set_control(pos, _encode_control(TEX_GRASS, TEX_ROCK, 0.0, false, true))
+					terrain.data.set_color(pos, zone_color)
 					pixels_set += 1
 					continue
 				# Structure detected (LiDAR) — only strong detections
 				elif struct_val > 16 and park_val > 0.5:
 					base_id = STRUCT_FLAT
+					zone_color = Color(1.0, 1.0, 1.0, 0.5)
 					use_auto = false
 				# Shore zone — blend shore/wet_earth with base texture
 				elif zone_id == 13 or (shore_val > 0.0 and shore_val < 0.5):
@@ -256,8 +283,8 @@ func _do_bake() -> void:
 					if zone_id == 10 or zone_id == 11:
 						use_auto = false
 
-				var pos := Vector3(wx, 0, wz)
 				terrain.data.set_control(pos, _encode_control(base_id, over_id, blend, use_auto, false))
+				terrain.data.set_color(pos, zone_color)
 				pixels_set += 1
 
 		regions_updated += 1
