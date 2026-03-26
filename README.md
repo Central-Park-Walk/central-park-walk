@@ -1,6 +1,6 @@
 ## Central Park Walk
 
-> **Note:** Git LFS bandwidth resets monthly. Large binary files (screenshots, models, data) may fail to download via LFS between resets. All source code is always up to date.
+> **Note:** Git LFS bandwidth resets monthly. Large binary files (cathedral Elm models, some data) may fail to download via LFS between resets. All source code is always up to date.
 
 *An AI-human collaboration to reconstruct Central Park in 3D from freely available public data.*
 
