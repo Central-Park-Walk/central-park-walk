@@ -28,11 +28,9 @@ varying float v_height_t;
 
 void vertex() {
 	// Height within tuft: use vertex Y position (0=ground, tip=max height).
-	// VERTEX.y is in model space — normalize by mesh height.
-	// Turf meshes: Lawn ~0.07m, Shade ~0.16m, Sedge ~0.22m, Wild ~0.34m.
-	// Tuft meshes: Meadow ~0.17m, Wild ~0.26m.
-	// Use 0.20 as middle-ground; short Turf_Lawn tops out at ~0.35 (fine).
-	v_height_t = clamp(VERTEX.y / 0.20, 0.0, 1.0);
+	// Tuft meshes: Tiny ~0.06m, Woodland ~0.08m, Meadow ~0.17m, Wild ~0.26m.
+	// Low normalizer (0.10) so even short tuft tips get proper gradient.
+	v_height_t = clamp(VERTEX.y / 0.10, 0.0, 1.0);
 	float bend_factor = v_height_t * v_height_t;
 
 	if (!use_texture) {

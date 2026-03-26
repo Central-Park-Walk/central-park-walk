@@ -1844,59 +1844,41 @@ var _grass_particle_nodes: Array[Node3D] = []
 var _landuse_texture: Texture2D  # cached for grass particle system
 
 # Biome definitions for multi-layer grass particles.
-# 4 Turf base layers (non-overlapping zones) + 2 Tuft accent layers (sparse variety).
-# Turf meshes: ~1.2m tileable patches, untextured (shader-colored by zone palette).
-# Tuft meshes: PBR-textured individual clumps for dimensional variety above the turf carpet.
+# 4 Tuft layers with PBR textures + alpha cutout — one per biome type, non-overlapping.
+# Tuft meshes have embedded albedo textures with alpha for realistic blade-level detail
+# and blending with the terrain underneath. Undergrowth system provides taller accents.
 const GRASS_BIOMES := [
-	# --- Turf base layers: continuous ground coverage per biome ---
-	{  # Maintained lawns — Turf_Lawn: 1.23m tile, 6.7cm tall, 2400 tris
+	{  # Maintained lawns — Tuft_Tiny: 34×33cm, 5.8cm tall, 99 tris
 		"name": "Lawn", "biome_id": 0,
-		"mesh_path": "res://models/vegetation/Turf_Lawn_v0.glb",
-		"spacing": 1.0, "cell_width": 24.0, "grid_width": 5,
+		"mesh_path": "res://models/vegetation/Tuft_Tiny.glb",
+		"spacing": 0.5, "cell_width": 24.0, "grid_width": 5,
 		"min_scale": Vector3(0.9, 0.9, 0.9),
-		"max_scale": Vector3(1.1, 1.1, 1.1),
+		"max_scale": Vector3(1.3, 1.3, 1.3),
 		"position_offset": Vector3(0, -0.005, 0),
 	},
-	{  # Woodland/shade floor — Turf_Shade: 1.24m tile, 15.8cm tall, 3000 tris
+	{  # Woodland/shade floor — Tuft_Woodland: 24×20cm, 8cm tall, 150 tris
 		"name": "Shade", "biome_id": 1,
-		"mesh_path": "res://models/vegetation/Turf_Shade_v0.glb",
-		"spacing": 1.1, "cell_width": 24.0, "grid_width": 5,
-		"min_scale": Vector3(0.85, 0.8, 0.85),
-		"max_scale": Vector3(1.15, 1.1, 1.15),
-		"position_offset": Vector3(0, -0.005, 0),
-	},
-	{  # Wild meadow — Turf_Wild: 1.35m tile, 33.7cm tall, 4000 tris
-		"name": "Wild", "biome_id": 2,
-		"mesh_path": "res://models/vegetation/Turf_Wild_v0.glb",
-		"spacing": 1.2, "cell_width": 24.0, "grid_width": 5,
-		"min_scale": Vector3(0.85, 0.8, 0.85),
-		"max_scale": Vector3(1.15, 1.2, 1.15),
-		"position_offset": Vector3(0, -0.010, 0),
-	},
-	{  # Waterside — Turf_Sedge: 1.25m tile, 22cm tall, 3300 tris
-		"name": "Sedge", "biome_id": 3,
-		"mesh_path": "res://models/vegetation/Turf_Sedge_v0.glb",
-		"spacing": 1.1, "cell_width": 24.0, "grid_width": 5,
-		"min_scale": Vector3(0.9, 0.85, 0.9),
-		"max_scale": Vector3(1.1, 1.15, 1.1),
-		"position_offset": Vector3(0, -0.008, 0),
-	},
-	# --- Tuft accent layers: sparse dimensional variety above the turf carpet ---
-	{  # Lawn accents — Tuft_Meadow: 25×17cm clump, 266 tris (PBR textured)
-		"name": "Tuft_Lawn", "biome_id": 10,
-		"mesh_path": "res://models/vegetation/Tuft_Meadow.glb",
-		"spacing": 1.5, "cell_width": 24.0, "grid_width": 5,
-		"min_scale": Vector3(1.2, 1.0, 1.2),
-		"max_scale": Vector3(2.0, 1.8, 2.0),
-		"position_offset": Vector3(0, -0.005, 0),
-	},
-	{  # Wild/Woodland accents — Tuft_Wild: 68×26cm clump, 300 tris (PBR textured)
-		"name": "Tuft_Wild", "biome_id": 11,
-		"mesh_path": "res://models/vegetation/Tuft_Wild.glb",
-		"spacing": 1.5, "cell_width": 24.0, "grid_width": 5,
+		"mesh_path": "res://models/vegetation/Tuft_Woodland.glb",
+		"spacing": 0.6, "cell_width": 24.0, "grid_width": 5,
 		"min_scale": Vector3(0.8, 0.8, 0.8),
-		"max_scale": Vector3(1.3, 1.2, 1.3),
+		"max_scale": Vector3(1.5, 1.5, 1.5),
+		"position_offset": Vector3(0, -0.005, 0),
+	},
+	{  # Wild meadow — Tuft_Wild: 68×67cm, 26cm tall, 300 tris
+		"name": "Wild", "biome_id": 2,
+		"mesh_path": "res://models/vegetation/Tuft_Wild.glb",
+		"spacing": 0.6, "cell_width": 24.0, "grid_width": 5,
+		"min_scale": Vector3(0.7, 0.7, 0.7),
+		"max_scale": Vector3(1.2, 1.2, 1.2),
 		"position_offset": Vector3(0, -0.008, 0),
+	},
+	{  # Waterside — Tuft_Meadow: 25×27cm, 17cm tall, 266 tris
+		"name": "Sedge", "biome_id": 3,
+		"mesh_path": "res://models/vegetation/Tuft_Meadow.glb",
+		"spacing": 0.6, "cell_width": 24.0, "grid_width": 5,
+		"min_scale": Vector3(0.8, 0.8, 0.8),
+		"max_scale": Vector3(1.5, 1.5, 1.5),
+		"position_offset": Vector3(0, -0.005, 0),
 	},
 ]
 
@@ -1933,7 +1915,7 @@ func _setup_grass_particles() -> void:
 			if child is MeshInstance3D:
 				tuft_mesh = child.mesh
 				var mat = tuft_mesh.surface_get_material(0)
-				if mat is StandardMaterial3D and mat.albedo_texture:
+				if mat is BaseMaterial3D and mat.albedo_texture:
 					albedo_tex = mat.albedo_texture
 				break
 		inst.queue_free()
