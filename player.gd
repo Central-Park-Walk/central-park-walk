@@ -40,7 +40,7 @@ func _ready() -> void:
 	var cam := Camera3D.new()
 	cam.name    = "Camera"
 	cam.current = true
-	cam.fov     = 90.0  # wide perspective
+	cam.fov     = 29.0  # 70mm equivalent — matches walking-tour photography
 	var cam_attr := CameraAttributesPractical.new()
 	cam_attr.dof_blur_far_enabled    = false  # disabled during Terrain3D migration
 	cam_attr.dof_blur_near_enabled   = false

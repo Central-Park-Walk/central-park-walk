@@ -239,30 +239,36 @@ void start() {
 	// B/C-lawns (zone 7,9): mowed weekly/as-needed, slightly taller
 	// D-lawns/woodland (zone 5,10,11): infrequent mow, tall, patchy
 	// Wild meadow (zone 8): unmowed, tallest
-	// Zone height/spread calibrated for Tuft meshes:
-	// Tuft_Tiny 5.8cm, Tuft_Woodland 8cm, Tuft_Wild 26cm, Tuft_Meadow 17cm
-	float zone_height = 1.0;  // multiplier on Y scale
-	float zone_spread = 1.0;  // multiplier on XZ scale
+	// Zone height/spread: data heights × photographic exaggeration factor.
+	// Real mowing heights are invisible at game-camera distance. A 70mm lens
+	// compresses perspective and makes foreground grass appear ~2-2.5x taller
+	// than its metric height. These values target what CP grass LOOKS LIKE
+	// in eye-level photos, not what a ruler would measure.
+	//
+	// Tuft meshes: Tiny 5.8cm, Woodland 8cm, Wild 26cm, Meadow 17cm
+	// Data height → photo appearance → zone_height multiplier
+	float zone_height = 1.0;
+	float zone_spread = 1.0;
 	if (zone_id == 0 || zone_id == 1) {
-		zone_height = 1.0; zone_spread = 1.0;   // A-lawn: 5-8cm mowed 2x/week
+		zone_height = 2.2; zone_spread = 1.1;   // A-lawn 5-8cm → photo 12-18cm
 	} else if (zone_id == 2) {
-		zone_height = 1.3; zone_spread = 1.05;  // A-lawn NorthMeadow: 7-10cm, weekly mow
+		zone_height = 2.5; zone_spread = 1.15;  // NorthMeadow 7-10cm → photo 15-22cm
 	} else if (zone_id == 3) {
-		zone_height = 0.9; zone_spread = 0.9;   // Formal garden: 5-7cm, manicured
+		zone_height = 1.8; zone_spread = 0.95;  // Formal garden 5-7cm → photo 10-13cm (tighter)
 	} else if (zone_id == 4) {
-		zone_height = 1.0; zone_spread = 1.0;   // Sports turf: 5-7cm
+		zone_height = 2.0; zone_spread = 1.0;   // Sports turf 5-7cm → photo 11-14cm
 	} else if (zone_id == 7) {
-		zone_height = 1.2; zone_spread = 1.0;   // Waterside: 16-31cm sedge
+		zone_height = 1.3; zone_spread = 1.05;  // Waterside 15-35cm → photo 20-40cm
 	} else if (zone_id == 5) {
-		zone_height = 1.8; zone_spread = 1.1;   // NorthWoods: 12-22cm shade grass
+		zone_height = 2.0; zone_spread = 1.15;  // NorthWoods 10-25cm → photo 16-30cm
 	} else if (zone_id == 6) {
-		zone_height = 1.6; zone_spread = 1.0;   // Ramble: 10-19cm woodland floor
+		zone_height = 1.8; zone_spread = 1.1;   // Ramble 10-25cm → photo 14-28cm
 	} else if (zone_id == 8) {
-		zone_height = 1.0; zone_spread = 1.0;   // WildMeadow: 33-56cm via Tuft_Wild
+		zone_height = 1.2; zone_spread = 1.1;   // WildMeadow 25-60cm → photo 33-62cm
 	} else if (zone_id == 9) {
-		zone_height = 1.4; zone_spread = 1.05;  // OpenLawn: 7-11cm, mowed as-needed
+		zone_height = 2.5; zone_spread = 1.1;   // OpenLawn 7-12cm → photo 16-26cm
 	} else if (zone_id == 10 || zone_id == 11) {
-		zone_height = 1.3; zone_spread = 0.9;   // Woodland: 8-16cm sparse
+		zone_height = 1.6; zone_spread = 1.0;   // Woodland 10-25cm → photo 13-24cm
 	}
 
 	vec3 scale = vec3(
