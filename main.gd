@@ -1846,69 +1846,29 @@ var _landuse_texture: Texture2D  # cached for grass particle system
 # Biome definitions for multi-layer grass particles.
 # Each biome gets its own Terrain3D particle grid with zone-filtered BD3D tuft mesh.
 const GRASS_BIOMES := [
-	{  # Dense maintained lawn — real blade geometry (Sheep Meadow, Great Lawn, sports)
-		"name": "Lawn_A", "biome_id": 0,
+	{  # Maintained lawn — Grass_Patch_Mowed is 21×24cm at scale 1.0, 108 tris
+		"name": "Lawn", "biome_id": 0,
 		"mesh_path": "res://models/vegetation/Grass_Patch_Mowed.glb",
-		"spacing": 0.10, "cell_width": 16.0, "grid_width": 9,
-		"min_scale": Vector3(1.4, 0.8, 1.4),
-		"max_scale": Vector3(2.0, 1.2, 2.0),
+		"spacing": 0.25, "cell_width": 24.0, "grid_width": 7,
+		"min_scale": Vector3(0.8, 0.8, 0.8),
+		"max_scale": Vector3(1.2, 1.2, 1.2),
 		"position_offset": Vector3(0, -0.005, 0),
 	},
-	{  # Lawn variety layer — larger patch, lower density
-		"name": "Lawn_B", "biome_id": 0,
-		"mesh_path": "res://models/vegetation/Grass_Patch_Lawn.glb",
-		"spacing": 0.35, "cell_width": 16.0, "grid_width": 9,
-		"min_scale": Vector3(0.3, 0.7, 0.3),
-		"max_scale": Vector3(0.5, 1.0, 0.5),
-		"position_offset": Vector3(0, -0.008, 0),
-	},
-	{  # Garden — formal, tight mowed
-		"name": "Garden", "biome_id": 4,
-		"mesh_path": "res://models/vegetation/Grass_Patch_Mowed.glb",
-		"spacing": 0.08, "cell_width": 16.0, "grid_width": 9,
-		"min_scale": Vector3(1.2, 0.6, 1.2),
-		"max_scale": Vector3(1.8, 0.9, 1.8),
-		"position_offset": Vector3(0, -0.005, 0),
-	},
-	{  # Wild meadow — taller, more varied
-		"name": "Wild_A", "biome_id": 2,
+	{  # Wild meadow — Grass_Patch_Meadow is 1.3×1.2m at scale 1.0, 192 tris
+		"name": "Wild", "biome_id": 2,
 		"mesh_path": "res://models/vegetation/Grass_Patch_Meadow.glb",
-		"spacing": 0.20, "cell_width": 16.0, "grid_width": 9,
-		"min_scale": Vector3(0.4, 0.7, 0.4),
-		"max_scale": Vector3(0.7, 1.2, 0.7),
+		"spacing": 0.50, "cell_width": 24.0, "grid_width": 7,
+		"min_scale": Vector3(0.25, 0.6, 0.25),
+		"max_scale": Vector3(0.40, 1.0, 0.40),
 		"position_offset": Vector3(0, -0.010, 0),
 	},
-	{  # Wild meadow variety — mixed with lawn patches
-		"name": "Wild_B", "biome_id": 2,
-		"mesh_path": "res://models/vegetation/Grass_Patch_Lawn.glb",
-		"spacing": 0.30, "cell_width": 16.0, "grid_width": 9,
-		"min_scale": Vector3(0.3, 0.8, 0.3),
-		"max_scale": Vector3(0.5, 1.3, 0.5),
-		"position_offset": Vector3(0, -0.008, 0),
-	},
-	{  # Woodland floor — sparse, low
-		"name": "Woodland_A", "biome_id": 3,
+	{  # Woodland floor — Grass_Patch_Woodland is 55×57cm at scale 1.0, 72 tris
+		"name": "Woodland", "biome_id": 3,
 		"mesh_path": "res://models/vegetation/Grass_Patch_Woodland.glb",
-		"spacing": 0.25, "cell_width": 16.0, "grid_width": 9,
-		"min_scale": Vector3(0.7, 0.6, 0.7),
-		"max_scale": Vector3(1.2, 1.0, 1.2),
+		"spacing": 0.40, "cell_width": 24.0, "grid_width": 7,
+		"min_scale": Vector3(0.6, 0.5, 0.6),
+		"max_scale": Vector3(1.0, 0.9, 1.0),
 		"position_offset": Vector3(0, -0.005, 0),
-	},
-	{  # Woodland variety — small mowed patches in clearings
-		"name": "Woodland_B", "biome_id": 3,
-		"mesh_path": "res://models/vegetation/Grass_Patch_Mowed.glb",
-		"spacing": 0.35, "cell_width": 16.0, "grid_width": 9,
-		"min_scale": Vector3(1.0, 0.5, 1.0),
-		"max_scale": Vector3(1.6, 0.8, 1.6),
-		"position_offset": Vector3(0, -0.005, 0),
-	},
-	{  # Dryland / dormant grass — seasonal accent
-		"name": "Dryland", "biome_id": 5,
-		"mesh_path": "res://models/vegetation/Grass_Dryland_Small.glb",
-		"spacing": 0.40, "cell_width": 16.0, "grid_width": 9,
-		"min_scale": Vector3(0.25, 0.5, 0.25),
-		"max_scale": Vector3(0.40, 0.9, 0.40),
-		"position_offset": Vector3(0, -0.008, 0),
 	},
 ]
 
