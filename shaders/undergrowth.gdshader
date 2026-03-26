@@ -28,6 +28,7 @@ uniform float use_atlas = 0.0;  // 1.0 = sample atlas, 0.0 = procedural only
 uniform sampler2D albedo_tex : source_color, filter_linear;
 uniform float use_texture = 0.0;  // 1.0 = read albedo+alpha from albedo_tex
 
+
 varying vec3 v_world_pos;
 varying float v_seed;
 varying float v_wind_amount;
@@ -114,6 +115,7 @@ void fragment() {
 	// Snow accelerates hiding: heavy snow hides shrubs earlier
 	float snow_hide = snow_cover * 0.6;
 	if ((winter_discard + snow_hide) > 0.7 && is_evergreen < 0.5) discard;
+
 
 	// ---- COLOR ----
 	vec3 col = tex_color;

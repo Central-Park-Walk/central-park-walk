@@ -83,6 +83,19 @@ const SPECIES := [
 	{"name": "Wetland_YellowIris",      "s": [0.60, 1.00], "flex": 0.30, "green": 0, "fall": [0.40, 0.32, 0.10], "ai": 25, "fc": [1.00, 0.84, 0.00], "bl": [0.67, 1.0]},  # ref~1.0m → 0.6-1.0m real
 	{"name": "Wetland_LizardsTail",     "s": [0.38, 1.00], "flex": 0.40, "green": 0, "fall": [0.38, 0.30, 0.10], "ai": 26},  # ref~0.8m → 0.3-0.8m real
 	{"name": "Wetland_Phragmites",      "s": [0.57, 1.00], "flex": 0.35, "green": 0, "fall": [0.50, 0.42, 0.22], "ai": 27},  # ref~3.5m → 2.0-3.5m real
+	# ── Gscatter 3D species (30+) — real geometry, embedded PBR textures ──
+	{"name": "gscatter/LadyFern_Big_0",      "s": [1.50, 3.50], "flex": 0.40, "green": 0, "fall": [0.45, 0.35, 0.08], "ai": -1},  # ref~0.28m → 0.42-0.98m real
+	{"name": "gscatter/LadyFern_Small_0",    "s": [1.50, 3.00], "flex": 0.35, "green": 0, "fall": [0.45, 0.35, 0.08], "ai": -1},  # ref~0.04m → 0.06-0.12m real
+	{"name": "gscatter/WhiteClover_Big_0",   "s": [0.80, 2.00], "flex": 0.10, "green": 0, "fall": [0.40, 0.35, 0.10], "ai": -1, "fc": [1.00, 1.00, 1.00], "bl": [0.56, 1.67]},  # ref~0.14m → 0.11-0.28m
+	{"name": "gscatter/CommonIvy_Creeping_0","s": [1.00, 3.00], "flex": 0.05, "green": 1, "fall": [0.10, 0.20, 0.05], "ai": -1},  # ref~0.04m → 0.04-0.12m ground cover
+	{"name": "gscatter/BankHaircapMoss_Big_0","s":[2.00, 5.00], "flex": 0.0,  "green": 1, "fall": [0.15, 0.25, 0.05], "ai": -1},  # ref~0.04m → 0.08-0.20m moss carpet
+	{"name": "gscatter/BroadleafPlantain_B_Big_0","s":[0.80,1.80],"flex":0.15,"green": 0, "fall": [0.35, 0.30, 0.08], "ai": -1},  # ref~0.27m → 0.22-0.49m lawn weed
+	# Spring bulbs — gscatter textures include leaves+flowers; visible spring-summer, die back in winter
+	# Deciduous (green=0) so winter_discard handles disappearance naturally
+	{"name": "gscatter/Snowdrop_Big_0",      "s": [0.30, 0.60], "flex": 0.20, "green": 0, "fall": [0.30, 0.25, 0.08], "ai": -1},   # ref~0.27m → 8-16cm
+	{"name": "gscatter/Crocus_Big_0",        "s": [0.50, 1.00], "flex": 0.15, "green": 0, "fall": [0.30, 0.20, 0.10], "ai": -1},   # ref~0.14m → 7-14cm
+	{"name": "gscatter/Daffodil_Big_0",      "s": [0.80, 1.50], "flex": 0.25, "green": 0, "fall": [0.50, 0.45, 0.15], "ai": -1},   # ref~0.27m → 22-40cm
+	{"name": "gscatter/Tulip_Red_0",         "s": [0.60, 1.20], "flex": 0.20, "green": 0, "fall": [0.45, 0.30, 0.10], "ai": -1},   # ref~0.51m → 31-61cm
 ]
 
 # Zone type -> list of [species_index, density_per_100m2]
@@ -93,6 +106,10 @@ const ZONE_SPECIES := {
 		[13, 8.0],  # Ostrich Fern (dominant — NorthWoods signature)
 		[14, 6.0],  # Christmas Fern (evergreen carpet)
 		[24, 6.0],  # Cinnamon Fern (wet ravines)
+		[30, 4.0],  # Lady Fern — gscatter 3D (supplement existing ferns)
+		[31, 6.0],  # Lady Fern Small — dense ground cover fronds
+		[33, 5.0],  # Common Ivy — gscatter 3D (woodland ground cover)
+		[34, 8.0],  # Bank Haircap Moss — gscatter 3D (woodland floor carpet)
 		[27, 3.0],  # Yellow Flag Iris — 53% of obs here (The Pool)
 		[4, 2.0],   # Elderberry — 36% of obs here
 		[19, 2.0],  # Flowering Raspberry — 29% of obs here
@@ -110,6 +127,9 @@ const ZONE_SPECIES := {
 		[2, 4.0],   # Viburnum (Ramble signature — dense thickets)
 		[10, 5.0],  # White Wood Aster — 31% of obs here
 		[11, 4.0],  # Jewelweed — 50% of obs here (stream banks)
+		[30, 3.0],  # Lady Fern — gscatter 3D
+		[33, 4.0],  # Common Ivy — gscatter 3D (woodland ground cover)
+		[34, 6.0],  # Bank Haircap Moss — gscatter 3D
 		[22, 2.0],  # Rose Mallow — 47% of obs here (most common location!)
 		[4, 2.0],   # Elderberry — 36% of obs here
 		[18, 2.0],  # Sweet Pepperbush — 27% of obs here
@@ -149,8 +169,30 @@ const ZONE_SPECIES := {
 		[19, 1.0],  # Flowering Raspberry (edges)
 		[29, 1.0],  # Phragmites (wet patches)
 	],
-	# Zones 0-4 (SheepMeadow, GreatLawn, NorthMeadow, FormalGarden, SportsTurf)
-	# and zone 9 (OpenLawn) are maintained lawns — NO undergrowth.
+	# Maintained lawns get subtle ground-level accents — clover, plantain, spring flowers
+	0: [  # SheepMeadow — well-maintained, sparse weeds
+		[32, 2.0],  # White Clover (lawn accent)
+		[35, 1.0],  # Broadleaf Plantain (lawn weed)
+		[38, 1.5],  # Daffodil (spring)
+		[37, 1.0],  # Crocus (early spring)
+	],
+	1: [  # GreatLawn — moderate maintenance
+		[32, 3.0],  # White Clover
+		[35, 1.5],  # Broadleaf Plantain
+		[38, 2.0],  # Daffodil (spring)
+		[37, 1.5],  # Crocus (early spring)
+	],
+	3: [  # FormalGarden — curated spring bulbs
+		[38, 4.0],  # Daffodil
+		[39, 3.0],  # Tulip
+		[37, 2.0],  # Crocus
+		[36, 2.0],  # Snowdrop
+	],
+	9: [  # OpenLawn — light clover/weed presence
+		[32, 2.5],  # White Clover
+		[35, 1.0],  # Broadleaf Plantain
+		[38, 1.0],  # Daffodil (spring)
+	],
 }
 
 # Woodland chunks (no pre-baked data) get understory — but ONLY in actual
@@ -158,6 +200,10 @@ const ZONE_SPECIES := {
 const WOODLAND_SPECIES: Array = [
 	[13, 5.0],  # Ostrich Fern (dominant ground cover)
 	[14, 4.0],  # Christmas Fern
+	[30, 3.0],  # Lady Fern — gscatter 3D
+	[31, 5.0],  # Lady Fern Small — dense ground cover
+	[33, 4.0],  # Common Ivy — gscatter 3D ground cover
+	[34, 6.0],  # Bank Haircap Moss — gscatter 3D floor carpet
 	[26, 4.0],  # Bottlebrush Grass (shade grass)
 	[10, 3.0],  # White Wood Aster
 	[20, 2.0],  # White Snakeroot
