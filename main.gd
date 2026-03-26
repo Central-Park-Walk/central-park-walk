@@ -667,9 +667,7 @@ func _process(delta: float) -> void:
 	if _player and _park_loader and _park_loader._ground_cover_builder:
 		_park_loader._ground_cover_builder.season_t = _season_t
 		_park_loader._ground_cover_builder.update_camera(_player.global_position)
-	if _player and _park_loader and _park_loader._grass_accent_builder:
-		_park_loader._grass_accent_builder.season_t = _season_t
-		_park_loader._grass_accent_builder.update_camera(_player.global_position)
+	# grass accents removed — particle system handles all grass types
 
 	# Grass tour auto-teleport + screenshot
 	_grass_tour_process(delta)
