@@ -355,9 +355,16 @@ void start() {
 		pos.xz = vec2(100000.0);
 	}
 
-	// Pass zone info to render shader via COLOR
-	// R = zone_id normalized, G = canopy_cover, B = woodland flag, A = season_t / 4
-	COLOR = vec4(float(zone_id) / 15.0, canopy_cover, is_woodland ? 1.0 : 0.0, season_t / 4.0);
+	// Sample Terrain3D color map for grass-terrain root blending
+	ivec3 tc_idx = get_index_coord(floor(pos.xz * _vertex_density), VERTEX_PASS);
+	vec3 terrain_tint = vec3(1.0);
+	if (tc_idx.z >= 0) {
+		terrain_tint = texelFetch(_color_maps, tc_idx, 0).rgb;
+	}
+
+	// Pass zone + terrain data to render shader via COLOR
+	// R = zone_id normalized, G = canopy_cover, B = terrain_tint.r, A = terrain_tint.g
+	COLOR = vec4(float(zone_id) / 15.0, canopy_cover, terrain_tint.r, terrain_tint.g);
 
 	if (length(camera_position - pos) > max_dist) {
 		pos.y = 0. / 0.;

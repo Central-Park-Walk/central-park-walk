@@ -98,11 +98,12 @@ void fragment() {
 		ALPHA_SCISSOR_THRESHOLD = 0.4;
 	}
 
-	// Decode zone data from COLOR (set by particle process shader)
-	// R = zone_id / 15.0, G = canopy_cover, B = woodland flag, A = season_t / 4
+	// Decode zone + terrain data from COLOR (set by particle process shader)
+	// R = zone_id / 15.0, G = canopy_cover, B = terrain_tint.r, A = terrain_tint.g
 	int zone_id = int(COLOR.r * 15.0 + 0.5);
 	float canopy_cover = COLOR.g;
 	float blade_seed = data.r;
+	vec3 terrain_tint = vec3(COLOR.b, COLOR.a, min(COLOR.b, COLOR.a));
 
 	// --- Zone-specific color palettes ---
 	// Values in linear sRGB; all brightened ~25-30% from original to compensate
@@ -169,8 +170,20 @@ void fragment() {
 		col = mix(tex_col, col, 0.25);
 	}
 
-	// Base-to-tip gradient (raised floor so short turf meshes don't go too dark)
-	col *= mix(0.90, 1.0, v_height_t);
+	// Root-to-tip gradient: grass emerges from dark thatch layer at ground.
+	// Real grass has a dense brown thatch zone at its base where dead stems,
+	// soil, and mulch are visible. This hides the terrain-to-grass transition.
+	float root_t = smoothstep(0.0, 0.30, v_height_t);
+	col *= mix(0.60, 1.0, root_t);
+
+	// Zone-derived thatch tint at base — ties grass roots to terrain character.
+	// Woodland roots are browner (leaf litter), lawns are dark green (dense turf).
+	vec3 thatch_col = color_small * 0.5;
+	col = mix(col, thatch_col, (1.0 - root_t) * 0.4);
+
+	// Terrain color map influence at roots (propagates Terrain3D color painting).
+	// When terrain_tint is white (default), this is a no-op.
+	col *= mix(terrain_tint, vec3(1.0), root_t * 0.7 + 0.3);
 
 	// Per-instance hue variation
 	col *= mix(vec3(0.97, 1.01, 1.03), vec3(1.03, 0.99, 0.95), blade_seed);
@@ -186,6 +199,14 @@ void fragment() {
 	col = mix(col, col * vec3(1.1, 1.15, 0.75), spring_t * 0.6);
 	col = mix(col, vec3(0.16, 0.12, 0.04), autumn_t * 0.7);
 	col = mix(col, vec3(0.12, 0.10, 0.06), winter_t);
+
+	// --- Canopy leaf litter at grass roots (matches terrain shader overlay) ---
+	if (canopy_cover > 0.3) {
+		vec3 litter_col = mix(vec3(0.28, 0.22, 0.14), vec3(0.34, 0.26, 0.16),
+			vnoise(v_world_pos.xz * 0.5));
+		float litter_strength = smoothstep(0.3, 0.7, canopy_cover) * (1.0 - root_t) * 0.5;
+		col = mix(col, litter_col, litter_strength);
+	}
 
 	// --- Canopy dapple (not flat darkening — SDFGI handles bulk shade) ---
 	if (canopy_cover > 0.01) {
