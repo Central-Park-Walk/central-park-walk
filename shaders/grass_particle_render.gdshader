@@ -29,40 +29,56 @@ varying float v_height_t;
 void vertex() {
 	// Height within tuft: use vertex Y position (0=ground, tip=max height).
 	// Tuft meshes: Tiny ~0.06m, Woodland ~0.08m, Meadow ~0.17m, Wild ~0.26m.
-	// Low normalizer (0.10) so even short tuft tips get proper gradient.
 	v_height_t = clamp(VERTEX.y / 0.10, 0.0, 1.0);
-	float bend_factor = v_height_t * v_height_t;
-
-	if (!use_texture) {
-		VERTEX.xz *= (1.0 - bend_factor);
-	}
 
 	data.rg = INSTANCE_CUSTOM.rg;
 	data[3] = INSTANCE_CUSTOM[3];
 
-	vec3 w_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	v_world_pos = w_vertex;
-
-	// Winter: shrink blades toward ground
+	// Winter: shrink blades toward ground (model space, before world transform)
 	float w_winter = smoothstep(2.7, 3.5, season_t);
 	float w_snow = max(w_winter, snow_cover);
 	if (w_snow > 0.0) {
 		VERTEX.y *= mix(1.0, 0.08, w_snow);
 	}
 
-	// Wind bending — suppress in winter/snow
+	// Transform to world space
+	vec3 w_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	vec3 instance_root = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	v_world_pos = w_vertex;
+
+	// --- Wind curvature: rotate vertex in an arc around blade root ---
+	// Real grass bends with progressive curvature — base stays upright,
+	// mid-blade curves, tip arcs over. Rodrigues rotation with angle
+	// proportional to height² gives natural droop.
 	float wind_suppression = 1.0 - w_snow;
-	float grass_scale = pow(INSTANCE_CUSTOM[3] * INSTANCE_CUSTOM[3], 0.707);
-	float force = INSTANCE_CUSTOM[2] * bend_factor * grass_scale * wind_suppression;
-	force -= fract(force * 256.0) * force * 0.05;
-	force = pow(max(force, 0.0), 0.707);
+	float grass_scale = pow(max(INSTANCE_CUSTOM[3], 0.01), 0.707);
+	float wind_noise = INSTANCE_CUSTOM[2]; // per-instance wind from process shader
 
-	vec2 direction = normalize(wind_vec + vec2(0.001));
-	float lateral_wobble = sin(TIME * 2.0 * (1.0 + data.r + data.g)) * 0.25 * (1.0 - INSTANCE_CUSTOM[2]) * wind_suppression;
-	w_vertex.xz -= (vec2(-direction.y, direction.x) * lateral_wobble + direction) * force;
-	w_vertex.y -= INSTANCE_CUSTOM[2] * force * bend_factor;
+	// Bend angle: quadratic with height for progressive curvature
+	// Clamped to ~1.0 rad (~57°) to prevent blades flattening against ground
+	float bend_strength = wind_noise * grass_scale * wind_suppression;
+	float bend_angle = bend_strength * v_height_t * v_height_t * 0.9;
+	bend_angle = min(bend_angle, 1.0);
 
-	data[2] = force;
+	// Bend axis: perpendicular to wind direction (horizontal)
+	vec2 wind_dir = normalize(wind_vec + vec2(0.001));
+	vec3 bend_axis = vec3(-wind_dir.y, 0.0, wind_dir.x);
+
+	// Per-instance lateral wobble: subtle sway perpendicular to wind
+	float wobble = sin(TIME * 2.0 * (1.0 + data.r + data.g)) * 0.12 * wind_suppression;
+	bend_axis = normalize(bend_axis + vec3(wind_dir.x, 0.0, wind_dir.y) * wobble);
+
+	// Rodrigues rotation: rotate offset from root around bend_axis
+	if (bend_angle > 0.001) {
+		vec3 offset = w_vertex - instance_root;
+		float c = cos(bend_angle);
+		float s = sin(bend_angle);
+		float d = dot(bend_axis, offset);
+		vec3 rotated = offset * c + cross(bend_axis, offset) * s + bend_axis * d * (1.0 - c);
+		w_vertex = instance_root + rotated;
+	}
+
+	data[2] = bend_strength; // pass to fragment for wind color shift
 
 	VERTEX = (VIEW_MATRIX * vec4(w_vertex, 1.0)).xyz;
 	NORMAL = MODELVIEW_NORMAL_MATRIX * NORMAL;

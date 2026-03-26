@@ -239,24 +239,30 @@ void start() {
 	// B/C-lawns (zone 7,9): mowed weekly/as-needed, slightly taller
 	// D-lawns/woodland (zone 5,10,11): infrequent mow, tall, patchy
 	// Wild meadow (zone 8): unmowed, tallest
+	// Zone height/spread calibrated for Tuft meshes:
+	// Tuft_Tiny 5.8cm, Tuft_Woodland 8cm, Tuft_Wild 26cm, Tuft_Meadow 17cm
 	float zone_height = 1.0;  // multiplier on Y scale
 	float zone_spread = 1.0;  // multiplier on XZ scale
 	if (zone_id == 0 || zone_id == 1) {
-		zone_height = 0.7; zone_spread = 0.9;   // A-lawn: short, tight mow
+		zone_height = 1.0; zone_spread = 1.0;   // A-lawn: 5-8cm mowed 2x/week
 	} else if (zone_id == 2) {
-		zone_height = 0.8; zone_spread = 0.95;  // A-lawn (NorthMeadow)
+		zone_height = 1.3; zone_spread = 1.05;  // A-lawn NorthMeadow: 7-10cm, weekly mow
 	} else if (zone_id == 3) {
-		zone_height = 0.6; zone_spread = 0.85;  // Formal garden: shortest
+		zone_height = 0.9; zone_spread = 0.9;   // Formal garden: 5-7cm, manicured
+	} else if (zone_id == 4) {
+		zone_height = 1.0; zone_spread = 1.0;   // Sports turf: 5-7cm
 	} else if (zone_id == 7) {
-		zone_height = 0.9; zone_spread = 1.0;   // C-lawn (waterside)
+		zone_height = 1.2; zone_spread = 1.0;   // Waterside: 16-31cm sedge
 	} else if (zone_id == 5) {
-		zone_height = 1.4; zone_spread = 1.1;   // NorthWoods: tall shade grass
+		zone_height = 1.8; zone_spread = 1.1;   // NorthWoods: 12-22cm shade grass
 	} else if (zone_id == 6) {
-		zone_height = 1.2; zone_spread = 1.0;   // Ramble: moderate woodland
+		zone_height = 1.6; zone_spread = 1.0;   // Ramble: 10-19cm woodland floor
 	} else if (zone_id == 8) {
-		zone_height = 1.8; zone_spread = 1.2;   // WildMeadow: tallest, unmowed
+		zone_height = 1.0; zone_spread = 1.0;   // WildMeadow: 33-56cm via Tuft_Wild
+	} else if (zone_id == 9) {
+		zone_height = 1.4; zone_spread = 1.05;  // OpenLawn: 7-11cm, mowed as-needed
 	} else if (zone_id == 10 || zone_id == 11) {
-		zone_height = 1.0; zone_spread = 0.8;   // Woodland: medium, sparse
+		zone_height = 1.3; zone_spread = 0.9;   // Woodland: 8-16cm sparse
 	}
 
 	vec3 scale = vec3(

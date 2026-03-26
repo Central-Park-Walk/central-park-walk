@@ -1848,34 +1848,39 @@ var _landuse_texture: Texture2D  # cached for grass particle system
 # Tuft meshes have embedded albedo textures with alpha for realistic blade-level detail
 # and blending with the terrain underneath. Undergrowth system provides taller accents.
 const GRASS_BIOMES := [
-	{  # Maintained lawns — Tuft_Tiny: 34×33cm, 5.8cm tall, 99 tris
+	{  # Maintained lawns — Tuft_Tiny: 34×33cm footprint, 5.8cm tall, 99 tris
+		# Dense A-class coverage: 0.4m spacing × 0.3 random → near-seamless at 34cm width
 		"name": "Lawn", "biome_id": 0,
 		"mesh_path": "res://models/vegetation/Tuft_Tiny.glb",
-		"spacing": 0.5, "cell_width": 24.0, "grid_width": 5,
+		"spacing": 0.4, "cell_width": 24.0, "grid_width": 5,
+		"random_spacing": 0.3,
 		"min_scale": Vector3(0.9, 0.9, 0.9),
 		"max_scale": Vector3(1.3, 1.3, 1.3),
 		"position_offset": Vector3(0, -0.005, 0),
 	},
-	{  # Woodland/shade floor — Tuft_Woodland: 24×20cm, 8cm tall, 150 tris
+	{  # Woodland/shade floor — Tuft_Woodland: 24×20cm footprint, 8cm tall, 150 tris
 		"name": "Shade", "biome_id": 1,
 		"mesh_path": "res://models/vegetation/Tuft_Woodland.glb",
-		"spacing": 0.6, "cell_width": 24.0, "grid_width": 5,
+		"spacing": 0.5, "cell_width": 24.0, "grid_width": 5,
+		"random_spacing": 0.5,
 		"min_scale": Vector3(0.8, 0.8, 0.8),
 		"max_scale": Vector3(1.5, 1.5, 1.5),
 		"position_offset": Vector3(0, -0.005, 0),
 	},
-	{  # Wild meadow — Tuft_Wild: 68×67cm, 26cm tall, 300 tris
+	{  # Wild meadow — Tuft_Wild: 68×67cm footprint, 26cm tall, 300 tris
 		"name": "Wild", "biome_id": 2,
 		"mesh_path": "res://models/vegetation/Tuft_Wild.glb",
-		"spacing": 0.6, "cell_width": 24.0, "grid_width": 5,
+		"spacing": 0.55, "cell_width": 24.0, "grid_width": 5,
+		"random_spacing": 0.5,
 		"min_scale": Vector3(0.7, 0.7, 0.7),
 		"max_scale": Vector3(1.2, 1.2, 1.2),
 		"position_offset": Vector3(0, -0.008, 0),
 	},
-	{  # Waterside — Tuft_Meadow: 25×27cm, 17cm tall, 266 tris
+	{  # Waterside — Tuft_Meadow: 25×27cm footprint, 17cm tall, 266 tris
 		"name": "Sedge", "biome_id": 3,
 		"mesh_path": "res://models/vegetation/Tuft_Meadow.glb",
-		"spacing": 0.6, "cell_width": 24.0, "grid_width": 5,
+		"spacing": 0.5, "cell_width": 24.0, "grid_width": 5,
+		"random_spacing": 0.4,
 		"min_scale": Vector3(0.8, 0.8, 0.8),
 		"max_scale": Vector3(1.5, 1.5, 1.5),
 		"position_offset": Vector3(0, -0.005, 0),
@@ -1943,7 +1948,7 @@ func _setup_grass_particles() -> void:
 		proc_mat.set_shader_parameter("align_to_normal", true)
 		proc_mat.set_shader_parameter("normal_strength", 0.3)
 		proc_mat.set_shader_parameter("random_rotation", true)
-		proc_mat.set_shader_parameter("random_spacing", 0.5)
+		proc_mat.set_shader_parameter("random_spacing", biome.get("random_spacing", 0.5))
 		proc_mat.set_shader_parameter("min_scale", biome.min_scale)
 		proc_mat.set_shader_parameter("max_scale", biome.max_scale)
 		proc_mat.set_shader_parameter("wind_speed", 0.025)
