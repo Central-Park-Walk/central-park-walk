@@ -240,11 +240,36 @@ void start() {
 	float patch = smoothstep(patch_min_threshold, patch_max_threshold, noise);
 	float width_modifier = 1.0 + 3.0 * smoothstep(0., max_dist, length(camera_position - pos));
 
-	// Calculate scale — mesh already has correct biome height, just add variation
+	// --- Data-driven grass height from CPC lawn classification ---
+	// A-lawns (zone 0,1,2,3,4): mowed 2x/week to 7.6cm, dense, uniform
+	// B/C-lawns (zone 7,9): mowed weekly/as-needed, slightly taller
+	// D-lawns/woodland (zone 5,10,11): infrequent mow, tall, patchy
+	// Wild meadow (zone 8): unmowed, tallest
+	float zone_height = 1.0;  // multiplier on Y scale
+	float zone_spread = 1.0;  // multiplier on XZ scale
+	if (zone_id == 0 || zone_id == 1) {
+		zone_height = 0.7; zone_spread = 0.9;   // A-lawn: short, tight mow
+	} else if (zone_id == 2) {
+		zone_height = 0.8; zone_spread = 0.95;  // A-lawn (NorthMeadow)
+	} else if (zone_id == 3) {
+		zone_height = 0.6; zone_spread = 0.85;  // Formal garden: shortest
+	} else if (zone_id == 7) {
+		zone_height = 0.9; zone_spread = 1.0;   // C-lawn (waterside)
+	} else if (zone_id == 5) {
+		zone_height = 1.6; zone_spread = 1.2;   // D-lawn/wild (NorthWoods): tall
+	} else if (zone_id == 10 || zone_id == 11) {
+		zone_height = 1.0; zone_spread = 0.8;   // Woodland: medium, sparse
+	}
+	// Wild meadow gets tallest grass
+	if (biome_id == 2) {
+		zone_height = max(zone_height, 1.8);
+		zone_spread = max(zone_spread, 1.1);
+	}
+
 	vec3 scale = vec3(
-		mix(min_scale.x, max_scale.x, r.x) * width_modifier,
-		mix(min_scale.y, max_scale.y, r.y) + clods,
-		mix(min_scale.z, max_scale.z, r.z) * width_modifier) * patch;
+		mix(min_scale.x, max_scale.x, r.x) * width_modifier * zone_spread,
+		mix(min_scale.y, max_scale.y, r.y) * zone_height + clods,
+		mix(min_scale.z, max_scale.z, r.z) * width_modifier * zone_spread) * patch;
 
 	// Apply scale to offset
 	vec3 offset = position_offset * scale;
@@ -289,18 +314,17 @@ void start() {
 		}
 	}
 
-	// Biome-appropriate density — each layer tunes its own survival rate
-	float zone_density = 0.9;
-	if (biome_id == 0) zone_density = 0.95;        // lawn: dense turf
-	else if (biome_id == 1) zone_density = 0.85;   // meadow: natural
-	else if (biome_id == 2) zone_density = 0.60;   // wild: patchy
-	else if (biome_id == 3) zone_density = 0.25;   // woodland: sparse
-	// Legacy mode keeps per-zone density
-	else if (zone_id == 3 || zone_id == 7) zone_density = 1.0;
-	else if (zone_id == 1) zone_density = 0.95;
-	else if (zone_id == 0 || zone_id == 2) zone_density = 0.85;
-	else if (zone_id == 5) zone_density = 0.60;
-	else if (is_woodland) zone_density = 0.25;
+	// Data-driven density from CPC lawn classification
+	// A-lawns: 95% coverage (dense turf). D-lawns/woodland: 25-40% (patchy, mulch zones)
+	float zone_density = 0.5;
+	if (zone_id == 0 || zone_id == 1) zone_density = 0.95;       // A-lawn: dense
+	else if (zone_id == 2) zone_density = 0.90;                   // A-lawn (NorthMeadow)
+	else if (zone_id == 3) zone_density = 0.98;                   // Formal garden: manicured
+	else if (zone_id == 4) zone_density = 0.85;                   // Sports turf
+	else if (zone_id == 7) zone_density = 0.80;                   // C-lawn (waterside)
+	else if (zone_id == 9) zone_density = 0.70;                   // B/C open lawn
+	else if (zone_id == 5) zone_density = 0.40;                   // D-lawn/wild: patchy
+	else if (zone_id == 10 || zone_id == 11) zone_density = 0.20; // Woodland: sparse, mostly litter
 
 	if (r.x > zone_density) {
 		pos.y = 0. / 0.;

@@ -27,7 +27,11 @@ varying vec3 v_world_pos;
 varying float v_height_t;
 
 void vertex() {
-	v_height_t = use_texture ? UV.y : clamp((VERTEX.y + 0.55) * 0.91, 0.0, 1.0);
+	// Height within tuft: use vertex Y position (0=ground, tip=max height).
+	// VERTEX.y is in model space — normalize by approximate mesh height.
+	// Grass_Patch meshes: Mowed ~0.10m, Meadow ~0.26m, Woodland ~0.07m.
+	// Clamp to safe range; slightly above 1.0 is fine for tall variants.
+	v_height_t = clamp(VERTEX.y / 0.15, 0.0, 1.0);
 	float bend_factor = v_height_t * v_height_t;
 
 	if (!use_texture) {
