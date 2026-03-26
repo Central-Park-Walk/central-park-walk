@@ -1870,6 +1870,14 @@ const GRASS_BIOMES := [
 		"max_scale": Vector3(1.0, 0.9, 1.0),
 		"position_offset": Vector3(0, -0.005, 0),
 	},
+	{  # KBG lawn accent — gscatter PoaPratensis Small, 199 tris, 6.3cm at scale 1.0
+		"name": "KBG_Accent", "biome_id": 0,
+		"mesh_path": "res://models/vegetation/gscatter/PoaPratensis_Small_0.glb",
+		"spacing": 0.50, "cell_width": 24.0, "grid_width": 5,
+		"min_scale": Vector3(1.5, 1.5, 1.5),
+		"max_scale": Vector3(3.0, 3.0, 3.0),
+		"position_offset": Vector3(0, -0.005, 0),
+	},
 ]
 
 func _setup_grass_particles() -> void:
