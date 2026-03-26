@@ -261,7 +261,7 @@ void fragment() {
 			float sky_lum = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
 			float sun_factor = smoothstep(0.02, 0.20, sky_lum);
 			float shade = sc * sun_factor;
-			col *= (1.0 - shade * (1.0 - light_gap) * 0.35);
+			col *= (1.0 - shade * (1.0 - light_gap) * 0.10);
 			col *= vec3(1.0 + light_gap * shade * 0.08, 1.0 + light_gap * shade * 0.04, 1.0 - light_gap * shade * 0.024);
 		}
 	}

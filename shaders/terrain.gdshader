@@ -681,8 +681,8 @@ void fragment() {
 
 			// Apply shade: darken under canopy, with bright dappled sun spots
 			float shade = seasonal_canopy * sun_factor;
-			// Shade: 50% darkening under dense canopy (Ramble reference shows deep shade)
-			float shade_amount = shade * (1.0 - light_gap) * 0.50;
+			// Dapple pattern only — SDFGI handles the real canopy shadow
+			float shade_amount = shade * (1.0 - light_gap) * 0.12;
 			grass_alb *= (1.0 - shade_amount);
 			// Sun spots through canopy are warm green-gold (filtered by leaves)
 			float warm_spots = light_gap * shade;

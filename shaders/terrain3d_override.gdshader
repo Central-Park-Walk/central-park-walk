@@ -396,7 +396,7 @@ void fragment() {
 			float sun_factor = smoothstep(0.02, 0.20, sky_lum);
 
 			float shade = seasonal_canopy * sun_factor;
-			ALBEDO *= (1.0 - shade * (1.0 - light_gap) * 0.50);
+			ALBEDO *= (1.0 - shade * (1.0 - light_gap) * 0.12);
 			float warm_spots = light_gap * shade;
 			ALBEDO *= vec3(1.0 + warm_spots * 0.15, 1.0 + warm_spots * 0.10, 1.0 - warm_spots * 0.05);
 		}

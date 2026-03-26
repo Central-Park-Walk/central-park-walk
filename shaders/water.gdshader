@@ -323,7 +323,7 @@ void fragment() {
 			float sun_factor = smoothstep(0.02, 0.20, sky_lum2);
 			float shade = sc * sun_factor;
 			// Shade darkens water; light gaps create bright dancing patches
-			col *= (1.0 - shade * (1.0 - light_gap) * 0.25);
+			col *= (1.0 - shade * (1.0 - light_gap) * 0.10);
 			// Bright sun patches on water have a warm golden quality
 			float warm_patch = light_gap * shade * 0.06;
 			col += vec3(warm_patch * 1.2, warm_patch * 0.8, warm_patch * 0.3);

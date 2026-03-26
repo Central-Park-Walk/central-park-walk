@@ -176,7 +176,7 @@ void fragment() {
 			float dapple = gnoise(world_pos.xz * 0.3 + wind_vec * TIME * 0.06) * 0.5 + 0.5;
 			float light_gap = smoothstep(0.30, 0.70, dapple);
 			float shade = sc * sun_factor;
-			col *= (1.0 - shade * (1.0 - light_gap) * 0.30);
+			col *= (1.0 - shade * (1.0 - light_gap) * 0.10);
 			col += vec3(1.0, 0.8, 0.3) * light_gap * shade * 0.04;
 		}
 	}
