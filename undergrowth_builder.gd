@@ -430,7 +430,7 @@ func _build_chunk(ck: String) -> void:
 			var bx: float = cx + rng.randf() * CHUNK
 			var bz: float = cz + rng.randf() * CHUNK
 
-			# Atlas check — must be grass
+			# Atlas check — must be grass, with 1.5m buffer from paths
 			var apx: int = int((bx + _atlas_half) * _atlas_scale)
 			var apz: int = int((bz + _atlas_half) * _atlas_scale)
 			if apx < 0 or apx >= _atlas_res or apz < 0 or apz >= _atlas_res: continue
@@ -438,6 +438,17 @@ func _build_chunk(ck: String) -> void:
 			if _atlas_data[ai] != 1: continue
 			# Check occupancy — avoid trees, benches, etc.
 			if _atlas_data[ai + 1] != 0: continue
+			# Path proximity buffer (~1.5m = ~2.5 atlas cells at 0.6m/cell)
+			var near_path := false
+			for dxy in [[-2,0],[2,0],[0,-2],[0,2],[-2,-2],[2,2],[-2,2],[2,-2]]:
+				var nx: int = apx + dxy[0]
+				var nz: int = apz + dxy[1]
+				if nx >= 0 and nx < _atlas_res and nz >= 0 and nz < _atlas_res:
+					var ns: int = _atlas_data[(nz * _atlas_res + nx) * 2]
+					if ns == 2 or ns == 3:  # paved or unpaved path
+						near_path = true
+						break
+			if near_path: continue
 
 			# Heightmap lookup
 			var xi: float = (bx + _hm_half) / _hm_ws * (_hm_w - 1)
