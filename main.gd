@@ -1845,39 +1845,33 @@ var _landuse_texture: Texture2D  # cached for grass particle system
 
 # Biome definitions for multi-layer grass particles.
 # Each biome gets its own Terrain3D particle grid with zone-filtered BD3D tuft mesh.
+# Old BD3D particle grass disabled — gscatter undergrowth now handles ground vegetation.
+# Re-enable by uncommenting if gscatter undergrowth density needs supplementing.
 const GRASS_BIOMES := [
-	{  # Maintained lawn — Grass_Patch_Mowed is 21×24cm at scale 1.0, 108 tris
-		"name": "Lawn", "biome_id": 0,
-		"mesh_path": "res://models/vegetation/Grass_Patch_Mowed.glb",
-		"spacing": 0.25, "cell_width": 24.0, "grid_width": 7,
-		"min_scale": Vector3(0.8, 0.8, 0.8),
-		"max_scale": Vector3(1.2, 1.2, 1.2),
-		"position_offset": Vector3(0, -0.005, 0),
-	},
-	{  # Wild meadow — Grass_Patch_Meadow is 1.3×1.2m at scale 1.0, 192 tris
-		"name": "Wild", "biome_id": 2,
-		"mesh_path": "res://models/vegetation/Grass_Patch_Meadow.glb",
-		"spacing": 0.50, "cell_width": 24.0, "grid_width": 7,
-		"min_scale": Vector3(0.25, 0.6, 0.25),
-		"max_scale": Vector3(0.40, 1.0, 0.40),
-		"position_offset": Vector3(0, -0.010, 0),
-	},
-	{  # Woodland floor — Grass_Patch_Woodland is 55×57cm at scale 1.0, 72 tris
-		"name": "Woodland", "biome_id": 3,
-		"mesh_path": "res://models/vegetation/Grass_Patch_Woodland.glb",
-		"spacing": 0.40, "cell_width": 24.0, "grid_width": 7,
-		"min_scale": Vector3(0.6, 0.5, 0.6),
-		"max_scale": Vector3(1.0, 0.9, 1.0),
-		"position_offset": Vector3(0, -0.005, 0),
-	},
-	{  # KBG lawn accent — gscatter PoaPratensis Small, 199 tris, 6.3cm at scale 1.0
-		"name": "KBG_Accent", "biome_id": 0,
-		"mesh_path": "res://models/vegetation/gscatter/PoaPratensis_Small_0.glb",
-		"spacing": 0.50, "cell_width": 24.0, "grid_width": 5,
-		"min_scale": Vector3(1.5, 1.5, 1.5),
-		"max_scale": Vector3(3.0, 3.0, 3.0),
-		"position_offset": Vector3(0, -0.005, 0),
-	},
+#	{  # Maintained lawn — Grass_Patch_Mowed is 21×24cm at scale 1.0, 108 tris
+#		"name": "Lawn", "biome_id": 0,
+#		"mesh_path": "res://models/vegetation/Grass_Patch_Mowed.glb",
+#		"spacing": 0.25, "cell_width": 24.0, "grid_width": 7,
+#		"min_scale": Vector3(0.8, 0.8, 0.8),
+#		"max_scale": Vector3(1.2, 1.2, 1.2),
+#		"position_offset": Vector3(0, -0.005, 0),
+#	},
+#	{  # Wild meadow — Grass_Patch_Meadow is 1.3×1.2m at scale 1.0, 192 tris
+#		"name": "Wild", "biome_id": 2,
+#		"mesh_path": "res://models/vegetation/Grass_Patch_Meadow.glb",
+#		"spacing": 0.50, "cell_width": 24.0, "grid_width": 7,
+#		"min_scale": Vector3(0.25, 0.6, 0.25),
+#		"max_scale": Vector3(0.40, 1.0, 0.40),
+#		"position_offset": Vector3(0, -0.010, 0),
+#	},
+#	{  # Woodland floor — Grass_Patch_Woodland is 55×57cm at scale 1.0, 72 tris
+#		"name": "Woodland", "biome_id": 3,
+#		"mesh_path": "res://models/vegetation/Grass_Patch_Woodland.glb",
+#		"spacing": 0.40, "cell_width": 24.0, "grid_width": 7,
+#		"min_scale": Vector3(0.6, 0.5, 0.6),
+#		"max_scale": Vector3(1.0, 0.9, 1.0),
+#		"position_offset": Vector3(0, -0.005, 0),
+#	},
 ]
 
 func _setup_grass_particles() -> void:

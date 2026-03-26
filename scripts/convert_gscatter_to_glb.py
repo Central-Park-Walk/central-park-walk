@@ -54,10 +54,20 @@ PRIORITY_SPECIES = [
     ("Bank Haircap Moss_PolytrichumFormosum_r678f", "BankHaircapMoss", "undergrowth"),
     ("Broadleaf Plantain_PlantagoMajor_932sp", "BroadleafPlantain_A", "undergrowth"),
     ("Broadleaf Plantain_PlantagoMajor_kthc2", "BroadleafPlantain_B", "undergrowth"),
+    # Additional ground cover
+    ("Cheat Grass_VulpiaBromoides_d5h3o", "CheatGrass", "undergrowth"),
+    ("Crab Finger Grass_DigitariaSanguinalis_ublxq", "CrabFingerGrass", "undergrowth"),
+    ("Field Clover_TrifoliumCampestre_ezo36", "FieldClover", "undergrowth"),
+    ("Ground Ivy_GlechomaHederacea_8eg31", "GroundIvy", "undergrowth"),
+    ("Narrow-leaf Plantain_PlantagoLanceolata_4jhj8", "NarrowPlantain_A", "undergrowth"),
+    ("Narrow-leaf Plantain_PlantagoLanceolata_pfj69", "NarrowPlantain_B", "undergrowth"),
+    ("Ivy-leaved Speedwell_VeronicaHederifolia_8mqpa", "Speedwell", "undergrowth"),
+    ("Bark Mulch_BarkMulch_ubnex", "BarkMulch", "undergrowth"),
     # Flowers
     ("Daffodil_NarcissusPseudonarcissus_g8fi3", "Daffodil", "undergrowth"),
     ("Snowdrop_GalanthusNivalis_y38rf", "Snowdrop", "undergrowth"),
     ("Spring Crocus_CrocusVernus_iy1yi", "Crocus", "undergrowth"),
+    ("Spring Snowflake_LeucojumVernum_l4mof", "SpringSnowflake", "undergrowth"),
     ("Tulip_TulipaPraestans_7m0f0", "Tulip", "undergrowth"),
 ]
 
