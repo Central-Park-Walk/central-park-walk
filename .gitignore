@@ -78,3 +78,6 @@ reference-photos.md
 assets/plant_library/*.blend
 assets/plant_library/*.rar
 *.rar
+
+# Blender addons/tools (install from source)
+tools/
