@@ -81,6 +81,18 @@ void fragment() {
 		vec4 tex = texture(albedo_tex, UV);
 		tex_color = tex.rgb;
 		leaf_alpha = tex.a;
+
+		// EGTTR-inspired color grade: mute vivid photoscanned colors to
+		// match particle grass palette — soft, desaturated, warm greens.
+		float lum = dot(tex_color, vec3(0.2126, 0.7152, 0.0722));
+		// Desaturate: vivid scanned greens → muted olive/sage
+		tex_color = mix(vec3(lum), tex_color, 0.55);
+		// Warm shift: reduce blue for golden-hour undertone
+		tex_color *= vec3(1.03, 1.00, 0.82);
+		// Soft contrast: lift shadows, compress dynamic range
+		tex_color = mix(vec3(0.06), tex_color, 0.85);
+		// Match particle grass brightness level
+		tex_color *= 0.82;
 	} else if (use_atlas > 0.5) {
 		// Flat-card mesh with shared leaf atlas
 		float edge_dist = abs(UV.x - 0.5) * 2.0;
@@ -190,14 +202,17 @@ void fragment() {
 
 	ALBEDO = col;
 
-	// Roughness varies with height: lower stems rougher, upper leaves glossier
-	ROUGHNESS = mix(0.72, 0.48, height_frac);
-	SPECULAR = mix(0.08, 0.16, height_frac);
+	// PBR — BD3D models get softer/more matte for EGTTR look;
+	// atlas/procedural species keep original values.
+	if (use_texture > 0.5) {
+		ROUGHNESS = mix(0.82, 0.65, height_frac);
+		SPECULAR = mix(0.04, 0.08, height_frac);
+	} else {
+		ROUGHNESS = mix(0.72, 0.48, height_frac);
+		SPECULAR = mix(0.08, 0.16, height_frac);
+	}
 	METALLIC = 0.0;
-	// Green-gold transmission — ferns and herbs are thin-leaved and glow
-	// when backlit; shrubs are thicker and transmit less.
-	// v_seed encodes species info; higher height_frac = more leaf, more SSS.
-	BACKLIGHT = vec3(0.30, 0.35, 0.10) * mix(0.5, 1.0, height_frac);
+	BACKLIGHT = vec3(0.25, 0.30, 0.08) * mix(0.5, 1.0, height_frac);
 
 	// ---- WEATHER ----
 	if (rain_wetness > 0.01) {
