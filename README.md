@@ -1,5 +1,7 @@
 ## Central Park Walk
 
+> **Note:** Git LFS bandwidth resets monthly. Large binary files (screenshots, models, data) may fail to download via LFS between resets. All source code is always up to date.
+
 *An AI-human collaboration to reconstruct Central Park in 3D from freely available public data.*
 
 Central Park Walk is a real-time 3D walking simulation of all 843 acres of New York's Central Park, built entirely from public data — LiDAR surveys, OpenStreetMap, the NYC Tree Census, building footprints — and interpreted by Claude (Anthropic). No objectives, no score. Just a place.
