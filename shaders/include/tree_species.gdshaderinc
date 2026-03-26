@@ -56,6 +56,26 @@ const vec4 PHENOLOGY[14] = vec4[14](
 	vec4(2.3, 2.6, 3.0, 0.2)   // 13 magnolia: late fall, early spring bloom
 );
 
+// Winter leaf retention: fraction of leaves kept through winter (0.0 = fully bare)
+// Marcescent species hold dead brown leaves; semi-evergreen hold some green.
+// Sources: USDA Plants DB, NYC urban forestry, Arnold Arboretum phenology records
+const float WINTER_RETENTION[14] = float[14](
+	0.35,  // 0 oak: marcescent — holds dead brown leaves into Feb, spring push drops them
+	0.0,   // 1 maple: clean abscission by late Nov
+	0.0,   // 2 elm: clean drop by mid-Nov
+	0.0,   // 3 birch: among first to shed, bare by late Oct
+	0.0,   // 4 deciduous: generic clean abscission
+	1.0,   // 5 conifer: evergreen (handled by is_evergreen flag, not this)
+	0.0,   // 6 honeylocust: tiny leaflets drop early/fast, bare by late Oct
+	0.30,  // 7 callery_pear: holds dark red-purple leaves into Dec
+	0.0,   // 8 ginkgo: drops ALL leaves in 1-3 days after first hard frost
+	0.25,  // 9 london_plane: partially marcescent, some brown leaves into Jan
+	0.0,   // 10 linden: clean drop mid-Nov
+	0.0,   // 11 cherry: clean drop by early Nov
+	0.0,   // 12 willow: early dropper, bare by late Oct
+	0.55   // 13 magnolia: semi-evergreen in mild winters, holds green leaves late
+);
+
 // Wind biomechanics: (trunk_flex, branch_flex, sway_freq, gust_response)
 // Sources: forestry drag coefficients, Gardiner 1995, James et al 2006
 const vec4 WIND_PARAMS[14] = vec4[14](

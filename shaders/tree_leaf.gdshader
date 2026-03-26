@@ -64,14 +64,20 @@ void vertex() {
 	float s = mod(season_t + timing_off, 4.0);
 	v_species_idx = float(sp_idx);
 
-	// Compute leaf density for vertex shrinking and fragment alpha
+	// Compute leaf density for vertex shrinking and fragment alpha.
+	// Two independent curves: spring growth ramps up, fall shedding ramps down.
+	// min() ensures density is only high when BOTH agree (growing season).
+	// Marcescent species (oak, london plane) retain dead leaves through winter
+	// via WINTER_RETENTION floor; clean abscission species drop to near-zero.
 	float leaf_density = 1.0;
 	if (is_evergreen < 0.5) {
 		vec4 ph = PHENOLOGY[sp_idx];
-		float shedding = 1.0 - smoothstep(ph.z - 0.2, ph.z + 0.3, s);
-		float regrowth = smoothstep(ph.w - 0.1, ph.w + 0.3, s);
-		leaf_density = max(shedding, regrowth);
-		leaf_density = clamp(leaf_density, 0.08, 1.0);
+		float retention = WINTER_RETENTION[sp_idx];
+		float grow = smoothstep(ph.w - 0.1, ph.w + 0.3, s);   // spring ramp-up
+		float shed = 1.0 - smoothstep(ph.z - 0.2, ph.z + 0.3, s); // fall ramp-down
+		float canopy = min(grow, shed);  // full only when both say yes
+		leaf_density = mix(retention, 1.0, canopy);
+		leaf_density = max(leaf_density, 0.08);  // never fully invisible
 	}
 	v_leaf_density = leaf_density;
 

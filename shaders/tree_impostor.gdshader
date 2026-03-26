@@ -126,9 +126,10 @@ void vertex() {
 	vec3 season_color = SUMMER_COLORS[sp_idx];
 	if (is_evergreen < 0.5) {
 		vec4 ph = PHENOLOGY[sp_idx];
-		float shedding = 1.0 - smoothstep(ph.z - 0.2, ph.z + 0.3, s);
-		float regrowth = smoothstep(ph.w - 0.1, ph.w + 0.3, s);
-		leaf_density = clamp(max(shedding, regrowth), 0.08, 1.0);
+		float retention = WINTER_RETENTION[sp_idx];
+		float grow = smoothstep(ph.w - 0.1, ph.w + 0.3, s);
+		float shed = 1.0 - smoothstep(ph.z - 0.2, ph.z + 0.3, s);
+		leaf_density = max(mix(retention, 1.0, min(grow, shed)), 0.08);
 		vec3 fall_col = FALL_COLORS[sp_idx];
 		vec3 spring_tint = season_color * vec3(1.15, 1.2, 0.7);
 		float spring_t = smoothstep(ph.w, ph.w + 0.4, s);
