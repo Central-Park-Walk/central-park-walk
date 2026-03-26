@@ -112,10 +112,10 @@ Terrain3D geometry clipmaps with 64 regions at native 0.61m LiDAR resolution (81
 ### Trees (9,852)
 NYC Tree Census + OSM + woodland scatter across 12 ecological zones. 15 Mtree species x 3 size tiers = 46 GLBs. LiDAR heights (4,005 trees), canopy height model enrichment (1,450), DBH-estimated (4,397). Crossed-quad leaf cards, FBM bark, per-pixel noise. 4-tier SpeedTree-standard LOD chain: full geo → _m → _s → octahedral billboard impostors (8x8 hemisphere atlases with albedo + normal + depth parallax, 15 species). Per-tree color variation (position-hashed brightness ±12% + warm/cool tint) breaks monochromatic distant forest. Invasive vines: porcelain berry + oriental bittersweet (13 variants).
 
-### Vegetation (90+ BD3D meshes)
-Full BD3D Plant Library pipeline — all models loaded via native Godot `load()`:
-- **Undergrowth** (30 species): 7 shrubs, 12 herbs, 4 ferns, 4 wetland, 2 fungi, 1 grass. Per-species scale ranges from botanical references (MBG, USDA, Wildflower Center). Zone-specific placement across NorthWoods, Ramble, Waterside, WildMeadow.
-- **Grass** (16 texture cards): BD3D grass models rendered as alpha-cutout textures on crossed-quad carriers (12 tris each). 3 biome layers (lawn/wild/woodland) via Terrain3D GPU particles.
+### Vegetation (90+ BD3D meshes + 14 Gscatter species)
+Full BD3D Plant Library pipeline + Gscatter/Graswald 3D plants — all models loaded via native Godot `load()`:
+- **Undergrowth** (40 species): 7 shrubs, 12 herbs, 4 ferns, 4 wetland, 2 fungi, 1 grass, plus 10 Gscatter 3D species (Lady Fern, White Clover, Common Ivy, Bank Haircap Moss, Broadleaf Plantain, Snowdrop, Crocus, Daffodil, Tulip). Per-species scale ranges from botanical references. Zone-specific placement across NorthWoods, Ramble, Waterside, WildMeadow, FormalGarden, and maintained lawns.
+- **Grass** (16 texture cards + 1 Gscatter accent): BD3D grass models on crossed-quad carriers + Kentucky Bluegrass (Gscatter) accent particles. 4 biome layers (lawn/KBG/wild/woodland) via Terrain3D GPU particles.
 - **Accents** (13 types): Clover, dandelion, meadow clumps, tall wild grass, dry/dead seasonal grass. Chunk-based MultiMesh streaming.
 - **Ground cover** (18 BD3D models): Fallen leaves, branches, moss, weeds, saplings. Seasonal filtering (autumn leaves, spring weeds).
 
@@ -144,6 +144,7 @@ All data is freely available. No paid APIs.
 | [OpenStreetMap](https://www.openstreetmap.org/) | Paths, water, buildings, bridges, furniture | ODbL |
 | [NYC Tree Census](https://data.cityofnewyork.us/) | Tree positions, species, diameter, heights | Public Domain |
 | [BD3D Plant Library](https://bd3d.gumroad.com/l/plant-library) | 3D foliage meshes (shrubs, ferns, grass) | Free (Gumroad) |
+| [Gscatter/Graswald](https://www.graswald3d.com/) | 3D plant meshes (grasses, ferns, clover, ivy, moss, flowers) | Commercial |
 | [ambientCG](https://ambientcg.com/) | PBR ground + furniture textures | CC0 |
 | [Sketchfab](https://sketchfab.com/) | Photogrammetry statue scans | CC-BY |
 
@@ -156,7 +157,7 @@ All data is freely available. No paid APIs.
 | Clouds | clayjohn volumetric cloud demo v2 (compute shader raymarching) |
 | Tree impostors | Custom octahedral shader (SpriteProjection, normal + depth parallax) + Blender atlas baker |
 | Data pipeline | Python (GDAL, numpy/scipy, Pillow) |
-| 3D modeling | Blender 4.5.8 LTS + Mtree v5.5, BD3D Plant Library |
+| 3D modeling | Blender 4.5.8 LTS + Mtree v5.5, BD3D Plant Library, Gscatter/Graswald |
 | Rendering | 27 custom GLSL shaders, AgX tonemapping, MultiMesh instancing, 8K world atlas |
 
 ## Philosophy
