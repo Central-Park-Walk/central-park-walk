@@ -1849,13 +1849,13 @@ var _landuse_texture: Texture2D  # cached for grass particle system
 # and blending with the terrain underneath. Undergrowth system provides taller accents.
 const GRASS_BIOMES := [
 	{  # Maintained lawns — Tuft_Tiny: 34×33cm footprint, 5.8cm tall, 99 tris
-		# Data: A-class 5-8cm (mowed 2x/wk). Invisible from standing but correct.
+		# Denser spacing (0.35) for carpet-like coverage on maintained lawns.
 		"name": "Lawn", "biome_id": 0,
 		"mesh_path": "res://models/vegetation/Tuft_Tiny.glb",
-		"spacing": 0.4, "cell_width": 24.0, "grid_width": 5,
+		"spacing": 0.35, "cell_width": 24.0, "grid_width": 5,
 		"random_spacing": 0.3,
-		"min_scale": Vector3(0.9, 0.9, 0.9),
-		"max_scale": Vector3(1.3, 1.3, 1.3),
+		"min_scale": Vector3(0.8, 0.8, 0.8),
+		"max_scale": Vector3(1.4, 1.4, 1.4),
 		"position_offset": Vector3(0, -0.005, 0),
 	},
 	{  # Woodland/shade floor — Tuft_Woodland: 24×20cm footprint, 8cm tall, 150 tris
