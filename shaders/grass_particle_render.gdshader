@@ -158,11 +158,15 @@ void fragment() {
 	float patch_factor = vnoise(v_world_pos.xz / 3.0);
 	vec3 col = mix(color_small, color_large, patch_factor);
 
-	// Modulate by texture luminance if available (preserves blade detail)
+	// Textured tufts: use the mesh's own PBR texture color as primary,
+	// with subtle zone tint for regional variation. This ensures grass
+	// particles blend with the terrain (both use natural grass hues)
+	// rather than fighting it with a separate palette.
 	if (use_texture) {
 		vec3 tex_col = texture(grass_albedo, UV).rgb;
-		float tex_lum = dot(tex_col, vec3(0.3, 0.6, 0.1));
-		col *= (0.6 + tex_lum * 0.8);
+		// 75% mesh texture, 25% zone palette — texture drives appearance,
+		// zone provides subtle regional hue shift
+		col = mix(tex_col, col, 0.25);
 	}
 
 	// Base-to-tip gradient (raised floor so short turf meshes don't go too dark)
