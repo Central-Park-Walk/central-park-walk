@@ -303,10 +303,19 @@ void start() {
 		pos.xz = vec2(100000.0);
 	}
 
-	// Canopy suppression: under dense tree cover, forest floor is leaf litter
+	// Canopy suppression: sun-loving lawn grass thins under dense canopy.
+	// Shade biome (biome_id 1) is shade-tolerant — reduced suppression.
+	// Wild/Sedge get moderate suppression.
 	if (canopy_cover > 0.4) {
-		// Skip 70-90% of blades under dense canopy
-		float skip_chance = smoothstep(0.3, 0.8, canopy_cover) * 0.9;
+		float suppress_strength;
+		if (biome_id == 0 || biome_id == 10) {
+			suppress_strength = 0.9;  // Lawn: heavy suppression (sun-loving)
+		} else if (biome_id == 1 || biome_id == 11) {
+			suppress_strength = 0.3;  // Shade: mild (shade-tolerant species)
+		} else {
+			suppress_strength = 0.6;  // Wild/Sedge: moderate
+		}
+		float skip_chance = smoothstep(0.3, 0.8, canopy_cover) * suppress_strength;
 		if (r.y < skip_chance) {
 			pos.y = 0. / 0.;
 			pos.xz = vec2(100000.0);
@@ -323,9 +332,9 @@ void start() {
 	else if (zone_id == 7) zone_density = 0.80;                   // C-lawn (waterside)
 	else if (zone_id == 8) zone_density = 0.55;                   // Wild meadow: thick but gaps
 	else if (zone_id == 9) zone_density = 0.70;                   // B/C open lawn
-	else if (zone_id == 5) zone_density = 0.35;                   // NorthWoods: sparse shade
-	else if (zone_id == 6) zone_density = 0.30;                   // Ramble: patchy woodland floor
-	else if (zone_id == 10 || zone_id == 11) zone_density = 0.20; // Woodland: sparse, mostly litter
+	else if (zone_id == 5) zone_density = 0.55;                   // NorthWoods: shade grass patches
+	else if (zone_id == 6) zone_density = 0.50;                   // Ramble: woodland ground cover
+	else if (zone_id == 10 || zone_id == 11) zone_density = 0.40; // Woodland: sparse shade grass
 
 	if (r.x > zone_density) {
 		pos.y = 0. / 0.;
