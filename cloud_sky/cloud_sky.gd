@@ -36,18 +36,24 @@ var ground_color : Color = Color(1.0, 1.0, 1.0, 1.0)
 @export_enum("Very Fast(4):4", "Fast(16):16", "Default(64):64", "Performance(256):256")
 var frames_to_update : int = 64:
 	set(value):
+		if frames_to_update == value and _initialized:
+			return
 		frames_to_update = value
-		cleanup()
-		update_performance()
-		request_full_sky_init()
+		if _initialized:
+			cleanup()
+			update_performance()
+			request_full_sky_init()
 
 @export_range(32.0, 8192.0, 32.0)
 var texture_size : int = 768: # Needs to be divisible by sqrt(frames_to_update)
 	set(value):
+		if texture_size == value and _initialized:
+			return
 		texture_size = value
-		cleanup()
-		update_performance()
-		request_full_sky_init()
+		if _initialized:
+			cleanup()
+			update_performance()
+			request_full_sky_init()
 
 var sun : DirectionalLight3D
 
@@ -98,12 +104,14 @@ var frame = 0
 
 var can_run = false
 var needs_full_sky_init = true
+var _initialized = false
 
 func _init():
 	call_deferred("delayed_init")
-	
+
 # Workaround due to the fact that exports are set after _init() is called
 func delayed_init():
+	_initialized = true
 	update_performance()
 
 	# This calls "update_sky" at the beginning of the render loop automatically.
