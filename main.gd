@@ -1849,7 +1849,7 @@ var _landuse_texture: Texture2D  # cached for grass particle system
 # and blending with the terrain underneath. Undergrowth system provides taller accents.
 const GRASS_BIOMES := [
 	{  # Maintained lawns — Tuft_Tiny: 34×33cm footprint, 5.8cm tall, 99 tris
-		# Dense A-class coverage: 0.4m spacing × 0.3 random → near-seamless at 34cm width
+		# Data: A-class 5-8cm (mowed 2x/wk). Invisible from standing but correct.
 		"name": "Lawn", "biome_id": 0,
 		"mesh_path": "res://models/vegetation/Tuft_Tiny.glb",
 		"spacing": 0.4, "cell_width": 24.0, "grid_width": 5,
@@ -1994,9 +1994,21 @@ func _setup_grass_particles() -> void:
 
 		add_child(gp)
 		_grass_particle_nodes.append(gp)
-		print("Grass [%s]: spacing=%.2f biome_id=%d mesh=%s (%d tris)" % [
+		# Debug: verify particles are actually set up correctly
+		var pnodes: Array = gp.get("particle_nodes")
+		var n_nodes := pnodes.size() if pnodes else 0
+		var first_mesh_ok := false
+		var first_mat_ok := false
+		var first_amount := 0
+		if pnodes and pnodes.size() > 0:
+			var p0: GPUParticles3D = pnodes[0]
+			first_mesh_ok = p0.draw_pass_1 != null
+			first_mat_ok = p0.material_override != null
+			first_amount = p0.amount
+		print("Grass [%s]: spacing=%.2f biome_id=%d mesh=%s (%d tris) nodes=%d mesh_ok=%s mat_ok=%s amount=%d" % [
 			biome.name, biome.spacing, biome.biome_id, biome.mesh_path,
-			tuft_mesh.get_faces().size() / 3 if tuft_mesh.get_faces().size() > 0 else 0])
+			tuft_mesh.get_faces().size() / 3 if tuft_mesh.get_faces().size() > 0 else 0,
+			n_nodes, first_mesh_ok, first_mat_ok, first_amount])
 
 
 # ---------------------------------------------------------------------------
