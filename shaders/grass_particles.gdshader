@@ -198,21 +198,35 @@ void start() {
 	float canopy_cover = textureLod(canopy_map, splat_uv, 0.0).r;
 
 	// Biome-based zone filtering
+	// biome_id: 0=lawn, 2=wild meadow, 3=woodland, 4=garden, 5=dryland (all zones)
 	bool is_grass_zone;
 	bool is_woodland;
 	if (biome_id == 0) {
-		// Lawn: all maintained grass (gardens, sports, Sheep Meadow, Great Lawn)
+		// Lawn: maintained grass (Sheep Meadow, Great Lawn, sports, general)
 		is_grass_zone = (zone_id == 0 || zone_id == 1 || zone_id == 2
 		              || zone_id == 3 || zone_id == 7);
 		is_woodland = false;
 	} else if (biome_id == 2) {
-		// Wild: nature reserve
+		// Wild: nature reserve, wild meadow
 		is_grass_zone = (zone_id == 5);
 		is_woodland = false;
 	} else if (biome_id == 3) {
 		// Woodland: forest floor
 		is_grass_zone = false;
 		is_woodland = (zone_id == 10 || zone_id == 11);
+	} else if (biome_id == 4) {
+		// Garden: formal gardens only
+		is_grass_zone = (zone_id == 1 || zone_id == 3);
+		is_woodland = false;
+	} else if (biome_id == 5) {
+		// Dryland: seasonal dormant grass — wild + woodland zones in autumn/winter
+		is_grass_zone = (zone_id == 5);
+		is_woodland = (zone_id == 10 || zone_id == 11);
+		// Only show in autumn/winter (season_t > 2.0)
+		if (season_t < 2.0) {
+			is_grass_zone = false;
+			is_woodland = false;
+		}
 	} else {
 		// Legacy: all grass zones
 		is_grass_zone = (zone_id == 0 || zone_id == 1 || zone_id == 2
