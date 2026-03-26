@@ -528,48 +528,51 @@ func _build_trees(trees: Array) -> void:
 		cd_by_key[key].append(cd)
 
 		# 4-tier LOD chain: LOD0=best, LOD1=_m, LOD2=_s, LOD3=impostor
-		# Every tree populates ALL tiers to avoid distance gaps.
-		# If the tree's own tier is already _m or _s, the same model
-		# is reused at that tier — crossfade is invisible (same mesh).
-		if species != "dead":
-			for lod_idx in [1, 2]:
-				var lod_tier_suffix: String
-				if lod_idx == 1:
-					# LOD1 prefers _m; falls back to _s, then same tier
-					if _species_meshes.has(species + "_m"):
-						lod_tier_suffix = "_m"
-					elif _species_meshes.has(species + "_s"):
-						lod_tier_suffix = "_s"
-					else:
-						lod_tier_suffix = tier_suffix
+		# Every tree MUST populate ALL tiers to avoid distance gaps.
+		# Missing _m/_s variants reuse the tree's own mesh — crossfade
+		# is invisible (same mesh at different visibility ranges).
+		for lod_idx in [1, 2]:
+			var lod_tier_suffix: String
+			if lod_idx == 1:
+				# LOD1 prefers _m; falls back to _s, then same tier
+				if _species_meshes.has(species + "_m"):
+					lod_tier_suffix = "_m"
+				elif _species_meshes.has(species + "_s"):
+					lod_tier_suffix = "_s"
 				else:
-					# LOD2 always _s (cheapest 3D)
-					if _species_meshes.has(species + "_s"):
-						lod_tier_suffix = "_s"
-					elif _species_meshes.has(species + "_m"):
-						lod_tier_suffix = "_m"
-					else:
-						lod_tier_suffix = tier_suffix
-				var lod_sp := species + lod_tier_suffix
-				if not _species_meshes.has(lod_sp):
-					lod_sp = "deciduous" + lod_tier_suffix
-				if not _species_meshes.has(lod_sp):
-					continue
-				var lod_vars: Array = _species_meshes[lod_sp]
-				var lod_vi := i % lod_vars.size()
-				var lod_mh: float = _species_heights.get(lod_sp, mesh_h)
-				var lod_sy := desired_h / maxf(lod_mh, 0.06)
-				var lod_sx := lod_sy * (1.50 if species == "cathedral_elm" else 1.0)
-				var lod_basis := Basis(Vector3.UP, y_rot) * Basis().scaled(Vector3(lod_sx, lod_sy, lod_sx))
-				var lod_tf := Transform3D(lod_basis, Vector3(tx, ty, tz))
-				var lod_key := "%s_%d" % [lod_sp, lod_vi]
-				var xf_dict: Dictionary = _lod1_xf if lod_idx == 1 else _lod2_xf
-				var cd_dict: Dictionary = _lod1_cd if lod_idx == 1 else _lod2_cd
-				if not xf_dict.has(lod_key):
-					xf_dict[lod_key] = []
-					cd_dict[lod_key] = []
-				xf_dict[lod_key].append(lod_tf)
-				cd_dict[lod_key].append(cd)
+					lod_tier_suffix = tier_suffix
+			else:
+				# LOD2 always _s (cheapest 3D)
+				if _species_meshes.has(species + "_s"):
+					lod_tier_suffix = "_s"
+				elif _species_meshes.has(species + "_m"):
+					lod_tier_suffix = "_m"
+				else:
+					lod_tier_suffix = tier_suffix
+			var lod_sp := species + lod_tier_suffix
+			if not _species_meshes.has(lod_sp):
+				lod_sp = "deciduous" + lod_tier_suffix
+			if not _species_meshes.has(lod_sp):
+				# Final fallback: reuse the tree's own mesh rather than
+				# skipping this LOD tier (which creates a visibility gap)
+				lod_sp = species + tier_suffix
+			if not _species_meshes.has(lod_sp):
+				continue  # truly no mesh available
+			var lod_vars: Array = _species_meshes[lod_sp]
+			var lod_vi := i % lod_vars.size()
+			var lod_mh: float = _species_heights.get(lod_sp, mesh_h)
+			var lod_sy := desired_h / maxf(lod_mh, 0.06)
+			var lod_sx := lod_sy * (1.50 if species == "cathedral_elm" else 1.0)
+			var lod_basis := Basis(Vector3.UP, y_rot) * Basis().scaled(Vector3(lod_sx, lod_sy, lod_sx))
+			var lod_tf := Transform3D(lod_basis, Vector3(tx, ty, tz))
+			var lod_key := "%s_%d" % [lod_sp, lod_vi]
+			var xf_dict: Dictionary = _lod1_xf if lod_idx == 1 else _lod2_xf
+			var cd_dict: Dictionary = _lod1_cd if lod_idx == 1 else _lod2_cd
+			if not xf_dict.has(lod_key):
+				xf_dict[lod_key] = []
+				cd_dict[lod_key] = []
+			xf_dict[lod_key].append(lod_tf)
+			cd_dict[lod_key].append(cd)
 
 		# Canopy data for dappled shade map + LOD1 shells.
 		# LiDAR crown_a measures only the dense inner canopy (often 10-30m²
@@ -723,6 +726,12 @@ func _build_trees(trees: Array) -> void:
 		var cy_mid: float = (float(b["yb"]) + float(b["yt"])) * 0.5
 		oi.position = Vector3(cx_mid, cy_mid, cz_mid)
 		oi.name = "TreeOcc_%d_%d" % [cx_i, cz_i]
+		# Limit occluder to range where solid tree geometry exists (LOD0-LOD1).
+		# Without this, occluders hide terrain even during LOD gaps, causing
+		# terrain to pop in/out and water/land to flicker.
+		oi.visibility_range_begin = 0.0
+		oi.visibility_range_end = 350.0
+		oi.visibility_range_end_margin = 60.0
 		_loader.add_child(oi)
 		occ_count += 1
 	if occ_count > 0:
