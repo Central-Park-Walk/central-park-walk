@@ -87,29 +87,29 @@ const SPECIES := [
 	# ── Gscatter 3D species (30+) — real geometry, embedded PBR textures ──
 	# "v": number of mesh variants (_0 to _N-1); loader picks per-chunk for variety
 	# Ferns
-	{"name": "gscatter/LadyFern_Big",        "s": [1.50, 3.50], "flex": 0.40, "green": 0, "fall": [0.45, 0.35, 0.08], "ai": -1, "v": 4},  # 30
-	{"name": "gscatter/LadyFern_Small",      "s": [1.50, 3.00], "flex": 0.35, "green": 0, "fall": [0.45, 0.35, 0.08], "ai": -1, "v": 4},  # 31
+	{"name": "gscatter/LadyFern_Big",        "s": [1.00, 2.00], "flex": 0.40, "green": 0, "fall": [0.45, 0.35, 0.08], "ai": -1, "v": 4},  # 30  model 0.276m → 0.28-0.55m real
+	{"name": "gscatter/LadyFern_Small",      "s": [3.50, 7.00], "flex": 0.35, "green": 0, "fall": [0.45, 0.35, 0.08], "ai": -1, "v": 4},  # 31  model 0.041m → 0.14-0.29m real
 	# Lawn ground cover
-	{"name": "gscatter/WhiteClover_Big",     "s": [0.80, 2.00], "flex": 0.10, "green": 0, "fall": [0.40, 0.35, 0.10], "ai": -1, "v": 4, "fc": [1.00, 1.00, 1.00], "bl": [0.56, 1.67]},  # 32
-	{"name": "gscatter/GroundIvy_Big",       "s": [1.00, 2.50], "flex": 0.08, "green": 0, "fall": [0.30, 0.28, 0.08], "ai": -1, "v": 4},  # 33
-	{"name": "gscatter/Speedwell_Big",       "s": [0.80, 1.80], "flex": 0.12, "green": 0, "fall": [0.30, 0.25, 0.08], "ai": -1, "v": 4, "fc": [0.40, 0.50, 0.90], "bl": [0.22, 0.78]},  # 34
-	{"name": "gscatter/BroadleafPlantain_B_Big", "s": [0.80, 1.80], "flex": 0.15, "green": 0, "fall": [0.35, 0.30, 0.08], "ai": -1, "v": 4},  # 35
-	{"name": "gscatter/NarrowPlantain_A_Big","s": [0.80, 1.60], "flex": 0.20, "green": 0, "fall": [0.35, 0.28, 0.08], "ai": -1, "v": 4},  # 36
-	{"name": "gscatter/CrabFingerGrass_Big", "s": [0.80, 1.60], "flex": 0.40, "green": 0, "fall": [0.50, 0.42, 0.15], "ai": -1, "v": 4},  # 37
+	{"name": "gscatter/WhiteClover_Big",     "s": [0.80, 1.50], "flex": 0.10, "green": 0, "fall": [0.40, 0.35, 0.10], "ai": -1, "v": 4, "fc": [1.00, 1.00, 1.00], "bl": [0.56, 1.67]},  # 32  model 0.138m → 0.11-0.21m real
+	{"name": "gscatter/GroundIvy_Big",       "s": [0.60, 1.20], "flex": 0.08, "green": 0, "fall": [0.30, 0.28, 0.08], "ai": -1, "v": 4},  # 33  model 0.164m → 0.10-0.20m real
+	{"name": "gscatter/Speedwell_Big",       "s": [3.00, 6.00], "flex": 0.12, "green": 0, "fall": [0.30, 0.25, 0.08], "ai": -1, "v": 4, "fc": [0.40, 0.50, 0.90], "bl": [0.22, 0.78]},  # 34  model 0.016m → 0.05-0.10m real
+	{"name": "gscatter/BroadleafPlantain_B_Big", "s": [2.00, 4.00], "flex": 0.15, "green": 0, "fall": [0.35, 0.30, 0.08], "ai": -1, "v": 4},  # 35  model 0.046m → 0.09-0.18m real
+	{"name": "gscatter/NarrowPlantain_A_Big","s": [4.00, 8.00], "flex": 0.20, "green": 0, "fall": [0.35, 0.28, 0.08], "ai": -1, "v": 4},  # 36  model 0.024m → 0.10-0.19m real
+	{"name": "gscatter/CrabFingerGrass_Big", "s": [0.70, 1.30], "flex": 0.40, "green": 0, "fall": [0.50, 0.42, 0.15], "ai": -1, "v": 4},  # 37  model 0.260m → 0.18-0.34m real
 	# Woodland ground cover
-	{"name": "gscatter/CommonIvy_Creeping",  "s": [1.00, 3.00], "flex": 0.05, "green": 1, "fall": [0.10, 0.20, 0.05], "ai": -1, "v": 4},  # 38
-	{"name": "gscatter/BankHaircapMoss_Big", "s": [2.00, 5.00], "flex": 0.0,  "green": 1, "fall": [0.15, 0.25, 0.05], "ai": -1, "v": 4},  # 39
-	{"name": "gscatter/BarkMulch_Big",       "s": [1.00, 2.00], "flex": 0.0,  "green": 1, "fall": [0.20, 0.15, 0.08], "ai": -1, "v": 4},  # 40
+	{"name": "gscatter/CommonIvy_Creeping",  "s": [0.80, 2.00], "flex": 0.05, "green": 1, "fall": [0.10, 0.20, 0.05], "ai": -1, "v": 4},  # 38  model 0.038m → 0.03-0.08m, spread 0.42m
+	{"name": "gscatter/BankHaircapMoss_Big", "s": [1.50, 3.00], "flex": 0.0,  "green": 1, "fall": [0.15, 0.25, 0.05], "ai": -1, "v": 4},  # 39  model 0.040m → 0.06-0.12m real
+	{"name": "gscatter/BarkMulch_Big",       "s": [1.00, 2.00], "flex": 0.0,  "green": 1, "fall": [0.20, 0.15, 0.08], "ai": -1, "v": 4},  # 40  OK
 	# Meadow grasses (undergrowth-scale, not particle)
-	{"name": "gscatter/FieldClover_Big",     "s": [0.80, 1.80], "flex": 0.15, "green": 0, "fall": [0.45, 0.38, 0.12], "ai": -1, "v": 4, "fc": [0.95, 0.85, 0.30], "bl": [0.56, 1.33]},  # 41
-	{"name": "gscatter/DactylisGlomerata_A_Small", "s": [1.00, 2.50], "flex": 0.45, "green": 0, "fall": [0.55, 0.48, 0.20], "ai": -1, "v": 4},  # 42  Orchard Grass meadow
-	{"name": "gscatter/DactylisGlomerata_B_Small", "s": [1.00, 2.50], "flex": 0.45, "green": 0, "fall": [0.55, 0.48, 0.20], "ai": -1, "v": 4},  # 43  Orchard Grass meadow
-	{"name": "gscatter/FestucaRubra_Big",    "s": [0.30, 0.60], "flex": 0.35, "green": 0, "fall": [0.50, 0.45, 0.18], "ai": -1, "v": 4},  # 44  Red Fescue shade grass
-	{"name": "gscatter/PoaPratensis_Dead",   "s": [1.00, 2.00], "flex": 0.05, "green": 0, "fall": [0.55, 0.45, 0.20], "ai": -1, "v": 4},  # 45  Dead grass patches
+	{"name": "gscatter/FieldClover_Big",     "s": [0.70, 1.50], "flex": 0.15, "green": 0, "fall": [0.45, 0.38, 0.12], "ai": -1, "v": 4, "fc": [0.95, 0.85, 0.30], "bl": [0.56, 1.33]},  # 41  model 0.312m → 0.22-0.47m real
+	{"name": "gscatter/DactylisGlomerata_A_Small", "s": [2.00, 4.00], "flex": 0.45, "green": 0, "fall": [0.55, 0.48, 0.20], "ai": -1, "v": 4},  # 42  model 0.090m → 0.18-0.36m real (Orchard Grass)
+	{"name": "gscatter/DactylisGlomerata_B_Small", "s": [1.50, 3.00], "flex": 0.45, "green": 0, "fall": [0.55, 0.48, 0.20], "ai": -1, "v": 4},  # 43  model 0.178m → 0.27-0.53m real (Orchard Grass)
+	{"name": "gscatter/FestucaRubra_Big",    "s": [0.80, 1.50], "flex": 0.35, "green": 0, "fall": [0.50, 0.45, 0.18], "ai": -1, "v": 4},  # 44  model 0.191m → 0.15-0.29m real (Red Fescue)
+	{"name": "gscatter/PoaPratensis_Dead",   "s": [1.50, 3.00], "flex": 0.05, "green": 0, "fall": [0.55, 0.45, 0.20], "ai": -1, "v": 4},  # 45  model 0.042m → 0.06-0.13m real
 	# Spring bulbs — textures include leaves+flowers; deciduous winter die-back
-	{"name": "gscatter/Snowdrop_Big",        "s": [0.30, 0.60], "flex": 0.20, "green": 0, "fall": [0.30, 0.25, 0.08], "ai": -1, "v": 4},  # 46
-	{"name": "gscatter/Crocus_Big",          "s": [0.50, 1.00], "flex": 0.15, "green": 0, "fall": [0.30, 0.20, 0.10], "ai": -1, "v": 4},  # 47
-	{"name": "gscatter/SpringSnowflake_Big", "s": [0.40, 0.80], "flex": 0.18, "green": 0, "fall": [0.30, 0.25, 0.08], "ai": -1, "v": 4},  # 48
+	{"name": "gscatter/Snowdrop_Big",        "s": [0.40, 0.80], "flex": 0.20, "green": 0, "fall": [0.30, 0.25, 0.08], "ai": -1, "v": 4},  # 46  model 0.265m → 0.11-0.21m real
+	{"name": "gscatter/Crocus_Big",          "s": [0.50, 1.00], "flex": 0.15, "green": 0, "fall": [0.30, 0.20, 0.10], "ai": -1, "v": 4},  # 47  model 0.144m → 0.07-0.14m real ✓
+	{"name": "gscatter/SpringSnowflake_Big", "s": [0.50, 1.00], "flex": 0.18, "green": 0, "fall": [0.30, 0.25, 0.08], "ai": -1, "v": 4},  # 48  model 0.208m → 0.10-0.21m real
 	{"name": "gscatter/Daffodil_Big",        "s": [0.80, 1.50], "flex": 0.25, "green": 0, "fall": [0.50, 0.45, 0.15], "ai": -1, "v": 4},  # 49
 	# Tulips — 8 color variants rotated per-chunk for mixed beds
 	{"name": "gscatter/Tulip_Red",           "s": [0.60, 1.20], "flex": 0.20, "green": 0, "fall": [0.45, 0.30, 0.10], "ai": -1, "v": 4},  # 50

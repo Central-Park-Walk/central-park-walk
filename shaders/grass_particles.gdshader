@@ -48,7 +48,7 @@ global uniform float snow_cover;
 
 #include "res://shaders/include/seasonal.gdshaderinc"
 
-// Biome filter: 0=lawn(1,3,7) 1=meadow(0,2) 2=wild(5) 3=woodland(10,11) -1=all(legacy)
+// Biome filter: 0=lawn 1=shade 2=wild 3=sedge  10=tuft_lawn 11=tuft_wild  -1=all(legacy)
 uniform int biome_id = -1;
 
 group_uniforms private;
@@ -198,40 +198,34 @@ void start() {
 	float canopy_cover = textureLod(canopy_map, splat_uv, 0.0).r;
 
 	// Biome-based zone filtering
-	// biome_id: 0=lawn, 2=wild meadow, 3=woodland, 4=garden, 5=dryland (all zones)
+	// Zone IDs: 0=SheepMeadow 1=GreatLawn 2=NorthMeadow 3=FormalGarden
+	//   4=SportsTurf 5=NorthWoods 6=Ramble 7=Waterside 8=WildMeadow 9=OpenLawn
+	//   10,11=Woodland  12=water 13=shore
 	bool is_grass_zone;
 	bool is_woodland;
-	if (biome_id == 0) {
-		// Lawn: maintained grass (Sheep Meadow, Great Lawn, sports, general)
+	if (biome_id == 0 || biome_id == 10) {
+		// Lawn (Turf_Lawn / Tuft accent): maintained lawns + sports + open
 		is_grass_zone = (zone_id == 0 || zone_id == 1 || zone_id == 2
-		              || zone_id == 3 || zone_id == 7);
+		              || zone_id == 3 || zone_id == 4 || zone_id == 9);
 		is_woodland = false;
+	} else if (biome_id == 1 || biome_id == 11) {
+		// Shade (Turf_Shade / Tuft accent): woodland + ramble forest floor
+		is_grass_zone = false;
+		is_woodland = (zone_id == 5 || zone_id == 6 || zone_id == 10 || zone_id == 11);
 	} else if (biome_id == 2) {
-		// Wild: nature reserve, wild meadow
-		is_grass_zone = (zone_id == 5);
+		// Wild (Turf_Wild): unmowed wild meadow
+		is_grass_zone = (zone_id == 8);
 		is_woodland = false;
 	} else if (biome_id == 3) {
-		// Woodland: forest floor
-		is_grass_zone = false;
-		is_woodland = (zone_id == 10 || zone_id == 11);
-	} else if (biome_id == 4) {
-		// Garden: formal gardens only
-		is_grass_zone = (zone_id == 1 || zone_id == 3);
+		// Sedge (Turf_Sedge): waterside edges
+		is_grass_zone = (zone_id == 7);
 		is_woodland = false;
-	} else if (biome_id == 5) {
-		// Dryland: seasonal dormant grass — wild + woodland zones in autumn/winter
-		is_grass_zone = (zone_id == 5);
-		is_woodland = (zone_id == 10 || zone_id == 11);
-		// Only show in autumn/winter (season_t > 2.0)
-		if (season_t < 2.0) {
-			is_grass_zone = false;
-			is_woodland = false;
-		}
 	} else {
 		// Legacy: all grass zones
 		is_grass_zone = (zone_id == 0 || zone_id == 1 || zone_id == 2
-		              || zone_id == 3 || zone_id == 7);
-		is_woodland = (zone_id == 5 || zone_id == 10 || zone_id == 11);
+		              || zone_id == 3 || zone_id == 4 || zone_id == 7
+		              || zone_id == 8 || zone_id == 9);
+		is_woodland = (zone_id == 5 || zone_id == 6 || zone_id == 10 || zone_id == 11);
 	}
 
 	vec2 uv = (pos.xz) * main_noise_scale;
@@ -256,14 +250,13 @@ void start() {
 	} else if (zone_id == 7) {
 		zone_height = 0.9; zone_spread = 1.0;   // C-lawn (waterside)
 	} else if (zone_id == 5) {
-		zone_height = 1.6; zone_spread = 1.2;   // D-lawn/wild (NorthWoods): tall
+		zone_height = 1.4; zone_spread = 1.1;   // NorthWoods: tall shade grass
+	} else if (zone_id == 6) {
+		zone_height = 1.2; zone_spread = 1.0;   // Ramble: moderate woodland
+	} else if (zone_id == 8) {
+		zone_height = 1.8; zone_spread = 1.2;   // WildMeadow: tallest, unmowed
 	} else if (zone_id == 10 || zone_id == 11) {
 		zone_height = 1.0; zone_spread = 0.8;   // Woodland: medium, sparse
-	}
-	// Wild meadow gets tallest grass
-	if (biome_id == 2) {
-		zone_height = max(zone_height, 1.8);
-		zone_spread = max(zone_spread, 1.1);
 	}
 
 	vec3 scale = vec3(
@@ -322,8 +315,10 @@ void start() {
 	else if (zone_id == 3) zone_density = 0.98;                   // Formal garden: manicured
 	else if (zone_id == 4) zone_density = 0.85;                   // Sports turf
 	else if (zone_id == 7) zone_density = 0.80;                   // C-lawn (waterside)
+	else if (zone_id == 8) zone_density = 0.55;                   // Wild meadow: thick but gaps
 	else if (zone_id == 9) zone_density = 0.70;                   // B/C open lawn
-	else if (zone_id == 5) zone_density = 0.40;                   // D-lawn/wild: patchy
+	else if (zone_id == 5) zone_density = 0.35;                   // NorthWoods: sparse shade
+	else if (zone_id == 6) zone_density = 0.30;                   // Ramble: patchy woodland floor
 	else if (zone_id == 10 || zone_id == 11) zone_density = 0.20; // Woodland: sparse, mostly litter
 
 	if (r.x > zone_density) {

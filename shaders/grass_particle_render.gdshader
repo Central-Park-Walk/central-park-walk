@@ -28,10 +28,11 @@ varying float v_height_t;
 
 void vertex() {
 	// Height within tuft: use vertex Y position (0=ground, tip=max height).
-	// VERTEX.y is in model space — normalize by approximate mesh height.
-	// Grass_Patch meshes: Mowed ~0.10m, Meadow ~0.26m, Woodland ~0.07m.
-	// Clamp to safe range; slightly above 1.0 is fine for tall variants.
-	v_height_t = clamp(VERTEX.y / 0.15, 0.0, 1.0);
+	// VERTEX.y is in model space — normalize by mesh height.
+	// Turf meshes: Lawn ~0.07m, Shade ~0.16m, Sedge ~0.22m, Wild ~0.34m.
+	// Tuft meshes: Meadow ~0.17m, Wild ~0.26m.
+	// Use 0.20 as middle-ground; short Turf_Lawn tops out at ~0.35 (fine).
+	v_height_t = clamp(VERTEX.y / 0.20, 0.0, 1.0);
 	float bend_factor = v_height_t * v_height_t;
 
 	if (!use_texture) {
@@ -89,40 +90,54 @@ void fragment() {
 	float canopy_cover = COLOR.g;
 	float blade_seed = data.r;
 
-	// --- Zone-specific color palettes (from grass_blade.gdshader) ---
+	// --- Zone-specific color palettes ---
+	// Values in linear sRGB; all brightened ~25-30% from original to compensate
+	// for stacking darkening (base-to-tip, broad patch, canopy, cloud shadows).
 	vec3 color_small, color_large;
 	if (zone_id == 0) {
 		// SheepMeadow: cool blue-green Kentucky bluegrass
-		color_small = vec3(0.06, 0.30, 0.10);
-		color_large = vec3(0.15, 0.40, 0.14);
+		color_small = vec3(0.08, 0.38, 0.12);
+		color_large = vec3(0.18, 0.48, 0.16);
 	} else if (zone_id == 1) {
 		// GreatLawn: deep rich emerald
-		color_small = vec3(0.05, 0.25, 0.05);
-		color_large = vec3(0.12, 0.35, 0.08);
+		color_small = vec3(0.07, 0.34, 0.07);
+		color_large = vec3(0.16, 0.44, 0.11);
 	} else if (zone_id == 2) {
 		// NorthMeadow: warm open meadow, noticeably yellower
-		color_small = vec3(0.14, 0.28, 0.04);
-		color_large = vec3(0.35, 0.42, 0.08);
+		color_small = vec3(0.17, 0.36, 0.06);
+		color_large = vec3(0.40, 0.50, 0.10);
 	} else if (zone_id == 3) {
 		// FormalGarden: uniform bright green, low contrast
-		color_small = vec3(0.10, 0.32, 0.08);
-		color_large = vec3(0.16, 0.36, 0.10);
-	} else if (zone_id == 5) {
-		// NorthWoods: dark blue-green shade grass
-		color_small = vec3(0.04, 0.14, 0.06);
-		color_large = vec3(0.08, 0.20, 0.10);
+		color_small = vec3(0.12, 0.40, 0.10);
+		color_large = vec3(0.20, 0.45, 0.13);
+	} else if (zone_id == 4) {
+		// SportsTurf: maintained athletic green
+		color_small = vec3(0.08, 0.36, 0.08);
+		color_large = vec3(0.15, 0.42, 0.12);
+	} else if (zone_id == 5 || zone_id == 6) {
+		// NorthWoods/Ramble: cooler shade grass, still visible
+		color_small = vec3(0.06, 0.20, 0.08);
+		color_large = vec3(0.12, 0.28, 0.13);
 	} else if (zone_id == 7) {
-		// Waterside: dark lush green, very saturated
-		color_small = vec3(0.04, 0.22, 0.08);
-		color_large = vec3(0.10, 0.34, 0.14);
+		// Waterside: lush saturated sedge green
+		color_small = vec3(0.06, 0.30, 0.10);
+		color_large = vec3(0.14, 0.42, 0.16);
+	} else if (zone_id == 8) {
+		// WildMeadow: warm mixed grasses, golden-green
+		color_small = vec3(0.16, 0.32, 0.06);
+		color_large = vec3(0.36, 0.46, 0.10);
+	} else if (zone_id == 9) {
+		// OpenLawn: standard maintained green
+		color_small = vec3(0.09, 0.35, 0.08);
+		color_large = vec3(0.18, 0.44, 0.12);
 	} else if (zone_id == 10 || zone_id == 11) {
 		// Woodland: warm brown-green understory
-		color_small = vec3(0.08, 0.16, 0.04);
-		color_large = vec3(0.16, 0.22, 0.06);
+		color_small = vec3(0.10, 0.22, 0.06);
+		color_large = vec3(0.20, 0.30, 0.08);
 	} else {
 		// Default: standard mid-green
-		color_small = vec3(0.10, 0.26, 0.06);
-		color_large = vec3(0.24, 0.36, 0.10);
+		color_small = vec3(0.12, 0.34, 0.08);
+		color_large = vec3(0.28, 0.44, 0.12);
 	}
 
 	// Patchiness: world-space noise ties size to color
@@ -136,15 +151,15 @@ void fragment() {
 		col *= (0.6 + tex_lum * 0.8);
 	}
 
-	// Base-to-tip gradient
-	col *= mix(0.82, 1.0, v_height_t);
+	// Base-to-tip gradient (raised floor so short turf meshes don't go too dark)
+	col *= mix(0.90, 1.0, v_height_t);
 
 	// Per-instance hue variation
 	col *= mix(vec3(0.97, 1.01, 1.03), vec3(1.03, 0.99, 0.95), blade_seed);
 
 	// Broad meadow variation (12m scale)
 	float broad_patch = vnoise(v_world_pos.xz / 12.0);
-	col *= mix(0.92, 1.08, broad_patch);
+	col *= mix(0.95, 1.05, broad_patch);
 
 	// --- Seasonal color ---
 	float spring_t = sn_veg_spring(season_t);

@@ -1844,34 +1844,60 @@ var _grass_particle_nodes: Array[Node3D] = []
 var _landuse_texture: Texture2D  # cached for grass particle system
 
 # Biome definitions for multi-layer grass particles.
-# Each biome gets its own Terrain3D particle grid with zone-filtered BD3D tuft mesh.
-# Old BD3D particle grass disabled — gscatter undergrowth now handles ground vegetation.
-# Re-enable by uncommenting if gscatter undergrowth density needs supplementing.
+# 4 Turf base layers (non-overlapping zones) + 2 Tuft accent layers (sparse variety).
+# Turf meshes: ~1.2m tileable patches, untextured (shader-colored by zone palette).
+# Tuft meshes: PBR-textured individual clumps for dimensional variety above the turf carpet.
 const GRASS_BIOMES := [
-#	{  # Maintained lawn — Grass_Patch_Mowed is 21×24cm at scale 1.0, 108 tris
-#		"name": "Lawn", "biome_id": 0,
-#		"mesh_path": "res://models/vegetation/Grass_Patch_Mowed.glb",
-#		"spacing": 0.25, "cell_width": 24.0, "grid_width": 7,
-#		"min_scale": Vector3(0.8, 0.8, 0.8),
-#		"max_scale": Vector3(1.2, 1.2, 1.2),
-#		"position_offset": Vector3(0, -0.005, 0),
-#	},
-#	{  # Wild meadow — Grass_Patch_Meadow is 1.3×1.2m at scale 1.0, 192 tris
-#		"name": "Wild", "biome_id": 2,
-#		"mesh_path": "res://models/vegetation/Grass_Patch_Meadow.glb",
-#		"spacing": 0.50, "cell_width": 24.0, "grid_width": 7,
-#		"min_scale": Vector3(0.25, 0.6, 0.25),
-#		"max_scale": Vector3(0.40, 1.0, 0.40),
-#		"position_offset": Vector3(0, -0.010, 0),
-#	},
-#	{  # Woodland floor — Grass_Patch_Woodland is 55×57cm at scale 1.0, 72 tris
-#		"name": "Woodland", "biome_id": 3,
-#		"mesh_path": "res://models/vegetation/Grass_Patch_Woodland.glb",
-#		"spacing": 0.40, "cell_width": 24.0, "grid_width": 7,
-#		"min_scale": Vector3(0.6, 0.5, 0.6),
-#		"max_scale": Vector3(1.0, 0.9, 1.0),
-#		"position_offset": Vector3(0, -0.005, 0),
-#	},
+	# --- Turf base layers: continuous ground coverage per biome ---
+	{  # Maintained lawns — Turf_Lawn: 1.23m tile, 6.7cm tall, 2400 tris
+		"name": "Lawn", "biome_id": 0,
+		"mesh_path": "res://models/vegetation/Turf_Lawn_v0.glb",
+		"spacing": 1.0, "cell_width": 24.0, "grid_width": 5,
+		"min_scale": Vector3(0.9, 0.9, 0.9),
+		"max_scale": Vector3(1.1, 1.1, 1.1),
+		"position_offset": Vector3(0, -0.005, 0),
+	},
+	{  # Woodland/shade floor — Turf_Shade: 1.24m tile, 15.8cm tall, 3000 tris
+		"name": "Shade", "biome_id": 1,
+		"mesh_path": "res://models/vegetation/Turf_Shade_v0.glb",
+		"spacing": 1.1, "cell_width": 24.0, "grid_width": 5,
+		"min_scale": Vector3(0.85, 0.8, 0.85),
+		"max_scale": Vector3(1.15, 1.1, 1.15),
+		"position_offset": Vector3(0, -0.005, 0),
+	},
+	{  # Wild meadow — Turf_Wild: 1.35m tile, 33.7cm tall, 4000 tris
+		"name": "Wild", "biome_id": 2,
+		"mesh_path": "res://models/vegetation/Turf_Wild_v0.glb",
+		"spacing": 1.2, "cell_width": 24.0, "grid_width": 5,
+		"min_scale": Vector3(0.85, 0.8, 0.85),
+		"max_scale": Vector3(1.15, 1.2, 1.15),
+		"position_offset": Vector3(0, -0.010, 0),
+	},
+	{  # Waterside — Turf_Sedge: 1.25m tile, 22cm tall, 3300 tris
+		"name": "Sedge", "biome_id": 3,
+		"mesh_path": "res://models/vegetation/Turf_Sedge_v0.glb",
+		"spacing": 1.1, "cell_width": 24.0, "grid_width": 5,
+		"min_scale": Vector3(0.9, 0.85, 0.9),
+		"max_scale": Vector3(1.1, 1.15, 1.1),
+		"position_offset": Vector3(0, -0.008, 0),
+	},
+	# --- Tuft accent layers: sparse dimensional variety above the turf carpet ---
+	{  # Lawn accents — Tuft_Meadow: 25×17cm clump, 266 tris (PBR textured)
+		"name": "Tuft_Lawn", "biome_id": 10,
+		"mesh_path": "res://models/vegetation/Tuft_Meadow.glb",
+		"spacing": 1.5, "cell_width": 24.0, "grid_width": 5,
+		"min_scale": Vector3(1.2, 1.0, 1.2),
+		"max_scale": Vector3(2.0, 1.8, 2.0),
+		"position_offset": Vector3(0, -0.005, 0),
+	},
+	{  # Wild/Woodland accents — Tuft_Wild: 68×26cm clump, 300 tris (PBR textured)
+		"name": "Tuft_Wild", "biome_id": 11,
+		"mesh_path": "res://models/vegetation/Tuft_Wild.glb",
+		"spacing": 1.5, "cell_width": 24.0, "grid_width": 5,
+		"min_scale": Vector3(0.8, 0.8, 0.8),
+		"max_scale": Vector3(1.3, 1.2, 1.3),
+		"position_offset": Vector3(0, -0.008, 0),
+	},
 ]
 
 func _setup_grass_particles() -> void:
@@ -1956,9 +1982,11 @@ func _setup_grass_particles() -> void:
 		# Render material — textured alpha-scissor grass with wind + seasons
 		var render_mat := ShaderMaterial.new()
 		render_mat.shader = render_shader
-		render_mat.set_shader_parameter("use_texture", true)
 		if albedo_tex:
+			render_mat.set_shader_parameter("use_texture", true)
 			render_mat.set_shader_parameter("grass_albedo", albedo_tex)
+		else:
+			render_mat.set_shader_parameter("use_texture", false)
 		# Load per-blade normal map (baked alongside albedo)
 		var mesh_name: String = biome.mesh_path.get_file().get_basename()
 		var nrm_path := "res://textures/grass/%s_normal.png" % mesh_name

@@ -128,10 +128,11 @@ void fragment() {
 	col *= mix(0.90, 1.10, broad);
 
 	// ---- AO from vertex height ----
-	// Steeper curve at ground contact — mushrooms and low plants get dark
-	// base where they meet the grass, preventing the "floating" look.
+	// Gentle darkening at ground contact to anchor plants without making small
+	// species invisible. Raised floor from 0.30→0.55 so lawn accent plants
+	// (clover, plantain, speedwell) stay visible against the grass.
 	float height_frac = clamp(VERTEX.y / 3.0, 0.0, 1.0);
-	float ao = mix(0.30, 1.0, smoothstep(0.0, 0.4, height_frac)) - v_wind_amount * 0.2;
+	float ao = mix(0.55, 1.0, smoothstep(0.0, 0.3, height_frac)) - v_wind_amount * 0.15;
 	AO = clamp(ao, 0.0, 1.0);
 	AO_LIGHT_AFFECT = 1.0;
 
