@@ -209,8 +209,10 @@ func _ready() -> void:
 			_set_terrain_param("canopy_map", _park_loader._canopy_texture)
 		print("main: canopy map: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 		# GPU particle grass — replaces old hexaquo MultiMesh system
+		print("main: about to setup grass particles...")
 		if _terrain3d:
 			_setup_grass_particles()
+			print("main: grass particles returned")
 			# Textures already set on grass process material before add_child()
 			print("main: grass particles: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_player = _setup_player()
@@ -1926,13 +1928,20 @@ func _setup_grass_particles() -> void:
 		var inst = scene.instantiate()
 		var tuft_mesh: Mesh = null
 		var albedo_tex: Texture2D = null
-		for child in inst.get_children():
-			if child is MeshInstance3D:
-				tuft_mesh = child.mesh
-				var mat = tuft_mesh.surface_get_material(0)
-				if mat is BaseMaterial3D and mat.albedo_texture:
-					albedo_tex = mat.albedo_texture
-				break
+		# Check if root itself is a MeshInstance3D (custom GLBs)
+		var mesh_node: MeshInstance3D = null
+		if inst is MeshInstance3D:
+			mesh_node = inst
+		else:
+			for child in inst.get_children():
+				if child is MeshInstance3D:
+					mesh_node = child
+					break
+		if mesh_node and mesh_node.mesh:
+			tuft_mesh = mesh_node.mesh
+			var mat = tuft_mesh.surface_get_material(0)
+			if mat is BaseMaterial3D and mat.albedo_texture:
+				albedo_tex = mat.albedo_texture
 		inst.queue_free()
 		if not tuft_mesh:
 			push_warning("No mesh in %s" % biome.mesh_path)
