@@ -27,9 +27,9 @@ varying vec3 v_world_pos;
 varying float v_height_t;
 
 void vertex() {
-	// Height within tuft: use vertex Y position (0=ground, tip=max height).
-	// Tuft meshes: Tiny ~0.06m, Woodland ~0.08m, Meadow ~0.17m, Wild ~0.26m.
-	v_height_t = clamp(VERTEX.y / 0.10, 0.0, 1.0);
+	// Height within tuft: UV.y = 0 at base, 1 at tip (baked in mesh).
+	// Used for wind bend (roots stay, tips sway) and color gradient.
+	v_height_t = UV.y;
 
 	data.rg = INSTANCE_CUSTOM.rg;
 	data[3] = INSTANCE_CUSTOM[3];
