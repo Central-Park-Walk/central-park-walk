@@ -2469,6 +2469,22 @@ func _cycle_weather() -> void:
 	print("Weather: %s" % _weather_mode)
 
 
+func _extract_mesh_from_glb(path: String) -> Mesh:
+	## Load a GLB and return the first mesh resource found.
+	var scene: PackedScene = load(path)
+	if not scene:
+		push_warning("Could not load GLB: %s" % path)
+		return null
+	var inst := scene.instantiate()
+	var mesh: Mesh = null
+	for child in inst.get_children():
+		if child is MeshInstance3D:
+			mesh = child.mesh
+			break
+	inst.queue_free()
+	return mesh
+
+
 func _setup_weather() -> void:
 	if _weather_mode == "rain":
 		_setup_rain()
@@ -2589,41 +2605,54 @@ func _setup_rain_splash(amount: int, alpha: float) -> void:
 func _setup_snow() -> void:
 	_snow_particles = GPUParticles3D.new()
 	_snow_particles.amount = 3000
-	_snow_particles.lifetime = 4.0
+	_snow_particles.lifetime = 5.0
 	_snow_particles.visibility_aabb = AABB(Vector3(-25, -20, -25), Vector3(50, 40, 50))
 
 	var pm := ParticleProcessMaterial.new()
 	pm.direction = Vector3(0, -1, 0)
 	pm.spread = 15.0
-	pm.initial_velocity_min = 1.0
-	pm.initial_velocity_max = 2.5
-	pm.gravity = Vector3(0, -1.5, 0)
+	pm.initial_velocity_min = 0.8
+	pm.initial_velocity_max = 2.0
+	pm.gravity = Vector3(0, -1.2, 0)
 	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
 	pm.emission_box_extents = Vector3(25.0, 0.5, 25.0)
-	# Gentle drift
+	# Gentle drift + tumble
 	pm.orbit_velocity_min = 0.1
 	pm.orbit_velocity_max = 0.3
+	pm.angular_velocity_min = -120.0
+	pm.angular_velocity_max = 120.0
+	# Scale variation — snowflake model is 1 unit, we want ~0.03-0.06
+	pm.scale_min = 0.03
+	pm.scale_max = 0.06
+	pm.damping_min = 0.5
+	pm.damping_max = 1.5
 	_snow_particles.process_material = pm
 
-	var mesh := QuadMesh.new()
-	mesh.size = Vector2(0.04, 0.04)
-	_snow_particles.draw_pass_1 = mesh
+	# Load 3D snowflake mesh from GLB
+	var snow_mesh := _extract_mesh_from_glb("res://models/vegetation/Snowflake.glb")
+	if snow_mesh:
+		_snow_particles.draw_pass_1 = snow_mesh
+	else:
+		# Fallback to quad if GLB not found
+		var fallback := QuadMesh.new()
+		fallback.size = Vector2(0.04, 0.04)
+		_snow_particles.draw_pass_1 = fallback
 
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.95, 0.95, 1.0, 0.8)
+	mat.albedo_color = Color(0.95, 0.95, 1.0, 0.85)
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_snow_particles.material_override = mat
 
 	add_child(_snow_particles)
-
-	print("Snow: 3000 particles")
+	print("Snow: 3000 snowflake particles")
 
 
 
 func _setup_leaf_particles() -> void:
-	## Autumn falling leaves — warm-colored quads drifting down through canopy.
+	## Autumn falling leaves — textured leaf meshes drifting down through canopy.
+	## Uses 4 photographic leaf models from RBG_illustrations (CC-BY).
 	## Active only during autumn season (season_t 2.0-3.2). Amount varies
 	## with season intensity: sparse at start/end, dense at peak color.
 	_leaf_particles = GPUParticles3D.new()
@@ -2645,35 +2674,42 @@ func _setup_leaf_particles() -> void:
 	# Angular velocity for spinning
 	pm.angular_velocity_min = -90.0
 	pm.angular_velocity_max = 90.0
-	# Scale variation — different leaf sizes
-	pm.scale_min = 0.6
-	pm.scale_max = 1.4
-	# Randomize color: fall palette from warm yellow to deep red
-	pm.color = Color(0.85, 0.55, 0.20, 0.85)
-	var color_ramp := GradientTexture1D.new()
-	var grad := Gradient.new()
-	grad.set_color(0, Color(0.90, 0.80, 0.25, 0.90))  # golden yellow
-	grad.add_point(0.3, Color(0.85, 0.50, 0.15, 0.85))  # orange
-	grad.add_point(0.6, Color(0.75, 0.25, 0.10, 0.80))  # red-brown
-	grad.set_color(1, Color(0.50, 0.30, 0.15, 0.70))  # dark brown (old leaves)
-	color_ramp.gradient = grad
-	pm.color_initial_ramp = color_ramp
+	# Scale: leaf models are 1 unit, we want ~0.025-0.045
+	pm.scale_min = 0.025
+	pm.scale_max = 0.045
+	# Subtle alpha fade over lifetime (leaves brown and become transparent)
+	var alpha_curve := CurveTexture.new()
+	var curve := Curve.new()
+	curve.add_point(Vector2(0.0, 1.0))
+	curve.add_point(Vector2(0.7, 0.9))
+	curve.add_point(Vector2(1.0, 0.5))
+	alpha_curve.curve = curve
+	pm.alpha_curve = alpha_curve
+	pm.damping_min = 1.0
+	pm.damping_max = 3.0
 	_leaf_particles.process_material = pm
 
-	var mesh := QuadMesh.new()
-	mesh.size = Vector2(0.035, 0.025)  # small leaf shape — wider than tall
-	_leaf_particles.draw_pass_1 = mesh
-
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.85, 0.55, 0.20, 0.85)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	_leaf_particles.material_override = mat
+	# Load 4 textured leaf meshes — each draw pass gives variety
+	var leaf_paths := [
+		"res://models/vegetation/Leaf_Autumn_01.glb",
+		"res://models/vegetation/Leaf_Autumn_02.glb",
+		"res://models/vegetation/Leaf_Autumn_03.glb",
+		"res://models/vegetation/Leaf_Autumn_04.glb",
+	]
+	var fallback_mesh := QuadMesh.new()
+	fallback_mesh.size = Vector2(0.035, 0.025)
+	for i in range(4):
+		var mesh := _extract_mesh_from_glb(leaf_paths[i])
+		if not mesh:
+			mesh = fallback_mesh
+		match i:
+			0: _leaf_particles.draw_pass_1 = mesh
+			1: _leaf_particles.draw_pass_2 = mesh
+			2: _leaf_particles.draw_pass_3 = mesh
+			3: _leaf_particles.draw_pass_4 = mesh
 
 	add_child(_leaf_particles)
-	print("Autumn leaves: drifting fall particles")
+	print("Autumn leaves: 4 textured leaf meshes, drifting particles")
 
 
 func _setup_blossom_particles() -> void:

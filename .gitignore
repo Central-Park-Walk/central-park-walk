@@ -22,6 +22,8 @@ models/
 !models/vegetation/Grass_*.glb
 !models/vegetation/Mushroom_*.gltf
 !models/vegetation/ForestFloor_*.glb
+!models/vegetation/Snowflake.glb
+!models/vegetation/Leaf_Autumn_*.glb
 textures/*
 !textures/terrain3d/
 !textures/impostors/
