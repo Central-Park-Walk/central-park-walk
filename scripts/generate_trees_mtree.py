@@ -265,8 +265,8 @@ SPECIES = {
         "branch_split_angle": 35.0,
         "branch_flatness": 0.20,
         "branch_break_chance": 0.02,
-        "branch_resolution": 0.8,
-        "sub_density": 1.5,            # Vase elm: famously dense canopy (was 1.2, orig 1.8)
+        "branch_resolution": 0.5,      # Reduced from 0.8 — fewer ring segments per branch
+        "sub_density": 1.0,            # Vase elm: famously dense canopy (1.8→1.5→1.0, controls bark vert count)
         "sub_length_ratio": 0.15,
         "sub_angle": 55,
         "sub_gravity": 15.0,           # Heavy droop on sub-branches
@@ -275,7 +275,7 @@ SPECIES = {
         "sub_split_prob": 0.3,
         "sub_split_angle": 30.0,
         "sub_flatness": 0.25,
-        "sub_resolution": 0.4,
+        "sub_resolution": 0.25,        # Reduced from 0.4 — sub-branch tubes need fewer segments
         "bark_color": (0.30, 0.25, 0.18),
         "bark_roughness": 0.88,
         "leaf_shape": "elliptic",
@@ -313,8 +313,8 @@ SPECIES = {
         "branch_split_angle": 50.0,    # Wide secondary splits (was 45)
         "branch_flatness": 0.50,       # Strong lateral spread (was 0.35)
         "branch_break_chance": 0.01,
-        "branch_resolution": 0.7,
-        "sub_density": 1.0,            # Dense canopy curtain (1.5 → 1.2 → 1.0 to keep _l under 100MB)
+        "branch_resolution": 0.4,      # Reduced from 0.7 — fewer ring segments, invisible at walk distance
+        "sub_density": 0.7,            # Dense canopy curtain (1.5→1.2→1.0→0.7, controls bark vert count)
         "sub_length_ratio": 0.16,
         "sub_angle": 55,               # Sub-branches spread wide too
         "sub_gravity": 16.0,           # Heavy droop — canopy curtain hangs down
@@ -323,7 +323,7 @@ SPECIES = {
         "sub_split_prob": 0.30,
         "sub_split_angle": 35.0,
         "sub_flatness": 0.35,
-        "sub_resolution": 0.4,
+        "sub_resolution": 0.2,         # Reduced from 0.4 — sub-branch tubes need fewer segments
         "bark_color": (0.28, 0.23, 0.16),
         "bark_roughness": 0.90,
         "leaf_shape": "elliptic",
