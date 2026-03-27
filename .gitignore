@@ -58,7 +58,14 @@ cache/
 __pycache__/
 *.pyc
 
-# Presentations, screenshots, reference images
+# Screenshots — only the 4 README images are tracked
+screenshots/
+!screenshots/readme_cherry_hill_autumn.png
+!screenshots/readme_ramble_summer.png
+!screenshots/readme_bow_bridge_snow.png
+!screenshots/readme_literary_walk_winter.png
+
+# Presentations, reference images
 *.odp
 *.png
 !screenshots/readme_cherry_hill_autumn.png
