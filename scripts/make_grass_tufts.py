@@ -20,29 +20,40 @@ TEX_DIR = os.path.join(PROJ, "textures", "grass")
 os.makedirs(OUT_DIR, exist_ok=True)
 os.makedirs(TEX_DIR, exist_ok=True)
 
+# Heights and widths are scaled ~3x from botanical measurements for visual
+# legibility at walking-eye height. Real KBG is 7.6cm mowed; at 1:1 scale
+# it's invisible from 1.7m eye height. Placement, species, and zone data
+# remain faithful to conservancy data — only the mesh geometry is scaled.
+# EGTTR-inspired palette: warm, muted, golden-hour tones. Each zone has a
+# distinct color identity that reads differently at walking distance.
+# Heights scaled ~3x from botanical for visual legibility at eye height.
 TUFTS = {
     "Tuft_Tiny": {
-        "h": 0.058, "bw": 0.007, "n_blades": 24, "spread": 0.17,
-        "curve": 0.15, "droop": 0.05, "segs": 3,
-        "color": (75, 140, 50), "tip_color": (90, 155, 55),
+        # Maintained lawn: warm yellow-green, sunlit English lawn feel
+        "h": 0.15, "bw": 0.018, "n_blades": 24, "spread": 0.20,
+        "curve": 0.20, "droop": 0.08, "segs": 3,
+        "color": (88, 120, 52), "tip_color": (110, 138, 62),
         "blade_shape": "broad",
     },
     "Tuft_Woodland": {
-        "h": 0.10, "bw": 0.005, "n_blades": 18, "spread": 0.12,
-        "curve": 0.25, "droop": 0.12, "segs": 4,
-        "color": (55, 110, 40), "tip_color": (65, 120, 45),
+        # Shade floor: deep muted olive, cool and dark under canopy
+        "h": 0.22, "bw": 0.012, "n_blades": 18, "spread": 0.16,
+        "curve": 0.30, "droop": 0.15, "segs": 4,
+        "color": (48, 72, 38), "tip_color": (58, 85, 42),
         "blade_shape": "needle",
     },
     "Tuft_Wild": {
-        "h": 0.26, "bw": 0.012, "n_blades": 14, "spread": 0.34,
-        "curve": 0.35, "droop": 0.18, "segs": 5,
-        "color": (70, 115, 45), "tip_color": (85, 130, 50),
+        # Wild meadow: golden-green, warm hay undertones, sun-bleached tips
+        "h": 0.45, "bw": 0.022, "n_blades": 14, "spread": 0.38,
+        "curve": 0.40, "droop": 0.20, "segs": 5,
+        "color": (95, 110, 48), "tip_color": (125, 130, 62),
         "blade_shape": "broad",
     },
     "Tuft_Meadow": {
-        "h": 0.17, "bw": 0.010, "n_blades": 20, "spread": 0.14,
-        "curve": 0.40, "droop": 0.22, "segs": 5,
-        "color": (60, 110, 40), "tip_color": (72, 122, 45),
+        # Waterside sedge: cool grey-green, damp wetland feel
+        "h": 0.32, "bw": 0.018, "n_blades": 20, "spread": 0.18,
+        "curve": 0.45, "droop": 0.25, "segs": 5,
+        "color": (55, 85, 48), "tip_color": (68, 100, 55),
         "blade_shape": "arch",
     },
 }
