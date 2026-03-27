@@ -2621,29 +2621,28 @@ func _setup_snow() -> void:
 	pm.orbit_velocity_max = 0.3
 	pm.angular_velocity_min = -120.0
 	pm.angular_velocity_max = 120.0
-	# Scale variation — snowflake model is 1 unit, we want ~0.03-0.06
-	pm.scale_min = 0.03
-	pm.scale_max = 0.06
 	pm.damping_min = 0.5
 	pm.damping_max = 1.5
-	_snow_particles.process_material = pm
 
 	# Load 3D snowflake mesh from GLB
 	var snow_mesh := _extract_mesh_from_glb("res://models/vegetation/Snowflake.glb")
 	if snow_mesh:
+		# GLB model is ~1 unit — scale down to 3-6cm snowflakes
+		pm.scale_min = 0.03
+		pm.scale_max = 0.06
 		_snow_particles.draw_pass_1 = snow_mesh
 	else:
-		# Fallback to quad if GLB not found — 1m base so scale 0.03-0.06 = 3-6cm
+		# Fallback quad at final visual size — 3-6cm with moderate variation
 		var fallback := QuadMesh.new()
-		fallback.size = Vector2(1.0, 1.0)
+		fallback.size = Vector2(0.04, 0.04)
+		pm.scale_min = 0.7
+		pm.scale_max = 1.5
 		_snow_particles.draw_pass_1 = fallback
+	_snow_particles.process_material = pm
 
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.95, 0.95, 1.0, 0.85)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://shaders/snow.gdshader")
+	mat.set_shader_parameter("snow_color", Color(0.95, 0.95, 1.0, 0.85))
 	_snow_particles.material_override = mat
 
 	add_child(_snow_particles)
