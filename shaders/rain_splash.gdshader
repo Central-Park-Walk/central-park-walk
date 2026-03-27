@@ -1,10 +1,26 @@
 shader_type spatial;
-render_mode blend_add, depth_draw_never, cull_disabled, unshaded, particle_billboard;
+render_mode blend_add, depth_draw_never, cull_disabled, unshaded;
 
 // Expanding splash ring — billboard quad that fades from center outward.
 // Particle lifetime drives the ring expansion via COLOR.a from the process material.
 
 uniform vec4 splash_color : source_color = vec4(0.75, 0.78, 0.88, 0.5);
+
+void vertex() {
+	// Billboard: face camera, preserving particle scale and position
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(
+		INV_VIEW_MATRIX[0],
+		INV_VIEW_MATRIX[1],
+		INV_VIEW_MATRIX[2],
+		MODEL_MATRIX[3]
+	);
+	MODELVIEW_MATRIX = MODELVIEW_MATRIX * mat4(
+		vec4(length(MODEL_MATRIX[0].xyz), 0.0, 0.0, 0.0),
+		vec4(0.0, length(MODEL_MATRIX[1].xyz), 0.0, 0.0),
+		vec4(0.0, 0.0, length(MODEL_MATRIX[2].xyz), 0.0),
+		vec4(0.0, 0.0, 0.0, 1.0)
+	);
+}
 
 void fragment() {
 	vec2 uv = UV * 2.0 - 1.0;

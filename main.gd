@@ -2633,14 +2633,15 @@ func _setup_snow() -> void:
 	if snow_mesh:
 		_snow_particles.draw_pass_1 = snow_mesh
 	else:
-		# Fallback to quad if GLB not found
+		# Fallback to quad if GLB not found — 1m base so scale 0.03-0.06 = 3-6cm
 		var fallback := QuadMesh.new()
-		fallback.size = Vector2(0.04, 0.04)
+		fallback.size = Vector2(1.0, 1.0)
 		_snow_particles.draw_pass_1 = fallback
 
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(0.95, 0.95, 1.0, 0.85)
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_snow_particles.material_override = mat

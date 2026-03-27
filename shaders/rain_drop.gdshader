@@ -1,11 +1,27 @@
 shader_type spatial;
-render_mode blend_add, depth_draw_never, cull_disabled, unshaded, particle_billboard;
+render_mode blend_add, depth_draw_never, cull_disabled, unshaded;
 
 // Soft oblong raindrop — rounded teardrop silhouette with refraction core.
 // Applied to elongated QuadMesh billboard particles.
 
 uniform vec4 drop_color : source_color = vec4(0.7, 0.75, 0.85, 0.25);
 uniform float core_brightness : hint_range(0.0, 1.0) = 0.35;
+
+void vertex() {
+	// Billboard: face camera, preserving particle scale and position
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(
+		INV_VIEW_MATRIX[0],
+		INV_VIEW_MATRIX[1],
+		INV_VIEW_MATRIX[2],
+		MODEL_MATRIX[3]
+	);
+	MODELVIEW_MATRIX = MODELVIEW_MATRIX * mat4(
+		vec4(length(MODEL_MATRIX[0].xyz), 0.0, 0.0, 0.0),
+		vec4(0.0, length(MODEL_MATRIX[1].xyz), 0.0, 0.0),
+		vec4(0.0, 0.0, length(MODEL_MATRIX[2].xyz), 0.0),
+		vec4(0.0, 0.0, 0.0, 1.0)
+	);
+}
 
 void fragment() {
 	// Center UV at origin
