@@ -168,7 +168,7 @@ void fragment() {
 	// --- Seasonal color ---
 	float spring_t = sn_veg_spring(season_t);
 	float autumn_t = sn_veg_autumn(season_t);
-	winter_t = sn_veg_winter(season_t);
+	float winter_t = sn_veg_winter(season_t);
 
 	// Spring: fresh bright green
 	col = mix(col, col * vec3(1.12, 1.18, 0.78), spring_t * 0.4 * is_leaf);
