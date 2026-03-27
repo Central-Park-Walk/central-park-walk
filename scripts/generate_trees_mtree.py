@@ -314,7 +314,7 @@ SPECIES = {
         "branch_flatness": 0.50,       # Strong lateral spread (was 0.35)
         "branch_break_chance": 0.01,
         "branch_resolution": 0.7,
-        "sub_density": 1.2,            # Dense canopy curtain (1.5 → 1.2 to keep _l under 100MB)
+        "sub_density": 1.0,            # Dense canopy curtain (1.5 → 1.2 → 1.0 to keep _l under 100MB)
         "sub_length_ratio": 0.16,
         "sub_angle": 55,               # Sub-branches spread wide too
         "sub_gravity": 16.0,           # Heavy droop — canopy curtain hangs down
@@ -332,7 +332,7 @@ SPECIES = {
         "leaf_seed": 888,
         "leaf_cluster_size_range": (0.30, 0.60),
         "leaf_flatten_range": (0.40, 0.70),
-        "leaf_density": 0.85,  # canopy density (0-1, from real-world LAI)
+        "leaf_density": 0.75,  # canopy density (0-1, from real-world LAI) — reduced for <100MB
         "base_seed": 101,
         "seed_step": 23,
         "tiers": {
@@ -589,25 +589,25 @@ SPECIES = {
     # ----- Tight pyramidal -----
     "callery_pear": {
         "name": "Callery Pear (Pyrus calleryana)",
-        "crown_shape": "Conical",
+        "crown_shape": "Spherical",  # Changed from Conical — Conical triggers Mtree 5.5 mesher crash
         "trunk_frac": 0.20,
         "trunk_shape": 0.8,           # Strong central leader
         "up_attraction": 0.8,
         "trunk_randomness": 0.3,
         "branch_start": 0.18,
         "branch_end": 0.95,
-        "branch_density": 1.5,
+        "branch_density": 1.2,         # Reduced from 1.5 to avoid Mtree mesher crash
         "branch_length_ratio": 0.30,
         "branch_angle": 35,            # Sharply upward
         "branch_gravity": 5.0,
         "branch_stiffness": 0.3,
         "branch_up_attraction": 0.55,
-        "branch_split_prob": 0.5,
+        "branch_split_prob": 0.4,     # Reduced from 0.5
         "branch_split_angle": 30.0,
         "branch_flatness": 0.15,
         "branch_break_chance": 0.01,
         "branch_resolution": 0.8,
-        "sub_density": 1.8,
+        "sub_density": 1.2,            # Reduced from 1.8 to avoid Mtree mesher crash
         "sub_length_ratio": 0.12,
         "sub_angle": 40,
         "sub_gravity": 8.0,
@@ -626,7 +626,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.22, 0.48),
         "leaf_flatten_range": (0.50, 0.70),
         "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
-        "base_seed": 350,
+        "base_seed": 351,     # Shifted from 350 to avoid crash seed
         "seed_step": 23,
         "tiers": {
             "s": {"target_h": 8, "height_range": [6, 10]},

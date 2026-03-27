@@ -1,12 +1,2 @@
-models/trees/*.glb filter=lfs diff=lfs merge=lfs -text
-textures/impostors/*_normal.png filter=lfs diff=lfs merge=lfs -text
-textures/impostors/*_depth.png filter=lfs diff=lfs merge=lfs -text
-heightmap.bin filter=lfs diff=lfs merge=lfs -text
-heightmap_gpu.bin filter=lfs diff=lfs merge=lfs -text
-world_atlas.bin filter=lfs diff=lfs merge=lfs -text
-water_grids.bin filter=lfs diff=lfs merge=lfs -text
-ground_cover_instances.bin filter=lfs diff=lfs merge=lfs -text
-park_data.bin filter=lfs diff=lfs merge=lfs -text
-grass_instances.bin filter=lfs diff=lfs merge=lfs -text
-prebuilt/terrain_ctex/*.ctex filter=lfs diff=lfs merge=lfs -text
-prebuilt/terrain_ctex/*.md5 filter=lfs diff=lfs merge=lfs -text
+# No LFS tracking — all generated binaries are gitignored
+# Users generate these locally via the data pipeline and Mtree

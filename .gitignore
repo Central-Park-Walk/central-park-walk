@@ -26,7 +26,6 @@ models/
 !models/vegetation/Leaf_Autumn_*.glb
 textures/*
 !textures/terrain3d/
-!textures/impostors/
 sounds/
 
 # Terrain tiles and LiDAR source data (re-download via scripts)
@@ -38,14 +37,9 @@ lidar_data/
 *.json
 *.bin
 !project.godot
-# Runtime .bin files tracked in LFS for release builds
-!heightmap.bin
-!heightmap_gpu.bin
-!world_atlas.bin
-!water_grids.bin
-!ground_cover_instances.bin
-!park_data.bin
-!grass_instances.bin
+
+# Prebuilt terrain textures (re-generate via Godot editor import)
+prebuilt/terrain_ctex/
 
 # Build output and download tests
 build/
