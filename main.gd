@@ -1899,7 +1899,7 @@ const GRASS_BIOMES := [
 
 func _setup_grass_particles() -> void:
 	## Multi-biome grass: one Terrain3D particle layer per biome, each with a
-	## decimated BD3D tuft mesh filtered to its zone_ids.
+	## tuft mesh filtered to its zone_ids. Gracefully skips missing meshes.
 	var gp_script = load("res://grass_particles.gd")
 	var proc_shader: Shader = load("res://shaders/grass_particles.gdshader")
 	var render_shader: Shader = load("res://shaders/grass_particle_render.gdshader")

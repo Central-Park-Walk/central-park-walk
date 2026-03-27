@@ -1,8 +1,8 @@
 # undergrowth_builder.gd
-# Chunk-based MultiMesh placement for 50+ undergrowth species.
+# Chunk-based MultiMesh placement for undergrowth species.
 # Fills the missing vertical layers between grass (0-25cm) and tree canopy (5m+).
 # Placement driven by atlas zone type — data-first, no procedural invention.
-# Gscatter species use mesh variants (_0–_3) for visual variety per chunk.
+# Species with "v" key use mesh variants (_0–_N-1) for visual variety per chunk.
 
 var _loader
 var season_t: float = 1.5       # updated by main.gd each frame
@@ -39,241 +39,21 @@ const VIS_FADE_MARGIN := 40.0
 # Species definitions: name, scale range, wind flex, evergreen, fall tint, atlas_idx
 # Models are already built at natural reference height; s=[min,max] is scale multiplier
 # atlas_idx: slot in leaf_atlas.png (4-col grid, 7 rows = 28 slots). -1 = no atlas.
+# TODO: Rebuild with custom CC0/MIT vegetation models (see memory/botanical reference)
 const ATLAS_COLS := 4
 const ATLAS_ROWS := 7
 const SPECIES := [
-	# Shrubs (0-4) — field medians for NYC park understory (shade-suppressed, not open-grown)
-	# ref = model reference height; s = scale multiplier; real = s × ref
-	{"name": "Shrub_Spicebush",        "s": [0.60, 1.00], "flex": 0.25, "green": 0, "fall": [0.70, 0.65, 0.15], "ai": 0},  # ref~2.5m → 1.5-2.5m real
-	{"name": "Shrub_WitchHazel",        "s": [0.67, 1.17], "flex": 0.20, "green": 0, "fall": [0.65, 0.60, 0.12], "ai": 1},  # ref~3.0m → 2.0-3.5m real
-	{"name": "Shrub_Viburnum",          "s": [0.75, 1.25], "flex": 0.25, "green": 0, "fall": [0.60, 0.25, 0.15], "ai": 2},  # ref~2.0m → 1.5-2.5m real
-	{"name": "Shrub_Sumac",             "s": [0.67, 1.17], "flex": 0.20, "green": 0, "fall": [0.80, 0.20, 0.08], "ai": 3},  # ref~3.0m → 2.0-3.5m real (understory, not tree-form)
-	{"name": "Shrub_Elderberry",        "s": [0.55, 0.91], "flex": 0.30, "green": 0, "fall": [0.55, 0.45, 0.10], "ai": 4, "fc": [1.00, 0.99, 0.91], "bl": [0.78, 1.33]},  # ref~2.2m → 1.2-2.0m real
-	# Tall herbs (5-9) — fc=flower color, bl=bloom season_t
-	{"name": "Herb_Pokeweed",           "s": [0.67, 1.20], "flex": 0.45, "green": 0, "fall": [0.50, 0.15, 0.30], "ai": 5, "fc": [0.95, 0.88, 0.92], "bl": [1.0, 2.33]},   # ref~1.5m → 1.0-1.8m real
-	{"name": "Herb_JapaneseKnotweed",   "s": [0.68, 1.14], "flex": 0.35, "green": 0, "fall": [0.40, 0.30, 0.12], "ai": 6, "fc": [0.92, 0.92, 0.90], "bl": [1.22, 2.0]},  # ref~2.2m → 1.5-2.5m real
-	{"name": "Herb_JoePyeWeed",         "s": [0.67, 1.00], "flex": 0.50, "green": 0, "fall": [0.45, 0.30, 0.20], "ai": 7, "fc": [0.79, 0.53, 0.62], "bl": [1.22, 2.0]},  # ref~1.5m → 1.0-1.5m real
-	{"name": "Herb_Coneflower",         "s": [0.30, 0.60], "flex": 0.55, "green": 0, "fall": [0.50, 0.40, 0.12], "ai": 8, "fc": [1.00, 0.72, 0.11], "bl": [1.0, 2.33]},   # ref~2.0m → 0.6-1.2m real
-	{"name": "Herb_CardinalFlower",     "s": [0.71, 1.14], "flex": 0.40, "green": 0, "fall": [0.30, 0.18, 0.08], "ai": 9, "fc": [0.89, 0.09, 0.22], "bl": [1.33, 2.0]},   # ref~0.7m → 0.5-0.8m real
-	# Medium herbs (10-12)
-	{"name": "Herb_WhiteWoodAster",     "s": [0.67, 1.11], "flex": 0.35, "green": 0, "fall": [0.35, 0.28, 0.10], "ai": 10, "fc": [0.96, 0.96, 0.96], "bl": [1.56, 2.33]},  # ref~0.45m → 0.3-0.5m real
-	{"name": "Herb_Jewelweed",          "s": [0.63, 1.25], "flex": 0.50, "green": 0, "fall": [0.40, 0.30, 0.08], "ai": 11, "fc": [1.00, 0.55, 0.00], "bl": [1.0, 2.33]},   # ref~0.8m → 0.5-1.0m real
-	{"name": "Herb_Mugwort",            "s": [0.63, 1.50], "flex": 0.30, "green": 0, "fall": [0.45, 0.38, 0.20], "ai": 12},  # ref~0.8m → 0.5-1.2m real
-	# Ferns (13-14)
-	{"name": "Fern_Ostrich",            "s": [0.50, 1.00], "flex": 0.40, "green": 0, "fall": [0.50, 0.40, 0.10], "ai": 13},  # ref~1.2m → 0.6-1.2m real
-	{"name": "Fern_Christmas",          "s": [0.78, 1.40], "flex": 0.20, "green": 1, "fall": [0.10, 0.28, 0.06], "ai": 14},  # ref~0.32m → 0.25-0.45m real
-	# Wetland (15)
-	{"name": "Wetland_Cattail",         "s": [0.68, 1.14], "flex": 0.35, "green": 0, "fall": [0.35, 0.25, 0.10], "ai": -1},  # ref~2.2m → 1.5-2.5m real
-	# Fungi (16-17)
-	{"name": "Mushroom_Common",         "s": [0.80, 1.50], "flex": 0.0, "green": 0, "fall": [0.30, 0.22, 0.12], "ai": -1},
-	{"name": "Mushroom_Laetiporus",     "s": [0.60, 1.20], "flex": 0.0, "green": 0, "fall": [0.60, 0.35, 0.08], "ai": -1},
-	# Tier 3 shrubs (18-19)
-	{"name": "Shrub_SweetPepperbush",   "s": [0.56, 0.94], "flex": 0.25, "green": 0, "fall": [0.60, 0.55, 0.12], "ai": 16, "fc": [1.00, 0.99, 0.82], "bl": [1.22, 2.0]},  # ref~1.6m → 0.9-1.5m real
-	{"name": "Shrub_FloweringRaspberry","s": [0.64, 0.86], "flex": 0.30, "green": 0, "fall": [0.55, 0.45, 0.10], "ai": 17, "fc": [0.88, 0.25, 0.50], "bl": [0.67, 1.33]},  # ref~1.4m → 0.9-1.2m real
-	# Tier 3 herbs (20-23)
-	{"name": "Herb_WhiteSnakeroot",     "s": [0.56, 1.00], "flex": 0.35, "green": 0, "fall": [0.40, 0.32, 0.10], "ai": 18, "fc": [1.00, 1.00, 1.00], "bl": [1.33, 2.67]},  # ref~0.9m → 0.5-0.9m real
-	{"name": "Herb_Ironweed",           "s": [0.71, 1.07], "flex": 0.40, "green": 0, "fall": [0.35, 0.20, 0.25], "ai": 19, "fc": [0.42, 0.05, 0.42], "bl": [1.33, 2.33]},  # ref~1.4m → 1.0-1.5m real
-	{"name": "Herb_RoseMallow",         "s": [0.67, 1.25], "flex": 0.40, "green": 0, "fall": [0.42, 0.30, 0.12], "ai": 20, "fc": [1.00, 0.71, 0.76], "bl": [1.33, 2.0]},   # ref~1.2m → 0.8-1.5m real
-	{"name": "Herb_Burdock",            "s": [0.63, 1.25], "flex": 0.25, "green": 0, "fall": [0.40, 0.30, 0.15], "ai": 21, "fc": [0.73, 0.33, 0.83], "bl": [1.0, 1.67]},   # ref~0.8m → 0.5-1.0m real
-	# Tier 3 ferns (24-25)
-	{"name": "Fern_Cinnamon",           "s": [0.63, 1.25], "flex": 0.35, "green": 0, "fall": [0.50, 0.40, 0.12], "ai": 22},  # ref~0.8m → 0.5-1.0m real
-	{"name": "Fern_Sensitive",          "s": [0.67, 1.33], "flex": 0.45, "green": 0, "fall": [0.45, 0.35, 0.10], "ai": 23},  # ref~0.45m → 0.3-0.6m real
-	# Tier 3 grass (26)
-	{"name": "Grass_Bottlebrush",       "s": [0.71, 1.29], "flex": 0.55, "green": 0, "fall": [0.55, 0.48, 0.22], "ai": 24},  # ref~0.7m → 0.5-0.9m real
-	# Tier 3 wetland (27-29)
-	{"name": "Wetland_YellowIris",      "s": [0.60, 1.00], "flex": 0.30, "green": 0, "fall": [0.40, 0.32, 0.10], "ai": 25, "fc": [1.00, 0.84, 0.00], "bl": [0.67, 1.0]},  # ref~1.0m → 0.6-1.0m real
-	{"name": "Wetland_LizardsTail",     "s": [0.38, 1.00], "flex": 0.40, "green": 0, "fall": [0.38, 0.30, 0.10], "ai": 26},  # ref~0.8m → 0.3-0.8m real
-	{"name": "Wetland_Phragmites",      "s": [0.57, 1.00], "flex": 0.35, "green": 0, "fall": [0.50, 0.42, 0.22], "ai": 27},  # ref~3.5m → 2.0-3.5m real
-	# ── Gscatter 3D species (30+) — real geometry, embedded PBR textures ──
-	# "v": number of mesh variants (_0 to _N-1); loader picks per-chunk for variety
-	# Ferns
-	{"name": "gscatter/LadyFern_Big",        "s": [1.00, 2.00], "flex": 0.40, "green": 0, "fall": [0.45, 0.35, 0.08], "ai": -1, "v": 4},  # 30  model 0.276m → 0.28-0.55m real
-	{"name": "gscatter/LadyFern_Small",      "s": [3.50, 7.00], "flex": 0.35, "green": 0, "fall": [0.45, 0.35, 0.08], "ai": -1, "v": 4},  # 31  model 0.041m → 0.14-0.29m real
-	# Lawn ground cover
-	{"name": "gscatter/WhiteClover_Big",     "s": [0.80, 1.50], "flex": 0.10, "green": 0, "fall": [0.40, 0.35, 0.10], "ai": -1, "v": 4, "fc": [1.00, 1.00, 1.00], "bl": [0.56, 1.67]},  # 32  model 0.138m → 0.11-0.21m real
-	{"name": "gscatter/GroundIvy_Big",       "s": [0.60, 1.20], "flex": 0.08, "green": 0, "fall": [0.30, 0.28, 0.08], "ai": -1, "v": 4},  # 33  model 0.164m → 0.10-0.20m real
-	{"name": "gscatter/Speedwell_Big",       "s": [3.00, 6.00], "flex": 0.12, "green": 0, "fall": [0.30, 0.25, 0.08], "ai": -1, "v": 4, "fc": [0.40, 0.50, 0.90], "bl": [0.22, 0.78]},  # 34  model 0.016m → 0.05-0.10m real
-	{"name": "gscatter/BroadleafPlantain_B_Big", "s": [2.00, 4.00], "flex": 0.15, "green": 0, "fall": [0.35, 0.30, 0.08], "ai": -1, "v": 4},  # 35  model 0.046m → 0.09-0.18m real
-	{"name": "gscatter/NarrowPlantain_A_Big","s": [4.00, 8.00], "flex": 0.20, "green": 0, "fall": [0.35, 0.28, 0.08], "ai": -1, "v": 4},  # 36  model 0.024m → 0.10-0.19m real
-	{"name": "gscatter/CrabFingerGrass_Big", "s": [0.70, 1.30], "flex": 0.40, "green": 0, "fall": [0.50, 0.42, 0.15], "ai": -1, "v": 4},  # 37  model 0.260m → 0.18-0.34m real
-	# Woodland ground cover
-	{"name": "gscatter/CommonIvy_Creeping",  "s": [0.80, 2.00], "flex": 0.05, "green": 1, "fall": [0.10, 0.20, 0.05], "ai": -1, "v": 4},  # 38  model 0.038m → 0.03-0.08m, spread 0.42m
-	{"name": "gscatter/BankHaircapMoss_Big", "s": [1.50, 3.00], "flex": 0.0,  "green": 1, "fall": [0.15, 0.25, 0.05], "ai": -1, "v": 4},  # 39  model 0.040m → 0.06-0.12m real
-	{"name": "gscatter/BarkMulch_Big",       "s": [1.00, 2.00], "flex": 0.0,  "green": 1, "fall": [0.20, 0.15, 0.08], "ai": -1, "v": 4},  # 40  OK
-	# Meadow grasses (undergrowth-scale, not particle)
-	{"name": "gscatter/FieldClover_Big",     "s": [0.70, 1.50], "flex": 0.15, "green": 0, "fall": [0.45, 0.38, 0.12], "ai": -1, "v": 4, "fc": [0.95, 0.85, 0.30], "bl": [0.56, 1.33]},  # 41  model 0.312m → 0.22-0.47m real
-	{"name": "gscatter/DactylisGlomerata_A_Small", "s": [2.00, 4.00], "flex": 0.45, "green": 0, "fall": [0.55, 0.48, 0.20], "ai": -1, "v": 4},  # 42  model 0.090m → 0.18-0.36m real (Orchard Grass)
-	{"name": "gscatter/DactylisGlomerata_B_Small", "s": [1.50, 3.00], "flex": 0.45, "green": 0, "fall": [0.55, 0.48, 0.20], "ai": -1, "v": 4},  # 43  model 0.178m → 0.27-0.53m real (Orchard Grass)
-	{"name": "gscatter/FestucaRubra_Big",    "s": [0.80, 1.50], "flex": 0.35, "green": 0, "fall": [0.50, 0.45, 0.18], "ai": -1, "v": 4},  # 44  model 0.191m → 0.15-0.29m real (Red Fescue)
-	{"name": "gscatter/PoaPratensis_Dead",   "s": [1.50, 3.00], "flex": 0.05, "green": 0, "fall": [0.55, 0.45, 0.20], "ai": -1, "v": 4},  # 45  model 0.042m → 0.06-0.13m real
-	# Spring bulbs — textures include leaves+flowers; deciduous winter die-back
-	{"name": "gscatter/Snowdrop_Big",        "s": [0.40, 0.80], "flex": 0.20, "green": 0, "fall": [0.30, 0.25, 0.08], "ai": -1, "v": 4},  # 46  model 0.265m → 0.11-0.21m real
-	{"name": "gscatter/Crocus_Big",          "s": [0.50, 1.00], "flex": 0.15, "green": 0, "fall": [0.30, 0.20, 0.10], "ai": -1, "v": 4},  # 47  model 0.144m → 0.07-0.14m real ✓
-	{"name": "gscatter/SpringSnowflake_Big", "s": [0.50, 1.00], "flex": 0.18, "green": 0, "fall": [0.30, 0.25, 0.08], "ai": -1, "v": 4},  # 48  model 0.208m → 0.10-0.21m real
-	{"name": "gscatter/Daffodil_Big",        "s": [0.80, 1.50], "flex": 0.25, "green": 0, "fall": [0.50, 0.45, 0.15], "ai": -1, "v": 4},  # 49
-	# Tulips — 8 color variants rotated per-chunk for mixed beds
-	{"name": "gscatter/Tulip_Red",           "s": [0.60, 1.20], "flex": 0.20, "green": 0, "fall": [0.45, 0.30, 0.10], "ai": -1, "v": 4},  # 50
-	{"name": "gscatter/Tulip_Yellow",        "s": [0.60, 1.20], "flex": 0.20, "green": 0, "fall": [0.45, 0.35, 0.12], "ai": -1, "v": 4},  # 51
-	{"name": "gscatter/Tulip_Pink",          "s": [0.60, 1.20], "flex": 0.20, "green": 0, "fall": [0.42, 0.28, 0.10], "ai": -1, "v": 4},  # 52
-	{"name": "gscatter/Tulip_White",         "s": [0.60, 1.20], "flex": 0.20, "green": 0, "fall": [0.40, 0.35, 0.12], "ai": -1, "v": 4},  # 53
-	{"name": "gscatter/Tulip_Orange",        "s": [0.60, 1.20], "flex": 0.20, "green": 0, "fall": [0.50, 0.35, 0.10], "ai": -1, "v": 4},  # 54
-	{"name": "gscatter/Tulip_Fuchsia",       "s": [0.60, 1.20], "flex": 0.20, "green": 0, "fall": [0.40, 0.25, 0.15], "ai": -1, "v": 4},  # 55
-	{"name": "gscatter/Tulip_Rose",          "s": [0.60, 1.20], "flex": 0.20, "green": 0, "fall": [0.45, 0.30, 0.12], "ai": -1, "v": 4},  # 56
-	{"name": "gscatter/Tulip_Orangered",     "s": [0.60, 1.20], "flex": 0.20, "green": 0, "fall": [0.48, 0.28, 0.08], "ai": -1, "v": 4},  # 57
 ]
 
 # Zone type -> list of [species_index, density_per_100m2]
 # Zone types: 0=SheepMeadow, 1=GreatLawn, 2=NorthMeadow, 3=FormalGarden,
 #   4=SportsTurf, 5=NorthWoods, 6=Ramble, 7=Waterside, 8=WildMeadow, 9=OpenLawn
 const ZONE_SPECIES := {
-	5: [  # NorthWoods — iNaturalist: ferns + iris + elderberry + raspberry + jewelweed
-		[30, 6.0],  # Lady Fern Big — gscatter 3D
-		[31, 8.0],  # Lady Fern Small — dense ground cover fronds
-		[38, 6.0],  # Common Ivy — woodland ground cover
-		[39, 10.0], # Bank Haircap Moss — woodland floor carpet
-		[40, 4.0],  # Bark Mulch — under dense canopy
-		[44, 5.0],  # Red Fescue — shade grass
-		[13, 6.0],  # Ostrich Fern
-		[14, 5.0],  # Christmas Fern (evergreen carpet)
-		[24, 4.0],  # Cinnamon Fern (wet ravines)
-		[27, 3.0],  # Yellow Flag Iris — 53% of obs here (The Pool)
-		[4, 2.0],   # Elderberry
-		[19, 2.0],  # Flowering Raspberry
-		[11, 3.0],  # Jewelweed
-		[20, 4.0],  # White Snakeroot
-		[10, 3.0],  # White Wood Aster
-		[0, 1.5],   # Spicebush
-		[1, 1.0],   # Witch Hazel
-		[9, 1.0],   # Cardinal Flower
-		[16, 0.8],  # Common Mushroom (seasonal)
-		[17, 0.4],  # Chicken of the Woods (seasonal)
-	],
-	6: [  # Ramble — iNaturalist: diverse, everything grows here
-		[30, 4.0],  # Lady Fern Big
-		[31, 5.0],  # Lady Fern Small
-		[38, 5.0],  # Common Ivy — ground cover
-		[39, 8.0],  # Bank Haircap Moss
-		[40, 3.0],  # Bark Mulch
-		[44, 4.0],  # Red Fescue — shade grass
-		[2, 4.0],   # Viburnum (Ramble signature)
-		[10, 5.0],  # White Wood Aster
-		[11, 4.0],  # Jewelweed (stream banks)
-		[22, 2.0],  # Rose Mallow
-		[4, 2.0],   # Elderberry
-		[18, 2.0],  # Sweet Pepperbush
-		[19, 2.0],  # Flowering Raspberry
-		[9, 2.0],   # Cardinal Flower
-		[0, 2.0],   # Spicebush
-		[28, 4.0],  # Lizard's Tail (stream banks)
-		[25, 3.0],  # Sensitive Fern
-		[14, 2.0],  # Christmas Fern
-		[20, 3.0],  # White Snakeroot
-		[16, 0.6],  # Common Mushroom (seasonal)
-	],
-	7: [  # Waterside — wetland edge
-		[15, 8.0],  # Cattail
-		[9, 3.0],   # Cardinal Flower
-		[7, 4.0],   # Joe Pye Weed
-		[11, 6.0],  # Jewelweed
-		[30, 2.0],  # Lady Fern
-		[38, 3.0],  # Common Ivy
-		[13, 2.0],  # Ostrich Fern
-		[21, 3.0],  # Ironweed
-		[22, 1.5],  # Rose Mallow
-		[27, 4.0],  # Yellow Flag Iris
-		[28, 3.0],  # Lizard's Tail
-		[29, 2.0],  # Phragmites
-		[25, 2.0],  # Sensitive Fern
-	],
-	8: [  # WildMeadow — unmowed tall herbs + meadow grasses
-		[42, 6.0],  # Orchard Grass A — tall meadow grass
-		[43, 4.0],  # Orchard Grass B — tall meadow grass
-		[41, 4.0],  # Field Clover — meadow accent
-		[36, 3.0],  # Narrow-leaf Plantain — meadow weed
-		[37, 2.0],  # Crab Finger Grass — warm-season weed
-		[12, 5.0],  # Mugwort
-		[5, 3.0],   # Pokeweed
-		[6, 2.0],   # Japanese Knotweed
-		[8, 4.0],   # Coneflower
-		[7, 3.0],   # Joe Pye Weed
-		[3, 1.0],   # Sumac
-		[4, 1.5],   # Elderberry
-		[21, 2.0],  # Ironweed
-		[23, 2.0],  # Burdock
-		[19, 1.0],  # Flowering Raspberry
-		[29, 1.0],  # Phragmites (wet patches)
-	],
-	# Maintained lawns — clover, weeds, seasonal flowers, dead grass patches
-	0: [  # SheepMeadow — well-maintained, sparse weeds
-		[32, 3.0],  # White Clover
-		[33, 2.0],  # Ground Ivy
-		[34, 1.5],  # Speedwell
-		[35, 1.5],  # Broadleaf Plantain
-		[45, 2.0],  # Dead grass patches (seasonal)
-		[49, 2.0],  # Daffodil (spring)
-		[47, 1.5],  # Crocus (early spring)
-		[46, 1.0],  # Snowdrop (late winter)
-	],
-	1: [  # GreatLawn — moderate maintenance
-		[32, 4.0],  # White Clover
-		[33, 3.0],  # Ground Ivy
-		[34, 2.0],  # Speedwell
-		[35, 2.0],  # Broadleaf Plantain
-		[37, 1.5],  # Crab Finger Grass (warm-season weed)
-		[45, 3.0],  # Dead grass patches
-		[49, 2.5],  # Daffodil
-		[47, 2.0],  # Crocus
-		[46, 1.0],  # Snowdrop
-	],
-	2: [  # NorthMeadow — moderate sports use
-		[32, 3.0],  # White Clover
-		[35, 2.0],  # Broadleaf Plantain
-		[37, 2.0],  # Crab Finger Grass
-		[45, 4.0],  # Dead grass patches (heavy use = more dead)
-		[49, 1.5],  # Daffodil
-	],
-	3: [  # FormalGarden — curated spring bulbs, mixed tulip colors
-		[49, 5.0],  # Daffodil
-		[50, 2.0],  # Tulip Red
-		[51, 2.0],  # Tulip Yellow
-		[52, 1.5],  # Tulip Pink
-		[53, 1.5],  # Tulip White
-		[54, 1.0],  # Tulip Orange
-		[55, 0.5],  # Tulip Fuchsia
-		[56, 0.5],  # Tulip Rose
-		[57, 0.5],  # Tulip Orangered
-		[47, 3.0],  # Crocus
-		[46, 2.5],  # Snowdrop
-		[48, 2.0],  # Spring Snowflake
-		[32, 1.0],  # White Clover (minimal)
-	],
-	9: [  # OpenLawn — light weed presence
-		[32, 3.0],  # White Clover
-		[33, 2.0],  # Ground Ivy
-		[35, 1.5],  # Broadleaf Plantain
-		[34, 1.0],  # Speedwell
-		[45, 2.0],  # Dead grass patches
-		[49, 1.5],  # Daffodil
-		[47, 1.0],  # Crocus
-	],
 }
 
 # Woodland chunks (no pre-baked data) get understory — but ONLY in actual
 # woodland foliage zones, not on maintained lawns that happen to lack data.
 const WOODLAND_SPECIES: Array = [
-	[30, 5.0],  # Lady Fern Big
-	[31, 6.0],  # Lady Fern Small — dense ground cover
-	[38, 5.0],  # Common Ivy — ground cover
-	[39, 8.0],  # Bank Haircap Moss — floor carpet
-	[40, 4.0],  # Bark Mulch — under dense canopy
-	[44, 4.0],  # Red Fescue — shade grass
-	[13, 4.0],  # Ostrich Fern
-	[14, 3.0],  # Christmas Fern
-	[10, 3.0],  # White Wood Aster
-	[20, 2.0],  # White Snakeroot
-	[0, 1.0],   # Spicebush (scattered)
-	[16, 0.4],  # Common Mushroom (seasonal)
-	[17, 0.2],  # Chicken of the Woods (seasonal)
 ]
 # Z ranges where woodland fallback is allowed (from park_data.json foliage_zones)
 const WOODLAND_Z_RANGES: Array = [
@@ -301,7 +81,7 @@ func _build_undergrowth() -> void:
 			_leaf_atlas = ImageTexture.create_from_image(img)
 			print("Undergrowth: leaf atlas loaded (%dx%d)" % [img.get_width(), img.get_height()])
 
-	# Load all species meshes (gscatter species get variant arrays)
+	# Load all species meshes (species with "v" key get variant arrays)
 	var loaded := 0
 	for sp in SPECIES:
 		var variant_count: int = sp.get("v", 0)
@@ -693,7 +473,7 @@ func _load_model(sp_name: String) -> Mesh:
 		var atlas_row: int = ai / ATLAS_COLS
 		atlas_off = Vector2(float(atlas_col) / ATLAS_COLS, float(atlas_row) / ATLAS_ROWS)
 
-	# Detect embedded PBR textures from 3D meshes (BD3D plant library).
+	# Detect embedded PBR textures from 3D meshes.
 	# The GLB importer creates StandardMaterial3D per surface — extract
 	# albedo textures before we replace materials with our custom shader.
 	var surface_textures: Array = []
@@ -710,7 +490,7 @@ func _load_model(sp_name: String) -> Mesh:
 			print("  %s surf %d: material is %s (not StandardMaterial3D)" % [sp_name, si, orig_mat.get_class()])
 		surface_textures.append(tex)
 	if has_embedded_tex:
-		print("  %s: BD3D textures detected (%d surfaces)" % [sp_name, surface_textures.size()])
+		print("  %s: embedded textures detected (%d surfaces)" % [sp_name, surface_textures.size()])
 
 	# Apply undergrowth shader per surface
 	for si in mesh.get_surface_count():

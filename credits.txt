@@ -47,30 +47,6 @@ Mtree addon: https://extensions.blender.org/add-ons/modular-tree/
   License: GPL v3.0
 
 -----------------------------------------------------------------------------
-3D Plant Models — BD3D Plant Library (Free/Gumroad)
------------------------------------------------------------------------------
-
-BD3D Plant Library by BD3D — https://bd3d.gumroad.com/l/plant-library
-  Used for: shrubs, herbs, ferns, wetland plants, fungi, ground cover,
-  grass tufts, clover, dandelions, dead leaves, moss, branches, seedlings
-  License: Free (Gumroad download, no attribution required per author)
-
------------------------------------------------------------------------------
-3D Plant Models — Gscatter/Graswald (Non-Commercial EULA)
------------------------------------------------------------------------------
-
-Gscatter plant library by Graswald GmbH — https://www.graswald3d.com/
-  Used for: Kentucky Bluegrass, Red Fescue, Orchard Grass, Lady Fern,
-  White Clover, Common Ivy, Bank Haircap Moss, Broadleaf Plantain,
-  Daffodil, Snowdrop, Crocus, Tulip (8 color variants), Spring Snowflake
-  License: Graswald EULA — https://gscatter.com/eula
-  NOTE: Store-downloaded assets are licensed for NON-COMMERCIAL use only
-  unless the user holds a prior paid Graswald subscription.
-  Converted from .gscatter format to GLB via scripts/convert_gscatter_to_glb.py
-
-  Source files (not redistributed): tools/gscatter_assets/plants/
-
------------------------------------------------------------------------------
 Photogrammetry Statue Models — Sketchfab (CC-BY 4.0)
 -----------------------------------------------------------------------------
 

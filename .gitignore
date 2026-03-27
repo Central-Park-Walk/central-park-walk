@@ -15,15 +15,9 @@ models/
 !models/furniture/cp_rocks.glb
 !models/furniture/cp_*_bridge.glb
 !models/furniture/cp_*_arch.glb
-!models/vegetation/Shrub_*.glb
-!models/vegetation/Fern_*.glb
-!models/vegetation/Herb_*.glb
-!models/vegetation/Wetland_*.glb
-!models/vegetation/Grass_*.glb
-!models/vegetation/Mushroom_*.gltf
-!models/vegetation/ForestFloor_*.glb
 !models/vegetation/Snowflake.glb
-!models/vegetation/Leaf_Autumn_*.glb
+!models/vegetation/Flower_*.glb
+!models/vegetation/cp_vines.glb
 textures/*
 !textures/terrain3d/
 sounds/
@@ -77,9 +71,7 @@ sensory-data-sources.md
 visual-reference-report.md
 reference-photos.md
 
-# Plant library (1.2GB, re-download from Gumroad)
-assets/plant_library/*.blend
-assets/plant_library/*.rar
+# Archive files
 *.rar
 
 # Blender addons/tools (install from source)
