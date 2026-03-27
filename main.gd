@@ -2631,19 +2631,25 @@ func _setup_snow() -> void:
 		pm.scale_min = 0.03
 		pm.scale_max = 0.06
 		_snow_particles.draw_pass_1 = snow_mesh
+		# 3D model tumbles naturally via angular_velocity — no billboard needed
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(0.95, 0.95, 1.0, 0.85)
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_snow_particles.material_override = mat
 	else:
-		# Fallback quad at final visual size — 3-6cm with moderate variation
+		# Fallback billboard quad — 4cm with size variation
 		var fallback := QuadMesh.new()
 		fallback.size = Vector2(0.04, 0.04)
 		pm.scale_min = 0.7
 		pm.scale_max = 1.5
 		_snow_particles.draw_pass_1 = fallback
+		var mat := ShaderMaterial.new()
+		mat.shader = load("res://shaders/snow.gdshader")
+		mat.set_shader_parameter("snow_color", Color(0.95, 0.95, 1.0, 0.85))
+		_snow_particles.material_override = mat
 	_snow_particles.process_material = pm
-
-	var mat := ShaderMaterial.new()
-	mat.shader = load("res://shaders/snow.gdshader")
-	mat.set_shader_parameter("snow_color", Color(0.95, 0.95, 1.0, 0.85))
-	_snow_particles.material_override = mat
 
 	add_child(_snow_particles)
 	print("Snow: 3000 snowflake particles")
