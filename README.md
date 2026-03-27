@@ -1,7 +1,5 @@
 ## Central Park Walk
 
-> **Note:** Git LFS bandwidth resets monthly. Large binary files (cathedral Elm models, some data) may fail to download via LFS between resets. All source code is always up to date.
-
 *An AI-human collaboration to reconstruct Central Park in 3D from freely available public data.*
 
 Central Park Walk is a real-time 3D walking simulation of all 843 acres of New York's Central Park, built entirely from public data — LiDAR surveys, OpenStreetMap, the NYC Tree Census, building footprints — and interpreted by Claude (Anthropic). No objectives, no score. Just a place.
@@ -72,6 +70,9 @@ python3 download_assets.py
 python3 download_models.py
 python3 download_sounds.py
 python3 convert_to_godot.py
+
+# Generate high-quality Mtree models (requires Blender 4.5 + Mtree addon)
+blender4 --background --python scripts/generate_trees_mtree.py
 
 /path/to/Godot_v4.6.1-stable_linux.x86_64 --path .
 ```
