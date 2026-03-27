@@ -64,6 +64,7 @@ const LAMP_LIGHT_UPDATE_INTERVAL := 0.5  # seconds between position updates
 
 # Weather particles
 var _rain_particles: GPUParticles3D
+var _rain_splash_particles: GPUParticles3D  # ground-level splash rings
 var _snow_particles: GPUParticles3D
 var _leaf_particles: GPUParticles3D  # autumn falling leaves
 var _blossom_particles: GPUParticles3D  # spring cherry blossom petals
@@ -649,7 +650,8 @@ func _process(delta: float) -> void:
 	# Rain wetness — ground darkens, gets glossy
 	var prev_wet := _rain_wetness
 	if _weather_mode == "rain" or _weather_mode == "thunderstorm":
-		_rain_wetness = minf(_rain_wetness + delta * 0.04, 1.0)  # ~25s to full wet
+		var wet_cap := 1.0 if _weather_mode == "thunderstorm" else 0.55
+		_rain_wetness = minf(_rain_wetness + delta * 0.04, wet_cap)  # ~14s gentle, ~25s storm
 	else:
 		_rain_wetness = maxf(_rain_wetness - delta * 0.015, 0.0)  # ~67s to dry
 	if _rain_wetness != prev_wet:
@@ -677,6 +679,8 @@ func _process(delta: float) -> void:
 		_rain_particles.global_position = _player.global_position + Vector3(0, 14, 0)
 		var rpm: ParticleProcessMaterial = _rain_particles.process_material
 		rpm.gravity = Vector3(_wind_vec.x * 5.0, -1.5, _wind_vec.y * 5.0)
+	if _rain_splash_particles and _player:
+		_rain_splash_particles.global_position = _player.global_position + Vector3(0, 0.1, 0)
 	if _snow_particles and _player:
 		_snow_particles.global_position = _player.global_position + Vector3(0, 15, 0)
 		var spm: ParticleProcessMaterial = _snow_particles.process_material
@@ -874,6 +878,9 @@ func _set_weather(mode: String) -> void:
 	if _rain_particles:
 		_rain_particles.queue_free()
 		_rain_particles = null
+	if _rain_splash_particles:
+		_rain_splash_particles.queue_free()
+		_rain_splash_particles = null
 	if _snow_particles:
 		_snow_particles.queue_free()
 		_snow_particles = null
@@ -883,7 +890,10 @@ func _set_weather(mode: String) -> void:
 	if mode == "snow":
 		_snow_cover = 1.0
 		_rain_wetness = 0.0
-	elif mode == "rain" or mode == "thunderstorm":
+	elif mode == "rain":
+		_rain_wetness = 0.55
+		_snow_cover = 0.0
+	elif mode == "thunderstorm":
 		_rain_wetness = 1.0
 		_snow_cover = 0.0
 	else:
@@ -2441,6 +2451,9 @@ func _cycle_weather() -> void:
 	if _rain_particles:
 		_rain_particles.queue_free()
 		_rain_particles = null
+	if _rain_splash_particles:
+		_rain_splash_particles.queue_free()
+		_rain_splash_particles = null
 	if _snow_particles:
 		_snow_particles.queue_free()
 		_snow_particles = null
@@ -2468,7 +2481,7 @@ func _setup_weather() -> void:
 
 
 func _setup_rain() -> void:
-	# Gentle rain — soft, slow, soothing
+	# Gentle rain — soft oblong drops with rounded shader
 	_rain_particles = GPUParticles3D.new()
 	_rain_particles.amount = 6000
 	_rain_particles.lifetime = 4.0
@@ -2485,22 +2498,18 @@ func _setup_rain() -> void:
 	_rain_particles.process_material = pm
 
 	var mesh := QuadMesh.new()
-	mesh.size = Vector2(0.006, 0.10)
+	mesh.size = Vector2(0.008, 0.12)
 	_rain_particles.draw_pass_1 = mesh
 
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.7, 0.75, 0.85, 0.25)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.no_depth_test = true
-	mat.emission_enabled = true
-	mat.emission = Color(0.4, 0.45, 0.55)
-	mat.emission_energy_multiplier = 0.2
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://shaders/rain_drop.gdshader")
+	mat.set_shader_parameter("drop_color", Color(0.7, 0.75, 0.85, 0.25))
+	mat.set_shader_parameter("core_brightness", 0.35)
 	_rain_particles.material_override = mat
 
 	add_child(_rain_particles)
-	print("Rain: 6000 gentle particles")
+	_setup_rain_splash(1200, 0.35)
+	print("Rain: 6000 gentle drops + splash")
 
 
 func _setup_thunderstorm() -> void:
@@ -2521,22 +2530,60 @@ func _setup_thunderstorm() -> void:
 	_rain_particles.process_material = pm
 
 	var mesh := QuadMesh.new()
-	mesh.size = Vector2(0.012, 0.22)
+	mesh.size = Vector2(0.014, 0.26)
 	_rain_particles.draw_pass_1 = mesh
 
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.6, 0.65, 0.75, 0.4)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.no_depth_test = true
-	mat.emission_enabled = true
-	mat.emission = Color(0.35, 0.40, 0.50)
-	mat.emission_energy_multiplier = 0.25
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://shaders/rain_drop.gdshader")
+	mat.set_shader_parameter("drop_color", Color(0.6, 0.65, 0.75, 0.4))
+	mat.set_shader_parameter("core_brightness", 0.25)
 	_rain_particles.material_override = mat
 
 	add_child(_rain_particles)
-	print("Thunderstorm: 30000 heavy rain")
+	_setup_rain_splash(4000, 0.55)
+	print("Thunderstorm: 30000 heavy drops + splash")
+
+
+func _setup_rain_splash(amount: int, alpha: float) -> void:
+	# Ground-level splash rings where rain impacts
+	_rain_splash_particles = GPUParticles3D.new()
+	_rain_splash_particles.amount = amount
+	_rain_splash_particles.lifetime = 0.35
+	_rain_splash_particles.visibility_aabb = AABB(Vector3(-25, -2, -25), Vector3(50, 4, 50))
+
+	var pm := ParticleProcessMaterial.new()
+	pm.direction = Vector3(0, 1, 0)
+	pm.spread = 0.0
+	pm.initial_velocity_min = 0.3
+	pm.initial_velocity_max = 0.8
+	pm.gravity = Vector3(0, -2.0, 0)
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(25.0, 0.1, 25.0)
+	pm.scale_min = 0.6
+	pm.scale_max = 1.4
+	# Fade out over lifetime
+	var alpha_curve := CurveTexture.new()
+	var curve := Curve.new()
+	curve.add_point(Vector2(0.0, 1.0))
+	curve.add_point(Vector2(0.3, 0.8))
+	curve.add_point(Vector2(1.0, 0.0))
+	alpha_curve.curve = curve
+	pm.alpha_curve = alpha_curve
+	# Quick upward-outward burst then settle
+	pm.damping_min = 3.0
+	pm.damping_max = 5.0
+	_rain_splash_particles.process_material = pm
+
+	var mesh := QuadMesh.new()
+	mesh.size = Vector2(0.08, 0.08)
+	_rain_splash_particles.draw_pass_1 = mesh
+
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://shaders/rain_splash.gdshader")
+	mat.set_shader_parameter("splash_color", Color(0.75, 0.78, 0.88, alpha))
+	_rain_splash_particles.material_override = mat
+
+	add_child(_rain_splash_particles)
 
 
 func _setup_snow() -> void:

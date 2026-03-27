@@ -102,10 +102,10 @@ void fragment() {
 		SPECULAR  = mix(SPECULAR, 0.45, rain_wetness);
 		// Puddles: collect in low-frequency noise depressions
 		// Visible at moderate-to-heavy rain, mirror-like reflection of sky
-		if (rain_wetness > 0.3) {
+		if (rain_wetness > 0.45) {
 			float puddle_noise = vnoise(world_pos.xz * 0.12);
 			puddle_noise += vnoise(world_pos.xz * 0.35) * 0.4;
-			float puddle = smoothstep(0.35, 0.55, puddle_noise) * smoothstep(0.3, 0.7, rain_wetness);
+			float puddle = smoothstep(0.35, 0.55, puddle_noise) * smoothstep(0.45, 0.85, rain_wetness);
 			if (puddle > 0.01) {
 				// Puddle surface: near-mirror reflecting sky color
 				vec3 puddle_col = sky_reflect_color * 0.4 + ALBEDO * 0.15;
