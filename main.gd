@@ -1864,10 +1864,10 @@ const GRASS_BIOMES := [
 		# Denser spacing (0.35) for carpet-like coverage on maintained lawns.
 		"name": "Lawn", "biome_id": 0,
 		"mesh_path": "res://models/vegetation/Tuft_Tiny.glb",
-		"spacing": 0.30, "cell_width": 24.0, "grid_width": 5,
-		"random_spacing": 0.35,
-		"min_scale": Vector3(0.7, 0.7, 0.7),
-		"max_scale": Vector3(1.5, 1.5, 1.5),
+		"spacing": 0.35, "cell_width": 24.0, "grid_width": 5,
+		"random_spacing": 0.3,
+		"min_scale": Vector3(0.8, 0.8, 0.8),
+		"max_scale": Vector3(1.4, 1.4, 1.4),
 		"position_offset": Vector3(0, -0.005, 0),
 	},
 	{  # Woodland/shade floor — Tuft_Woodland: 24×20cm footprint, 8cm tall, 150 tris
