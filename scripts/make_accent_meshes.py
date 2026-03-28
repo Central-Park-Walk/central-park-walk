@@ -94,8 +94,8 @@ def build_clover():
     cl = bm.loops.layers.color.new("Color")
     uv = bm.loops.layers.uv.new("UV")
 
-    leaf_col = (0.12, 0.36, 0.06, 1.0)
-    mark_col = (0.18, 0.42, 0.10, 1.0)  # lighter chevron center
+    leaf_col = (0.23, 0.39, 0.24, 1.0)   # spectral: white clover leaf
+    mark_col = (0.35, 0.43, 0.35, 1.0)  # spectral: white clover base (lighter center)
 
     for i in range(3):
         angle = i * 2.094 + 0.3  # 120 deg apart
@@ -132,9 +132,9 @@ def build_dandelion():
     cl = bm.loops.layers.color.new("Color")
     uv = bm.loops.layers.uv.new("UV")
 
-    leaf_base = (0.14, 0.32, 0.05, 1.0)
-    leaf_tip = (0.18, 0.36, 0.08, 1.0)
-    flower_col = (0.72, 0.65, 0.12, 1.0)
+    leaf_base = (0.37, 0.44, 0.38, 1.0)  # spectral: dandelion base
+    leaf_tip = (0.24, 0.41, 0.25, 1.0)  # spectral: dandelion leaf
+    flower_col = (0.72, 0.65, 0.12, 1.0)  # yellow flower (not leaf spectrum)
 
     # 5 radiating jagged leaves
     for i in range(5):
@@ -185,8 +185,8 @@ def build_plantain():
     cl = bm.loops.layers.color.new("Color")
     uv = bm.loops.layers.uv.new("UV")
 
-    leaf_col = (0.10, 0.28, 0.04, 1.0)
-    vein_col = (0.12, 0.30, 0.06, 1.0)
+    leaf_col = (0.22, 0.38, 0.22, 1.0)   # spectral: plantain leaf
+    vein_col = (0.35, 0.42, 0.35, 1.0)  # spectral: plantain base (vein lighter)
 
     for i in range(4):
         angle = i * 1.5708 + 0.4  # 90 deg apart
@@ -222,9 +222,9 @@ def build_dried_leaf():
     cl = bm.loops.layers.color.new("Color")
     uv = bm.loops.layers.uv.new("UV")
 
-    stem_col = (0.35, 0.22, 0.08, 1.0)
-    edge_col = (0.45, 0.30, 0.10, 1.0)
-    tip_col = (0.50, 0.35, 0.12, 1.0)
+    stem_col = (0.34, 0.35, 0.31, 1.0)   # spectral: dried leaf base
+    edge_col = (0.44, 0.43, 0.30, 1.0)  # spectral: dried leaf tip
+    tip_col = (0.49, 0.48, 0.33, 1.0)   # spectral: slightly warmer curl
 
     length = 0.040
     hw = 0.0125  # 25mm wide
@@ -266,8 +266,8 @@ def build_seed_head():
     cl = bm.loops.layers.color.new("Color")
     uv = bm.loops.layers.uv.new("UV")
 
-    stem_col = (0.42, 0.35, 0.15, 1.0)
-    seed_col = (0.50, 0.40, 0.18, 1.0)
+    stem_col = (0.40, 0.41, 0.35, 1.0)   # spectral: dried seed head base
+    seed_col = (0.49, 0.48, 0.33, 1.0)  # spectral: dried seed head tip
 
     stem_h = 0.12  # 12cm
     hw = 0.0015  # 3mm wide stem

@@ -190,8 +190,8 @@ TURF_TYPES = [
         "width_range": (0.008, 0.016),
         "arch_range": (0.002, 0.008),       # nearly straight
         "segments": 2,
-        "base_rgb": (0.15, 0.35, 0.06),
-        "tip_rgb": (0.35, 0.55, 0.18),
+        "base_rgb": (0.37, 0.44, 0.38),  # spectral: KBG etiolated sheath
+        "tip_rgb": (0.23, 0.40, 0.24),   # spectral: KBG healthy leaf
         "color_var": 0.03,
         "distribution": "lawn",
         "seed": 501,
@@ -205,8 +205,8 @@ TURF_TYPES = [
         "width_range": (0.010, 0.020),
         "arch_range": (0.04, 0.15),         # strong arc on tall blades
         "segments": 4,
-        "base_rgb": (0.12, 0.28, 0.04),
-        "tip_rgb": (0.40, 0.42, 0.16),
+        "base_rgb": (0.41, 0.46, 0.41),  # spectral: switchgrass base
+        "tip_rgb": (0.28, 0.41, 0.24),   # spectral: switchgrass leaf
         "color_var": 0.06,
         "distribution": "wild",
         "seed": 503,
@@ -220,8 +220,8 @@ TURF_TYPES = [
         "width_range": (0.007, 0.014),
         "arch_range": (0.01, 0.05),         # gentle arc
         "segments": 3,
-        "base_rgb": (0.06, 0.18, 0.03),
-        "tip_rgb": (0.16, 0.30, 0.10),
+        "base_rgb": (0.36, 0.42, 0.36),  # spectral: fine fescue base
+        "tip_rgb": (0.22, 0.37, 0.22),   # spectral: fine fescue leaf
         "color_var": 0.04,
         "distribution": "shade",
         "seed": 507,
@@ -235,8 +235,8 @@ TURF_TYPES = [
         "width_range": (0.006, 0.012),
         "arch_range": (0.02, 0.06),         # lean, not dramatic arc
         "segments": 3,
-        "base_rgb": (0.10, 0.26, 0.05),
-        "tip_rgb": (0.24, 0.40, 0.14),
+        "base_rgb": (0.35, 0.41, 0.35),  # spectral: tussock sedge base
+        "tip_rgb": (0.22, 0.36, 0.21),   # spectral: tussock sedge leaf
         "color_var": 0.04,
         "distribution": "sedge",
         "seed": 509,
@@ -361,46 +361,46 @@ print(f"\nDone. {count} tiles exported.")
 # Curved: more dramatic arch for organic wind-blown variety
 
 BLADE_VARIANTS = [
-    # -- Lawn (Kentucky Bluegrass fine + Perennial Ryegrass broad + wind-bent) --
+    # -- Lawn: spectral KBG (thin), ryegrass (wide), KBG avg (curved) --
     {"name": "Blade_Lawn_Thin", "segments": 2, "height": 0.076,
      "width": 0.015, "arch": 0.003,
-     "base_rgb": (0.17, 0.37, 0.07), "tip_rgb": (0.38, 0.57, 0.20)},
+     "base_rgb": (0.37, 0.44, 0.38), "tip_rgb": (0.23, 0.40, 0.24)},
     {"name": "Blade_Lawn_Wide", "segments": 2, "height": 0.055,
      "width": 0.045, "arch": 0.006,
-     "base_rgb": (0.13, 0.33, 0.05), "tip_rgb": (0.32, 0.52, 0.16)},
+     "base_rgb": (0.40, 0.47, 0.40), "tip_rgb": (0.25, 0.43, 0.26)},
     {"name": "Blade_Lawn_Curved", "segments": 3, "height": 0.065,
      "width": 0.025, "arch": 0.015,
-     "base_rgb": (0.16, 0.34, 0.06), "tip_rgb": (0.36, 0.50, 0.17)},
-    # -- Wild (Switchgrass narrow + Big Bluestem broad + Indiangrass S-curve) --
+     "base_rgb": (0.38, 0.45, 0.39), "tip_rgb": (0.24, 0.41, 0.25)},
+    # -- Wild: spectral switchgrass (thin), bluestem (wide), avg (curved) --
     {"name": "Blade_Wild_Thin", "segments": 5, "height": 0.35,
      "width": 0.018, "arch": 0.10,
-     "base_rgb": (0.14, 0.30, 0.05), "tip_rgb": (0.42, 0.44, 0.18)},
+     "base_rgb": (0.41, 0.46, 0.41), "tip_rgb": (0.28, 0.41, 0.24)},
     {"name": "Blade_Wild_Wide", "segments": 3, "height": 0.18,
      "width": 0.050, "arch": 0.06,
-     "base_rgb": (0.10, 0.26, 0.03), "tip_rgb": (0.38, 0.40, 0.14)},
+     "base_rgb": (0.39, 0.45, 0.40), "tip_rgb": (0.23, 0.40, 0.26)},
     {"name": "Blade_Wild_Curved", "segments": 5, "height": 0.28,
      "width": 0.030, "arch": 0.14,
-     "base_rgb": (0.13, 0.27, 0.04), "tip_rgb": (0.44, 0.38, 0.15)},
-    # -- Shade (Fine Fescue hair + broad woodland floor + arching creeping red) --
+     "base_rgb": (0.40, 0.46, 0.40), "tip_rgb": (0.26, 0.41, 0.25)},
+    # -- Shade: spectral fine fescue --
     {"name": "Blade_Shade_Thin", "segments": 3, "height": 0.10,
      "width": 0.012, "arch": 0.02,
-     "base_rgb": (0.07, 0.20, 0.04), "tip_rgb": (0.18, 0.32, 0.12)},
+     "base_rgb": (0.36, 0.42, 0.36), "tip_rgb": (0.22, 0.37, 0.22)},
     {"name": "Blade_Shade_Wide", "segments": 3, "height": 0.08,
      "width": 0.035, "arch": 0.04,
-     "base_rgb": (0.05, 0.16, 0.02), "tip_rgb": (0.14, 0.28, 0.09)},
+     "base_rgb": (0.36, 0.42, 0.36), "tip_rgb": (0.22, 0.37, 0.22)},
     {"name": "Blade_Shade_Curved", "segments": 4, "height": 0.14,
      "width": 0.020, "arch": 0.06,
-     "base_rgb": (0.06, 0.17, 0.03), "tip_rgb": (0.15, 0.29, 0.10)},
-    # -- Sedge (Rush needle + Tussock broad + bent soft rush) --
+     "base_rgb": (0.36, 0.42, 0.36), "tip_rgb": (0.22, 0.37, 0.22)},
+    # -- Sedge: spectral tussock sedge (thin/curved), soft rush (wide) --
     {"name": "Blade_Sedge_Thin", "segments": 3, "height": 0.20,
      "width": 0.010, "arch": 0.03,
-     "base_rgb": (0.12, 0.28, 0.06), "tip_rgb": (0.26, 0.42, 0.16)},
+     "base_rgb": (0.35, 0.41, 0.35), "tip_rgb": (0.22, 0.36, 0.21)},
     {"name": "Blade_Sedge_Wide", "segments": 3, "height": 0.14,
      "width": 0.035, "arch": 0.05,
-     "base_rgb": (0.08, 0.24, 0.04), "tip_rgb": (0.22, 0.38, 0.12)},
+     "base_rgb": (0.37, 0.43, 0.37), "tip_rgb": (0.23, 0.38, 0.23)},
     {"name": "Blade_Sedge_Curved", "segments": 4, "height": 0.18,
      "width": 0.020, "arch": 0.08,
-     "base_rgb": (0.10, 0.25, 0.05), "tip_rgb": (0.24, 0.40, 0.14)},
+     "base_rgb": (0.36, 0.42, 0.36), "tip_rgb": (0.22, 0.37, 0.22)},
 ]
 
 print("\n" + "=" * 60)

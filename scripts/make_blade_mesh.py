@@ -22,41 +22,41 @@ OUT_DIR = os.path.join(PROJECT_DIR, "models", "vegetation")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 BLADE_TYPES = [
-    {
+    {   # Spectral: Kentucky Bluegrass (Poa pratensis)
         "name": "Blade_Lawn",
         "segments": 2,
         "height": 0.076,
         "width": 0.030,
         "arch": 0.004,
-        "base_rgb": (0.15, 0.35, 0.06),
-        "tip_rgb": (0.35, 0.55, 0.18),
+        "base_rgb": (0.37, 0.44, 0.38),
+        "tip_rgb": (0.23, 0.40, 0.24),
     },
-    {
+    {   # Spectral: Switchgrass (Panicum virgatum)
         "name": "Blade_Wild",
         "segments": 4,
         "height": 0.25,
         "width": 0.035,
         "arch": 0.08,
-        "base_rgb": (0.12, 0.28, 0.04),
-        "tip_rgb": (0.40, 0.42, 0.16),
+        "base_rgb": (0.41, 0.46, 0.41),
+        "tip_rgb": (0.28, 0.41, 0.24),
     },
-    {
+    {   # Spectral: Fine Fescue (Festuca rubra)
         "name": "Blade_Shade",
         "segments": 3,
         "height": 0.12,
         "width": 0.025,
         "arch": 0.03,
-        "base_rgb": (0.06, 0.18, 0.03),
-        "tip_rgb": (0.16, 0.30, 0.10),
+        "base_rgb": (0.36, 0.42, 0.36),
+        "tip_rgb": (0.22, 0.37, 0.22),
     },
-    {
+    {   # Spectral: Tussock Sedge (Carex stricta)
         "name": "Blade_Sedge",
         "segments": 3,
         "height": 0.16,
         "width": 0.025,
         "arch": 0.04,
-        "base_rgb": (0.10, 0.26, 0.05),
-        "tip_rgb": (0.24, 0.40, 0.14),
+        "base_rgb": (0.35, 0.41, 0.35),
+        "tip_rgb": (0.22, 0.36, 0.21),
     },
 ]
 
