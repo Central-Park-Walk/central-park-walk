@@ -27,43 +27,47 @@ os.makedirs(TEX_DIR, exist_ok=True)
 TUFTS = {
     "Tuft_Tiny": {
         # Maintained lawn: warm yellow-green, sunlit English lawn
-        "h": 0.15, "card_w": 0.18, "n_cards": 4,
-        "n_blades_per_card": 12, "segs": 3,
+        "h": 0.15, "card_w": 0.20, "n_cards": 4,
+        "n_blades": 75, "n_stubs": 30, "segs": 3,
         "curve": 0.15, "droop": 0.06,
         "color": (88, 120, 52), "tip_color": (115, 142, 65),
         "dark_color": (62, 88, 38),
         "dead_color": (140, 120, 55), "dead_tip_color": (170, 148, 72),
         "blade_shape": "broad",
+        "lean_range": 50,
     },
     "Tuft_Woodland": {
         # Shade floor: deep muted olive, cool under canopy
-        "h": 0.22, "card_w": 0.16, "n_cards": 4,
-        "n_blades_per_card": 10, "segs": 4,
+        "h": 0.22, "card_w": 0.18, "n_cards": 4,
+        "n_blades": 60, "n_stubs": 25, "segs": 4,
         "curve": 0.25, "droop": 0.12,
         "color": (48, 72, 38), "tip_color": (62, 88, 45),
         "dark_color": (35, 55, 28),
         "dead_color": (105, 92, 48), "dead_tip_color": (128, 112, 60),
         "blade_shape": "needle",
+        "lean_range": 45,
     },
     "Tuft_Wild": {
         # Wild meadow: golden-green, hay undertones, sun-bleached tips
-        "h": 0.45, "card_w": 0.22, "n_cards": 5,
-        "n_blades_per_card": 10, "segs": 5,
+        "h": 0.45, "card_w": 0.24, "n_cards": 5,
+        "n_blades": 65, "n_stubs": 25, "segs": 5,
         "curve": 0.35, "droop": 0.18,
         "color": (95, 110, 48), "tip_color": (130, 135, 68),
         "dark_color": (70, 82, 35),
         "dead_color": (148, 128, 58), "dead_tip_color": (175, 155, 78),
         "blade_shape": "broad",
+        "lean_range": 60,
     },
     "Tuft_Meadow": {
         # Waterside sedge: cool grey-green, damp wetland
-        "h": 0.32, "card_w": 0.18, "n_cards": 5,
-        "n_blades_per_card": 11, "segs": 5,
+        "h": 0.32, "card_w": 0.20, "n_cards": 5,
+        "n_blades": 62, "n_stubs": 25, "segs": 5,
         "curve": 0.40, "droop": 0.22,
         "color": (55, 85, 48), "tip_color": (72, 105, 58),
         "dark_color": (40, 62, 35),
         "dead_color": (112, 100, 52), "dead_tip_color": (138, 122, 65),
         "blade_shape": "arch",
+        "lean_range": 55,
     },
 }
 
@@ -72,213 +76,187 @@ TEX_W, TEX_H = 512, 1024
 
 # ─── Phase 1: Texture generation ─────────────────────────────────────────
 
-def make_blade_cluster_texture(name, spec):
-    """Generate a texture showing multiple grass blade silhouettes.
+def draw_blade(img_arr, cx, base_y, blade_h, blade_w, lean_deg, curve_str,
+               color_base, color_tip, color_dark, color_var, rng):
+    """Draw a single thin grass blade as an anti-aliased curved strip.
 
-    Each card texture shows N blades side-by-side with variation in height,
-    width, lean, color, and shape. Includes dead/dry blade accents and
-    ground-level stub blades for density. Alpha mask creates the silhouette.
+    Blades are drawn into a numpy RGBA array for speed. Each blade is thin
+    (2-6px), curves via sine, and leans at a random angle. The base-to-tip
+    gradient runs along the blade's arc, not just vertically.
     """
-    from PIL import Image, ImageDraw, ImageFilter
+    import numpy as np
+
+    h, w = img_arr.shape[:2]
+    lean_rad = math.radians(lean_deg)
+
+    # Blade curvature: mostly straight with gentle arc, not wildly wavy
+    curve_freq = rng.uniform(0.5, 1.5)
+    curve_phase = rng.uniform(0, math.pi * 2)
+    curve_amp = curve_str * blade_h * 0.06
+
+    for step in range(blade_h):
+        t = step / max(1, blade_h - 1)  # 0=base, 1=tip
+        y = base_y - step
+
+        if y < 0 or y >= h:
+            continue
+
+        # Width tapers: full at base, thin at tip
+        tw = blade_w * (1.0 - t ** 1.5 * 0.85)
+        tw = max(0.5, tw)
+
+        # Position: lean + curve
+        lean_offset = math.sin(lean_rad) * step
+        curve_offset = math.sin(t * curve_freq * math.pi + curve_phase) * curve_amp * t
+        x_center = cx + lean_offset + curve_offset
+
+        # Color gradient base->tip
+        base_mix = max(0, 1.0 - t * 3.0)
+        r = int(color_dark[0] * base_mix + (color_base[0] + (color_tip[0] - color_base[0]) * t) * (1 - base_mix))
+        g = int(color_dark[1] * base_mix + (color_base[1] + (color_tip[1] - color_base[1]) * t) * (1 - base_mix))
+        b = int(color_dark[2] * base_mix + (color_base[2] + (color_tip[2] - color_base[2]) * t) * (1 - base_mix))
+
+        # Per-blade color variation
+        r = max(0, min(255, int(r * (1 + color_var))))
+        g = max(0, min(255, int(g * (1 + color_var * 0.6))))
+        b = max(0, min(255, int(b * (1 + color_var * 1.2))))
+
+        # Midrib highlight at center
+        half_w = max(0.5, tw / 2)
+
+        x_start = max(0, int(x_center - half_w))
+        x_end = min(w - 1, int(x_center + half_w))
+
+        for x in range(x_start, x_end + 1):
+            dx = abs(x - x_center)
+            edge_t = dx / half_w
+
+            # Anti-aliased edge: soft falloff
+            if edge_t > 0.5:
+                alpha = int(255 * max(0, 1.0 - (edge_t - 0.5) / 0.5))
+            else:
+                alpha = 255
+
+            # Midrib: lighter center line
+            if dx < 1.0:
+                pr = min(255, r + 15)
+                pg = min(255, g + 10)
+                pb = min(255, b + 6)
+            else:
+                pr, pg, pb = r, g, b
+
+            if alpha <= 0:
+                continue
+
+            # Alpha-composite onto existing
+            ea = img_arr[y, x, 3] / 255.0
+            na = alpha / 255.0
+            out_a = na + ea * (1 - na)
+            if out_a > 0.001:
+                out_r = int((pr * na + img_arr[y, x, 0] * ea * (1 - na)) / out_a)
+                out_g = int((pg * na + img_arr[y, x, 1] * ea * (1 - na)) / out_a)
+                out_b = int((pb * na + img_arr[y, x, 2] * ea * (1 - na)) / out_a)
+                img_arr[y, x] = [out_r, out_g, out_b, int(out_a * 255)]
+
+
+def make_blade_cluster_texture(name, spec):
+    """Generate a dense grass blade cluster texture.
+
+    Key design: many thin, overlapping blades at varied angles — NOT a few
+    wide leaf shapes. The base is a dense thatch mass; individual blades only
+    become distinct at their tips. Mimics the style of proven game grass
+    card textures (GrassCard_Lawn, etc).
+    """
+    from PIL import Image, ImageFilter
     import numpy as np
 
     rng = np.random.RandomState(abs(hash(name)) % (2**31))
-    img = Image.new('RGBA', (TEX_W, TEX_H), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
+    img_arr = np.zeros((TEX_H, TEX_W, 4), dtype=np.uint8)
 
-    n_blades = spec["n_blades_per_card"]
+    n_blades = spec["n_blades"]
     r0, g0, b0 = spec["color"]
     r1, g1, b1 = spec["tip_color"]
     rd, gd, bd = spec["dark_color"]
     dr0, dg0, db0 = spec["dead_color"]
     dr1, dg1, db1 = spec["dead_tip_color"]
     shape = spec["blade_shape"]
+    lean_range = spec["lean_range"]
 
-    # --- Draw ground-level stub blades first (behind main blades) ---
-    n_stubs = 4
+    # Draw short stub blades at the base for thatch density
+    n_stubs = spec.get("n_stubs", 15)
     for si in range(n_stubs):
-        cx = int(TEX_W * (0.1 + 0.8 * si / max(1, n_stubs - 1)))
-        cx += rng.randint(-20, 21)
-        stub_h = int(TEX_H * rng.uniform(0.08, 0.20))
-        stub_w = int(TEX_W * rng.uniform(0.04, 0.08))
-        lean_px = int(rng.uniform(-25, 25))
-        # Stubs are darker, brownish — thatch layer
-        base_y = TEX_H - 1
-        for y_off in range(stub_h):
-            t = y_off / stub_h
-            y = base_y - y_off
-            w = stub_w * (1.0 - t * 0.7)
-            lean = int(lean_px * t)
-            x_center = cx + lean
-            x0 = max(0, int(x_center - w / 2))
-            x1 = min(TEX_W - 1, int(x_center + w / 2))
-            if x1 <= x0:
-                continue
-            sr = int(rd * 0.7 + (r0 * 0.5) * t)
-            sg = int(gd * 0.6 + (g0 * 0.4) * t)
-            sb = int(bd * 0.5 + (b0 * 0.3) * t)
-            alpha = int(255 * (1.0 - t * 0.3))
-            for x in range(x0, x1 + 1):
-                edge_dist = abs(x - x_center) / max(1, w / 2)
-                a = alpha if edge_dist < 0.7 else int(alpha * (1.0 - (edge_dist - 0.7) / 0.3))
-                a = max(0, min(255, a))
-                img.putpixel((x, y), (sr, sg, sb, a))
+        cx = int(TEX_W * 0.5 + rng.normal(0, TEX_W * 0.28))
+        cx = max(5, min(TEX_W - 5, cx))
+        stub_h = int(TEX_H * rng.uniform(0.05, 0.25))
+        stub_w = rng.uniform(4.0, 9.0)
+        stub_lean = rng.uniform(-lean_range * 0.8, lean_range * 0.8)
+        stub_var = rng.uniform(-0.15, 0.15)
+        # Stubs are darker — thatch layer
+        stub_dark = (int(rd * 0.8), int(gd * 0.8), int(bd * 0.7))
+        stub_base = (int(r0 * 0.7), int(g0 * 0.7), int(b0 * 0.6))
+        draw_blade(img_arr, cx, TEX_H - 1, stub_h, stub_w, stub_lean, 0.3,
+                   stub_base, stub_base, stub_dark, stub_var, rng)
 
-    # --- Draw main blades ---
+    # Sort blades: draw back-leaning first, front-leaning last (depth order)
+    blade_params = []
     for bi in range(n_blades):
-        # Determine if this blade is dead/dry (15% chance)
-        is_dead = rng.random() < 0.15
+        is_dead = rng.random() < 0.12  # 12% dead blades
 
-        # Distribute blades across card width with jitter
-        cx = int(TEX_W * (0.06 + 0.88 * bi / max(1, n_blades - 1)))
-        cx += rng.randint(-18, 19)
+        # Spread blades across the full card width
+        cx = int(TEX_W * 0.5 + rng.normal(0, TEX_W * 0.25))
+        cx = max(8, min(TEX_W - 8, cx))
 
-        # Blade dimensions — much wider than before
-        blade_h = int(TEX_H * rng.uniform(0.50, 0.92))
+        # Height: varies widely, some blades reach nearly full card height
+        blade_h = int(TEX_H * rng.uniform(0.30, 0.92))
+
+        # Width: thin but visible — individual blades merge through density
         if shape == "needle":
-            blade_w = int(TEX_W * rng.uniform(0.08, 0.14))
+            blade_w = rng.uniform(3.0, 6.0)
         elif shape == "arch":
-            blade_w = int(TEX_W * rng.uniform(0.10, 0.17))
+            blade_w = rng.uniform(4.0, 7.0)
         else:  # broad
-            blade_w = int(TEX_W * rng.uniform(0.12, 0.20))
+            blade_w = rng.uniform(4.5, 8.0)
 
-        # Lean direction — more dramatic
-        lean_px = int(rng.uniform(-35, 35))
+        # Lean: wide range, creating the crossing pattern that reads as grass
+        lean_deg = rng.uniform(-lean_range, lean_range)
 
-        # Per-blade curve parameters for organic shape
-        curve_freq = rng.uniform(4.0, 10.0)
-        curve_amp = rng.uniform(2.0, 6.0)
-        curve_phase = rng.uniform(0, math.pi * 2)
+        # Curve strength
+        curve_str = rng.uniform(0.3, 2.0)
 
-        # Tip curl: some blades curl over at the tip
-        tip_curl = rng.uniform(0, 1.0)
-        has_tip_curl = tip_curl > 0.6  # 40% of blades
+        # Color variation per blade (±18%)
+        color_var = rng.uniform(-0.18, 0.18)
 
-        # Edge irregularity
-        edge_wave_freq = rng.uniform(8.0, 18.0)
-        edge_wave_amp = rng.uniform(0.5, 2.5)
-
-        # Color selection
         if is_dead:
-            br0, bg0, bb0 = dr0, dg0, db0
-            br1, bg1, bb1 = dr1, dg1, db1
-            brd, bgd, bbd = int(dr0 * 0.7), int(dg0 * 0.65), int(db0 * 0.5)
+            c_base = (dr0, dg0, db0)
+            c_tip = (dr1, dg1, db1)
+            c_dark = (int(dr0 * 0.65), int(dg0 * 0.6), int(db0 * 0.5))
         else:
-            br0, bg0, bb0 = r0, g0, b0
-            br1, bg1, bb1 = r1, g1, b1
-            brd, bgd, bbd = rd, gd, bd
+            c_base = (r0, g0, b0)
+            c_tip = (r1, g1, b1)
+            c_dark = (rd, gd, bd)
 
-        # Per-blade hue shift (wider range: ±15%)
-        color_var = rng.uniform(-0.15, 0.15)
+        blade_params.append((cx, blade_h, blade_w, lean_deg, curve_str,
+                             c_base, c_tip, c_dark, color_var))
 
-        # Draw blade as horizontal slices (bottom to top)
-        base_y = TEX_H - 1
-        for y_off in range(blade_h):
-            t = y_off / blade_h  # 0=base, 1=tip
-            y = base_y - y_off
+    # Sort by absolute lean (upright blades drawn first = behind)
+    blade_params.sort(key=lambda p: abs(p[3]))
 
-            # Width tapers with organic curve (not linear)
-            # Grass blades taper slowly then quickly at tip
-            taper = 1.0 - (t ** 1.8) * 0.90
-            w = blade_w * taper
+    base_y = TEX_H - 1
+    for cx, blade_h, blade_w, lean_deg, curve_str, c_base, c_tip, c_dark, color_var in blade_params:
+        draw_blade(img_arr, cx, base_y, blade_h, blade_w, lean_deg, curve_str,
+                   c_base, c_tip, c_dark, color_var, rng)
 
-            # Edge waviness for organic feel
-            edge_var = math.sin(t * edge_wave_freq + curve_phase) * edge_wave_amp
-            w += edge_var
-
-            # Lean accumulates quadratically toward tip
-            lean = int(lean_px * t * t)
-
-            # Organic curve (S-curve or C-curve)
-            wave = int(curve_amp * math.sin(t * curve_freq + curve_phase))
-
-            # Tip curl: blade bends sideways sharply at top
-            if has_tip_curl and t > 0.75:
-                curl_t = (t - 0.75) / 0.25
-                curl_dir = 1 if lean_px > 0 else -1
-                wave += int(curl_dir * curl_t * curl_t * 12)
-
-            x_center = cx + lean + wave
-            x0 = max(0, int(x_center - w / 2))
-            x1 = min(TEX_W - 1, int(x_center + w / 2))
-
-            if x1 <= x0:
-                continue
-
-            # Color: gradient base->tip with dark base mix
-            base_mix = max(0, 1.0 - t * 2.5)  # dark color near base
-            cr = int(brd * base_mix + (br0 + (br1 - br0) * t) * (1 - base_mix))
-            cg = int(bgd * base_mix + (bg0 + (bg1 - bg0) * t) * (1 - base_mix))
-            cb = int(bbd * base_mix + (bb0 + (bb1 - bb0) * t) * (1 - base_mix))
-
-            # Per-blade hue shift
-            cr = max(0, min(255, int(cr * (1 + color_var))))
-            cg = max(0, min(255, int(cg * (1 + color_var * 0.5))))
-            cb = max(0, min(255, int(cb * (1 + color_var))))
-
-            # Tip yellowing for living blades
-            if not is_dead and t > 0.7:
-                yellow_t = (t - 0.7) / 0.3
-                cr = min(255, int(cr * (1 + yellow_t * 0.08)))
-                cg = min(255, int(cg * (1 + yellow_t * 0.04)))
-
-            for x in range(x0, x1 + 1):
-                dx = abs(x - x_center)
-                half_w = max(1, w / 2)
-
-                # Soft alpha edges
-                edge_dist = dx / half_w
-                if edge_dist > 0.65:
-                    alpha = int(255 * max(0, (1.0 - (edge_dist - 0.65) / 0.35)))
-                else:
-                    alpha = 255
-
-                # Midrib: lighter highlight along center
-                if dx < 2.0:
-                    # Midrib highlight (lighter, slightly glossy)
-                    pr = min(255, cr + 12)
-                    pg = min(255, cg + 8)
-                    pb = min(255, cb + 5)
-                elif dx < 4.0:
-                    # Near midrib: slightly darker (vein shadow)
-                    pr = max(0, cr - 8)
-                    pg = max(0, cg - 5)
-                    pb = max(0, cb - 4)
-                else:
-                    pr, pg, pb = cr, cg, cb
-
-                # Leaf surface micro-variation (subtle)
-                surf_var = math.sin(x * 0.8 + y * 0.3) * 4
-                pr = max(0, min(255, int(pr + surf_var)))
-                pg = max(0, min(255, int(pg + surf_var * 0.7)))
-
-                if alpha > 0:
-                    # Alpha-composite over existing pixels
-                    existing = img.getpixel((x, y))
-                    if existing[3] > 0 and alpha < 255:
-                        # Blend with existing
-                        ea = existing[3] / 255.0
-                        na = alpha / 255.0
-                        out_a = na + ea * (1 - na)
-                        if out_a > 0:
-                            out_r = int((pr * na + existing[0] * ea * (1 - na)) / out_a)
-                            out_g = int((pg * na + existing[1] * ea * (1 - na)) / out_a)
-                            out_b = int((pb * na + existing[2] * ea * (1 - na)) / out_a)
-                            img.putpixel((x, y), (out_r, out_g, out_b, int(out_a * 255)))
-                    else:
-                        img.putpixel((x, y), (pr, pg, pb, alpha))
-
-    # Slight blur for anti-aliasing
-    img = img.filter(ImageFilter.GaussianBlur(radius=0.7))
+    # Convert to PIL and apply light blur for AA
+    img = Image.fromarray(img_arr, 'RGBA')
+    img = img.filter(ImageFilter.GaussianBlur(radius=0.5))
 
     tex_path = os.path.join(TEX_DIR, f"{name}_blade.png")
     img.save(tex_path)
 
-    # Calculate alpha fill percentage
-    import numpy as np
+    # Report fill percentage
     arr = np.array(img)
     fill_pct = (arr[:, :, 3] > 10).sum() / (TEX_W * TEX_H) * 100
-    print(f"  Texture: {tex_path} ({TEX_W}x{TEX_H}, {n_blades} blades + {n_stubs} stubs, {fill_pct:.1f}% fill)")
+    print(f"  Texture: {tex_path} ({TEX_W}x{TEX_H}, {n_blades} blades, {fill_pct:.1f}% fill)")
     return tex_path
 
 
@@ -336,9 +314,8 @@ def make_crossed_cards(name, spec, tex_path):
         cd = droop * rng.uniform(0.6, 1.4)
         seg_h = ch / segs
 
-        # Per-card tilt off vertical: lean outward 5-15 degrees
-        tilt_angle = rng.uniform(0.06, 0.22)  # radians (~3-13 degrees)
-        # Tilt direction: outward from center (along card's facing direction)
+        # Per-card tilt off vertical: lean outward 3-13 degrees
+        tilt_angle = rng.uniform(0.05, 0.22)  # radians
         tilt_dx = dx * math.sin(tilt_angle)
         tilt_dz = dz * math.sin(tilt_angle)
         tilt_cos = math.cos(tilt_angle)
@@ -349,13 +326,12 @@ def make_crossed_cards(name, spec, tex_path):
         for si in range(segs + 1):
             t = si / segs  # 0=base, 1=tip
             y = seg_h * si - cd * t * t * ch
-            # Stronger outward bow at mid-height
+            # Outward bow at mid-height
             bow = cc * math.sin(t * math.pi) * 0.07
 
-            # Apply tilt: shift position outward as height increases
+            # Apply tilt
             tilt_x = tilt_dx * t * ch * 0.3
             tilt_z = tilt_dz * t * ch * 0.3
-            # Reduce height slightly due to tilt
             y *= (tilt_cos + (1.0 - tilt_cos) * (1.0 - t))
 
             vl = bm.verts.new((px + dx * bow + tilt_x, y, pz + dz * bow + tilt_z))
