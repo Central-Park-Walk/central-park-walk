@@ -111,15 +111,35 @@ func _build_chunk(origin_x: float, origin_z: float) -> void:
 	if not has_grass:
 		return
 
+	# Pre-sample terrain height on a coarse 4m grid (9×9 = 81 queries per chunk)
+	# then bilinearly interpolate for each tuft. Avoids millions of get_height calls.
+	var h_step := 4.0
+	var h_cols := int(CHUNK_SIZE / h_step) + 1  # 9
+	var h_grid: PackedFloat32Array = PackedFloat32Array()
+	h_grid.resize(h_cols * h_cols)
+	var all_nan := true
+	for hx in h_cols:
+		for hz in h_cols:
+			var wx := origin_x + float(hx) * h_step
+			var wz := origin_z + float(hz) * h_step
+			var h := terrain.data.get_height(Vector3(wx, 0.0, wz))
+			if is_nan(h):
+				h = -999.0
+			else:
+				all_nan = false
+			h_grid[hx * h_cols + hz] = h
+	if all_nan:
+		return
+
 	# Collect transforms + custom_data per biome
-	var xforms: Dictionary = {}   # biome_id → PackedFloat64Array (flat: 12 floats per transform)
-	var customs: Dictionary = {}  # biome_id → PackedColorArray
+	var xforms: Dictionary = {}
+	var customs: Dictionary = {}
 	for biome_id in tuft_meshes:
 		xforms[biome_id] = []
 		customs[biome_id] = []
 
-	# Iterate at 0.5m grid (64×64 = 4,096 samples per chunk)
-	var step := 0.50
+	# Iterate at 0.8m grid (40×40 = 1,600 samples per chunk)
+	var step := 0.80
 	var cols := int(CHUNK_SIZE / step)
 
 	for ix in cols:
@@ -141,8 +161,8 @@ func _build_chunk(origin_x: float, origin_z: float) -> void:
 				continue
 
 			# Jitter
-			var jx := base_x + _rng.randf_range(-0.20, 0.20)
-			var jz := base_z + _rng.randf_range(-0.20, 0.20)
+			var jx := base_x + _rng.randf_range(-0.30, 0.30)
+			var jz := base_z + _rng.randf_range(-0.30, 0.30)
 
 			# Canopy suppression
 			var canopy := _canopy_fast(jx, jz)
@@ -150,9 +170,10 @@ func _build_chunk(origin_x: float, origin_z: float) -> void:
 			if canopy > 0.1 and _rng.randf() < canopy * suppress:
 				continue
 
-			# Terrain height
-			var height := terrain.data.get_height(Vector3(jx, 0.0, jz))
-			if is_nan(height) or height < -50.0:
+			# Interpolate height from pre-sampled grid
+			var height := _height_interp(h_grid, h_cols, h_step,
+				origin_x, origin_z, jx, jz)
+			if height < -50.0:
 				continue
 
 			# Build transform
@@ -224,3 +245,25 @@ func _canopy_fast(wx: float, wz: float) -> float:
 	var px := clampi(int(u * _can_w), 0, _can_w - 1)
 	var py := clampi(int(v * _can_h), 0, _can_h - 1)
 	return float(_can_bytes[py * _can_w + px]) / 255.0
+
+
+func _height_interp(grid: PackedFloat32Array, grid_cols: int, grid_step: float,
+		ox: float, oz: float, wx: float, wz: float) -> float:
+	"""Bilinear interpolation of pre-sampled height grid."""
+	var lx := (wx - ox) / grid_step
+	var lz := (wz - oz) / grid_step
+	var ix := int(lx)
+	var iz := int(lz)
+	ix = clampi(ix, 0, grid_cols - 2)
+	iz = clampi(iz, 0, grid_cols - 2)
+	var fx := clampf(lx - float(ix), 0.0, 1.0)
+	var fz := clampf(lz - float(iz), 0.0, 1.0)
+	var h00 := grid[ix * grid_cols + iz]
+	var h10 := grid[(ix + 1) * grid_cols + iz]
+	var h01 := grid[ix * grid_cols + iz + 1]
+	var h11 := grid[(ix + 1) * grid_cols + iz + 1]
+	# Skip if any corner is invalid
+	if h00 < -50.0 or h10 < -50.0 or h01 < -50.0 or h11 < -50.0:
+		return -999.0
+	return h00 * (1.0 - fx) * (1.0 - fz) + h10 * fx * (1.0 - fz) \
+		+ h01 * (1.0 - fx) * fz + h11 * fx * fz
