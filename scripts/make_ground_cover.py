@@ -258,7 +258,10 @@ def make_turf_material(name):
     bsdf = nodes.new('ShaderNodeBsdfPrincipled')
     bsdf.location = (100, 0)
     bsdf.inputs['Roughness'].default_value = 0.85
-    bsdf.inputs['Specular'].default_value = 0.06
+    if 'Specular IOR Level' in bsdf.inputs:
+        bsdf.inputs['Specular IOR Level'].default_value = 0.06
+    elif 'Specular' in bsdf.inputs:
+        bsdf.inputs['Specular'].default_value = 0.06
     links.new(bsdf.outputs['BSDF'], out.inputs['Surface'])
     vcol = nodes.new('ShaderNodeVertexColor')
     vcol.location = (-200, 0)
@@ -279,8 +282,9 @@ def export_tile(bm, all_normals, name, material, cfg):
         normals_by_loop_idx[loop.index] = nrm
 
     # Enable custom split normals on the mesh
-    mesh.use_auto_smooth = True
-    mesh.auto_smooth_angle = math.pi  # accept all angles
+    if hasattr(mesh, 'use_auto_smooth'):
+        mesh.use_auto_smooth = True
+        mesh.auto_smooth_angle = math.pi  # accept all angles
 
     # Build the normals list in mesh loop order
     custom_normals = []
@@ -306,7 +310,6 @@ def export_tile(bm, all_normals, name, material, cfg):
         filepath=filepath,
         export_format='GLB',
         use_selection=True,
-        export_colors=True,
         export_normals=True,
         export_apply=True,
     )
@@ -344,3 +347,84 @@ for cfg in TURF_TYPES:
         export_tile(bm, all_normals, name, mat, cfg)
 
 print(f"\nDone. {count} tiles exported.")
+
+
+# ---------------------------------------------------------------------------
+# Tier 0 blade variants — individual blades for near-field GPU particles
+# ---------------------------------------------------------------------------
+# Single-blade meshes with cylinder-derived normals. Used at 0-6m distance
+# for botanical close-up detail alongside Tier 1 blades (Blade_Lawn.glb etc).
+# 3 variants per biome (thin/wide/curved) × 4 biomes = 12 blade GLBs.
+#
+# Thin: narrower blade representing finer-textured species in the mix
+# Wide: broader blade representing coarser species (ryegrass, bluestem)
+# Curved: more dramatic arch for organic wind-blown variety
+
+BLADE_VARIANTS = [
+    # -- Lawn (Kentucky Bluegrass fine + Perennial Ryegrass broad + wind-bent) --
+    {"name": "Blade_Lawn_Thin", "segments": 2, "height": 0.076,
+     "width": 0.015, "arch": 0.003,
+     "base_rgb": (0.17, 0.37, 0.07), "tip_rgb": (0.38, 0.57, 0.20)},
+    {"name": "Blade_Lawn_Wide", "segments": 2, "height": 0.055,
+     "width": 0.045, "arch": 0.006,
+     "base_rgb": (0.13, 0.33, 0.05), "tip_rgb": (0.32, 0.52, 0.16)},
+    {"name": "Blade_Lawn_Curved", "segments": 3, "height": 0.065,
+     "width": 0.025, "arch": 0.015,
+     "base_rgb": (0.16, 0.34, 0.06), "tip_rgb": (0.36, 0.50, 0.17)},
+    # -- Wild (Switchgrass narrow + Big Bluestem broad + Indiangrass S-curve) --
+    {"name": "Blade_Wild_Thin", "segments": 5, "height": 0.35,
+     "width": 0.018, "arch": 0.10,
+     "base_rgb": (0.14, 0.30, 0.05), "tip_rgb": (0.42, 0.44, 0.18)},
+    {"name": "Blade_Wild_Wide", "segments": 3, "height": 0.18,
+     "width": 0.050, "arch": 0.06,
+     "base_rgb": (0.10, 0.26, 0.03), "tip_rgb": (0.38, 0.40, 0.14)},
+    {"name": "Blade_Wild_Curved", "segments": 5, "height": 0.28,
+     "width": 0.030, "arch": 0.14,
+     "base_rgb": (0.13, 0.27, 0.04), "tip_rgb": (0.44, 0.38, 0.15)},
+    # -- Shade (Fine Fescue hair + broad woodland floor + arching creeping red) --
+    {"name": "Blade_Shade_Thin", "segments": 3, "height": 0.10,
+     "width": 0.012, "arch": 0.02,
+     "base_rgb": (0.07, 0.20, 0.04), "tip_rgb": (0.18, 0.32, 0.12)},
+    {"name": "Blade_Shade_Wide", "segments": 3, "height": 0.08,
+     "width": 0.035, "arch": 0.04,
+     "base_rgb": (0.05, 0.16, 0.02), "tip_rgb": (0.14, 0.28, 0.09)},
+    {"name": "Blade_Shade_Curved", "segments": 4, "height": 0.14,
+     "width": 0.020, "arch": 0.06,
+     "base_rgb": (0.06, 0.17, 0.03), "tip_rgb": (0.15, 0.29, 0.10)},
+    # -- Sedge (Rush needle + Tussock broad + bent soft rush) --
+    {"name": "Blade_Sedge_Thin", "segments": 3, "height": 0.20,
+     "width": 0.010, "arch": 0.03,
+     "base_rgb": (0.12, 0.28, 0.06), "tip_rgb": (0.26, 0.42, 0.16)},
+    {"name": "Blade_Sedge_Wide", "segments": 3, "height": 0.14,
+     "width": 0.035, "arch": 0.05,
+     "base_rgb": (0.08, 0.24, 0.04), "tip_rgb": (0.22, 0.38, 0.12)},
+    {"name": "Blade_Sedge_Curved", "segments": 4, "height": 0.18,
+     "width": 0.020, "arch": 0.08,
+     "base_rgb": (0.10, 0.25, 0.05), "tip_rgb": (0.24, 0.40, 0.14)},
+]
+
+print("\n" + "=" * 60)
+print(f"Building {len(BLADE_VARIANTS)} Tier 0 blade variants")
+print(f"Single blades with cylinder normals for near-field particles")
+print("=" * 60)
+
+blade_n = 0
+for bv in BLADE_VARIANTS:
+    name = bv["name"]
+    blade_n += 1
+    print(f"\n[{blade_n}/{len(BLADE_VARIANTS)}] {name} "
+          f"(h={bv['height']*100:.1f}cm w={bv['width']*1000:.0f}mm "
+          f"arch={bv['arch']*100:.1f}cm {bv['segments']}seg)...")
+
+    bm = bmesh.new()
+    color_layer = bm.loops.layers.color.new("Color")
+    uv_layer = bm.loops.layers.uv.new("UV")
+
+    normals = make_blade(bm, color_layer, uv_layer,
+                         0.0, 0.0, bv["height"], bv["width"],
+                         0.0, bv["arch"], bv["segments"],
+                         bv["base_rgb"], bv["tip_rgb"])
+
+    export_tile(bm, normals, name, mat, bv)
+
+print(f"\nDone. {blade_n} blade variants exported.")

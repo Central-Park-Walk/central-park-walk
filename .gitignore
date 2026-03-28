@@ -22,6 +22,8 @@ models/
 !models/vegetation/Tuft_Wild.glb
 !models/vegetation/Tuft_Meadow.glb
 !models/vegetation/cp_vines.glb
+!models/vegetation/Blade_*.glb
+!models/vegetation/Accent_*.glb
 textures/*
 !textures/terrain3d/
 sounds/

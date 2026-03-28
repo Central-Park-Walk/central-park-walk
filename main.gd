@@ -1904,9 +1904,130 @@ const GRASS_BIOMES := [
 	},
 ]
 
+# Tier 0: near-field blade variants (0-6m). Complement Tier 1 with different
+# blade shapes for botanical close-up variety at meditation walking pace.
+# 2 variants per biome (thin + wide) × 4 biomes = 8 particle systems.
+const GRASS_TIER0 := [
+	{  # Fine KBG blade — half the width of Tier 1 Blade_Lawn
+		"name": "Lawn_T0_Thin", "biome_id": 0,
+		"mesh_path": "res://models/vegetation/Blade_Lawn_Thin.glb",
+		"spacing": 0.020, "cell_width": 4.0, "grid_width": 3,
+		"random_spacing": 0.6,
+		"min_scale": Vector3(0.5, 0.4, 0.5),
+		"max_scale": Vector3(1.6, 1.6, 1.6),
+		"position_offset": Vector3(0, -0.002, 0),
+	},
+	{  # Ryegrass broad blade — wider, shorter than Tier 1
+		"name": "Lawn_T0_Wide", "biome_id": 0,
+		"mesh_path": "res://models/vegetation/Blade_Lawn_Wide.glb",
+		"spacing": 0.020, "cell_width": 4.0, "grid_width": 3,
+		"random_spacing": 0.6,
+		"min_scale": Vector3(0.6, 0.5, 0.6),
+		"max_scale": Vector3(1.5, 1.5, 1.5),
+		"position_offset": Vector3(0, -0.002, 0),
+	},
+	{  # Fine fescue — very thin, delicate shade grass
+		"name": "Shade_T0_Thin", "biome_id": 1,
+		"mesh_path": "res://models/vegetation/Blade_Shade_Thin.glb",
+		"spacing": 0.020, "cell_width": 4.0, "grid_width": 3,
+		"random_spacing": 0.6,
+		"min_scale": Vector3(0.5, 0.4, 0.5),
+		"max_scale": Vector3(1.8, 1.8, 1.8),
+		"position_offset": Vector3(0, -0.002, 0),
+	},
+	{  # Broad woodland floor leaf
+		"name": "Shade_T0_Wide", "biome_id": 1,
+		"mesh_path": "res://models/vegetation/Blade_Shade_Wide.glb",
+		"spacing": 0.020, "cell_width": 4.0, "grid_width": 3,
+		"random_spacing": 0.6,
+		"min_scale": Vector3(0.5, 0.4, 0.5),
+		"max_scale": Vector3(1.6, 1.6, 1.6),
+		"position_offset": Vector3(0, -0.002, 0),
+	},
+	{  # Switchgrass — narrow, tall
+		"name": "Wild_T0_Thin", "biome_id": 2,
+		"mesh_path": "res://models/vegetation/Blade_Wild_Thin.glb",
+		"spacing": 0.020, "cell_width": 4.0, "grid_width": 3,
+		"random_spacing": 0.5,
+		"min_scale": Vector3(0.4, 0.4, 0.4),
+		"max_scale": Vector3(1.6, 1.6, 1.6),
+		"position_offset": Vector3(0, -0.004, 0),
+	},
+	{  # Big Bluestem — wide, shorter
+		"name": "Wild_T0_Wide", "biome_id": 2,
+		"mesh_path": "res://models/vegetation/Blade_Wild_Wide.glb",
+		"spacing": 0.020, "cell_width": 4.0, "grid_width": 3,
+		"random_spacing": 0.5,
+		"min_scale": Vector3(0.4, 0.4, 0.4),
+		"max_scale": Vector3(1.5, 1.5, 1.5),
+		"position_offset": Vector3(0, -0.004, 0),
+	},
+	{  # Rush needle — very thin, stiff
+		"name": "Sedge_T0_Thin", "biome_id": 3,
+		"mesh_path": "res://models/vegetation/Blade_Sedge_Thin.glb",
+		"spacing": 0.020, "cell_width": 4.0, "grid_width": 3,
+		"random_spacing": 0.5,
+		"min_scale": Vector3(0.5, 0.4, 0.5),
+		"max_scale": Vector3(1.7, 1.7, 1.7),
+		"position_offset": Vector3(0, -0.003, 0),
+	},
+	{  # Tussock broad leaf
+		"name": "Sedge_T0_Wide", "biome_id": 3,
+		"mesh_path": "res://models/vegetation/Blade_Sedge_Wide.glb",
+		"spacing": 0.020, "cell_width": 4.0, "grid_width": 3,
+		"random_spacing": 0.5,
+		"min_scale": Vector3(0.5, 0.4, 0.5),
+		"max_scale": Vector3(1.6, 1.6, 1.6),
+		"position_offset": Vector3(0, -0.003, 0),
+	},
+]
+
+# Tier 0 botanical accents — ground-level details that give each biome
+# distinct near-field character. Very sparse (0.12-0.25m spacing).
+const GRASS_ACCENTS := [
+	{  # White clover rosettes in maintained lawns
+		"name": "Accent_Clover", "biome_id": 0,
+		"mesh_path": "res://models/vegetation/Accent_Clover.glb",
+		"spacing": 0.15, "cell_width": 4.0, "grid_width": 3,
+		"random_spacing": 0.8,
+		"min_scale": Vector3(0.7, 0.7, 0.7),
+		"max_scale": Vector3(1.5, 1.5, 1.5),
+		"position_offset": Vector3(0, -0.001, 0),
+	},
+	{  # Dandelion rosettes + yellow flowers in lawns
+		"name": "Accent_Dandelion", "biome_id": 0,
+		"mesh_path": "res://models/vegetation/Accent_Dandelion.glb",
+		"spacing": 0.25, "cell_width": 4.0, "grid_width": 3,
+		"random_spacing": 0.8,
+		"min_scale": Vector3(0.6, 0.6, 0.6),
+		"max_scale": Vector3(1.3, 1.3, 1.3),
+		"position_offset": Vector3(0, -0.001, 0),
+	},
+	{  # Fallen leaf litter on woodland floor
+		"name": "Accent_DriedLeaf", "biome_id": 1,
+		"mesh_path": "res://models/vegetation/Accent_DriedLeaf.glb",
+		"spacing": 0.12, "cell_width": 4.0, "grid_width": 3,
+		"random_spacing": 0.8,
+		"min_scale": Vector3(0.5, 0.5, 0.5),
+		"max_scale": Vector3(1.6, 1.6, 1.6),
+		"position_offset": Vector3(0, 0.0, 0),
+	},
+	{  # Dried grass seed heads in wild meadow
+		"name": "Accent_SeedHead", "biome_id": 2,
+		"mesh_path": "res://models/vegetation/Accent_SeedHead.glb",
+		"spacing": 0.20, "cell_width": 4.0, "grid_width": 3,
+		"random_spacing": 0.7,
+		"min_scale": Vector3(0.5, 0.5, 0.5),
+		"max_scale": Vector3(1.4, 1.4, 1.4),
+		"position_offset": Vector3(0, -0.003, 0),
+	},
+]
+
 func _setup_grass_particles() -> void:
-	## Multi-biome grass: one Terrain3D particle layer per biome, each with a
-	## tuft mesh filtered to its zone_ids. Gracefully skips missing meshes.
+	## Multi-biome grass: Terrain3D particle layers filtered by zone.
+	## Tier 1 (GRASS_BIOMES): 0-22m, base coverage with one blade per biome.
+	## Tier 0 (GRASS_TIER0): 0-6m, near-field variants for close-up variety.
+	## Accents (GRASS_ACCENTS): 0-6m, sparse botanical details per biome.
 	var gp_script = load("res://grass_particles.gd")
 	var proc_shader: Shader = load("res://shaders/grass_particles.gdshader")
 	var render_shader: Shader = load("res://shaders/grass_particle_render.gdshader")
@@ -1923,7 +2044,12 @@ func _setup_grass_particles() -> void:
 	noise_tex.seamless = true
 	noise_tex.noise = noise
 
-	for biome in GRASS_BIOMES:
+	var all_grass_layers: Array = []
+	all_grass_layers.append_array(GRASS_BIOMES)
+	all_grass_layers.append_array(GRASS_TIER0)
+	all_grass_layers.append_array(GRASS_ACCENTS)
+
+	for biome in all_grass_layers:
 		# Load tuft GLB via Godot's native load()
 		var scene = load(biome.mesh_path)
 		if not scene:
