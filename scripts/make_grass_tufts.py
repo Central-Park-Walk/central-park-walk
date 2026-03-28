@@ -31,43 +31,43 @@ os.makedirs(TEX_DIR, exist_ok=True)
 
 TUFTS = {
     "Tuft_Tiny": {
-        # Maintained lawn: warm yellow-green
+        # Maintained lawn: spectral KBG (Poa pratensis)
         "h": 0.12, "card_w": 0.40, "n_cards": 3,
         "n_blades": 24, "segs": 3,
         "curve": 0.15, "droop": 0.06,
-        "color": (88, 120, 52), "tip_color": (115, 142, 65),
-        "dark_color": (62, 88, 38),
-        "dead_color": (140, 120, 55), "dead_tip_color": (170, 148, 72),
+        "color": (58, 102, 61), "tip_color": (76, 112, 78),
+        "dark_color": (45, 80, 48),
+        "dead_color": (111, 110, 77), "dead_tip_color": (123, 122, 85),
         "blade_shape": "broad",
     },
     "Tuft_Woodland": {
-        # Shade floor: deep muted olive
+        # Shade floor: spectral Fine Fescue (Festuca rubra)
         "h": 0.18, "card_w": 0.55, "n_cards": 3,
         "n_blades": 18, "segs": 4,
         "curve": 0.25, "droop": 0.12,
-        "color": (48, 72, 38), "tip_color": (62, 88, 45),
-        "dark_color": (35, 55, 28),
-        "dead_color": (105, 92, 48), "dead_tip_color": (128, 112, 60),
+        "color": (56, 94, 56), "tip_color": (74, 106, 74),
+        "dark_color": (42, 72, 42),
+        "dead_color": (100, 98, 70), "dead_tip_color": (111, 110, 77),
         "blade_shape": "needle",
     },
     "Tuft_Wild": {
-        # Wild meadow: golden-green, hay undertones
+        # Wild meadow: spectral Switchgrass (Panicum virgatum)
         "h": 0.40, "card_w": 0.60, "n_cards": 4,
         "n_blades": 18, "segs": 5,
         "curve": 0.35, "droop": 0.18,
-        "color": (95, 110, 48), "tip_color": (130, 135, 68),
-        "dark_color": (70, 82, 35),
-        "dead_color": (148, 128, 58), "dead_tip_color": (175, 155, 78),
+        "color": (70, 105, 62), "tip_color": (88, 118, 82),
+        "dark_color": (52, 82, 48),
+        "dead_color": (123, 122, 85), "dead_tip_color": (140, 138, 95),
         "blade_shape": "broad",
     },
     "Tuft_Meadow": {
-        # Waterside sedge: cool grey-green
+        # Waterside sedge: spectral Tussock Sedge (Carex stricta)
         "h": 0.28, "card_w": 0.55, "n_cards": 4,
         "n_blades": 20, "segs": 5,
         "curve": 0.40, "droop": 0.22,
-        "color": (55, 85, 48), "tip_color": (72, 105, 58),
-        "dark_color": (40, 62, 35),
-        "dead_color": (112, 100, 52), "dead_tip_color": (138, 122, 65),
+        "color": (55, 92, 54), "tip_color": (72, 105, 72),
+        "dark_color": (40, 70, 40),
+        "dead_color": (100, 98, 68), "dead_tip_color": (111, 110, 77),
         "blade_shape": "arch",
     },
 }
