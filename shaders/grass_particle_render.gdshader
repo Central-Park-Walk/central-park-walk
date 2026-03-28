@@ -91,11 +91,12 @@ void fragment() {
 	float frag_snow = max(smoothstep(2.7, 3.5, season_t), snow_cover);
 	if (frag_snow > 0.6) discard;
 
-	// Texture-based alpha cutout
+	// Texture-based alpha — use hash dithering for soft edges instead of
+	// hard scissor cutout. Eliminates the jagged card-geometry look.
 	if (use_texture) {
 		float tex_alpha = texture(grass_albedo, UV).a;
 		ALPHA = tex_alpha;
-		ALPHA_SCISSOR_THRESHOLD = 0.4;
+		ALPHA_HASH_SCALE = 1.0;
 	}
 
 	// Decode zone + terrain data from COLOR (set by particle process shader)
@@ -201,10 +202,12 @@ void fragment() {
 		col = mix(col, dead_col, dead_mask * 0.45);
 	}
 
-	// Tip yellowing: subtle warm shift at blade tips (nutrient fade)
-	if (v_height_t > 0.65) {
-		float yellow_t = smoothstep(0.65, 1.0, v_height_t);
-		col *= vec3(1.0 + yellow_t * 0.06, 1.0 + yellow_t * 0.03, 1.0 - yellow_t * 0.04);
+	// EGTTR-style warmth: golden undertone throughout, stronger at tips.
+	// Real grass has warm highlights from waxy cuticle + chlorophyll.
+	col *= vec3(1.04, 1.01, 0.94); // subtle global warm shift
+	if (v_height_t > 0.5) {
+		float yellow_t = smoothstep(0.5, 1.0, v_height_t);
+		col *= vec3(1.0 + yellow_t * 0.10, 1.0 + yellow_t * 0.05, 1.0 - yellow_t * 0.06);
 	}
 
 	// --- Seasonal color ---
