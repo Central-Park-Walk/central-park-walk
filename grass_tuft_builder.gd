@@ -28,8 +28,9 @@ var tuft_textures: Dictionary = {} # int → Texture2D
 var render_shader: Shader
 
 const CHUNK_SIZE := 32.0
-## Tuft spacing per biome (meters between instances)
-const BIOME_SPACING := {0: 0.80, 1: 1.10, 2: 0.90, 3: 1.10}
+## Tuft spacing per biome (meters between instances).
+## At 15-55m distance, individual tufts aren't distinguishable — coverage matters.
+const BIOME_SPACING := {0: 1.20, 1: 1.60, 2: 1.40, 3: 1.60}
 ## Visibility range
 const VIS_BEGIN := 15.0
 const VIS_END := 55.0
@@ -138,8 +139,8 @@ func _build_chunk(origin_x: float, origin_z: float) -> void:
 		xforms[biome_id] = []
 		customs[biome_id] = []
 
-	# Iterate at 0.8m grid (40×40 = 1,600 samples per chunk)
-	var step := 0.80
+	# Iterate at 1.2m grid (26×26 = 676 samples per chunk)
+	var step := 1.20
 	var cols := int(CHUNK_SIZE / step)
 
 	for ix in cols:
