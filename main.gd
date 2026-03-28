@@ -1864,7 +1864,7 @@ const GRASS_BIOMES := [
 		# Blade_Lawn: 2 segments, 7.6cm tall, 12mm wide, 4 tris
 		"name": "Lawn", "biome_id": 0,
 		"mesh_path": "res://models/vegetation/Blade_Lawn.glb",
-		"spacing": 0.04, "cell_width": 12.0, "grid_width": 5,
+		"spacing": 0.03, "cell_width": 12.0, "grid_width": 5,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.5, 0.4, 0.5),
 		"max_scale": Vector3(1.8, 1.8, 1.8),
