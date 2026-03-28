@@ -1860,42 +1860,42 @@ var _landuse_texture: Texture2D  # cached for grass particle system
 # Tuft meshes have embedded albedo textures with alpha for realistic blade-level detail
 # and blending with the terrain underneath. Undergrowth system provides taller accents.
 const GRASS_BIOMES := [
-	{  # Maintained lawns — Tuft_Tiny: 34×33cm footprint, 5.8cm tall, 99 tris
-		# Denser spacing (0.35) for carpet-like coverage on maintained lawns.
+	{  # Per-blade instancing: one quad strip per particle, not crossed cards.
+		# Blade_Lawn: 2 segments, 7.6cm tall, 12mm wide, 4 tris
 		"name": "Lawn", "biome_id": 0,
-		"mesh_path": "res://models/vegetation/Tuft_Tiny.glb",
-		"spacing": 0.35, "cell_width": 24.0, "grid_width": 5,
-		"random_spacing": 0.3,
-		"min_scale": Vector3(0.8, 0.8, 0.8),
-		"max_scale": Vector3(1.4, 1.4, 1.4),
-		"position_offset": Vector3(0, -0.005, 0),
+		"mesh_path": "res://models/vegetation/Blade_Lawn.glb",
+		"spacing": 0.10, "cell_width": 16.0, "grid_width": 5,
+		"random_spacing": 0.45,
+		"min_scale": Vector3(0.7, 0.7, 0.7),
+		"max_scale": Vector3(1.5, 1.3, 1.5),
+		"position_offset": Vector3(0, -0.003, 0),
 	},
-	{  # Woodland/shade floor — Tuft_Woodland: 24×20cm footprint, 8cm tall, 150 tris
+	{  # Blade_Shade: 3 segments, 12cm tall, 10mm wide, 6 tris
 		"name": "Shade", "biome_id": 1,
-		"mesh_path": "res://models/vegetation/Tuft_Woodland.glb",
-		"spacing": 0.5, "cell_width": 24.0, "grid_width": 5,
-		"random_spacing": 0.5,
-		"min_scale": Vector3(0.8, 0.8, 0.8),
-		"max_scale": Vector3(1.5, 1.5, 1.5),
-		"position_offset": Vector3(0, -0.005, 0),
-	},
-	{  # Wild meadow — Tuft_Wild: 68×67cm footprint, 26cm tall, 300 tris
-		"name": "Wild", "biome_id": 2,
-		"mesh_path": "res://models/vegetation/Tuft_Wild.glb",
-		"spacing": 0.55, "cell_width": 24.0, "grid_width": 5,
+		"mesh_path": "res://models/vegetation/Blade_Shade.glb",
+		"spacing": 0.14, "cell_width": 16.0, "grid_width": 5,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.7, 0.7, 0.7),
-		"max_scale": Vector3(1.2, 1.2, 1.2),
-		"position_offset": Vector3(0, -0.008, 0),
-	},
-	{  # Waterside — Tuft_Meadow: 25×27cm footprint, 17cm tall, 266 tris
-		"name": "Sedge", "biome_id": 3,
-		"mesh_path": "res://models/vegetation/Tuft_Meadow.glb",
-		"spacing": 0.5, "cell_width": 24.0, "grid_width": 5,
-		"random_spacing": 0.4,
-		"min_scale": Vector3(0.8, 0.8, 0.8),
 		"max_scale": Vector3(1.5, 1.5, 1.5),
+		"position_offset": Vector3(0, -0.003, 0),
+	},
+	{  # Blade_Wild: 4 segments, 25cm tall, 15mm wide, 8 tris
+		"name": "Wild", "biome_id": 2,
+		"mesh_path": "res://models/vegetation/Blade_Wild.glb",
+		"spacing": 0.14, "cell_width": 16.0, "grid_width": 5,
+		"random_spacing": 0.5,
+		"min_scale": Vector3(0.6, 0.6, 0.6),
+		"max_scale": Vector3(1.3, 1.3, 1.3),
 		"position_offset": Vector3(0, -0.005, 0),
+	},
+	{  # Blade_Sedge: 3 segments, 16cm tall, 9mm wide, 6 tris
+		"name": "Sedge", "biome_id": 3,
+		"mesh_path": "res://models/vegetation/Blade_Sedge.glb",
+		"spacing": 0.12, "cell_width": 16.0, "grid_width": 5,
+		"random_spacing": 0.45,
+		"min_scale": Vector3(0.7, 0.7, 0.7),
+		"max_scale": Vector3(1.5, 1.5, 1.5),
+		"position_offset": Vector3(0, -0.003, 0),
 	},
 ]
 
