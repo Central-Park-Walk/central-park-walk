@@ -1980,6 +1980,42 @@ const GRASS_TIER0 := [
 		"max_scale": Vector3(1.6, 1.6, 1.6),
 		"position_offset": Vector3(0, -0.003, 0),
 	},
+	{  # Wind-bent lawn blade — more arch than Tier 1
+		"name": "Lawn_T0_Curved", "biome_id": 0,
+		"mesh_path": "res://models/vegetation/Blade_Lawn_Curved.glb",
+		"spacing": 0.020, "cell_width": 4.0, "grid_width": 3,
+		"random_spacing": 0.6,
+		"min_scale": Vector3(0.5, 0.4, 0.5),
+		"max_scale": Vector3(1.5, 1.5, 1.5),
+		"position_offset": Vector3(0, -0.002, 0),
+	},
+	{  # Arching creeping red fescue
+		"name": "Shade_T0_Curved", "biome_id": 1,
+		"mesh_path": "res://models/vegetation/Blade_Shade_Curved.glb",
+		"spacing": 0.020, "cell_width": 4.0, "grid_width": 3,
+		"random_spacing": 0.6,
+		"min_scale": Vector3(0.5, 0.4, 0.5),
+		"max_scale": Vector3(1.7, 1.7, 1.7),
+		"position_offset": Vector3(0, -0.002, 0),
+	},
+	{  # Indiangrass S-curve
+		"name": "Wild_T0_Curved", "biome_id": 2,
+		"mesh_path": "res://models/vegetation/Blade_Wild_Curved.glb",
+		"spacing": 0.020, "cell_width": 4.0, "grid_width": 3,
+		"random_spacing": 0.5,
+		"min_scale": Vector3(0.4, 0.4, 0.4),
+		"max_scale": Vector3(1.5, 1.5, 1.5),
+		"position_offset": Vector3(0, -0.004, 0),
+	},
+	{  # Bent soft rush
+		"name": "Sedge_T0_Curved", "biome_id": 3,
+		"mesh_path": "res://models/vegetation/Blade_Sedge_Curved.glb",
+		"spacing": 0.020, "cell_width": 4.0, "grid_width": 3,
+		"random_spacing": 0.5,
+		"min_scale": Vector3(0.5, 0.4, 0.5),
+		"max_scale": Vector3(1.6, 1.6, 1.6),
+		"position_offset": Vector3(0, -0.003, 0),
+	},
 ]
 
 # Tier 0 botanical accents — ground-level details that give each biome
