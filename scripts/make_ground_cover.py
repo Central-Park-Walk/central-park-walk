@@ -327,26 +327,10 @@ for block in bpy.data.meshes:
     if block.users == 0:
         bpy.data.meshes.remove(block)
 
-total_files = len(TURF_TYPES) * VARIANTS
-print("=" * 60)
-print(f"Building {len(TURF_TYPES)} types × {VARIANTS} variants = {total_files} tiles")
-print(f"Curved multi-segment blades — fewer blades, better shape")
-print("=" * 60)
+# Turf tile generation (Turf_*_v{0-4}.glb) removed — superseded by
+# per-blade GPU particles (Blade_*.glb). TURF_TYPES kept as reference data.
 
 mat = make_turf_material("TurfBlade")
-count = 0
-
-for cfg in TURF_TYPES:
-    for v in range(VARIANTS):
-        name = f"{cfg['name']}_v{v}"
-        seed = cfg["seed"] + v * 1000
-        count += 1
-        print(f"\n[{count}/{total_files}] {name} ({cfg['blade_count']} blades, "
-              f"{cfg['segments']} segments)...")
-        bm, all_normals = build_turf_tile(cfg, seed)
-        export_tile(bm, all_normals, name, mat, cfg)
-
-print(f"\nDone. {count} tiles exported.")
 
 
 # ---------------------------------------------------------------------------
