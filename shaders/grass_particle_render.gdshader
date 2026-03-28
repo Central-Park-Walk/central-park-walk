@@ -185,12 +185,27 @@ void fragment() {
 	// When terrain_tint is white (default), this is a no-op.
 	col *= mix(terrain_tint, vec3(1.0), root_t * 0.7 + 0.3);
 
-	// Per-instance hue variation
-	col *= mix(vec3(0.97, 1.01, 1.03), vec3(1.03, 0.99, 0.95), blade_seed);
+	// Per-instance hue variation (±10% for visible blade-to-blade difference)
+	col *= mix(vec3(0.90, 1.04, 1.06), vec3(1.10, 0.96, 0.90), blade_seed);
 
 	// Broad meadow variation (12m scale)
 	float broad_patch = vnoise(v_world_pos.xz / 12.0);
 	col *= mix(0.95, 1.05, broad_patch);
+
+	// Dead tuft accents: world-position noise flags ~15% of tufts for warm brown cast.
+	// Creates natural patchiness — stressed, dormant, or recently-mowed spots.
+	float dead_noise = vnoise(v_world_pos.xz * 0.8 + vec2(73.1, 29.7));
+	float dead_mask = smoothstep(0.62, 0.72, dead_noise); // ~15% of area
+	if (dead_mask > 0.0) {
+		vec3 dead_col = vec3(0.22, 0.18, 0.08); // warm straw-brown
+		col = mix(col, dead_col, dead_mask * 0.45);
+	}
+
+	// Tip yellowing: subtle warm shift at blade tips (nutrient fade)
+	if (v_height_t > 0.65) {
+		float yellow_t = smoothstep(0.65, 1.0, v_height_t);
+		col *= vec3(1.0 + yellow_t * 0.06, 1.0 + yellow_t * 0.03, 1.0 - yellow_t * 0.04);
+	}
 
 	// --- Seasonal color ---
 	float spring_t = sn_veg_spring(season_t);
@@ -243,7 +258,7 @@ void fragment() {
 	ROUGHNESS += (blade_seed - 0.5) * 0.10;
 	SPECULAR = mix(0.06, 0.12, v_height_t);
 	METALLIC = 0.0;
-	BACKLIGHT = vec3(0.25, 0.30, 0.08) * mix(0.6, 1.0, v_height_t);
+	BACKLIGHT = vec3(0.35, 0.42, 0.12) * mix(0.5, 1.0, v_height_t);
 
 	// --- Weather ---
 	if (rain_wetness > 0.01) {

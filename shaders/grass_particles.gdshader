@@ -295,6 +295,22 @@ void start() {
 		TRANSFORM = mat4(rotation) * TRANSFORM;
 	}
 
+	// Per-instance tilt: lean each tuft off-vertical for organic irregularity.
+	// Derive tilt from existing random values — no extra data channels needed.
+	// Biome-specific ranges: lawns subtle, wild dramatic.
+	{
+		float tilt_max = 0.09; // ~5 degrees default
+		if (biome_id == 2) tilt_max = 0.21;       // Wild: ~12 degrees
+		else if (biome_id == 1 || biome_id == 11) tilt_max = 0.14; // Shade: ~8 degrees
+		else if (biome_id == 3) tilt_max = 0.17;   // Sedge: ~10 degrees
+		float tilt_angle = (r.y * 2.0 - 1.0) * tilt_max;
+		// Tilt axis: perpendicular to a random direction derived from r.z
+		float tilt_dir = r.z * TAU;
+		vec3 tilt_axis = vec3(cos(tilt_dir), 0.0, sin(tilt_dir));
+		mat3 tilt_rot = rotation_matrix(tilt_axis, tilt_angle);
+		TRANSFORM = mat4(tilt_rot) * TRANSFORM;
+	}
+
 	// Filtering - Causes some particles to be rendered as degenerate triangles
 	// via 0./0. - Particles filtered this way are still processed by the GPU.
 	// For compatibility it seems we must shift as well.
