@@ -32,8 +32,8 @@ os.makedirs(TEX_DIR, exist_ok=True)
 TUFTS = {
     "Tuft_Tiny": {
         # Maintained lawn: warm yellow-green
-        "h": 0.15, "card_w": 0.18, "n_cards": 3,
-        "n_blades": 18, "segs": 3,
+        "h": 0.12, "card_w": 0.40, "n_cards": 3,
+        "n_blades": 24, "segs": 3,
         "curve": 0.15, "droop": 0.06,
         "color": (88, 120, 52), "tip_color": (115, 142, 65),
         "dark_color": (62, 88, 38),
@@ -42,8 +42,8 @@ TUFTS = {
     },
     "Tuft_Woodland": {
         # Shade floor: deep muted olive
-        "h": 0.22, "card_w": 0.16, "n_cards": 3,
-        "n_blades": 14, "segs": 4,
+        "h": 0.18, "card_w": 0.55, "n_cards": 3,
+        "n_blades": 18, "segs": 4,
         "curve": 0.25, "droop": 0.12,
         "color": (48, 72, 38), "tip_color": (62, 88, 45),
         "dark_color": (35, 55, 28),
@@ -52,8 +52,8 @@ TUFTS = {
     },
     "Tuft_Wild": {
         # Wild meadow: golden-green, hay undertones
-        "h": 0.45, "card_w": 0.22, "n_cards": 4,
-        "n_blades": 14, "segs": 5,
+        "h": 0.40, "card_w": 0.60, "n_cards": 4,
+        "n_blades": 18, "segs": 5,
         "curve": 0.35, "droop": 0.18,
         "color": (95, 110, 48), "tip_color": (130, 135, 68),
         "dark_color": (70, 82, 35),
@@ -62,8 +62,8 @@ TUFTS = {
     },
     "Tuft_Meadow": {
         # Waterside sedge: cool grey-green
-        "h": 0.32, "card_w": 0.18, "n_cards": 4,
-        "n_blades": 16, "segs": 5,
+        "h": 0.28, "card_w": 0.55, "n_cards": 4,
+        "n_blades": 20, "segs": 5,
         "curve": 0.40, "droop": 0.22,
         "color": (55, 85, 48), "tip_color": (72, 105, 58),
         "dark_color": (40, 62, 35),
