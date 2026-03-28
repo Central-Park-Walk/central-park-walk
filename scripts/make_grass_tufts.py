@@ -34,40 +34,40 @@ TUFTS = {
         "dark_color": (62, 88, 38),
         "dead_color": (140, 120, 55), "dead_tip_color": (170, 148, 72),
         "blade_shape": "broad",
-        "lean_range": 50,
+        "lean_range": 15,  # mostly upright — 3D comes from crossed cards, not blade angles
     },
     "Tuft_Woodland": {
         # Shade floor: deep muted olive, cool under canopy
         "h": 0.22, "card_w": 0.18, "n_cards": 4,
-        "n_blades": 60, "n_stubs": 25, "segs": 4,
+        "n_blades": 50, "n_stubs": 20, "segs": 4,
         "curve": 0.25, "droop": 0.12,
         "color": (48, 72, 38), "tip_color": (62, 88, 45),
         "dark_color": (35, 55, 28),
         "dead_color": (105, 92, 48), "dead_tip_color": (128, 112, 60),
         "blade_shape": "needle",
-        "lean_range": 45,
+        "lean_range": 12,
     },
     "Tuft_Wild": {
         # Wild meadow: golden-green, hay undertones, sun-bleached tips
         "h": 0.45, "card_w": 0.24, "n_cards": 5,
-        "n_blades": 65, "n_stubs": 25, "segs": 5,
+        "n_blades": 55, "n_stubs": 20, "segs": 5,
         "curve": 0.35, "droop": 0.18,
         "color": (95, 110, 48), "tip_color": (130, 135, 68),
         "dark_color": (70, 82, 35),
         "dead_color": (148, 128, 58), "dead_tip_color": (175, 155, 78),
         "blade_shape": "broad",
-        "lean_range": 60,
+        "lean_range": 20,  # wild grass leans a bit more
     },
     "Tuft_Meadow": {
         # Waterside sedge: cool grey-green, damp wetland
         "h": 0.32, "card_w": 0.20, "n_cards": 5,
-        "n_blades": 62, "n_stubs": 25, "segs": 5,
+        "n_blades": 52, "n_stubs": 20, "segs": 5,
         "curve": 0.40, "droop": 0.22,
         "color": (55, 85, 48), "tip_color": (72, 105, 58),
         "dark_color": (40, 62, 35),
         "dead_color": (112, 100, 52), "dead_tip_color": (138, 122, 65),
         "blade_shape": "arch",
-        "lean_range": 55,
+        "lean_range": 18,
     },
 }
 
@@ -189,7 +189,7 @@ def make_blade_cluster_texture(name, spec):
         cx = max(5, min(TEX_W - 5, cx))
         stub_h = int(TEX_H * rng.uniform(0.05, 0.25))
         stub_w = rng.uniform(4.0, 9.0)
-        stub_lean = rng.uniform(-lean_range * 0.8, lean_range * 0.8)
+        stub_lean = rng.uniform(-20, 20)  # stubs lean a bit more (thatch)
         stub_var = rng.uniform(-0.15, 0.15)
         # Stubs are darker — thatch layer
         stub_dark = (int(rd * 0.8), int(gd * 0.8), int(bd * 0.7))
@@ -209,13 +209,14 @@ def make_blade_cluster_texture(name, spec):
         # Height: varies widely, some blades reach nearly full card height
         blade_h = int(TEX_H * rng.uniform(0.30, 0.92))
 
-        # Width: thin but visible — individual blades merge through density
+        # Width: moderate — visible leaf surface, but not fat leaf shapes.
+        # At 512px canvas, 6-12px ≈ 2-4mm real blade width on an 18cm card.
         if shape == "needle":
-            blade_w = rng.uniform(3.0, 6.0)
+            blade_w = rng.uniform(5.0, 9.0)
         elif shape == "arch":
-            blade_w = rng.uniform(4.0, 7.0)
+            blade_w = rng.uniform(6.0, 11.0)
         else:  # broad
-            blade_w = rng.uniform(4.5, 8.0)
+            blade_w = rng.uniform(7.0, 12.0)
 
         # Lean: wide range, creating the crossing pattern that reads as grass
         lean_deg = rng.uniform(-lean_range, lean_range)
