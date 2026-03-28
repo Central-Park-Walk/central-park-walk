@@ -29,7 +29,7 @@ var render_shader: Shader
 
 const CHUNK_SIZE := 32.0
 ## Tuft spacing per biome (meters between instances)
-const BIOME_SPACING := {0: 0.50, 1: 0.70, 2: 0.60, 3: 0.70}
+const BIOME_SPACING := {0: 0.80, 1: 1.10, 2: 0.90, 3: 1.10}
 ## Visibility range
 const VIS_BEGIN := 15.0
 const VIS_END := 55.0

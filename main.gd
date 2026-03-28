@@ -1866,9 +1866,10 @@ var _landuse_texture: Texture2D  # cached for grass particle system
 const GRASS_BIOMES := [
 	{  # Per-blade instancing: one quad strip per particle, not crossed cards.
 		# Blade_Lawn: 2 segments, 7.6cm tall, 12mm wide, 4 tris
+		# cell_width 9 × grid_width 5 → max_dist 22.5m, fade starts ~13.5m
 		"name": "Lawn", "biome_id": 0,
 		"mesh_path": "res://models/vegetation/Blade_Lawn.glb",
-		"spacing": 0.03, "cell_width": 12.0, "grid_width": 5,
+		"spacing": 0.03, "cell_width": 9.0, "grid_width": 5,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.5, 0.4, 0.5),
 		"max_scale": Vector3(1.8, 1.8, 1.8),
@@ -1877,7 +1878,7 @@ const GRASS_BIOMES := [
 	{  # Blade_Shade: 3 segments, 12cm tall, 10mm wide, 6 tris
 		"name": "Shade", "biome_id": 1,
 		"mesh_path": "res://models/vegetation/Blade_Shade.glb",
-		"spacing": 0.06, "cell_width": 12.0, "grid_width": 5,
+		"spacing": 0.06, "cell_width": 9.0, "grid_width": 5,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.5, 0.4, 0.5),
 		"max_scale": Vector3(1.8, 1.8, 1.8),
@@ -1886,7 +1887,7 @@ const GRASS_BIOMES := [
 	{  # Blade_Wild: 4 segments, 25cm tall, 15mm wide, 8 tris
 		"name": "Wild", "biome_id": 2,
 		"mesh_path": "res://models/vegetation/Blade_Wild.glb",
-		"spacing": 0.06, "cell_width": 12.0, "grid_width": 5,
+		"spacing": 0.06, "cell_width": 9.0, "grid_width": 5,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.4, 0.4, 0.4),
 		"max_scale": Vector3(1.6, 1.6, 1.6),
@@ -1895,7 +1896,7 @@ const GRASS_BIOMES := [
 	{  # Blade_Sedge: 3 segments, 16cm tall, 9mm wide, 6 tris
 		"name": "Sedge", "biome_id": 3,
 		"mesh_path": "res://models/vegetation/Blade_Sedge.glb",
-		"spacing": 0.06, "cell_width": 12.0, "grid_width": 5,
+		"spacing": 0.06, "cell_width": 9.0, "grid_width": 5,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.5, 0.4, 0.5),
 		"max_scale": Vector3(1.7, 1.7, 1.7),
