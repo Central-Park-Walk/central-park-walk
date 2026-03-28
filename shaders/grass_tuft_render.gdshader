@@ -119,16 +119,18 @@ void fragment() {
 	// Per-instance hue variation (±10%)
 	col *= mix(vec3(0.90, 1.04, 1.06), vec3(1.10, 0.96, 0.90), inst_seed);
 
-	// Broad meadow variation (12m scale, same as blade shader)
+	// Broad meadow variation (12m scale) + warm/cool hue shift (8m scale)
 	float broad_patch = vnoise(v_world_pos.xz / 12.0);
 	col *= mix(0.95, 1.05, broad_patch);
+	float hue_patch = vnoise(v_world_pos.xz / 8.0 + vec2(51.3, 17.9));
+	col *= mix(vec3(1.02, 1.0, 0.96), vec3(0.97, 1.0, 1.04), hue_patch);
 
-	// Dead tuft accents (~15% of area, same noise as blade shader)
+	// Dead tuft accents (~22% of area, same noise as blade shader)
 	float dead_noise = vnoise(v_world_pos.xz * 0.8 + vec2(73.1, 29.7));
-	float dead_mask = smoothstep(0.62, 0.72, dead_noise);
+	float dead_mask = smoothstep(0.55, 0.68, dead_noise);
 	if (dead_mask > 0.0) {
 		vec3 dead_col = vec3(0.22, 0.18, 0.08);
-		col = mix(col, dead_col, dead_mask * 0.45);
+		col = mix(col, dead_col, dead_mask * 0.50);
 	}
 
 	// EGTTR-style warmth

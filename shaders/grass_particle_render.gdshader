@@ -189,17 +189,21 @@ void fragment() {
 	// Per-instance hue variation (±10% for visible blade-to-blade difference)
 	col *= mix(vec3(0.90, 1.04, 1.06), vec3(1.10, 0.96, 0.90), blade_seed);
 
-	// Broad meadow variation (12m scale)
+	// Broad meadow variation (12m scale) + warm/cool hue shift (8m scale)
 	float broad_patch = vnoise(v_world_pos.xz / 12.0);
 	col *= mix(0.95, 1.05, broad_patch);
+	// Warm/cool patches: some areas lean yellow-green, others blue-green
+	float hue_patch = vnoise(v_world_pos.xz / 8.0 + vec2(51.3, 17.9));
+	col *= mix(vec3(1.02, 1.0, 0.96), vec3(0.97, 1.0, 1.04), hue_patch);
 
-	// Dead tuft accents: world-position noise flags ~15% of tufts for warm brown cast.
+	// Dead tuft accents: world-position noise flags ~22% of area for warm brown cast.
 	// Creates natural patchiness — stressed, dormant, or recently-mowed spots.
+	// Ullmann photo shows significant brown variation across North Meadow.
 	float dead_noise = vnoise(v_world_pos.xz * 0.8 + vec2(73.1, 29.7));
-	float dead_mask = smoothstep(0.62, 0.72, dead_noise); // ~15% of area
+	float dead_mask = smoothstep(0.55, 0.68, dead_noise); // ~22% of area
 	if (dead_mask > 0.0) {
 		vec3 dead_col = vec3(0.22, 0.18, 0.08); // warm straw-brown
-		col = mix(col, dead_col, dead_mask * 0.45);
+		col = mix(col, dead_col, dead_mask * 0.50);
 	}
 
 	// EGTTR-style warmth: golden undertone throughout, stronger at tips.

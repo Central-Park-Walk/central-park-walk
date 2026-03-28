@@ -257,15 +257,17 @@ void fragment() {
 		float ground_show = smoothstep(spottiness + 0.1, spottiness - 0.1, spots);
 		imp_col = mix(imp_col, grass_ground, ground_show);
 
-		// Broad meadow variation (12m scale, shared with blade/tuft shaders)
+		// Broad meadow variation (12m scale) + warm/cool hue shift (8m scale)
 		float broad_patch = vnoise(world_pos.xz / 12.0);
 		imp_col *= mix(0.95, 1.05, broad_patch);
+		float hue_patch = vnoise(world_pos.xz / 8.0 + vec2(51.3, 17.9));
+		imp_col *= mix(vec3(1.02, 1.0, 0.96), vec3(0.97, 1.0, 1.04), hue_patch);
 
-		// Dead tuft accents (same noise as blade/tuft shaders for spatial coherence)
+		// Dead tuft accents (~22%, same noise as blade/tuft shaders)
 		float dead_noise = vnoise(world_pos.xz * 0.8 + vec2(73.1, 29.7));
-		float dead_mask = smoothstep(0.62, 0.72, dead_noise);
+		float dead_mask = smoothstep(0.55, 0.68, dead_noise);
 		if (dead_mask > 0.0) {
-			imp_col = mix(imp_col, vec3(0.22, 0.18, 0.08), dead_mask * 0.45);
+			imp_col = mix(imp_col, vec3(0.22, 0.18, 0.08), dead_mask * 0.50);
 		}
 
 		// EGTTR-style warmth (shared with blade/tuft shaders)
