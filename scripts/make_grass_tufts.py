@@ -252,6 +252,14 @@ def make_crossed_cards(name, spec, tex_path):
         px = -dz * card_w * 0.5
         pz = dx * card_w * 0.5
 
+        # Offset each card's center so blades don't all radiate from one point.
+        # This breaks the rosette/cluster pattern that makes tufts individually
+        # identifiable. Each card is shifted 3-8cm from the tuft origin.
+        card_offset_dist = rng.uniform(0.03, 0.08)
+        card_offset_angle = rng.uniform(0, math.pi * 2)
+        card_ox = math.cos(card_offset_angle) * card_offset_dist
+        card_oz = math.sin(card_offset_angle) * card_offset_dist
+
         ch = h * rng.uniform(0.85, 1.15)
         cc = curve * rng.uniform(0.7, 1.3)
         cd = droop * rng.uniform(0.7, 1.3)
@@ -275,8 +283,8 @@ def make_crossed_cards(name, spec, tex_path):
             tilt_z = tilt_dz * t * ch * 0.2
             y *= (tilt_cos + (1.0 - tilt_cos) * (1.0 - t))
 
-            vl = bm.verts.new((px + dx * bow + tilt_x, y, pz + dz * bow + tilt_z))
-            vr = bm.verts.new((-px + dx * bow + tilt_x, y, -pz + dz * bow + tilt_z))
+            vl = bm.verts.new((px + dx * bow + tilt_x + card_ox, y, pz + dz * bow + tilt_z + card_oz))
+            vr = bm.verts.new((-px + dx * bow + tilt_x + card_ox, y, -pz + dz * bow + tilt_z + card_oz))
             left_verts.append((vl, t))
             right_verts.append((vr, t))
 
