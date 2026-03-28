@@ -215,6 +215,9 @@ func _ready() -> void:
 			print("main: grass particles returned")
 			# Textures already set on grass process material before add_child()
 			print("main: grass particles: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
+			# Tier 2: static tuft chunks (15-55m, MultiMeshInstance3D)
+			_setup_grass_tuft_chunks()
+			print("main: grass tuft chunks: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_player = _setup_player()
 	if _park_loader and _park_loader.boundary_polygon.size() > 2:
 		_player.boundary_polygon = _park_loader.boundary_polygon
@@ -1853,6 +1856,7 @@ func _setup_ground() -> void:
 # GPU Particle Grass (Terrain3D-based)
 # ---------------------------------------------------------------------------
 var _grass_particle_nodes: Array[Node3D] = []
+var _grass_tuft_builder: Node3D  # Tier 2 static MultiMesh chunks
 var _landuse_texture: Texture2D  # cached for grass particle system
 
 # Biome definitions for multi-layer grass particles.
@@ -2028,6 +2032,65 @@ func _setup_grass_particles() -> void:
 			biome.name, biome.spacing, biome.biome_id, biome.mesh_path,
 			tuft_mesh.get_faces().size() / 3 if tuft_mesh.get_faces().size() > 0 else 0,
 			n_nodes, first_mesh_ok, first_mat_ok, first_amount])
+
+
+# Tier 2 tuft meshes: crossed-card tufts for static MultiMesh chunks (15-55m)
+const TUFT_BIOMES := {
+	0: "res://models/vegetation/Tuft_Tiny.glb",      # lawn
+	1: "res://models/vegetation/Tuft_Woodland.glb",   # shade
+	2: "res://models/vegetation/Tuft_Wild.glb",       # wild
+	3: "res://models/vegetation/Tuft_Meadow.glb",     # sedge
+}
+
+func _setup_grass_tuft_chunks() -> void:
+	## Build static Tier 2 MultiMesh chunks of crossed-card tufts.
+	## These render at 15-55m, bridging GPU particle blades and terrain impostor.
+	var builder_script = load("res://grass_tuft_builder.gd")
+	var tuft_shader: Shader = load("res://shaders/grass_tuft_render.gdshader")
+	if not builder_script or not tuft_shader:
+		push_warning("Grass tuft builder script/shader not found")
+		return
+
+	var builder: Node3D = Node3D.new()
+	builder.set_script(builder_script)
+	builder.name = "GrassTuftChunks"
+	builder.terrain = _terrain3d
+	builder.world_size = _hm_world_size
+	builder.render_shader = tuft_shader
+
+	# Load landuse image for CPU-side zone sampling
+	if _landuse_texture:
+		builder.landuse_image = _landuse_texture.get_image()
+	# Load canopy image
+	if _park_loader and _park_loader._canopy_texture:
+		builder.canopy_image = _park_loader._canopy_texture.get_image()
+
+	# Load tuft meshes and textures per biome
+	for biome_id in TUFT_BIOMES:
+		var path: String = TUFT_BIOMES[biome_id]
+		var scene = load(path)
+		if not scene:
+			push_warning("Tuft mesh not found: %s" % path)
+			continue
+		var inst = scene.instantiate()
+		var mesh_node: MeshInstance3D = null
+		if inst is MeshInstance3D:
+			mesh_node = inst
+		else:
+			for child in inst.get_children():
+				if child is MeshInstance3D:
+					mesh_node = child
+					break
+		if mesh_node and mesh_node.mesh:
+			builder.tuft_meshes[biome_id] = mesh_node.mesh
+			var mat = mesh_node.mesh.surface_get_material(0)
+			if mat is BaseMaterial3D and mat.albedo_texture:
+				builder.tuft_textures[biome_id] = mat.albedo_texture
+		inst.queue_free()
+
+	add_child(builder)
+	_grass_tuft_builder = builder
+	builder.build_all_chunks()
 
 
 # ---------------------------------------------------------------------------
