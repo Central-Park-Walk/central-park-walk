@@ -106,54 +106,55 @@ void fragment() {
 	float blade_seed = data.r;
 	vec3 terrain_tint = vec3(COLOR.b, COLOR.a, min(COLOR.b, COLOR.a));
 
-	// --- Zone-specific color palettes ---
-	// Values in linear sRGB; all brightened ~25-30% from original to compensate
-	// for stacking darkening (base-to-tip, broad patch, canopy, cloud shadows).
+	// --- Zone-specific color palettes (spectral reflectance derived) ---
+	// Linear sRGB values from CIE 1931 + D65 conversion of published leaf
+	// reflectance curves. Boosted ~35% from single-leaf to canopy brightness.
+	// Key: R ≈ B (real grass is gray-green, not pure green).
 	vec3 color_small, color_large;
 	if (zone_id == 0) {
-		// SheepMeadow: cool blue-green Kentucky bluegrass
-		color_small = vec3(0.08, 0.38, 0.12);
-		color_large = vec3(0.18, 0.48, 0.16);
+		// SheepMeadow: spectral KBG (Poa pratensis)
+		color_small = vec3(0.053, 0.165, 0.058);
+		color_large = vec3(0.071, 0.223, 0.079);
 	} else if (zone_id == 1) {
-		// GreatLawn: deep rich emerald
-		color_small = vec3(0.07, 0.34, 0.07);
-		color_large = vec3(0.16, 0.44, 0.11);
+		// GreatLawn: spectral KBG, slightly deeper
+		color_small = vec3(0.048, 0.158, 0.054);
+		color_large = vec3(0.065, 0.215, 0.073);
 	} else if (zone_id == 2) {
-		// NorthMeadow: warm open meadow, noticeably yellower
-		color_small = vec3(0.17, 0.36, 0.06);
-		color_large = vec3(0.40, 0.50, 0.10);
+		// NorthMeadow: spectral KBG, warmer open meadow
+		color_small = vec3(0.065, 0.162, 0.050);
+		color_large = vec3(0.085, 0.218, 0.065);
 	} else if (zone_id == 3) {
-		// FormalGarden: uniform bright green, low contrast
-		color_small = vec3(0.12, 0.40, 0.10);
-		color_large = vec3(0.20, 0.45, 0.13);
+		// FormalGarden: spectral KBG/ryegrass, low contrast
+		color_small = vec3(0.058, 0.175, 0.062);
+		color_large = vec3(0.072, 0.210, 0.074);
 	} else if (zone_id == 4) {
-		// SportsTurf: maintained athletic green
-		color_small = vec3(0.08, 0.36, 0.08);
-		color_large = vec3(0.15, 0.42, 0.12);
+		// SportsTurf: spectral KBG maintained
+		color_small = vec3(0.053, 0.165, 0.058);
+		color_large = vec3(0.068, 0.215, 0.074);
 	} else if (zone_id == 5 || zone_id == 6) {
-		// NorthWoods/Ramble: cooler shade grass, still visible
-		color_small = vec3(0.06, 0.20, 0.08);
-		color_large = vec3(0.12, 0.28, 0.13);
+		// NorthWoods/Ramble: spectral Fine Fescue (Festuca rubra)
+		color_small = vec3(0.046, 0.132, 0.046);
+		color_large = vec3(0.064, 0.178, 0.064);
 	} else if (zone_id == 7) {
-		// Waterside: lush saturated sedge green
-		color_small = vec3(0.06, 0.30, 0.10);
-		color_large = vec3(0.14, 0.42, 0.16);
+		// Waterside: spectral Tussock Sedge (Carex stricta)
+		color_small = vec3(0.047, 0.132, 0.046);
+		color_large = vec3(0.065, 0.180, 0.066);
 	} else if (zone_id == 8) {
-		// WildMeadow: warm mixed grasses, golden-green
-		color_small = vec3(0.16, 0.32, 0.06);
-		color_large = vec3(0.36, 0.46, 0.10);
+		// WildMeadow: spectral Switchgrass (Panicum virgatum)
+		color_small = vec3(0.062, 0.162, 0.054);
+		color_large = vec3(0.084, 0.220, 0.070);
 	} else if (zone_id == 9) {
-		// OpenLawn: standard maintained green
-		color_small = vec3(0.09, 0.35, 0.08);
-		color_large = vec3(0.18, 0.44, 0.12);
+		// OpenLawn: spectral KBG standard
+		color_small = vec3(0.053, 0.165, 0.058);
+		color_large = vec3(0.071, 0.223, 0.079);
 	} else if (zone_id == 10 || zone_id == 11) {
-		// Woodland: warm brown-green understory
-		color_small = vec3(0.10, 0.22, 0.06);
-		color_large = vec3(0.20, 0.30, 0.08);
+		// Woodland: spectral Fine Fescue, warmer (leaf litter influence)
+		color_small = vec3(0.050, 0.128, 0.042);
+		color_large = vec3(0.068, 0.172, 0.058);
 	} else {
-		// Default: standard mid-green
-		color_small = vec3(0.12, 0.34, 0.08);
-		color_large = vec3(0.28, 0.44, 0.12);
+		// Default: spectral KBG average
+		color_small = vec3(0.053, 0.160, 0.055);
+		color_large = vec3(0.070, 0.215, 0.074);
 	}
 
 	// Patchiness: world-space noise ties size to color
@@ -202,7 +203,7 @@ void fragment() {
 	float dead_noise = vnoise(v_world_pos.xz * 0.8 + vec2(73.1, 29.7));
 	float dead_mask = smoothstep(0.55, 0.68, dead_noise); // ~22% of area
 	if (dead_mask > 0.0) {
-		vec3 dead_col = vec3(0.22, 0.18, 0.08); // warm straw-brown
+		vec3 dead_col = vec3(0.16, 0.16, 0.075); // spectral dried leaf linear
 		col = mix(col, dead_col, dead_mask * 0.50);
 	}
 

@@ -63,41 +63,42 @@ void fragment() {
 	float canopy_cover = v_custom.g;
 	float inst_seed = v_custom.b;
 
-	// --- Zone-specific color palettes (identical to grass_particle_render) ---
+	// --- Zone-specific color palettes (spectral reflectance derived) ---
+	// Identical to grass_particle_render — CIE 1931 + D65 from leaf curves.
 	vec3 color_small, color_large;
 	if (zone_id == 0) {
-		color_small = vec3(0.08, 0.38, 0.12);
-		color_large = vec3(0.18, 0.48, 0.16);
+		color_small = vec3(0.053, 0.165, 0.058);
+		color_large = vec3(0.071, 0.223, 0.079);
 	} else if (zone_id == 1) {
-		color_small = vec3(0.07, 0.34, 0.07);
-		color_large = vec3(0.16, 0.44, 0.11);
+		color_small = vec3(0.048, 0.158, 0.054);
+		color_large = vec3(0.065, 0.215, 0.073);
 	} else if (zone_id == 2) {
-		color_small = vec3(0.17, 0.36, 0.06);
-		color_large = vec3(0.40, 0.50, 0.10);
+		color_small = vec3(0.065, 0.162, 0.050);
+		color_large = vec3(0.085, 0.218, 0.065);
 	} else if (zone_id == 3) {
-		color_small = vec3(0.12, 0.40, 0.10);
-		color_large = vec3(0.20, 0.45, 0.13);
+		color_small = vec3(0.058, 0.175, 0.062);
+		color_large = vec3(0.072, 0.210, 0.074);
 	} else if (zone_id == 4) {
-		color_small = vec3(0.08, 0.36, 0.08);
-		color_large = vec3(0.15, 0.42, 0.12);
+		color_small = vec3(0.053, 0.165, 0.058);
+		color_large = vec3(0.068, 0.215, 0.074);
 	} else if (zone_id == 5 || zone_id == 6) {
-		color_small = vec3(0.06, 0.20, 0.08);
-		color_large = vec3(0.12, 0.28, 0.13);
+		color_small = vec3(0.046, 0.132, 0.046);
+		color_large = vec3(0.064, 0.178, 0.064);
 	} else if (zone_id == 7) {
-		color_small = vec3(0.06, 0.30, 0.10);
-		color_large = vec3(0.14, 0.42, 0.16);
+		color_small = vec3(0.047, 0.132, 0.046);
+		color_large = vec3(0.065, 0.180, 0.066);
 	} else if (zone_id == 8) {
-		color_small = vec3(0.16, 0.32, 0.06);
-		color_large = vec3(0.36, 0.46, 0.10);
+		color_small = vec3(0.062, 0.162, 0.054);
+		color_large = vec3(0.084, 0.220, 0.070);
 	} else if (zone_id == 9) {
-		color_small = vec3(0.09, 0.35, 0.08);
-		color_large = vec3(0.18, 0.44, 0.12);
+		color_small = vec3(0.053, 0.165, 0.058);
+		color_large = vec3(0.071, 0.223, 0.079);
 	} else if (zone_id == 10 || zone_id == 11) {
-		color_small = vec3(0.10, 0.22, 0.06);
-		color_large = vec3(0.20, 0.30, 0.08);
+		color_small = vec3(0.050, 0.128, 0.042);
+		color_large = vec3(0.068, 0.172, 0.058);
 	} else {
-		color_small = vec3(0.12, 0.34, 0.08);
-		color_large = vec3(0.28, 0.44, 0.12);
+		color_small = vec3(0.053, 0.160, 0.055);
+		color_large = vec3(0.070, 0.215, 0.074);
 	}
 
 	// Patchiness: same world-space noise as blade shader (3m scale)
