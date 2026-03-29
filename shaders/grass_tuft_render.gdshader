@@ -85,15 +85,13 @@ void fragment() {
 	// --- Base color from shared zone palette + macro variation ---
 	vec3 col = grass_base_color(zone_id, v_world_pos.xz);
 
-	// Texture luminance modulates zone color (textured tufts)
-	// Untextured clusters: desaturate + warm shift (same as particle blade shader)
+	// Texture luminance modulates zone color (textured tufts).
+	// Untextured clusters: use grass_base_color directly — matches textured
+	// path at neutral tex_lum (~0.5), avoiding the warmth/brightness shift
+	// that desaturation created between adjacent LOD tiers.
 	if (use_texture) {
 		float tex_lum = dot(texture(grass_albedo, UV).rgb, vec3(0.299, 0.587, 0.114));
 		col *= mix(0.85, 1.15, tex_lum);
-	} else {
-		float blade_lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
-		col = mix(col, vec3(blade_lum), 0.28);
-		col *= vec3(1.06, 0.99, 0.90);
 	}
 
 	// Root-to-tip gradient — matches particle shader (0.80)

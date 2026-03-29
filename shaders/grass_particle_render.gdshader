@@ -152,8 +152,8 @@ void fragment() {
 	vec3 thatch_col = c_lo * 0.5;
 	col = mix(col, thatch_col, (1.0 - root_t) * 0.25);
 
-	// Terrain color map influence at roots (propagates Terrain3D color painting).
-	col *= mix(terrain_tint, vec3(1.0), root_t * 0.7 + 0.3);
+	// terrain_tint removed — dithered crossfade means terrain between blades
+	// is now filled by the next LOD tier, not visible through blade gaps.
 
 	// Compensate for root darkening + thatch averaging 95% brightness.
 	// Without this, the blade-covered area reads as a shadow around the camera
@@ -215,12 +215,12 @@ void fragment() {
 		NORMAL_MAP_DEPTH = 1.5;
 	}
 
-	// PBR — grass waxy cuticle, tip shinier
-	ROUGHNESS = mix(0.72, 0.52, v_height_t);
+	// PBR — aligned with tuft render shader for seamless LOD transitions
+	ROUGHNESS = mix(0.72, 0.58, v_height_t);
 	ROUGHNESS += (blade_seed - 0.5) * 0.10;
-	SPECULAR = mix(0.06, 0.12, v_height_t);
+	SPECULAR = mix(0.06, 0.10, v_height_t);
 	METALLIC = 0.0;
-	BACKLIGHT = vec3(0.35, 0.42, 0.12) * mix(0.5, 1.0, v_height_t);
+	BACKLIGHT = vec3(0.30, 0.36, 0.10) * mix(0.5, 1.0, v_height_t);
 
 	// --- Weather ---
 	if (rain_wetness > 0.01) {
