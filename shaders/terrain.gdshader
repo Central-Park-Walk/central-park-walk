@@ -191,7 +191,11 @@ void fragment() {
 	// --- Grass impostor (shared palette with blade/tuft shaders) ---
 	// grass_base_color gives the same world-space splotchiness as 3D grass,
 	// so LOD transitions are invisible.
-	vec3 grass_ground = vec3(0.06, 0.12, 0.06);  // thatch between blades — brightened to reduce dark circle under camera
+	// Close-range terrain between blade gaps. Old value (0.04, 0.09, 0.04) was
+	// nearly black, creating a visible dark circle around the camera. The 3D
+	// blades' own root darkening already handles the thatch look — the terrain
+	// just needs to not fight the blade brightness through the gaps.
+	vec3 grass_ground = vec3(0.04, 0.09, 0.04);
 	float green_blend = is_grass_zone ? 0.85 : (is_woodland ? 0.55 : 0.0);
 
 	if (is_grass_zone || is_woodland) {
@@ -237,9 +241,13 @@ void fragment() {
 			imp_col *= vec3(0.85, 0.88, 0.75);
 		}
 
-		// Distance blend: dark ground close (under 3D grass) → full impostor far
+		// Distance blend: under 3D grass → full impostor at distance.
+		// Close range uses a dimmed impostor (not grass_ground black) to avoid
+		// a dark circle where terrain peeks through blade gaps. The 3D blades'
+		// root darkening already provides the thatch look.
 		float impostor_t = smoothstep(5.0, 40.0, cam_dist);
-		vec3 grass_target = mix(grass_ground, imp_col, impostor_t);
+		vec3 close_ground = mix(grass_ground, imp_col, 0.65); // 65% impostor even close up
+		vec3 grass_target = mix(close_ground, imp_col, impostor_t);
 		grass_alb = mix(grass_alb, grass_target, green_blend);
 	}
 
