@@ -30,10 +30,11 @@ var render_shader: Shader
 const CHUNK_SIZE := 32.0
 ## Tuft spacing per biome (meters between instances).
 const BIOME_SPACING := {0: 1.20, 1: 1.60, 2: 1.40, 3: 1.60}
-## Visibility range — begins inside particle fade-out zone so tufts appear
-## as blades thin. Fade handled by shader dither, not Godot built-in.
+## Visibility range — tufts appear inside the particle fade zone.
+## Godot's built-in FADE_SELF handles smooth entry/exit.
 const VIS_BEGIN := 13.0
 const VIS_END := 75.0
+const VIS_FADE := 10.0
 
 ## Zone → biome mapping (matches grass_particles.gdshader)
 const ZONE_TO_BIOME := {
@@ -210,14 +211,11 @@ func _build_chunk(origin_x: float, origin_z: float) -> void:
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		# Visibility range for GPU culling (chunks outside range aren't drawn).
-		# Fade is DISABLED — dithered crossfade in the fragment shader handles
-		# smooth transitions (lod_dither.gdshaderinc), coordinated with particles.
 		mmi.visibility_range_begin = VIS_BEGIN
-		mmi.visibility_range_begin_margin = 0.0
+		mmi.visibility_range_begin_margin = VIS_FADE
 		mmi.visibility_range_end = VIS_END
-		mmi.visibility_range_end_margin = 0.0
-		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+		mmi.visibility_range_end_margin = VIS_FADE
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 
 		if render_shader and tuft_textures.has(biome_id):
 			var mat := ShaderMaterial.new()

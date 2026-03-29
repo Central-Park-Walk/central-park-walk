@@ -20,15 +20,6 @@ global uniform float cloud_speed_g;
 #include "res://shaders/include/seasonal.gdshaderinc"
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/grass_zone_colors.gdshaderinc"
-#include "res://shaders/include/lod_dither.gdshaderinc"
-
-// Dithered crossfade ranges.
-// Near: fade IN (complementary with particle fade-out)
-uniform float dither_near_begin = 14.0;
-uniform float dither_near_end = 22.0;
-// Far: fade OUT (reveals terrain impostor underneath)
-uniform float dither_far_begin = 60.0;
-uniform float dither_far_end = 70.0;
 
 varying vec3 v_world_pos;
 varying float v_height_t;
@@ -63,12 +54,6 @@ void fragment() {
 	// Heavy snow/winter: discard
 	float frag_snow = max(smoothstep(2.7, 3.5, season_t), snow_cover);
 	if (frag_snow > 0.6) discard;
-
-	// Dithered LOD crossfade: near boundary (fade IN, complementary with particles)
-	// and far boundary (fade OUT, revealing terrain impostor).
-	float _cam_dist = length(v_world_pos - (inverse(VIEW_MATRIX) * vec4(0, 0, 0, 1)).xyz);
-	if (lod_dither_discard(_cam_dist, dither_near_begin, dither_near_end, FRAGCOORD.xy, true)) discard;
-	if (lod_dither_discard(_cam_dist, dither_far_begin, dither_far_end, FRAGCOORD.xy, false)) discard;
 
 	// Texture alpha for blade silhouette (textured tufts only)
 	if (use_texture) {

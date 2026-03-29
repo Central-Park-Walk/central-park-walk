@@ -22,12 +22,6 @@ global uniform float cloud_speed_g;
 #include "res://shaders/include/seasonal.gdshaderinc"
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/grass_zone_colors.gdshaderinc"
-#include "res://shaders/include/lod_dither.gdshaderinc"
-
-// Dithered crossfade: particles fade OUT over this distance range.
-// Must match tuft fade-in range for complementary coverage.
-uniform float dither_fade_begin = 14.0;
-uniform float dither_fade_end = 22.0;
 
 varying vec4 data;
 varying vec3 v_world_pos;
@@ -98,10 +92,6 @@ void fragment() {
 	float frag_snow = max(smoothstep(2.7, 3.5, season_t), snow_cover);
 	if (frag_snow > 0.6) discard;
 
-	// No dither discard on particles — they maintain full coverage until
-	// hard-culled at max_dist. Tufts fade IN via dither underneath.
-	// Discarding particles creates dark gaps because tuft geometry doesn't
-	// cover the same screen pixels (different world positions).
 
 	// Texture-based alpha — use hash dithering for soft edges instead of
 	// hard scissor cutout. Eliminates the jagged card-geometry look.
