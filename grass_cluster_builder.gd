@@ -20,10 +20,10 @@ var render_shader: Shader
 ## Wider than real blades — at 10-35m these are a few pixels on screen.
 ## 3 crossed quads give blade-like silhouette, not flat-card character.
 const BIOME_CLUSTER := {
-	0: {"height": 10.0, "width": 6.0, "blades": 3},   # lawn: short, wider coverage
-	1: {"height": 14.0, "width": 5.0, "blades": 3},   # shade
-	2: {"height": 28.0, "width": 7.0, "blades": 3},   # wild: tall, visible
-	3: {"height": 20.0, "width": 6.0, "blades": 3},   # sedge
+	0: {"height": 10.0, "width": 25.0, "blades": 3},  # lawn: ~25cm coverage radius
+	1: {"height": 14.0, "width": 22.0, "blades": 3},  # shade
+	2: {"height": 28.0, "width": 28.0, "blades": 3},  # wild
+	3: {"height": 20.0, "width": 25.0, "blades": 3},  # sedge
 }
 
 const CHUNK_SIZE := 32.0
