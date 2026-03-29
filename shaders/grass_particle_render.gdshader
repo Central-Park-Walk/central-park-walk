@@ -98,11 +98,10 @@ void fragment() {
 	float frag_snow = max(smoothstep(2.7, 3.5, season_t), snow_cover);
 	if (frag_snow > 0.6) discard;
 
-	// Dithered LOD crossfade: discard fragments in the fade-out zone.
-	// Complementary with the incoming tier's fade-in dither pattern.
-	// TAA resolves the per-frame stipple into smooth transparency.
-	float _cam_dist = length(v_world_pos - (inverse(VIEW_MATRIX) * vec4(0, 0, 0, 1)).xyz);
-	if (lod_dither_discard(_cam_dist, dither_fade_begin, dither_fade_end, FRAGCOORD.xy, false)) discard;
+	// No dither discard on particles — they maintain full coverage until
+	// hard-culled at max_dist. Tufts fade IN via dither underneath.
+	// Discarding particles creates dark gaps because tuft geometry doesn't
+	// cover the same screen pixels (different world positions).
 
 	// Texture-based alpha — use hash dithering for soft edges instead of
 	// hard scissor cutout. Eliminates the jagged card-geometry look.
