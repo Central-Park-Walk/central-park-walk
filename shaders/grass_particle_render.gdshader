@@ -119,6 +119,13 @@ void fragment() {
 	if (use_texture) {
 		float tex_lum = dot(texture(grass_albedo, UV).rgb, vec3(0.299, 0.587, 0.114));
 		col *= mix(0.85, 1.15, tex_lum);
+	} else {
+		// Blade meshes (no texture): raw palette is too vivid/minty compared
+		// to textured tufts and terrain. Desaturate + warm to match the
+		// muted olive tone that texture modulation provides in other tiers.
+		float blade_lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+		col = mix(col, vec3(blade_lum), 0.15); // 15% desaturation
+		col *= vec3(1.04, 1.0, 0.94);          // warm shift (R>B)
 	}
 
 	// Root-to-tip gradient: dark thatch at base, full color at tips.
