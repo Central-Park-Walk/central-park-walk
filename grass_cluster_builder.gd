@@ -17,20 +17,19 @@ var world_size: float = 5000.0
 var render_shader: Shader
 
 ## Cluster geometry parameters per biome (height_cm, width_cm, blade_count)
-## Width is per-blade in the crossed-quad cluster. Larger than real blades
-## because at 10-35m individual blade width is sub-pixel — the cluster
-## provides visual coverage, not botanical accuracy.
+## Wider than real blades — at 10-35m these are a few pixels on screen.
+## 3 crossed quads give blade-like silhouette, not flat-card character.
 const BIOME_CLUSTER := {
-	0: {"height": 12.0, "width": 4.0, "blades": 3},   # lawn
-	1: {"height": 16.0, "width": 3.5, "blades": 3},   # shade
-	2: {"height": 30.0, "width": 5.0, "blades": 3},    # wild
-	3: {"height": 22.0, "width": 4.0, "blades": 3},    # sedge
+	0: {"height": 10.0, "width": 6.0, "blades": 3},   # lawn: short, wider coverage
+	1: {"height": 14.0, "width": 5.0, "blades": 3},   # shade
+	2: {"height": 28.0, "width": 7.0, "blades": 3},   # wild: tall, visible
+	3: {"height": 20.0, "width": 6.0, "blades": 3},   # sedge
 }
 
 const CHUNK_SIZE := 32.0
-## Spacing: between tufts (1.2m) and particles (0.03m). 0.80m gives
-## ~1600 iterations per chunk — fast enough for GDScript at load time.
-const BIOME_SPACING := {0: 0.80, 1: 1.00, 2: 0.90, 3: 1.00}
+## Same spacing as tuft builder — gives ~300K instances, fast build, low memory.
+## Coverage comes from wider geometry, not tighter packing.
+const BIOME_SPACING := {0: 1.00, 1: 1.30, 2: 1.20, 3: 1.30}
 
 ## Visibility range for GPU culling. Shader dither handles soft transitions.
 const VIS_BEGIN := 8.0
@@ -199,8 +198,8 @@ func _build_chunk(origin_x: float, origin_z: float) -> void:
 		xforms[biome_id] = []
 		customs[biome_id] = []
 
-	# Iterate at 0.80m grid — matches minimum biome spacing
-	var step := 0.80
+	# Iterate at 1.0m grid — matches minimum biome spacing
+	var step := 1.0
 	var cols := int(CHUNK_SIZE / step)
 
 	for ix in cols:
