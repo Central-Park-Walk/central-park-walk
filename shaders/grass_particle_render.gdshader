@@ -21,6 +21,7 @@ global uniform float cloud_speed_g;
 
 #include "res://shaders/include/seasonal.gdshaderinc"
 #include "res://shaders/include/hash_noise.gdshaderinc"
+#include "res://shaders/include/grass_zone_colors.gdshaderinc"
 
 varying vec4 data;
 varying vec3 v_world_pos;
@@ -106,110 +107,38 @@ void fragment() {
 	float blade_seed = data.r;
 	vec3 terrain_tint = vec3(COLOR.b, COLOR.a, min(COLOR.b, COLOR.a));
 
-	// --- Zone-specific color palettes (spectral reflectance derived) ---
-	// Linear sRGB values from CIE 1931 + D65 conversion of published leaf
-	// reflectance curves. Boosted ~35% from single-leaf to canopy brightness.
-	// Key: R ≈ B (real grass is gray-green, not pure green).
-	vec3 color_small, color_large;
-	if (zone_id == 0) {
-		// SheepMeadow: spectral KBG (Poa pratensis)
-		color_small = vec3(0.053, 0.165, 0.058);
-		color_large = vec3(0.071, 0.223, 0.079);
-	} else if (zone_id == 1) {
-		// GreatLawn: spectral KBG, slightly deeper
-		color_small = vec3(0.048, 0.158, 0.054);
-		color_large = vec3(0.065, 0.215, 0.073);
-	} else if (zone_id == 2) {
-		// NorthMeadow: spectral KBG, warmer open meadow
-		color_small = vec3(0.065, 0.162, 0.050);
-		color_large = vec3(0.085, 0.218, 0.065);
-	} else if (zone_id == 3) {
-		// FormalGarden: spectral KBG/ryegrass, low contrast
-		color_small = vec3(0.058, 0.175, 0.062);
-		color_large = vec3(0.072, 0.210, 0.074);
-	} else if (zone_id == 4) {
-		// SportsTurf: spectral KBG maintained
-		color_small = vec3(0.053, 0.165, 0.058);
-		color_large = vec3(0.068, 0.215, 0.074);
-	} else if (zone_id == 5 || zone_id == 6) {
-		// NorthWoods/Ramble: spectral Fine Fescue (Festuca rubra)
-		color_small = vec3(0.046, 0.132, 0.046);
-		color_large = vec3(0.064, 0.178, 0.064);
-	} else if (zone_id == 7) {
-		// Waterside: spectral Tussock Sedge (Carex stricta)
-		color_small = vec3(0.047, 0.132, 0.046);
-		color_large = vec3(0.065, 0.180, 0.066);
-	} else if (zone_id == 8) {
-		// WildMeadow: spectral Switchgrass (Panicum virgatum)
-		color_small = vec3(0.062, 0.162, 0.054);
-		color_large = vec3(0.084, 0.220, 0.070);
-	} else if (zone_id == 9) {
-		// OpenLawn: spectral KBG standard
-		color_small = vec3(0.053, 0.165, 0.058);
-		color_large = vec3(0.071, 0.223, 0.079);
-	} else if (zone_id == 10 || zone_id == 11) {
-		// Woodland: spectral Fine Fescue, warmer (leaf litter influence)
-		color_small = vec3(0.050, 0.128, 0.042);
-		color_large = vec3(0.068, 0.172, 0.058);
-	} else {
-		// Default: spectral KBG average
-		color_small = vec3(0.053, 0.160, 0.055);
-		color_large = vec3(0.070, 0.215, 0.074);
-	}
+	// --- Base color from shared zone palette + macro variation ---
+	// grass_base_color handles: zone palette, macro splotchiness (20m),
+	// landscape gradient (70m), warm/cool drift (8m), micro (3m),
+	// dead tuft accents, and EGTTR warmth.
+	vec3 col = grass_base_color(zone_id, v_world_pos.xz);
 
-	// Patchiness: world-space noise ties size to color
-	float patch_factor = vnoise(v_world_pos.xz / 3.0);
-	vec3 col = mix(color_small, color_large, patch_factor);
-
-	// Textured tufts: use the mesh's own PBR texture color as primary,
-	// with subtle zone tint for regional variation. This ensures grass
-	// particles blend with the terrain (both use natural grass hues)
-	// rather than fighting it with a separate palette.
+	// Texture modulation: texture luminance adds blade-level detail
+	// without overriding the zone palette. Same approach as tuft shader
+	// so the LOD boundary is invisible.
 	if (use_texture) {
-		vec3 tex_col = texture(grass_albedo, UV).rgb;
-		// 75% mesh texture, 25% zone palette — texture drives appearance,
-		// zone provides subtle regional hue shift
-		col = mix(tex_col, col, 0.25);
+		float tex_lum = dot(texture(grass_albedo, UV).rgb, vec3(0.299, 0.587, 0.114));
+		col *= mix(0.85, 1.15, tex_lum);
 	}
 
-	// Root-to-tip gradient: grass emerges from dark thatch layer at ground.
-	// Real grass has a dense brown thatch zone at its base where dead stems,
-	// soil, and mulch are visible. This hides the terrain-to-grass transition.
+	// Root-to-tip gradient: dark thatch at base, full color at tips.
+	// Reduced from 0.60 to 0.70 — previous value over-darkened the base.
 	float root_t = smoothstep(0.0, 0.30, v_height_t);
-	col *= mix(0.60, 1.0, root_t);
+	col *= mix(0.70, 1.0, root_t);
 
-	// Zone-derived thatch tint at base — ties grass roots to terrain character.
-	// Woodland roots are browner (leaf litter), lawns are dark green (dense turf).
-	vec3 thatch_col = color_small * 0.5;
-	col = mix(col, thatch_col, (1.0 - root_t) * 0.4);
+	// Thatch tint at base — ties roots to terrain character.
+	vec3 c_lo, c_hi;
+	grass_zone_palette(zone_id, c_lo, c_hi);
+	vec3 thatch_col = c_lo * 0.5;
+	col = mix(col, thatch_col, (1.0 - root_t) * 0.25);
 
 	// Terrain color map influence at roots (propagates Terrain3D color painting).
-	// When terrain_tint is white (default), this is a no-op.
 	col *= mix(terrain_tint, vec3(1.0), root_t * 0.7 + 0.3);
 
 	// Per-instance hue variation (±10% for visible blade-to-blade difference)
 	col *= mix(vec3(0.90, 1.04, 1.06), vec3(1.10, 0.96, 0.90), blade_seed);
 
-	// Broad meadow variation (12m scale) + warm/cool hue shift (8m scale)
-	float broad_patch = vnoise(v_world_pos.xz / 12.0);
-	col *= mix(0.95, 1.05, broad_patch);
-	// Warm/cool patches: some areas lean yellow-green, others blue-green
-	float hue_patch = vnoise(v_world_pos.xz / 8.0 + vec2(51.3, 17.9));
-	col *= mix(vec3(1.02, 1.0, 0.96), vec3(0.97, 1.0, 1.04), hue_patch);
-
-	// Dead tuft accents: world-position noise flags ~22% of area for warm brown cast.
-	// Creates natural patchiness — stressed, dormant, or recently-mowed spots.
-	// Ullmann photo shows significant brown variation across North Meadow.
-	float dead_noise = vnoise(v_world_pos.xz * 0.8 + vec2(73.1, 29.7));
-	float dead_mask = smoothstep(0.55, 0.68, dead_noise); // ~22% of area
-	if (dead_mask > 0.0) {
-		vec3 dead_col = vec3(0.16, 0.16, 0.075); // spectral dried leaf linear
-		col = mix(col, dead_col, dead_mask * 0.50);
-	}
-
-	// EGTTR-style warmth: golden undertone throughout, stronger at tips.
-	// Real grass has warm highlights from waxy cuticle + chlorophyll.
-	col *= vec3(1.04, 1.01, 0.94); // subtle global warm shift
+	// Tip warmth: yellow highlights at blade tips from waxy cuticle
 	if (v_height_t > 0.5) {
 		float yellow_t = smoothstep(0.5, 1.0, v_height_t);
 		col *= vec3(1.0 + yellow_t * 0.10, 1.0 + yellow_t * 0.05, 1.0 - yellow_t * 0.06);

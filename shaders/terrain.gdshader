@@ -80,6 +80,7 @@ varying vec3 world_pos;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/seasonal.gdshaderinc"
+#include "res://shaders/include/grass_zone_colors.gdshaderinc"
 
 // Variable-octave FBM (terrain needs more than 3 octaves in places)
 float fbm(vec2 p, int oct) {
@@ -187,58 +188,22 @@ void fragment() {
 		grass_alb *= 0.75;
 	}
 
-	// --- Hexaquo grass impostor ---
-	// Replicates the blade shader's appearance on the terrain surface so
-	// chunks loading/unloading on top is invisible. Same noise functions,
-	// color palette, and wind logic as grass_blade.gdshader.
+	// --- Grass impostor (shared palette with blade/tuft shaders) ---
+	// grass_base_color gives the same world-space splotchiness as 3D grass,
+	// so LOD transitions are invisible.
 	vec3 grass_ground = vec3(0.04, 0.09, 0.04);  // spectral: dark green thatch between blades (R≈B)
 	float green_blend = is_grass_zone ? 0.85 : (is_woodland ? 0.55 : 0.0);
 
 	if (is_grass_zone || is_woodland) {
-		// Patchiness: same world-space noise as blade/tuft shaders
-		float patch = vnoise(world_pos.xz / 3.0);
-		// Zone-specific palettes (spectral reflectance, identical to grass_particle_render)
-		vec3 color_small, color_large;
-		if (zone_id == 0) {
-			color_small = vec3(0.053, 0.165, 0.058);
-			color_large = vec3(0.071, 0.223, 0.079);
-		} else if (zone_id == 1) {
-			color_small = vec3(0.048, 0.158, 0.054);
-			color_large = vec3(0.065, 0.215, 0.073);
-		} else if (zone_id == 2) {
-			color_small = vec3(0.065, 0.162, 0.050);
-			color_large = vec3(0.085, 0.218, 0.065);
-		} else if (zone_id == 3) {
-			color_small = vec3(0.058, 0.175, 0.062);
-			color_large = vec3(0.072, 0.210, 0.074);
-		} else if (zone_id == 4) {
-			color_small = vec3(0.053, 0.165, 0.058);
-			color_large = vec3(0.068, 0.215, 0.074);
-		} else if (zone_id == 5 || zone_id == 6) {
-			color_small = vec3(0.046, 0.132, 0.046);
-			color_large = vec3(0.064, 0.178, 0.064);
-		} else if (zone_id == 7) {
-			color_small = vec3(0.047, 0.132, 0.046);
-			color_large = vec3(0.065, 0.180, 0.066);
-		} else if (zone_id == 8) {
-			color_small = vec3(0.062, 0.162, 0.054);
-			color_large = vec3(0.084, 0.220, 0.070);
-		} else if (zone_id == 9) {
-			color_small = vec3(0.053, 0.165, 0.058);
-			color_large = vec3(0.071, 0.223, 0.079);
-		} else if (zone_id == 10 || zone_id == 11) {
-			color_small = vec3(0.050, 0.128, 0.042);
-			color_large = vec3(0.068, 0.172, 0.058);
-		} else {
-			color_small = vec3(0.053, 0.160, 0.055);
-			color_large = vec3(0.070, 0.215, 0.074);
-		}
-		vec3 imp_col = mix(color_small, color_large, patch);
+		// Shared base color: zone palette + macro splotchiness + dead accents + EGTTR
+		vec3 imp_col = grass_base_color(zone_id, world_pos.xz);
 
 		// View angle: steep = see blade tips (brighter), top-down = see ground (darker)
 		vec3 view_dir = normalize(INV_VIEW_MATRIX[3].xyz - world_pos);
 		float normal_to_view = 1.0 - max(dot(view_dir, terrain_n), 0.0);
-		imp_col = mix(imp_col, color_large, normal_to_view * 0.4);
+		vec3 c_lo, c_hi;
+		grass_zone_palette(zone_id, c_lo, c_hi);
+		imp_col = mix(imp_col, c_hi, normal_to_view * 0.4);
 
 		// Wind AO: gusts darken the impostor (same wind_vec as blade shader)
 		float wind_str = length(wind_vec);
@@ -252,48 +217,27 @@ void fragment() {
 		imp_col *= clamp(ao, 0.3, 1.0);
 
 		// Ground spots: from above, bare ground shows between blades
+		float patch = vnoise(world_pos.xz / 3.0);
 		float spots = vnoise(world_pos.xz * 2.0);
 		float spottiness = (1.0 - normal_to_view) * 0.5 - patch * 0.2;
 		float ground_show = smoothstep(spottiness + 0.1, spottiness - 0.1, spots);
 		imp_col = mix(imp_col, grass_ground, ground_show);
 
-		// Broad meadow variation (12m scale) + warm/cool hue shift (8m scale)
-		float broad_patch = vnoise(world_pos.xz / 12.0);
-		imp_col *= mix(0.95, 1.05, broad_patch);
-		float hue_patch = vnoise(world_pos.xz / 8.0 + vec2(51.3, 17.9));
-		imp_col *= mix(vec3(1.02, 1.0, 0.96), vec3(0.97, 1.0, 1.04), hue_patch);
-
-		// Dead tuft accents (~22%, same noise as blade/tuft shaders)
-		float dead_noise = vnoise(world_pos.xz * 0.8 + vec2(73.1, 29.7));
-		float dead_mask = smoothstep(0.55, 0.68, dead_noise);
-		if (dead_mask > 0.0) {
-			imp_col = mix(imp_col, vec3(0.16, 0.16, 0.075), dead_mask * 0.50); // spectral dried leaf
-		}
-
-		// EGTTR-style warmth (shared with blade/tuft shaders)
-		imp_col *= vec3(1.04, 1.01, 0.94);
-
 		// Under dense canopy: forest floor is leaf litter, not grass
-		// Real woodland floors (Ramble, North Woods) are brown dirt and dead leaves
 		vec2 can_uv = (world_pos.xz + world_size * 0.5) / world_size;
 		float canopy_cover = texture(canopy_map, can_uv).r;
 		if (canopy_cover > 0.3) {
-			// Blend from green grass toward warm brown leaf litter
-			// Bright enough to not go black when canopy shade also applies
-			vec3 litter_col = vec3(0.28, 0.22, 0.14);  // warm brown — visible, not dark
+			vec3 litter_col = vec3(0.28, 0.22, 0.14);
 			float litter_noise = vnoise(world_pos.xz * 0.5);
 			litter_col = mix(litter_col, vec3(0.34, 0.26, 0.16), litter_noise);
 			float litter_blend = smoothstep(0.3, 0.7, canopy_cover) * 0.70;
 			imp_col = mix(imp_col, litter_col, litter_blend);
 		}
 		if (is_woodland) {
-			imp_col *= vec3(0.85, 0.88, 0.75);  // gentle darken only
+			imp_col *= vec3(0.85, 0.88, 0.75);
 		}
 
-		// Distance blend: dark green close (under blades/tufts) → full impostor at distance.
-		// Tier 1 blades fade out by 20m, Tier 2 tufts fade out by 55m.
-		// Impostor starts as dark ground (under geometry) and transitions to full
-		// color as the 3D grass geometry thins with distance.
+		// Distance blend: dark ground close (under 3D grass) → full impostor far
 		float impostor_t = smoothstep(5.0, 40.0, cam_dist);
 		vec3 grass_target = mix(grass_ground, imp_col, impostor_t);
 		grass_alb = mix(grass_alb, grass_target, green_blend);

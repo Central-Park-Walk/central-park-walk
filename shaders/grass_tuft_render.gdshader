@@ -18,6 +18,7 @@ global uniform float cloud_speed_g;
 
 #include "res://shaders/include/seasonal.gdshaderinc"
 #include "res://shaders/include/hash_noise.gdshaderinc"
+#include "res://shaders/include/grass_zone_colors.gdshaderinc"
 
 varying vec3 v_world_pos;
 varying float v_height_t;
@@ -63,79 +64,27 @@ void fragment() {
 	float canopy_cover = v_custom.g;
 	float inst_seed = v_custom.b;
 
-	// --- Zone-specific color palettes (spectral reflectance derived) ---
-	// Identical to grass_particle_render — CIE 1931 + D65 from leaf curves.
-	vec3 color_small, color_large;
-	if (zone_id == 0) {
-		color_small = vec3(0.053, 0.165, 0.058);
-		color_large = vec3(0.071, 0.223, 0.079);
-	} else if (zone_id == 1) {
-		color_small = vec3(0.048, 0.158, 0.054);
-		color_large = vec3(0.065, 0.215, 0.073);
-	} else if (zone_id == 2) {
-		color_small = vec3(0.065, 0.162, 0.050);
-		color_large = vec3(0.085, 0.218, 0.065);
-	} else if (zone_id == 3) {
-		color_small = vec3(0.058, 0.175, 0.062);
-		color_large = vec3(0.072, 0.210, 0.074);
-	} else if (zone_id == 4) {
-		color_small = vec3(0.053, 0.165, 0.058);
-		color_large = vec3(0.068, 0.215, 0.074);
-	} else if (zone_id == 5 || zone_id == 6) {
-		color_small = vec3(0.046, 0.132, 0.046);
-		color_large = vec3(0.064, 0.178, 0.064);
-	} else if (zone_id == 7) {
-		color_small = vec3(0.047, 0.132, 0.046);
-		color_large = vec3(0.065, 0.180, 0.066);
-	} else if (zone_id == 8) {
-		color_small = vec3(0.062, 0.162, 0.054);
-		color_large = vec3(0.084, 0.220, 0.070);
-	} else if (zone_id == 9) {
-		color_small = vec3(0.053, 0.165, 0.058);
-		color_large = vec3(0.071, 0.223, 0.079);
-	} else if (zone_id == 10 || zone_id == 11) {
-		color_small = vec3(0.050, 0.128, 0.042);
-		color_large = vec3(0.068, 0.172, 0.058);
-	} else {
-		color_small = vec3(0.053, 0.160, 0.055);
-		color_large = vec3(0.070, 0.215, 0.074);
-	}
-
-	// Patchiness: same world-space noise as blade shader (3m scale)
-	float patch_factor = vnoise(v_world_pos.xz / 3.0);
-	vec3 col = mix(color_small, color_large, patch_factor);
+	// --- Base color from shared zone palette + macro variation ---
+	vec3 col = grass_base_color(zone_id, v_world_pos.xz);
 
 	// Texture luminance modulates zone color (preserves blade detail, enforces palette)
 	float tex_lum = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
-	col *= mix(0.80, 1.20, tex_lum);
+	col *= mix(0.85, 1.15, tex_lum);
 
-	// Root-to-tip gradient
+	// Root-to-tip gradient (reduced from 0.60 to match particle shader)
 	float root_t = smoothstep(0.0, 0.30, v_height_t);
-	col *= mix(0.60, 1.0, root_t);
+	col *= mix(0.70, 1.0, root_t);
 
 	// Thatch tint at base
-	vec3 thatch_col = color_small * 0.5;
-	col = mix(col, thatch_col, (1.0 - root_t) * 0.4);
+	vec3 c_lo, c_hi;
+	grass_zone_palette(zone_id, c_lo, c_hi);
+	vec3 thatch_col = c_lo * 0.5;
+	col = mix(col, thatch_col, (1.0 - root_t) * 0.25);
 
 	// Per-instance hue variation (±10%)
 	col *= mix(vec3(0.90, 1.04, 1.06), vec3(1.10, 0.96, 0.90), inst_seed);
 
-	// Broad meadow variation (12m scale) + warm/cool hue shift (8m scale)
-	float broad_patch = vnoise(v_world_pos.xz / 12.0);
-	col *= mix(0.95, 1.05, broad_patch);
-	float hue_patch = vnoise(v_world_pos.xz / 8.0 + vec2(51.3, 17.9));
-	col *= mix(vec3(1.02, 1.0, 0.96), vec3(0.97, 1.0, 1.04), hue_patch);
-
-	// Dead tuft accents (~22% of area, same noise as blade shader)
-	float dead_noise = vnoise(v_world_pos.xz * 0.8 + vec2(73.1, 29.7));
-	float dead_mask = smoothstep(0.55, 0.68, dead_noise);
-	if (dead_mask > 0.0) {
-		vec3 dead_col = vec3(0.16, 0.16, 0.075); // spectral dried leaf
-		col = mix(col, dead_col, dead_mask * 0.50);
-	}
-
-	// EGTTR-style warmth
-	col *= vec3(1.04, 1.01, 0.94);
+	// Tip warmth
 	if (v_height_t > 0.5) {
 		float yellow_t = smoothstep(0.5, 1.0, v_height_t);
 		col *= vec3(1.0 + yellow_t * 0.10, 1.0 + yellow_t * 0.05, 1.0 - yellow_t * 0.06);
