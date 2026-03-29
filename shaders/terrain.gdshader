@@ -191,7 +191,7 @@ void fragment() {
 	// --- Grass impostor (shared palette with blade/tuft shaders) ---
 	// grass_base_color gives the same world-space splotchiness as 3D grass,
 	// so LOD transitions are invisible.
-	vec3 grass_ground = vec3(0.04, 0.09, 0.04);  // spectral: dark green thatch between blades (R≈B)
+	vec3 grass_ground = vec3(0.06, 0.12, 0.06);  // thatch between blades — brightened to reduce dark circle under camera
 	float green_blend = is_grass_zone ? 0.85 : (is_woodland ? 0.55 : 0.0);
 
 	if (is_grass_zone || is_woodland) {

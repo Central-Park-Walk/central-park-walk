@@ -78,19 +78,21 @@ vec3 grass_base_color(int zone_id, vec2 world_xz) {
 	// The dominant visual signal at field scale. Real grass fields have
 	// large splotches of different tone from soil moisture, drainage,
 	// mowing timing, species mix, and foot traffic.
-	// Two octaves: 22m (dominant patches) + 9m (secondary breakup)
-	float macro = vnoise(world_xz / 22.0 + vec2(13.7, 41.2)) * 0.6
-	            + vnoise(world_xz / 9.0 + vec2(37.1, 83.9)) * 0.4;
-	// Range 0.78–1.42: stressed patches go darker/yellower,
-	// vigorous patches go brighter/greener. Average ~1.10 (+10% boost).
-	float macro_scale = mix(0.78, 1.42, macro);
+	// Single 22m octave with contrast boost — vnoise concentrates around 0.5,
+	// so smoothstep(0.25, 0.75) remaps the middle 50% to the full 0-1 range,
+	// doubling contrast and making patches actually visible.
+	float macro_raw = vnoise(world_xz / 22.0 + vec2(13.7, 41.2));
+	float macro = smoothstep(0.25, 0.75, macro_raw);
+	// Range 0.72–1.50: stressed patches go darker/yellower,
+	// vigorous patches go brighter/greener. Average ~1.11 (+11% boost).
+	float macro_scale = mix(0.72, 1.50, macro);
 	col *= macro_scale;
 
 	// Stressed patches lean warm (yellow-brown); vigorous lean cool (blue-green)
 	// This hue shift correlates with the brightness — dry = yellow, lush = green
-	float stress_hue = smoothstep(0.78, 1.10, macro_scale);
-	col *= mix(vec3(1.08, 1.0, 0.86),   // stressed: warm/yellow
-	           vec3(0.96, 1.0, 1.04),    // vigorous: cool/green
+	float stress_hue = smoothstep(0.72, 1.10, macro_scale);
+	col *= mix(vec3(1.10, 1.0, 0.82),   // stressed: warm/yellow
+	           vec3(0.94, 1.0, 1.06),    // vigorous: cool/green
 	           stress_hue);
 
 	// --- Landscape gradient (70m) ---
@@ -100,9 +102,11 @@ vec3 grass_base_color(int zone_id, vec2 world_xz) {
 	col *= mix(0.96, 1.04, landscape);
 
 	// --- Warm/cool hue drift (8m) ---
-	// Independent of brightness — patches lean yellow-green vs blue-green
-	float hue = vnoise(world_xz / 8.0 + vec2(51.3, 17.9));
-	col *= mix(vec3(1.04, 1.0, 0.92), vec3(0.95, 1.0, 1.07), hue);
+	// Independent of brightness — patches lean yellow-green vs blue-green.
+	// Contrast-boosted like macro for visible effect.
+	float hue_raw = vnoise(world_xz / 8.0 + vec2(51.3, 17.9));
+	float hue = smoothstep(0.3, 0.7, hue_raw);
+	col *= mix(vec3(1.06, 1.0, 0.88), vec3(0.92, 1.0, 1.10), hue);
 
 	// --- Dead tuft accents (~22% of area) ---
 	// Stressed, dormant, or recently-mowed spots with warm brown cast
