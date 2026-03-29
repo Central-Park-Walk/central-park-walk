@@ -16,14 +16,23 @@ var canopy_image: Image
 var world_size: float = 5000.0
 var render_shader: Shader
 
+## Blade silhouette textures per biome — alpha cutout makes cards read
+## as individual blades, bridging particle→tuft visual character.
+const CLUSTER_TEXTURES := {
+	0: "res://textures/grass/Cluster_Lawn_card.png",
+	1: "res://textures/grass/Cluster_Shade_card.png",
+	2: "res://textures/grass/Cluster_Wild_card.png",
+	3: "res://textures/grass/Cluster_Sedge_card.png",
+}
+
 ## Cluster geometry parameters per biome (height_cm, width_cm, blade_count)
 ## Wider than real blades — at 10-35m these are a few pixels on screen.
 ## 3 crossed quads give blade-like silhouette, not flat-card character.
 const BIOME_CLUSTER := {
-	0: {"height": 10.0, "width": 25.0, "blades": 3},  # lawn: ~25cm coverage radius
-	1: {"height": 14.0, "width": 22.0, "blades": 3},  # shade
-	2: {"height": 28.0, "width": 28.0, "blades": 3},  # wild
-	3: {"height": 20.0, "width": 25.0, "blades": 3},  # sedge
+	0: {"height": 10.0, "width": 30.0, "blades": 3},  # lawn: 30cm card, texture provides silhouette
+	1: {"height": 14.0, "width": 28.0, "blades": 3},  # shade
+	2: {"height": 30.0, "width": 32.0, "blades": 3},  # wild
+	3: {"height": 22.0, "width": 30.0, "blades": 3},  # sedge
 }
 
 const CHUNK_SIZE := 32.0
@@ -124,19 +133,15 @@ func _make_cluster_mesh(biome_id: int) -> ArrayMesh:
 		var nz: float = cos(angle)
 		var norm := Vector3(nx, 0.0, nz).normalized()
 
-		# Slight taper: tip is 40% of base width
-		var tip_dx: float = dx * 0.4
-		var tip_dz: float = dz * 0.4
-
-		# Quad: 2 triangles, bottom-left to top-right
+		# Rectangle quad — no taper. Texture alpha provides blade silhouette.
 		# Bottom-left, bottom-right, top-right (tri 1)
 		verts.append(Vector3(-dx, 0.0, -dz))
 		verts.append(Vector3( dx, 0.0,  dz))
-		verts.append(Vector3( tip_dx, h,  tip_dz))
+		verts.append(Vector3( dx, h,  dz))
 		# Bottom-left, top-right, top-left (tri 2)
 		verts.append(Vector3(-dx, 0.0, -dz))
-		verts.append(Vector3( tip_dx, h,  tip_dz))
-		verts.append(Vector3(-tip_dx, h, -tip_dz))
+		verts.append(Vector3( dx, h,  dz))
+		verts.append(Vector3(-dx, h, -dz))
 
 		# UVs: y=0 at base, y=1 at tip (for root-to-tip color gradient)
 		uvs.append(Vector2(0.0, 0.0))
@@ -272,7 +277,11 @@ func _build_chunk(origin_x: float, origin_z: float) -> void:
 		if render_shader:
 			var mat := ShaderMaterial.new()
 			mat.shader = render_shader
-			mat.set_shader_parameter("use_texture", false)
+			mat.set_shader_parameter("use_texture", true)
+			# Load blade silhouette texture for this biome
+			var tex_path: String = CLUSTER_TEXTURES.get(biome_id, "")
+			if tex_path != "" and ResourceLoader.exists(tex_path):
+				mat.set_shader_parameter("grass_albedo", load(tex_path))
 			mat.set_shader_parameter("dither_near_begin", DITHER_NEAR_BEGIN)
 			mat.set_shader_parameter("dither_near_end", DITHER_NEAR_END)
 			mat.set_shader_parameter("dither_far_begin", DITHER_FAR_BEGIN)
