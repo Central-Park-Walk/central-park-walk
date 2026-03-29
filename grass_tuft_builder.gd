@@ -213,11 +213,14 @@ func _build_chunk(origin_x: float, origin_z: float) -> void:
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# Visibility range for GPU culling (chunks outside range aren't drawn).
+		# Fade is DISABLED — dithered crossfade in the fragment shader handles
+		# smooth transitions (lod_dither.gdshaderinc), coordinated with particles.
 		mmi.visibility_range_begin = VIS_BEGIN
-		mmi.visibility_range_begin_margin = VIS_FADE
+		mmi.visibility_range_begin_margin = 0.0
 		mmi.visibility_range_end = VIS_END
-		mmi.visibility_range_end_margin = VIS_FADE
-		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		mmi.visibility_range_end_margin = 0.0
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 
 		if render_shader and tuft_textures.has(biome_id):
 			var mat := ShaderMaterial.new()

@@ -22,6 +22,12 @@ global uniform float cloud_speed_g;
 #include "res://shaders/include/seasonal.gdshaderinc"
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/grass_zone_colors.gdshaderinc"
+#include "res://shaders/include/lod_dither.gdshaderinc"
+
+// Dithered crossfade: particles fade OUT over this distance range.
+// Must match the incoming tier's fade-in range for complementary coverage.
+uniform float dither_fade_begin = 14.0;
+uniform float dither_fade_end = 22.0;
 
 varying vec4 data;
 varying vec3 v_world_pos;
@@ -91,6 +97,12 @@ void fragment() {
 	// Heavy snow/winter: hide grass entirely
 	float frag_snow = max(smoothstep(2.7, 3.5, season_t), snow_cover);
 	if (frag_snow > 0.6) discard;
+
+	// Dithered LOD crossfade: discard fragments in the fade-out zone.
+	// Complementary with the incoming tier's fade-in dither pattern.
+	// TAA resolves the per-frame stipple into smooth transparency.
+	float _cam_dist = length(v_world_pos - (inverse(VIEW_MATRIX) * vec4(0, 0, 0, 1)).xyz);
+	if (lod_dither_discard(_cam_dist, dither_fade_begin, dither_fade_end, FRAGCOORD.xy, false)) discard;
 
 	// Texture-based alpha — use hash dithering for soft edges instead of
 	// hard scissor cutout. Eliminates the jagged card-geometry look.

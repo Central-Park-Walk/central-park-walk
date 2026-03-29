@@ -384,13 +384,11 @@ void start() {
 	// R = zone_id normalized, G = canopy_cover, B = terrain_tint.r, A = terrain_tint.g
 	COLOR = vec4(float(zone_id) / 15.0, canopy_cover, terrain_tint.r, terrain_tint.g);
 
+	// Hard cull beyond max_dist. Visual fade is handled by dithered crossfade
+	// in the render shader (lod_dither.gdshaderinc) — no Y-scale shrink needed.
 	if (length(camera_position - pos) > max_dist) {
 		pos.y = 0. / 0.;
 		pos.xz = vec2(100000.0);
-	} else {
-		float fade_factor = 1.0 - smoothstep(max_dist * distance_fade_ammount, max_dist + 0.0001, length(camera_position - pos)) + 0.001;
-		scale.y *= fade_factor;
-		offset *= fade_factor;
 	}
 
 	// Apply scale
