@@ -7,6 +7,7 @@ shader_type spatial;
 render_mode cull_disabled, diffuse_burley, specular_schlick_ggx;
 
 uniform sampler2D grass_albedo : source_color, filter_linear_mipmap;
+uniform bool use_texture = true;
 
 global uniform float season_t;
 global uniform vec2 wind_vec;
@@ -22,9 +23,9 @@ global uniform float cloud_speed_g;
 #include "res://shaders/include/lod_dither.gdshaderinc"
 
 // Dithered crossfade ranges.
-// Near: fade IN (complementary with particle blade fade-out)
-uniform float dither_near_begin = 14.0;
-uniform float dither_near_end = 22.0;
+// Near: fade IN (complementary with Tier 2 cluster fade-out)
+uniform float dither_near_begin = 28.0;
+uniform float dither_near_end = 35.0;
 // Far: fade OUT (reveals terrain impostor underneath)
 uniform float dither_far_begin = 60.0;
 uniform float dither_far_end = 70.0;
@@ -69,10 +70,12 @@ void fragment() {
 	if (lod_dither_discard(_cam_dist, dither_near_begin, dither_near_end, FRAGCOORD.xy, true)) discard;
 	if (lod_dither_discard(_cam_dist, dither_far_begin, dither_far_end, FRAGCOORD.xy, false)) discard;
 
-	// Texture alpha for blade silhouette
-	vec4 tex = texture(grass_albedo, UV);
-	ALPHA = tex.a;
-	ALPHA_HASH_SCALE = 1.0;
+	// Texture alpha for blade silhouette (textured tufts only)
+	if (use_texture) {
+		vec4 tex = texture(grass_albedo, UV);
+		ALPHA = tex.a;
+		ALPHA_HASH_SCALE = 1.0;
+	}
 
 	// Decode per-instance data
 	int zone_id = int(v_custom.r * 15.0 + 0.5);
@@ -82,9 +85,16 @@ void fragment() {
 	// --- Base color from shared zone palette + macro variation ---
 	vec3 col = grass_base_color(zone_id, v_world_pos.xz);
 
-	// Texture luminance modulates zone color (preserves blade detail, enforces palette)
-	float tex_lum = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
-	col *= mix(0.85, 1.15, tex_lum);
+	// Texture luminance modulates zone color (textured tufts)
+	// Untextured clusters: desaturate + warm shift (same as particle blade shader)
+	if (use_texture) {
+		float tex_lum = dot(texture(grass_albedo, UV).rgb, vec3(0.299, 0.587, 0.114));
+		col *= mix(0.85, 1.15, tex_lum);
+	} else {
+		float blade_lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+		col = mix(col, vec3(blade_lum), 0.28);
+		col *= vec3(1.06, 0.99, 0.90);
+	}
 
 	// Root-to-tip gradient — matches particle shader (0.80)
 	float root_t = smoothstep(0.0, 0.30, v_height_t);

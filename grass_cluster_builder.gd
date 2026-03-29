@@ -1,57 +1,59 @@
-## Grass LOD Tier 2: Static MultiMeshInstance3D chunks of crossed-card tufts.
+## Grass LOD Tier 2: Static MultiMesh blade clusters (10-35m).
 ##
-## Scatters pre-made tuft meshes (Tuft_Tiny/Woodland/Wild/Meadow.glb) into
-## world-fixed 32×32m chunks using zone-aware density from the landuse map.
-## Uses Godot's visibility_range for automatic distance culling (15-55m).
+## Bridges the visual gap between individual GPU-particle blades (Tier 1)
+## and crossed-card tufts (Tier 3). Each instance is a procedurally generated
+## cluster of 3 thin crossed quads with blade-like proportions — reads as
+## "a few grass blades" from mid-distance, not "a textured card."
 ##
-## This is a fundamentally different rendering method from the GPU particle
-## blade system (Tiers 0/1): chunks are built once at load, don't follow the
-## camera, and use simpler wind. The visual character at 15-50m is "textured
-## carpet" rather than "individual blades."
+## Uses the same render shader as tufts (grass_tuft_render.gdshader) with
+## different dither distance uniforms for its position in the LOD chain.
 
 extends Node3D
 
-## Terrain3D node for height queries
 var terrain: Terrain3D
-## R8 landuse zone image (8192×8192, zone IDs 0-13)
 var landuse_image: Image
-## Grayscale canopy coverage image
 var canopy_image: Image
-## World extent in meters (centered at origin)
 var world_size: float = 5000.0
-
-## Tuft meshes keyed by biome_id
-var tuft_meshes: Dictionary = {}   # int → Mesh
-## Tuft textures keyed by biome_id
-var tuft_textures: Dictionary = {} # int → Texture2D
-## Shared render shader
 var render_shader: Shader
 
-const CHUNK_SIZE := 32.0
-## Tuft spacing per biome (meters between instances).
-const BIOME_SPACING := {0: 1.20, 1: 1.60, 2: 1.40, 3: 1.60}
-## Visibility range — begins inside Tier 2 cluster's fade-out zone so tufts
-## appear as clusters thin. Extended far end (75m) for 3D coverage before
-## terrain-only. Fade handled by shader dither, not Godot built-in.
-const VIS_BEGIN := 25.0
-const VIS_END := 75.0
-
-## Zone → biome mapping (matches grass_particles.gdshader)
-const ZONE_TO_BIOME := {
-	0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 9: 0,  # lawn zones
-	5: 1, 6: 1, 10: 1, 11: 1,              # shade/woodland
-	8: 2,                                    # wild meadow
-	7: 3,                                    # waterside/sedge
+## Cluster geometry parameters per biome (height_cm, width_cm, blade_count)
+const BIOME_CLUSTER := {
+	0: {"height": 10.0, "width": 0.8, "blades": 3},  # lawn
+	1: {"height": 14.0, "width": 0.7, "blades": 3},  # shade
+	2: {"height": 28.0, "width": 1.0, "blades": 3},   # wild
+	3: {"height": 20.0, "width": 0.8, "blades": 3},   # sedge
 }
 
-## Canopy suppression per biome
+const CHUNK_SIZE := 32.0
+## Spacing: denser than tufts (1.2m) for better coverage, but much sparser
+## than particle blades (0.03m). At 15m these form a continuous carpet.
+const BIOME_SPACING := {0: 0.40, 1: 0.55, 2: 0.50, 3: 0.55}
+
+## Visibility range for GPU culling. Shader dither handles soft transitions.
+const VIS_BEGIN := 8.0
+const VIS_END := 40.0
+
+## Zone → biome mapping (matches particle shader)
+const ZONE_TO_BIOME := {
+	0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 9: 0,
+	5: 1, 6: 1, 10: 1, 11: 1,
+	8: 2,
+	7: 3,
+}
+
 const BIOME_CANOPY_SUPPRESS := {0: 0.90, 1: 0.30, 2: 0.60, 3: 0.60}
 
+## Dither crossfade ranges — set on the shader material
+const DITHER_NEAR_BEGIN := 10.0
+const DITHER_NEAR_END := 14.0
+const DITHER_FAR_BEGIN := 28.0
+const DITHER_FAR_END := 35.0
+
+var _cluster_meshes: Dictionary = {}  # biome_id → ArrayMesh
 var _chunks_built := 0
-var _tufts_total := 0
+var _instances_total := 0
 var _rng := RandomNumberGenerator.new()
 
-# Raw byte buffers for fast pixel lookup (avoid get_pixel overhead)
 var _lu_bytes: PackedByteArray
 var _lu_w: int
 var _lu_h: int
@@ -62,13 +64,12 @@ var _can_h: int
 
 func build_all_chunks() -> void:
 	if not terrain or not terrain.data:
-		push_warning("GrassTuftBuilder: no terrain data")
+		push_warning("GrassClusterBuilder: no terrain data")
 		return
 	if not landuse_image:
-		push_warning("GrassTuftBuilder: no landuse image")
+		push_warning("GrassClusterBuilder: no landuse image")
 		return
 
-	# Pre-extract raw bytes for fast zone/canopy lookup
 	_lu_bytes = landuse_image.get_data()
 	_lu_w = landuse_image.get_width()
 	_lu_h = landuse_image.get_height()
@@ -77,11 +78,14 @@ func build_all_chunks() -> void:
 		_can_w = canopy_image.get_width()
 		_can_h = canopy_image.get_height()
 
-	_rng.seed = 42
-	print("GrassTuftBuilder: starting (%dx%d landuse, %d tuft meshes)" % [
-		_lu_w, _lu_h, tuft_meshes.size()])
+	# Generate procedural cluster meshes per biome
+	for biome_id in BIOME_CLUSTER:
+		_cluster_meshes[biome_id] = _make_cluster_mesh(biome_id)
 
-	# Park bounds (generous)
+	_rng.seed = 137  # Different seed from tuft builder to avoid alignment
+
+	print("GrassClusterBuilder: starting (%dx%d landuse)" % [_lu_w, _lu_h])
+
 	var half := world_size * 0.5
 	var cx_start := int(floor((-1300.0 + half) / CHUNK_SIZE))
 	var cx_end := int(ceil((1300.0 + half) / CHUNK_SIZE))
@@ -94,11 +98,67 @@ func build_all_chunks() -> void:
 			var origin_z := cz * CHUNK_SIZE - half
 			_build_chunk(origin_x, origin_z)
 
-	print("GrassTuftBuilder: %d chunks, %d tufts total" % [_chunks_built, _tufts_total])
+	print("GrassClusterBuilder: %d chunks, %d clusters total" % [
+		_chunks_built, _instances_total])
+
+
+func _make_cluster_mesh(biome_id: int) -> ArrayMesh:
+	## Generate a procedural blade cluster: 3 crossed thin quads forming a star.
+	## Reads as "a few grass blades" from 10-35m — bridges blade↔tuft gap.
+	var cfg: Dictionary = BIOME_CLUSTER[biome_id]
+	var h := cfg.height / 100.0  # cm → m
+	var w := cfg.width / 100.0
+	var n_blades: int = cfg.blades
+
+	var verts := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var normals := PackedVector3Array()
+
+	for i in n_blades:
+		var angle := float(i) / float(n_blades) * PI  # 0°, 60°, 120°
+		var dx := cos(angle) * w * 0.5
+		var dz := sin(angle) * w * 0.5
+		# Blade normal: perpendicular to the blade plane
+		var nx := -sin(angle)
+		var nz := cos(angle)
+		var norm := Vector3(nx, 0.0, nz).normalized()
+
+		# Slight taper: tip is 40% of base width
+		var tip_dx := dx * 0.4
+		var tip_dz := dz * 0.4
+
+		# Quad: 2 triangles, bottom-left to top-right
+		# Bottom-left, bottom-right, top-right (tri 1)
+		verts.append(Vector3(-dx, 0.0, -dz))
+		verts.append(Vector3( dx, 0.0,  dz))
+		verts.append(Vector3( tip_dx, h,  tip_dz))
+		# Bottom-left, top-right, top-left (tri 2)
+		verts.append(Vector3(-dx, 0.0, -dz))
+		verts.append(Vector3( tip_dx, h,  tip_dz))
+		verts.append(Vector3(-tip_dx, h, -tip_dz))
+
+		# UVs: y=0 at base, y=1 at tip (for root-to-tip color gradient)
+		uvs.append(Vector2(0.0, 0.0))
+		uvs.append(Vector2(1.0, 0.0))
+		uvs.append(Vector2(1.0, 1.0))
+		uvs.append(Vector2(0.0, 0.0))
+		uvs.append(Vector2(1.0, 1.0))
+		uvs.append(Vector2(0.0, 1.0))
+
+		for _j in 6:
+			normals.append(norm)
+
+	var mesh := ArrayMesh.new()
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
 
 
 func _build_chunk(origin_x: float, origin_z: float) -> void:
-	# Quick reject: sample 9 points
 	var has_grass := false
 	for sx in [0.0, 0.5, 1.0]:
 		for sz in [0.0, 0.5, 1.0]:
@@ -112,11 +172,10 @@ func _build_chunk(origin_x: float, origin_z: float) -> void:
 	if not has_grass:
 		return
 
-	# Pre-sample terrain height on a coarse 4m grid (9×9 = 81 queries per chunk)
-	# then bilinearly interpolate for each tuft. Avoids millions of get_height calls.
+	# Pre-sample terrain height grid (4m resolution)
 	var h_step := 4.0
-	var h_cols := int(CHUNK_SIZE / h_step) + 1  # 9
-	var h_grid: PackedFloat32Array = PackedFloat32Array()
+	var h_cols := int(CHUNK_SIZE / h_step) + 1
+	var h_grid := PackedFloat32Array()
 	h_grid.resize(h_cols * h_cols)
 	var all_nan := true
 	for hx in h_cols:
@@ -132,15 +191,14 @@ func _build_chunk(origin_x: float, origin_z: float) -> void:
 	if all_nan:
 		return
 
-	# Collect transforms + custom_data per biome
 	var xforms: Dictionary = {}
 	var customs: Dictionary = {}
-	for biome_id in tuft_meshes:
+	for biome_id in _cluster_meshes:
 		xforms[biome_id] = []
 		customs[biome_id] = []
 
-	# Iterate at 1.2m grid (26×26 = 676 samples per chunk)
-	var step := 1.20
+	# Iterate at fine grid — 0.40m step, thin by biome spacing
+	var step := 0.40
 	var cols := int(CHUNK_SIZE / step)
 
 	for ix in cols:
@@ -152,45 +210,38 @@ func _build_chunk(origin_x: float, origin_z: float) -> void:
 			if not ZONE_TO_BIOME.has(zone):
 				continue
 			var biome_id: int = ZONE_TO_BIOME[zone]
-			if not tuft_meshes.has(biome_id):
+			if not _cluster_meshes.has(biome_id):
 				continue
 
-			# Density thinning based on biome spacing
-			var target_spacing: float = BIOME_SPACING.get(biome_id, 0.60)
+			var target_spacing: float = BIOME_SPACING.get(biome_id, 0.40)
 			var keep_ratio := (step * step) / (target_spacing * target_spacing)
 			if _rng.randf() > keep_ratio:
 				continue
 
-			# Jitter — ±0.50 (was ±0.30) to break up grid regularity
-			# and prevent moiré/denim patterns in the overlap zone
-			var jx := base_x + _rng.randf_range(-0.50, 0.50)
-			var jz := base_z + _rng.randf_range(-0.50, 0.50)
+			var jx := base_x + _rng.randf_range(-0.15, 0.15)
+			var jz := base_z + _rng.randf_range(-0.15, 0.15)
 
-			# Canopy suppression
 			var canopy := _canopy_fast(jx, jz)
 			var suppress: float = BIOME_CANOPY_SUPPRESS.get(biome_id, 0.5)
 			if canopy > 0.1 and _rng.randf() < canopy * suppress:
 				continue
 
-			# Interpolate height from pre-sampled grid
 			var height := _height_interp(h_grid, h_cols, h_step,
 				origin_x, origin_z, jx, jz)
 			if height < -50.0:
 				continue
 
-			# Build transform
 			var rot := _rng.randf() * TAU
-			var sf := _rng.randf_range(0.7, 1.3)
+			var sf := _rng.randf_range(0.8, 1.4)
 			var t := Transform3D()
 			t = t.scaled(Vector3(sf, sf, sf))
 			t = t.rotated(Vector3.UP, rot)
-			t.origin = Vector3(jx, height - 0.01, jz)
+			t.origin = Vector3(jx, height - 0.005, jz)
 
 			xforms[biome_id].append(t)
 			customs[biome_id].append(Color(
 				float(zone) / 15.0, canopy, _rng.randf(), 0.0))
 
-	# Build MultiMeshInstance3D per biome
 	for biome_id in xforms:
 		var tlist: Array = xforms[biome_id]
 		if tlist.is_empty():
@@ -201,7 +252,7 @@ func _build_chunk(origin_x: float, origin_z: float) -> void:
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.use_custom_data = true
-		mm.mesh = tuft_meshes[biome_id]
+		mm.mesh = _cluster_meshes[biome_id]
 		mm.instance_count = count
 
 		for i in count:
@@ -211,29 +262,29 @@ func _build_chunk(origin_x: float, origin_z: float) -> void:
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		# Visibility range for GPU culling (chunks outside range aren't drawn).
-		# Fade is DISABLED — dithered crossfade in the fragment shader handles
-		# smooth transitions (lod_dither.gdshaderinc), coordinated with particles.
 		mmi.visibility_range_begin = VIS_BEGIN
 		mmi.visibility_range_begin_margin = 0.0
 		mmi.visibility_range_end = VIS_END
 		mmi.visibility_range_end_margin = 0.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 
-		if render_shader and tuft_textures.has(biome_id):
+		if render_shader:
 			var mat := ShaderMaterial.new()
 			mat.shader = render_shader
-			mat.set_shader_parameter("grass_albedo", tuft_textures[biome_id])
+			mat.set_shader_parameter("use_texture", false)
+			mat.set_shader_parameter("dither_near_begin", DITHER_NEAR_BEGIN)
+			mat.set_shader_parameter("dither_near_end", DITHER_NEAR_END)
+			mat.set_shader_parameter("dither_far_begin", DITHER_FAR_BEGIN)
+			mat.set_shader_parameter("dither_far_end", DITHER_FAR_END)
 			mmi.material_override = mat
 
 		add_child(mmi)
-		_tufts_total += count
+		_instances_total += count
 
 	_chunks_built += 1
 
 
 func _zone_fast(wx: float, wz: float) -> int:
-	"""Fast zone lookup via raw byte array (no get_pixel overhead)."""
 	var u := (wx + world_size * 0.5) / world_size
 	var v := (wz + world_size * 0.5) / world_size
 	var px := clampi(int(u * _lu_w), 0, _lu_w - 1)
@@ -242,7 +293,6 @@ func _zone_fast(wx: float, wz: float) -> int:
 
 
 func _canopy_fast(wx: float, wz: float) -> float:
-	"""Fast canopy lookup via raw byte array."""
 	if _can_bytes.is_empty():
 		return 0.0
 	var u := (wx + world_size * 0.5) / world_size
@@ -254,7 +304,6 @@ func _canopy_fast(wx: float, wz: float) -> float:
 
 func _height_interp(grid: PackedFloat32Array, grid_cols: int, grid_step: float,
 		ox: float, oz: float, wx: float, wz: float) -> float:
-	"""Bilinear interpolation of pre-sampled height grid."""
 	var lx := (wx - ox) / grid_step
 	var lz := (wz - oz) / grid_step
 	var ix := int(lx)
@@ -267,7 +316,6 @@ func _height_interp(grid: PackedFloat32Array, grid_cols: int, grid_step: float,
 	var h10 := grid[(ix + 1) * grid_cols + iz]
 	var h01 := grid[ix * grid_cols + iz + 1]
 	var h11 := grid[(ix + 1) * grid_cols + iz + 1]
-	# Skip if any corner is invalid
 	if h00 < -50.0 or h10 < -50.0 or h01 < -50.0 or h11 < -50.0:
 		return -999.0
 	return h00 * (1.0 - fx) * (1.0 - fz) + h10 * fx * (1.0 - fz) \
