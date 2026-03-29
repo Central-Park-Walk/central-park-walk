@@ -242,12 +242,11 @@ void fragment() {
 		}
 
 		// Distance blend: under 3D grass → full impostor at distance.
-		// Tier 1 blades fade by 22m, Tier 2 tufts fade by 70m.
-		// Ramp aligned so terrain reaches full impostor as tufts thin out.
-		// Close range uses a dimmed impostor (not grass_ground black) to avoid
-		// a dark circle where terrain peeks through blade gaps.
-		float impostor_t = smoothstep(8.0, 25.0, cam_dist);
-		vec3 close_ground = mix(grass_ground, imp_col, 0.88); // 88% impostor — minimize dark circle
+		// Tier 1 particles end at 14m, Tier 2 clusters start at 10m.
+		// Terrain must reach full grass impostor brightness by 10m so the
+		// gaps between cluster instances match the cluster color.
+		float impostor_t = smoothstep(4.0, 10.0, cam_dist);
+		vec3 close_ground = mix(grass_ground, imp_col, 0.95); // 95% impostor — near-invisible thatch
 		vec3 grass_target = mix(close_ground, imp_col, impostor_t);
 		grass_alb = mix(grass_alb, grass_target, green_blend);
 	}
