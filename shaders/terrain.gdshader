@@ -247,7 +247,7 @@ void fragment() {
 		// Close range uses a dimmed impostor (not grass_ground black) to avoid
 		// a dark circle where terrain peeks through blade gaps.
 		float impostor_t = smoothstep(8.0, 50.0, cam_dist);
-		vec3 close_ground = mix(grass_ground, imp_col, 0.75); // 75% impostor to reduce cool cast at close range
+		vec3 close_ground = mix(grass_ground, imp_col, 0.88); // 88% impostor — minimize dark circle
 		vec3 grass_target = mix(close_ground, imp_col, impostor_t);
 		grass_alb = mix(grass_alb, grass_target, green_blend);
 	}

@@ -128,10 +128,11 @@ void fragment() {
 		col *= vec3(1.06, 0.99, 0.90);         // strong warm shift
 	}
 
-	// Root-to-tip gradient: dark thatch at base, full color at tips.
-	// Reduced from 0.60 to 0.70 — previous value over-darkened the base.
+	// Root-to-tip gradient: subtle darkening at base only.
+	// 0.80 base (was 0.70) — blade roots still slightly darker than tips
+	// but not enough to create a visible dark circle around the camera.
 	float root_t = smoothstep(0.0, 0.30, v_height_t);
-	col *= mix(0.70, 1.0, root_t);
+	col *= mix(0.80, 1.0, root_t);
 
 	// Thatch tint at base — ties roots to terrain character.
 	vec3 c_lo, c_hi;
