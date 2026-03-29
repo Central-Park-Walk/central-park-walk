@@ -100,6 +100,19 @@ void fragment() {
 		ALPHA_HASH_SCALE = 1.0;
 	}
 
+	// Distance fade: dissolve blades as they approach the particle grid edge.
+	// CUSTOM[3] = scale.y (includes fade_factor from process shader).
+	// Without this, shortened blades create a hard arc where the grid ends.
+	float blade_scale = data[3];
+	float dist_alpha = smoothstep(0.0, 0.4, blade_scale);
+	if (dist_alpha < 0.01) discard;
+	if (use_texture) {
+		ALPHA *= dist_alpha;
+	} else {
+		ALPHA = dist_alpha;
+		ALPHA_HASH_SCALE = 1.0;
+	}
+
 	// Decode zone + terrain data from COLOR (set by particle process shader)
 	// R = zone_id / 15.0, G = canopy_cover, B = terrain_tint.r, A = terrain_tint.g
 	int zone_id = int(COLOR.r * 15.0 + 0.5);
