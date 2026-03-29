@@ -209,15 +209,14 @@ func _ready() -> void:
 			_set_terrain_param("canopy_map", _park_loader._canopy_texture)
 		print("main: canopy map: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 		# GPU particle grass — replaces old hexaquo MultiMesh system
-		print("main: about to setup grass particles...")
 		if _terrain3d:
-			_setup_grass_particles()
-			print("main: grass particles returned")
-			# Textures already set on grass process material before add_child()
-			print("main: grass particles: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
+			# Particle grass disabled — GPU compute grass replaces it
+			#_setup_grass_particles()
 			# Tier 2: static tuft chunks (13-70m, MultiMeshInstance3D)
 			_setup_grass_tuft_chunks()
 			print("main: grass tuft chunks: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
+			_setup_gpu_grass()
+			print("main: gpu grass: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_player = _setup_player()
 	if _park_loader and _park_loader.boundary_polygon.size() > 2:
 		_player.boundary_polygon = _park_loader.boundary_polygon
@@ -1857,6 +1856,7 @@ func _setup_ground() -> void:
 # ---------------------------------------------------------------------------
 var _grass_particle_nodes: Array[Node3D] = []
 var _grass_tuft_builder: Node3D  # Tier 2 static MultiMesh tuft chunks
+var _gpu_grass_node: Node3D  # GPUGrass compute-driven grass (replaces particles)
 var _landuse_texture: Texture2D  # cached for grass particle system
 
 # Biome definitions for multi-layer grass particles.
@@ -2254,6 +2254,99 @@ func _setup_grass_tuft_chunks() -> void:
 	add_child(builder)
 	_grass_tuft_builder = builder
 	builder.build_all_chunks()
+
+
+func _setup_gpu_grass() -> void:
+	## GPU compute-driven grass using GPUGrass GDExtension.
+	## World-fixed placement, no camera-following grid, no rolling boundary.
+	if not ClassDB.class_exists("GPUGrass"):
+		push_warning("GPUGrass extension not loaded — skipping GPU grass")
+		return
+
+	# Bake heightmap to a 2048×2048 RF texture for compute shader sampling.
+	# Uses the raw _hm_data array (bilinear interpolation) for speed.
+	var hm_res := 2048
+	var hm_img := Image.create(hm_res, hm_res, false, Image.FORMAT_RF)
+	if not _hm_data.is_empty():
+		var half := _hm_world_size * 0.5
+		var inv_ws := 1.0 / _hm_world_size
+		var w_m1 := _hm_width - 1
+		var d_m1 := _hm_depth - 1
+		for pz in range(hm_res):
+			var wz := float(pz) / float(hm_res - 1) * _hm_world_size - half
+			var zi := (wz + half) * inv_ws * d_m1
+			var zi0 := clampi(int(zi), 0, d_m1 - 1)
+			var fz := zi - zi0
+			for px in range(hm_res):
+				var wx := float(px) / float(hm_res - 1) * _hm_world_size - half
+				var xi := (wx + half) * inv_ws * w_m1
+				var xi0 := clampi(int(xi), 0, w_m1 - 1)
+				var fx := xi - xi0
+				var h00 := _hm_data[zi0 * _hm_width + xi0]
+				var h10 := _hm_data[zi0 * _hm_width + xi0 + 1]
+				var h01 := _hm_data[(zi0 + 1) * _hm_width + xi0]
+				var h11 := _hm_data[(zi0 + 1) * _hm_width + xi0 + 1]
+				var h := h00 * (1.0 - fx) * (1.0 - fz) + h10 * fx * (1.0 - fz) + h01 * (1.0 - fx) * fz + h11 * fx * fz
+				hm_img.set_pixel(px, pz, Color(h, 0, 0, 1))
+		print("GPU grass: baked heightmap %dx%d" % [hm_res, hm_res])
+	else:
+		push_warning("GPU grass: no heightmap data — blades will be at Y=0")
+	var hm_tex := ImageTexture.create_from_image(hm_img)
+
+	# Load blade mesh (Lawn biome for initial test)
+	var blade_scene = load("res://models/vegetation/Blade_Lawn.glb")
+	if not blade_scene:
+		push_warning("GPU grass: Blade_Lawn.glb not found")
+		return
+	var blade_inst = blade_scene.instantiate()
+	var blade_mesh: Mesh = null
+	var albedo_tex: Texture2D = null
+	var mesh_node: MeshInstance3D = null
+	if blade_inst is MeshInstance3D:
+		mesh_node = blade_inst
+	else:
+		for child in blade_inst.get_children():
+			if child is MeshInstance3D:
+				mesh_node = child
+				break
+	if mesh_node and mesh_node.mesh:
+		blade_mesh = mesh_node.mesh
+		var mat = blade_mesh.surface_get_material(0)
+		if mat is BaseMaterial3D and mat.albedo_texture:
+			albedo_tex = mat.albedo_texture
+	blade_inst.queue_free()
+	if not blade_mesh:
+		push_warning("GPU grass: no mesh in Blade_Lawn.glb")
+		return
+
+	# Build render material (same shader as particle grass)
+	var render_shader: Shader = load("res://shaders/grass_particle_render.gdshader")
+	var render_mat := ShaderMaterial.new()
+	render_mat.shader = render_shader
+	if albedo_tex:
+		render_mat.set_shader_parameter("use_texture", true)
+		render_mat.set_shader_parameter("grass_albedo", albedo_tex)
+	else:
+		render_mat.set_shader_parameter("use_texture", false)
+
+	# Create GPUGrass node
+	var grass: Node3D = ClassDB.instantiate("GPUGrass")
+	grass.name = "GPUGrass"
+	grass.set("grass_mesh", blade_mesh)
+	grass.set("grass_material", render_mat)
+	grass.set("max_instances", 1048576)
+	grass.set("spacing", 0.12)
+	grass.set("max_distance", 80.0)
+	grass.set("world_size", _hm_world_size)
+	grass.set("heightmap_texture", hm_tex)
+	if _landuse_texture:
+		grass.set("landuse_texture", _landuse_texture)
+	if _park_loader and _park_loader._canopy_texture:
+		grass.set("canopy_texture", _park_loader._canopy_texture)
+
+	add_child(grass)
+	_gpu_grass_node = grass
+	print("GPU grass: GPUGrass node created — 262144 max instances, 0.08m spacing, 30m range")
 
 
 # ---------------------------------------------------------------------------
