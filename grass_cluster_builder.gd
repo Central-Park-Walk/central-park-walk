@@ -106,26 +106,25 @@ func _make_cluster_mesh(biome_id: int) -> ArrayMesh:
 	## Generate a procedural blade cluster: 3 crossed thin quads forming a star.
 	## Reads as "a few grass blades" from 10-35m — bridges blade↔tuft gap.
 	var cfg: Dictionary = BIOME_CLUSTER[biome_id]
-	var h := cfg.height / 100.0  # cm → m
-	var w := cfg.width / 100.0
-	var n_blades: int = cfg.blades
+	var h: float = float(cfg.height) / 100.0  # cm → m
+	var w: float = float(cfg.width) / 100.0
+	var n_blades: int = int(cfg.blades)
 
 	var verts := PackedVector3Array()
 	var uvs := PackedVector2Array()
 	var normals := PackedVector3Array()
 
 	for i in n_blades:
-		var angle := float(i) / float(n_blades) * PI  # 0°, 60°, 120°
-		var dx := cos(angle) * w * 0.5
-		var dz := sin(angle) * w * 0.5
-		# Blade normal: perpendicular to the blade plane
-		var nx := -sin(angle)
-		var nz := cos(angle)
+		var angle: float = float(i) / float(n_blades) * PI  # 0°, 60°, 120°
+		var dx: float = cos(angle) * w * 0.5
+		var dz: float = sin(angle) * w * 0.5
+		var nx: float = -sin(angle)
+		var nz: float = cos(angle)
 		var norm := Vector3(nx, 0.0, nz).normalized()
 
 		# Slight taper: tip is 40% of base width
-		var tip_dx := dx * 0.4
-		var tip_dz := dz * 0.4
+		var tip_dx: float = dx * 0.4
+		var tip_dz: float = dz * 0.4
 
 		# Quad: 2 triangles, bottom-left to top-right
 		# Bottom-left, bottom-right, top-right (tri 1)
