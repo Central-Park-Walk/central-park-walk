@@ -25,9 +25,9 @@ global uniform float cloud_speed_g;
 #include "res://shaders/include/lod_dither.gdshaderinc"
 
 // Dithered crossfade: particles fade OUT over this distance range.
-// Must match Tier 2 cluster's fade-in range for complementary coverage.
-uniform float dither_fade_begin = 10.0;
-uniform float dither_fade_end = 14.0;
+// Must match tuft fade-in range for complementary coverage.
+uniform float dither_fade_begin = 14.0;
+uniform float dither_fade_end = 22.0;
 
 varying vec4 data;
 varying vec3 v_world_pos;

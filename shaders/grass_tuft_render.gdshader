@@ -23,9 +23,9 @@ global uniform float cloud_speed_g;
 #include "res://shaders/include/lod_dither.gdshaderinc"
 
 // Dithered crossfade ranges.
-// Near: fade IN (complementary with Tier 2 cluster fade-out)
-uniform float dither_near_begin = 28.0;
-uniform float dither_near_end = 35.0;
+// Near: fade IN (complementary with particle fade-out)
+uniform float dither_near_begin = 14.0;
+uniform float dither_near_end = 22.0;
 // Far: fade OUT (reveals terrain impostor underneath)
 uniform float dither_far_begin = 60.0;
 uniform float dither_far_end = 70.0;

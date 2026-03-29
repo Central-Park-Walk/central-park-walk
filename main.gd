@@ -215,10 +215,7 @@ func _ready() -> void:
 			print("main: grass particles returned")
 			# Textures already set on grass process material before add_child()
 			print("main: grass particles: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
-			# Tier 2: static blade clusters (10-35m, MultiMeshInstance3D)
-			_setup_grass_cluster_chunks()
-			print("main: grass clusters: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
-			# Tier 3: static tuft chunks (28-70m, MultiMeshInstance3D)
+			# Tier 2: static tuft chunks (13-70m, MultiMeshInstance3D)
 			_setup_grass_tuft_chunks()
 			print("main: grass tuft chunks: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_player = _setup_player()
@@ -1859,8 +1856,7 @@ func _setup_ground() -> void:
 # GPU Particle Grass (Terrain3D-based)
 # ---------------------------------------------------------------------------
 var _grass_particle_nodes: Array[Node3D] = []
-var _grass_cluster_builder: Node3D  # Tier 2 static blade clusters (10-35m)
-var _grass_tuft_builder: Node3D  # Tier 3 static MultiMesh tuft chunks
+var _grass_tuft_builder: Node3D  # Tier 2 static MultiMesh tuft chunks
 var _landuse_texture: Texture2D  # cached for grass particle system
 
 # Biome definitions for multi-layer grass particles.
@@ -1870,10 +1866,10 @@ var _landuse_texture: Texture2D  # cached for grass particle system
 const GRASS_BIOMES := [
 	{  # Per-blade instancing: one quad strip per particle, not crossed cards.
 		# Blade_Lawn: 2 segments, 7.6cm tall, 12mm wide, 4 tris
-		# cell_width 7 × grid_width 4 → max_dist 14m. Dither fade-out at 10-14m.
+		# cell_width 9 × grid_width 5 → max_dist 22.5m. Dither fade-out at 14-22m.
 		"name": "Lawn", "biome_id": 0,
 		"mesh_path": "res://models/vegetation/Blade_Lawn.glb",
-		"spacing": 0.03, "cell_width": 7.0, "grid_width": 4,
+		"spacing": 0.03, "cell_width": 9.0, "grid_width": 5,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.5, 0.4, 0.5),
 		"max_scale": Vector3(1.8, 1.8, 1.8),
@@ -1882,7 +1878,7 @@ const GRASS_BIOMES := [
 	{  # Blade_Shade: 3 segments, 12cm tall, 10mm wide, 6 tris
 		"name": "Shade", "biome_id": 1,
 		"mesh_path": "res://models/vegetation/Blade_Shade.glb",
-		"spacing": 0.06, "cell_width": 7.0, "grid_width": 4,
+		"spacing": 0.06, "cell_width": 9.0, "grid_width": 5,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.5, 0.4, 0.5),
 		"max_scale": Vector3(1.8, 1.8, 1.8),
@@ -1891,7 +1887,7 @@ const GRASS_BIOMES := [
 	{  # Blade_Wild: 4 segments, 25cm tall, 15mm wide, 8 tris
 		"name": "Wild", "biome_id": 2,
 		"mesh_path": "res://models/vegetation/Blade_Wild.glb",
-		"spacing": 0.06, "cell_width": 7.0, "grid_width": 4,
+		"spacing": 0.06, "cell_width": 9.0, "grid_width": 5,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.4, 0.4, 0.4),
 		"max_scale": Vector3(1.6, 1.6, 1.6),
@@ -1900,7 +1896,7 @@ const GRASS_BIOMES := [
 	{  # Blade_Sedge: 3 segments, 16cm tall, 9mm wide, 6 tris
 		"name": "Sedge", "biome_id": 3,
 		"mesh_path": "res://models/vegetation/Blade_Sedge.glb",
-		"spacing": 0.06, "cell_width": 7.0, "grid_width": 4,
+		"spacing": 0.06, "cell_width": 9.0, "grid_width": 5,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.5, 0.4, 0.5),
 		"max_scale": Vector3(1.7, 1.7, 1.7),
@@ -2201,36 +2197,7 @@ func _setup_grass_particles() -> void:
 			n_nodes, first_mesh_ok, first_mat_ok, first_amount])
 
 
-func _setup_grass_cluster_chunks() -> void:
-	## Build static Tier 2 blade cluster chunks (10-35m).
-	## Procedural 3-crossed-quad meshes that look like blade groups from
-	## mid-distance, bridging the visual character between particle blades
-	## and crossed-card tufts. Uses same render shader as tufts with
-	## different dither distances.
-	var builder_script = load("res://grass_cluster_builder.gd")
-	var tuft_shader: Shader = load("res://shaders/grass_tuft_render.gdshader")
-	if not builder_script or not tuft_shader:
-		push_warning("Grass cluster builder script/shader not found")
-		return
-
-	var builder: Node3D = Node3D.new()
-	builder.set_script(builder_script)
-	builder.name = "GrassClusterChunks"
-	builder.terrain = _terrain3d
-	builder.world_size = _hm_world_size
-	builder.render_shader = tuft_shader
-
-	if _landuse_texture:
-		builder.landuse_image = _landuse_texture.get_image()
-	if _park_loader and _park_loader._canopy_texture:
-		builder.canopy_image = _park_loader._canopy_texture.get_image()
-
-	add_child(builder)
-	_grass_cluster_builder = builder
-	builder.build_all_chunks()
-
-
-# Tier 3 tuft meshes: crossed-card tufts for static MultiMesh chunks (28-70m)
+# Tier 2 tuft meshes: crossed-card tufts for static MultiMesh chunks (13-70m)
 const TUFT_BIOMES := {
 	0: "res://models/vegetation/Tuft_Tiny.glb",      # lawn
 	1: "res://models/vegetation/Tuft_Woodland.glb",   # shade

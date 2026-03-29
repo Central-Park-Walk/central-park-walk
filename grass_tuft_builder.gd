@@ -30,10 +30,9 @@ var render_shader: Shader
 const CHUNK_SIZE := 32.0
 ## Tuft spacing per biome (meters between instances).
 const BIOME_SPACING := {0: 1.20, 1: 1.60, 2: 1.40, 3: 1.60}
-## Visibility range — begins inside Tier 2 cluster's fade-out zone so tufts
-## appear as clusters thin. Extended far end (75m) for 3D coverage before
-## terrain-only. Fade handled by shader dither, not Godot built-in.
-const VIS_BEGIN := 25.0
+## Visibility range — begins inside particle fade-out zone so tufts appear
+## as blades thin. Fade handled by shader dither, not Godot built-in.
+const VIS_BEGIN := 13.0
 const VIS_END := 75.0
 
 ## Zone → biome mapping (matches grass_particles.gdshader)
