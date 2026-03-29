@@ -31,43 +31,47 @@ os.makedirs(TEX_DIR, exist_ok=True)
 
 TUFTS = {
     "Tuft_Tiny": {
-        # Maintained lawn: spectral KBG (Poa pratensis)
+        # Maintained lawn: Kentucky Bluegrass (Poa pratensis)
+        # Colors: spectral R+T albedo via CIE 1931 + D65
         "h": 0.12, "card_w": 0.40, "n_cards": 3,
         "n_blades": 24, "segs": 3,
         "curve": 0.15, "droop": 0.06,
-        "color": (58, 102, 61), "tip_color": (76, 112, 78),
-        "dark_color": (45, 80, 48),
-        "dead_color": (111, 110, 77), "dead_tip_color": (123, 122, 85),
+        "color": (73, 125, 59), "tip_color": (76, 125, 60),
+        "dark_color": (63, 109, 51),
+        "dead_color": (152, 135, 97), "dead_tip_color": (156, 139, 103),
         "blade_shape": "broad",
     },
     "Tuft_Woodland": {
-        # Shade floor: spectral Fine Fescue (Festuca rubra)
+        # Shade floor: Fine Fescue (Festuca rubra)
+        # Colors: spectral R+T albedo via CIE 1931 + D65
         "h": 0.18, "card_w": 0.55, "n_cards": 3,
         "n_blades": 18, "segs": 4,
         "curve": 0.25, "droop": 0.12,
-        "color": (56, 94, 56), "tip_color": (74, 106, 74),
-        "dark_color": (42, 72, 42),
-        "dead_color": (100, 98, 70), "dead_tip_color": (111, 110, 77),
+        "color": (79, 116, 62), "tip_color": (81, 116, 63),
+        "dark_color": (67, 99, 52),
+        "dead_color": (152, 135, 97), "dead_tip_color": (156, 139, 103),
         "blade_shape": "needle",
     },
     "Tuft_Wild": {
-        # Wild meadow: spectral Switchgrass (Panicum virgatum)
+        # Wild meadow: Switchgrass (Panicum virgatum)
+        # Colors: spectral R+T albedo via CIE 1931 + D65
         "h": 0.40, "card_w": 0.60, "n_cards": 4,
         "n_blades": 18, "segs": 5,
         "curve": 0.35, "droop": 0.18,
-        "color": (70, 105, 62), "tip_color": (88, 118, 82),
-        "dark_color": (52, 82, 48),
-        "dead_color": (123, 122, 85), "dead_tip_color": (140, 138, 95),
+        "color": (85, 117, 50), "tip_color": (88, 118, 52),
+        "dark_color": (74, 102, 43),
+        "dead_color": (152, 135, 97), "dead_tip_color": (156, 139, 103),
         "blade_shape": "broad",
     },
     "Tuft_Meadow": {
-        # Waterside sedge: spectral Tussock Sedge (Carex stricta)
+        # Waterside sedge: Tussock Sedge (Carex stricta)
+        # Colors: spectral R+T albedo via CIE 1931 + D65
         "h": 0.28, "card_w": 0.55, "n_cards": 4,
         "n_blades": 20, "segs": 5,
         "curve": 0.40, "droop": 0.22,
-        "color": (55, 92, 54), "tip_color": (72, 105, 72),
-        "dark_color": (40, 70, 40),
-        "dead_color": (100, 98, 68), "dead_tip_color": (111, 110, 77),
+        "color": (83, 112, 58), "tip_color": (85, 113, 60),
+        "dark_color": (70, 96, 49),
+        "dead_color": (152, 135, 97), "dead_tip_color": (156, 139, 103),
         "blade_shape": "arch",
     },
 }

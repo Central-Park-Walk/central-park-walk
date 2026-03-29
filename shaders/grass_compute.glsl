@@ -165,13 +165,14 @@ void main() {
 	instances.data[base + 10u] = scale * cos_r;
 	instances.data[base + 11u] = world_xz.y;
 
-	// COLOR: matches particle process shader's output
-	// (zone_id/15, canopy, terrain_tint.r, terrain_tint.g)
-	// Terrain tint: approximate from zone — lawns are green, shade is darker
-	float tint_r = 0.35;
-	float tint_g = 0.40;
-	if (biome_id == 1) { tint_r = 0.25; tint_g = 0.30; } // shade: darker
-	if (biome_id == 2) { tint_r = 0.30; tint_g = 0.35; } // wild
+	// COLOR: (zone_id/15, canopy, tint_r, tint_g)
+	// Tints from spectral albedo (R+T): CIE 1931 + D65 pipeline
+	// Currently unused by render shader but kept for future LOD blending
+	float tint_r = 0.07;
+	float tint_g = 0.20;
+	if (biome_id == 1) { tint_r = 0.08; tint_g = 0.17; } // fine fescue
+	if (biome_id == 2) { tint_r = 0.09; tint_g = 0.18; } // switchgrass
+	if (biome_id == 3) { tint_r = 0.09; tint_g = 0.16; } // tussock sedge
 	instances.data[base + 12u] = float(zone_id) / 15.0;
 	instances.data[base + 13u] = canopy;
 	instances.data[base + 14u] = tint_r;
