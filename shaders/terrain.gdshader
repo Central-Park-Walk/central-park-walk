@@ -179,7 +179,7 @@ void fragment() {
 		grass_alb = textureNoTile_c(grass_albedo, uv);
 		float avg_g = dot(grass_alb, vec3(0.299, 0.587, 0.114));
 		grass_alb = mix(grass_alb, vec3(avg_g), tex_fade);
-		grass_alb *= 0.85;
+		grass_alb *= 0.92;
 	} else {
 		uv = world_pos.xz / dirt_tile_m;
 		grass_alb = textureNoTile_c(dirt_albedo, uv);
@@ -215,10 +215,12 @@ void fragment() {
 		float wind_bend = vnoise(wind_pos) * wind_str;
 
 		// AO simulation: high-frequency noise mimics blade self-shadowing
+		// Floor at 0.75 — distant grass averages ~85% of blade brightness
+		// (blade shader root-to-tip = 0.80-1.0 × 1.05 ≈ 0.945 average)
 		float ao_noise = vnoise(world_pos.xz * 0.8);
 		float btt_sim = ao_noise + smoothstep(0.6, 1.0, normal_to_view) * 0.4;
-		float ao = mix(0.5, 1.0, btt_sim) - wind_bend * 0.3;
-		imp_col *= clamp(ao, 0.3, 1.0);
+		float ao = mix(0.75, 1.0, btt_sim) - wind_bend * 0.3;
+		imp_col *= clamp(ao, 0.55, 1.0);
 
 		// Ground spots: from above, bare ground shows between blades
 		float patch = vnoise(world_pos.xz / 3.0);
