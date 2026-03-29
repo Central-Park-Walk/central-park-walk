@@ -29,14 +29,14 @@ var render_shader: Shader
 
 const CHUNK_SIZE := 32.0
 ## Tuft spacing per biome (meters between instances).
-## At 8-75m distance, individual tufts aren't distinguishable — coverage matters.
 const BIOME_SPACING := {0: 1.20, 1: 1.60, 2: 1.40, 3: 1.60}
-## Visibility range — wide overlap with Tier 1 blades (0-22m) to smooth
-## the blade→tuft transition, and extended far end to delay the tuft→terrain
-## transition. Wider fade margins (12m) for gradual cross-dissolve.
-const VIS_BEGIN := 8.0
-const VIS_END := 75.0
-const VIS_FADE := 12.0
+## Visibility range — begin just inside Tier 1's fade start (13.5m) so tufts
+## appear as background while blades are still dominant. Far enough that
+## tufts aren't individually distinguishable, avoiding moiré with blade grid.
+## Extended far end (70m) for longer 3D grass coverage before terrain-only.
+const VIS_BEGIN := 13.0
+const VIS_END := 70.0
+const VIS_FADE := 10.0
 
 ## Zone → biome mapping (matches grass_particles.gdshader)
 const ZONE_TO_BIOME := {
@@ -163,9 +163,10 @@ func _build_chunk(origin_x: float, origin_z: float) -> void:
 			if _rng.randf() > keep_ratio:
 				continue
 
-			# Jitter
-			var jx := base_x + _rng.randf_range(-0.30, 0.30)
-			var jz := base_z + _rng.randf_range(-0.30, 0.30)
+			# Jitter — ±0.50 (was ±0.30) to break up grid regularity
+			# and prevent moiré/denim patterns in the overlap zone
+			var jx := base_x + _rng.randf_range(-0.50, 0.50)
+			var jz := base_z + _rng.randf_range(-0.50, 0.50)
 
 			# Canopy suppression
 			var canopy := _canopy_fast(jx, jz)
