@@ -71,9 +71,9 @@ void fragment() {
 	float tex_lum = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
 	col *= mix(0.85, 1.15, tex_lum);
 
-	// Root-to-tip gradient (reduced from 0.60 to match particle shader)
+	// Root-to-tip gradient — matches particle shader (0.80)
 	float root_t = smoothstep(0.0, 0.30, v_height_t);
-	col *= mix(0.70, 1.0, root_t);
+	col *= mix(0.80, 1.0, root_t);
 
 	// Thatch tint at base
 	vec3 c_lo, c_hi;
