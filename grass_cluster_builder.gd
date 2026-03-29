@@ -224,8 +224,8 @@ func _build_chunk(origin_x: float, origin_z: float) -> void:
 			if _rng.randf() > keep_ratio:
 				continue
 
-			var jx := base_x + _rng.randf_range(-0.15, 0.15)
-			var jz := base_z + _rng.randf_range(-0.15, 0.15)
+			var jx := base_x + _rng.randf_range(-0.40, 0.40)
+			var jz := base_z + _rng.randf_range(-0.40, 0.40)
 
 			var canopy := _canopy_fast(jx, jz)
 			var suppress: float = BIOME_CANOPY_SUPPRESS.get(biome_id, 0.5)

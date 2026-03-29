@@ -51,14 +51,14 @@ def make_blade_texture(n_blades: int, blade_w_frac: float, heights: list[float],
             if x_lo > x_hi:
                 continue
 
-            # Luminance: slight root-to-tip gradient (darker at base)
-            lum_base = 100 + int(40 * t)  # 100 at root, 140 at tip
-            # Slight variation across blade width
+            # Luminance: neutral gray with root-to-tip gradient.
+            # ~0.5 average so tex_lum modulation is near-neutral (mix(0.85,1.15,0.5)=1.0).
+            lum_base = 110 + int(30 * t)  # 110 at root, 140 at tip
             for x in range(x_lo, x_hi + 1):
                 dx = abs(x - cx_at_y) / max(hw, 0.5)
-                edge_darken = 1.0 - dx * 0.15  # edges slightly darker
+                edge_darken = 1.0 - dx * 0.12
                 lum = int(lum_base * edge_darken)
-                img[y, x] = [lum, lum + 8, lum - 5, 255]  # slight green tint
+                img[y, x] = [lum, lum, lum, 255]  # pure gray — shader handles color
 
     return Image.fromarray(img, 'RGBA')
 
