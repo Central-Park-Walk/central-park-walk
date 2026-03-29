@@ -195,7 +195,7 @@ void fragment() {
 	// nearly black, creating a visible dark circle around the camera. The 3D
 	// blades' own root darkening already handles the thatch look — the terrain
 	// just needs to not fight the blade brightness through the gaps.
-	vec3 grass_ground = vec3(0.04, 0.09, 0.04);
+	vec3 grass_ground = vec3(0.05, 0.09, 0.035);  // warm thatch (R>B matches EGTTR warmth)
 	float green_blend = is_grass_zone ? 0.85 : (is_woodland ? 0.55 : 0.0);
 
 	if (is_grass_zone || is_woodland) {
@@ -247,7 +247,7 @@ void fragment() {
 		// Close range uses a dimmed impostor (not grass_ground black) to avoid
 		// a dark circle where terrain peeks through blade gaps.
 		float impostor_t = smoothstep(8.0, 50.0, cam_dist);
-		vec3 close_ground = mix(grass_ground, imp_col, 0.65);
+		vec3 close_ground = mix(grass_ground, imp_col, 0.75); // 75% impostor to reduce cool cast at close range
 		vec3 grass_target = mix(close_ground, imp_col, impostor_t);
 		grass_alb = mix(grass_alb, grass_target, green_blend);
 	}
