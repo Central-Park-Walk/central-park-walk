@@ -2143,7 +2143,7 @@ func _setup_grass_particles() -> void:
 		proc_mat.set_shader_parameter("wind_direction", Vector2(1, 1))
 		proc_mat.set_shader_parameter("clod_scale_boost", 0.1)
 		proc_mat.set_shader_parameter("surface_slope_min", 0.85)
-		proc_mat.set_shader_parameter("distance_fade_ammount", 0.6)
+		proc_mat.set_shader_parameter("distance_fade_ammount", 0.75)
 		proc_mat.set_shader_parameter("biome_id", biome.biome_id)
 		proc_mat.set_shader_parameter("world_size", _hm_world_size)
 		if _landuse_texture:
