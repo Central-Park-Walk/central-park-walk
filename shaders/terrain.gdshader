@@ -242,11 +242,12 @@ void fragment() {
 		}
 
 		// Distance blend: under 3D grass → full impostor at distance.
+		// Tier 1 blades fade by 22m, Tier 2 tufts fade by 75m.
+		// Ramp aligned so terrain reaches full impostor as tufts thin out.
 		// Close range uses a dimmed impostor (not grass_ground black) to avoid
-		// a dark circle where terrain peeks through blade gaps. The 3D blades'
-		// root darkening already provides the thatch look.
-		float impostor_t = smoothstep(5.0, 40.0, cam_dist);
-		vec3 close_ground = mix(grass_ground, imp_col, 0.65); // 65% impostor even close up
+		// a dark circle where terrain peeks through blade gaps.
+		float impostor_t = smoothstep(10.0, 55.0, cam_dist);
+		vec3 close_ground = mix(grass_ground, imp_col, 0.65);
 		vec3 grass_target = mix(close_ground, imp_col, impostor_t);
 		grass_alb = mix(grass_alb, grass_target, green_blend);
 	}
