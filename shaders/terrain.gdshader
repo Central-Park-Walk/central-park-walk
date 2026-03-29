@@ -191,7 +191,7 @@ void fragment() {
 	// Replicates the blade shader's appearance on the terrain surface so
 	// chunks loading/unloading on top is invisible. Same noise functions,
 	// color palette, and wind logic as grass_blade.gdshader.
-	vec3 grass_ground = vec3(0.07, 0.15, 0.04);  // dark green under blade bases (not black)
+	vec3 grass_ground = vec3(0.04, 0.09, 0.04);  // spectral: dark green thatch between blades (R≈B)
 	float green_blend = is_grass_zone ? 0.85 : (is_woodland ? 0.55 : 0.0);
 
 	if (is_grass_zone || is_woodland) {
@@ -267,7 +267,7 @@ void fragment() {
 		float dead_noise = vnoise(world_pos.xz * 0.8 + vec2(73.1, 29.7));
 		float dead_mask = smoothstep(0.55, 0.68, dead_noise);
 		if (dead_mask > 0.0) {
-			imp_col = mix(imp_col, vec3(0.22, 0.18, 0.08), dead_mask * 0.50);
+			imp_col = mix(imp_col, vec3(0.16, 0.16, 0.075), dead_mask * 0.50); // spectral dried leaf
 		}
 
 		// EGTTR-style warmth (shared with blade/tuft shaders)

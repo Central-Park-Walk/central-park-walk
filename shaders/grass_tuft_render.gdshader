@@ -130,7 +130,7 @@ void fragment() {
 	float dead_noise = vnoise(v_world_pos.xz * 0.8 + vec2(73.1, 29.7));
 	float dead_mask = smoothstep(0.55, 0.68, dead_noise);
 	if (dead_mask > 0.0) {
-		vec3 dead_col = vec3(0.22, 0.18, 0.08);
+		vec3 dead_col = vec3(0.16, 0.16, 0.075); // spectral dried leaf
 		col = mix(col, dead_col, dead_mask * 0.50);
 	}
 
