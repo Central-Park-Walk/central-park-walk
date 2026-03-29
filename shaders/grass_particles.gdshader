@@ -232,7 +232,7 @@ void start() {
 	float noise = textureLod(main_noise, uv, 0.0).r;
 	float clods = smoothstep(clod_min_threshold, clod_max_threshold, noise) * clod_scale_boost;
 	float patch = smoothstep(patch_min_threshold, patch_max_threshold, noise);
-	float width_modifier = 1.0 + 3.0 * smoothstep(0., max_dist, length(camera_position - pos));
+	float width_modifier = 1.0 + 0.5 * smoothstep(0.3 * max_dist, max_dist, length(camera_position - pos));
 
 	// --- Data-driven grass height from CPC lawn classification ---
 	// 5 distinct tiers for visual variety. Heights tuned to look right at
