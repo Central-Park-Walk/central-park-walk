@@ -188,48 +188,33 @@ void fragment() {
 		grass_alb *= 0.75;
 	}
 
-	// --- Grass impostor (shared palette with blade/tuft shaders) ---
-	// grass_base_color gives the same world-space splotchiness as 3D grass,
-	// so LOD transitions are invisible.
-	// Close-range terrain between blade gaps. Old value (0.04, 0.09, 0.04) was
-	// nearly black, creating a visible dark circle around the camera. The 3D
-	// blades' own root darkening already handles the thatch look — the terrain
-	// just needs to not fight the blade brightness through the gaps.
-	vec3 grass_ground = vec3(0.05, 0.09, 0.035);  // warm thatch (R>B matches EGTTR warmth)
-	float green_blend = is_grass_zone ? 0.85 : (is_woodland ? 0.55 : 0.0);
+	// --- Grass impostor (physics-consistent) ---
+	// Spectral palette (grass_base_color) is the color authority — derived from
+	// R(λ) × CIE 1931 × D65 spectral data. Photo texture provides only
+	// luminance micro-detail. All illumination handled by the renderer.
+	//
+	// The one material-level correction: inter-blade light trapping in a dense
+	// canopy reduces effective albedo. For a maintained lawn at LAI 3-5, ~15%
+	// of incoming light is absorbed between blades rather than escaping.
+	// (Asner 1998, Baret & Guyot 1991)
+	const float CANOPY_FACTOR = 0.85;
+
+	vec3 grass_ground = vec3(0.05, 0.09, 0.035);  // thatch between blade roots
 
 	if (is_grass_zone || is_woodland) {
-		// Shared base color: zone palette + macro splotchiness + dead accents + EGTTR
+		// Spectral base color: zone palette + macro variation + dead accents
 		vec3 imp_col = grass_base_color(zone_id, world_pos.xz);
 
-		// View angle: steep = see blade tips (brighter), top-down = see ground (darker)
-		vec3 view_dir = normalize(INV_VIEW_MATRIX[3].xyz - world_pos);
-		float normal_to_view = 1.0 - max(dot(view_dir, terrain_n), 0.0);
-		vec3 c_lo, c_hi;
-		grass_zone_palette(zone_id, c_lo, c_hi);
-		imp_col = mix(imp_col, c_hi, normal_to_view * 0.4);
+		// Canopy occlusion: inter-blade light trapping (material property)
+		imp_col *= CANOPY_FACTOR;
 
-		// Wind AO: gusts darken the impostor (same wind_vec as blade shader)
-		float wind_str = length(wind_vec);
-		vec2 wind_pos = world_pos.xz * 0.1 - wind_vec * TIME * 0.1;
-		float wind_bend = vnoise(wind_pos) * wind_str;
+		// Photo texture micro-detail: luminance-only modulation
+		// Adds blade-cluster patterns without overriding palette hue
+		float tex_lum = dot(grass_alb, vec3(0.299, 0.587, 0.114));
+		float detail = smoothstep(0.0, 0.6, tex_lum);
+		imp_col *= mix(0.92, 1.08, detail);
 
-		// AO simulation: high-frequency noise mimics blade self-shadowing
-		// Floor at 0.75 — distant grass averages ~85% of blade brightness
-		// (blade shader root-to-tip = 0.80-1.0 × 1.05 ≈ 0.945 average)
-		float ao_noise = vnoise(world_pos.xz * 0.8);
-		float btt_sim = ao_noise + smoothstep(0.6, 1.0, normal_to_view) * 0.4;
-		float ao = mix(0.75, 1.0, btt_sim) - wind_bend * 0.3;
-		imp_col *= clamp(ao, 0.55, 1.0);
-
-		// Ground spots: from above, bare ground shows between blades
-		float patch = vnoise(world_pos.xz / 3.0);
-		float spots = vnoise(world_pos.xz * 2.0);
-		float spottiness = (1.0 - normal_to_view) * 0.5 - patch * 0.2;
-		float ground_show = smoothstep(spottiness + 0.1, spottiness - 0.1, spots);
-		imp_col = mix(imp_col, grass_ground, ground_show);
-
-		// Under dense canopy: forest floor is leaf litter, not grass
+		// Under dense canopy: forest floor is leaf litter, not grass (data)
 		vec2 can_uv = (world_pos.xz + world_size * 0.5) / world_size;
 		float canopy_cover = texture(canopy_map, can_uv).r;
 		if (canopy_cover > 0.3) {
@@ -240,26 +225,18 @@ void fragment() {
 			imp_col = mix(imp_col, litter_col, litter_blend);
 		}
 		if (is_woodland) {
+			// Canopy-filtered illumination shifts ambient from D65 toward warm
 			imp_col *= vec3(0.85, 0.88, 0.75);
 		}
 
-		// Distance blend: under 3D grass → full impostor at distance.
-		// Tier 1 particles end at 14m, Tier 2 clusters start at 10m.
-		// Terrain must reach full grass impostor brightness by 10m so the
-		// gaps between cluster instances match the cluster color.
+		// Distance blend: thatch (under 3D blade roots) → full impostor
 		float impostor_t = smoothstep(4.0, 10.0, cam_dist);
-		vec3 close_ground = mix(grass_ground, imp_col, 0.95); // 95% impostor — near-invisible thatch
-		vec3 grass_target = mix(close_ground, imp_col, impostor_t);
-		grass_alb = mix(grass_alb, grass_target, green_blend);
+		vec3 close_ground = mix(grass_ground, imp_col, 0.95);
+		grass_alb = mix(close_ground, imp_col, impostor_t);
 	}
 
-	// Distance-based darkening + aerial perspective.
-	// Far grass darkens (blade highlights average out, self-shadowing).
-	// Also desaturate + shift slightly blue to simulate atmospheric scattering.
-	// cam_dist computed above (before texture sample)
-	float dist_darken = smoothstep(30.0, 150.0, cam_dist) * 0.25;
-	grass_alb *= (1.0 - dist_darken);
-	// Aerial perspective: desaturate + cool shift at distance
+	// Aerial perspective: Rayleigh scattering desaturates + cools at distance.
+	// (Distance darkening removed — renderer handles illumination.)
 	float aerial_t = smoothstep(60.0, 300.0, cam_dist);
 	float g_lum = dot(grass_alb, vec3(0.2126, 0.7152, 0.0722));
 	grass_alb = mix(grass_alb, vec3(g_lum), aerial_t * 0.25);  // 25% desaturation at 300m
