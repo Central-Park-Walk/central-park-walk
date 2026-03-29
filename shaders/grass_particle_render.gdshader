@@ -143,6 +143,11 @@ void fragment() {
 	// Terrain color map influence at roots (propagates Terrain3D color painting).
 	col *= mix(terrain_tint, vec3(1.0), root_t * 0.7 + 0.3);
 
+	// Compensate for root darkening + thatch averaging 95% brightness.
+	// Without this, the blade-covered area reads as a shadow around the camera
+	// because the terrain impostor is at 100%.
+	col *= 1.05;
+
 	// Per-instance hue variation (±10% for visible blade-to-blade difference)
 	col *= mix(vec3(0.90, 1.04, 1.06), vec3(1.10, 0.96, 0.90), blade_seed);
 
