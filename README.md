@@ -57,6 +57,7 @@ open "Central Park Walk.app"
 - Python 3 with `numpy`, `scipy`, `gdal`, `Pillow`
 - [Blender 4.5 LTS](https://www.blender.org/download/lts/4-5/) (`blender4` symlink, for model regeneration)
 - [Mtree addon v5.5](https://extensions.blender.org/add-ons/modular-tree/) (Blender, for tree generation)
+- SCons + g++ (for GPU grass GDExtension — `pip3 install scons`)
 - NVIDIA GPU recommended (Forward+ renderer)
 
 ### Setup
@@ -73,6 +74,13 @@ python3 convert_to_godot.py
 
 # Generate high-quality Mtree models (requires Blender 4.5 + Mtree addon)
 blender4 --background --python scripts/generate_trees_mtree.py
+
+# Build GPU grass GDExtension
+cd gpu_grass
+git clone --depth 1 --branch 4.5 https://github.com/godotengine/godot-cpp.git
+/path/to/Godot_v4.6.1-stable_linux.x86_64 --dump-extension-api --headless
+scons custom_api_file=extension_api.json -j$(nproc)
+cd ..
 
 /path/to/Godot_v4.6.1-stable_linux.x86_64 --path .
 ```
