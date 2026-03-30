@@ -210,8 +210,8 @@ func _ready() -> void:
 		print("main: canopy map: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 		# GPU particle grass — replaces old hexaquo MultiMesh system
 		if _terrain3d:
-			# Particle grass disabled — GPU compute grass replaces it
-			#_setup_grass_particles()
+			# Tier 0 near-field variants + botanical accents (particles)
+			_setup_grass_particles()
 			# Tier 2: static tuft chunks (13-70m, MultiMeshInstance3D)
 			_setup_grass_tuft_chunks()
 			print("main: grass tuft chunks: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
@@ -2081,7 +2081,7 @@ func _setup_grass_particles() -> void:
 	noise_tex.noise = noise
 
 	var all_grass_layers: Array = []
-	all_grass_layers.append_array(GRASS_BIOMES)
+	# GRASS_BIOMES (Tier 1) now handled by GPUGrass GDExtension
 	all_grass_layers.append_array(GRASS_TIER0)
 	all_grass_layers.append_array(GRASS_ACCENTS)
 
