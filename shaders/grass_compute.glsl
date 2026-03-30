@@ -29,10 +29,11 @@ layout(set = 0, binding = 3) uniform sampler2D landuse_tex;
 // Binding 4: Canopy coverage map (R channel = 0-1 canopy density)
 layout(set = 0, binding = 4) uniform sampler2D canopy_tex;
 
-// Push constants (32 bytes)
+// Push constants (48 bytes)
 layout(push_constant, std430) uniform PushConstants {
 	vec4 camera_pos_spacing;   // xyz = camera world position, w = grid spacing
 	vec4 grid_params;          // x = grid_side, y = max_distance, z = max_instances, w = world_size
+	vec4 biome_config;         // x = target_biome (-1 = all, 0-3 = specific)
 } pc;
 
 // --- Deterministic hash functions ---
@@ -108,6 +109,10 @@ void main() {
 		biome_id = 3; // sedge
 	}
 	if (biome_id < 0) return; // Not a grass zone
+
+	// Biome filter: skip positions that don't match target biome
+	int target_biome = int(pc.biome_config.x);
+	if (target_biome >= 0 && biome_id != target_biome) return;
 
 	// Sample canopy coverage
 	float canopy = texture(canopy_tex, uv).r;

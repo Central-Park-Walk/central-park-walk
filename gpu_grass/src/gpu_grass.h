@@ -23,6 +23,7 @@ private:
 	float spacing = 0.5f;
 	float max_distance = 50.0f;
 	float world_size = 5000.0f;
+	int target_biome = -1;  // -1 = all biomes, 0-3 = specific biome
 
 	// Terrain data textures (set from GDScript)
 	Ref<Texture2D> heightmap_texture;
@@ -91,6 +92,9 @@ public:
 
 	void set_canopy_texture(const Ref<Texture2D> &p_tex);
 	Ref<Texture2D> get_canopy_texture() const;
+
+	void set_target_biome(int p_biome);
+	int get_target_biome() const;
 };
 
 } // namespace godot

@@ -21,8 +21,9 @@ using namespace godot;
 struct GrassPushConstants {
 	float camera_x, camera_y, camera_z, spacing;       // 16 bytes
 	float grid_side, max_distance, max_instances, world_size; // 16 bytes
+	float target_biome, pad1, pad2, pad3;               // 16 bytes
 };
-static_assert(sizeof(GrassPushConstants) == 32, "Push constants must be 32 bytes");
+static_assert(sizeof(GrassPushConstants) == 48, "Push constants must be 48 bytes");
 
 void GPUGrass::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_grass_mesh", "mesh"), &GPUGrass::set_grass_mesh);
@@ -69,6 +70,11 @@ void GPUGrass::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_canopy_texture"), &GPUGrass::get_canopy_texture);
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "canopy_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"),
 			"set_canopy_texture", "get_canopy_texture");
+
+	ClassDB::bind_method(D_METHOD("set_target_biome", "biome"), &GPUGrass::set_target_biome);
+	ClassDB::bind_method(D_METHOD("get_target_biome"), &GPUGrass::get_target_biome);
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "target_biome", PROPERTY_HINT_RANGE, "-1,3"),
+			"set_target_biome", "get_target_biome");
 }
 
 GPUGrass::GPUGrass() {}
@@ -314,6 +320,10 @@ void GPUGrass::_dispatch_compute() {
 	pc.max_distance = max_distance;
 	pc.max_instances = (float)max_instances;
 	pc.world_size = world_size;
+	pc.target_biome = (float)target_biome;
+	pc.pad1 = 0.0f;
+	pc.pad2 = 0.0f;
+	pc.pad3 = 0.0f;
 
 	PackedByteArray push_bytes;
 	push_bytes.resize(sizeof(GrassPushConstants));
@@ -394,3 +404,6 @@ Ref<Texture2D> GPUGrass::get_landuse_texture() const { return landuse_texture; }
 
 void GPUGrass::set_canopy_texture(const Ref<Texture2D> &p_tex) { canopy_texture = p_tex; }
 Ref<Texture2D> GPUGrass::get_canopy_texture() const { return canopy_texture; }
+
+void GPUGrass::set_target_biome(int p_biome) { target_biome = p_biome; }
+int GPUGrass::get_target_biome() const { return target_biome; }

@@ -2293,60 +2293,86 @@ func _setup_gpu_grass() -> void:
 		push_warning("GPU grass: no heightmap data — blades will be at Y=0")
 	var hm_tex := ImageTexture.create_from_image(hm_img)
 
-	# Load blade mesh (Lawn biome for initial test)
-	var blade_scene = load("res://models/vegetation/Blade_Lawn.glb")
-	if not blade_scene:
-		push_warning("GPU grass: Blade_Lawn.glb not found")
-		return
-	var blade_inst = blade_scene.instantiate()
-	var blade_mesh: Mesh = null
-	var albedo_tex: Texture2D = null
-	var mesh_node: MeshInstance3D = null
-	if blade_inst is MeshInstance3D:
-		mesh_node = blade_inst
-	else:
-		for child in blade_inst.get_children():
-			if child is MeshInstance3D:
-				mesh_node = child
-				break
-	if mesh_node and mesh_node.mesh:
-		blade_mesh = mesh_node.mesh
-		var mat = blade_mesh.surface_get_material(0)
-		if mat is BaseMaterial3D and mat.albedo_texture:
-			albedo_tex = mat.albedo_texture
-	blade_inst.queue_free()
-	if not blade_mesh:
-		push_warning("GPU grass: no mesh in Blade_Lawn.glb")
-		return
+	# Per-biome GPU grass configuration
+	# Each biome gets its own GPUGrass node with appropriate blade mesh,
+	# spacing, and instance budget proportional to zone coverage area.
+	var biome_configs := [
+		{
+			"name": "Lawn", "biome_id": 0,
+			"mesh": "res://models/vegetation/Blade_Lawn.glb",
+			"spacing": 0.12, "max_instances": 600000, "max_distance": 80.0,
+		},
+		{
+			"name": "Shade", "biome_id": 1,
+			"mesh": "res://models/vegetation/Blade_Shade.glb",
+			"spacing": 0.15, "max_instances": 250000, "max_distance": 80.0,
+		},
+		{
+			"name": "Wild", "biome_id": 2,
+			"mesh": "res://models/vegetation/Blade_Wild.glb",
+			"spacing": 0.14, "max_instances": 120000, "max_distance": 80.0,
+		},
+		{
+			"name": "Sedge", "biome_id": 3,
+			"mesh": "res://models/vegetation/Blade_Sedge.glb",
+			"spacing": 0.16, "max_instances": 80000, "max_distance": 80.0,
+		},
+	]
 
-	# Build render material (same shader as particle grass)
 	var render_shader: Shader = load("res://shaders/grass_particle_render.gdshader")
-	var render_mat := ShaderMaterial.new()
-	render_mat.shader = render_shader
-	if albedo_tex:
-		render_mat.set_shader_parameter("use_texture", true)
-		render_mat.set_shader_parameter("grass_albedo", albedo_tex)
-	else:
-		render_mat.set_shader_parameter("use_texture", false)
 
-	# Create GPUGrass node
-	var grass: Node3D = ClassDB.instantiate("GPUGrass")
-	grass.name = "GPUGrass"
-	grass.set("grass_mesh", blade_mesh)
-	grass.set("grass_material", render_mat)
-	grass.set("max_instances", 1048576)
-	grass.set("spacing", 0.12)
-	grass.set("max_distance", 80.0)
-	grass.set("world_size", _hm_world_size)
-	grass.set("heightmap_texture", hm_tex)
-	if _landuse_texture:
-		grass.set("landuse_texture", _landuse_texture)
-	if _park_loader and _park_loader._canopy_texture:
-		grass.set("canopy_texture", _park_loader._canopy_texture)
+	for cfg in biome_configs:
+		var blade_scene = load(cfg.mesh)
+		if not blade_scene:
+			push_warning("GPU grass: %s not found" % cfg.mesh)
+			continue
+		var blade_inst = blade_scene.instantiate()
+		var blade_mesh: Mesh = null
+		var albedo_tex: Texture2D = null
+		var mesh_node: MeshInstance3D = null
+		if blade_inst is MeshInstance3D:
+			mesh_node = blade_inst
+		else:
+			for child in blade_inst.get_children():
+				if child is MeshInstance3D:
+					mesh_node = child
+					break
+		if mesh_node and mesh_node.mesh:
+			blade_mesh = mesh_node.mesh
+			var mat = blade_mesh.surface_get_material(0)
+			if mat is BaseMaterial3D and mat.albedo_texture:
+				albedo_tex = mat.albedo_texture
+		blade_inst.queue_free()
+		if not blade_mesh:
+			push_warning("GPU grass: no mesh in %s" % cfg.mesh)
+			continue
 
-	add_child(grass)
-	_gpu_grass_node = grass
-	print("GPU grass: GPUGrass node created — 262144 max instances, 0.08m spacing, 30m range")
+		var render_mat := ShaderMaterial.new()
+		render_mat.shader = render_shader
+		if albedo_tex:
+			render_mat.set_shader_parameter("use_texture", true)
+			render_mat.set_shader_parameter("grass_albedo", albedo_tex)
+		else:
+			render_mat.set_shader_parameter("use_texture", false)
+
+		var grass: Node3D = ClassDB.instantiate("GPUGrass")
+		grass.name = "GPUGrass_%s" % cfg.name
+		grass.set("grass_mesh", blade_mesh)
+		grass.set("grass_material", render_mat)
+		grass.set("max_instances", cfg.max_instances)
+		grass.set("spacing", cfg.spacing)
+		grass.set("max_distance", cfg.max_distance)
+		grass.set("target_biome", cfg.biome_id)
+		grass.set("world_size", _hm_world_size)
+		grass.set("heightmap_texture", hm_tex)
+		if _landuse_texture:
+			grass.set("landuse_texture", _landuse_texture)
+		if _park_loader and _park_loader._canopy_texture:
+			grass.set("canopy_texture", _park_loader._canopy_texture)
+
+		add_child(grass)
+		print("GPU grass [%s]: biome=%d spacing=%.2f instances=%d" % [
+			cfg.name, cfg.biome_id, cfg.spacing, cfg.max_instances])
 
 
 # ---------------------------------------------------------------------------
