@@ -172,9 +172,9 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic"
                 leaves.append({
                     'cx': cx, 'cy': cy, 'w': leaf_w, 'h': leaf_h,
                     'rot': rot,
-                    'r': rng.uniform(0.30, 0.48),
-                    'g': rng.uniform(0.48, 0.62),
-                    'b': rng.uniform(0.28, 0.42),
+                    'r': rng.uniform(0.22, 0.38),
+                    'g': rng.uniform(0.55, 0.75),
+                    'b': rng.uniform(0.20, 0.35),
                     'tip_yellow': rng.uniform(1.0, 1.04),
                     'base_dark': rng.uniform(0.94, 1.0),
                     'side_warm': rng.uniform(-0.01, 0.01),
