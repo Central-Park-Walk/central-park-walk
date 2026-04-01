@@ -135,18 +135,40 @@ def bake_wind_vertex_colors(obj):
                 leaf_verts.add(vi)
 
     if leaf_verts and has_mtree:
-        zs = np.array([mesh.vertices[i].co.z for i in range(n_verts)])
-        min_z, max_z = zs.min(), zs.max()
-        z_range = max(max_z - min_z, 0.01)
-        for vi in leaf_verts:
-            h_frac = (zs[vi] - min_z) / z_range
-            hierarchy_depth[vi] = max(hierarchy_depth[vi], h_frac * 0.85 + 0.15)
-            branch_extent[vi] = max(branch_extent[vi], 0.85)
-            if stem_hash[vi] < 0.001:
-                v = mesh.vertices[vi]
-                stem_hash[vi] = math.fmod(
-                    abs(math.sin(v.co.x * 127.1 + v.co.y * 311.7 + v.co.z * 74.7) * 43758.5453),
-                    1.0)
+        # Inherit wind data from nearest bark vertex so leaf cards animate
+        # in sync with their parent branch (prevents clip-through oscillation).
+        bark_idx = np.array([i for i in range(n_verts) if i not in leaf_verts])
+        if len(bark_idx) > 0:
+            # Read vertex positions
+            vert_coords = np.zeros(n_verts * 3)
+            mesh.vertices.foreach_get("co", vert_coords)
+            vert_coords = vert_coords.reshape(n_verts, 3)
+
+            # Subsample bark vertices for speed (every Nth — still close enough
+            # for wind color transfer, since we just need approximate proximity)
+            step = max(1, len(bark_idx) // 3000)
+            ref_idx = bark_idx[::step]
+            ref_coords = vert_coords[ref_idx]
+
+            leaf_list = np.array(sorted(leaf_verts))
+            leaf_coords = vert_coords[leaf_list]
+
+            # Batched nearest-neighbor via numpy broadcasting
+            BATCH = 200
+            nearest_bark = np.empty(len(leaf_list), dtype=int)
+            for b_start in range(0, len(leaf_list), BATCH):
+                b_end = min(b_start + BATCH, len(leaf_list))
+                # (batch, 1, 3) - (1, n_ref, 3) → (batch, n_ref) squared distances
+                diff = leaf_coords[b_start:b_end, np.newaxis, :] - ref_coords[np.newaxis, :, :]
+                dists = np.sum(diff ** 2, axis=2)
+                nearest_bark[b_start:b_end] = np.argmin(dists, axis=1)
+
+            for j, vi in enumerate(leaf_list):
+                bi = ref_idx[nearest_bark[j]]
+                hierarchy_depth[vi] = hierarchy_depth[bi]
+                branch_extent[vi] = branch_extent[bi]
+                if stem_hash[vi] < 0.001:
+                    stem_hash[vi] = stem_hash[bi]
 
     # Create vertex color attribute (COLOR_0 in GLTF)
     attr_name = "Col"
