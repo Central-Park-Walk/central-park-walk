@@ -3,8 +3,12 @@ Generate tree models for Central Park Walk using Mtree (Modular Tree).
 
 Creates scale-aware tree variants with size-appropriate branch density.
 Trees are generated at real-world heights, then normalized to 5m model
-space for the existing Godot pipeline. Leaf cards are placed at branch
-tips using the project's crossed-quad system.
+space for the existing Godot pipeline. Each tier (s/m/l) is generated
+independently for authentic silhouettes — no derive pathway.
+
+Leaf cluster cards are placed via branch-walk algorithm: walking along
+all branches using Mtree's radius/depth/extent/stem_id attributes, with
+cluster counts calibrated against published LAI data per species.
 
 Requires: Blender 4.5+ with Modular Tree addon installed.
 Run:  blender4 --background --python scripts/generate_trees_mtree.py
@@ -41,8 +45,20 @@ from python_classes.mesh_utils import create_mesh_from_cpp
 MODEL_DIR = os.path.join(PROJ, "models", "trees")
 MODEL_H = 5.0       # Normalized model height for Godot pipeline
 N_VARIANTS = 5       # Variants per tier
-RADIAL_PTS = 6       # Radial segments for trunk/branch cylinders (game quality)
+RADIAL_PTS = 8       # Radial segments for trunk/branch cylinders (45° per face)
 SMOOTH_ITER = 1      # Mesh smoothing iterations
+
+# Default foliage parameters for branch-walk placement.
+# Species override individual keys as needed.
+FOLIAGE_DEFAULTS = {
+    "foliage_radius_threshold": 0.14,
+    "foliage_min_depth": 1,
+    "foliage_extent_range": (0.30, 0.80),
+    "placement_interval_factor": 0.04,
+    "sparse_branch_boost": 1.0,
+    "cards_per_cluster": 3,
+    "droop_factor": 0.0,
+}
 
 
 def bake_wind_vertex_colors(obj):
@@ -199,16 +215,16 @@ def clean_nan_vertices(obj):
 SPECIES = {
     # ----- Deciduous broad-crowned -----
     "oak": {
-        "name": "Red Oak (Quercus rubra)",
+        "name": "Pin Oak (Quercus palustris)",
         "crown_shape": "Spherical",
-        "trunk_frac": 0.22,
+        "trunk_frac": 0.18,        # Pin oak: very low first branches (USDA Silvics)
         "trunk_shape": 0.5,       # Radius falloff curve
         "up_attraction": 0.5,
         "trunk_randomness": 0.8,
-        "branch_start": 0.20,
+        "branch_start": 0.16,     # Matches low trunk_frac
         "branch_end": 0.95,
         "branch_density": 1.2,
-        "branch_length_ratio": 0.40,
+        "branch_length_ratio": 0.30,  # Pin oak: compact crown, 0.25-0.35 of height
         "branch_angle": 55,
         "branch_gravity": 8.0,
         "branch_stiffness": 0.2,
@@ -231,12 +247,13 @@ SPECIES = {
         "bark_color": (0.22, 0.18, 0.12),
         "bark_roughness": 0.92,
         "leaf_shape": "lobed",
-        "leaf_n": 14,
+        "leaf_n": 22,
         "leaf_tex_size": 1024,
         "leaf_seed": 881,
-        "leaf_cluster_size_range": (0.25, 0.55),
+        "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.40, 0.70),
-        "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
+        "leaf_density": 0.55,  # Pin oak LAI 3.0-4.5 → moderate, not dense
+        "target_cluster_count_l": 180,
         "base_seed": 100,
         "seed_step": 23,
         "tiers": {
@@ -279,12 +296,13 @@ SPECIES = {
         "bark_color": (0.30, 0.25, 0.18),
         "bark_roughness": 0.88,
         "leaf_shape": "elliptic",
-        "leaf_n": 14,
+        "leaf_n": 22,
         "leaf_tex_size": 1024,
         "leaf_seed": 777,
-        "leaf_cluster_size_range": (0.25, 0.55),
+        "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.40, 0.70),
         "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
+        "target_cluster_count_l": 250,
         "base_seed": 42,
         "seed_step": 17,
         "tiers": {
@@ -327,12 +345,13 @@ SPECIES = {
         "bark_color": (0.28, 0.23, 0.16),
         "bark_roughness": 0.90,
         "leaf_shape": "elliptic",
-        "leaf_n": 14,
+        "leaf_n": 24,
         "leaf_tex_size": 1024,
         "leaf_seed": 888,
-        "leaf_cluster_size_range": (0.30, 0.60),
+        "leaf_cluster_size_range": (0.45, 0.90),
         "leaf_flatten_range": (0.40, 0.70),
         "leaf_density": 0.75,  # canopy density (0-1, from real-world LAI) — reduced for <100MB
+        "target_cluster_count_l": 270,
         "base_seed": 101,
         "seed_step": 23,
         "tiers": {
@@ -352,7 +371,7 @@ SPECIES = {
         "branch_start": 0.22,
         "branch_end": 0.95,
         "branch_density": 1.4,
-        "branch_length_ratio": 0.35,
+        "branch_length_ratio": 0.30,  # Sugar maple: compact dense crown
         "branch_angle": 45,
         "branch_gravity": 6.0,
         "branch_stiffness": 0.25,
@@ -375,12 +394,13 @@ SPECIES = {
         "bark_color": (0.38, 0.32, 0.26),
         "bark_roughness": 0.88,
         "leaf_shape": "palmate",
-        "leaf_n": 14,
+        "leaf_n": 22,
         "leaf_tex_size": 1024,
         "leaf_seed": 552,
-        "leaf_cluster_size_range": (0.22, 0.50),
+        "leaf_cluster_size_range": (0.33, 0.75),
         "leaf_flatten_range": (0.45, 0.60),
         "leaf_density": 0.9,  # canopy density (0-1, from real-world LAI)
+        "target_cluster_count_l": 200,
         "base_seed": 300,
         "seed_step": 29,
         "tiers": {
@@ -394,17 +414,17 @@ SPECIES = {
     "pine": {
         "name": "Austrian Pine (Pinus nigra)",
         "crown_shape": "Conical",
-        "trunk_frac": 0.15,
+        "trunk_frac": 0.25,            # Clear lower trunk (USDA Silvics)
         "trunk_shape": 1.0,           # Straighter conifer trunk
         "up_attraction": 0.7,
         "trunk_randomness": 0.3,
-        "branch_start": 0.12,
+        "branch_start": 0.22,         # Branches begin higher
         "branch_end": 0.95,
         "branch_density": 2.0,         # Dense whorled branches
-        "branch_length_ratio": 0.35,
-        "branch_angle": 60,            # More horizontal
-        "branch_gravity": 10.0,
-        "branch_stiffness": 0.15,
+        "branch_length_ratio": 0.32,   # Moderate branch length
+        "branch_angle": 70,            # Austrian pine: notably horizontal (60-80°)
+        "branch_gravity": 6.0,         # Stiff horizontal, not drooping
+        "branch_stiffness": 0.25,      # Pine branches are rigid
         "branch_up_attraction": 0.0,
         "branch_split_prob": 0.4,
         "branch_split_angle": 35.0,
@@ -424,12 +444,14 @@ SPECIES = {
         "bark_color": (0.28, 0.22, 0.18),
         "bark_roughness": 0.92,
         "leaf_shape": "needle",
-        "leaf_n": 18,
+        "leaf_n": 28,
         "leaf_tex_size": 1024,
         "leaf_seed": 601,
-        "leaf_cluster_size_range": (0.28, 0.55),
+        "leaf_cluster_size_range": (0.42, 0.83),
         "leaf_flatten_range": (0.40, 0.60),
-        "leaf_density": 0.85,  # canopy density (0-1, from real-world LAI)
+        "leaf_density": 0.65,  # Austrian pine LAI ~4.0 → moderate for conifer
+        "target_cluster_count_l": 220,
+        "foliage_extent_range": (0.10, 0.95),
         "base_seed": 400,
         "seed_step": 29,
         "tiers": {
@@ -443,11 +465,11 @@ SPECIES = {
     "cherry": {
         "name": "Yoshino Cherry (Prunus x yedoensis)",
         "crown_shape": "Hemispherical",
-        "trunk_frac": 0.25,
+        "trunk_frac": 0.20,            # Low branching (ISA data)
         "trunk_shape": 0.6,
         "up_attraction": 0.5,
         "trunk_randomness": 0.6,
-        "branch_start": 0.22,
+        "branch_start": 0.18,          # Matches low trunk_frac
         "branch_end": 0.90,
         "branch_density": 1.3,
         "branch_length_ratio": 0.42,   # Graceful spreading
@@ -473,12 +495,13 @@ SPECIES = {
         "bark_color": (0.35, 0.20, 0.14),
         "bark_roughness": 0.72,
         "leaf_shape": "elliptic",
-        "leaf_n": 14,
+        "leaf_n": 20,
         "leaf_tex_size": 1024,
         "leaf_seed": 443,
-        "leaf_cluster_size_range": (0.20, 0.45),
+        "leaf_cluster_size_range": (0.30, 0.68),
         "leaf_flatten_range": (0.50, 0.75),
-        "leaf_density": 0.7,  # canopy density (0-1, from real-world LAI)
+        "leaf_density": 0.55,  # Cherry LAI 3.0-4.0 → moderate, dappled shade
+        "target_cluster_count_l": 120,
         "base_seed": 200,
         "seed_step": 19,
         "tiers": {
@@ -492,16 +515,16 @@ SPECIES = {
     "birch": {
         "name": "Gray Birch (Betula populifolia)",
         "crown_shape": "Spherical",
-        "trunk_frac": 0.30,
+        "trunk_frac": 0.35,            # Longer clear trunk (IFAS ST-099)
         "trunk_shape": 0.7,
         "up_attraction": 0.6,
         "trunk_randomness": 0.7,
-        "branch_start": 0.28,
+        "branch_start": 0.33,          # Matches higher trunk_frac
         "branch_end": 0.95,
         "branch_density": 1.0,
-        "branch_length_ratio": 0.35,
-        "branch_angle": 50,
-        "branch_gravity": 10.0,
+        "branch_length_ratio": 0.25,   # Short branches → narrow crown (spread ratio 0.50)
+        "branch_angle": 40,            # Ascending branches (30-50°), not spreading
+        "branch_gravity": 7.0,         # Ascending, not heavily drooping
         "branch_stiffness": 0.12,
         "branch_up_attraction": 0.3,
         "branch_split_prob": 0.4,
@@ -522,12 +545,13 @@ SPECIES = {
         "bark_color": (0.82, 0.78, 0.72),
         "bark_roughness": 0.65,
         "leaf_shape": "elliptic",
-        "leaf_n": 12,
+        "leaf_n": 18,
         "leaf_tex_size": 1024,
         "leaf_seed": 551,
-        "leaf_cluster_size_range": (0.18, 0.40),
+        "leaf_cluster_size_range": (0.27, 0.60),
         "leaf_flatten_range": (0.40, 0.70),
         "leaf_density": 0.5,  # canopy density (0-1, from real-world LAI)
+        "target_cluster_count_l": 90,
         "base_seed": 300,
         "seed_step": 23,
         "tiers": {
@@ -541,14 +565,14 @@ SPECIES = {
     "honeylocust": {
         "name": "Honeylocust (Gleditsia triacanthos)",
         "crown_shape": "Spherical",
-        "trunk_frac": 0.25,
+        "trunk_frac": 0.30,            # Taller clear bole (Silvics)
         "trunk_shape": 0.6,
         "up_attraction": 0.55,
         "trunk_randomness": 0.6,
-        "branch_start": 0.22,
+        "branch_start": 0.28,          # Matches higher trunk_frac
         "branch_end": 0.95,
         "branch_density": 1.0,
-        "branch_length_ratio": 0.38,
+        "branch_length_ratio": 0.28,   # Shorter branches → open, airy crown
         "branch_angle": 48,
         "branch_gravity": 7.0,
         "branch_stiffness": 0.18,
@@ -571,12 +595,14 @@ SPECIES = {
         "bark_color": (0.35, 0.28, 0.20),
         "bark_roughness": 0.88,
         "leaf_shape": "compound",
-        "leaf_n": 12,
+        "leaf_n": 20,
         "leaf_tex_size": 1024,
         "leaf_seed": 661,
-        "leaf_cluster_size_range": (0.20, 0.42),
+        "leaf_cluster_size_range": (0.30, 0.63),
         "leaf_flatten_range": (0.45, 0.65),
-        "leaf_density": 0.45,  # canopy density (0-1, from real-world LAI)
+        "leaf_density": 0.35,  # Honeylocust LAI 2.0-2.5 → very airy, dappled light
+        "target_cluster_count_l": 100,
+        "placement_interval_factor": 0.050,
         "base_seed": 400,
         "seed_step": 29,
         "tiers": {
@@ -598,7 +624,7 @@ SPECIES = {
         "branch_end": 0.95,
         "branch_density": 1.2,         # Reduced from 1.5 to avoid Mtree mesher crash
         "branch_length_ratio": 0.30,
-        "branch_angle": 35,            # Sharply upward
+        "branch_angle": 22,            # Notorious narrow crotches (ISA data: 15-30°)
         "branch_gravity": 5.0,
         "branch_stiffness": 0.3,
         "branch_up_attraction": 0.55,
@@ -620,12 +646,13 @@ SPECIES = {
         "bark_color": (0.42, 0.36, 0.28),
         "bark_roughness": 0.82,
         "leaf_shape": "ovate",
-        "leaf_n": 14,
+        "leaf_n": 22,
         "leaf_tex_size": 1024,
         "leaf_seed": 557,
-        "leaf_cluster_size_range": (0.22, 0.48),
+        "leaf_cluster_size_range": (0.33, 0.72),
         "leaf_flatten_range": (0.50, 0.70),
         "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
+        "target_cluster_count_l": 160,
         "base_seed": 351,     # Shifted from 350 to avoid crash seed
         "seed_step": 23,
         "tiers": {
@@ -639,16 +666,16 @@ SPECIES = {
     "willow": {
         "name": "Weeping Willow (Salix babylonica)",
         "crown_shape": "Hemispherical",
-        "trunk_frac": 0.28,
+        "trunk_frac": 0.20,            # Short trunk, forks very low (Silvics)
         "trunk_shape": 0.4,
         "up_attraction": 0.7,
         "trunk_randomness": 0.5,
-        "branch_start": 0.25,
+        "branch_start": 0.18,          # Matches low trunk_frac
         "branch_end": 0.90,
         "branch_density": 1.2,
-        "branch_length_ratio": 0.40,
+        "branch_length_ratio": 0.55,   # Very long scaffold branches (spread ratio ~1.0)
         "branch_angle": 50,
-        "branch_gravity": 6.0,
+        "branch_gravity": 10.0,        # Scaffold branches arch and droop significantly
         "branch_stiffness": 0.4,
         "branch_up_attraction": 0.5,
         "branch_split_prob": 0.45,
@@ -670,12 +697,15 @@ SPECIES = {
         "bark_color": (0.40, 0.35, 0.28),
         "bark_roughness": 0.88,
         "leaf_shape": "lanceolate",
-        "leaf_n": 14,
+        "leaf_n": 22,
         "leaf_tex_size": 1024,
         "leaf_seed": 801,
-        "leaf_cluster_size_range": (0.18, 0.40),
+        "leaf_cluster_size_range": (0.27, 0.60),
         "leaf_flatten_range": (0.55, 0.75),
-        "leaf_density": 0.6,  # canopy density (0-1, from real-world LAI)
+        "leaf_density": 0.45,  # Willow LAI 2.5-3.5 → curtain, not solid mass
+        "target_cluster_count_l": 200,
+        "cards_per_cluster": 4,
+        "droop_factor": 0.3,
         "sub_min_height": 14,          # Sub-branches only on mature willows
         "base_seed": 50,
         "seed_step": 41,
@@ -697,7 +727,7 @@ SPECIES = {
         "branch_start": 0.24,
         "branch_end": 0.95,
         "branch_density": 1.4,
-        "branch_length_ratio": 0.35,
+        "branch_length_ratio": 0.30,   # Compact symmetrical crown (Silvics)
         "branch_angle": 45,
         "branch_gravity": 6.0,
         "branch_stiffness": 0.25,
@@ -720,12 +750,14 @@ SPECIES = {
         "bark_color": (0.35, 0.30, 0.24),
         "bark_roughness": 0.85,
         "leaf_shape": "ovate",
-        "leaf_n": 14,
+        "leaf_n": 24,
         "leaf_tex_size": 1024,
         "leaf_seed": 773,
-        "leaf_cluster_size_range": (0.22, 0.48),
+        "leaf_cluster_size_range": (0.33, 0.72),
         "leaf_flatten_range": (0.45, 0.60),
-        "leaf_density": 0.9,  # canopy density (0-1, from real-world LAI)
+        "leaf_density": 0.85,  # Linden LAI 4.5-5.5 → very dense shade tree
+        "target_cluster_count_l": 220,
+        "placement_interval_factor": 0.032,
         "base_seed": 500,
         "seed_step": 37,
         "tiers": {
@@ -747,7 +779,7 @@ SPECIES = {
         "branch_end": 0.95,
         "branch_density": 1.1,
         "branch_length_ratio": 0.38,
-        "branch_angle": 50,
+        "branch_angle": 60,            # London plane: notably horizontal (50-70°, Silvics)
         "branch_gravity": 8.0,
         "branch_stiffness": 0.2,
         "branch_up_attraction": 0.35,
@@ -769,12 +801,13 @@ SPECIES = {
         "bark_color": (0.48, 0.45, 0.36),
         "bark_roughness": 0.75,
         "leaf_shape": "lobed",
-        "leaf_n": 12,
+        "leaf_n": 20,
         "leaf_tex_size": 1024,
         "leaf_seed": 447,
-        "leaf_cluster_size_range": (0.25, 0.55),
+        "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.45, 0.65),
         "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
+        "target_cluster_count_l": 200,
         "base_seed": 200,
         "seed_step": 31,
         "tiers": {
@@ -818,12 +851,15 @@ SPECIES = {
         "bark_color": (0.38, 0.34, 0.28),
         "bark_roughness": 0.90,
         "leaf_shape": "fan",
-        "leaf_n": 12,
+        "leaf_n": 18,
         "leaf_tex_size": 1024,
         "leaf_seed": 557,
-        "leaf_cluster_size_range": (0.18, 0.40),
+        "leaf_cluster_size_range": (0.27, 0.60),
         "leaf_flatten_range": (0.50, 0.70),
         "leaf_density": 0.55,  # canopy density (0-1, from real-world LAI)
+        "target_cluster_count_l": 150,
+        "foliage_min_depth": 0,
+        "sparse_branch_boost": 2.0,
         "sub_min_height": 999,          # Spur shoots crash mesher; use primary-only
         "base_seed": 50,
         "seed_step": 31,
@@ -838,14 +874,14 @@ SPECIES = {
     "magnolia": {
         "name": "Saucer Magnolia",
         "crown_shape": "Hemispherical",
-        "trunk_frac": 0.20,
+        "trunk_frac": 0.15,            # Very low branching, often multi-stemmed
         "trunk_shape": 0.5,
         "up_attraction": 0.5,
         "trunk_randomness": 0.6,
-        "branch_start": 0.18,
+        "branch_start": 0.13,          # Matches very low trunk_frac
         "branch_end": 0.90,
         "branch_density": 1.2,
-        "branch_length_ratio": 0.38,
+        "branch_length_ratio": 0.42,   # Wide spreading relative to modest height
         "branch_angle": 48,
         "branch_gravity": 7.0,
         "branch_stiffness": 0.2,
@@ -868,12 +904,13 @@ SPECIES = {
         "bark_color": (0.42, 0.38, 0.32),
         "bark_roughness": 0.78,
         "leaf_shape": "ovate",
-        "leaf_n": 12,
+        "leaf_n": 18,
         "leaf_tex_size": 1024,
         "leaf_seed": 663,
-        "leaf_cluster_size_range": (0.25, 0.55),
+        "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.45, 0.65),
         "leaf_density": 0.7,  # canopy density (0-1, from real-world LAI)
+        "target_cluster_count_l": 110,
         "base_seed": 500,
         "seed_step": 29,
         "tiers": {
@@ -917,12 +954,13 @@ SPECIES = {
         "bark_color": (0.32, 0.27, 0.20),
         "bark_roughness": 0.85,
         "leaf_shape": "elliptic",
-        "leaf_n": 14,
+        "leaf_n": 22,
         "leaf_tex_size": 1024,
         "leaf_seed": 700,
-        "leaf_cluster_size_range": (0.22, 0.50),
+        "leaf_cluster_size_range": (0.33, 0.75),
         "leaf_flatten_range": (0.45, 0.65),
         "leaf_density": 0.75,  # canopy density (0-1, from real-world LAI)
+        "target_cluster_count_l": 160,
         "base_seed": 700,
         "seed_step": 31,
         "tiers": {
@@ -1028,15 +1066,11 @@ def generate_tree_skeleton(sp, height, seed):
     return mesher.mesh_tree(tree)
 
 
-def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
-    """Extract branch tip positions for leaf card placement.
+def _extract_leaf_positions_tips(mesh_obj, sp, target_height, rng, tier="l"):
+    """Fallback: tip-only leaf placement when branch attributes are unavailable.
 
     Uses the 'radius' vertex attribute: small radius = branch tip.
     Clusters nearby tips and returns placement positions + sizes.
-
-    Tier affects density: _l=many small clusters (close-up detail),
-    _s=fewer larger clusters (reads at distance). leaf_density per species
-    scales cluster count to match real-world canopy density (LAI-derived).
     """
     mesh = mesh_obj.data
     verts = mesh.vertices
@@ -1044,21 +1078,16 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
     if n == 0:
         return []
 
-    # Read radius attribute
     radius_attr = mesh.attributes.get("radius")
     if not radius_attr:
         return []
 
     radii = [radius_attr.data[i].value for i in range(n)]
-
-    # Threshold: branch tips have small radius
-    # Scale threshold with tree size (larger trees have slightly thicker tips)
     tip_threshold = 0.015 + target_height * 0.0005
     tip_positions = []
     for i in range(n):
         if radii[i] < tip_threshold:
             v = verts[i].co
-            # Skip NaN/inf vertices (degenerate geometry)
             if math.isnan(v.x) or math.isnan(v.y) or math.isnan(v.z):
                 continue
             if math.isinf(v.x) or math.isinf(v.y) or math.isinf(v.z):
@@ -1068,14 +1097,9 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
     if not tip_positions:
         return []
 
-    # Per-species canopy density (0-1, from real-world LAI)
     density = sp.get("leaf_density", 0.75)
-
-    # Cell size scaled per tier — _s/_m have fewer branch tips, so tighter
-    # grid ensures tips still generate adequate cluster density.
-    # Without this, _s models get 10-20× fewer clusters than _l.
     tier_cell_factor = {"l": 1.0, "m": 0.75, "s": 0.5}
-    base_cell = target_height * 0.035  # baseline ~0.875m for 25m tree
+    base_cell = target_height * 0.035
     cell_size = base_cell / max(density, 0.3) * tier_cell_factor.get(tier, 1.0)
 
     clusters = {}
@@ -1089,14 +1113,9 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
             clusters[key] = []
         clusters[key].append(pos)
 
-    # Per-tier card size: proportionally consistent with tree data.
-    # Modest increase on smaller tiers — real leaves don't change size,
-    # but LOD models have fewer branch tips so slightly larger cards
-    # keep canopy coverage honest without looking disproportionate.
     tier_size_factor = {"l": 1.0, "m": 1.2, "s": 1.5}
     size_mult = tier_size_factor.get(tier, 1.0)
 
-    # Compute cluster centroids
     placements = []
     lo, hi = sp["leaf_cluster_size_range"]
     flo, fhi = sp["leaf_flatten_range"]
@@ -1111,22 +1130,165 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
     return placements
 
 
-def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l"):
+def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
+    """Branch-walk placement: place leaf clusters along branch surfaces.
+
+    Uses Mtree vertex attributes (radius, hierarchy_depth, branch_extent,
+    stem_id) to place clusters at intervals along all qualifying branches,
+    with density calibrated against published LAI data.
+
+    Falls back to tip-only placement if branch attributes are unavailable.
+    """
+    mesh = mesh_obj.data
+    n = len(mesh.vertices)
+    if n == 0:
+        return []
+
+    # Check for Mtree attributes
+    radius_attr = mesh.attributes.get("radius")
+    hd_attr = mesh.attributes.get("hierarchy_depth")
+    be_attr = mesh.attributes.get("branch_extent")
+    si_attr = mesh.attributes.get("stem_id")
+
+    if not radius_attr:
+        return []
+
+    has_branch_attrs = all([hd_attr, be_attr, si_attr])
+    if not has_branch_attrs:
+        return _extract_leaf_positions_tips(mesh_obj, sp, target_height, rng, tier)
+
+    # Read attributes into numpy arrays
+    radii = np.zeros(n)
+    depths = np.zeros(n)
+    extents = np.zeros(n)
+    stems = np.zeros(n)
+    radius_attr.data.foreach_get("value", radii)
+    hd_attr.data.foreach_get("value", depths)
+    be_attr.data.foreach_get("value", extents)
+    si_attr.data.foreach_get("value", stems)
+
+    # Read vertex positions
+    coords = np.zeros(n * 3)
+    mesh.vertices.foreach_get("co", coords)
+    coords = coords.reshape(n, 3)
+
+    # Filter NaN/inf
+    valid = np.all(np.isfinite(coords), axis=1)
+
+    # Species foliage parameters (with defaults)
+    r_thresh = sp.get("foliage_radius_threshold",
+                      FOLIAGE_DEFAULTS["foliage_radius_threshold"])
+    min_depth = sp.get("foliage_min_depth",
+                       FOLIAGE_DEFAULTS["foliage_min_depth"])
+    ext_start, ext_end = sp.get("foliage_extent_range",
+                                FOLIAGE_DEFAULTS["foliage_extent_range"])
+    interval_frac = sp.get("placement_interval_factor",
+                           FOLIAGE_DEFAULTS["placement_interval_factor"])
+    droop = sp.get("droop_factor", FOLIAGE_DEFAULTS["droop_factor"])
+    boost = sp.get("sparse_branch_boost",
+                   FOLIAGE_DEFAULTS["sparse_branch_boost"])
+
+    # Target cluster count for this tier
+    target_l = sp.get("target_cluster_count_l", 160)
+    tier_fraction = {"l": 1.0, "m": 0.55, "s": 0.25}
+    target_count = int(target_l * tier_fraction.get(tier, 1.0))
+
+    # Eligible vertices: valid, thin branches, sufficient depth
+    eligible = valid & (radii < r_thresh) & (depths >= min_depth)
+    eligible_idx = np.where(eligible)[0]
+
+    if len(eligible_idx) == 0:
+        print(f"    No eligible vertices for branch-walk, falling back to tips")
+        return _extract_leaf_positions_tips(mesh_obj, sp, target_height, rng, tier)
+
+    # Group eligible vertices by stem_id
+    stem_ids_arr = stems[eligible_idx].astype(int)
+    unique_stems = np.unique(stem_ids_arr)
+
+    # Walk each stem and collect candidate positions
+    candidates = []
+    for sid in unique_stems:
+        mask = eligible & (stems.astype(int) == sid)
+        idx = np.where(mask)[0]
+        if len(idx) == 0:
+            continue
+
+        # Sort by extent (base → tip)
+        ext_vals = extents[idx]
+        sort_order = np.argsort(ext_vals)
+        idx = idx[sort_order]
+        ext_sorted = ext_vals[sort_order]
+
+        # Walk at interval_frac spacing in extent-space
+        next_extent = ext_start
+        for ii in range(len(idx)):
+            e = ext_sorted[ii]
+            if e < next_extent:
+                continue
+            next_extent = e + interval_frac
+
+            # Smoothstep probability based on extent position
+            t = (e - ext_start) / max(ext_end - ext_start, 0.001)
+            t = max(0.0, min(1.0, t))
+            prob = t * t * (3.0 - 2.0 * t) * boost
+
+            if rng.random() < prob:
+                # Average nearby vertices at similar extent (centroid of
+                # the tube ring) for a position inside the branch volume
+                nearby = idx[np.abs(ext_sorted - e) < interval_frac * 0.3]
+                if len(nearby) > 0:
+                    centroid = coords[nearby].mean(axis=0)
+                else:
+                    centroid = coords[idx[ii]]
+
+                pos = Vector((centroid[0], centroid[1],
+                              centroid[2] - droop * target_height * 0.05))
+                candidates.append(pos)
+
+    # Trim to target count if over
+    if len(candidates) > int(target_count * 1.2):
+        rng.shuffle(candidates)
+        candidates = candidates[:target_count]
+
+    # Supplement with tip placement if branch-walk found too few
+    if len(candidates) < target_count * 0.3:
+        print(f"    Branch-walk found {len(candidates)} candidates "
+              f"(target {target_count}), supplementing with tip placement")
+        tip_placements = _extract_leaf_positions_tips(
+            mesh_obj, sp, target_height, rng, tier)
+        for pos, _sz, _fl in tip_placements:
+            if len(candidates) >= target_count:
+                break
+            candidates.append(pos)
+
+    # Build placements with size and flatten
+    lo, hi = sp["leaf_cluster_size_range"]
+    flo, fhi = sp["leaf_flatten_range"]
+    tier_size_factor = {"l": 1.0, "m": 1.2, "s": 1.5}
+    size_mult = tier_size_factor.get(tier, 1.0)
+
+    placements = []
+    for pos in candidates:
+        size = rng.uniform(lo, hi) * (target_height / 25.0) * size_mult
+        flatten = rng.uniform(flo, fhi)
+        placements.append((pos, size, flatten))
+
+    return placements
+
+
+def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=3):
     """Create mixed-orientation leaf card clusters at the given positions.
 
-    AAA standard: 3+ vertical crossed-quads + 2 near-horizontal cards per
-    cluster. Vertical cards read from side views, horizontal cards fill the
-    canopy from overhead. Horizontal cards tilted 15-30° from flat so they
-    have depth from any angle (pure horizontal looks like a table).
+    AAA standard: crossed-quads + near-horizontal cards per cluster.
+    Vertical cards read from side views, horizontal cards fill the canopy
+    from overhead. n_cards controls base quad count (species-specific).
 
-    _s/_m tiers get more quads per cluster to compensate for fewer placements.
+    _s/_m tiers get extra quads to compensate for fewer placements.
 
     Returns a list of bmesh objects to be joined into the tree mesh.
     """
-    # More quads per cluster on sparser tiers — fills canopy with
-    # proportionally-sized cards rather than oversized ones
-    tier_quad_count = {"l": 3, "m": 4, "s": 5}
-    n_quads_base = tier_quad_count.get(tier, 3)
+    tier_quad_count = {"l": n_cards, "m": n_cards + 1, "s": n_cards + 2}
+    n_quads_base = tier_quad_count.get(tier, n_cards)
 
     all_objects = []
     for pos, size, flatten in placements:
@@ -1233,12 +1395,14 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg):
     print(f"{'='*60}")
 
     # Create leaf material (shared across variants)
+    fascicle = sp["leaf_shape"] == "needle"
     leaf_mat = create_leaf_material(
         f"{species_name}_leaf",
         leaf_shape=sp["leaf_shape"],
         n_leaves=sp["leaf_n"],
         tex_size=sp["leaf_tex_size"],
         seed=sp["leaf_seed"],
+        fascicle_mode=fascicle,
     )
 
     # Create bark material
@@ -1269,7 +1433,8 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg):
 
         # --- Place leaf cards ---
         placements = extract_leaf_positions(trunk_obj, sp, target_h, rng, tier=tier_name)
-        leaf_objs = create_leaf_cards_at_positions(placements, leaf_mat, rng, tier=tier_name)
+        n_cards = sp.get("cards_per_cluster", FOLIAGE_DEFAULTS["cards_per_cluster"])
+        leaf_objs = create_leaf_cards_at_positions(placements, leaf_mat, rng, tier=tier_name, n_cards=n_cards)
 
         # --- Join all objects ---
         bpy.ops.object.select_all(action='DESELECT')
@@ -1325,6 +1490,9 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg):
 
     sz = os.path.getsize(out_path) / 1024
     print(f"  → {out_path} ({sz:.0f} KB)")
+
+    # --- Render thumbnail ---
+    render_thumbnail(variant_objects, species_name, tier_name)
 
     # --- Cleanup for next tier ---
     bpy.ops.object.select_all(action='SELECT')
@@ -1452,188 +1620,69 @@ def generate_dead_tree():
             bpy.data.materials.remove(block)
 
 
+def render_thumbnail(variant_objects, species_name, tier_name):
+    """Render a thumbnail preview of the first variant after GLB export."""
+    thumb_dir = os.path.join(PROJ, "models", "trees", "thumbnails")
+    os.makedirs(thumb_dir, exist_ok=True)
+    thumb_path = os.path.join(thumb_dir, f"{species_name}_{tier_name}.png")
+
+    # Hide all variants except the first for a clean render
+    for obj in variant_objects[1:]:
+        obj.hide_render = True
+
+    # Camera — frame a MODEL_H (5m) tree from a 3/4 angle
+    cam = bpy.data.cameras.new("ThumbCam")
+    cam_obj = bpy.data.objects.new("ThumbCam", cam)
+    bpy.context.collection.objects.link(cam_obj)
+    bpy.context.scene.camera = cam_obj
+    cam_obj.location = (8, -8, 3.5)
+    cam.lens = 50
+
+    # Point camera at tree center
+    track = cam_obj.constraints.new('TRACK_TO')
+    target = bpy.data.objects.new("ThumbTarget", None)
+    target.location = (0, 0, MODEL_H * 0.45)
+    bpy.context.collection.objects.link(target)
+    track.target = target
+    track.track_axis = 'TRACK_NEGATIVE_Z'
+    track.up_axis = 'UP_Y'
+
+    # Sun light
+    sun = bpy.data.lights.new("ThumbSun", 'SUN')
+    sun_obj = bpy.data.objects.new("ThumbSun", sun)
+    bpy.context.collection.objects.link(sun_obj)
+    sun_obj.rotation_euler = (math.radians(50), 0, math.radians(30))
+    sun.energy = 3.0
+
+    # Render settings
+    scene = bpy.context.scene
+    scene.render.engine = 'BLENDER_EEVEE_NEXT'
+    scene.render.resolution_x = 512
+    scene.render.resolution_y = 512
+    scene.render.film_transparent = True
+    scene.render.filepath = thumb_path
+    scene.render.image_settings.file_format = 'PNG'
+
+    try:
+        bpy.ops.render.render(write_still=True)
+        print(f"  Thumbnail: {thumb_path}")
+    except Exception as e:
+        print(f"  Thumbnail render failed: {e}")
+
+    # Cleanup render objects
+    bpy.data.objects.remove(target, do_unlink=True)
+    bpy.data.objects.remove(cam_obj, do_unlink=True)
+    bpy.data.objects.remove(sun_obj, do_unlink=True)
+    bpy.data.cameras.remove(cam)
+    bpy.data.lights.remove(sun)
+
+    for obj in variant_objects[1:]:
+        obj.hide_render = False
+
+
 # ===========================================================================
 # MAIN
 # ===========================================================================
-
-def derive_lod_from_l(species_name, tier_name):
-    """Derive _m or _s LOD model from the _l GLB by decimating branch geometry.
-
-    Instead of generating an independent tree from Mtree (which produces
-    different branch shapes per tier), this loads the _l model and simplifies
-    it. Result: identical silhouette across all tiers, smooth LOD transitions.
-
-    Branch geometry (bark material) is decimated; leaf cards (leaf material)
-    are preserved intact so canopy coverage stays consistent.
-    """
-    l_path = os.path.join(MODEL_DIR, f"{species_name}_l.glb")
-    out_path = os.path.join(MODEL_DIR, f"{species_name}_{tier_name}.glb")
-
-    if not os.path.exists(l_path):
-        print(f"  WARNING: {l_path} not found — cannot derive {tier_name}")
-        return False
-
-    # Decimation ratios: fraction of original faces to keep
-    decimate_ratio = {"m": 0.35, "s": 0.12}[tier_name]
-    # Leaf thinning: randomly remove some leaf clusters for perf
-    leaf_keep = {"m": 0.75, "s": 0.45}[tier_name]
-
-    print(f"\n{'='*60}")
-    print(f"  {species_name} — derive {tier_name} from _l")
-    print(f"  Decimate ratio: {decimate_ratio}, leaf keep: {leaf_keep}")
-    print(f"{'='*60}")
-
-    # Clear scene
-    bpy.ops.object.select_all(action='SELECT')
-    bpy.ops.object.delete(use_global=False)
-
-    # Import _l GLB
-    bpy.ops.import_scene.gltf(filepath=l_path)
-    imported = [o for o in bpy.context.scene.objects if o.type == 'MESH']
-
-    if not imported:
-        print(f"  WARNING: no meshes found in {l_path}")
-        return False
-
-    rng = random.Random(42)
-    variant_objects = []
-
-    for obj in imported:
-        bpy.context.view_layer.objects.active = obj
-        obj.select_set(True)
-
-        # Identify leaf vs bark faces by material index
-        leaf_mat_idx = -1
-        bark_mat_idx = -1
-        for mi, mat in enumerate(obj.data.materials):
-            if mat and "leaf" in mat.name.lower():
-                leaf_mat_idx = mi
-            elif mat and "bark" in mat.name.lower():
-                bark_mat_idx = mi
-
-        if bark_mat_idx < 0:
-            # Fallback: first material is bark
-            bark_mat_idx = 0
-            if len(obj.data.materials) > 1:
-                leaf_mat_idx = 1
-
-        # Separate leaf geometry to preserve it
-        # Use bmesh to split by material
-        bm = bmesh.new()
-        bm.from_mesh(obj.data)
-        bm.faces.ensure_lookup_table()
-
-        bark_faces = []
-        leaf_faces = []
-        for f in bm.faces:
-            if f.material_index == leaf_mat_idx:
-                leaf_faces.append(f)
-            else:
-                bark_faces.append(f)
-
-        # Thin leaf clusters: leaf cards come in groups of quads
-        # at the same position. Remove random groups by position.
-        if leaf_keep < 1.0 and leaf_faces:
-            # Group leaf faces by center position (rounded to cluster)
-            clusters = {}
-            for f in leaf_faces:
-                cx = round(sum(v.co.x for v in f.verts) / len(f.verts), 1)
-                cy = round(sum(v.co.y for v in f.verts) / len(f.verts), 1)
-                cz = round(sum(v.co.z for v in f.verts) / len(f.verts), 1)
-                key = (cx, cy, cz)
-                if key not in clusters:
-                    clusters[key] = []
-                clusters[key].append(f)
-
-            # Randomly remove clusters
-            remove_faces = []
-            for key, faces in clusters.items():
-                if rng.random() > leaf_keep:
-                    remove_faces.extend(faces)
-
-            if remove_faces:
-                bmesh.ops.delete(bm, geom=remove_faces, context='FACES')
-                bm.faces.ensure_lookup_table()
-
-        bm.to_mesh(obj.data)
-        bm.free()
-        obj.data.update()
-
-        # Separate bark from leaves, decimate ONLY bark, then rejoin.
-        # This preserves leaf cards perfectly while simplifying branches.
-        bpy.ops.object.select_all(action='DESELECT')
-        obj.select_set(True)
-        bpy.context.view_layer.objects.active = obj
-
-        # Use vertex groups to isolate bark for decimation
-        # Create vertex group for bark vertices
-        bark_vg = obj.vertex_groups.new(name="bark")
-        leaf_vg = obj.vertex_groups.new(name="leaves")
-
-        bm2 = bmesh.new()
-        bm2.from_mesh(obj.data)
-        bm2.faces.ensure_lookup_table()
-        bm2.verts.ensure_lookup_table()
-
-        bark_verts = set()
-        leaf_verts = set()
-        for f in bm2.faces:
-            for v in f.verts:
-                if f.material_index == leaf_mat_idx:
-                    leaf_verts.add(v.index)
-                else:
-                    bark_verts.add(v.index)
-        bm2.free()
-
-        # Assign vertex groups
-        if bark_verts:
-            bark_vg.add(list(bark_verts), 1.0, 'REPLACE')
-        if leaf_verts:
-            leaf_vg.add(list(leaf_verts), 1.0, 'REPLACE')
-
-        # Decimate only bark vertices
-        mod = obj.modifiers.new("Decimate", 'DECIMATE')
-        mod.decimate_type = 'COLLAPSE'
-        mod.ratio = decimate_ratio
-        mod.vertex_group = "bark"
-        bpy.ops.object.modifier_apply(modifier=mod.name)
-
-        n_verts = len(obj.data.vertices)
-        n_faces = len(obj.data.polygons)
-        print(f"  {obj.name}: {n_verts:,} verts, {n_faces:,} faces after decimate")
-
-        variant_objects.append(obj)
-        obj.select_set(False)
-
-    # Export
-    bpy.ops.object.select_all(action='DESELECT')
-    for obj in variant_objects:
-        obj.select_set(True)
-    bpy.context.view_layer.objects.active = variant_objects[0]
-
-    bpy.ops.export_scene.gltf(
-        filepath=out_path,
-        use_selection=True,
-        export_format='GLB',
-        export_apply=True,
-        export_vertex_color='ACTIVE',
-    )
-
-    sz = os.path.getsize(out_path) / 1024
-    print(f"  → {out_path} ({sz:.0f} KB)")
-
-    # Cleanup
-    bpy.ops.object.select_all(action='SELECT')
-    bpy.ops.object.delete(use_global=False)
-    for block in bpy.data.meshes:
-        if block.users == 0:
-            bpy.data.meshes.remove(block)
-    for block in bpy.data.materials:
-        if block.users == 0:
-            bpy.data.materials.remove(block)
-
-    return True
-
 
 def main():
     # Parse CLI args (after --)
@@ -1645,14 +1694,11 @@ def main():
 
     filter_species = None
     filter_tier = None
-    derive_mode = False
     for i, arg in enumerate(argv):
         if arg == "--species" and i + 1 < len(argv):
             filter_species = argv[i + 1]
         if arg == "--tier" and i + 1 < len(argv):
             filter_tier = argv[i + 1]
-        if arg == "--derive":
-            derive_mode = True
 
     # Clear scene
     bpy.ops.object.select_all(action='SELECT')
@@ -1664,7 +1710,7 @@ def main():
     total_species = 0
     total_tiers = 0
 
-    # Generate or derive living trees
+    # Generate all tiers independently (no derive — each tier has authentic silhouette)
     for sp_name, sp in SPECIES.items():
         if filter_species and sp_name != filter_species:
             continue
@@ -1672,15 +1718,6 @@ def main():
         for tier_name, tier_cfg in sp["tiers"].items():
             if filter_tier and tier_name != filter_tier:
                 continue
-
-            # For _m and _s: derive from _l if --derive flag set
-            # (or if _l exists and tier is not l)
-            if derive_mode and tier_name in ("m", "s"):
-                if derive_lod_from_l(sp_name, tier_name):
-                    total_tiers += 1
-                    continue
-                else:
-                    print(f"  Falling back to Mtree generation for {sp_name}_{tier_name}")
 
             generate_species_tier(sp_name, tier_name, sp, tier_cfg)
             total_tiers += 1
