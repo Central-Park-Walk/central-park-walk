@@ -643,6 +643,7 @@ SPECIES = {
         "sub_split_angle": 25.0,
         "sub_flatness": 0.2,
         "sub_resolution": 0.5,
+        "sub_min_height": 16,          # Sub-branches crash mesher at _m height (14m)
         "bark_color": (0.42, 0.36, 0.28),
         "bark_roughness": 0.82,
         "leaf_shape": "ovate",
@@ -726,17 +727,17 @@ SPECIES = {
         "trunk_randomness": 0.3,       # Very straight
         "branch_start": 0.24,
         "branch_end": 0.95,
-        "branch_density": 1.4,
+        "branch_density": 1.0,         # Reduced from 1.4 — mesher crashes at _m height
         "branch_length_ratio": 0.30,   # Compact symmetrical crown (Silvics)
         "branch_angle": 45,
         "branch_gravity": 6.0,
         "branch_stiffness": 0.25,
         "branch_up_attraction": 0.4,
-        "branch_split_prob": 0.5,
+        "branch_split_prob": 0.4,      # Reduced from 0.5 — mesher stability
         "branch_split_angle": 32.0,
         "branch_flatness": 0.20,
         "branch_break_chance": 0.01,
-        "branch_resolution": 0.8,
+        "branch_resolution": 0.5,      # Reduced from 0.8 — mesher stability
         "sub_density": 1.6,
         "sub_length_ratio": 0.13,
         "sub_angle": 45,
@@ -746,6 +747,8 @@ SPECIES = {
         "sub_split_prob": 0.3,
         "sub_split_angle": 28.0,
         "sub_flatness": 0.25,
+        "sub_min_height": 20,          # Sub-branches crash mesher at _m height (18m)
+        "radial_pts": 6,               # Fewer radial segments to avoid mesher crash
         "sub_resolution": 0.5,
         "bark_color": (0.35, 0.30, 0.24),
         "bark_roughness": 0.85,
@@ -1061,7 +1064,7 @@ def generate_tree_skeleton(sp, height, seed):
     tree.execute_functions()
 
     mesher = m_tree.ManifoldMesher()
-    mesher.radial_n_points = RADIAL_PTS
+    mesher.radial_n_points = sp.get("radial_pts", RADIAL_PTS)
     mesher.smooth_iterations = SMOOTH_ITER
     return mesher.mesh_tree(tree)
 
@@ -1414,8 +1417,13 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg):
 
     variant_objects = []
 
+    # Per-tier seed offset avoids Mtree mesher crash seeds that only
+    # trigger at specific height+seed combinations (since all tiers now
+    # generate independently instead of deriving from _l).
+    tier_seed_offset = {"s": 0, "m": 37, "l": 7}
+
     for vi in range(N_VARIANTS):
-        seed = sp["base_seed"] + vi * sp["seed_step"]
+        seed = sp["base_seed"] + vi * sp["seed_step"] + tier_seed_offset.get(tier_name, 0)
         rng = random.Random(seed)
         t0 = time.time()
 
@@ -1654,9 +1662,9 @@ def render_thumbnail(variant_objects, species_name, tier_name):
     sun_obj.rotation_euler = (math.radians(50), 0, math.radians(30))
     sun.energy = 3.0
 
-    # Render settings
+    # Render settings — use Workbench to avoid EEVEE GPU hang in --background
     scene = bpy.context.scene
-    scene.render.engine = 'BLENDER_EEVEE_NEXT'
+    scene.render.engine = 'BLENDER_WORKBENCH'
     scene.render.resolution_x = 512
     scene.render.resolution_y = 512
     scene.render.film_transparent = True
@@ -1738,3 +1746,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # Force exit — Blender 4.5 --background can hang during cleanup.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    import os as _os
+    _os._exit(0)
