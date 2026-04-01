@@ -45,7 +45,7 @@ from python_classes.mesh_utils import create_mesh_from_cpp
 MODEL_DIR = os.path.join(PROJ, "models", "trees")
 MODEL_H = 5.0       # Normalized model height for Godot pipeline
 N_VARIANTS = 5       # Variants per tier
-RADIAL_PTS = 16      # Radial segments for trunk/branch cylinders (22.5° per face)
+RADIAL_PTS = 24      # Radial segments for trunk/branch cylinders (15° per face)
 SMOOTH_ITER = 2      # Mesh smoothing iterations
 
 # Default foliage parameters for branch-walk placement.
@@ -233,7 +233,7 @@ SPECIES = {
         "branch_split_angle": 40.0,
         "branch_flatness": 0.30,
         "branch_break_chance": 0.02,
-        "branch_resolution": 1.0,
+        "branch_resolution": 1.4,
         "sub_density": 1.6,            # Red oak: dense rounded crown (was 1.5)
         "sub_length_ratio": 0.15,
         "sub_angle": 50,
@@ -243,7 +243,7 @@ SPECIES = {
         "sub_split_prob": 0.3,
         "sub_split_angle": 35.0,
         "sub_flatness": 0.4,
-        "sub_resolution": 0.7,
+        "sub_resolution": 1.0,
         "bark_color": (0.22, 0.18, 0.12),
         "bark_roughness": 0.92,
         "leaf_shape": "lobed",
@@ -282,8 +282,8 @@ SPECIES = {
         "branch_split_angle": 35.0,
         "branch_flatness": 0.20,
         "branch_break_chance": 0.02,
-        "branch_resolution": 0.5,      # Reduced from 0.8 — fewer ring segments per branch
-        "sub_density": 1.0,            # Vase elm: famously dense canopy (1.8→1.5→1.0, controls bark vert count)
+        "branch_resolution": 1.4,
+        "sub_density": 0.7,            # Reduced: full resolution at sub_density 1.0 → 111MB
         "sub_length_ratio": 0.15,
         "sub_angle": 55,
         "sub_gravity": 15.0,           # Heavy droop on sub-branches
@@ -292,7 +292,7 @@ SPECIES = {
         "sub_split_prob": 0.3,
         "sub_split_angle": 30.0,
         "sub_flatness": 0.25,
-        "sub_resolution": 0.25,        # Reduced from 0.4 — sub-branch tubes need fewer segments
+        "sub_resolution": 1.0,
         "bark_color": (0.30, 0.25, 0.18),
         "bark_roughness": 0.88,
         "leaf_shape": "elliptic",
@@ -331,7 +331,7 @@ SPECIES = {
         "branch_split_angle": 50.0,    # Wide secondary splits (was 45)
         "branch_flatness": 0.50,       # Strong lateral spread (was 0.35)
         "branch_break_chance": 0.01,
-        "branch_resolution": 0.4,      # Reduced from 0.7 — fewer ring segments, invisible at walk distance
+        "branch_resolution": 1.4,
         "sub_density": 0.7,            # Dense canopy curtain (1.5→1.2→1.0→0.7, controls bark vert count)
         "sub_length_ratio": 0.16,
         "sub_angle": 55,               # Sub-branches spread wide too
@@ -341,7 +341,7 @@ SPECIES = {
         "sub_split_prob": 0.30,
         "sub_split_angle": 35.0,
         "sub_flatness": 0.35,
-        "sub_resolution": 0.2,         # Reduced from 0.4 — sub-branch tubes need fewer segments
+        "sub_resolution": 1.0,
         "bark_color": (0.28, 0.23, 0.16),
         "bark_roughness": 0.90,
         "leaf_shape": "elliptic",
@@ -380,7 +380,7 @@ SPECIES = {
         "branch_split_angle": 35.0,
         "branch_flatness": 0.20,       # More oval than flat
         "branch_break_chance": 0.02,
-        "branch_resolution": 1.0,
+        "branch_resolution": 1.4,
         "sub_density": 1.6,
         "sub_length_ratio": 0.13,
         "sub_angle": 45,
@@ -390,7 +390,7 @@ SPECIES = {
         "sub_split_prob": 0.3,
         "sub_split_angle": 30.0,
         "sub_flatness": 0.3,
-        "sub_resolution": 0.7,
+        "sub_resolution": 1.0,
         "bark_color": (0.38, 0.32, 0.26),
         "bark_roughness": 0.88,
         "leaf_shape": "palmate",
@@ -430,7 +430,7 @@ SPECIES = {
         "branch_split_angle": 35.0,
         "branch_flatness": 0.5,
         "branch_break_chance": 0.01,
-        "branch_resolution": 1.0,
+        "branch_resolution": 1.4,
         "sub_density": 2.5,
         "sub_length_ratio": 0.12,
         "sub_angle": 45,
@@ -440,7 +440,7 @@ SPECIES = {
         "sub_split_prob": 0.3,
         "sub_split_angle": 35.0,
         "sub_flatness": 1.0,          # Flat needle tiers
-        "sub_resolution": 0.6,
+        "sub_resolution": 1.0,
         "bark_color": (0.28, 0.22, 0.18),
         "bark_roughness": 0.92,
         "leaf_shape": "needle",
@@ -456,11 +456,7 @@ SPECIES = {
         "seed_step": 29,
         "tiers": {
             "s": {"target_h": 8, "height_range": [6, 10]},
-            "m": {"target_h": 14, "height_range": [10, 18],
-                  "skeleton_overrides": {
-                      "branch_resolution": 0.7,
-                      "sub_resolution": 0.4,
-                  }},
+            "m": {"target_h": 14, "height_range": [10, 18]},
             "l": {"target_h": 20, "height_range": [18, 25]},
         },
     },
@@ -485,7 +481,7 @@ SPECIES = {
         "branch_split_angle": 35.0,
         "branch_flatness": 0.35,
         "branch_break_chance": 0.02,
-        "branch_resolution": 1.0,
+        "branch_resolution": 1.4,
         "sub_density": 1.5,
         "sub_length_ratio": 0.14,
         "sub_angle": 50,
@@ -495,7 +491,7 @@ SPECIES = {
         "sub_split_prob": 0.25,
         "sub_split_angle": 30.0,
         "sub_flatness": 0.35,
-        "sub_resolution": 0.7,
+        "sub_resolution": 1.0,
         "bark_color": (0.35, 0.20, 0.14),
         "bark_roughness": 0.72,
         "leaf_shape": "elliptic",
@@ -535,7 +531,7 @@ SPECIES = {
         "branch_split_angle": 30.0,
         "branch_flatness": 0.25,
         "branch_break_chance": 0.03,
-        "branch_resolution": 0.9,
+        "branch_resolution": 1.2,
         "sub_density": 1.2,
         "sub_length_ratio": 0.12,
         "sub_angle": 55,
@@ -545,7 +541,7 @@ SPECIES = {
         "sub_split_prob": 0.2,
         "sub_split_angle": 25.0,
         "sub_flatness": 0.3,
-        "sub_resolution": 0.6,
+        "sub_resolution": 1.0,
         "bark_color": (0.82, 0.78, 0.72),
         "bark_roughness": 0.65,
         "leaf_shape": "elliptic",
@@ -587,7 +583,7 @@ SPECIES = {
         "branch_split_angle": 38.0,
         "branch_flatness": 0.25,
         "branch_break_chance": 0.02,
-        "branch_resolution": 0.9,
+        "branch_resolution": 1.2,
         "sub_density": 1.2,
         "sub_length_ratio": 0.12,
         "sub_angle": 48,
@@ -597,7 +593,7 @@ SPECIES = {
         "sub_split_prob": 0.25,
         "sub_split_angle": 30.0,
         "sub_flatness": 0.3,
-        "sub_resolution": 0.6,
+        "sub_resolution": 1.0,
         "bark_color": (0.35, 0.28, 0.20),
         "bark_roughness": 0.88,
         "leaf_shape": "compound",
@@ -638,7 +634,7 @@ SPECIES = {
         "branch_split_angle": 30.0,
         "branch_flatness": 0.15,
         "branch_break_chance": 0.01,
-        "branch_resolution": 1.0,
+        "branch_resolution": 1.4,
         "sub_density": 1.2,            # Reduced from 1.8 to avoid Mtree mesher crash
         "sub_length_ratio": 0.12,
         "sub_angle": 40,
@@ -648,7 +644,7 @@ SPECIES = {
         "sub_split_prob": 0.3,
         "sub_split_angle": 25.0,
         "sub_flatness": 0.2,
-        "sub_resolution": 0.7,
+        "sub_resolution": 1.0,
         "sub_min_height": 16,          # Sub-branches crash mesher at _m height (14m)
         "bark_color": (0.42, 0.36, 0.28),
         "bark_roughness": 0.82,
@@ -689,7 +685,7 @@ SPECIES = {
         "branch_split_angle": 35.0,
         "branch_flatness": 0.20,
         "branch_break_chance": 0.01,
-        "branch_resolution": 1.0,
+        "branch_resolution": 1.4,
         # Willow sub-branches: long, drooping curtains
         "sub_density": 1.2,
         "sub_length_ratio": 0.30,      # Long drooping strands
@@ -700,7 +696,7 @@ SPECIES = {
         "sub_split_prob": 0.05,
         "sub_split_angle": 20.0,
         "sub_flatness": 0.0,
-        "sub_resolution": 0.6,
+        "sub_resolution": 1.0,
         "bark_color": (0.40, 0.35, 0.28),
         "bark_roughness": 0.88,
         "leaf_shape": "lanceolate",
@@ -733,17 +729,17 @@ SPECIES = {
         "trunk_randomness": 0.3,       # Very straight
         "branch_start": 0.24,
         "branch_end": 0.95,
-        "branch_density": 1.2,
+        "branch_density": 1.4,
         "branch_length_ratio": 0.30,   # Compact symmetrical crown (Silvics)
         "branch_angle": 45,
         "branch_gravity": 6.0,
         "branch_stiffness": 0.25,
         "branch_up_attraction": 0.4,
-        "branch_split_prob": 0.45,
+        "branch_split_prob": 0.5,
         "branch_split_angle": 32.0,
         "branch_flatness": 0.20,
         "branch_break_chance": 0.01,
-        "branch_resolution": 0.65,
+        "branch_resolution": 1.4,
         "sub_density": 1.6,
         "sub_length_ratio": 0.13,
         "sub_angle": 45,
@@ -753,7 +749,7 @@ SPECIES = {
         "sub_split_prob": 0.3,
         "sub_split_angle": 28.0,
         "sub_flatness": 0.25,
-        "sub_resolution": 0.7,
+        "sub_resolution": 1.0,
         "bark_color": (0.35, 0.30, 0.24),
         "bark_roughness": 0.85,
         "leaf_shape": "ovate",
@@ -769,12 +765,7 @@ SPECIES = {
         "seed_step": 37,
         "tiers": {
             "s": {"target_h": 10, "height_range": [8, 14]},
-            "m": {"target_h": 18, "height_range": [14, 22],
-                  "skeleton_overrides": {
-                      "branch_density": 1.0,
-                      "branch_split_prob": 0.4,
-                      "branch_resolution": 0.5,
-                  }},
+            "m": {"target_h": 18, "height_range": [14, 22]},
             "l": {"target_h": 25, "height_range": [22, 28]},
         },
     },
@@ -799,8 +790,8 @@ SPECIES = {
         "branch_split_angle": 40.0,
         "branch_flatness": 0.25,
         "branch_break_chance": 0.02,
-        "branch_resolution": 1.0,
-        "sub_density": 1.6,            # London plane: massive broad canopy (was 1.4)
+        "branch_resolution": 1.4,
+        "sub_density": 1.1,            # Reduced: full resolution at 1.6 → 102MB
         "sub_length_ratio": 0.14,
         "sub_angle": 50,
         "sub_gravity": 10.0,
@@ -809,7 +800,7 @@ SPECIES = {
         "sub_split_prob": 0.3,
         "sub_split_angle": 35.0,
         "sub_flatness": 0.3,
-        "sub_resolution": 0.7,
+        "sub_resolution": 1.0,
         "bark_color": (0.48, 0.45, 0.36),
         "bark_roughness": 0.75,
         "leaf_shape": "lobed",
@@ -849,7 +840,7 @@ SPECIES = {
         "branch_split_angle": 30.0,
         "branch_flatness": 0.15,
         "branch_break_chance": 0.02,
-        "branch_resolution": 0.5,      # Reduced from 0.7
+        "branch_resolution": 1.4,
         "sub_density": 1.3,
         "sub_length_ratio": 0.08,      # Short spur shoots
         "sub_angle": 55,
@@ -859,7 +850,7 @@ SPECIES = {
         "sub_split_prob": 0.15,
         "sub_split_angle": 25.0,
         "sub_flatness": 0.2,
-        "sub_resolution": 0.6,
+        "sub_resolution": 1.0,
         "bark_color": (0.38, 0.34, 0.28),
         "bark_roughness": 0.90,
         "leaf_shape": "fan",
@@ -904,7 +895,7 @@ SPECIES = {
         "branch_split_angle": 35.0,
         "branch_flatness": 0.25,
         "branch_break_chance": 0.02,
-        "branch_resolution": 0.9,
+        "branch_resolution": 1.2,
         "sub_density": 1.3,
         "sub_length_ratio": 0.13,
         "sub_angle": 48,
@@ -914,7 +905,7 @@ SPECIES = {
         "sub_split_prob": 0.25,
         "sub_split_angle": 30.0,
         "sub_flatness": 0.3,
-        "sub_resolution": 0.6,
+        "sub_resolution": 1.0,
         "bark_color": (0.42, 0.38, 0.32),
         "bark_roughness": 0.78,
         "leaf_shape": "ovate",
@@ -954,7 +945,7 @@ SPECIES = {
         "branch_split_angle": 35.0,
         "branch_flatness": 0.25,
         "branch_break_chance": 0.02,
-        "branch_resolution": 1.0,
+        "branch_resolution": 1.4,
         "sub_density": 1.4,
         "sub_length_ratio": 0.14,
         "sub_angle": 48,
@@ -964,7 +955,7 @@ SPECIES = {
         "sub_split_prob": 0.3,
         "sub_split_angle": 32.0,
         "sub_flatness": 0.3,
-        "sub_resolution": 0.7,
+        "sub_resolution": 1.0,
         "bark_color": (0.32, 0.27, 0.20),
         "bark_roughness": 0.85,
         "leaf_shape": "elliptic",
@@ -1002,11 +993,40 @@ CROWN_MAP = {
 # TREE GENERATION
 # ===========================================================================
 
-def generate_tree_skeleton(sp, height, seed):
-    """Generate trunk + branches mesh using Mtree. Returns C++ mesh."""
+def _test_seed_safe(sp, height, seed):
+    """Fork a child process to test if this seed crashes Mtree's mesher.
+
+    The Mtree ManifoldMesher segfaults at certain seed+height+parameter
+    combinations. Since SIGSEGV kills the process, we fork a throwaway
+    child to probe the seed. If the child exits cleanly, the seed is safe.
+    If it crashes, the parent survives and can try another seed.
+
+    Returns True if seed is safe, False if it crashes.
+    """
+    pid = os.fork()
+    if pid == 0:
+        # Child process — try generating the skeleton
+        try:
+            tree = _build_mtree(sp, height, seed)
+            mesher = m_tree.ManifoldMesher()
+            mesher.radial_n_points = sp.get("radial_pts", RADIAL_PTS)
+            mesher.smooth_iterations = SMOOTH_ITER
+            mesher.mesh_tree(tree)
+            os._exit(0)
+        except Exception:
+            os._exit(1)
+    else:
+        # Parent — wait for child
+        _, status = os.waitpid(pid, 0)
+        if os.WIFSIGNALED(status):
+            return False  # child killed by signal (segfault)
+        return os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0
+
+
+def _build_mtree(sp, height, seed):
+    """Build the Mtree tree object (no meshing). Used by both test and generate."""
     tree = m_tree.Tree()
 
-    # --- Trunk ---
     trunk = m_tree.TrunkFunction()
     trunk.seed = seed
     trunk.length = height
@@ -1017,7 +1037,6 @@ def generate_tree_skeleton(sp, height, seed):
     trunk.resolution = sp["branch_resolution"]
     trunk.randomness = sp["trunk_randomness"]
 
-    # --- Primary branches ---
     br = m_tree.BranchFunction()
     br.seed = seed + 1
     br.distribution.start = sp["branch_start"]
@@ -1041,11 +1060,9 @@ def generate_tree_skeleton(sp, height, seed):
     br.start_angle = m_tree.PropertyWrapper(
         m_tree.ConstantProperty(float(sp["branch_angle"]))
     )
-    # Crown shape
     crown_name = CROWN_MAP.get(sp["crown_shape"], "Spherical")
     br.crown.shape = getattr(m_tree.CrownShape, crown_name)
 
-    # --- Sub-branches ---
     sub_min_h = sp.get("sub_min_height", 0)
     if sp["sub_density"] > 0 and height >= sub_min_h:
         sub = m_tree.BranchFunction()
@@ -1073,7 +1090,12 @@ def generate_tree_skeleton(sp, height, seed):
     trunk.add_child(br)
     tree.set_trunk_function(trunk)
     tree.execute_functions()
+    return tree
 
+
+def generate_tree_skeleton(sp, height, seed):
+    """Generate trunk + branches mesh using Mtree. Returns C++ mesh."""
+    tree = _build_mtree(sp, height, seed)
     mesher = m_tree.ManifoldMesher()
     mesher.radial_n_points = sp.get("radial_pts", RADIAL_PTS)
     mesher.smooth_iterations = SMOOTH_ITER
@@ -1462,17 +1484,28 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg):
     tier_seed_offset = {"s": 0, "m": 37, "l": 7}
 
     for vi in range(N_VARIANTS):
-        seed = sp["base_seed"] + vi * sp["seed_step"] + tier_seed_offset.get(tier_name, 0)
-        rng = random.Random(seed)
-        t0 = time.time()
+        base_seed = sp["base_seed"] + vi * sp["seed_step"] + tier_seed_offset.get(tier_name, 0)
 
-        # --- Generate skeleton ---
-        # Tier-specific overrides (e.g., reduced branch params to avoid
-        # Mtree mesher crashes at specific heights)
+        # Tier-specific skeleton overrides
         sp_tier = sp
         tier_overrides = tier_cfg.get("skeleton_overrides")
         if tier_overrides:
             sp_tier = {**sp, **tier_overrides}
+
+        # --- Find a safe seed via fork-test, then generate ---
+        seed = base_seed
+        MAX_SEED_RETRIES = 8
+        for attempt in range(MAX_SEED_RETRIES):
+            if _test_seed_safe(sp_tier, target_h, seed):
+                break
+            print(f"  v{vi} seed={seed} crashed Mtree mesher, retrying with seed={seed + 1}")
+            seed += 1
+        else:
+            print(f"  WARNING: v{vi} — all {MAX_SEED_RETRIES} seeds crashed, skipping variant")
+            continue
+
+        rng = random.Random(seed)
+        t0 = time.time()
         cpp_mesh = generate_tree_skeleton(sp_tier, target_h, seed)
 
         mesh = bpy.data.meshes.new(f"{species_name}_{tier_name}_v{vi}")
