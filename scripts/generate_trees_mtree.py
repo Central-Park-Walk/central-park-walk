@@ -45,7 +45,7 @@ from python_classes.mesh_utils import create_mesh_from_cpp
 MODEL_DIR = os.path.join(PROJ, "models", "trees")
 MODEL_H = 5.0       # Normalized model height for Godot pipeline
 N_VARIANTS = 5       # Variants per tier
-RADIAL_PTS = 8       # Radial segments for trunk/branch cylinders (45° per face)
+RADIAL_PTS = 12      # Radial segments for trunk/branch cylinders (30° per face)
 SMOOTH_ITER = 1      # Mesh smoothing iterations
 
 # Default foliage parameters for branch-walk placement.
@@ -53,10 +53,10 @@ SMOOTH_ITER = 1      # Mesh smoothing iterations
 FOLIAGE_DEFAULTS = {
     "foliage_radius_threshold": 0.14,
     "foliage_min_depth": 1,
-    "foliage_extent_range": (0.30, 0.80),
+    "foliage_extent_range": (0.20, 0.95),
     "placement_interval_factor": 0.04,
     "sparse_branch_boost": 1.0,
-    "cards_per_cluster": 3,
+    "cards_per_cluster": 6,
     "droop_factor": 0.0,
 }
 
@@ -707,7 +707,7 @@ SPECIES = {
         "leaf_flatten_range": (0.55, 0.75),
         "leaf_density": 0.45,  # Willow LAI 2.5-3.5 → curtain, not solid mass
         "target_cluster_count_l": 480,
-        "cards_per_cluster": 4,
+        "cards_per_cluster": 8,
         "droop_factor": 0.3,
         "sub_min_height": 14,          # Sub-branches only on mature willows
         "base_seed": 50,
@@ -1354,10 +1354,10 @@ def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=
             for loop, uv in zip(face.loops, uvs):
                 loop[uv_layer].uv = uv
 
-        # --- 2 near-horizontal canopy cards ---
+        # --- 3 near-horizontal canopy cards ---
         # These fill the canopy from overhead. Tilted 15-30° from horizontal
         # so they have depth from the side and don't look like flat tables.
-        n_horiz = 2
+        n_horiz = 3
         horiz_size = card_w * rng.uniform(0.9, 1.2)  # slightly larger for canopy fill
         for h in range(n_horiz):
             h_angle = rng.uniform(0, math.pi * 2)  # random yaw
