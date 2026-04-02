@@ -137,34 +137,45 @@ def bake_wind_vertex_colors(obj):
     if leaf_verts and has_mtree:
         # Inherit wind data from nearest bark vertex so leaf cards animate
         # in sync with their parent branch (prevents clip-through oscillation).
-        bark_idx = np.array([i for i in range(n_verts) if i not in leaf_verts])
-        if len(bark_idx) > 0:
-            # Read vertex positions
+        # Grid hash: O(n) — each leaf gets wind data from a nearby bark vertex.
+        bark_idx_arr = np.array([i for i in range(n_verts) if i not in leaf_verts])
+        if len(bark_idx_arr) > 0:
             vert_coords = np.zeros(n_verts * 3)
             mesh.vertices.foreach_get("co", vert_coords)
             vert_coords = vert_coords.reshape(n_verts, 3)
 
-            # Subsample bark vertices for speed (every Nth — still close enough
-            # for wind color transfer, since we just need approximate proximity)
-            step = max(1, len(bark_idx) // 3000)
-            ref_idx = bark_idx[::step]
-            ref_coords = vert_coords[ref_idx]
+            # Build grid: one representative bark vertex per cell (first wins)
+            cell_size = 0.3
+            grid = {}  # (cx,cy,cz) → bark vertex index
+            for bi in bark_idx_arr:
+                key = (int(vert_coords[bi, 0] / cell_size),
+                       int(vert_coords[bi, 1] / cell_size),
+                       int(vert_coords[bi, 2] / cell_size))
+                if key not in grid:
+                    grid[key] = bi
 
-            leaf_list = np.array(sorted(leaf_verts))
-            leaf_coords = vert_coords[leaf_list]
-
-            # Batched nearest-neighbor via numpy broadcasting
-            BATCH = 200
-            nearest_bark = np.empty(len(leaf_list), dtype=int)
-            for b_start in range(0, len(leaf_list), BATCH):
-                b_end = min(b_start + BATCH, len(leaf_list))
-                # (batch, 1, 3) - (1, n_ref, 3) → (batch, n_ref) squared distances
-                diff = leaf_coords[b_start:b_end, np.newaxis, :] - ref_coords[np.newaxis, :, :]
-                dists = np.sum(diff ** 2, axis=2)
-                nearest_bark[b_start:b_end] = np.argmin(dists, axis=1)
-
-            for j, vi in enumerate(leaf_list):
-                bi = ref_idx[nearest_bark[j]]
+            # Each leaf vertex gets wind data from the bark vertex in its cell
+            # (or nearest occupied cell via expanding search)
+            fallback_bi = bark_idx_arr[0]
+            for vi in leaf_verts:
+                key = (int(vert_coords[vi, 0] / cell_size),
+                       int(vert_coords[vi, 1] / cell_size),
+                       int(vert_coords[vi, 2] / cell_size))
+                bi = grid.get(key)
+                if bi is None:
+                    # Search 3x3x3 neighborhood
+                    for dx in range(-1, 2):
+                        for dy in range(-1, 2):
+                            for dz in range(-1, 2):
+                                bi = grid.get((key[0]+dx, key[1]+dy, key[2]+dz))
+                                if bi is not None:
+                                    break
+                            if bi is not None:
+                                break
+                        if bi is not None:
+                            break
+                if bi is None:
+                    bi = fallback_bi
                 hierarchy_depth[vi] = hierarchy_depth[bi]
                 branch_extent[vi] = branch_extent[bi]
                 if stem_hash[vi] < 0.001:
@@ -1460,7 +1471,7 @@ def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=
     return all_objects
 
 
-def generate_species_tier(species_name, tier_name, sp, tier_cfg):
+def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=False):
     """Generate all variants for one species at one size tier.
 
     Creates a GLB with N_VARIANTS variants, each containing trunk+branches
@@ -1516,15 +1527,16 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg):
 
         # --- Find a safe seed via fork-test, then generate ---
         seed = base_seed
-        MAX_SEED_RETRIES = 8
-        for attempt in range(MAX_SEED_RETRIES):
-            if _test_seed_safe(sp_tier, target_h, seed):
-                break
-            print(f"  v{vi} seed={seed} crashed Mtree mesher, retrying with seed={seed + 1}")
-            seed += 1
-        else:
-            print(f"  WARNING: v{vi} — all {MAX_SEED_RETRIES} seeds crashed, skipping variant")
-            continue
+        if not skip_fork_test:
+            MAX_SEED_RETRIES = 8
+            for attempt in range(MAX_SEED_RETRIES):
+                if _test_seed_safe(sp_tier, target_h, seed):
+                    break
+                print(f"  v{vi} seed={seed} crashed Mtree mesher, retrying with seed={seed + 1}")
+                seed += 1
+            else:
+                print(f"  WARNING: v{vi} — all {MAX_SEED_RETRIES} seeds crashed, skipping variant")
+                continue
 
         rng = random.Random(seed)
         t0 = time.time()
@@ -1814,9 +1826,12 @@ def main():
 
     filter_species = None
     filter_tier = None
+    skip_fork_test = False
     for i, arg in enumerate(argv):
         if arg == "--species" and i + 1 < len(argv):
             filter_species = argv[i + 1]
+        if arg == "--no-fork-test":
+            skip_fork_test = True
         if arg == "--tier" and i + 1 < len(argv):
             filter_tier = argv[i + 1]
 
@@ -1839,7 +1854,8 @@ def main():
             if filter_tier and tier_name != filter_tier:
                 continue
 
-            generate_species_tier(sp_name, tier_name, sp, tier_cfg)
+            generate_species_tier(sp_name, tier_name, sp, tier_cfg,
+                                  skip_fork_test=skip_fork_test)
             total_tiers += 1
 
         total_species += 1
