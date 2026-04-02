@@ -359,7 +359,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.40, 0.70),
         "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
-        "target_cluster_count_l": 800,
+        "target_cluster_count_l": 320,
         "base_seed": 42,
         "seed_step": 17,
         "tiers": {
@@ -867,7 +867,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.45, 0.65),
         "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
-        "target_cluster_count_l": 750,
+        "target_cluster_count_l": 350,
         "base_seed": 200,
         "seed_step": 31,
         "tiers": {
