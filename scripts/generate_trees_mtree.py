@@ -56,7 +56,7 @@ FOLIAGE_DEFAULTS = {
     "foliage_extent_range": (0.20, 0.95),
     "placement_interval_factor": 0.04,
     "sparse_branch_boost": 1.0,
-    "cards_per_cluster": 6,
+    "cards_per_cluster": 35,
     "droop_factor": 0.0,
 }
 
@@ -764,7 +764,7 @@ SPECIES = {
         "leaf_flatten_range": (0.55, 0.75),
         "leaf_density": 0.45,  # Willow LAI 2.5-3.5 → curtain, not solid mass
         "target_cluster_count_l": 720,
-        "cards_per_cluster": 8,
+        "cards_per_cluster": 45,
         "droop_factor": 0.3,
         "sub_min_height": 14,          # Sub-branches only on mature willows
         "base_seed": 50,
@@ -1391,91 +1391,76 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
     return placements
 
 
-def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=3):
-    """Create mixed-orientation leaf card clusters at the given positions.
+def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=6):
+    """Create dense leaf card clusters using AAA scatter approach.
 
-    AAA standard: crossed-quads + near-horizontal cards per cluster.
-    Vertical cards read from side views, horizontal cards fill the canopy
-    from overhead. n_cards controls base quad count (species-specific).
+    Instead of a few large crossed-quads, each cluster gets many small quads
+    scattered within a spheroidal volume. Each quad has individual random
+    orientation (full yaw, wide pitch range) and position jitter. This
+    produces dense, convincing foliage that reads correctly from all angles
+    and distances, matching SpeedTree/Far Cry quality standards.
 
-    _s/_m tiers get extra quads to compensate for fewer placements.
+    Target: 25-40 quads per L-tier cluster (vs 9 in the old system),
+    each ~1/3 the size. Total leaf geometry per tree: 15K-40K quads,
+    matching Far Cry 4 production budgets (44K-169K leaf vertices).
 
     Returns a list of bmesh objects to be joined into the tree mesh.
     """
-    tier_quad_count = {"l": n_cards, "m": n_cards + 1, "s": n_cards + 2}
-    n_quads_base = tier_quad_count.get(tier, n_cards)
+    # Quads per cluster: L tier = n_cards, M/S get proportionally more
+    # (larger cards on sparser tiers need more quads to fill the same volume)
+    tier_quad_count = {"l": n_cards, "m": n_cards + 4, "s": n_cards + 8}
+    n_quads = tier_quad_count.get(tier, n_cards)
 
     all_objects = []
     for pos, size, flatten in placements:
-        card_w = size * 2.0 * rng.uniform(0.85, 1.15)
-        card_h = card_w * flatten * rng.uniform(0.8, 1.2)
-        base_angle = rng.uniform(0, math.pi)
+        cluster_radius = size * 1.0  # scatter radius
+        card_size = size * 0.55      # individual card ~55% of cluster size
 
         bm = bmesh.new()
         uv_layer = bm.loops.layers.uv.new("UVMap")
 
-        # --- Vertical crossed-quads ---
-        n_quads = n_quads_base
         for q in range(n_quads):
-            angle = base_angle + q * math.pi / n_quads
-            tilt_x = rng.uniform(-0.15, 0.15)
-            tilt_z = rng.uniform(-0.15, 0.15)
+            # Random position within cluster sphere (bias toward surface)
+            r = cluster_radius * (0.3 + 0.7 * rng.random() ** 0.5)
+            theta = rng.uniform(0, math.pi * 2)
+            phi = rng.uniform(-0.6, 0.8)  # bias upward (more canopy top)
+            jx = r * math.cos(theta) * math.cos(phi)
+            jy = r * math.sin(theta) * math.cos(phi)
+            jz = r * math.sin(phi) * flatten
 
-            dx = math.cos(angle) * card_w * 0.5
-            dy = math.sin(angle) * card_w * 0.5
-            half_h = card_h * 0.5
+            # Random orientation: full yaw, wide pitch (±60° from vertical)
+            yaw = rng.uniform(0, math.pi * 2)
+            pitch = rng.uniform(-1.05, 1.05)  # ±60°
+            # Some cards near-horizontal (canopy fill from above)
+            if rng.random() < 0.25:
+                pitch = rng.uniform(1.1, 1.4)  # 63-80° from vertical = near horizontal
 
-            corners = [
-                Vector((-dx + tilt_x * half_h, -dy + tilt_z * half_h, -half_h)) + pos,
-                Vector((dx + tilt_x * half_h, dy + tilt_z * half_h, -half_h)) + pos,
-                Vector((dx - tilt_x * half_h, dy - tilt_z * half_h, half_h)) + pos,
-                Vector((-dx - tilt_x * half_h, -dy - tilt_z * half_h, half_h)) + pos,
-            ]
-            bm_verts = [bm.verts.new(c) for c in corners]
-            face = bm.faces.new(bm_verts)
-            uvs = [(0, 0), (1, 0), (1, 1), (0, 1)]
-            for loop, uv in zip(face.loops, uvs):
-                loop[uv_layer].uv = uv
+            # Per-quad size variation (80-120%)
+            w = card_size * rng.uniform(0.80, 1.20)
+            h = w * flatten * rng.uniform(0.75, 1.15)
+            half_w = w * 0.5
+            half_h = h * 0.5
 
-        # --- 3 near-horizontal canopy cards ---
-        # These fill the canopy from overhead. Tilted 15-30° from horizontal
-        # so they have depth from the side and don't look like flat tables.
-        n_horiz = 3
-        horiz_size = card_w * rng.uniform(0.9, 1.2)  # slightly larger for canopy fill
-        for h in range(n_horiz):
-            h_angle = rng.uniform(0, math.pi * 2)  # random yaw
-            # Tilt 15-30° from horizontal (more natural than pure flat)
-            pitch = rng.uniform(0.26, 0.52)  # ~15-30° in radians
-            pitch_dir = rng.uniform(0, math.pi * 2)  # tilt direction
+            # Build oriented quad: local corners → rotated by yaw+pitch
+            cy, sy = math.cos(yaw), math.sin(yaw)
+            cp, sp_val = math.cos(pitch), math.sin(pitch)
 
-            half_w = horiz_size * 0.5
-            half_h_card = horiz_size * flatten * rng.uniform(0.7, 1.0) * 0.5
-            # Slight vertical offset: top cards sit near cluster top
-            z_off = card_h * rng.uniform(0.0, 0.3)
-
-            # Build quad in XY plane (horizontal in Blender Z-up), then tilt
-            ca, sa = math.cos(h_angle), math.sin(h_angle)
-            cp, sp = math.cos(pitch), math.sin(pitch)
-            cpd, spd = math.cos(pitch_dir), math.sin(pitch_dir)
-
-            # 4 corners of a flat quad rotated by h_angle around Z
-            flat_corners = [
-                (-half_w, -half_h_card),
-                ( half_w, -half_h_card),
-                ( half_w,  half_h_card),
-                (-half_w,  half_h_card),
+            local_corners = [
+                (-half_w, 0, -half_h),
+                ( half_w, 0, -half_h),
+                ( half_w, 0,  half_h),
+                (-half_w, 0,  half_h),
             ]
             corners = []
-            for fx, fy in flat_corners:
-                # Rotate in XY plane by h_angle
-                rx = fx * ca - fy * sa
-                ry = fx * sa + fy * ca
-                rz = 0.0
-                # Apply pitch tilt around the pitch_dir axis
-                # Simplified: tilt the Z component based on distance from center
-                dist_along_tilt = rx * cpd + ry * spd
-                rz += dist_along_tilt * math.sin(pitch)
-                corners.append(Vector((rx, ry, rz + z_off)) + pos)
+            for lx, ly, lz in local_corners:
+                # Rotate around Z (yaw)
+                rx = lx * cy - ly * sy
+                ry = lx * sy + ly * cy
+                rz = lz
+                # Rotate around local X (pitch)
+                ry2 = ry * cp - rz * sp_val
+                rz2 = ry * sp_val + rz * cp
+                corners.append(Vector((rx + jx, ry2 + jy, rz2 + jz)) + pos)
 
             bm_verts = [bm.verts.new(c) for c in corners]
             face = bm.faces.new(bm_verts)

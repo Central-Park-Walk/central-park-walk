@@ -1,12 +1,11 @@
 """
 Shared leaf card utilities for tree model generation.
 
-AAA leaf rendering: crossed-quad leaf cards. Each card texture shows a cluster
-of overlapping leaves (18-28) with twig line structure. Pine species use
-fascicle mode (needle bundles radiating from fascicle points).
-
-Cards are 2-3 intersecting planes giving volume from every angle with just
-4-6 faces per cluster.
+AAA leaf rendering: each cluster texture shows overlapping leaves (18-28)
+with twig line structure. Pine species use fascicle mode (needle bundles
+radiating from fascicle points). Clusters are rendered as many small
+individually-oriented quads scattered within a spheroidal volume
+(SpeedTree/Far Cry style), not a few large crossed-quads.
 
 Usage in make_*.py scripts:
     from leaf_card_utils import create_leaf_material, make_leaf_cards
