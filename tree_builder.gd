@@ -4,6 +4,7 @@
 
 var _loader  # Reference to park_loader for shared utilities
 var _shell_data: Array = []  # per-tree canopy shell data for LOD1
+var species_filter: Array = []  # CLI: only place these species (empty = all)
 
 # Maps data species archetype → phenology index for GPU seasonal color (12 species)
 const PHENOLOGY_INDEX := {
@@ -443,6 +444,10 @@ func _build_trees(trees: Array) -> void:
 			var dead_hash := fmod(abs(sin(float(i) * 127.1 + tx * 311.7 + tz * 183.3) * 43758.5453), 1.0)
 			if dead_hash < 0.03:
 				species = "dead"
+
+		# CLI species filter: skip species not in the filter list
+		if not species_filter.is_empty() and species not in species_filter:
+			continue
 
 		# Desired height: use LiDAR measurement if available, else DBH estimate
 		var desired_h: float

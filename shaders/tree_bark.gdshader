@@ -85,102 +85,152 @@ void fragment() {
 	float tree_var = hash2(floor(tree_base.xz * 0.5));
 	vec3 col = bark_color * (0.90 + tree_var * 0.20);
 
-	// UV approximation: vertical = world_pos.y, horizontal = angular position
-	// Scale chosen so crack patterns read at walking distance (not microscopic)
 	float local_h = world_pos.y - tree_base.y;
-	float bark_y = local_h * 1.2;
-	float bark_u = world_pos.x * 1.1 + world_pos.z * 0.85;
-	float furrow = 0.5;  // shared variable for lichen/moss/snow to use
+	float furrow = 0.5;
 	float rough = 0.88;
 	float micro = 0.0;
 
+	// Triplanar weights — used for BOTH procedural noise and PBR textures.
+	// Eliminates horizontal stripe artifacts from planar UV projection on
+	// cylindrical branches and angled trunk faces.
+	vec3 tri_w = abs(world_nrm);
+	tri_w = pow(tri_w, vec3(4.0));
+	tri_w /= (tri_w.x + tri_w.y + tri_w.z);
+
+	// Per-tree UV offset to break tiling between adjacent trees
+	vec2 tree_uv_ofs = floor(tree_base.xz * 0.37) * 0.31;
+
+	// Triplanar UVs for procedural bark patterns (world-space, per-tree offset)
+	vec2 puv_yz = world_pos.yz + tree_uv_ofs;
+	vec2 puv_xz = world_pos.xz + tree_uv_ofs;
+	vec2 puv_xy = world_pos.xy + tree_uv_ofs;
+
+	// Triplanar FBM helper — samples from 3 planes, blends by normal
+	// Vertical stretch (1.2x) makes cracks run mostly vertical on trunks
+
 	if (bark_style == 0) {
 		// --- Style 0: Rough fissured bark (oak, elm, maple, ginkgo, etc.) ---
-		// Pure FBM noise with hard threshold — no sine waves (which always
-		// read as wood grain no matter how much you perturb them).
-		// Vertically stretched noise (bark cracks run mostly vertical)
-		float crack_noise = fbm(vec2(bark_u * 2.5, bark_y * 1.2), 4);
-		// Hard threshold: above = ridge, below = fissure (sharp boundary)
+		float cn_yz = fbm(puv_yz * vec2(2.5, 1.2), 4);
+		float cn_xz = fbm(puv_xz * vec2(2.5, 1.2), 4);
+		float cn_xy = fbm(puv_xy * vec2(2.5, 1.2), 4);
+		float crack_noise = cn_yz * tri_w.x + cn_xz * tri_w.y + cn_xy * tri_w.z;
 		furrow = smoothstep(0.42, 0.46, crack_noise);
-		// Strong contrast: deep dark fissures vs lighter ridges
 		col *= mix(0.62, 1.08, furrow);
-		// Coarse flaky texture on ridge surfaces
-		micro = fbm(vec2(bark_u * 8.0, bark_y * 6.0), 3);
-		float grit = vnoise(vec2(bark_u * 14.0, bark_y * 12.0));
+		float mi_yz = fbm(puv_yz * vec2(8.0, 6.0), 3);
+		float mi_xz = fbm(puv_xz * vec2(8.0, 6.0), 3);
+		float mi_xy = fbm(puv_xy * vec2(8.0, 6.0), 3);
+		micro = mi_yz * tri_w.x + mi_xz * tri_w.y + mi_xy * tri_w.z;
+		float gr_yz = vnoise(puv_yz * vec2(14.0, 12.0));
+		float gr_xz = vnoise(puv_xz * vec2(14.0, 12.0));
+		float gr_xy = vnoise(puv_xy * vec2(14.0, 12.0));
+		float grit = gr_yz * tri_w.x + gr_xz * tri_w.y + gr_xy * tri_w.z;
 		col *= (0.88 + micro * 0.16 + grit * 0.08);
 		rough = mix(0.78, 0.96, furrow) + micro * 0.04;
 	} else if (bark_style == 1) {
 		// --- Style 1: Smooth bark with horizontal lenticels (birch, cherry) ---
-		// Birch: white/cream with dark horizontal lines; cherry: reddish-brown shiny
-		// Smooth base with subtle horizontal banding
-		float h_band = sin(bark_y * 18.0 + vnoise(vec2(bark_u * 0.4, bark_y * 0.6)) * 1.5);
+		// Lenticels are genuinely horizontal, so we use local_h for the banding
+		// but triplanar for the noise perturbation to avoid facet stripes
+		float np_yz = vnoise(puv_yz * vec2(0.4, 0.6));
+		float np_xz = vnoise(puv_xz * vec2(0.4, 0.6));
+		float np_xy = vnoise(puv_xy * vec2(0.4, 0.6));
+		float noise_perturb = np_yz * tri_w.x + np_xz * tri_w.y + np_xy * tri_w.z;
+		float h_band = sin(local_h * 21.6 + noise_perturb * 1.5);
 		furrow = smoothstep(0.3, 0.6, h_band);
-		// Lenticels: short dark horizontal dashes scattered across smooth bark
-		float lenticel_h = sin(bark_y * 35.0 + bark_u * 0.5);
-		float lenticel_u = sin(bark_u * 8.0 + bark_y * 2.0);
+		// Lenticels: use triplanar for horizontal position
+		float lu_yz = vnoise(puv_yz * vec2(8.0, 2.0));
+		float lu_xz = vnoise(puv_xz * vec2(8.0, 2.0));
+		float lu_xy = vnoise(puv_xy * vec2(8.0, 2.0));
+		float lenticel_u = lu_yz * tri_w.x + lu_xz * tri_w.y + lu_xy * tri_w.z;
+		float lenticel_h = sin(local_h * 42.0 + lenticel_u * 3.0);
 		float lenticel = smoothstep(0.75, 0.90, lenticel_h) * smoothstep(0.4, 0.8, lenticel_u);
-		col *= mix(1.0, 0.65, lenticel * 0.7);  // dark lenticel marks
-		// Subtle horizontal shimmer (smooth bark catches light)
+		col *= mix(1.0, 0.65, lenticel * 0.7);
 		col *= (0.96 + furrow * 0.08);
-		micro = vnoise(vec2(bark_u * 15.0, bark_y * 10.0)) * 0.06;
+		float mi_yz = vnoise(puv_yz * vec2(15.0, 10.0));
+		float mi_xz = vnoise(puv_xz * vec2(15.0, 10.0));
+		float mi_xy = vnoise(puv_xy * vec2(15.0, 10.0));
+		micro = (mi_yz * tri_w.x + mi_xz * tri_w.y + mi_xy * tri_w.z) * 0.06;
 		col *= (0.97 + micro);
-		rough = 0.55 + lenticel * 0.20;  // smooth bark, rougher at lenticels
-		// Peeling papery bark for birch (lighter patches revealing inner bark)
-		float peel = smoothstep(0.60, 0.75, fbm(vec2(bark_u * 1.2, bark_y * 0.8), 2));
-		peel *= smoothstep(2.0, 4.0, local_h) * smoothstep(8.0, 5.0, local_h);  // mid-height
+		rough = 0.55 + lenticel * 0.20;
+		float pl_yz = fbm(puv_yz * vec2(1.2, 0.8), 2);
+		float pl_xz = fbm(puv_xz * vec2(1.2, 0.8), 2);
+		float pl_xy = fbm(puv_xy * vec2(1.2, 0.8), 2);
+		float peel_n = pl_yz * tri_w.x + pl_xz * tri_w.y + pl_xy * tri_w.z;
+		float peel = smoothstep(0.60, 0.75, peel_n);
+		peel *= smoothstep(2.0, 4.0, local_h) * smoothstep(8.0, 5.0, local_h);
 		col = mix(col, col * 1.15, peel * 0.3);
 	} else if (bark_style == 2) {
 		// --- Style 2: Exfoliating mottled patches (london plane / sycamore) ---
-		// Jigsaw-like pattern of cream, olive, and gray patches where bark peels
-		float patch_n = fbm(vec2(bark_u * 1.5, bark_y * 1.0), 3);
-		float patch2 = vnoise(vec2(bark_u * 2.8 + 17.0, bark_y * 2.2));
-		// Three-tone mottling: fresh inner bark (cream), medium (olive), old (gray)
-		vec3 cream_bark = col * vec3(1.30, 1.25, 1.10);  // fresh exposed inner bark
-		vec3 olive_bark = col * vec3(0.82, 0.88, 0.75);  // mossy green-gray
-		vec3 gray_bark  = col * vec3(0.90, 0.88, 0.85);  // weathered old bark
+		float pn_yz = fbm(puv_yz * vec2(1.5, 1.0), 3);
+		float pn_xz = fbm(puv_xz * vec2(1.5, 1.0), 3);
+		float pn_xy = fbm(puv_xy * vec2(1.5, 1.0), 3);
+		float patch_n = pn_yz * tri_w.x + pn_xz * tri_w.y + pn_xy * tri_w.z;
+		float p2_yz = vnoise(puv_yz * vec2(2.8, 2.2) + vec2(17.0, 0.0));
+		float p2_xz = vnoise(puv_xz * vec2(2.8, 2.2) + vec2(17.0, 0.0));
+		float p2_xy = vnoise(puv_xy * vec2(2.8, 2.2) + vec2(17.0, 0.0));
+		float patch2 = p2_yz * tri_w.x + p2_xz * tri_w.y + p2_xy * tri_w.z;
+		vec3 cream_bark = col * vec3(1.30, 1.25, 1.10);
+		vec3 olive_bark = col * vec3(0.82, 0.88, 0.75);
+		vec3 gray_bark  = col * vec3(0.90, 0.88, 0.85);
 		float zone1 = smoothstep(0.3, 0.5, patch_n);
 		float zone2 = smoothstep(0.5, 0.7, patch2);
 		col = mix(gray_bark, cream_bark, zone1);
 		col = mix(col, olive_bark, zone2 * 0.6);
-		// Patch boundary edges: slightly raised ridges where bark meets
 		float edge = abs(fract(patch_n * 3.0) - 0.5) * 2.0;
 		edge = 1.0 - smoothstep(0.0, 0.15, edge);
 		col *= (1.0 - edge * 0.12);
-		furrow = 1.0 - edge;  // "furrows" at patch borders
-		micro = vnoise(vec2(bark_u * 10.0, bark_y * 8.0)) * 0.08;
+		furrow = 1.0 - edge;
+		float mi_yz = vnoise(puv_yz * vec2(10.0, 8.0));
+		float mi_xz = vnoise(puv_xz * vec2(10.0, 8.0));
+		float mi_xy = vnoise(puv_xy * vec2(10.0, 8.0));
+		micro = (mi_yz * tri_w.x + mi_xz * tri_w.y + mi_xy * tri_w.z) * 0.08;
 		col *= (0.96 + micro);
-		rough = mix(0.65, 0.80, zone1);  // fresh patches are smoother
+		rough = mix(0.65, 0.80, zone1);
 	} else if (bark_style == 3) {
 		// --- Style 3: Thick scaled plates (pine / conifer) ---
-		// Overlapping rectangular plates with deep fissures between
-		float plate_y = floor(bark_y * 2.5 + vnoise(vec2(bark_u * 0.5, bark_y * 0.3)) * 0.8);
-		float plate_u = floor(bark_u * 1.8 + vnoise(vec2(bark_y * 0.4, bark_u * 0.2)) * 0.6);
-		float plate_fy = fract(bark_y * 2.5 + vnoise(vec2(bark_u * 0.5, bark_y * 0.3)) * 0.8);
-		float plate_fu = fract(bark_u * 1.8 + vnoise(vec2(bark_y * 0.4, bark_u * 0.2)) * 0.6);
-		// Deep fissures at plate boundaries
+		float sn_yz = vnoise(puv_yz * vec2(0.5, 0.3));
+		float sn_xz = vnoise(puv_xz * vec2(0.5, 0.3));
+		float sn_xy = vnoise(puv_xy * vec2(0.5, 0.3));
+		float shift_n = sn_yz * tri_w.x + sn_xz * tri_w.y + sn_xy * tri_w.z;
+		// Use triplanar base coords for plate pattern
+		vec2 plate_uv = puv_yz * tri_w.x + puv_xz * tri_w.y + puv_xy * tri_w.z;
+		float plate_y = floor(plate_uv.y * 2.5 + shift_n * 0.8);
+		float plate_u = floor(plate_uv.x * 1.8 + shift_n * 0.6);
+		float plate_fy = fract(plate_uv.y * 2.5 + shift_n * 0.8);
+		float plate_fu = fract(plate_uv.x * 1.8 + shift_n * 0.6);
 		float fissure_y = smoothstep(0.0, 0.08, plate_fy) * smoothstep(1.0, 0.92, plate_fy);
 		float fissure_u = smoothstep(0.0, 0.10, plate_fu) * smoothstep(1.0, 0.90, plate_fu);
 		furrow = fissure_y * fissure_u;
-		// Reddish-warm variation within plates
 		float plate_var = hash2(vec2(plate_y, plate_u));
 		col *= mix(0.85, 1.15, plate_var);
-		col *= mix(0.72, 1.0, furrow);  // dark fissures
-		// Flaky surface texture within plates
-		micro = fbm(vec2(bark_u * 8.0, bark_y * 6.0), 2);
+		col *= mix(0.72, 1.0, furrow);
+		float mi_yz = fbm(puv_yz * vec2(8.0, 6.0), 2);
+		float mi_xz = fbm(puv_xz * vec2(8.0, 6.0), 2);
+		float mi_xy = fbm(puv_xy * vec2(8.0, 6.0), 2);
+		micro = mi_yz * tri_w.x + mi_xz * tri_w.y + mi_xy * tri_w.z;
 		col *= (0.94 + micro * 0.12);
 		rough = mix(0.85, 0.95, 1.0 - furrow) + micro * 0.04;
 	} else {
 		// --- Style 4: Smooth gray (magnolia, callery pear, beech) ---
-		// Smooth with subtle mottling and gentle undulations, not streaks
-		float mottled = vnoise(vec2(bark_u * 2.5, bark_y * 2.0));
-		float fine_mot = vnoise(vec2(bark_u * 5.0, bark_y * 4.5));
+		float mo_yz = vnoise(puv_yz * vec2(2.5, 2.0));
+		float mo_xz = vnoise(puv_xz * vec2(2.5, 2.0));
+		float mo_xy = vnoise(puv_xy * vec2(2.5, 2.0));
+		float mottled = mo_yz * tri_w.x + mo_xz * tri_w.y + mo_xy * tri_w.z;
+		float fm_yz = vnoise(puv_yz * vec2(5.0, 4.5));
+		float fm_xz = vnoise(puv_xz * vec2(5.0, 4.5));
+		float fm_xy = vnoise(puv_xy * vec2(5.0, 4.5));
+		float fine_mot = fm_yz * tri_w.x + fm_xz * tri_w.y + fm_xy * tri_w.z;
 		furrow = smoothstep(0.3, 0.7, mottled);
 		col *= (0.94 + furrow * 0.10 + fine_mot * 0.04);
-		micro = vnoise(vec2(bark_u * 10.0, bark_y * 8.0)) * 0.04;
+		float mi_yz = vnoise(puv_yz * vec2(10.0, 8.0));
+		float mi_xz = vnoise(puv_xz * vec2(10.0, 8.0));
+		float mi_xy = vnoise(puv_xy * vec2(10.0, 8.0));
+		micro = (mi_yz * tri_w.x + mi_xz * tri_w.y + mi_xy * tri_w.z) * 0.04;
 		col *= (0.98 + micro);
-		rough = 0.58 + furrow * 0.12;  // quite smooth
-		// Subtle bumpy texture like beech bark
-		float bump = fbm(vec2(bark_u * 5.0, bark_y * 3.0), 2);
+		rough = 0.58 + furrow * 0.12;
+		float bu_yz = fbm(puv_yz * vec2(5.0, 3.0), 2);
+		float bu_xz = fbm(puv_xz * vec2(5.0, 3.0), 2);
+		float bu_xy = fbm(puv_xy * vec2(5.0, 3.0), 2);
+		float bump = bu_yz * tri_w.x + bu_xz * tri_w.y + bu_xy * tri_w.z;
 		col *= (0.96 + bump * 0.08);
 	}
 
@@ -199,15 +249,7 @@ void fragment() {
 	vec3 bark_normal_perturb = vec3(dFdx(relief_h), dFdy(relief_h), 0.0);
 
 	// --- Triplanar PBR texture blending ---
-	// Sample photographic bark textures from 3 orthogonal projections,
-	// weighted by surface normal. Blended with procedural results above.
-	vec3 tri_w = abs(world_nrm);
-	tri_w = pow(tri_w, vec3(4.0));  // sharpen blend for less smearing
-	tri_w /= (tri_w.x + tri_w.y + tri_w.z);
-
-	// Per-tree UV offset to break visible tiling across adjacent trees
-	vec2 tree_uv_ofs = floor(tree_base.xz * 0.37) * 0.31;
-
+	// tri_w and tree_uv_ofs already computed above
 	vec2 uv_yz = world_pos.yz * tex_uv_scale + tree_uv_ofs;
 	vec2 uv_xz = world_pos.xz * tex_uv_scale + tree_uv_ofs;
 	vec2 uv_xy = world_pos.xy * tex_uv_scale + tree_uv_ofs;
@@ -239,7 +281,7 @@ void fragment() {
 
 	// Per-pixel micro-variation: lichen spores, mineral deposits,
 	// moisture stains, insect marks — millions of unique shades
-	vec2 bark_px = vec2(bark_u, bark_y) * 67.3 + world_pos.xz * 3.7;
+	vec2 bark_px = world_pos.xz * 67.3 + world_pos.yy * 3.7;
 	float bark_pn = hash2(bark_px) * 0.06 - 0.03;
 	float bark_phr = hash2(bark_px + vec2(71.9, 0.0)) * 0.025;
 	float bark_phb = hash2(bark_px + vec2(0.0, 53.1)) * 0.025;
@@ -253,7 +295,8 @@ void fragment() {
 	// --- Lichen patches: gray-green crusty patches common on NYC park trees ---
 	float lichen_season = smoothstep(0.0, 0.8, season_t) * (1.0 - smoothstep(3.0, 3.8, season_t));
 	if (lichen_season > 0.01) {
-		float lich_noise = fbm(vec2(bark_u * 2.0, bark_y * 1.5) + tree_var * 10.0, 2);
+		vec2 lich_uv = puv_yz * tri_w.x + puv_xz * tri_w.y + puv_xy * tri_w.z;
+		float lich_noise = fbm(lich_uv * vec2(2.0, 1.5) + tree_var * 10.0, 2);
 		float lich_mask = smoothstep(0.55, 0.72, lich_noise) * lichen_season;
 		// Only on bark ridges (not in deep furrows) and mid-height
 		lich_mask *= furrow * smoothstep(1.0, 3.0, local_h) * smoothstep(8.0, 5.0, local_h);
@@ -269,7 +312,8 @@ void fragment() {
 	float spring_summer = sn_warm_season(season_t);
 	float moss_height = smoothstep(3.0, 0.0, local_h);  // bottom 3m of trunk
 	float moss_facing = max(0.0, -world_nrm.z) * 0.5 + max(0.0, -world_nrm.x) * 0.3 + 0.2;
-	float moss_noise = fbm(vec2(bark_u * 3.0, bark_y * 2.0), 2);
+	vec2 moss_uv = puv_yz * tri_w.x + puv_xz * tri_w.y + puv_xy * tri_w.z;
+	float moss_noise = fbm(moss_uv * vec2(3.0, 2.0), 2);
 	float moss = moss_height * moss_facing * smoothstep(0.35, 0.6, moss_noise) * spring_summer;
 	if (moss > 0.01) {
 		vec3 moss_col = mix(vec3(0.10, 0.20, 0.06), vec3(0.16, 0.26, 0.08), moss_noise);
@@ -308,7 +352,8 @@ void fragment() {
 	// Especially visible in spring when sap flows
 	float sap_season = smoothstep(0.0, 0.5, season_t) * (1.0 - smoothstep(1.5, 2.5, season_t));
 	if (sap_season > 0.01) {
-		float sap_hash = hash2(floor(vec2(bark_u * 2.0, bark_y * 0.5)) + tree_var * 20.0);
+		vec2 sap_uv = puv_yz * tri_w.x + puv_xz * tri_w.y + puv_xy * tri_w.z;
+		float sap_hash = hash2(floor(sap_uv * vec2(2.0, 0.5)) + tree_var * 20.0);
 		// Only ~8% of positions show sap runs
 		if (sap_hash > 0.92) {
 			// Dark glossy streak running downward

@@ -113,6 +113,21 @@ var _cli_pos_set := false
 var _cli_height := 1.55  # default eye height above terrain (~5'1")
 var _cli_pitch := 0.0   # --pitch degrees (negative = look down)
 
+# --walk bot: auto-walk in a direction, capturing screenshots at intervals.
+# Usage: --walk --pos=x,z,yaw --walk-duration=30 --walk-interval=1.0 --walk-speed=1.2
+var _tree_species_filter: Array = []  # --tree-species=oak,maple → only place those
+var _walk_bot := false
+var _walk_bot_duration := 30.0   # seconds of walking
+var _walk_bot_interval := 1.0    # seconds between screenshots
+var _walk_bot_speed := 1.2       # m/s (default = Walk pace)
+var _walk_bot_dir := "walk_captures"  # output directory
+var _walk_bot_timer := 0.0
+var _walk_bot_shot_timer := 0.0
+var _walk_bot_settle := 8.0      # seconds to let scene load before walking
+var _walk_bot_settled := false
+var _walk_bot_frame := 0
+var _walk_bot_started := false
+
 func _ready() -> void:
 	# Check for CLI args early
 	var cli_time := ""
@@ -142,6 +157,21 @@ func _ready() -> void:
 				_cli_pos_set = true
 		elif key == "--pitch" and val != "":
 			_cli_pitch = float(val)
+		elif key == "--tree-species" and val != "":
+			_tree_species_filter = Array(val.split(","))
+			print("Tree species filter: %s" % str(_tree_species_filter))
+		elif arg == "--walk":
+			_walk_bot = true
+		elif key == "--walk-duration" and val != "":
+			_walk_bot_duration = float(val)
+		elif key == "--walk-interval" and val != "":
+			_walk_bot_interval = float(val)
+		elif key == "--walk-speed" and val != "":
+			_walk_bot_speed = float(val)
+		elif key == "--walk-dir" and val != "":
+			_walk_bot_dir = val
+		elif key == "--walk-settle" and val != "":
+			_walk_bot_settle = float(val)
 		elif key == "--season" and val != "":
 			var s_val: String = val
 			if SEASON_PRESETS.has(s_val):
@@ -254,6 +284,15 @@ func _ready() -> void:
 				_player.tour_freeze = true  # freeze for automated captures
 				print("Tour mode: %d shots queued → %s/" % [_tour_shots.size(), _tour_save_dir])
 			break
+	if _walk_bot:
+		_player.tour_freeze = true  # disable player input, bot controls movement
+		var abs_dir := ProjectSettings.globalize_path("res://" + _walk_bot_dir)
+		DirAccess.make_dir_recursive_absolute(abs_dir)
+		var yaw_str := "%.0f" % _cli_pos.y if _cli_pos_set else "0"
+		print("Walk bot: pos=(%.0f,%.0f) yaw=%s speed=%.1fm/s duration=%.0fs interval=%.1fs → %s/" % [
+			_cli_pos.x, _cli_pos.z, yaw_str, _walk_bot_speed,
+			_walk_bot_duration, _walk_bot_interval, abs_dir])
+		print("Walk bot: settling for %.0fs before walking..." % _walk_bot_settle)
 var _screenshot_timer := 0.0
 var _screenshot_done  := false
 var _labels_hidden_for_screenshot := false
@@ -600,6 +639,63 @@ func _process(delta: float) -> void:
 					_tour_teleport(_tour_idx)
 			3:  # DONE
 				pass
+		_apply_time_of_day()
+		_update_hud()
+		return
+
+	# --walk bot: auto-walk forward, capture screenshots at interval
+	if _walk_bot and _player:
+		_walk_bot_timer += delta
+		# Phase 1: settle — let scene load, grass spawn, lighting converge
+		if not _walk_bot_settled:
+			if _walk_bot_timer >= 2.0 and _hud_canvas and _hud_canvas.visible:
+				_hud_canvas.visible = false
+			if _walk_bot_timer >= 2.0 and _perf_canvas and _perf_canvas.visible:
+				_perf_canvas.visible = false
+			if _walk_bot_timer >= 2.0:
+				_set_labels_visible(false)
+			if _walk_bot_timer >= _walk_bot_settle:
+				_walk_bot_settled = true
+				_walk_bot_timer = 0.0
+				_walk_bot_shot_timer = 0.0
+				# Take first screenshot at start position
+				_walk_bot_capture()
+				print("Walk bot: settled, starting walk")
+			return
+		# Phase 2: walk and capture
+		if _walk_bot_timer >= _walk_bot_duration:
+			if not _walk_bot_started:
+				return
+			# Final screenshot and quit
+			_walk_bot_capture()
+			var abs_dir := ProjectSettings.globalize_path("res://" + _walk_bot_dir)
+			print("Walk bot: done — %d frames saved to %s/" % [_walk_bot_frame, abs_dir])
+			# Write a manifest so agents know what was captured
+			var manifest_path := abs_dir + "/manifest.txt"
+			var f := FileAccess.open(manifest_path, FileAccess.WRITE)
+			if f:
+				f.store_line("# Walk bot capture manifest")
+				f.store_line("# pos=%.1f,%.1f yaw=%.1f speed=%.1fm/s duration=%.0fs interval=%.1fs" % [
+					_cli_pos.x, _cli_pos.z, _cli_pos.y, _walk_bot_speed,
+					_walk_bot_duration, _walk_bot_interval])
+				f.store_line("frames=%d" % _walk_bot_frame)
+				f.store_line("dir=%s" % abs_dir)
+				f.close()
+			get_tree().quit()
+			return
+		_walk_bot_started = true
+		# Move player forward along yaw direction
+		var yaw_rad := deg_to_rad(_player.rotation_degrees.y)
+		var forward := Vector3(-sin(yaw_rad), 0.0, -cos(yaw_rad))
+		var new_x := _player.position.x + forward.x * _walk_bot_speed * delta
+		var new_z := _player.position.z + forward.z * _walk_bot_speed * delta
+		var new_y := _terrain_height(new_x, new_z) + _cli_height
+		_player.global_position = Vector3(new_x, new_y, new_z)
+		# Screenshot at interval
+		_walk_bot_shot_timer += delta
+		if _walk_bot_shot_timer >= _walk_bot_interval:
+			_walk_bot_shot_timer -= _walk_bot_interval
+			_walk_bot_capture()
 		_apply_time_of_day()
 		_update_hud()
 		return
@@ -1226,6 +1322,19 @@ func _take_screenshot() -> void:
 	img.save_png(path)
 	_screenshot_counter += 1
 	print("Screenshot saved: %s" % path)
+
+
+func _walk_bot_capture() -> void:
+	var img := get_viewport().get_texture().get_image()
+	if not img:
+		print("Walk bot: failed to capture frame %d" % _walk_bot_frame)
+		return
+	var abs_dir := ProjectSettings.globalize_path("res://" + _walk_bot_dir)
+	var pos := _player.global_position
+	var path := "%s/walk_%04d.png" % [abs_dir, _walk_bot_frame]
+	img.save_png(path)
+	print("Walk bot [%d]: (%.1f, %.1f) → %s" % [_walk_bot_frame, pos.x, pos.z, path])
+	_walk_bot_frame += 1
 
 
 # ---------------------------------------------------------------------------
@@ -2388,6 +2497,7 @@ func _setup_park() -> void:
 	# Terrain3D reference for accurate height queries (_terrain_y)
 	if _terrain3d:
 		loader.terrain3d = _terrain3d
+	loader.tree_species_filter = _tree_species_filter
 	add_child(loader)
 	_park_loader = loader
 

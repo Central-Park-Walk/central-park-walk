@@ -48,6 +48,7 @@ var _canopy_texture: ImageTexture         # 2K canopy coverage map for dappled s
 var _water_builder                        # water_builder.gd instance
 var _building_builder                     # building_builder.gd instance
 var _tree_builder                        # tree_builder.gd instance
+var tree_species_filter: Array = []      # CLI: only place these species (empty = all)
 var _boundary_builder                    # boundary_builder.gd instance
 var _furniture_builder                   # furniture_builder.gd instance
 var _infrastructure_builder              # infrastructure_builder.gd instance
@@ -1024,6 +1025,7 @@ func _ready() -> void:
 	_water_builder = preload("res://water_builder.gd").new(self)
 	_building_builder = preload("res://building_builder.gd").new(self)
 	_tree_builder = preload("res://tree_builder.gd").new(self)
+	_tree_builder.species_filter = tree_species_filter
 	_boundary_builder = preload("res://boundary_builder.gd").new(self)
 	_furniture_builder = preload("res://furniture_builder.gd").new(self)
 	_infrastructure_builder = preload("res://infrastructure_builder.gd").new(self)
