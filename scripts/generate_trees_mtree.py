@@ -261,6 +261,64 @@ def clean_nan_vertices(obj):
     return h, w
 
 
+def clean_degenerate_geometry(obj, merge_dist=0.005, min_face_area=1e-5):
+    """Remove degenerate branch-tip geometry from Mtree mesh.
+
+    Mtree generates tapered branch cylinders that collapse to zero radius at
+    tips, creating thousands of zero-area sliver triangles per tree. The wind
+    shader displaces vertices by height-dependent offsets, inflating these
+    invisible slivers into visible triangular artifacts with bark texture.
+
+    Steps:
+      1. Dissolve degenerate edges (zero-length collapsed edges)
+      2. Merge vertices converging at branch tips (within merge_dist)
+      3. Remove faces below min_face_area (remaining slivers)
+      4. Remove loose vertices/edges left behind
+      5. Recalculate outward-facing normals
+    """
+    mesh = obj.data
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+
+    n_verts_before = len(bm.verts)
+    n_faces_before = len(bm.faces)
+
+    # Dissolve zero-length edges (collapsed branch segments)
+    bmesh.ops.dissolve_degenerate(bm, dist=merge_dist * 0.2, edges=bm.edges[:])
+
+    # Merge vertices converging at branch tips (radius → 0)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=merge_dist)
+
+    # Remove remaining sliver faces
+    bm.faces.ensure_lookup_table()
+    degenerate = [f for f in bm.faces if f.calc_area() < min_face_area]
+    if degenerate:
+        bmesh.ops.delete(bm, geom=degenerate, context='FACES')
+
+    # Remove loose vertices (no connected faces)
+    bm.verts.ensure_lookup_table()
+    loose = [v for v in bm.verts if not v.link_faces]
+    if loose:
+        bmesh.ops.delete(bm, geom=loose, context='VERTS')
+
+    # Ensure consistent outward-facing normals
+    bm.faces.ensure_lookup_table()
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+
+    n_verts_after = len(bm.verts)
+    n_faces_after = len(bm.faces)
+
+    bm.to_mesh(mesh)
+    bm.free()
+    mesh.update()
+
+    removed_v = n_verts_before - n_verts_after
+    removed_f = n_faces_before - n_faces_after
+    if removed_v > 0 or removed_f > 0:
+        print(f"    Mesh cleanup: {removed_v} verts, {removed_f} faces removed "
+              f"({n_faces_before} → {n_faces_after})")
+
+
 # ===========================================================================
 # SPECIES CONFIGURATIONS
 # ===========================================================================
@@ -1562,6 +1620,12 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
 
         # --- Place leaf cards ---
         placements = extract_leaf_positions(trunk_obj, sp, target_h, rng, tier=tier_name)
+
+        # --- Clean degenerate branch-tip geometry ---
+        # Must run after leaf position extraction (uses Mtree vertex attributes)
+        # but before join (so only bark mesh is affected).
+        clean_degenerate_geometry(trunk_obj)
+
         n_cards = sp.get("cards_per_cluster", FOLIAGE_DEFAULTS["cards_per_cluster"])
         leaf_objs = create_leaf_cards_at_positions(placements, leaf_mat, rng, tier=tier_name, n_cards=n_cards)
 
@@ -1708,8 +1772,9 @@ def generate_dead_tree():
         create_mesh_from_cpp(mesh, cpp_mesh)
         obj.data.materials.append(bark_mat)
 
-        # Clean NaN and normalize to MODEL_H
+        # Clean NaN, then remove degenerate branch-tip geometry
         actual_h, _ = clean_nan_vertices(obj)
+        clean_degenerate_geometry(obj)
         if actual_h > 0.1:
             scale = MODEL_H / actual_h
             for v in obj.data.vertices:
