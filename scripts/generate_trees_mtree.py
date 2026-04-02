@@ -189,15 +189,39 @@ def bake_wind_vertex_colors(obj):
         name=attr_name, type='BYTE_COLOR', domain='CORNER'
     )
 
+    # Write per-loop colors, fixing branch junction faces.
+    # Junction faces span two branches (different stem_ids), causing the wind
+    # shader to tear the face as branches sway at different phases. For these
+    # faces, unify wind data at the loop level so the face moves as one unit.
     for poly in mesh.polygons:
-        for li in range(poly.loop_start, poly.loop_start + poly.loop_total):
-            vi = mesh.loops[li].vertex_index
-            color_attr.data[li].color = (
-                hierarchy_depth[vi],
-                branch_extent[vi],
-                stem_hash[vi],
-                1.0,
-            )
+        verts_in_face = [mesh.loops[li].vertex_index
+                         for li in range(poly.loop_start, poly.loop_start + poly.loop_total)]
+
+        # Check for junction: large stem_hash variance across face
+        is_junction = False
+        if has_mtree and not any(vi in leaf_verts for vi in verts_in_face):
+            hashes = [stem_hash[vi] for vi in verts_in_face]
+            h_min, h_max = min(hashes), max(hashes)
+            spread = min(h_max - h_min, 1.0 - (h_max - h_min))
+            is_junction = spread > 0.08
+
+        if is_junction:
+            # Unify: average depth/extent, pick first vertex's hash
+            n = len(verts_in_face)
+            avg_d = sum(hierarchy_depth[vi] for vi in verts_in_face) / n
+            avg_e = sum(branch_extent[vi] for vi in verts_in_face) / n
+            pick_h = stem_hash[verts_in_face[0]]
+            for li in range(poly.loop_start, poly.loop_start + poly.loop_total):
+                color_attr.data[li].color = (avg_d, avg_e, pick_h, 1.0)
+        else:
+            for li in range(poly.loop_start, poly.loop_start + poly.loop_total):
+                vi = mesh.loops[li].vertex_index
+                color_attr.data[li].color = (
+                    hierarchy_depth[vi],
+                    branch_extent[vi],
+                    stem_hash[vi],
+                    1.0,
+                )
 
     idx = mesh.color_attributes.find(attr_name)
     mesh.color_attributes.active_color_index = idx
