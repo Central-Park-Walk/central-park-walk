@@ -286,7 +286,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.40, 0.70),
         "leaf_density": 0.55,  # Pin oak LAI 3.0-4.5 → moderate, not dense
-        "target_cluster_count_l": 450,
+        "target_cluster_count_l": 680,
         "base_seed": 105,   # shifted from 100 to avoid Mtree mesher crash at _m tier
         "seed_step": 23,
         "tiers": {
@@ -335,7 +335,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.40, 0.70),
         "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
-        "target_cluster_count_l": 540,
+        "target_cluster_count_l": 800,
         "base_seed": 42,
         "seed_step": 17,
         "tiers": {
@@ -384,7 +384,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.45, 0.90),
         "leaf_flatten_range": (0.40, 0.70),
         "leaf_density": 0.75,  # canopy density (0-1, from real-world LAI) — reduced for <100MB
-        "target_cluster_count_l": 650,
+        "target_cluster_count_l": 950,
         "base_seed": 101,
         "seed_step": 23,
         "tiers": {
@@ -433,7 +433,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.33, 0.75),
         "leaf_flatten_range": (0.45, 0.60),
         "leaf_density": 0.9,  # canopy density (0-1, from real-world LAI)
-        "target_cluster_count_l": 520,
+        "target_cluster_count_l": 780,
         "base_seed": 300,
         "seed_step": 29,
         "tiers": {
@@ -483,7 +483,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.42, 0.83),
         "leaf_flatten_range": (0.40, 0.60),
         "leaf_density": 0.65,  # Austrian pine LAI ~4.0 → moderate for conifer
-        "target_cluster_count_l": 480,
+        "target_cluster_count_l": 720,
         "foliage_extent_range": (0.10, 0.95),
         "base_seed": 400,
         "seed_step": 29,
@@ -534,7 +534,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.30, 0.68),
         "leaf_flatten_range": (0.50, 0.75),
         "leaf_density": 0.55,  # Cherry LAI 3.0-4.0 → moderate, dappled shade
-        "target_cluster_count_l": 320,
+        "target_cluster_count_l": 480,
         "base_seed": 200,
         "seed_step": 19,
         "tiers": {
@@ -584,7 +584,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.27, 0.60),
         "leaf_flatten_range": (0.40, 0.70),
         "leaf_density": 0.5,  # canopy density (0-1, from real-world LAI)
-        "target_cluster_count_l": 220,
+        "target_cluster_count_l": 340,
         "foliage_radius_threshold": 0.28,  # Few thin branches → include more of them
         "foliage_extent_range": (0.20, 0.95),
         "base_seed": 300,
@@ -636,7 +636,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.30, 0.63),
         "leaf_flatten_range": (0.45, 0.65),
         "leaf_density": 0.35,  # Honeylocust LAI 2.0-2.5 → very airy, dappled light
-        "target_cluster_count_l": 280,
+        "target_cluster_count_l": 420,
         "placement_interval_factor": 0.050,
         "base_seed": 400,
         "seed_step": 29,
@@ -688,7 +688,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.33, 0.72),
         "leaf_flatten_range": (0.50, 0.70),
         "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
-        "target_cluster_count_l": 420,
+        "target_cluster_count_l": 630,
         "base_seed": 362,     # Shifted from 351 to avoid Mtree mesher crash at _m tier
         "seed_step": 23,
         "tiers": {
@@ -739,7 +739,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.27, 0.60),
         "leaf_flatten_range": (0.55, 0.75),
         "leaf_density": 0.45,  # Willow LAI 2.5-3.5 → curtain, not solid mass
-        "target_cluster_count_l": 480,
+        "target_cluster_count_l": 720,
         "cards_per_cluster": 8,
         "droop_factor": 0.3,
         "sub_min_height": 14,          # Sub-branches only on mature willows
@@ -792,7 +792,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.33, 0.72),
         "leaf_flatten_range": (0.45, 0.60),
         "leaf_density": 0.85,  # Linden LAI 4.5-5.5 → very dense shade tree
-        "target_cluster_count_l": 560,
+        "target_cluster_count_l": 840,
         "placement_interval_factor": 0.032,
         "base_seed": 500,
         "seed_step": 37,
@@ -843,7 +843,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.45, 0.65),
         "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
-        "target_cluster_count_l": 500,
+        "target_cluster_count_l": 750,
         "base_seed": 200,
         "seed_step": 31,
         "tiers": {
@@ -893,7 +893,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.27, 0.60),
         "leaf_flatten_range": (0.50, 0.70),
         "leaf_density": 0.55,  # canopy density (0-1, from real-world LAI)
-        "target_cluster_count_l": 320,
+        "target_cluster_count_l": 480,
         "foliage_radius_threshold": 0.40,  # No sub-branches → main branches are thick
         "foliage_min_depth": 0,
         "foliage_extent_range": (0.15, 0.95),
@@ -948,7 +948,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.45, 0.65),
         "leaf_density": 0.7,  # canopy density (0-1, from real-world LAI)
-        "target_cluster_count_l": 280,
+        "target_cluster_count_l": 420,
         "base_seed": 500,
         "seed_step": 29,
         "tiers": {
@@ -998,7 +998,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.33, 0.75),
         "leaf_flatten_range": (0.45, 0.65),
         "leaf_density": 0.75,  # canopy density (0-1, from real-world LAI)
-        "target_cluster_count_l": 400,
+        "target_cluster_count_l": 600,
         "base_seed": 700,
         "seed_step": 31,
         "tiers": {
@@ -1258,7 +1258,7 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
                    FOLIAGE_DEFAULTS["sparse_branch_boost"])
 
     # Target cluster count for this tier
-    target_l = sp.get("target_cluster_count_l", 400)
+    target_l = sp.get("target_cluster_count_l", 600)
     tier_fraction = {"l": 1.0, "m": 0.70, "s": 0.45}
     target_count = int(target_l * tier_fraction.get(tier, 1.0))
 
