@@ -220,7 +220,7 @@ func _ready() -> void:
 	RenderingServer.global_shader_parameter_add("dew_amount", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	RenderingServer.global_shader_parameter_add("lamp_glow", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	RenderingServer.global_shader_parameter_add("cloud_coverage_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.5)
-	RenderingServer.global_shader_parameter_add("cloud_speed_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.004)
+	RenderingServer.global_shader_parameter_add("cloud_speed_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0015)
 	RenderingServer.global_shader_parameter_add("impostor_brightness", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 1.0)
 	print("main: environment: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	# Terrain3D MUST init before park — builders need accurate terrain height
@@ -1486,7 +1486,7 @@ func _build_keyframes() -> void:
 		"cloud_density":      0.60,
 		"cloud_color_top":    Color(0.42, 0.40, 0.44),
 		"cloud_color_bottom": Color(0.16, 0.14, 0.18),
-		"cloud_speed":        0.003,
+		"cloud_speed":        0.001,
 	})
 
 	# ---- 6.5  Sunrise / Golden hour ----
@@ -1526,7 +1526,7 @@ func _build_keyframes() -> void:
 		"cloud_density":      0.55,
 		"cloud_color_top":    Color(0.95, 0.85, 0.72),   # gold-lit cloud tops
 		"cloud_color_bottom": Color(0.52, 0.42, 0.32),
-		"cloud_speed":        0.004,
+		"cloud_speed":        0.0015,
 	})
 
 	# ---- 12.0  Noon (clear, bright daylight) ----
@@ -1564,7 +1564,7 @@ func _build_keyframes() -> void:
 		"cloud_density":      0.55,
 		"cloud_color_top":    Color(0.95, 0.95, 0.93),
 		"cloud_color_bottom": Color(0.68, 0.68, 0.66),
-		"cloud_speed":        0.005,
+		"cloud_speed":        0.002,
 	})
 
 	# ---- 19.0  Sunset / Golden hour ----
@@ -1604,7 +1604,7 @@ func _build_keyframes() -> void:
 		"cloud_density":      0.55,
 		"cloud_color_top":    Color(0.85, 0.55, 0.38),  # golden-lit cloud tops
 		"cloud_color_bottom": Color(0.55, 0.30, 0.18),  # warm undersides
-		"cloud_speed":        0.004,
+		"cloud_speed":        0.0015,
 	})
 
 	# ---- 21.0  Night ----
@@ -1644,7 +1644,7 @@ func _build_keyframes() -> void:
 		"cloud_density":      0.55,
 		"cloud_color_top":    Color(0.14, 0.12, 0.18),
 		"cloud_color_bottom": Color(0.06, 0.05, 0.08),
-		"cloud_speed":        0.003,
+		"cloud_speed":        0.001,
 	})
 
 
@@ -3054,7 +3054,7 @@ func _setup_thunderstorm() -> void:
 
 func _setup_snow() -> void:
 	_snow_particles = GPUParticles3D.new()
-	_snow_particles.amount = 3000
+	_snow_particles.amount = 8000
 	_snow_particles.lifetime = 5.0
 	_snow_particles.visibility_aabb = AABB(Vector3(-25, -20, -25), Vector3(50, 40, 50))
 
@@ -3102,7 +3102,7 @@ func _setup_snow() -> void:
 	_snow_particles.process_material = pm
 
 	add_child(_snow_particles)
-	print("Snow: 3000 snowflake particles")
+	print("Snow: 8000 snowflake particles")
 
 
 

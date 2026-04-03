@@ -7,7 +7,7 @@ uniform vec3 ground_horizon_color = vec3(0.35, 0.38, 0.30);
 
 uniform float cloud_coverage = 0.65;
 uniform float cloud_density = 0.50;
-uniform float cloud_speed = 0.004;
+uniform float cloud_speed = 0.0015;
 uniform vec3 cloud_color_top = vec3(0.90, 0.90, 0.92);
 uniform vec3 cloud_color_bottom = vec3(0.45, 0.45, 0.50);
 uniform float cloud_type = 0.0;  // 0=fair cumulus, 1=stratus overcast, 2=cumulonimbus

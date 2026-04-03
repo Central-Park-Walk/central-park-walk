@@ -119,9 +119,9 @@ void fragment() {
 
 		// Puddle formation on flat surfaces
 		if (wet > 0.4) {
-			float puddle_noise = vnoise(world_pos.xz * 0.1);
-			puddle_noise += vnoise(world_pos.xz * 0.3) * 0.4;
-			float puddle = smoothstep(0.4, 0.6, puddle_noise) * smoothstep(0.4, 0.8, wet);
+			float puddle_noise = vnoise(world_pos.xz * 0.15);
+			puddle_noise += vnoise(world_pos.xz * 0.45) * 0.4;
+			float puddle = smoothstep(0.55, 0.72, puddle_noise) * smoothstep(0.4, 0.8, wet);
 			if (puddle > 0.01) {
 				float sky_lum = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
 				float night_t = smoothstep(0.15, 0.02, sky_lum);

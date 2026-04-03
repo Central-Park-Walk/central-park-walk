@@ -420,8 +420,8 @@ void fragment() {
 
 		// Puddles on flat terrain
 		if (v_normal.y > 0.95) {
-			float puddle_noise = fbm(v_vertex.xz * 0.06, 3);
-			float puddle_threshold = mix(0.6, 0.38, wet);
+			float puddle_noise = fbm(v_vertex.xz * 0.10, 3);
+			float puddle_threshold = mix(0.52, 0.28, wet);
 			float puddle = smoothstep(puddle_threshold, puddle_threshold - 0.08, puddle_noise) * v_normal.y;
 			if (puddle > 0.01) {
 				float p_sky_lum = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
