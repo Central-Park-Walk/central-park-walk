@@ -744,7 +744,7 @@ void fragment() {
 			// Procedural puddle mask: low-frequency noise determines puddle locations
 			float puddle_noise = fbm(world_pos.xz * 0.10, 3);
 			// Puddles form in noise "valleys" — threshold rises with rain intensity
-			float puddle_threshold = mix(0.52, 0.28, wet);
+			float puddle_threshold = mix(0.48, 0.22, wet);
 			float puddle = smoothstep(puddle_threshold, puddle_threshold - 0.08, puddle_noise);
 			puddle *= flatness;  // only on truly flat ground
 			if (puddle > 0.01) {

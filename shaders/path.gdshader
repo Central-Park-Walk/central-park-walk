@@ -105,7 +105,7 @@ void fragment() {
 		if (rain_wetness > 0.45) {
 			float puddle_noise = vnoise(world_pos.xz * 0.18);
 			puddle_noise += vnoise(world_pos.xz * 0.50) * 0.4;
-			float puddle = smoothstep(0.50, 0.68, puddle_noise) * smoothstep(0.45, 0.85, rain_wetness);
+			float puddle = smoothstep(0.55, 0.72, puddle_noise) * smoothstep(0.50, 0.88, rain_wetness);
 			if (puddle > 0.01) {
 				// Puddle surface: near-mirror reflecting sky color
 				vec3 puddle_col = sky_reflect_color * 0.4 + ALBEDO * 0.15;

@@ -1482,8 +1482,8 @@ func _build_keyframes() -> void:
 		"lamp_emission":  5.0,  # pre-dawn: lamps on (direct SpotLight3D energy)
 		"vol_fog_density":    0.0004,
 		"vol_fog_anisotropy": 0.45,
-		"cloud_coverage":     0.30,
-		"cloud_density":      0.60,
+		"cloud_coverage":     0.24,
+		"cloud_density":      0.55,
 		"cloud_color_top":    Color(0.42, 0.40, 0.44),
 		"cloud_color_bottom": Color(0.16, 0.14, 0.18),
 		"cloud_speed":        0.001,
@@ -1522,8 +1522,8 @@ func _build_keyframes() -> void:
 		"lamp_emission":  0.0,
 		"vol_fog_density":    0.0003,  # subtle sunrise haze
 		"vol_fog_anisotropy": 0.80,    # moderate forward scatter
-		"cloud_coverage":     0.30,
-		"cloud_density":      0.55,
+		"cloud_coverage":     0.25,
+		"cloud_density":      0.50,
 		"cloud_color_top":    Color(0.95, 0.85, 0.72),   # gold-lit cloud tops
 		"cloud_color_bottom": Color(0.52, 0.42, 0.32),
 		"cloud_speed":        0.0015,
@@ -1560,8 +1560,8 @@ func _build_keyframes() -> void:
 		"lamp_emission":  0.0,
 		"vol_fog_density":    0.0001,  # very subtle volumetric — just enough for depth
 		"vol_fog_anisotropy": 0.45,
-		"cloud_coverage":     0.35,
-		"cloud_density":      0.55,
+		"cloud_coverage":     0.28,
+		"cloud_density":      0.50,
 		"cloud_color_top":    Color(0.95, 0.95, 0.93),
 		"cloud_color_bottom": Color(0.68, 0.68, 0.66),
 		"cloud_speed":        0.002,
@@ -1600,8 +1600,8 @@ func _build_keyframes() -> void:
 		"lamp_emission":  0.0,  # lamps off until after sunset (ramp 19h→21h)
 		"vol_fog_density":    0.0003,  # subtle haze — clarity over drama
 		"vol_fog_anisotropy": 0.80,    # moderate forward scatter
-		"cloud_coverage":     0.35,
-		"cloud_density":      0.55,
+		"cloud_coverage":     0.28,
+		"cloud_density":      0.50,
 		"cloud_color_top":    Color(0.85, 0.55, 0.38),  # golden-lit cloud tops
 		"cloud_color_bottom": Color(0.55, 0.30, 0.18),  # warm undersides
 		"cloud_speed":        0.0015,
@@ -1640,8 +1640,8 @@ func _build_keyframes() -> void:
 		"lamp_emission":  5.0,  # night: direct SpotLight3D energy (was 110 via 22x multiplier)
 		"vol_fog_density":    0.0005,  # slight night haze catches lamplight scatter
 		"vol_fog_anisotropy": 0.35,
-		"cloud_coverage":     0.25,
-		"cloud_density":      0.55,
+		"cloud_coverage":     0.20,
+		"cloud_density":      0.50,
 		"cloud_color_top":    Color(0.14, 0.12, 0.18),
 		"cloud_color_bottom": Color(0.06, 0.05, 0.08),
 		"cloud_speed":        0.001,
@@ -3054,7 +3054,7 @@ func _setup_thunderstorm() -> void:
 
 func _setup_snow() -> void:
 	_snow_particles = GPUParticles3D.new()
-	_snow_particles.amount = 8000
+	_snow_particles.amount = 14000
 	_snow_particles.lifetime = 5.0
 	_snow_particles.visibility_aabb = AABB(Vector3(-25, -20, -25), Vector3(50, 40, 50))
 
@@ -3102,7 +3102,7 @@ func _setup_snow() -> void:
 	_snow_particles.process_material = pm
 
 	add_child(_snow_particles)
-	print("Snow: 8000 snowflake particles")
+	print("Snow: 14000 snowflake particles")
 
 
 

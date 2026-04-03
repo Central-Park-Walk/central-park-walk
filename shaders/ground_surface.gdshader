@@ -121,7 +121,7 @@ void fragment() {
 		if (wet > 0.4) {
 			float puddle_noise = vnoise(world_pos.xz * 0.15);
 			puddle_noise += vnoise(world_pos.xz * 0.45) * 0.4;
-			float puddle = smoothstep(0.55, 0.72, puddle_noise) * smoothstep(0.4, 0.8, wet);
+			float puddle = smoothstep(0.60, 0.76, puddle_noise) * smoothstep(0.45, 0.85, wet);
 			if (puddle > 0.01) {
 				float sky_lum = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));
 				float night_t = smoothstep(0.15, 0.02, sky_lum);
