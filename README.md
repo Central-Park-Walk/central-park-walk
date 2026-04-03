@@ -130,7 +130,7 @@ NYC Tree Census + OSM + woodland scatter across 12 ecological zones. 15 Mtree sp
 3-tier grass LOD: GPU grass GDExtension (0-80m, compute shader → MultiMesh indirect draw, 1M instances, zero CPU per frame), crossed-card tuft chunks (15-55m), terrain shader impostor (40m+). Traveling fBm wind waves computed per-instance in the grass compute shader — visible ripples (~12m) and sweeping gust fronts (~50m) across fields, all driven by the global wind vector. Rodrigues rotation bends blades with progressive curvature (base stays, tips arc). Colors derived from spectral reflectance via CIE 1931 2° Observer + D65 illuminant → XYZ → sRGB pipeline (effective albedo = leaf R+T for 7 species; scripts/spectral_colors.py). Shared zone palette (grass_zone_colors.gdshaderinc) drives all tiers with identical multi-scale macro variation: 22m field splotchiness, 70m landscape gradient, 8m warm/cool hue drift, 3m micro patchiness. 4 biome layers (lawn/KBG, shade/fescue, wild/switchgrass, sedge/carex) with conservancy botanical data.
 
 ### Sky
-Volumetric clouds via clayjohn's compute shader raymarching (Perlin-Worley noise, Beer-Lambert lighting, Henyey-Greenstein phase). Physically-based atmosphere LUTs (Rayleigh/Mie/ozone). Triple-buffered hemisphere textures with tiled incremental updates. Weather-driven coverage and density.
+Volumetric clouds via clayjohn's compute shader raymarching (Perlin-Worley noise, Beer-Lambert lighting, Henyey-Greenstein phase). Physically-based atmosphere LUTs (Rayleigh/Mie/ozone). Triple-buffered hemisphere textures with tiled incremental updates. Weather-driven coverage and density. Data-calibrated cloud drift: speed mapped from real cumulus physics at ~2km altitude — nearly frozen at zero wind, gentle drift in breeze, clear movement in storms.
 
 ### Water (23 bodies + 10 streams)
 OpenStreetMap polygons with stone coping, dawn/dusk mist (8 fog volumes).
@@ -142,7 +142,7 @@ NYC Building Footprints + LiDAR heights. 5 facade materials, floor-accurate wind
 17 bridges (custom Blender models), 4.8km perimeter wall, 364 barriers, 39 landmarks, 106 statue positions, 147 sports fields, 2,000+ furniture items (33 PBR models with ambientCG textures). Bethesda Terrace with arcade walkthrough (terrain hole, collision, photogrammetry fountain).
 
 ### Environment
-Full day/night cycle, 4 seasons, 5 weather modes, AgX tonemapping, 48-lamp lighting pool, 5-layer ambient audio. Organic wind model: incommensurate-frequency direction drift, fBm-style gust events with asymmetric envelope (fast rise, slow decay), coordinated across grass, trees, rain, snow, leaves, blossoms, and volumetric clouds via shared global wind vector.
+Full day/night cycle, 4 seasons, 5 weather modes, AgX tonemapping, 48-lamp lighting pool, 5-layer ambient audio. Organic wind model: incommensurate-frequency direction drift, fBm-style gust events with asymmetric envelope (fast rise, slow decay), coordinated across grass, trees, rain, snow, leaves, blossoms, and volumetric clouds via shared global wind vector. 14,000-particle snowfall with translucent iridescent crystals (additive blend, rim lighting, emission glow). Procedural rain puddles calibrated per surface type (terrain, paths, ground surfaces).
 
 ## Data Sources
 
