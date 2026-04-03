@@ -3088,10 +3088,19 @@ func _setup_snow() -> void:
 		_snow_particles.draw_pass_1 = snow_mesh
 		# 3D model tumbles naturally via angular_velocity — no billboard needed
 		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Color(0.95, 0.95, 1.0, 0.85)
+		mat.albedo_color = Color(0.92, 0.94, 1.0, 0.45)
 		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 		mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
 		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		# Iridescent crystal shimmer
+		mat.rim_enabled = true
+		mat.rim = 0.6
+		mat.rim_tint = 0.3
+		# Sunlight glow: emission adds a warm sparkle in lit conditions
+		mat.emission_enabled = true
+		mat.emission = Color(1.0, 0.95, 0.85)
+		mat.emission_energy_multiplier = 0.4
 		_snow_particles.material_override = mat
 	else:
 		# Fallback billboard quad — 4cm with size variation
@@ -3102,7 +3111,7 @@ func _setup_snow() -> void:
 		_snow_particles.draw_pass_1 = fallback
 		var mat := ShaderMaterial.new()
 		mat.shader = load("res://shaders/snow.gdshader")
-		mat.set_shader_parameter("snow_color", Color(0.95, 0.95, 1.0, 0.85))
+		mat.set_shader_parameter("snow_color", Color(0.92, 0.94, 1.0, 0.45))
 		_snow_particles.material_override = mat
 	_snow_particles.process_material = pm
 
