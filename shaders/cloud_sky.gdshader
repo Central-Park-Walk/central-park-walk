@@ -7,7 +7,7 @@ uniform vec3 ground_horizon_color = vec3(0.35, 0.38, 0.30);
 
 uniform float cloud_coverage = 0.65;
 uniform float cloud_density = 0.50;
-uniform float cloud_speed = 0.0015;
+uniform float cloud_speed = 0.0004;
 uniform vec3 cloud_color_top = vec3(0.90, 0.90, 0.92);
 uniform vec3 cloud_color_bottom = vec3(0.45, 0.45, 0.50);
 uniform float cloud_type = 0.0;  // 0=fair cumulus, 1=stratus overcast, 2=cumulonimbus
@@ -247,12 +247,12 @@ void sky() {
 		cloud_uv += TIME * wind_dir * drift_speed;
 
 		// Curl noise flow advection: clouds billow and stretch naturally.
-		// Large scale (~5min period): slow swirling air masses push cloud shapes
-		vec2 flow = sky_curl(cloud_uv * 0.15 + TIME * vec2(0.0008, 0.0003));
-		// Medium scale (~90s period): turbulent eddies create detail evolution
-		flow += sky_curl(cloud_uv * 0.4 + TIME * vec2(0.002, 0.001)) * 0.4;
-		// Small scale (~30s period): fine turbulence at cloud edges
-		flow += sky_curl(cloud_uv * 1.2 + TIME * vec2(0.005, 0.003)) * 0.15;
+		// Large scale: slow swirling air masses push cloud shapes
+		vec2 flow = sky_curl(cloud_uv * 0.15 + TIME * vec2(0.0002, 0.00008));
+		// Medium scale: turbulent eddies create detail evolution
+		flow += sky_curl(cloud_uv * 0.4 + TIME * vec2(0.0006, 0.0003)) * 0.4;
+		// Small scale: fine turbulence at cloud edges
+		flow += sky_curl(cloud_uv * 1.2 + TIME * vec2(0.0015, 0.0008)) * 0.15;
 		cloud_uv += flow * 0.12;
 
 		float sun_illum = max(dot(LIGHT0_DIRECTION, vec3(0.0, 1.0, 0.0)), 0.0);
@@ -372,8 +372,8 @@ void sky() {
 			// Cirrus blown faster by wind (high altitude = stronger wind)
 			vec2 cirrus_wind = wind_mag > 0.001 ? wind_dir * (cloud_speed * 2.0 + wind_mag * 0.20) : vec2(cloud_speed * 3.5, cloud_speed * 0.4);
 			cirrus_uv += TIME * cirrus_wind;
-			// Cirrus flow: stretched, faster eddies (jet stream shear)
-			cirrus_uv += sky_curl(cirrus_uv * 0.3 + TIME * vec2(0.003, 0.001)) * 0.08;
+			// Cirrus flow: stretched, slower eddies (jet stream shear)
+			cirrus_uv += sky_curl(cirrus_uv * 0.3 + TIME * vec2(0.0008, 0.0003)) * 0.08;
 			float cn = sky_gnoise(cirrus_uv * vec2(2.0, 6.0));
 			cn += sky_gnoise(cirrus_uv * vec2(4.0, 12.0)) * 0.4;
 			float cirrus = smoothstep(0.3, 0.8, cn) * 0.12;
