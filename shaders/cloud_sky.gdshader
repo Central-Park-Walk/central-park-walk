@@ -7,7 +7,7 @@ uniform vec3 ground_horizon_color = vec3(0.35, 0.38, 0.30);
 
 uniform float cloud_coverage = 0.65;
 uniform float cloud_density = 0.50;
-uniform float cloud_speed = 0.0004;
+uniform float cloud_speed = 0.00004;
 uniform vec3 cloud_color_top = vec3(0.90, 0.90, 0.92);
 uniform vec3 cloud_color_bottom = vec3(0.45, 0.45, 0.50);
 uniform float cloud_type = 0.0;  // 0=fair cumulus, 1=stratus overcast, 2=cumulonimbus
@@ -243,15 +243,15 @@ void sky() {
 		// Wind-driven cloud drift (base translation)
 		float wind_mag = length(wind_vec);
 		vec2 wind_dir = wind_mag > 0.001 ? wind_vec / wind_mag : vec2(0.7, 0.3);
-		float drift_speed = cloud_speed + wind_mag * 0.02;
+		float drift_speed = cloud_speed + wind_mag * 0.005;
 		cloud_uv += TIME * wind_dir * drift_speed;
 
 		// Curl noise flow advection: very subtle shape evolution over minutes.
-		// Large scale (~10min period): slow swirling air masses
-		vec2 flow = sky_curl(cloud_uv * 0.15 + TIME * vec2(0.0004, 0.00015));
-		// Medium scale (~4min period): gentle detail drift
-		flow += sky_curl(cloud_uv * 0.4 + TIME * vec2(0.0008, 0.0004)) * 0.4;
-		cloud_uv += flow * 0.015;
+		// Large scale (~15min period): slow swirling air masses
+		vec2 flow = sky_curl(cloud_uv * 0.15 + TIME * vec2(0.0002, 0.00008));
+		// Medium scale (~8min period): gentle detail drift
+		flow += sky_curl(cloud_uv * 0.4 + TIME * vec2(0.0004, 0.0002)) * 0.4;
+		cloud_uv += flow * 0.008;
 
 		float sun_illum = max(dot(LIGHT0_DIRECTION, vec3(0.0, 1.0, 0.0)), 0.0);
 		float cloud_mask = 0.0;
@@ -368,7 +368,7 @@ void sky() {
 		if (cloud_type < 1.5 && elev > 0.15) {
 			vec2 cirrus_uv = dir.xz / (cloud_y + 0.05) * 0.3;
 			// Cirrus blown faster by wind (high altitude = stronger wind)
-			vec2 cirrus_wind = wind_mag > 0.001 ? wind_dir * (cloud_speed * 2.0 + wind_mag * 0.06) : vec2(cloud_speed * 3.5, cloud_speed * 0.4);
+			vec2 cirrus_wind = wind_mag > 0.001 ? wind_dir * (cloud_speed * 2.0 + wind_mag * 0.012) : vec2(cloud_speed * 3.5, cloud_speed * 0.4);
 			cirrus_uv += TIME * cirrus_wind;
 			// Cirrus flow: stretched, faster eddies (jet stream shear)
 			cirrus_uv += sky_curl(cirrus_uv * 0.3 + TIME * vec2(0.003, 0.001)) * 0.08;
@@ -388,7 +388,7 @@ void sky() {
 		float cloud_y2 = max(elev, 0.01);
 		float lf_wm = length(wind_vec);
 		vec2 lf_wd = lf_wm > 0.001 ? wind_vec / lf_wm : vec2(0.7, 0.7);
-		vec2 lf_uv = dir.xz / (cloud_y2 + 0.1) * 0.8 + TIME * lf_wd * (cloud_speed + lf_wm * 0.02);
+		vec2 lf_uv = dir.xz / (cloud_y2 + 0.1) * 0.8 + TIME * lf_wd * (cloud_speed + lf_wm * 0.005);
 		float lf_cloud = sky_fbm(lf_uv * 3.0, 3);
 		float lf_mask = smoothstep(0.4, 0.8, lf_cloud);
 		// Lightning illuminates from below: brighter cloud bases

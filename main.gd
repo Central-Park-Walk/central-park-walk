@@ -220,7 +220,7 @@ func _ready() -> void:
 	RenderingServer.global_shader_parameter_add("dew_amount", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	RenderingServer.global_shader_parameter_add("lamp_glow", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	RenderingServer.global_shader_parameter_add("cloud_coverage_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.5)
-	RenderingServer.global_shader_parameter_add("cloud_speed_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0004)
+	RenderingServer.global_shader_parameter_add("cloud_speed_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.00004)
 	RenderingServer.global_shader_parameter_add("impostor_brightness", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 1.0)
 	print("main: environment: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	# Terrain3D MUST init before park — builders need accurate terrain height
@@ -1486,7 +1486,7 @@ func _build_keyframes() -> void:
 		"cloud_density":      0.55,
 		"cloud_color_top":    Color(0.42, 0.40, 0.44),
 		"cloud_color_bottom": Color(0.16, 0.14, 0.18),
-		"cloud_speed":        0.0003,
+		"cloud_speed":        0.00003,
 	})
 
 	# ---- 6.5  Sunrise / Golden hour ----
@@ -1526,7 +1526,7 @@ func _build_keyframes() -> void:
 		"cloud_density":      0.50,
 		"cloud_color_top":    Color(0.95, 0.85, 0.72),   # gold-lit cloud tops
 		"cloud_color_bottom": Color(0.52, 0.42, 0.32),
-		"cloud_speed":        0.0005,
+		"cloud_speed":        0.00005,
 	})
 
 	# ---- 12.0  Noon (clear, bright daylight) ----
@@ -1564,7 +1564,7 @@ func _build_keyframes() -> void:
 		"cloud_density":      0.50,
 		"cloud_color_top":    Color(0.95, 0.95, 0.93),
 		"cloud_color_bottom": Color(0.68, 0.68, 0.66),
-		"cloud_speed":        0.0006,
+		"cloud_speed":        0.00006,
 	})
 
 	# ---- 19.0  Sunset / Golden hour ----
@@ -1604,7 +1604,7 @@ func _build_keyframes() -> void:
 		"cloud_density":      0.50,
 		"cloud_color_top":    Color(0.85, 0.55, 0.38),  # golden-lit cloud tops
 		"cloud_color_bottom": Color(0.55, 0.30, 0.18),  # warm undersides
-		"cloud_speed":        0.0005,
+		"cloud_speed":        0.00005,
 	})
 
 	# ---- 21.0  Night ----
@@ -1644,7 +1644,7 @@ func _build_keyframes() -> void:
 		"cloud_density":      0.50,
 		"cloud_color_top":    Color(0.14, 0.12, 0.18),
 		"cloud_color_bottom": Color(0.06, 0.05, 0.08),
-		"cloud_speed":        0.0003,
+		"cloud_speed":        0.00003,
 	})
 
 
