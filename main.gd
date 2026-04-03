@@ -82,6 +82,7 @@ var _weather_mode := "clear"  # clear, rain, thunderstorm, snow, fog
 var _wind_vec := Vector2.ZERO   # current wind XZ direction+strength
 var _wind_time := 0.0           # accumulated wind time (independent of game clock)
 var _wind_override := -1.0      # <0 = auto, 0-1 = manual strength multiplier
+var _gust_envelope := 0.0       # asymmetric gust: fast rise, slow decay
 
 # Snow accumulation
 var _snow_cover := 0.0          # 0-1, ramps up during snow weather
@@ -2872,25 +2873,57 @@ func _update_wind(delta: float) -> void:
 	elif _weather_mode == "fog":
 		wx = 0.3
 
-	# Layer 1: slow broad wind — base direction rotates over ~3.5 min
-	var a1 := t * 0.03
-	var s1 := sin(t * 0.21) * 0.25 + 0.30
-	var w1 := Vector2(cos(a1), sin(a1)) * s1
+	# --- Direction: slow persistent drift with occasional shifts ---
+	# Base direction wanders via low-frequency sines with incommensurate
+	# periods (~4.7 min, ~2.3 min). Creates long stretches of steady
+	# direction with gradual veering — like real pressure system movement.
+	var dir_angle := t * 0.011 + sin(t * 0.0073) * 1.2 + sin(t * 0.031) * 0.4
+	var wind_dir := Vector2(cos(dir_angle), sin(dir_angle))
 
-	# Layer 2: crossing gust from a different angle (~18s period)
-	var a2 := t * 0.03 + 2.1 + sin(t * 0.07) * 0.8
-	var s2 := sin(t * 0.35 + 1.7) * 0.20
-	var w2 := Vector2(cos(a2), sin(a2)) * s2
+	# --- Base breeze: always present, slow modulation ---
+	# Very low frequency so there are multi-minute stretches of near-calm
+	# followed by breezy periods. Range ~0.03–0.18.
+	var breeze := 0.08 + sin(t * 0.047 + 2.3) * 0.05 + sin(t * 0.013) * 0.04
+	breeze = maxf(breeze, 0.03)
 
-	# Layer 3: quick turbulence (~4s puffs, smaller amplitude)
-	var s3 := sin(t * 1.3 + 3.1) * 0.10
-	var w3 := Vector2(sin(t * 1.7 + 0.5), cos(t * 2.1 + 1.3)) * s3
+	# --- Medium wind: broad swells with ~25–40s period ---
+	# Product of two sines = amplitude modulation, creating natural swells.
+	var swell_a := sin(t * 0.157 + 0.7) * 0.5 + 0.5
+	var swell_b := sin(t * 0.089 + 1.9) * 0.5 + 0.5
+	var medium := swell_a * swell_b * 0.25
 
-	_wind_vec = (w1 + w2 + w3) * tod_mult * wx
+	# --- Gust events: thresholded product of incommensurate waves ---
+	# Three waves (~17s, ~12s, ~33s) must align for a gust to fire.
+	# Smoothstep threshold means only peaks become gusts — long calm
+	# stretches between bursts, like real wind arriving in fronts.
+	var gust_raw := (sin(t * 0.37 + 1.1) * 0.5 + 0.5)
+	gust_raw *= (sin(t * 0.53 + 2.7) * 0.5 + 0.5)
+	gust_raw *= (sin(t * 0.19 + 0.3) * 0.5 + 0.5)
+	var gust_trigger := smoothstep(0.15, 0.35, gust_raw) * 0.35
+
+	# Asymmetric envelope: fast rise (~0.3s), slow decay (~2.5s).
+	# Gusts arrive suddenly and fade gradually — the real-world pattern.
+	if gust_trigger > _gust_envelope:
+		_gust_envelope = lerpf(_gust_envelope, gust_trigger, minf(delta * 3.3, 1.0))
+	else:
+		_gust_envelope = lerpf(_gust_envelope, gust_trigger, minf(delta * 0.4, 1.0))
+
+	# Gust cross-wind: mostly aligned with base direction but with slight
+	# lateral component so gust fronts aren't perfectly parallel.
+	var gust_cross := sin(t * 0.71 + 3.1) * 0.25
+	var gust_dir := Vector2(
+		wind_dir.x - wind_dir.y * gust_cross,
+		wind_dir.y + wind_dir.x * gust_cross
+	).normalized()
+
+	# Combine: direction × (breeze + swells) + gust front
+	var base_wind := wind_dir * (breeze + medium)
+	var gust_wind := gust_dir * _gust_envelope
+	_wind_vec = (base_wind + gust_wind) * tod_mult * wx
 
 	# Manual override (- / = keys)
 	if _wind_override >= 0.0:
-		_wind_vec = (w1 + w2 + w3).normalized() * _wind_override * 0.55
+		_wind_vec = wind_dir * _wind_override * 0.55
 
 	# Push to global shader uniform
 	RenderingServer.global_shader_parameter_set("wind_vec", _wind_vec)
