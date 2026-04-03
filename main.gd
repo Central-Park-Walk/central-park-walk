@@ -64,7 +64,6 @@ const LAMP_LIGHT_UPDATE_INTERVAL := 0.5  # seconds between position updates
 
 # Weather particles
 var _rain_particles: GPUParticles3D
-var _rain_splash_particles: GPUParticles3D  # ground-level splash rings
 var _snow_particles: GPUParticles3D
 var _leaf_particles: GPUParticles3D  # autumn falling leaves
 var _blossom_particles: GPUParticles3D  # spring cherry blossom petals
@@ -779,8 +778,6 @@ func _process(delta: float) -> void:
 		_rain_particles.global_position = _player.global_position + Vector3(0, 14, 0)
 		var rpm: ParticleProcessMaterial = _rain_particles.process_material
 		rpm.gravity = Vector3(_wind_vec.x * 5.0, -1.5, _wind_vec.y * 5.0)
-	if _rain_splash_particles and _player:
-		_rain_splash_particles.global_position = _player.global_position + Vector3(0, 0.1, 0)
 	if _snow_particles and _player:
 		_snow_particles.global_position = _player.global_position + Vector3(0, 15, 0)
 		var spm: ParticleProcessMaterial = _snow_particles.process_material
@@ -978,9 +975,6 @@ func _set_weather(mode: String) -> void:
 	if _rain_particles:
 		_rain_particles.queue_free()
 		_rain_particles = null
-	if _rain_splash_particles:
-		_rain_splash_particles.queue_free()
-		_rain_splash_particles = null
 	if _snow_particles:
 		_snow_particles.queue_free()
 		_snow_particles = null
@@ -2921,9 +2915,6 @@ func _cycle_weather() -> void:
 	if _rain_particles:
 		_rain_particles.queue_free()
 		_rain_particles = null
-	if _rain_splash_particles:
-		_rain_splash_particles.queue_free()
-		_rain_splash_particles = null
 	if _snow_particles:
 		_snow_particles.queue_free()
 		_snow_particles = null
@@ -2994,8 +2985,7 @@ func _setup_rain() -> void:
 	_rain_particles.material_override = mat
 
 	add_child(_rain_particles)
-	_setup_rain_splash(1200, 0.35)
-	print("Rain: 6000 gentle drops + splash")
+	print("Rain: 6000 gentle drops")
 
 
 func _setup_thunderstorm() -> void:
@@ -3026,50 +3016,7 @@ func _setup_thunderstorm() -> void:
 	_rain_particles.material_override = mat
 
 	add_child(_rain_particles)
-	_setup_rain_splash(4000, 0.55)
-	print("Thunderstorm: 30000 heavy drops + splash")
-
-
-func _setup_rain_splash(amount: int, alpha: float) -> void:
-	# Ground-level splash rings where rain impacts
-	_rain_splash_particles = GPUParticles3D.new()
-	_rain_splash_particles.amount = amount
-	_rain_splash_particles.lifetime = 0.35
-	_rain_splash_particles.visibility_aabb = AABB(Vector3(-25, -2, -25), Vector3(50, 4, 50))
-
-	var pm := ParticleProcessMaterial.new()
-	pm.direction = Vector3(0, 1, 0)
-	pm.spread = 0.0
-	pm.initial_velocity_min = 0.3
-	pm.initial_velocity_max = 0.8
-	pm.gravity = Vector3(0, -2.0, 0)
-	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-	pm.emission_box_extents = Vector3(25.0, 0.1, 25.0)
-	pm.scale_min = 0.6
-	pm.scale_max = 1.4
-	# Fade out over lifetime
-	var alpha_curve := CurveTexture.new()
-	var curve := Curve.new()
-	curve.add_point(Vector2(0.0, 1.0))
-	curve.add_point(Vector2(0.3, 0.8))
-	curve.add_point(Vector2(1.0, 0.0))
-	alpha_curve.curve = curve
-	pm.alpha_curve = alpha_curve
-	# Quick upward-outward burst then settle
-	pm.damping_min = 3.0
-	pm.damping_max = 5.0
-	_rain_splash_particles.process_material = pm
-
-	var mesh := QuadMesh.new()
-	mesh.size = Vector2(0.08, 0.08)
-	_rain_splash_particles.draw_pass_1 = mesh
-
-	var mat := ShaderMaterial.new()
-	mat.shader = load("res://shaders/rain_splash.gdshader")
-	mat.set_shader_parameter("splash_color", Color(0.75, 0.78, 0.88, alpha))
-	_rain_splash_particles.material_override = mat
-
-	add_child(_rain_splash_particles)
+	print("Thunderstorm: 30000 heavy drops")
 
 
 func _setup_snow() -> void:
