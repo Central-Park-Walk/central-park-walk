@@ -246,14 +246,12 @@ void sky() {
 		float drift_speed = cloud_speed + wind_mag * 0.02;
 		cloud_uv += TIME * wind_dir * drift_speed;
 
-		// Curl noise flow advection: clouds billow and stretch naturally.
-		// Large scale (~5min period): slow swirling air masses push cloud shapes
-		vec2 flow = sky_curl(cloud_uv * 0.15 + TIME * vec2(0.0008, 0.0003));
-		// Medium scale (~90s period): turbulent eddies create detail evolution
-		flow += sky_curl(cloud_uv * 0.4 + TIME * vec2(0.002, 0.001)) * 0.4;
-		// Small scale (~30s period): fine turbulence at cloud edges
-		flow += sky_curl(cloud_uv * 1.2 + TIME * vec2(0.005, 0.003)) * 0.15;
-		cloud_uv += flow * 0.06;
+		// Curl noise flow advection: very subtle shape evolution over minutes.
+		// Large scale (~10min period): slow swirling air masses
+		vec2 flow = sky_curl(cloud_uv * 0.15 + TIME * vec2(0.0004, 0.00015));
+		// Medium scale (~4min period): gentle detail drift
+		flow += sky_curl(cloud_uv * 0.4 + TIME * vec2(0.0008, 0.0004)) * 0.4;
+		cloud_uv += flow * 0.015;
 
 		float sun_illum = max(dot(LIGHT0_DIRECTION, vec3(0.0, 1.0, 0.0)), 0.0);
 		float cloud_mask = 0.0;
