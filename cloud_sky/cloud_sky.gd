@@ -191,7 +191,7 @@ func _update_per_frame_data():
 
 	# Which involves keeping some state and integrating positions over the latest time step
 	frame_data._time = time
-	frame_data._detailed_pos += delta * wind_direction_normalized
+	frame_data._detailed_pos += delta * wind_direction_normalized * frame_data.wind_speed
 	frame_data._cloud_pos += delta * wind_direction_normalized * frame_data.wind_speed
 	frame_data._weather_pos += delta2 * wind_direction_normalized * frame_data.wind_speed
 

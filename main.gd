@@ -1351,7 +1351,7 @@ func _setup_environment() -> void:
 	if vol_sky:
 		vol_sky.cloud_coverage = 0.30
 		vol_sky.density = 0.04
-		vol_sky.wind_speed = 1.5
+		vol_sky.wind_speed = 0.03
 		vol_sky.texture_size = 768
 		vol_sky.frames_to_update = 64
 		vol_sky.sun_disk_scale = 1.5
@@ -2933,12 +2933,17 @@ func _update_wind(delta: float) -> void:
 		if is_instance_valid(gn):
 			gn.set("wind_vec", _wind_vec)
 
-	# Drive volumetric cloud movement from wind
+	# Drive volumetric cloud movement from wind.
+	# Real-world calibration: cumulus at ~2km altitude.
+	# Surface wind → cloud-level wind is roughly 2-3x surface speed.
+	# _wind_vec magnitude: calm ~0.03-0.08, breezy ~0.15-0.25,
+	# gusty ~0.3-0.6, storm ~0.8-1.7.
+	# At zero wind clouds should be nearly frozen; max storm = clear drift.
 	if _vol_sky:
 		var wlen: float = _wind_vec.length()
 		if wlen > 0.01:
 			_vol_sky.wind_direction = atan2(_wind_vec.y, _wind_vec.x)
-		_vol_sky.wind_speed = maxf(wlen * 20.0, 0.5)
+		_vol_sky.wind_speed = wlen * 0.6
 
 
 const WEATHER_MODES: Array = ["clear", "rain", "thunderstorm", "snow", "fog"]
