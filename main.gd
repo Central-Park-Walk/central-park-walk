@@ -3033,13 +3033,13 @@ func _setup_snow() -> void:
 	pm.gravity = Vector3(0, -1.2, 0)
 	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
 	pm.emission_box_extents = Vector3(25.0, 0.5, 25.0)
-	# Gentle drift + tumble
-	pm.orbit_velocity_min = 0.1
-	pm.orbit_velocity_max = 0.3
-	pm.angular_velocity_min = -120.0
-	pm.angular_velocity_max = 120.0
-	pm.damping_min = 0.5
-	pm.damping_max = 1.5
+	# Gentle flutter: slow twist, slight lateral drift (real snowflakes oscillate, not tumble)
+	pm.orbit_velocity_min = 0.03
+	pm.orbit_velocity_max = 0.12
+	pm.angular_velocity_min = -25.0
+	pm.angular_velocity_max = 25.0
+	pm.damping_min = 0.8
+	pm.damping_max = 2.0
 
 	# Load 3D snowflake mesh from GLB
 	var snow_mesh := _extract_mesh_from_glb("res://models/vegetation/Snowflake.glb")
