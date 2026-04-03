@@ -1965,7 +1965,7 @@ func _setup_ground() -> void:
 # ---------------------------------------------------------------------------
 var _grass_particle_nodes: Array[Node3D] = []
 var _grass_tuft_builder: Node3D  # Tier 2 static MultiMesh tuft chunks
-var _gpu_grass_node: Node3D  # GPUGrass compute-driven grass (replaces particles)
+var _gpu_grass_nodes: Array = []  # GPUGrass compute-driven grass nodes (one per biome)
 var _landuse_texture: Texture2D  # cached for grass particle system
 
 # Biome definitions for multi-layer grass particles.
@@ -2480,6 +2480,7 @@ func _setup_gpu_grass() -> void:
 			grass.set("canopy_texture", _park_loader._canopy_texture)
 
 		add_child(grass)
+		_gpu_grass_nodes.append(grass)
 		print("GPU grass [%s]: biome=%d spacing=%.2f instances=%d" % [
 			cfg.name, cfg.biome_id, cfg.spacing, cfg.max_instances])
 
@@ -2899,6 +2900,11 @@ func _update_wind(delta: float) -> void:
 
 	# Push to global shader uniform
 	RenderingServer.global_shader_parameter_set("wind_vec", _wind_vec)
+
+	# Push wind to GPU grass compute shaders
+	for gn in _gpu_grass_nodes:
+		if is_instance_valid(gn):
+			gn.set("wind_vec", _wind_vec)
 
 	# Drive volumetric cloud movement from wind
 	if _vol_sky:

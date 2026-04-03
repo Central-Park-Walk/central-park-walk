@@ -33,7 +33,7 @@ layout(set = 0, binding = 4) uniform sampler2D canopy_tex;
 layout(push_constant, std430) uniform PushConstants {
 	vec4 camera_pos_spacing;   // xyz = camera world position, w = grid spacing
 	vec4 grid_params;          // x = grid_side, y = max_distance, z = max_instances, w = world_size
-	vec4 biome_config;         // x = target_biome (-1 = all, 0-3 = specific)
+	vec4 wind_config;          // x = target_biome, y = wind_x, z = wind_y, w = time
 } pc;
 
 // --- Deterministic hash functions ---
@@ -46,6 +46,35 @@ vec2 hash2(vec2 p) {
 		dot(p, vec2(127.1, 311.7)),
 		dot(p, vec2(269.5, 183.3))
 	)) * 43758.5453);
+}
+
+// --- Smooth value noise for wind field ---
+// Continuous noise with C1 interpolation (hermite smoothstep).
+// Used to generate spatially coherent wind waves that travel across the field.
+float vnoise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	float a = hash1(i);
+	float b = hash1(i + vec2(1.0, 0.0));
+	float c = hash1(i + vec2(0.0, 1.0));
+	float d = hash1(i + vec2(1.0, 1.0));
+	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+// 3-octave fBm with per-octave rotation to break axis alignment.
+// Returns ~0.0–1.0 range.
+float fbm3(vec2 p) {
+	float v = 0.0;
+	float a = 0.5;
+	// Per-octave rotation avoids grid-aligned artifacts
+	const mat2 rot = mat2(0.8, 0.6, -0.6, 0.8);
+	for (int i = 0; i < 3; i++) {
+		v += a * vnoise(p);
+		p = rot * p * 2.0;
+		a *= 0.5;
+	}
+	return v;
 }
 
 // World position → UV for texture sampling
@@ -111,7 +140,7 @@ void main() {
 	if (biome_id < 0) return; // Not a grass zone
 
 	// Biome filter: skip positions that don't match target biome
-	int target_biome = int(pc.biome_config.x);
+	int target_biome = int(pc.wind_config.x);
 	if (target_biome >= 0 && biome_id != target_biome) return;
 
 	// Sample canopy coverage
@@ -184,9 +213,36 @@ void main() {
 	instances.data[base + 15u] = tint_g;
 
 	// INSTANCE_CUSTOM: (random1, random2, wind_noise, grass_scale)
-	// wind_noise = 0 for now (no wind in compute — added later)
+	// Wind noise: traveling fBm waves create visible wind fronts across the field.
+	// Nearby blades get similar values (spatial coherence), scrolled by wind direction.
+	vec2 wind_dir = vec2(pc.wind_config.y, pc.wind_config.z);
+	float wind_str = length(wind_dir);
+	float t = pc.wind_config.w;
+
+	float wind_noise = 0.0;
+	if (wind_str > 0.001) {
+		vec2 wn = normalize(wind_dir);
+
+		// Primary traveling wave: fBm scrolled along wind direction
+		// 0.08 scale = ~12m wavelength — visible grass ripples
+		vec2 wave_uv = world_xz * 0.08 - wn * t * 2.5;
+		float wave = fbm3(wave_uv);
+
+		// Secondary gust front: broader scale, slower scroll
+		// 0.02 scale = ~50m — creates large sweeping gusts
+		vec2 gust_uv = world_xz * 0.02 - wn * t * 0.8;
+		float gust = fbm3(gust_uv + vec2(73.1, 41.7));
+		gust = smoothstep(0.42, 0.72, gust); // Only peaks become gusts
+
+		// Combined: base sway + wave modulation + gust surges
+		wind_noise = wind_str * (0.5 + 0.5 * wave) + gust * wind_str * 0.7;
+
+		// Per-blade micro-variation so adjacent blades aren't perfectly in sync
+		wind_noise *= 0.85 + 0.3 * h1;
+	}
+
 	instances.data[base + 16u] = h1;           // random seed for color variation
 	instances.data[base + 17u] = patch_tone;   // macro patch tone
-	instances.data[base + 18u] = 0.0;          // wind_noise (static for now)
+	instances.data[base + 18u] = wind_noise;   // per-instance wind bend strength
 	instances.data[base + 19u] = scale;         // grass_scale for wind strength
 }

@@ -25,6 +25,10 @@ private:
 	float world_size = 5000.0f;
 	int target_biome = -1;  // -1 = all biomes, 0-3 = specific biome
 
+	// Wind state (set from GDScript each frame)
+	Vector2 wind_vec;
+	double elapsed_time = 0.0;
+
 	// Terrain data textures (set from GDScript)
 	Ref<Texture2D> heightmap_texture;
 	Ref<Texture2D> landuse_texture;
@@ -95,6 +99,9 @@ public:
 
 	void set_target_biome(int p_biome);
 	int get_target_biome() const;
+
+	void set_wind_vec(const Vector2 &p_wind);
+	Vector2 get_wind_vec() const;
 };
 
 } // namespace godot
