@@ -150,18 +150,15 @@ func _build_vines(trees: Array) -> void:
 		if species_name == "dead":
 			continue
 
-		# Tree height
+		# Tree height and DBH
+		var dbh: int = int(tree_entry.get("dbh", 12))
 		var desired_h := 15.0
 		if tree_entry.has("lidar_h") and float(tree_entry["lidar_h"]) > 0.0:
 			desired_h = float(tree_entry["lidar_h"])
 		else:
-			var dbh := int(tree_entry.get("dbh", 12))
 			desired_h = lerpf(10.0, 22.0, clampf((float(dbh) - 3.0) / 30.0, 0.0, 1.0))
 		if desired_h < 5.0:
 			continue  # Too short for vines
-
-		# DBH check — skip saplings (< 15cm)
-		var dbh := int(tree_entry.get("dbh", 12))
 		if dbh < 6:  # 6 inches ≈ 15cm
 			continue
 
@@ -201,7 +198,7 @@ func _build_vines(trees: Array) -> void:
 
 		# RNG per tree (deterministic)
 		rng.seed = (i * 73856093 + int(tx * 311.7) + int(tz * 183.3)) & 0x7FFFFFFF
-		var final_chance := zone_cfg.chance * bark_mult * edge_boost
+		var final_chance: float = float(zone_cfg.chance) * bark_mult * edge_boost
 		if rng.randf() > final_chance:
 			continue
 
@@ -221,7 +218,7 @@ func _build_vines(trees: Array) -> void:
 		var mesh_idx: int = rng.randi() % meshes.size()
 
 		# Placement transform based on climbing mechanism
-		var vine_h := desired_h * vine_sp.max_h * rng.randf_range(0.4, 1.0)
+		var vine_h: float = desired_h * float(vine_sp.max_h) * rng.randf_range(0.4, 1.0)
 		var scale := vine_h / 3.0  # models are ~3m reference height
 		var y_rot := rng.randf() * TAU
 		var basis := Basis(Vector3.UP, y_rot) * Basis().scaled(Vector3(scale, scale, scale))
