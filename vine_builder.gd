@@ -207,7 +207,7 @@ func _build_vines(trees: Array) -> void:
 		var ty: float = _loader._terrain_y(tx, tz)
 
 		# Select vine species via weighted random
-		var sp_idx := _pick_species(zone_cfg.species, rng, bark_mult, species_name)
+		var sp_idx: int = _pick_species(zone_cfg.species, rng, bark_mult, species_name)
 		if sp_idx < 0 or sp_idx >= VINE_SPECIES.size():
 			continue
 		var vine_sp: Dictionary = VINE_SPECIES[sp_idx]
@@ -242,10 +242,10 @@ func _build_vines(trees: Array) -> void:
 
 		# Ground-running patch (50% chance for climbing-pad species)
 		if vine_sp.mech == Mechanism.CLIMB and rng.randf() < 0.5:
-			var ground_mesh_idx := meshes.size() - 1  # last variant is ground runner
-			var gx := tx + rng.randf_range(-3.0, 3.0)
-			var gz := tz + rng.randf_range(-3.0, 3.0)
-			var gy := _loader._terrain_y(gx, gz)
+			var ground_mesh_idx: int = meshes.size() - 1  # last variant is ground runner
+			var gx: float = tx + rng.randf_range(-3.0, 3.0)
+			var gz: float = tz + rng.randf_range(-3.0, 3.0)
+			var gy: float = float(_loader._terrain_y(gx, gz))
 			var g_scale := rng.randf_range(0.6, 1.2)
 			var g_rot := rng.randf() * TAU
 			var g_basis := Basis(Vector3.UP, g_rot) * Basis().scaled(Vector3(g_scale, g_scale, g_scale))
@@ -373,7 +373,7 @@ func _pick_species(weights: Array, rng: RandomNumberGenerator,
 func _build_zone_map() -> Dictionary:
 	"""Classify chunks into vine zones from Z coordinate."""
 	var zone_map: Dictionary = {}
-	var x_chunks := int(ceil(_loader._hm_world_size / CHUNK))
+	var x_chunks: int = int(ceil(_loader._hm_world_size / CHUNK))
 	for cx_i in range(-x_chunks / 2, x_chunks / 2 + 1):
 		for cz_i in range(-x_chunks / 2, x_chunks / 2 + 1):
 			var wz := (float(cz_i) + 0.5) * CHUNK
