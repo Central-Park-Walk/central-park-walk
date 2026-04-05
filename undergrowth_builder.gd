@@ -115,6 +115,18 @@ const SPECIES := [
 	# --- ACCENT FLOWERS (29) --- used as undergrowth in meadow zones ---
 	# 29: Aster (Symphyotrichum spp.) — purple/white, fall bloom, meadow + woodland edge
 	{name="Flower_Aster", s=[0.8, 1.3], flex=0.30, green=0, fall=[0.50, 0.40, 0.10], fc=[0.60, 0.40, 0.72], bl=[1.5, 2.5]},
+
+	# --- ADDITIONAL GRASSES (30-33) + MEADOW FLOWER (34) ---
+	# 30: Little Bluestem (Schizachyrium scoparium) — 0.9m bunch grass, coppery-bronze fall
+	{name="Grass_LittleBluestem", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.60, 0.38, 0.15], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	# 31: Switchgrass (Panicum virgatum) — 1.6m tall warm-season, golden fall
+	{name="Grass_Switchgrass", s=[0.7, 1.3], flex=0.35, green=0, fall=[0.65, 0.52, 0.18], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	# 32: Tussock Sedge (Carex stricta) — 0.7m clumping wetland, yellow-green
+	{name="Grass_TussockSedge", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.55, 0.48, 0.15], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	# 33: PA Sedge (Carex pensylvanica) — 0.22m low ground cover, shade-tolerant
+	{name="Grass_PASedge", s=[0.7, 1.2], flex=0.20, green=0, fall=[0.45, 0.38, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	# 34: Black-eyed Susan (Rudbeckia hirta) — 0.8m, bright yellow-orange rays + dark cone
+	{name="Herb_BlackeyedSusan", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.50, 0.40, 0.08], fc=[0.88, 0.72, 0.08], bl=[1.0, 1.8]},
 ]
 
 # Zone type -> list of [species_index, density_per_100m2]
@@ -135,6 +147,7 @@ const ZONE_SPECIES := {
 		[17, 1.5],  # jewelweed (stream banks)
 		[19, 1.2],  # white snakeroot
 		[24, 0.8],  # bottlebrush grass
+		[33, 1.5],  # PA sedge (shade ground cover)
 	],
 	6: [  # Ramble — dense wild understory, heaviest species diversity
 		[0, 2.2],   # spicebush (very common)
@@ -152,6 +165,7 @@ const ZONE_SPECIES := {
 		[19, 1.5],  # white snakeroot
 		[22, 0.4],  # burdock
 		[24, 1.0],  # bottlebrush grass
+		[33, 2.0],  # PA sedge (shade ground cover)
 	],
 	7: [  # Waterside — wetland specialists
 		[25, 3.0],  # cattail (signature)
@@ -163,6 +177,7 @@ const ZONE_SPECIES := {
 		[21, 0.5],  # rose mallow
 		[20, 0.6],  # ironweed
 		[5, 0.4],   # sweet pepperbush
+		[32, 1.5],  # tussock sedge (wetland clumps)
 	],
 	8: [  # Wild Meadow — tall wildflowers + native grasses
 		[23, 2.5],  # goldenrod (dominant fall display)
@@ -170,10 +185,12 @@ const ZONE_SPECIES := {
 		[13, 1.0],  # joe-pye weed
 		[14, 0.8],  # coneflower
 		[20, 0.6],  # ironweed
-		[22, 0.5],  # burdock
+		[34, 1.5],  # black-eyed susan (meadow signature)
 		[12, 0.8],  # Japanese knotweed (invasive edge)
 		[18, 0.6],  # mugwort
-		[24, 1.5],  # bottlebrush grass
+		[30, 2.0],  # little bluestem (signature native grass)
+		[31, 1.5],  # switchgrass
+		[24, 1.0],  # bottlebrush grass
 	],
 	9: [  # Open Lawn — very sparse, only at edges
 		[18, 0.2],  # mugwort (occasional invasive)

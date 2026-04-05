@@ -29,6 +29,10 @@ models/
 !models/vegetation/Fern_*.glb
 !models/vegetation/Wetland_*.glb
 !models/vegetation/Grass_Bottlebrush.glb
+!models/vegetation/Grass_LittleBluestem.glb
+!models/vegetation/Grass_Switchgrass.glb
+!models/vegetation/Grass_TussockSedge.glb
+!models/vegetation/Grass_PASedge.glb
 # Ground cover models (procedural, MIT — make_forest_floor.py)
 !models/vegetation/GroundCover_*.glb
 # Vine models (procedural, MIT — make_vine.py, per-species)

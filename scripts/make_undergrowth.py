@@ -1922,6 +1922,199 @@ def make_phragmites():
 
 
 # ==========================================================================
+# Species: MISSING TIER 1/2 — grasses + Black-eyed Susan
+# ==========================================================================
+
+def make_little_bluestem():
+    """Little Bluestem (Schizachyrium scoparium) — 0.6-1.2m.
+    Signature meadow bunch grass. Blue-green summer, coppery-bronze fall.
+    Upright clump with fluffy silver seed heads. ~180 faces."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    co = bm.loops.layers.color.new("Col")
+
+    def color_func(t):
+        if t < 0.15:
+            return (0.28, 0.34, 0.20)   # blue-green base
+        elif t < 0.6:
+            return (0.30, 0.38, 0.22)   # blue-green mid
+        elif t < 0.8:
+            return (0.40, 0.38, 0.24)   # transition
+        else:
+            return (0.55, 0.42, 0.22)   # seed head zone
+
+    # 6 narrow folded planes, 7 segments — tighter clump than bottlebrush
+    make_crossed_planes(bm, 0.90, 0.16, 0.08, 6, 7, color_func, uv, co, fold=0.15)
+
+    # 4 seed stalks with fluffy silver-white tufts
+    rng = random.Random(1401)
+    for s in range(4):
+        sa = rng.uniform(0, math.tau)
+        sx = math.cos(sa) * 0.035
+        sy = math.sin(sa) * 0.035
+        stalk_pts = [
+            Vector((sx, sy, 0.50)),
+            Vector((sx * 1.1, sy * 1.1, 0.72)),
+            Vector((sx * 1.15, sy * 1.15, 0.92)),
+        ]
+        make_tube(bm, stalk_pts, 0.002, 0.0015, 3,
+                  (0.40, 0.38, 0.24), (0.55, 0.48, 0.30),
+                  uv, co, 0.55, 0.85)
+        # Fluffy tuft at top
+        top = stalk_pts[-1]
+        for br in range(4):
+            bra = (br / 4) * math.tau + rng.uniform(-0.3, 0.3)
+            brv = top + Vector((math.cos(bra) * 0.015, math.sin(bra) * 0.015,
+                                rng.uniform(-0.01, 0.03)))
+            make_leaf_card(bm, brv, 0.010, 0.030, bra, 0.3,
+                          (0.72, 0.68, 0.60), 0.88, uv, co)  # silvery white
+    return bm
+
+
+def make_switchgrass():
+    """Switchgrass (Panicum virgatum) — 1.0-2.0m.
+    Tall warm-season native grass. Broad arching leaves, airy panicle.
+    Blue-green summer, golden fall. ~200 faces."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    co = bm.loops.layers.color.new("Col")
+
+    def color_func(t):
+        if t < 0.1:
+            return (0.25, 0.32, 0.18)
+        elif t < 0.55:
+            return (0.28, 0.38, 0.20)   # blue-green
+        elif t < 0.75:
+            return (0.35, 0.38, 0.22)
+        else:
+            return (0.48, 0.42, 0.22)   # panicle zone
+
+    # Taller, broader than bluestem — 5 planes, 8 segments
+    make_crossed_planes(bm, 1.6, 0.28, 0.12, 5, 8, color_func, uv, co, fold=0.12)
+
+    # 3 airy panicle stalks
+    rng = random.Random(1402)
+    for s in range(3):
+        sa = rng.uniform(0, math.tau)
+        sx = math.cos(sa) * 0.04
+        sy = math.sin(sa) * 0.04
+        stalk_pts = [
+            Vector((sx, sy, 0.95)),
+            Vector((sx * 1.1, sy * 1.1, 1.30)),
+            Vector((sx * 1.15, sy * 1.15, 1.58)),
+        ]
+        make_tube(bm, stalk_pts, 0.003, 0.002, 3,
+                  (0.35, 0.38, 0.22), (0.48, 0.42, 0.22),
+                  uv, co, 0.6, 0.88)
+        # Open panicle — sparse leaf cards at angles
+        top = stalk_pts[-1]
+        for br in range(5):
+            bra = (br / 5) * math.tau + rng.uniform(-0.3, 0.3)
+            dist = rng.uniform(0.02, 0.05)
+            brv = top + Vector((math.cos(bra) * dist, math.sin(bra) * dist,
+                                rng.uniform(-0.06, 0.02)))
+            make_leaf_card(bm, brv, 0.006, 0.025, bra, rng.uniform(-0.4, 0.4),
+                          (0.50, 0.45, 0.25), 0.88, uv, co)
+    return bm
+
+
+def make_tussock_sedge():
+    """Tussock Sedge (Carex stricta) — 0.3-1.0m.
+    Forms dense elevated tussocks in wetland areas. Triangular stems.
+    Yellow-green, arching narrow leaves. ~150 faces."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    co = bm.loops.layers.color.new("Col")
+
+    def color_func(t):
+        if t < 0.1:
+            return (0.22, 0.28, 0.12)   # dark base
+        elif t < 0.6:
+            return (0.30, 0.40, 0.18)   # yellow-green
+        else:
+            return (0.38, 0.42, 0.20)   # tip
+
+    # Dense arching clump — 7 narrow planes, 5 segments
+    make_crossed_planes(bm, 0.70, 0.20, 0.06, 7, 5, color_func, uv, co, fold=0.20)
+    return bm
+
+
+def make_pa_sedge():
+    """Pennsylvania Sedge (Carex pensylvanica) — 0.15-0.30m.
+    Low ground-hugging sedge, shade-tolerant woodland ground cover.
+    Forms dense mats. Very short, fine-textured. ~100 faces."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    co = bm.loops.layers.color.new("Col")
+
+    def color_func(t):
+        if t < 0.15:
+            return (0.18, 0.26, 0.10)
+        elif t < 0.7:
+            return (0.24, 0.34, 0.14)   # medium green
+        else:
+            return (0.30, 0.36, 0.16)   # lighter tip
+
+    # Very short, dense — 8 narrow planes, 3 segments
+    make_crossed_planes(bm, 0.22, 0.18, 0.04, 8, 3, color_func, uv, co, fold=0.25)
+    return bm
+
+
+def make_black_eyed_susan():
+    """Black-eyed Susan (Rudbeckia hirta) — 0.5-1.0m.
+    Bright yellow-orange ray petals around dark brown-black cone.
+    Meadow/prairie signature flower. Hairy stems. ~300 faces."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    co = bm.loops.layers.color.new("Col")
+    rng = random.Random(1405)
+
+    h = 0.80
+    # 2 stems (main + side branch)
+    for stem in range(2):
+        pts = []
+        off_x = rng.uniform(-0.04, 0.04) if stem > 0 else 0
+        off_y = rng.uniform(-0.04, 0.04) if stem > 0 else 0
+        stem_h = h * (0.7 if stem > 0 else 1.0)
+        for i in range(6):
+            t = i / 5
+            pts.append(Vector((off_x + rng.gauss(0, 0.008),
+                               off_y + rng.gauss(0, 0.008),
+                               stem_h * t)))
+        make_tube(bm, pts, 0.005, 0.003, 4,
+                  (0.22, 0.30, 0.10), (0.26, 0.34, 0.12),
+                  uv, co, 0.0, 0.5)
+
+        # 3-4 hairy lanceolate leaves per stem
+        for node in range(1, 4):
+            t = node / 5
+            lc = pts[node].copy()
+            for side in [-1, 1]:
+                if rng.random() < 0.6:
+                    la = side * 1.3 + rng.uniform(-0.3, 0.3)
+                    make_leaf_card(bm, lc + Vector((math.cos(la) * 0.06,
+                                                    math.sin(la) * 0.06, 0)),
+                                  0.06, 0.10, la, rng.uniform(-0.1, 0.2),
+                                  (0.20, 0.34, 0.08), t * 0.4, uv, co)
+
+        # Flower head — dark brown-black cone center
+        fc = pts[-1]
+        make_leaf_card(bm, fc + Vector((0, 0, 0.01)), 0.025, 0.030, 0, 0.1,
+                      (0.15, 0.10, 0.04), 0.95, uv, co)  # dark cone
+
+        # 10-14 bright yellow ray petals radiating outward
+        n_rays = rng.randint(10, 14)
+        for p in range(n_rays):
+            pa = (p / n_rays) * math.tau + rng.uniform(-0.08, 0.08)
+            petal_len = rng.uniform(0.035, 0.050)
+            pv = fc + Vector((math.cos(pa) * 0.020, math.sin(pa) * 0.020, -0.005))
+            make_leaf_card(bm, pv, 0.014, petal_len, pa, -0.35,
+                          (0.88, 0.72, 0.08), 0.92, uv, co)  # bright yellow-orange
+
+    return bm
+
+
+# ==========================================================================
 # Build all species
 # ==========================================================================
 
@@ -1959,6 +2152,12 @@ SPECIES = [
     (make_yellow_flag_iris,    "Wetland_YellowIris"),
     (make_lizards_tail,        "Wetland_LizardsTail"),
     (make_phragmites,          "Wetland_Phragmites"),
+    # Additional grasses + meadow flower
+    (make_little_bluestem,     "Grass_LittleBluestem"),
+    (make_switchgrass,         "Grass_Switchgrass"),
+    (make_tussock_sedge,       "Grass_TussockSedge"),
+    (make_pa_sedge,            "Grass_PASedge"),
+    (make_black_eyed_susan,    "Herb_BlackeyedSusan"),
 ]
 
 if __name__ == "__main__":
