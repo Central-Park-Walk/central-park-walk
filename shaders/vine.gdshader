@@ -16,10 +16,11 @@ uniform sampler2D canopy_map : filter_linear, repeat_disable;
 uniform float hm_world_size = 5000.0;
 
 // INSTANCE_CUSTOM encoding:
-//   R = vine species (0.0 = porcelain berry, 1.0 = bittersweet)
+//   R = species index (0.0=VA creeper, 0.143=ivy, 0.286=bittersweet,
+//       0.429=porcelain berry, 0.571=wild grape, 0.714=honeysuckle, 0.857=wisteria)
 //   G = seed (0-1 variation)
-//   B = unused
-//   A = unused
+//   B = height fraction (0=base, 1=canopy)
+//   A = vine age (0.3=young, 1.0=old)
 
 varying vec3 v_world_pos;
 varying float v_seed;
@@ -76,7 +77,11 @@ void vertex() {
 	float edge_dist = abs(UV.x - 0.5) * 2.0;
 	float is_leaf = step(0.2, edge_dist);
 	float winter_t = sn_canopy_bare(season_t);
-	if (winter_t > 0.0 && is_leaf > 0.5) {
+	// Evergreen species keep leaves through winter
+	float vert_evergreen = 0.0;
+	if (v_species > 0.07 && v_species < 0.21) vert_evergreen = 1.0;  // ivy
+	else if (v_species > 0.64 && v_species < 0.78) vert_evergreen = 0.4;  // honeysuckle
+	if (winter_t > 0.0 && is_leaf > 0.5 && vert_evergreen < 0.5) {
 		VERTEX.y *= mix(1.0, 0.05, winter_t);
 	}
 }
@@ -102,58 +107,83 @@ void fragment() {
 	if (leaf_alpha < 0.35) discard;
 
 	// Winter discard for leaves (but NOT stems — bare vine canes visible year-round)
+	// Evergreen species (ivy, partial honeysuckle) keep leaves through winter
 	float winter_discard = sn_winter_kill(season_t);
-	if (winter_discard > 0.95 && is_leaf > 0.5) discard;
+	float sp_eg = 0.0;
+	if (v_species > 0.07 && v_species < 0.21) sp_eg = 1.0;       // ivy: fully evergreen
+	else if (v_species > 0.64 && v_species < 0.78) sp_eg = 0.4;  // honeysuckle: semi
+	if (winter_discard > (0.95 - sp_eg * 0.9) && is_leaf > 0.5 && sp_eg < 0.9) discard;
 
 	// --- Hemisphere normals ---
 	vec3 outward = normalize(vec3(VERTEX.x, VERTEX.y * 0.2, VERTEX.z));
 	NORMAL = normalize(mix(NORMAL, outward, 0.4));
 	if (!FRONT_FACING) NORMAL = -NORMAL;
 
-	// --- BASE COLOR ---
-	// Stem: woody brown (both species)
+	// --- BASE COLOR — 7 species ---
 	vec3 stem_col = vec3(0.25, 0.19, 0.12);
-	// Slight variation
 	stem_col *= mix(0.9, 1.1, vnoise(v_world_pos.xz * 0.5 + vec2(v_seed * 30.0)));
 
-	// Leaf color depends on species
+	// Species leaf color lookup (7 species via quantized index)
 	vec3 leaf_col;
-	if (v_species < 0.5) {
-		// Porcelain berry: deep green, slightly bluish
-		leaf_col = vec3(0.12, 0.30, 0.14);
-	} else {
-		// Bittersweet: brighter green, glossy
-		leaf_col = vec3(0.16, 0.34, 0.10);
-	}
-	// Per-instance hue variation
+	if (v_species < 0.07)       leaf_col = vec3(0.14, 0.36, 0.10);  // VA creeper: medium green
+	else if (v_species < 0.21)  leaf_col = vec3(0.06, 0.20, 0.05);  // ivy: dark glossy green
+	else if (v_species < 0.36)  leaf_col = vec3(0.16, 0.34, 0.10);  // bittersweet
+	else if (v_species < 0.50)  leaf_col = vec3(0.12, 0.30, 0.14);  // porcelain berry
+	else if (v_species < 0.64)  leaf_col = vec3(0.14, 0.32, 0.08);  // wild grape
+	else if (v_species < 0.78)  leaf_col = vec3(0.10, 0.28, 0.06);  // honeysuckle
+	else                        leaf_col = vec3(0.16, 0.38, 0.12);  // wisteria
 	leaf_col *= mix(vec3(0.93, 1.03, 1.05), vec3(1.07, 0.97, 0.93), v_seed);
 
 	vec3 col = mix(stem_col, leaf_col, is_leaf);
 
-	// --- Berry color (seasonal) ---
+	// --- Berry/flower color (seasonal, 7 species) ---
 	float fruit_season = smoothstep(1.8, 2.3, season_t) * (1.0 - smoothstep(3.5, 4.0, season_t));
+	float is_flower = step(0.92, UV.y) * is_leaf;  // UV.y > 0.92 = flower region
+
 	if (is_berry > 0.5 && fruit_season > 0.01) {
-		vec3 berry_col;
-		if (v_species < 0.5) {
+		vec3 berry_col = vec3(0.3, 0.2, 0.1);
+		if (v_species < 0.07) {
+			// VA creeper: small blue-black berries
+			berry_col = vec3(0.10, 0.08, 0.18);
+		} else if (v_species < 0.36) {
+			// Bittersweet: yellow membrane splits to reveal red
+			float split = smoothstep(2.2, 2.8, season_t);
+			berry_col = mix(vec3(0.75, 0.65, 0.15), vec3(0.80, 0.15, 0.10), split);
+		} else if (v_species < 0.50) {
 			// Porcelain berry: multicolor (turquoise → blue → lilac)
-			// Different berries on same vine show different colors
-			float berry_phase = fract(v_seed * 7.7 + UV.x * 3.3);
+			float bp = fract(v_seed * 7.7 + UV.x * 3.3);
 			vec3 turquoise = vec3(0.25, 0.65, 0.60);
 			vec3 blue = vec3(0.20, 0.30, 0.70);
 			vec3 lilac = vec3(0.55, 0.35, 0.65);
 			vec3 pale = vec3(0.75, 0.72, 0.55);
-			if (berry_phase < 0.25) berry_col = mix(pale, turquoise, berry_phase * 4.0);
-			else if (berry_phase < 0.5) berry_col = mix(turquoise, blue, (berry_phase - 0.25) * 4.0);
-			else if (berry_phase < 0.75) berry_col = mix(blue, lilac, (berry_phase - 0.5) * 4.0);
-			else berry_col = mix(lilac, pale, (berry_phase - 0.75) * 4.0);
-		} else {
-			// Bittersweet: yellow outer membrane splits to reveal red
-			float split = smoothstep(2.2, 2.8, season_t);
-			vec3 yellow_outer = vec3(0.75, 0.65, 0.15);
-			vec3 red_inner = vec3(0.80, 0.15, 0.10);
-			berry_col = mix(yellow_outer, red_inner, split);
+			if (bp < 0.25)      berry_col = mix(pale, turquoise, bp * 4.0);
+			else if (bp < 0.5)  berry_col = mix(turquoise, blue, (bp - 0.25) * 4.0);
+			else if (bp < 0.75) berry_col = mix(blue, lilac, (bp - 0.5) * 4.0);
+			else                berry_col = mix(lilac, pale, (bp - 0.75) * 4.0);
+		} else if (v_species < 0.64) {
+			// Wild grape: small dark purple-black berries
+			berry_col = vec3(0.12, 0.06, 0.15);
+		} else if (v_species < 0.78) {
+			// Honeysuckle: small black berries
+			berry_col = vec3(0.05, 0.04, 0.06);
 		}
 		col = mix(col, berry_col, is_berry * fruit_season);
+	}
+
+	// Flowers: wisteria purple racemes (spring), honeysuckle white-yellow (summer)
+	if (is_flower > 0.5) {
+		vec3 flower_col = vec3(0.0);
+		float flower_t = 0.0;
+		if (v_species > 0.64 && v_species < 0.78) {
+			// Honeysuckle: white turning yellow, summer bloom
+			flower_col = mix(vec3(0.95, 0.92, 0.82), vec3(0.90, 0.80, 0.35), v_seed);
+			flower_t = smoothstep(0.6, 0.9, season_t) * (1.0 - smoothstep(1.6, 1.9, season_t));
+		} else if (v_species > 0.78) {
+			// Wisteria: lavender-purple pendant racemes, early spring
+			flower_col = mix(vec3(0.55, 0.30, 0.65), vec3(0.70, 0.45, 0.75), v_seed);
+			flower_t = smoothstep(0.2, 0.5, season_t) * (1.0 - smoothstep(0.8, 1.1, season_t));
+		}
+		col = mix(col, flower_col, is_flower * flower_t * 0.85);
 	}
 
 	// --- Spatial variation ---
@@ -170,24 +200,32 @@ void fragment() {
 	float autumn_t = sn_veg_autumn(season_t);
 	float winter_t = sn_veg_winter(season_t);
 
+	// Evergreen factor — ivy stays green, honeysuckle semi-evergreen
+	float sp_evergreen = 0.0;
+	if (v_species > 0.07 && v_species < 0.21) sp_evergreen = 1.0;       // ivy: fully evergreen
+	else if (v_species > 0.64 && v_species < 0.78) sp_evergreen = 0.4;  // honeysuckle: partial
+
 	// Spring: fresh bright green
 	col = mix(col, col * vec3(1.12, 1.18, 0.78), spring_t * 0.4 * is_leaf);
 
 	// Autumn: species-specific fall color
-	if (is_leaf > 0.1) {
+	if (is_leaf > 0.1 && sp_evergreen < 0.5) {
 		vec3 fall_col;
-		if (v_species < 0.5) {
-			// Porcelain berry: yellow-green
-			fall_col = vec3(0.55, 0.50, 0.15);
-		} else {
-			// Bittersweet: bright yellow
-			fall_col = vec3(0.70, 0.60, 0.12);
-		}
-		col = mix(col, fall_col, autumn_t * 0.60 * is_leaf);
+		if (v_species < 0.07)       fall_col = vec3(0.85, 0.10, 0.06);  // VA creeper: BRILLIANT SCARLET
+		else if (v_species < 0.36)  fall_col = vec3(0.70, 0.60, 0.12);  // bittersweet: bright yellow
+		else if (v_species < 0.50)  fall_col = vec3(0.55, 0.50, 0.15);  // porcelain berry: yellow-green
+		else if (v_species < 0.64)  fall_col = vec3(0.60, 0.50, 0.10);  // wild grape: yellow-brown
+		else                        fall_col = vec3(0.55, 0.45, 0.10);  // wisteria: yellow
+		// VA creeper colors earliest (season_t 1.8), others at 2.0+
+		float early = v_species < 0.07 ? 0.2 : 0.0;
+		float adj_autumn = smoothstep(2.0 - early, 2.6 - early, season_t)
+		                  * (1.0 - smoothstep(3.0, 3.5, season_t));
+		col = mix(col, fall_col, adj_autumn * 0.70 * is_leaf);
 	}
 
-	// Winter: bare brown canes (stems only, leaves already discarded)
-	col = mix(col, vec3(0.18, 0.14, 0.08), winter_t * (1.0 - is_leaf));
+	// Winter: bare brown canes (stems only, leaves discarded for deciduous)
+	float winter_stem_darken = winter_t * (1.0 - is_leaf);
+	col = mix(col, vec3(0.18, 0.14, 0.08), winter_stem_darken);
 
 	// Wind color shift
 	float wind_darken = v_wind_amount * length(wind_vec) * 0.12;
