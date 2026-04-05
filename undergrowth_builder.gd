@@ -36,24 +36,160 @@ const UPDATE_DIST := 2.0
 const VIS_END := 220.0
 const VIS_FADE_MARGIN := 40.0
 
-# Species definitions: name, scale range, wind flex, evergreen, fall tint, atlas_idx
-# Models are already built at natural reference height; s=[min,max] is scale multiplier
-# atlas_idx: slot in leaf_atlas.png (4-col grid, 7 rows = 28 slots). -1 = no atlas.
-# TODO: Rebuild with custom CC0/MIT vegetation models (see memory/botanical reference)
+# Species definitions — 30 species across shrubs, ferns, herbs, wetland, grasses.
+# Parameters are research-backed from CPC/NYBG/iNat field data.
+# name: GLB filename in models/vegetation/  s: scale multiplier range
+# flex: wind sway 0-1   green: 1=evergreen   fall: fall color RGB
+# fc: flower color RGB (0,0,0 = no flowers)  bl: bloom season_t range
 const ATLAS_COLS := 4
 const ATLAS_ROWS := 7
 const SPECIES := [
+	# --- SHRUBS (0-6) --- multi-stemmed woody plants 1.5-4m ---
+	# 0: Spicebush (Lindera benzoin) — dominant understory, yellow fall, tiny yellow spring flowers
+	{name="Shrub_Spicebush", s=[0.6, 1.1], flex=0.30, green=0, fall=[0.82, 0.75, 0.15], fc=[0.70, 0.68, 0.10], bl=[0.2, 0.7]},
+	# 1: Witch Hazel (Hamamelis virginiana) — zigzag branches, yellow fall, flowers in AUTUMN
+	{name="Shrub_WitchHazel", s=[0.7, 1.2], flex=0.25, green=0, fall=[0.75, 0.65, 0.12], fc=[0.80, 0.72, 0.08], bl=[2.2, 3.0]},
+	# 2: Viburnum (Viburnum dentatum) — dense screening, red-purple fall, white spring flowers
+	{name="Shrub_Viburnum", s=[0.6, 1.0], flex=0.30, green=0, fall=[0.60, 0.10, 0.15], fc=[0.94, 0.96, 0.90], bl=[0.6, 1.2]},
+	# 3: Sumac (Rhus typhina) — flat-topped colony, vivid scarlet fall
+	{name="Shrub_Sumac", s=[0.7, 1.3], flex=0.20, green=0, fall=[0.85, 0.15, 0.05], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	# 4: Elderberry (Sambucus nigra) — arching, white flower clusters, purple berries
+	{name="Shrub_Elderberry", s=[0.6, 1.1], flex=0.35, green=0, fall=[0.55, 0.50, 0.12], fc=[0.94, 0.96, 0.88], bl=[0.8, 1.3]},
+	# 5: Sweet Pepperbush (Clethra alnifolia) — bottlebrush white flowers, wetland edge
+	{name="Shrub_SweetPepperbush", s=[0.6, 1.0], flex=0.30, green=0, fall=[0.70, 0.55, 0.10], fc=[0.96, 0.96, 0.92], bl=[1.0, 1.6]},
+	# 6: Flowering Raspberry (Rubus odoratus) — large maple-like leaves, rose-purple flowers
+	{name="Shrub_FloweringRaspberry", s=[0.6, 1.0], flex=0.35, green=0, fall=[0.60, 0.45, 0.08], fc=[0.75, 0.25, 0.55], bl=[0.8, 1.5]},
+
+	# --- FERNS (7-10) --- frond-based, no flowers ---
+	# 7: Ostrich Fern (Matteuccia struthiopteris) — 1.3m vase, dramatic drooping fronds
+	{name="Fern_Ostrich", s=[0.7, 1.3], flex=0.40, green=0, fall=[0.55, 0.45, 0.10], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	# 8: Christmas Fern (Polystichum acrostichoides) — 0.5m rosette, EVERGREEN
+	{name="Fern_Christmas", s=[0.7, 1.2], flex=0.25, green=1, fall=[0.05, 0.18, 0.04], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	# 9: Cinnamon Fern (Osmundastrum cinnamomeum) — 1.1m, cinnamon fertile fronds
+	{name="Fern_Cinnamon", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.60, 0.50, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	# 10: Sensitive Fern (Onoclea sensibilis) — 0.75m, broad triangular fronds, first frost kills
+	{name="Fern_Sensitive", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.65, 0.55, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+
+	# --- HERBS (11-23) --- non-woody forbs 0.3-3m ---
+	# 11: Pokeweed (Phytolacca americana) — 2m, magenta stems, dark berries
+	{name="Herb_Pokeweed", s=[0.7, 1.2], flex=0.40, green=0, fall=[0.65, 0.20, 0.30], fc=[0.90, 0.85, 0.88], bl=[0.8, 1.5]},
+	# 12: Japanese Knotweed (Reynoutria japonica) — 3m invasive, bamboo-like thicket
+	{name="Herb_JapaneseKnotweed", s=[0.7, 1.3], flex=0.20, green=0, fall=[0.55, 0.48, 0.10], fc=[0.92, 0.92, 0.88], bl=[1.2, 1.8]},
+	# 13: Joe-Pye Weed (Eutrochium purpureum) — 2m, pink dome flower heads, wetland
+	{name="Herb_JoePyeWeed", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.55, 0.40, 0.12], fc=[0.72, 0.42, 0.58], bl=[1.0, 1.8]},
+	# 14: Coneflower (Rudbeckia laciniata) — 2m, yellow drooping petals, dark cone
+	{name="Herb_Coneflower", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.50, 0.42, 0.08], fc=[0.85, 0.72, 0.10], bl=[1.0, 1.8]},
+	# 15: Cardinal Flower (Lobelia cardinalis) — 0.8m, brilliant scarlet spike, shade streams
+	{name="Herb_CardinalFlower", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.45, 0.35, 0.08], fc=[0.85, 0.08, 0.08], bl=[1.0, 1.6]},
+	# 16: White Wood Aster (Eurybia divaricata) — 0.4m, woodland floor carpet, fall bloom
+	{name="Herb_WhiteWoodAster", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.50, 0.40, 0.08], fc=[0.94, 0.94, 0.90], bl=[1.5, 2.5]},
+	# 17: Jewelweed (Impatiens capensis) — 0.8m, dense stream banks, orange spotted flowers
+	{name="Herb_Jewelweed", s=[0.7, 1.2], flex=0.45, green=0, fall=[0.50, 0.42, 0.08], fc=[0.90, 0.50, 0.08], bl=[1.0, 1.8]},
+	# 18: Mugwort (Artemisia vulgaris) — 1m, silvery invasive, aromatic
+	{name="Herb_Mugwort", s=[0.7, 1.2], flex=0.25, green=0, fall=[0.50, 0.45, 0.15], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	# 19: White Snakeroot (Ageratina altissima) — 1.2m, white corymbs, shade tolerant
+	{name="Herb_WhiteSnakeroot", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.48, 0.38, 0.08], fc=[0.96, 0.96, 0.92], bl=[1.4, 2.2]},
+	# 20: Ironweed (Vernonia noveboracensis) — 2m, deep purple flowers, wetland edge
+	{name="Herb_Ironweed", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.50, 0.38, 0.10], fc=[0.50, 0.15, 0.55], bl=[1.0, 1.8]},
+	# 21: Rose Mallow (Hibiscus moscheutos) — 1.6m, enormous pink-white flowers
+	{name="Herb_RoseMallow", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.50, 0.40, 0.08], fc=[0.88, 0.55, 0.65], bl=[1.0, 1.8]},
+	# 22: Burdock (Arctium minus) — 1.2m, massive leaves, hooked burrs
+	{name="Herb_Burdock", s=[0.7, 1.2], flex=0.25, green=0, fall=[0.50, 0.42, 0.10], fc=[0.60, 0.30, 0.55], bl=[1.0, 1.6]},
+	# 23: Goldenrod (Solidago spp.) — 1m, dominant fall yellow, meadow signature
+	{name="Flower_Goldenrod", s=[0.8, 1.3], flex=0.35, green=0, fall=[0.72, 0.58, 0.10], fc=[0.85, 0.75, 0.10], bl=[1.5, 2.5]},
+
+	# --- GRASSES (24) --- tall bunch/clump grasses ---
+	# 24: Bottlebrush Grass (Elymus hystrix) — 1.1m, shade-tolerant woodland grass
+	{name="Grass_Bottlebrush", s=[0.7, 1.2], flex=0.40, green=0, fall=[0.60, 0.50, 0.15], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+
+	# --- WETLAND (25-28) --- waterside specialists ---
+	# 25: Cattail (Typha latifolia) — 2m, iconic brown cylinder heads, pond edge
+	{name="Wetland_Cattail", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.55, 0.45, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	# 26: Yellow Iris (Iris pseudacorus) — 1.2m, bright yellow flowers, wet meadow
+	{name="Wetland_YellowIris", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.55, 0.48, 0.10], fc=[0.88, 0.82, 0.10], bl=[0.6, 1.2]},
+	# 27: Lizard's Tail (Saururus cernuus) — 0.9m, drooping white spikes, stream edge
+	{name="Wetland_LizardsTail", s=[0.7, 1.1], flex=0.35, green=0, fall=[0.50, 0.42, 0.08], fc=[0.96, 0.96, 0.90], bl=[0.8, 1.4]},
+	# 28: Phragmites (Phragmites australis) — 3m, tall invasive reed beds
+	{name="Wetland_Phragmites", s=[0.7, 1.3], flex=0.35, green=0, fall=[0.65, 0.55, 0.18], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+
+	# --- ACCENT FLOWERS (29) --- used as undergrowth in meadow zones ---
+	# 29: Aster (Symphyotrichum spp.) — purple/white, fall bloom, meadow + woodland edge
+	{name="Flower_Aster", s=[0.8, 1.3], flex=0.30, green=0, fall=[0.50, 0.40, 0.10], fc=[0.60, 0.40, 0.72], bl=[1.5, 2.5]},
 ]
 
 # Zone type -> list of [species_index, density_per_100m2]
+# Densities calibrated from CPC field surveys and NYBG Flora of Central Park.
 # Zone types: 0=SheepMeadow, 1=GreatLawn, 2=NorthMeadow, 3=FormalGarden,
 #   4=SportsTurf, 5=NorthWoods, 6=Ramble, 7=Waterside, 8=WildMeadow, 9=OpenLawn
 const ZONE_SPECIES := {
+	# Zones 0,1,3,4: no undergrowth (maintained lawn / formal / sports)
+	5: [  # North Woods — rich native understory
+		[0, 1.5],   # spicebush (dominant shrub)
+		[1, 0.6],   # witch hazel
+		[2, 0.8],   # viburnum
+		[7, 1.0],   # ostrich fern (stream-adjacent)
+		[8, 2.5],   # christmas fern (evergreen, rocky slopes)
+		[9, 0.8],   # cinnamon fern
+		[10, 0.6],  # sensitive fern
+		[16, 3.5],  # white wood aster (woodland carpet)
+		[17, 1.5],  # jewelweed (stream banks)
+		[19, 1.2],  # white snakeroot
+		[24, 0.8],  # bottlebrush grass
+	],
+	6: [  # Ramble — dense wild understory, heaviest species diversity
+		[0, 2.2],   # spicebush (very common)
+		[1, 0.8],   # witch hazel
+		[2, 1.2],   # viburnum
+		[4, 0.5],   # elderberry
+		[7, 1.5],   # ostrich fern
+		[8, 3.0],   # christmas fern
+		[9, 1.0],   # cinnamon fern
+		[10, 0.8],  # sensitive fern
+		[11, 0.8],  # pokeweed
+		[16, 4.5],  # white wood aster (carpets)
+		[17, 2.0],  # jewelweed
+		[18, 1.0],  # mugwort (invasive but present)
+		[19, 1.5],  # white snakeroot
+		[22, 0.4],  # burdock
+		[24, 1.0],  # bottlebrush grass
+	],
+	7: [  # Waterside — wetland specialists
+		[25, 3.0],  # cattail (signature)
+		[28, 2.0],  # phragmites (invasive reed)
+		[26, 1.5],  # yellow iris
+		[15, 1.0],  # cardinal flower
+		[13, 0.8],  # joe-pye weed
+		[27, 1.0],  # lizard's tail
+		[21, 0.5],  # rose mallow
+		[20, 0.6],  # ironweed
+		[5, 0.4],   # sweet pepperbush
+	],
+	8: [  # Wild Meadow — tall wildflowers + native grasses
+		[23, 2.5],  # goldenrod (dominant fall display)
+		[29, 2.0],  # aster
+		[13, 1.0],  # joe-pye weed
+		[14, 0.8],  # coneflower
+		[20, 0.6],  # ironweed
+		[22, 0.5],  # burdock
+		[12, 0.8],  # Japanese knotweed (invasive edge)
+		[18, 0.6],  # mugwort
+		[24, 1.5],  # bottlebrush grass
+	],
+	9: [  # Open Lawn — very sparse, only at edges
+		[18, 0.2],  # mugwort (occasional invasive)
+	],
 }
 
 # Woodland chunks (no pre-baked data) get understory — but ONLY in actual
 # woodland foliage zones, not on maintained lawns that happen to lack data.
 const WOODLAND_SPECIES: Array = [
+	[0, 1.2],   # spicebush
+	[8, 2.5],   # christmas fern (evergreen)
+	[7, 0.8],   # ostrich fern
+	[16, 3.5],  # white wood aster
+	[17, 1.2],  # jewelweed
+	[19, 0.8],  # white snakeroot
+	[24, 0.8],  # bottlebrush grass
 ]
 # Z ranges where woodland fallback is allowed (from park_data.json foliage_zones)
 const WOODLAND_Z_RANGES: Array = [

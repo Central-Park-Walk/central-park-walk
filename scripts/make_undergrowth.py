@@ -1925,13 +1925,8 @@ def make_phragmites():
 # Build all species
 # ==========================================================================
 
-# Species replaced by BD3D Plant Library 3D meshes (extract_bd3d_plants.py).
-# DO NOT regenerate these — they have real PBR textures and 3D leaf geometry.
-BD3D_REPLACED = {
-    "Shrub_Spicebush", "Shrub_WitchHazel", "Shrub_Viburnum", "Shrub_Sumac",
-    "Shrub_Elderberry", "Shrub_SweetPepperbush", "Shrub_FloweringRaspberry",
-    "Fern_Ostrich", "Fern_Cinnamon", "Fern_Christmas", "Fern_Sensitive",
-}
+# All species generated procedurally — no external asset dependencies.
+# BD3D models were previously used but removed for distributable-only policy.
 
 SPECIES = [
     # Tier 1+2: shrubs (BD3D replaced — skipped), herbs, ferns, wetland
@@ -1972,9 +1967,6 @@ if __name__ == "__main__":
     print("=" * 60)
 
     for func, name in SPECIES:
-        if name in BD3D_REPLACED:
-            print(f"\n  Skipping {name} (BD3D replaced — use extract_bd3d_plants.py)")
-            continue
         print(f"\n  Building {name}...")
         clear_scene()
         bm = func()
