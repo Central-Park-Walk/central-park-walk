@@ -31,6 +31,8 @@ models/
 !models/vegetation/Grass_Bottlebrush.glb
 # Ground cover models (procedural, MIT — make_forest_floor.py)
 !models/vegetation/GroundCover_*.glb
+# Vine models (procedural, MIT — make_vine.py, per-species)
+!models/vegetation/Vine_*.glb
 textures/*
 !textures/terrain3d/
 sounds/
