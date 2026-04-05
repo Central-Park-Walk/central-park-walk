@@ -2,29 +2,65 @@
 # Chunk-based MultiMesh placement for ground cover.
 # Fallen leaves, branches, moss, weeds, and saplings — real 3D meshes.
 # Data-first: placement driven by atlas zone type and canopy coverage.
-# TODO: Rebuild with custom CC0/MIT ground cover models.
 extends "res://chunk_builder.gd"
 
-# Ground cover models — each carries its own StandardMaterial3D
-# [index] name (matches GLB filename in models/vegetation/)
+# Ground cover models — procedural vertex-color meshes (make_forest_floor.py)
+# seasonal: 0=year-round, 1=spring/summer only, 2=autumn/winter only
 const COVER_MODELS := [
+	{name="GroundCover_DeadLeaves_01", seasonal=2},    # 0 — autumn fallen leaves
+	{name="GroundCover_DeadLeaves_02", seasonal=2},    # 1 — variant
+	{name="GroundCover_ForestLeaves_01", seasonal=0},  # 2 — year-round decomposed litter
+	{name="GroundCover_ForestLeaves_02", seasonal=0},  # 3 — variant
+	{name="GroundCover_Moss_01", seasonal=0},           # 4 — green moss patch
+	{name="GroundCover_Moss_02", seasonal=0},           # 5 — variant
+	{name="GroundCover_Branch_01", seasonal=0},         # 6 — fallen twig
+	{name="GroundCover_Branch_02", seasonal=0},         # 7 — variant
+	{name="GroundCover_Seedling_01", seasonal=1},       # 8 — deciduous seedling
+	{name="GroundCover_Seedling_02", seasonal=1},       # 9 — conifer seedling
 ]
 
 # Zone -> list of [model_index, density_per_100m2, scale_min, scale_max]
 const ZONE_COVER := {
+	5: [  # North Woods — rich forest floor
+		[2, 3.5, 0.8, 1.3],   # decomposed leaves (dominant)
+		[3, 2.0, 0.7, 1.2],
+		[4, 2.0, 0.8, 1.3],   # moss
+		[5, 1.5, 0.7, 1.2],
+		[6, 1.0, 0.7, 1.0],   # fallen branches
+		[7, 0.5, 0.6, 1.0],
+		[8, 0.3, 0.6, 1.0],   # seedlings
+		[9, 0.2, 0.5, 0.9],
+	],
+	6: [  # Ramble — denser forest floor
+		[2, 4.5, 0.8, 1.3],   # decomposed leaves
+		[3, 3.0, 0.7, 1.2],
+		[4, 2.5, 0.8, 1.3],   # moss
+		[5, 2.0, 0.7, 1.2],
+		[6, 1.2, 0.7, 1.0],   # branches
+		[7, 0.8, 0.6, 1.0],
+		[8, 0.4, 0.6, 1.0],   # seedlings
+		[9, 0.3, 0.5, 0.9],
+	],
+	7: [  # Waterside — sparse, no moss
+		[2, 1.5, 0.7, 1.2],   # some decomposed leaves
+		[6, 0.5, 0.6, 1.0],   # scattered branches
+	],
+	8: [  # Wild Meadow — dry litter
+		[2, 1.0, 0.7, 1.2],   # scattered litter
+		[6, 0.8, 0.7, 1.0],   # dry branches
+	],
 }
 
-# Woodland fallback
+# Woodland fallback (for chunks in WOODLAND_Z_RANGES without zone data)
 const WOODLAND_COVER: Array = [
-	[0, 3.5, 0.8, 1.3],   # Dead leaves (dominant)
-	[1, 2.0, 0.7, 1.2],
-	[4, 1.5, 0.8, 1.2],   # Scattered leaves
-	[5, 1.0, 0.7, 1.0],   # Branches
-	[6, 0.5, 0.6, 1.0],
-	[8, 2.0, 0.8, 1.3],   # Moss
-	[9, 1.5, 0.7, 1.2],
-	[14, 0.3, 0.6, 1.0],  # Saplings
-	[16, 0.2, 0.5, 0.9],
+	[2, 3.5, 0.8, 1.3],   # decomposed leaves (dominant)
+	[3, 2.0, 0.7, 1.2],
+	[4, 2.0, 0.8, 1.3],   # moss
+	[5, 1.5, 0.7, 1.2],
+	[6, 1.0, 0.7, 1.0],   # fallen branches
+	[7, 0.5, 0.6, 1.0],
+	[8, 0.3, 0.6, 1.0],   # seedlings
+	[9, 0.2, 0.5, 0.9],
 ]
 
 # Z ranges where woodland fallback is allowed
@@ -37,7 +73,7 @@ const WOODLAND_Z_RANGES: Array = [
 func _build_ground_cover() -> void:
 	_init_chunks(20.0, 180.0, 195.0, 3.0, 140.0, 25.0)
 
-	# Load all BD3D models
+	# Load ground cover models
 	var loaded := 0
 	for cm in COVER_MODELS:
 		var abs_path := ProjectSettings.globalize_path(
@@ -47,7 +83,7 @@ func _build_ground_cover() -> void:
 			continue
 		_meshes[cm.name] = meshes.values()[0]
 		loaded += 1
-	print("ground_cover: loaded %d/%d BD3D models" % [loaded, COVER_MODELS.size()])
+	print("ground_cover: loaded %d/%d models" % [loaded, COVER_MODELS.size()])
 
 	# Queue initial chunks near spawn
 	_update_chunks_near(Vector3(-480, 0, 1020))

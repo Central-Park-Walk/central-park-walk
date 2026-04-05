@@ -29,6 +29,8 @@ models/
 !models/vegetation/Fern_*.glb
 !models/vegetation/Wetland_*.glb
 !models/vegetation/Grass_Bottlebrush.glb
+# Ground cover models (procedural, MIT — make_forest_floor.py)
+!models/vegetation/GroundCover_*.glb
 textures/*
 !textures/terrain3d/
 sounds/
