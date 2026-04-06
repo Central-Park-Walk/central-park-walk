@@ -93,9 +93,8 @@ def make_christmas_fern_pinna(size=(256, 384)):
         poly.append((rx, y))
 
     # Draw filled pinna shape
-    # Bright enough to survive the shader's EGTTR grading
-    # (55% desaturation, ×0.82 brightness, shadow lift)
-    base_green = (65, 155, 50)
+    # Deep dark forest green — thick leathery cuticle absorbs more light
+    base_green = (35, 120, 30)
     draw.polygon(poly, fill=(*base_green, 255))
 
     # Add natural color variation with noise
@@ -128,7 +127,7 @@ def make_christmas_fern_pinna(size=(256, 384)):
                 pixels[x, y] = (r2, g2, b2, a)
 
     # Draw midvein
-    vein_color = (75, 170, 55, 255)
+    vein_color = (50, 138, 38, 255)
     for y in range(int(H * 0.05), int(H * 0.95)):
         t = 1.0 - y / H
         vx = int(cx + rng.uniform(-0.5, 0.5))
@@ -213,7 +212,8 @@ def make_ostrich_fern_pinna(size=(256, 384)):
 
     poly = outline_left + list(reversed(outline_right))
 
-    base_green = (62, 150, 48)
+    # Bright vivid spring green — thin papery pinnae transmit light
+    base_green = (75, 185, 55)
     draw.polygon(poly, fill=(*base_green, 255))
 
     # Add noise variation
@@ -285,8 +285,8 @@ def make_cinnamon_fern_pinna(size=(256, 384)):
 
     poly = outline_left + list(reversed(outline_right))
 
-    # Slightly warmer green than ostrich
-    base_green = (68, 145, 45)
+    # Warm olive-green — golden undertone from woolly rachis influence
+    base_green = (85, 155, 40)
     draw.polygon(poly, fill=(*base_green, 255))
 
     pixels = img.load()
@@ -344,8 +344,8 @@ def make_sensitive_fern_pinna(size=(320, 320)):
     poly_r = [(rx, y) for _, _, rx, y in outline]
     poly = poly_l + list(reversed(poly_r))
 
-    # Bright yellow-green (distinctly lighter than other ferns)
-    base_green = (80, 170, 55)
+    # Distinctly yellow-green — lightest of all ferns, delicate papery
+    base_green = (100, 195, 60)
     draw.polygon(poly, fill=(*base_green, 255))
 
     # Visible reticulate venation (network pattern)
