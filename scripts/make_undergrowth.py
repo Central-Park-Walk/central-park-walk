@@ -84,8 +84,37 @@ def make_material(name):
     return mat
 
 
+def make_textured_material(name, tex_path):
+    """Material with an image texture for alpha-masked leaf cards.
+    Godot's GLB importer reads this as StandardMaterial3D with albedo_texture,
+    which undergrowth_builder.gd detects and sets use_texture=1.0."""
+    mat = bpy.data.materials.new(name=name)
+    mat.use_nodes = True
+    mat.use_backface_culling = False
+    mat.blend_method = 'CLIP'  # alpha clip for export
+    tree = mat.node_tree
+    for n in tree.nodes:
+        tree.nodes.remove(n)
+    out = tree.nodes.new('ShaderNodeOutputMaterial')
+    out.location = (400, 0)
+    bsdf = tree.nodes.new('ShaderNodeBsdfPrincipled')
+    bsdf.location = (100, 0)
+    bsdf.inputs['Roughness'].default_value = 0.6
+    tree.links.new(bsdf.outputs['BSDF'], out.inputs['Surface'])
+
+    img = bpy.data.images.load(tex_path)
+    tex_node = tree.nodes.new('ShaderNodeTexImage')
+    tex_node.location = (-300, 0)
+    tex_node.image = img
+    tree.links.new(tex_node.outputs['Color'], bsdf.inputs['Base Color'])
+    tree.links.new(tex_node.outputs['Alpha'], bsdf.inputs['Alpha'])
+    return mat
+
+
 def finalize_and_export(bm, name, mat=None):
-    """Convert bmesh to object, export as GLB."""
+    """Convert bmesh to object, export as GLB.
+    If a species leaf texture exists (tex_{name}.png), embeds it in the GLB
+    so Godot's importer creates a StandardMaterial3D with albedo_texture."""
     mesh = bpy.data.meshes.new(name)
     bm.to_mesh(mesh)
 
@@ -101,7 +130,14 @@ def finalize_and_export(bm, name, mat=None):
 
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
-    m = make_material(name + "_Mat")
+
+    # Check for species leaf texture
+    tex_path = os.path.join(OUT_DIR, f"tex_{name}.png")
+    if os.path.exists(tex_path):
+        m = make_textured_material(name + "_Mat", tex_path)
+        print(f"    → embedded texture: tex_{name}.png")
+    else:
+        m = make_material(name + "_Mat")
     obj.data.materials.append(m)
 
     for poly in obj.data.polygons:
@@ -109,7 +145,7 @@ def finalize_and_export(bm, name, mat=None):
 
     bm.free()
 
-    # Export
+    # Export — include textures in GLB when embedded
     bpy.ops.object.select_all(action='DESELECT')
     obj.select_set(True)
     bpy.context.view_layer.objects.active = obj
@@ -121,6 +157,7 @@ def finalize_and_export(bm, name, mat=None):
         export_normals=True,
         export_vertex_color='ACTIVE',
         export_apply=True,
+        export_image_format='AUTO',
     )
     nv = len(mesh.vertices)
     nf = len(mesh.polygons)
@@ -132,20 +169,21 @@ def finalize_and_export(bm, name, mat=None):
 # Geometry helpers
 # ==========================================================================
 
-def _lerp_color(c0, c1, t):
-    return [c0[i] + (c1[i] - c0[i]) * t for i in range(3)] + [1.0]
+def _lerp_color(c0, c1, t, alpha=1.0):
+    return [c0[i] + (c1[i] - c0[i]) * t for i in range(3)] + [alpha]
 
 
 def make_tube(bm, points, r_start, r_end, n_sides, color_start, color_end,
-              uv_layer, col_layer, uv_y_start=0.0, uv_y_end=1.0):
-    """Create a tube mesh along a list of points. Returns list of vertex rings."""
+              uv_layer, col_layer, uv_y_start=0.0, uv_y_end=1.0, alpha=0.0):
+    """Create a tube mesh along a list of points. Returns list of vertex rings.
+    alpha: vertex color alpha — 0.0 for stem (shader bark path), 1.0 for leaf."""
     rings = []
     n = len(points)
     for i, pt in enumerate(points):
         t = i / max(n - 1, 1)
         r = r_start + (r_end - r_start) * t
         uv_y = uv_y_start + (uv_y_end - uv_y_start) * t
-        col = _lerp_color(color_start, color_end, t)
+        col = _lerp_color(color_start, color_end, t, alpha=alpha)
 
         # Compute local frame
         if i < n - 1:
@@ -406,7 +444,7 @@ def make_pinnate_frond(bm, origin, length, n_segments, n_pinnae_per_side,
         t = i / n_segments
         fw = rachis_w * (1.0 - t * 0.5) * 0.5
         px, py = -sa * fw, ca * fw
-        col = _lerp_color(color_base, color_tip, t)
+        col = _lerp_color(color_base, color_tip, t, alpha=0.0)  # stem
         vl = bm.verts.new((pt.x + px, pt.y + py, pt.z))
         vr = bm.verts.new((pt.x - px, pt.y - py, pt.z))
         rachis_verts.append((vl, vr, t, col))
