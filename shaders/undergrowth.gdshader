@@ -3,6 +3,7 @@ render_mode cull_disabled;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/seasonal.gdshaderinc"
+#include "res://shaders/include/aerial_perspective.gdshaderinc"
 
 global uniform vec2 wind_vec;
 global uniform float season_t;
@@ -27,6 +28,11 @@ uniform float use_atlas = 0.0;  // 1.0 = sample atlas, 0.0 = procedural only
 // Per-surface albedo texture for 3D meshes (BD3D plant library etc.)
 uniform sampler2D albedo_tex : source_color, filter_linear;
 uniform float use_texture = 0.0;  // 1.0 = read albedo+alpha from albedo_tex
+
+// Per-species material tuning (set in undergrowth_builder.gd)
+uniform float roughness_base : hint_range(0.3, 1.0) = 0.82;
+uniform float specular_base : hint_range(0.0, 0.5) = 0.04;
+uniform float translucency : hint_range(0.0, 1.5) = 0.5;
 
 
 varying vec3 v_world_pos;
@@ -122,6 +128,15 @@ void fragment() {
 		if (!FRONT_FACING) NORMAL = -NORMAL;
 	}
 
+	// ---- MICRO-TEXTURE NORMAL PERTURBATION ----
+	// Leaf surface detail: veins, cell structure, cuticle bumps.
+	// Two noise octaves at pinna scale — breaks up uniform flat lighting.
+	vec3 frag_world = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	float bump_coarse = vnoise(frag_world.xz * 55.0);
+	float bump_fine = vnoise(frag_world.xz * 130.0);
+	float bump_h = bump_coarse * 0.55 + bump_fine * 0.45;
+	NORMAL = normalize(NORMAL + vec3(dFdx(bump_h), dFdy(bump_h), 0.0) * 0.9);
+
 	// Winter discard — deciduous shrubs disappear under snow
 	float winter_discard = sn_winter_kill(season_t);
 	// Snow accelerates hiding: heavy snow hides shrubs earlier
@@ -200,19 +215,59 @@ void fragment() {
 		}
 	}
 
+	// ---- TOP-LIT GRADIENT ----
+	// World-space normal creates 3D depth — bright top, darker underside.
+	// Key cue for volumetric frond rosettes and leaf clusters.
+	vec3 world_n_lit = mat3(INV_VIEW_MATRIX) * NORMAL;
+	float top_lit = world_n_lit.y * 0.5 + 0.5;
+	col *= mix(0.85, 1.08, top_lit);
+	// Underside warm ground-bounce from grass below
+	col = mix(col, col * vec3(0.97, 1.02, 0.95), (1.0 - top_lit) * 0.15);
+
+	// ---- FRESNEL RIM LIGHT ----
+	// Thin leaf edges glow at grazing view angles — depth cue for translucent fronds
+	float fresnel = pow(1.0 - abs(dot(NORMAL, VIEW)), 3.0);
+	col += col * fresnel * 0.15;
+
+	// ---- PER-PIXEL MICRO-VARIATION ----
+	// Chlorophyll patches, dust, cell structure — no two pixels identical
+	vec2 px_uv = frag_world.xz * 97.3;
+	float px_n = hash2(px_uv) * 0.06 - 0.03;
+	float px_hr = hash2(px_uv + vec2(71.9, 0.0)) * 0.02;
+	float px_hb = hash2(px_uv + vec2(0.0, 53.1)) * 0.02;
+	col += vec3(px_n + px_hr, px_n, px_n + px_hb);
+
 	ALBEDO = col;
 
-	// PBR — BD3D models get softer/more matte for EGTTR look;
-	// atlas/procedural species keep original values.
+	// ---- PBR ----
+	// Textured species use per-species uniforms; atlas/procedural keep legacy values.
+	float rough, spec;
 	if (use_texture > 0.5) {
-		ROUGHNESS = mix(0.82, 0.65, height_frac);
-		SPECULAR = mix(0.04, 0.08, height_frac);
+		rough = mix(roughness_base, roughness_base - 0.15, height_frac);
+		spec = mix(specular_base, specular_base + 0.04, height_frac);
 	} else {
-		ROUGHNESS = mix(0.72, 0.48, height_frac);
-		SPECULAR = mix(0.08, 0.16, height_frac);
+		rough = mix(0.72, 0.48, height_frac);
+		spec = mix(0.08, 0.16, height_frac);
 	}
+	// Micro-roughness variation from surface bump (veins matte, smooth patches glossy)
+	float rough_var = (bump_coarse - 0.5) * 0.12;
+	rough = clamp(rough + rough_var, 0.3, 0.98);
+	spec = clamp(spec - rough_var * 0.06, 0.02, 0.30);
+	ROUGHNESS = rough;
+	SPECULAR = spec;
 	METALLIC = 0.0;
-	BACKLIGHT = vec3(0.25, 0.30, 0.08) * mix(0.5, 1.0, height_frac);
+
+	// ---- ENHANCED SUBSURFACE SCATTERING ----
+	// Fern fronds and thin leaves are translucent — light passes through tissue.
+	// Color-tinted so autumn fronds glow amber, season-modulated, per-species tunable.
+	vec3 sss_col = vec3(0.35, 0.38, 0.08);
+	sss_col = mix(sss_col, col * 0.5, 0.4);
+	float sss_str = translucency;
+	// Spring fronds are thinner, more translucent
+	sss_str *= mix(1.0, 1.3, spring_t);
+	// Height-dependent: tips thinner than rachis base
+	sss_str *= mix(0.6, 1.0, height_frac);
+	BACKLIGHT = sss_col * sss_str;
 
 	// ---- WEATHER ----
 	if (rain_wetness > 0.01) {
@@ -228,8 +283,14 @@ void fragment() {
 		ROUGHNESS = mix(ROUGHNESS, 0.90, snow_on * 0.4);
 	}
 
-	// ---- DISTANCE LOD (alpha hash fade) ----
+	// ---- DISTANCE EFFECTS ----
 	float cam_dist = length(v_world_pos - INV_VIEW_MATRIX[3].xyz);
+
+	// Aerial perspective: haze + desaturation at distance, consistent with trees/terrain
+	float aerial = smoothstep(40.0, 200.0, cam_dist);
+	ALBEDO = apply_aerial(ALBEDO, aerial, 0.25, 0.25, sky_reflect_color);
+
+	// Alpha hash fade for LOD pop-out
 	float fade_start = 50.0;
 	float fade_end = 62.0;
 	float alpha = 1.0 - smoothstep(fade_start, fade_end, cam_dist);

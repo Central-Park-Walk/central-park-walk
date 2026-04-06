@@ -62,13 +62,17 @@ const SPECIES := [
 
 	# --- FERNS (7-10) --- frond-based, no flowers ---
 	# 7: Ostrich Fern (Matteuccia struthiopteris) — 1.3m vase, dramatic drooping fronds
-	{name="Fern_Ostrich", s=[0.7, 1.3], flex=0.40, green=0, fall=[0.55, 0.45, 0.10], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	#    Thin pinnae: high translucency, moderate roughness
+	{name="Fern_Ostrich", s=[0.7, 1.3], flex=0.40, green=0, fall=[0.55, 0.45, 0.10], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.82, spec=0.06, trans=0.70},
 	# 8: Christmas Fern (Polystichum acrostichoides) — 0.5m rosette, EVERGREEN
-	{name="Fern_Christmas", s=[0.7, 1.2], flex=0.25, green=1, fall=[0.05, 0.18, 0.04], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	#    Thick waxy cuticle: glossy, high specular, low translucency
+	{name="Fern_Christmas", s=[0.7, 1.2], flex=0.25, green=1, fall=[0.05, 0.18, 0.04], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.52, spec=0.20, trans=0.30},
 	# 9: Cinnamon Fern (Osmundastrum cinnamomeum) — 1.1m, cinnamon fertile fronds
-	{name="Fern_Cinnamon", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.60, 0.50, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	#    Moderate thickness, woolly rachis absorbs light
+	{name="Fern_Cinnamon", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.60, 0.50, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.78, spec=0.08, trans=0.65},
 	# 10: Sensitive Fern (Onoclea sensibilis) — 0.75m, broad triangular fronds, first frost kills
-	{name="Fern_Sensitive", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.65, 0.55, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	#     Very thin, broad pinnae: highest translucency, slightly glossy
+	{name="Fern_Sensitive", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.65, 0.55, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.76, spec=0.10, trans=0.80},
 
 	# --- HERBS (11-23) --- non-woody forbs 0.3-3m ---
 	# 11: Pokeweed (Phytolacca americana) — 2m, magenta stems, dark berries
@@ -658,6 +662,10 @@ func _load_model(sp_name: String) -> Mesh:
 		mat.set_shader_parameter("flower_color", Vector3(fc[0], fc[1], fc[2]))
 		var bl: Array = sp_cfg.get("bl", [1.0, 2.0])
 		mat.set_shader_parameter("bloom_range", Vector2(bl[0], bl[1]))
+		# Per-species PBR material tuning
+		mat.set_shader_parameter("roughness_base", sp_cfg.get("rough", 0.82))
+		mat.set_shader_parameter("specular_base", sp_cfg.get("spec", 0.04))
+		mat.set_shader_parameter("translucency", sp_cfg.get("trans", 0.5))
 		mat.set_shader_parameter("hm_world_size", _loader._hm_world_size)
 		if _loader._canopy_texture:
 			mat.set_shader_parameter("canopy_map", _loader._canopy_texture)
