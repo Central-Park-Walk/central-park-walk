@@ -111,7 +111,7 @@ void fragment() {
 	// --- Base color from shared zone palette + macro variation ---
 	// grass_base_color handles: zone palette, macro splotchiness (20m),
 	// landscape gradient (70m), warm/cool drift (8m), micro (3m),
-	// dead tuft accents, and EGTTR warmth.
+	// dead tuft accents, and warm cast.
 	vec3 col = grass_base_color(zone_id, v_world_pos.xz);
 
 	// Texture modulation: texture luminance adds blade-level detail

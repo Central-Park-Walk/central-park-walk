@@ -39,7 +39,7 @@ void fragment() {
 	// Slightly brighter floor at night (city light pollution)
 	vec3 dark_floor = mix(vec3(0.018, 0.014, 0.012), vec3(0.022, 0.018, 0.016), night_t);
 	c = max(c, dark_floor);
-	// Very gentle shadow shaping — preserve detail like EGTTR's soft look
+	// Very gentle shadow shaping — preserve shadow detail
 	c = pow(c, vec3(mix(1.02, 1.01, night_t)));
 
 	float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -72,7 +72,7 @@ void fragment() {
 	c *= mix(vec3(1.0), shadow_tint, shadow_blend * 0.20);
 	c *= mix(vec3(1.0), highlight_tint, highlight_blend * 0.15);
 
-	// Enrich greens — subtle foliage warmth, EGTTR-style muted olive
+	// Enrich greens — subtle foliage warmth
 	float green_boost = 0.03 * (1.0 - night_t * 0.7);
 	green_boost *= (1.0 + spring_s * 0.2);            // spring: slightly lusher
 	green_boost *= (1.0 - winter_s * 0.5);            // winter: muted foliage
@@ -88,7 +88,7 @@ void fragment() {
 	// AgX tonemapper handles highlight compression — no manual filmic curve needed.
 	// Only apply a very gentle midtone lift to compensate for AgX's slight desaturation.
 
-	// Saturation — restrained, naturalistic. EGTTR greens are muted olive, not vivid.
+	// Saturation — restrained, naturalistic. Compensate AgX desaturation.
 	float lum2 = dot(c, vec3(0.2126, 0.7152, 0.0722));
 	float sat = 1.12;  // compensate for AgX desaturation
 	sat = mix(sat, 1.02, night_t);     // near-neutral at night
@@ -106,7 +106,7 @@ void fragment() {
 	float lift = smoothstep(0.04, 0.0, scene_lum) * night_t * 0.015;
 	c += lift;
 
-	// Vignette — very subtle, EGTTR barely uses any
+	// Vignette — very subtle
 	vec2 vig_uv = SCREEN_UV * 2.0 - 1.0;
 	float vig_strength = mix(0.08, 0.14, night_t);
 	float vig = 1.0 - dot(vig_uv, vig_uv) * vig_strength;

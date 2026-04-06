@@ -119,8 +119,7 @@ vec3 grass_base_color(int zone_id, vec2 world_xz) {
 		col = mix(col, dead_col, dead_mask * 0.50);
 	}
 
-	// --- EGTTR warmth ---
-	// Golden undertone throughout — waxy cuticle + chlorophyll
+	// Golden undertone — waxy cuticle + chlorophyll absorption
 	col *= vec3(1.04, 1.01, 0.94);
 
 	return col;
