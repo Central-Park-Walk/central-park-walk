@@ -88,17 +88,12 @@ void fragment() {
 		tex_color = tex.rgb;
 		leaf_alpha = tex.a;
 
-		// EGTTR-inspired color grade: mute vivid photoscanned colors to
-		// match particle grass palette — soft, desaturated, warm greens.
+		// Light color grade: just a touch of desaturation + warm shift.
+		// Raw pinna textures are already natural (mean 0.52, 0.64, 0.17) —
+		// heavy grading compounds with AO + canopy shade to crush them black.
 		float lum = dot(tex_color, vec3(0.2126, 0.7152, 0.0722));
-		// Desaturate: vivid scanned greens → muted olive/sage
-		tex_color = mix(vec3(lum), tex_color, 0.55);
-		// Warm shift: reduce blue for golden-hour undertone
-		tex_color *= vec3(1.03, 1.00, 0.82);
-		// Soft contrast: lift shadows, compress dynamic range
-		tex_color = mix(vec3(0.06), tex_color, 0.85);
-		// Match particle grass brightness level
-		tex_color *= 0.82;
+		tex_color = mix(vec3(lum), tex_color, 0.80);
+		tex_color *= vec3(1.01, 1.00, 0.94);
 	} else if (use_atlas > 0.5) {
 		// Flat-card mesh with shared leaf atlas
 		float edge_dist = abs(UV.x - 0.5) * 2.0;
@@ -159,7 +154,7 @@ void fragment() {
 	// species invisible. Raised floor from 0.30→0.55 so lawn accent plants
 	// (clover, plantain, speedwell) stay visible against the grass.
 	float height_frac = clamp(VERTEX.y / 3.0, 0.0, 1.0);
-	float ao = mix(0.55, 1.0, smoothstep(0.0, 0.3, height_frac)) - v_wind_amount * 0.15;
+	float ao = mix(0.75, 1.0, smoothstep(0.0, 0.2, height_frac)) - v_wind_amount * 0.10;
 	AO = clamp(ao, 0.0, 1.0);
 	AO_LIGHT_AFFECT = 1.0;
 
@@ -260,8 +255,8 @@ void fragment() {
 	// ---- ENHANCED SUBSURFACE SCATTERING ----
 	// Fern fronds and thin leaves are translucent — light passes through tissue.
 	// Color-tinted so autumn fronds glow amber, season-modulated, per-species tunable.
-	vec3 sss_col = vec3(0.35, 0.38, 0.08);
-	sss_col = mix(sss_col, col * 0.5, 0.4);
+	vec3 sss_col = vec3(0.42, 0.45, 0.10);
+	sss_col = mix(sss_col, col * 0.55, 0.4);
 	float sss_str = translucency;
 	// Spring fronds are thinner, more translucent
 	sss_str *= mix(1.0, 1.3, spring_t);

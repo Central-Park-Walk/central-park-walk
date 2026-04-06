@@ -63,16 +63,16 @@ const SPECIES := [
 	# --- FERNS (7-10) --- frond-based, no flowers ---
 	# 7: Ostrich Fern (Matteuccia struthiopteris) — 1.3m vase, dramatic drooping fronds
 	#    Thin pinnae: high translucency, moderate roughness
-	{name="Fern_Ostrich", s=[0.7, 1.3], flex=0.40, green=0, fall=[0.55, 0.45, 0.10], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.82, spec=0.06, trans=0.70},
+	{name="Fern_Ostrich", s=[0.7, 1.3], flex=0.40, green=0, fall=[0.55, 0.45, 0.10], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.82, spec=0.06, trans=0.90},
 	# 8: Christmas Fern (Polystichum acrostichoides) — 0.5m rosette, EVERGREEN
 	#    Thick waxy cuticle: glossy, high specular, low translucency
-	{name="Fern_Christmas", s=[0.7, 1.2], flex=0.25, green=1, fall=[0.05, 0.18, 0.04], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.52, spec=0.20, trans=0.30},
+	{name="Fern_Christmas", s=[0.7, 1.2], flex=0.25, green=1, fall=[0.05, 0.18, 0.04], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.52, spec=0.20, trans=0.40},
 	# 9: Cinnamon Fern (Osmundastrum cinnamomeum) — 1.1m, cinnamon fertile fronds
 	#    Moderate thickness, woolly rachis absorbs light
-	{name="Fern_Cinnamon", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.60, 0.50, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.78, spec=0.08, trans=0.65},
+	{name="Fern_Cinnamon", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.60, 0.50, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.78, spec=0.08, trans=0.85},
 	# 10: Sensitive Fern (Onoclea sensibilis) — 0.75m, broad triangular fronds, first frost kills
 	#     Very thin, broad pinnae: highest translucency, slightly glossy
-	{name="Fern_Sensitive", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.65, 0.55, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.76, spec=0.10, trans=0.80},
+	{name="Fern_Sensitive", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.65, 0.55, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.76, spec=0.10, trans=1.05},
 
 	# --- HERBS (11-23) --- non-woody forbs 0.3-3m ---
 	# 11: Pokeweed (Phytolacca americana) — 2m, magenta stems, dark berries
@@ -463,6 +463,8 @@ func _build_chunk(ck: String) -> void:
 
 	for sp_entry in species_list:
 		var sp_idx: int = sp_entry[0]
+		# TEMP: isolate ferns only (indices 7-10) for shading evaluation
+		if sp_idx < 7 or sp_idx > 10: continue
 		var density: float = sp_entry[1]
 		var sp_name: String = SPECIES[sp_idx].name
 		if not _meshes.has(sp_name): continue
