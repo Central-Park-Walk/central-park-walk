@@ -45,92 +45,91 @@ const ATLAS_COLS := 4
 const ATLAS_ROWS := 7
 const SPECIES := [
 	# --- SHRUBS (0-6) --- multi-stemmed woody plants 1.5-4m ---
+	# sc: stem_color RGB, sr: stem_roughness (woody bark = 0.90+, herbaceous = 0.80-0.88)
 	# 0: Spicebush (Lindera benzoin) — dominant understory, yellow fall, tiny yellow spring flowers
-	{name="Shrub_Spicebush", s=[0.6, 1.1], flex=0.30, green=0, fall=[0.82, 0.75, 0.15], fc=[0.70, 0.68, 0.10], bl=[0.2, 0.7]},
+	{name="Shrub_Spicebush", s=[0.6, 1.1], flex=0.30, green=0, fall=[0.82, 0.75, 0.15], fc=[0.70, 0.68, 0.10], bl=[0.2, 0.7], sc=[0.35, 0.28, 0.15], sr=0.92},
 	# 1: Witch Hazel (Hamamelis virginiana) — zigzag branches, yellow fall, flowers in AUTUMN
-	{name="Shrub_WitchHazel", s=[0.7, 1.2], flex=0.25, green=0, fall=[0.75, 0.65, 0.12], fc=[0.80, 0.72, 0.08], bl=[2.2, 3.0]},
+	{name="Shrub_WitchHazel", s=[0.7, 1.2], flex=0.25, green=0, fall=[0.75, 0.65, 0.12], fc=[0.80, 0.72, 0.08], bl=[2.2, 3.0], sc=[0.30, 0.25, 0.18], sr=0.93},
 	# 2: Viburnum (Viburnum dentatum) — dense screening, red-purple fall, white spring flowers
-	{name="Shrub_Viburnum", s=[0.6, 1.0], flex=0.30, green=0, fall=[0.60, 0.10, 0.15], fc=[0.94, 0.96, 0.90], bl=[0.6, 1.2]},
-	# 3: Sumac (Rhus typhina) — flat-topped colony, vivid scarlet fall
-	{name="Shrub_Sumac", s=[0.7, 1.3], flex=0.20, green=0, fall=[0.85, 0.15, 0.05], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	{name="Shrub_Viburnum", s=[0.6, 1.0], flex=0.30, green=0, fall=[0.60, 0.10, 0.15], fc=[0.94, 0.96, 0.90], bl=[0.6, 1.2], sc=[0.28, 0.26, 0.22], sr=0.90},
+	# 3: Sumac (Rhus typhina) — flat-topped colony, vivid scarlet fall; velvety stems
+	{name="Shrub_Sumac", s=[0.7, 1.3], flex=0.20, green=0, fall=[0.85, 0.15, 0.05], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.40, 0.22, 0.12], sr=0.95},
 	# 4: Elderberry (Sambucus nigra) — arching, white flower clusters, purple berries
-	{name="Shrub_Elderberry", s=[0.6, 1.1], flex=0.35, green=0, fall=[0.55, 0.50, 0.12], fc=[0.94, 0.96, 0.88], bl=[0.8, 1.3]},
+	{name="Shrub_Elderberry", s=[0.6, 1.1], flex=0.35, green=0, fall=[0.55, 0.50, 0.12], fc=[0.94, 0.96, 0.88], bl=[0.8, 1.3], sc=[0.32, 0.30, 0.25], sr=0.90},
 	# 5: Sweet Pepperbush (Clethra alnifolia) — bottlebrush white flowers, wetland edge
-	{name="Shrub_SweetPepperbush", s=[0.6, 1.0], flex=0.30, green=0, fall=[0.70, 0.55, 0.10], fc=[0.96, 0.96, 0.92], bl=[1.0, 1.6]},
+	{name="Shrub_SweetPepperbush", s=[0.6, 1.0], flex=0.30, green=0, fall=[0.70, 0.55, 0.10], fc=[0.96, 0.96, 0.92], bl=[1.0, 1.6], sc=[0.35, 0.28, 0.18], sr=0.91},
 	# 6: Flowering Raspberry (Rubus odoratus) — large maple-like leaves, rose-purple flowers
-	{name="Shrub_FloweringRaspberry", s=[0.6, 1.0], flex=0.35, green=0, fall=[0.60, 0.45, 0.08], fc=[0.75, 0.25, 0.55], bl=[0.8, 1.5]},
+	{name="Shrub_FloweringRaspberry", s=[0.6, 1.0], flex=0.35, green=0, fall=[0.60, 0.45, 0.08], fc=[0.75, 0.25, 0.55], bl=[0.8, 1.5], sc=[0.38, 0.30, 0.20], sr=0.88},
 
 	# --- FERNS (7-10) --- frond-based, no flowers ---
+	# Fern rachis: green, not bark-like
 	# 7: Ostrich Fern (Matteuccia struthiopteris) — 1.3m vase, dramatic drooping fronds
-	#    Thin pinnae: high translucency, moderate roughness
-	{name="Fern_Ostrich", s=[0.7, 1.3], flex=0.40, green=0, fall=[0.55, 0.45, 0.10], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.82, spec=0.06, trans=0.90},
+	{name="Fern_Ostrich", s=[0.7, 1.3], flex=0.40, green=0, fall=[0.55, 0.45, 0.10], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.82, spec=0.06, trans=0.90, sc=[0.18, 0.28, 0.08], sr=0.85},
 	# 8: Christmas Fern (Polystichum acrostichoides) — 0.5m rosette, EVERGREEN
-	#    Thick waxy cuticle: glossy, high specular, low translucency
-	{name="Fern_Christmas", s=[0.7, 1.2], flex=0.25, green=1, fall=[0.05, 0.18, 0.04], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.52, spec=0.20, trans=0.40},
+	{name="Fern_Christmas", s=[0.7, 1.2], flex=0.25, green=1, fall=[0.05, 0.18, 0.04], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.52, spec=0.20, trans=0.40, sc=[0.10, 0.18, 0.05], sr=0.82},
 	# 9: Cinnamon Fern (Osmundastrum cinnamomeum) — 1.1m, cinnamon fertile fronds
-	#    Moderate thickness, woolly rachis absorbs light
-	{name="Fern_Cinnamon", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.60, 0.50, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.78, spec=0.08, trans=0.85},
+	{name="Fern_Cinnamon", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.60, 0.50, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.78, spec=0.08, trans=0.85, sc=[0.22, 0.20, 0.10], sr=0.88},
 	# 10: Sensitive Fern (Onoclea sensibilis) — 0.75m, broad triangular fronds, first frost kills
-	#     Very thin, broad pinnae: highest translucency, slightly glossy
-	{name="Fern_Sensitive", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.65, 0.55, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.76, spec=0.10, trans=1.05},
+	{name="Fern_Sensitive", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.65, 0.55, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], rough=0.76, spec=0.10, trans=1.05, sc=[0.20, 0.28, 0.10], sr=0.84},
 
 	# --- HERBS (11-23) --- non-woody forbs 0.3-3m ---
-	# 11: Pokeweed (Phytolacca americana) — 2m, magenta stems, dark berries
-	{name="Herb_Pokeweed", s=[0.7, 1.2], flex=0.40, green=0, fall=[0.65, 0.20, 0.30], fc=[0.90, 0.85, 0.88], bl=[0.8, 1.5]},
-	# 12: Japanese Knotweed (Reynoutria japonica) — 3m invasive, bamboo-like thicket
-	{name="Herb_JapaneseKnotweed", s=[0.7, 1.3], flex=0.20, green=0, fall=[0.55, 0.48, 0.10], fc=[0.92, 0.92, 0.88], bl=[1.2, 1.8]},
-	# 13: Joe-Pye Weed (Eutrochium purpureum) — 2m, pink dome flower heads, wetland
-	{name="Herb_JoePyeWeed", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.55, 0.40, 0.12], fc=[0.72, 0.42, 0.58], bl=[1.0, 1.8]},
-	# 14: Coneflower (Rudbeckia laciniata) — 2m, yellow drooping petals, dark cone
-	{name="Herb_Coneflower", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.50, 0.42, 0.08], fc=[0.85, 0.72, 0.10], bl=[1.0, 1.8]},
+	# 11: Pokeweed (Phytolacca americana) — 2m, VIVID MAGENTA stems
+	{name="Herb_Pokeweed", s=[0.7, 1.2], flex=0.40, green=0, fall=[0.65, 0.20, 0.30], fc=[0.90, 0.85, 0.88], bl=[0.8, 1.5], sc=[0.55, 0.15, 0.25], sr=0.82},
+	# 12: Japanese Knotweed (Reynoutria japonica) — 3m invasive, bamboo-like; green with purple nodes
+	{name="Herb_JapaneseKnotweed", s=[0.7, 1.3], flex=0.20, green=0, fall=[0.55, 0.48, 0.10], fc=[0.92, 0.92, 0.88], bl=[1.2, 1.8], sc=[0.30, 0.35, 0.18], sr=0.80},
+	# 13: Joe-Pye Weed (Eutrochium purpureum) — 2m, purple-tinged at nodes
+	{name="Herb_JoePyeWeed", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.55, 0.40, 0.12], fc=[0.72, 0.42, 0.58], bl=[1.0, 1.8], sc=[0.35, 0.20, 0.28], sr=0.84},
+	# 14: Coneflower (Rudbeckia laciniata) — 2m, green herbaceous stems
+	{name="Herb_Coneflower", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.50, 0.42, 0.08], fc=[0.85, 0.72, 0.10], bl=[1.0, 1.8], sc=[0.22, 0.32, 0.10], sr=0.82},
 	# 15: Cardinal Flower (Lobelia cardinalis) — 0.8m, brilliant scarlet spike, shade streams
-	{name="Herb_CardinalFlower", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.45, 0.35, 0.08], fc=[0.85, 0.08, 0.08], bl=[1.0, 1.6]},
-	# 16: White Wood Aster (Eurybia divaricata) — 0.4m, woodland floor carpet, fall bloom
-	{name="Herb_WhiteWoodAster", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.50, 0.40, 0.08], fc=[0.94, 0.94, 0.90], bl=[1.5, 2.5]},
-	# 17: Jewelweed (Impatiens capensis) — 0.8m, dense stream banks, orange spotted flowers
-	{name="Herb_Jewelweed", s=[0.7, 1.2], flex=0.45, green=0, fall=[0.50, 0.42, 0.08], fc=[0.90, 0.50, 0.08], bl=[1.0, 1.8]},
-	# 18: Mugwort (Artemisia vulgaris) — 1m, silvery invasive, aromatic
-	{name="Herb_Mugwort", s=[0.7, 1.2], flex=0.25, green=0, fall=[0.50, 0.45, 0.15], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
-	# 19: White Snakeroot (Ageratina altissima) — 1.2m, white corymbs, shade tolerant
-	{name="Herb_WhiteSnakeroot", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.48, 0.38, 0.08], fc=[0.96, 0.96, 0.92], bl=[1.4, 2.2]},
-	# 20: Ironweed (Vernonia noveboracensis) — 2m, deep purple flowers, wetland edge
-	{name="Herb_Ironweed", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.50, 0.38, 0.10], fc=[0.50, 0.15, 0.55], bl=[1.0, 1.8]},
-	# 21: Rose Mallow (Hibiscus moscheutos) — 1.6m, enormous pink-white flowers
-	{name="Herb_RoseMallow", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.50, 0.40, 0.08], fc=[0.88, 0.55, 0.65], bl=[1.0, 1.8]},
-	# 22: Burdock (Arctium minus) — 1.2m, massive leaves, hooked burrs
-	{name="Herb_Burdock", s=[0.7, 1.2], flex=0.25, green=0, fall=[0.50, 0.42, 0.10], fc=[0.60, 0.30, 0.55], bl=[1.0, 1.6]},
-	# 23: Goldenrod (Solidago spp.) — 1m, dominant fall yellow, meadow signature
-	{name="Flower_Goldenrod", s=[0.8, 1.3], flex=0.35, green=0, fall=[0.72, 0.58, 0.10], fc=[0.85, 0.75, 0.10], bl=[1.5, 2.5]},
+	{name="Herb_CardinalFlower", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.45, 0.35, 0.08], fc=[0.85, 0.08, 0.08], bl=[1.0, 1.6], sc=[0.20, 0.30, 0.08], sr=0.80},
+	# 16: White Wood Aster (Eurybia divaricata) — 0.4m, dark wiry zigzag stems
+	{name="Herb_WhiteWoodAster", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.50, 0.40, 0.08], fc=[0.94, 0.94, 0.90], bl=[1.5, 2.5], sc=[0.22, 0.15, 0.10], sr=0.88},
+	# 17: Jewelweed (Impatiens capensis) — 0.8m, translucent pale green succulent stems
+	{name="Herb_Jewelweed", s=[0.7, 1.2], flex=0.45, green=0, fall=[0.50, 0.42, 0.08], fc=[0.90, 0.50, 0.08], bl=[1.0, 1.8], sc=[0.35, 0.50, 0.18], sr=0.72},
+	# 18: Mugwort (Artemisia vulgaris) — 1m, ridged woody gray-brown stems
+	{name="Herb_Mugwort", s=[0.7, 1.2], flex=0.25, green=0, fall=[0.50, 0.45, 0.15], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.30, 0.24, 0.16], sr=0.90},
+	# 19: White Snakeroot (Ageratina altissima) — 1.2m, green erect stems
+	{name="Herb_WhiteSnakeroot", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.48, 0.38, 0.08], fc=[0.96, 0.96, 0.92], bl=[1.4, 2.2], sc=[0.24, 0.32, 0.12], sr=0.82},
+	# 20: Ironweed (Vernonia noveboracensis) — 2m, stiff purple-tinged stems
+	{name="Herb_Ironweed", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.50, 0.38, 0.10], fc=[0.50, 0.15, 0.55], bl=[1.0, 1.8], sc=[0.28, 0.20, 0.26], sr=0.86},
+	# 21: Rose Mallow (Hibiscus moscheutos) — 1.6m, sturdy green stems
+	{name="Herb_RoseMallow", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.50, 0.40, 0.08], fc=[0.88, 0.55, 0.65], bl=[1.0, 1.8], sc=[0.26, 0.34, 0.12], sr=0.84},
+	# 22: Burdock (Arctium minus) — 1.2m, stout gray-brown stems
+	{name="Herb_Burdock", s=[0.7, 1.2], flex=0.25, green=0, fall=[0.50, 0.42, 0.10], fc=[0.60, 0.30, 0.55], bl=[1.0, 1.6], sc=[0.30, 0.26, 0.20], sr=0.90},
+	# 23: Goldenrod (Solidago spp.) — 1m, green to woody brown stems
+	{name="Flower_Goldenrod", s=[0.8, 1.3], flex=0.35, green=0, fall=[0.72, 0.58, 0.10], fc=[0.85, 0.75, 0.10], bl=[1.5, 2.5], sc=[0.28, 0.30, 0.14], sr=0.84},
 
 	# --- GRASSES (24) --- tall bunch/clump grasses ---
+	# Grass stems: green, low roughness (smooth culms)
 	# 24: Bottlebrush Grass (Elymus hystrix) — 1.1m, shade-tolerant woodland grass
-	{name="Grass_Bottlebrush", s=[0.7, 1.2], flex=0.40, green=0, fall=[0.60, 0.50, 0.15], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	{name="Grass_Bottlebrush", s=[0.7, 1.2], flex=0.40, green=0, fall=[0.60, 0.50, 0.15], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.30, 0.36, 0.20], sr=0.78},
 
 	# --- WETLAND (25-28) --- waterside specialists ---
 	# 25: Cattail (Typha latifolia) — 2m, iconic brown cylinder heads, pond edge
-	{name="Wetland_Cattail", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.55, 0.45, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	{name="Wetland_Cattail", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.55, 0.45, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.32, 0.42, 0.18], sr=0.78},
 	# 26: Yellow Iris (Iris pseudacorus) — 1.2m, bright yellow flowers, wet meadow
-	{name="Wetland_YellowIris", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.55, 0.48, 0.10], fc=[0.88, 0.82, 0.10], bl=[0.6, 1.2]},
+	{name="Wetland_YellowIris", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.55, 0.48, 0.10], fc=[0.88, 0.82, 0.10], bl=[0.6, 1.2], sc=[0.20, 0.30, 0.10], sr=0.76},
 	# 27: Lizard's Tail (Saururus cernuus) — 0.9m, drooping white spikes, stream edge
-	{name="Wetland_LizardsTail", s=[0.7, 1.1], flex=0.35, green=0, fall=[0.50, 0.42, 0.08], fc=[0.96, 0.96, 0.90], bl=[0.8, 1.4]},
-	# 28: Phragmites (Phragmites australis) — 3m, tall invasive reed beds
-	{name="Wetland_Phragmites", s=[0.7, 1.3], flex=0.35, green=0, fall=[0.65, 0.55, 0.18], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	{name="Wetland_LizardsTail", s=[0.7, 1.1], flex=0.35, green=0, fall=[0.50, 0.42, 0.08], fc=[0.96, 0.96, 0.90], bl=[0.8, 1.4], sc=[0.22, 0.32, 0.12], sr=0.80},
+	# 28: Phragmites (Phragmites australis) — 3m, tall invasive reed beds; rigid tan culms
+	{name="Wetland_Phragmites", s=[0.7, 1.3], flex=0.35, green=0, fall=[0.65, 0.55, 0.18], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.38, 0.38, 0.20], sr=0.82},
 
 	# --- ACCENT FLOWERS (29) --- used as undergrowth in meadow zones ---
 	# 29: Aster (Symphyotrichum spp.) — purple/white, fall bloom, meadow + woodland edge
-	{name="Flower_Aster", s=[0.8, 1.3], flex=0.30, green=0, fall=[0.50, 0.40, 0.10], fc=[0.60, 0.40, 0.72], bl=[1.5, 2.5]},
+	{name="Flower_Aster", s=[0.8, 1.3], flex=0.30, green=0, fall=[0.50, 0.40, 0.10], fc=[0.60, 0.40, 0.72], bl=[1.5, 2.5], sc=[0.26, 0.30, 0.14], sr=0.82},
 
 	# --- ADDITIONAL GRASSES (30-33) + MEADOW FLOWER (34) ---
-	# 30: Little Bluestem (Schizachyrium scoparium) — 0.9m bunch grass, coppery-bronze fall
-	{name="Grass_LittleBluestem", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.60, 0.38, 0.15], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	# 30: Little Bluestem (Schizachyrium scoparium) — 0.9m bunch grass, blue-green culms
+	{name="Grass_LittleBluestem", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.60, 0.38, 0.15], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.28, 0.34, 0.22], sr=0.76},
 	# 31: Switchgrass (Panicum virgatum) — 1.6m tall warm-season, golden fall
-	{name="Grass_Switchgrass", s=[0.7, 1.3], flex=0.35, green=0, fall=[0.65, 0.52, 0.18], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	{name="Grass_Switchgrass", s=[0.7, 1.3], flex=0.35, green=0, fall=[0.65, 0.52, 0.18], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.28, 0.36, 0.20], sr=0.76},
 	# 32: Tussock Sedge (Carex stricta) — 0.7m clumping wetland, yellow-green
-	{name="Grass_TussockSedge", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.55, 0.48, 0.15], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
+	{name="Grass_TussockSedge", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.55, 0.48, 0.15], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.26, 0.34, 0.16], sr=0.74},
 	# 33: PA Sedge (Carex pensylvanica) — 0.22m low ground cover, shade-tolerant
-	{name="Grass_PASedge", s=[0.7, 1.2], flex=0.20, green=0, fall=[0.45, 0.38, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0]},
-	# 34: Black-eyed Susan (Rudbeckia hirta) — 0.8m, bright yellow-orange rays + dark cone
-	{name="Herb_BlackeyedSusan", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.50, 0.40, 0.08], fc=[0.88, 0.72, 0.08], bl=[1.0, 1.8]},
+	{name="Grass_PASedge", s=[0.7, 1.2], flex=0.20, green=0, fall=[0.45, 0.38, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.22, 0.30, 0.14], sr=0.74},
+	# 34: Black-eyed Susan (Rudbeckia hirta) — 0.8m, hairy green stems
+	{name="Herb_BlackeyedSusan", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.50, 0.40, 0.08], fc=[0.88, 0.72, 0.08], bl=[1.0, 1.8], sc=[0.24, 0.32, 0.12], sr=0.84},
 ]
 
 # Zone type -> list of [species_index, density_per_100m2]
@@ -666,6 +665,10 @@ func _load_model(sp_name: String) -> Mesh:
 		mat.set_shader_parameter("roughness_base", sp_cfg.get("rough", 0.82))
 		mat.set_shader_parameter("specular_base", sp_cfg.get("spec", 0.04))
 		mat.set_shader_parameter("translucency", sp_cfg.get("trans", 0.5))
+		# Stem rendering — species-specific bark/stem color and roughness
+		var sc: Array = sp_cfg.get("sc", [0.30, 0.25, 0.15])
+		mat.set_shader_parameter("stem_color", Color(sc[0], sc[1], sc[2]))
+		mat.set_shader_parameter("stem_roughness", sp_cfg.get("sr", 0.92))
 		mat.set_shader_parameter("hm_world_size", _loader._hm_world_size)
 		if _loader._canopy_texture:
 			mat.set_shader_parameter("canopy_map", _loader._canopy_texture)
