@@ -463,8 +463,6 @@ func _build_chunk(ck: String) -> void:
 
 	for sp_entry in species_list:
 		var sp_idx: int = sp_entry[0]
-		# TEMP: isolate ferns only (indices 7-10) for shading evaluation
-		if sp_idx < 7 or sp_idx > 10: continue
 		var density: float = sp_entry[1]
 		var sp_name: String = SPECIES[sp_idx].name
 		if not _meshes.has(sp_name): continue
