@@ -347,7 +347,9 @@ def _simple_leaf_outline(W, H, sp):
 
 
 def _palmate_leaf_outline(W, H, sp):
-    """Generate outline polygon for a palmate (lobed) leaf like Flowering Raspberry / maple."""
+    """Generate outline polygon for a palmate (lobed) leaf like Flowering Raspberry / maple.
+    Creates pointed lobe tips with deep angular sinuses — true maple-like shape,
+    not soft gaussian bumps (which produce clover)."""
     cx = W * 0.5
     cy = H * 0.52  # center slightly below middle
     lobe_count, lobe_depth = sp["palmate"]
@@ -355,65 +357,76 @@ def _palmate_leaf_outline(W, H, sp):
     teeth = sp.get("teeth", None)
     radius = min(W, H) * max_w * 0.9
 
-    # Lobes spread over the upper arc (not a full circle — has petiole at bottom)
-    # Lobe angles: evenly spread from -spread to +spread around top
-    spread = math.pi * 0.75  # how wide the lobes fan (< pi = less than semicircle)
+    # Lobes spread over the upper arc — petiole at bottom
+    # Wider spread so outer lobes aren't pinched against the petiole
+    spread = math.pi * 0.80
     lobe_angles = []
     for li in range(lobe_count):
         a = -spread + (2 * spread) * li / (lobe_count - 1)
         lobe_angles.append(a - math.pi * 0.5)  # rotate so 0 = straight up
 
-    n_pts = 300
+    # Sinus midpoint angles
+    sinus_angles = []
+    for si in range(lobe_count - 1):
+        sinus_angles.append((lobe_angles[si] + lobe_angles[si + 1]) * 0.5)
+
+    n_pts = 400
     points = []
     for i in range(n_pts):
-        # Angle sweeps from bottom-left, up and over, to bottom-right
-        # Skip the bottom arc — that's the petiole
         frac = i / (n_pts - 1)
         angle = -math.pi * 0.85 + frac * math.pi * 1.7  # ~310° arc
 
-        # Base radius
-        r = radius * 0.5
+        # Find nearest lobe and compute how deep into lobe vs sinus we are.
+        # Use a triangular wave per lobe for pointed tips, not gaussian.
+        r = radius * 0.35  # base radius (visible between lobes)
 
-        # Add lobe bumps — each lobe is a gaussian centered on its angle
+        # For each lobe: triangular spike centered on lobe angle.
+        # Lobe angular half-width = half the spacing between adjacent lobes.
+        lobe_spacing = (2 * spread) / max(lobe_count - 1, 1)
+        lobe_hw = lobe_spacing * 0.5  # angular half-width
+
+        best_lobe_contrib = 0.0
         for la in lobe_angles:
-            # Distance from this lobe center
             da = angle - la
-            # Wrap
-            while da > math.pi:
-                da -= 2 * math.pi
-            while da < -math.pi:
-                da += 2 * math.pi
-            lobe_width = spread / lobe_count * 0.8  # angular width of each lobe
-            lobe_r = math.exp(-0.5 * (da / lobe_width) ** 2)
-            r += radius * 0.55 * lobe_r
+            while da > math.pi: da -= 2 * math.pi
+            while da < -math.pi: da += 2 * math.pi
+            abs_da = abs(da)
+            if abs_da < lobe_hw:
+                # Triangular: 1.0 at center, 0.0 at half-width boundary
+                tri = 1.0 - abs_da / lobe_hw
+                # Sharpen the peak for pointed tips (power < 1 = sharper)
+                tri = tri ** 0.65
+                best_lobe_contrib = max(best_lobe_contrib, tri)
 
-        # Sinuses between lobes — pull radius inward
-        for si in range(lobe_count - 1):
-            sinus_angle = (lobe_angles[si] + lobe_angles[si + 1]) * 0.5
-            da = angle - sinus_angle
-            while da > math.pi:
-                da -= 2 * math.pi
-            while da < -math.pi:
-                da += 2 * math.pi
-            sinus_width = spread / lobe_count * 0.35
-            sinus_pull = math.exp(-0.5 * (da / sinus_width) ** 2)
-            r -= radius * lobe_depth * 0.5 * sinus_pull
+        r += radius * 0.72 * best_lobe_contrib
+
+        # Deep sinuses — sharp V-shaped cuts between lobes
+        for sa in sinus_angles:
+            da = angle - sa
+            while da > math.pi: da -= 2 * math.pi
+            while da < -math.pi: da += 2 * math.pi
+            abs_da = abs(da)
+            sinus_hw = lobe_spacing * 0.28  # narrow V
+            if abs_da < sinus_hw:
+                sinus_t = 1.0 - abs_da / sinus_hw
+                sinus_t = sinus_t ** 0.8  # sharpen
+                r -= radius * lobe_depth * 0.65 * sinus_t
 
         # Taper to petiole at bottom
         bottom_angle = math.pi * 0.5  # straight down
         da_bottom = abs(angle - bottom_angle)
         if da_bottom > math.pi:
             da_bottom = 2 * math.pi - da_bottom
-        if da_bottom < 0.4:
-            petiole_t = 1.0 - da_bottom / 0.4
-            r *= (1.0 - petiole_t * 0.75)
+        if da_bottom < 0.45:
+            petiole_t = 1.0 - da_bottom / 0.45
+            r *= (1.0 - petiole_t * 0.78)
             r = max(r, 8)
 
-        # Fine serration on lobes
-        if teeth and r > radius * 0.3:
+        # Fine serration on lobe edges
+        if teeth and r > radius * 0.35:
             count, depth = teeth
             tooth = math.sin(i * count / n_pts * math.pi * 2)
-            r += r * depth * 0.15 * max(0, tooth)
+            r += r * depth * 0.12 * max(0, tooth)
 
         x = cx + math.cos(angle) * r
         y = cy - math.sin(angle) * r
