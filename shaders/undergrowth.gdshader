@@ -34,15 +34,21 @@ uniform float roughness_base : hint_range(0.3, 1.0) = 0.82;
 uniform float specular_base : hint_range(0.0, 0.5) = 0.04;
 uniform float translucency : hint_range(0.0, 1.5) = 0.5;
 
+// Stem rendering — procedural bark when COLOR.a < 0.5 (stem vertex)
+uniform vec3 stem_color : source_color = vec3(0.30, 0.25, 0.15);
+uniform float stem_roughness : hint_range(0.5, 1.0) = 0.92;
+
 
 varying vec3 v_world_pos;
 varying float v_seed;
 varying float v_wind_amount;
+varying float v_is_stem;  // 1.0 when COLOR.a < 0.5 (stem vertex), 0.0 for leaf
 
 void vertex() {
 	vec3 instance_origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	v_world_pos = instance_origin;
 	v_seed = INSTANCE_CUSTOM.r;
+	v_is_stem = step(0.5, 1.0 - COLOR.a);  // COLOR.a=0 → stem (1.0), COLOR.a=1 → leaf (0.0)
 
 	// -- Wind sway --
 	float sway = max(VERTEX.y, 0.0);
@@ -78,59 +84,73 @@ void vertex() {
 void fragment() {
 	if (!FRONT_FACING) NORMAL = -NORMAL;
 
-	// ---- ALPHA CUTOUT ----
+	// ---- STEM vs LEAF BRANCHING ----
+	float is_stem = v_is_stem;  // 1.0 = stem vertex, 0.0 = leaf vertex
+
+	// ---- ALPHA CUTOUT (leaf path only — stems are opaque geometry) ----
 	float leaf_alpha = 1.0;
 	vec3 tex_color = COLOR.rgb;
 
-	if (use_texture > 0.5) {
-		// 3D mesh with per-surface PBR texture (BD3D plant library)
-		vec4 tex = texture(albedo_tex, UV);
-		tex_color = tex.rgb;
-		leaf_alpha = tex.a;
+	if (is_stem < 0.5) {
+		if (use_texture > 0.5) {
+			// 3D mesh with per-surface PBR texture (BD3D plant library)
+			vec4 tex = texture(albedo_tex, UV);
+			tex_color = tex.rgb;
+			leaf_alpha = tex.a;
 
-		// Light color grade: just a touch of desaturation + warm shift.
-		// Raw pinna textures are already natural (mean 0.52, 0.64, 0.17) —
-		// heavy grading compounds with AO + canopy shade to crush them black.
-		float lum = dot(tex_color, vec3(0.2126, 0.7152, 0.0722));
-		tex_color = mix(vec3(lum), tex_color, 0.80);
-		tex_color *= vec3(1.01, 1.00, 0.94);
-	} else if (use_atlas > 0.5) {
-		// Flat-card mesh with shared leaf atlas
-		float edge_dist = abs(UV.x - 0.5) * 2.0;
-		float is_leaf = smoothstep(0.05, 0.2, edge_dist);
-		vec2 atlas_uv = atlas_offset + UV * atlas_cell_size;
-		vec4 tex = texture(leaf_atlas, atlas_uv);
-		tex_color = mix(COLOR.rgb, tex.rgb, is_leaf * step(0.1, tex.a));
-		leaf_alpha = mix(1.0, tex.a, is_leaf);
-	} else {
-		// Procedural leaf shape from UV (billboard herbs etc.)
-		float edge_dist = abs(UV.x - 0.5) * 2.0;
-		float is_leaf = smoothstep(0.05, 0.2, edge_dist);
-		float leaf_width = sin(UV.y * 3.14159) * (1.0 - UV.y * 0.25);
-		float edge_noise = vnoise(UV * 6.0 + vec2(v_seed * 13.0, v_seed * 7.0)) * 0.12;
-		leaf_width += edge_noise;
-		float proc_mask = smoothstep(leaf_width, leaf_width - 0.06, edge_dist);
-		leaf_alpha = mix(1.0, proc_mask, is_leaf);
+			// Light color grade: just a touch of desaturation + warm shift.
+			float lum = dot(tex_color, vec3(0.2126, 0.7152, 0.0722));
+			tex_color = mix(vec3(lum), tex_color, 0.80);
+			tex_color *= vec3(1.01, 1.00, 0.94);
+		} else if (use_atlas > 0.5) {
+			// Flat-card mesh with shared leaf atlas
+			float edge_dist = abs(UV.x - 0.5) * 2.0;
+			float is_leaf_card = smoothstep(0.05, 0.2, edge_dist);
+			vec2 atlas_uv = atlas_offset + UV * atlas_cell_size;
+			vec4 tex = texture(leaf_atlas, atlas_uv);
+			tex_color = mix(COLOR.rgb, tex.rgb, is_leaf_card * step(0.1, tex.a));
+			leaf_alpha = mix(1.0, tex.a, is_leaf_card);
+		} else {
+			// Procedural leaf shape from UV (billboard herbs etc.)
+			float edge_dist = abs(UV.x - 0.5) * 2.0;
+			float is_leaf_card = smoothstep(0.05, 0.2, edge_dist);
+			float leaf_width = sin(UV.y * 3.14159) * (1.0 - UV.y * 0.25);
+			float edge_noise = vnoise(UV * 6.0 + vec2(v_seed * 13.0, v_seed * 7.0)) * 0.12;
+			leaf_width += edge_noise;
+			float proc_mask = smoothstep(leaf_width, leaf_width - 0.06, edge_dist);
+			leaf_alpha = mix(1.0, proc_mask, is_leaf_card);
+		}
+
+		if (leaf_alpha < 0.4) discard;
 	}
-
-	if (leaf_alpha < 0.4) discard;
 
 	// ---- NORMALS ----
-	// 3D meshes have real normals; flat-card meshes need hemisphere blend
-	if (use_texture < 0.5) {
-		vec3 outward = normalize(vec3(VERTEX.x, VERTEX.y * 0.25, VERTEX.z));
-		NORMAL = normalize(mix(NORMAL, outward, 0.45));
-		if (!FRONT_FACING) NORMAL = -NORMAL;
-	}
-
-	// ---- MICRO-TEXTURE NORMAL PERTURBATION ----
-	// Leaf surface detail: veins, cell structure, cuticle bumps.
-	// Two noise octaves at pinna scale — breaks up uniform flat lighting.
 	vec3 frag_world = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	float bump_coarse = vnoise(frag_world.xz * 55.0);
-	float bump_fine = vnoise(frag_world.xz * 130.0);
-	float bump_h = bump_coarse * 0.55 + bump_fine * 0.45;
-	NORMAL = normalize(NORMAL + vec3(dFdx(bump_h), dFdy(bump_h), 0.0) * 0.9);
+	float bump_coarse, bump_fine, bump_h;
+
+	if (is_stem > 0.5) {
+		// Stems: keep mesh normals (tubes have real geometry normals).
+		// Bark-like normal perturbation: longitudinal ridges + fine grain.
+		float bark_ridge = vnoise(frag_world.xz * 18.0 + vec2(0.0, frag_world.y * 40.0));
+		float bark_grain = vnoise(frag_world.xz * 80.0);
+		bump_h = bark_ridge * 0.6 + bark_grain * 0.4;
+		NORMAL = normalize(NORMAL + vec3(dFdx(bump_h), dFdy(bump_h), 0.0) * 0.6);
+		bump_coarse = bark_ridge;
+		bump_fine = bark_grain;
+	} else {
+		// Leaves: flat-card meshes need hemisphere blend
+		if (use_texture < 0.5) {
+			vec3 outward = normalize(vec3(VERTEX.x, VERTEX.y * 0.25, VERTEX.z));
+			NORMAL = normalize(mix(NORMAL, outward, 0.45));
+			if (!FRONT_FACING) NORMAL = -NORMAL;
+		}
+
+		// Leaf micro-texture normal perturbation: veins, cell structure, cuticle bumps.
+		bump_coarse = vnoise(frag_world.xz * 55.0);
+		bump_fine = vnoise(frag_world.xz * 130.0);
+		bump_h = bump_coarse * 0.55 + bump_fine * 0.45;
+		NORMAL = normalize(NORMAL + vec3(dFdx(bump_h), dFdy(bump_h), 0.0) * 0.9);
+	}
 
 	// Winter discard — deciduous shrubs disappear under snow
 	float winter_discard = sn_winter_kill(season_t);
@@ -140,7 +160,7 @@ void fragment() {
 
 
 	// ---- COLOR ----
-	vec3 col = tex_color;
+	vec3 col = is_stem > 0.5 ? stem_color : tex_color;
 
 	// Per-instance hue variation
 	col *= mix(vec3(0.95, 1.02, 1.04), vec3(1.05, 0.98, 0.94), v_seed);
@@ -235,12 +255,17 @@ void fragment() {
 	ALBEDO = col;
 
 	// ---- PBR ----
-	// Textured species use per-species uniforms; atlas/procedural keep legacy values.
 	float rough, spec;
-	if (use_texture > 0.5) {
+	if (is_stem > 0.5) {
+		// Stems: bark-like — high roughness, very low specular
+		rough = stem_roughness;
+		spec = 0.02;
+	} else if (use_texture > 0.5) {
+		// Textured leaf species: per-species uniforms with height gradient
 		rough = mix(roughness_base, roughness_base - 0.15, height_frac);
 		spec = mix(specular_base, specular_base + 0.04, height_frac);
 	} else {
+		// Atlas/procedural leaf path: legacy values
 		rough = mix(0.72, 0.48, height_frac);
 		spec = mix(0.08, 0.16, height_frac);
 	}
@@ -253,16 +278,19 @@ void fragment() {
 	METALLIC = 0.0;
 
 	// ---- ENHANCED SUBSURFACE SCATTERING ----
-	// Fern fronds and thin leaves are translucent — light passes through tissue.
-	// Color-tinted so autumn fronds glow amber, season-modulated, per-species tunable.
-	vec3 sss_col = vec3(0.42, 0.45, 0.10);
-	sss_col = mix(sss_col, col * 0.55, 0.4);
-	float sss_str = translucency;
-	// Spring fronds are thinner, more translucent
-	sss_str *= mix(1.0, 1.3, spring_t);
-	// Height-dependent: tips thinner than rachis base
-	sss_str *= mix(0.6, 1.0, height_frac);
-	BACKLIGHT = sss_col * sss_str;
+	// Leaves only — stems are opaque woody tissue, no light transmission.
+	if (is_stem < 0.5) {
+		// Fern fronds and thin leaves are translucent — light passes through tissue.
+		// Color-tinted so autumn fronds glow amber, season-modulated, per-species tunable.
+		vec3 sss_col = vec3(0.42, 0.45, 0.10);
+		sss_col = mix(sss_col, col * 0.55, 0.4);
+		float sss_str = translucency;
+		// Spring fronds are thinner, more translucent
+		sss_str *= mix(1.0, 1.3, spring_t);
+		// Height-dependent: tips thinner than rachis base
+		sss_str *= mix(0.6, 1.0, height_frac);
+		BACKLIGHT = sss_col * sss_str;
+	}
 
 	// ---- WEATHER ----
 	if (rain_wetness > 0.01) {
