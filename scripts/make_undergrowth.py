@@ -131,11 +131,11 @@ def finalize_and_export(bm, name, mat=None):
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
 
-    # Check for species leaf texture
-    tex_path = os.path.join(OUT_DIR, f"tex_{name}.png")
+    # Check for species leaf texture (gen_leaf_textures.py saves as tex_leaf_{name}.png)
+    tex_path = os.path.join(OUT_DIR, f"tex_leaf_{name}.png")
     if os.path.exists(tex_path):
         m = make_textured_material(name + "_Mat", tex_path)
-        print(f"    → embedded texture: tex_{name}.png")
+        print(f"    → embedded texture: tex_leaf_{name}.png")
     else:
         m = make_material(name + "_Mat")
     obj.data.materials.append(m)

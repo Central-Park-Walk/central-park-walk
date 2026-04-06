@@ -252,6 +252,270 @@ SPECIES = {
         "gloss": 0.02,                      # very matte, woolly
         "noise_std": 7,                     # rough, hairy texture
     },
+
+    # ── REMAINING HERBS ──
+    "Herb_Coneflower": {
+        "size": (256, 384),
+        "base_color": (52, 140, 35),
+        "widest_pos": 0.38,                 # ovate, deeply lobed
+        "max_w": 0.44,
+        "base_w": 0.06,
+        "tip_sharp": 1.4,
+        "base_sharp": 1.2,
+        "teeth": (10, 0.040),               # deep lobes (pinnately cut)
+        "wave": None,
+        "vein_count": 8,
+        "vein_angle": 40,
+        "gloss": 0.06,
+        "noise_std": 5,
+    },
+    "Herb_CardinalFlower": {
+        "size": (160, 448),                 # narrow lanceolate
+        "base_color": (48, 130, 28),        # dark green
+        "widest_pos": 0.35,
+        "max_w": 0.36,
+        "base_w": 0.04,
+        "tip_sharp": 1.6,                   # acuminate
+        "base_sharp": 1.4,
+        "teeth": (18, 0.012),               # finely serrate
+        "wave": None,
+        "vein_count": 10,
+        "vein_angle": 35,
+        "gloss": 0.08,
+        "noise_std": 3,
+    },
+    "Herb_Ironweed": {
+        "size": (192, 512),                 # narrow lanceolate
+        "base_color": (45, 125, 30),        # dark green
+        "widest_pos": 0.32,
+        "max_w": 0.34,
+        "base_w": 0.04,
+        "tip_sharp": 1.5,
+        "base_sharp": 1.6,
+        "teeth": (24, 0.015),               # finely serrate
+        "wave": None,
+        "vein_count": 14,
+        "vein_angle": 40,
+        "gloss": 0.05,
+        "noise_std": 4,
+    },
+    "Herb_RoseMallow": {
+        "size": (320, 384),                 # broadly ovate
+        "base_color": (58, 145, 38),        # medium-light green
+        "widest_pos": 0.42,
+        "max_w": 0.46,
+        "base_w": 0.12,
+        "tip_sharp": 1.2,
+        "base_sharp": 0.9,
+        "teeth": (16, 0.025),               # coarsely serrate
+        "wave": None,
+        "vein_count": 7,
+        "vein_angle": 42,
+        "gloss": 0.08,
+        "noise_std": 4,
+    },
+    "Herb_Jewelweed": {
+        "size": (224, 384),
+        "base_color": (72, 158, 55),        # pale translucent green
+        "widest_pos": 0.42,                 # ovate
+        "max_w": 0.42,
+        "base_w": 0.08,
+        "tip_sharp": 1.2,
+        "base_sharp": 1.0,
+        "teeth": (14, 0.020),               # crenate-serrate
+        "wave": (5, 0.015),
+        "vein_count": 8,
+        "vein_angle": 42,
+        "gloss": 0.12,                      # slightly waxy
+        "noise_std": 4,
+    },
+    "Herb_BlackeyedSusan": {
+        "size": (192, 448),                 # oblanceolate
+        "base_color": (56, 138, 35),
+        "widest_pos": 0.55,                 # widest above center
+        "max_w": 0.38,
+        "base_w": 0.05,
+        "tip_sharp": 1.0,                   # blunt-rounded tip
+        "base_sharp": 1.5,                  # narrow base taper
+        "teeth": None,                      # entire to slightly toothed
+        "wave": (4, 0.010),
+        "vein_count": 6,
+        "vein_angle": 30,
+        "gloss": 0.04,                      # rough, hairy
+        "noise_std": 6,
+    },
+
+    # ── ACCENT FLOWERS ──
+    "Flower_Goldenrod": {
+        "size": (160, 448),                 # narrow lanceolate
+        "base_color": (55, 140, 32),
+        "widest_pos": 0.35,
+        "max_w": 0.34,
+        "base_w": 0.04,
+        "tip_sharp": 1.4,
+        "base_sharp": 1.4,
+        "teeth": (16, 0.012),               # finely serrate
+        "wave": None,
+        "vein_count": 8,
+        "vein_angle": 30,                   # nearly parallel veins
+        "gloss": 0.06,
+        "noise_std": 4,
+    },
+    "Flower_Aster": {
+        "size": (192, 384),
+        "base_color": (50, 135, 32),
+        "widest_pos": 0.38,                 # ovate-lanceolate
+        "max_w": 0.40,
+        "base_w": 0.06,
+        "tip_sharp": 1.3,
+        "base_sharp": 1.1,
+        "teeth": (18, 0.016),               # serrate
+        "wave": None,
+        "vein_count": 7,
+        "vein_angle": 38,
+        "gloss": 0.06,
+        "noise_std": 4,
+    },
+
+    # ── WETLAND ──
+    "Wetland_Cattail": {
+        "size": (96, 512),                  # very narrow sword blade
+        "base_color": (55, 130, 35),        # medium green
+        "widest_pos": 0.15,                 # widest near base
+        "max_w": 0.42,
+        "base_w": 0.38,                     # nearly as wide at base
+        "tip_sharp": 2.0,                   # long taper
+        "base_sharp": 0.5,                  # broad base
+        "teeth": None,
+        "wave": None,
+        "vein_count": 4,                    # parallel veins
+        "vein_angle": 8,                    # nearly parallel
+        "gloss": 0.10,
+        "noise_std": 3,
+    },
+    "Wetland_YellowIris": {
+        "size": (96, 512),
+        "base_color": (42, 118, 25),        # dark green
+        "widest_pos": 0.20,
+        "max_w": 0.40,
+        "base_w": 0.36,
+        "tip_sharp": 1.8,
+        "base_sharp": 0.5,
+        "teeth": None,
+        "wave": None,
+        "vein_count": 5,
+        "vein_angle": 6,                    # nearly parallel
+        "gloss": 0.12,                      # slightly waxy
+        "noise_std": 3,
+    },
+    "Wetland_LizardsTail": {
+        "size": (224, 320),
+        "base_color": (50, 138, 32),
+        "widest_pos": 0.42,                 # ovate
+        "max_w": 0.44,
+        "base_w": 0.12,
+        "cordate": 0.06,                    # heart-shaped base
+        "tip_sharp": 1.3,
+        "base_sharp": 0.9,
+        "teeth": None,                      # entire margin
+        "wave": (5, 0.012),
+        "vein_count": 7,
+        "vein_angle": 38,
+        "gloss": 0.10,
+        "noise_std": 4,
+    },
+    "Wetland_Phragmites": {
+        "size": (112, 512),                 # linear blade, wider than cattail
+        "base_color": (60, 135, 38),
+        "widest_pos": 0.18,
+        "max_w": 0.40,
+        "base_w": 0.35,
+        "tip_sharp": 2.0,
+        "base_sharp": 0.5,
+        "teeth": None,
+        "wave": None,
+        "vein_count": 5,
+        "vein_angle": 8,
+        "gloss": 0.06,
+        "noise_std": 3,
+    },
+
+    # ── GRASSES ──
+    "Grass_Bottlebrush": {
+        "size": (80, 448),                  # very narrow blade
+        "base_color": (58, 138, 38),
+        "widest_pos": 0.15,
+        "max_w": 0.38,
+        "base_w": 0.34,
+        "tip_sharp": 2.0,
+        "base_sharp": 0.5,
+        "teeth": None,
+        "wave": None,
+        "vein_count": 3,
+        "vein_angle": 5,
+        "gloss": 0.06,
+        "noise_std": 3,
+    },
+    "Grass_LittleBluestem": {
+        "size": (64, 384),                  # narrow, blue-green
+        "base_color": (55, 130, 48),        # blue-green tint
+        "widest_pos": 0.12,
+        "max_w": 0.38,
+        "base_w": 0.34,
+        "tip_sharp": 2.2,
+        "base_sharp": 0.5,
+        "teeth": None,
+        "wave": None,
+        "vein_count": 2,
+        "vein_angle": 5,
+        "gloss": 0.04,
+        "noise_std": 3,
+    },
+    "Grass_Switchgrass": {
+        "size": (96, 512),                  # wider, tall blade
+        "base_color": (52, 132, 42),        # blue-green
+        "widest_pos": 0.15,
+        "max_w": 0.38,
+        "base_w": 0.34,
+        "tip_sharp": 2.0,
+        "base_sharp": 0.5,
+        "teeth": None,
+        "wave": None,
+        "vein_count": 4,
+        "vein_angle": 6,
+        "gloss": 0.06,
+        "noise_std": 3,
+    },
+    "Grass_TussockSedge": {
+        "size": (64, 384),                  # narrow sedge blade
+        "base_color": (58, 140, 36),        # yellow-green
+        "widest_pos": 0.15,
+        "max_w": 0.36,
+        "base_w": 0.30,
+        "tip_sharp": 2.0,
+        "base_sharp": 0.5,
+        "teeth": None,
+        "wave": None,
+        "vein_count": 2,
+        "vein_angle": 5,
+        "gloss": 0.04,
+        "noise_std": 3,
+    },
+    "Grass_PASedge": {
+        "size": (48, 256),                  # very short, fine blade
+        "base_color": (52, 130, 32),        # medium green
+        "widest_pos": 0.12,
+        "max_w": 0.36,
+        "base_w": 0.30,
+        "tip_sharp": 2.0,
+        "base_sharp": 0.5,
+        "teeth": None,
+        "wave": None,
+        "vein_count": 1,
+        "vein_angle": 5,
+        "gloss": 0.04,
+        "noise_std": 3,
+    },
 }
 
 
