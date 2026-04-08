@@ -540,8 +540,8 @@ func _build_chunk(ck: String) -> void:
 			if near_path: continue
 
 			# Height from raw DEM heightmap — same source the GPU grass uses.
-			# Terrain3D.get_height() returns values above the rendered surface;
-			# the DEM matches the grass plane exactly.
+			# Sunk 10cm so stem bases (which start at +6cm in model space)
+			# emerge from the ground rather than hovering above it.
 			var xi: float = (bx + _hm_half) / _hm_ws * (_hm_w - 1)
 			var zi: float = (bz + _hm_half) / _hm_ws * (_hm_d - 1)
 			var xi0: int = clampi(int(xi), 0, _hm_w - 2)
@@ -554,9 +554,9 @@ func _build_chunk(ck: String) -> void:
 			var h11: float = float(_hm_data[(zi0 + 1) * _hm_w + xi0 + 1])
 			var wy: float
 			if fz <= fx:
-				wy = h00 + (h10 - h00) * fx + (h11 - h10) * fz
+				wy = h00 + (h10 - h00) * fx + (h11 - h10) * fz - 0.10
 			else:
-				wy = h00 + (h11 - h01) * fx + (h01 - h00) * fz
+				wy = h00 + (h11 - h01) * fx + (h01 - h00) * fz - 0.10
 
 			var yr: float = rng.randf() * TAU
 			# Normal distribution (mean at 40% of range, sd = 20% of range)
