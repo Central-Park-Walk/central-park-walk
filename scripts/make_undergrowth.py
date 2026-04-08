@@ -616,7 +616,8 @@ def _make_shrub(bm, rng, n_stems, height, spread, stem_r, leaf_size,
 
 
 def _scatter_cluster_cards(bm, positions, card_size, uv_layer, col_layer, rng,
-                           n_cards_per_cluster=8, flatten=0.7):
+                           n_cards_per_cluster=8, flatten=0.7,
+                           leaf_color=(0.303, 0.456, 0.244)):
     """Scatter alpha-tested quads in spheroidal volumes around branch positions.
 
     Same technique as tree foliage (generate_trees_mtree.py create_leaf_cards_at_positions):
@@ -631,7 +632,9 @@ def _scatter_cluster_cards(bm, positions, card_size, uv_layer, col_layer, rng,
         rng: random.Random instance
         n_cards_per_cluster: quads per cluster (8-12 for shrubs)
         flatten: vertical squash (0.7 = slightly oblate, matching natural leaf layer)
+        leaf_color: (r, g, b) base leaf color in gamma sRGB (from spectral pipeline)
     """
+    lr, lg, lb = leaf_color
     for center, radius in positions:
         for q in range(n_cards_per_cluster):
             # Random position within cluster sphere (bias toward surface for shell fill)
@@ -654,6 +657,16 @@ def _scatter_cluster_cards(bm, positions, card_size, uv_layer, col_layer, rng,
             h = w * rng.uniform(0.85, 1.15)
             half_w = w * 0.5
             half_h = h * 0.5
+
+            # Per-card color variation: ±8% brightness + warm/cool hue shift
+            # Lower cards darker (interior shadow), upper cards brighter (light-catching)
+            height_bias = (phi + 0.5) / 1.2  # 0 at bottom, ~1 at top
+            bright = 0.92 + 0.16 * height_bias + rng.uniform(-0.06, 0.06)
+            # Warm/cool shift: slight toward yellow-green or blue-green
+            hue_shift = rng.uniform(-0.02, 0.02)
+            cr = min(1.0, lr * bright + hue_shift * 0.5)
+            cg = min(1.0, lg * bright)
+            cb = min(1.0, lb * bright - hue_shift * 0.5)
 
             # Build oriented quad
             cy_r, sy_r = math.cos(yaw), math.sin(yaw)
@@ -678,10 +691,11 @@ def _scatter_cluster_cards(bm, positions, card_size, uv_layer, col_layer, rng,
             try:
                 face = bm.faces.new(verts)
                 uvs = [(0, 0), (1, 0), (1, 1), (0, 1)]
-                leaf_alpha = [1.0, 1.0, 1.0, 1.0]  # leaf vertex flag
+                # Bottom verts slightly darker, top slightly lighter (gradient within card)
+                card_col = [cr, cg, cb, 1.0]  # alpha=1.0 → leaf
                 for loop, uv in zip(face.loops, uvs):
                     loop[uv_layer].uv = uv
-                    loop[col_layer] = [0.3, 0.48, 0.12, 1.0]  # alpha=1.0 → leaf
+                    loop[col_layer] = card_col
             except ValueError:
                 pass
 
