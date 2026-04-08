@@ -131,9 +131,13 @@ def finalize_and_export(bm, name, mat=None):
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
 
-    # Check for species leaf texture (gen_leaf_textures.py saves as tex_leaf_{name}.png)
+    # Check for cluster texture first (volumetric card approach), then single-leaf
+    cluster_path = os.path.join(OUT_DIR, f"cluster_{name}_v0.png")
     tex_path = os.path.join(OUT_DIR, f"tex_leaf_{name}.png")
-    if os.path.exists(tex_path):
+    if os.path.exists(cluster_path):
+        m = make_textured_material(name + "_Mat", cluster_path)
+        print(f"    → embedded cluster texture: cluster_{name}_v0.png")
+    elif os.path.exists(tex_path):
         m = make_textured_material(name + "_Mat", tex_path)
         print(f"    → embedded texture: tex_leaf_{name}.png")
     else:
@@ -604,21 +608,299 @@ def _make_shrub(bm, rng, n_stems, height, spread, stem_r, leaf_size,
                           lt * 0.5 + 0.3, uv_layer, col_layer)
 
 
+def _scatter_cluster_cards(bm, positions, card_size, uv_layer, col_layer, rng,
+                           n_cards_per_cluster=8, flatten=0.7):
+    """Scatter alpha-tested quads in spheroidal volumes around branch positions.
+
+    Same technique as tree foliage (generate_trees_mtree.py create_leaf_cards_at_positions):
+    each cluster gets multiple randomly-oriented quads filling a spheroidal volume.
+    The texture on each card shows multiple leaves — geometry creates depth through overlap.
+
+    Args:
+        bm: bmesh to add geometry to
+        positions: list of (Vector, radius) tuples — cluster center + size
+        card_size: base card size in meters
+        uv_layer, col_layer: bmesh layers
+        rng: random.Random instance
+        n_cards_per_cluster: quads per cluster (8-12 for shrubs)
+        flatten: vertical squash (0.7 = slightly oblate, matching natural leaf layer)
+    """
+    for center, radius in positions:
+        for q in range(n_cards_per_cluster):
+            # Random position within cluster sphere (bias toward surface for shell fill)
+            r = radius * (0.3 + 0.7 * rng.random() ** 0.5)
+            theta = rng.uniform(0, math.tau)
+            phi = rng.uniform(-0.5, 0.7)  # bias upward
+            jx = r * math.cos(theta) * math.cos(phi)
+            jy = r * math.sin(theta) * math.cos(phi)
+            jz = r * math.sin(phi) * flatten
+
+            # Random orientation: full yaw, wide pitch range for dappled look
+            yaw = rng.uniform(0, math.tau)
+            pitch = rng.uniform(-1.2, 1.2)  # ±69° — some nearly vertical, some nearly horizontal
+            # 30% of cards near-horizontal (canopy fill / light-catching)
+            if rng.random() < 0.30:
+                pitch = rng.uniform(1.0, 1.45)
+
+            # Per-card size variation (75-125%)
+            w = card_size * rng.uniform(0.75, 1.25)
+            h = w * rng.uniform(0.85, 1.15)
+            half_w = w * 0.5
+            half_h = h * 0.5
+
+            # Build oriented quad
+            cy_r, sy_r = math.cos(yaw), math.sin(yaw)
+            cp, sp_v = math.cos(pitch), math.sin(pitch)
+
+            local_corners = [
+                (-half_w, 0, -half_h),
+                ( half_w, 0, -half_h),
+                ( half_w, 0,  half_h),
+                (-half_w, 0,  half_h),
+            ]
+            verts = []
+            for lx, ly, lz in local_corners:
+                rx = lx * cy_r - ly * sy_r
+                ry = lx * sy_r + ly * cy_r
+                rz = lz
+                ry2 = ry * cp - rz * sp_v
+                rz2 = ry * sp_v + rz * cp
+                pos = center + Vector((rx + jx, ry2 + jy, rz2 + jz))
+                verts.append(bm.verts.new(pos))
+
+            try:
+                face = bm.faces.new(verts)
+                uvs = [(0, 0), (1, 0), (1, 1), (0, 1)]
+                leaf_alpha = [1.0, 1.0, 1.0, 1.0]  # leaf vertex flag
+                for loop, uv in zip(face.loops, uvs):
+                    loop[uv_layer].uv = uv
+                    loop[col_layer] = [0.3, 0.48, 0.12, 1.0]  # alpha=1.0 → leaf
+            except ValueError:
+                pass
+
+
+def _make_branch(bm, origin, direction, length, r_start, n_segs, zigzag_amt,
+                 stem_color_base, stem_color_tip, uv_layer, col_layer, rng,
+                 depth=0, max_depth=3, cluster_list=None):
+    """Recursively build a branch with natural zigzag, taper, and child branches.
+
+    Each branch node is a potential foliage attachment point. Child branches
+    spawn at zigzag nodes. Leaf clusters are placed at branch tips and along
+    upper portions, connected to the branch structure.
+
+    Args:
+        origin: Vector — start position
+        direction: Vector — initial growth direction (normalized)
+        length: total branch length
+        r_start: radius at base
+        n_segs: number of segments
+        zigzag_amt: lateral displacement per node (characteristic of spicebush)
+        depth: current recursion depth (0=main stem, 1=secondary, 2=tertiary)
+        max_depth: stop branching beyond this
+        cluster_list: list to append (position, radius, branch_dir) tuples for foliage
+    """
+    if cluster_list is None:
+        cluster_list = []
+
+    # Build points with continuous curvature using noise-based displacement.
+    # Instead of zigzag (sharp alternating angles), use smooth sinusoidal
+    # wander with incommensurate frequencies — this produces organic curves
+    # that look like real branch growth responding to light and obstacles.
+    n_fine = n_segs * 3  # high-res point sampling for smooth curves
+    pts = []
+    current_dir = direction.copy()
+
+    # Two perpendicular axes for 3D displacement
+    if abs(current_dir.dot(Vector((0, 0, 1)))) < 0.9:
+        perp1 = current_dir.cross(Vector((0, 0, 1))).normalized()
+    else:
+        perp1 = current_dir.cross(Vector((1, 0, 0))).normalized()
+    perp2 = current_dir.cross(perp1).normalized()
+
+    # Random phase offsets so each branch curves differently
+    phase1 = rng.uniform(0, math.tau)
+    phase2 = rng.uniform(0, math.tau)
+    phase3 = rng.uniform(0, math.tau)
+
+    seg_len = length / n_fine
+    pos = origin.copy()
+
+    for i in range(n_fine + 1):
+        t = i / n_fine
+
+        # Smooth displacement: sum of incommensurate sine waves
+        # Low freq = broad sweeping arcs (like real branches responding to light)
+        # Mid freq = secondary curves  |  High freq = fine wander
+        d1 = (math.sin(t * 1.8 * math.pi + phase1) * 0.55 +
+              math.sin(t * 4.1 * math.pi + phase2) * 0.30 +
+              math.sin(t * 7.3 * math.pi + phase3) * 0.15) * zigzag_amt
+        d2 = (math.sin(t * 2.3 * math.pi + phase2 + 1.0) * 0.50 +
+              math.sin(t * 5.5 * math.pi + phase3 + 2.0) * 0.30 +
+              math.sin(t * 8.8 * math.pi + phase1 + 0.5) * 0.20) * zigzag_amt * 0.8
+
+        # Phototropism: gentle upward + outward bend
+        up_bias = 0.04 * seg_len
+        if depth == 0:
+            outward = 0.02 * t  # main stems lean outward more toward top
+
+        displacement = perp1 * d1 + perp2 * d2
+
+        if i == 0:
+            pts.append(origin.copy())
+        else:
+            # Direction: base direction + gradual outward lean for main stems
+            fwd = current_dir.copy()
+            if depth == 0 and i > 0:
+                horizontal = Vector((pos.x, pos.y, 0))
+                if horizontal.length > 0.01:
+                    fwd = (fwd + horizontal.normalized() * outward).normalized()
+
+            new_pos = pts[-1] + fwd * seg_len + displacement * seg_len + Vector((0, 0, up_bias))
+            pts.append(new_pos)
+            pos = new_pos
+
+    n_segs_smooth = len(pts) - 1
+
+    # Taper ratio depends on depth
+    taper = [0.25, 0.20, 0.15, 0.10][min(depth, 3)]
+    n_sides = [5, 4, 3, 3][min(depth, 3)]
+    make_tube(bm, pts, r_start, r_start * taper, n_sides,
+              stem_color_base, stem_color_tip, uv_layer=uv_layer, col_layer=col_layer,
+              uv_y_start=0.0, uv_y_end=0.5)
+
+    # Foliage clusters at upper portions and tip — sample along smooth curve
+    n_foliage_samples = max(4, n_segs)  # sample at coarse-node density
+    for i in range(n_foliage_samples + 1):
+        t = i / n_foliage_samples
+        min_foliage_t = [0.50, 0.30, 0.0, 0.0][min(depth, 3)]
+        if t >= min_foliage_t:
+            # Map to smooth pts index
+            pi = min(int(t * n_segs_smooth), n_segs_smooth)
+            cluster_r = 0.20 + (0.15 * t) + rng.uniform(0, 0.08)
+            cluster_r *= [1.0, 0.85, 0.7, 0.55][min(depth, 3)]
+            if pi < n_segs_smooth:
+                br_dir = (pts[pi + 1] - pts[pi]).normalized()
+            else:
+                br_dir = (pts[pi] - pts[pi - 1]).normalized()
+            cluster_list.append((pts[pi].copy(), cluster_r, br_dir))
+
+    # Spawn child branches at zigzag nodes (use coarse nodes for branching)
+    if depth < max_depth:
+        n_children = [rng.randint(3, 5), rng.randint(2, 3), rng.randint(1, 2), rng.randint(1, 1)][min(depth, 3)]
+        for c in range(n_children):
+            node_t = rng.uniform(0.25, 0.85)
+            # Map to smooth curve index
+            node_idx = max(1, min(int(node_t * n_segs_smooth), n_segs_smooth - 1))
+            node_pos = pts[node_idx].copy()
+
+            parent_dir = (pts[node_idx] - pts[node_idx - 1]).normalized()
+            branch_angle = rng.uniform(-1.3, 1.3)
+            ca, sa = math.cos(branch_angle), math.sin(branch_angle)
+            if abs(parent_dir.dot(Vector((0, 0, 1)))) < 0.9:
+                side = parent_dir.cross(Vector((0, 0, 1))).normalized()
+            else:
+                side = parent_dir.cross(Vector((1, 0, 0))).normalized()
+            up = side.cross(parent_dir).normalized()
+            child_dir = (parent_dir * 0.4 + side * ca * 0.5 + up * sa * 0.3
+                        + Vector((0, 0, 0.2))).normalized()
+
+            child_len = length * rng.uniform(0.3, 0.55)
+            child_r = r_start * node_t * rng.uniform(0.3, 0.5)
+            child_segs = max(3, n_segs - 2)
+            child_zigzag = zigzag_amt * 0.8
+
+            _make_branch(bm, node_pos, child_dir, child_len, child_r,
+                        child_segs, child_zigzag,
+                        stem_color_base, stem_color_tip,
+                        uv_layer, col_layer, rng,
+                        depth=depth + 1, max_depth=max_depth,
+                        cluster_list=cluster_list)
+
+    return cluster_list
+
+
 def make_spicebush():
     """Spicebush (Lindera benzoin) — THE dominant Central Park understory shrub.
-    2-4m, multi-stemmed, open spreading form, zigzag branching. ~2000 faces."""
+    2-4m, multi-stemmed, dense spreading form, zigzag branching.
+
+    Architecture: root collar → 8-12 main stems → recursive branching (3 levels)
+    with zigzag nodes → dense leaf clusters attached at branch tips and nodes.
+    Real spicebush forms a nearly opaque cloud of foliage in summer — you can
+    barely see through it. Each level of branching gets thinner, shorter,
+    more foliage."""
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
     co = bm.loops.layers.color.new("Col")
     rng = random.Random(101)
 
-    # Glossy aromatic leaves — warmer yellow-green, dense understory
-    _make_shrub(bm, rng, n_stems=8, height=3.0, spread=1.8,
-                stem_r=0.020, leaf_size=0.10,
-                stem_color=(0.30, 0.25, 0.14),
-                leaf_color=(0.30, 0.48, 0.12),
-                zigzag=True, leaf_density=50,
-                uv_layer=uv, col_layer=co)
+    # --- Colors ---
+    # Bark: olive-brown at base, greener toward tips
+    bark_base = (0.28, 0.24, 0.14)
+    bark_tip = (0.26, 0.32, 0.16)
+    # Root collar is darker
+    root_color = (0.22, 0.18, 0.10)
+
+    # --- Root collar ---
+    # Slight mound where all stems emerge — thickened base
+    collar_r = 0.08
+    collar_pts = [
+        Vector((0, 0, -0.05)),  # just below ground
+        Vector((0, 0, 0.0)),    # ground level
+        Vector((0, 0, 0.08)),   # slight flare above ground
+    ]
+    make_tube(bm, collar_pts, collar_r * 1.3, collar_r, 6,
+              root_color, bark_base, uv_layer=uv, col_layer=co)
+
+    # --- Surface roots ---
+    n_roots = rng.randint(3, 5)
+    for ri in range(n_roots):
+        root_angle = (ri / n_roots) * math.tau + rng.uniform(-0.3, 0.3)
+        root_len = rng.uniform(0.3, 0.6)
+        root_r = rng.uniform(0.012, 0.022)
+        ca, sa = math.cos(root_angle), math.sin(root_angle)
+        root_pts = [
+            Vector((0, 0, 0.02)),
+            Vector((ca * root_len * 0.4, sa * root_len * 0.4, -0.02)),
+            Vector((ca * root_len, sa * root_len, -0.06)),
+        ]
+        make_tube(bm, root_pts, root_r, root_r * 0.3, 3,
+                  root_color, root_color, uv_layer=uv, col_layer=co)
+
+    # --- Main stems ---
+    # More stems for denser form — real spicebush is thicket-like
+    n_stems = rng.randint(7, 9)
+    all_clusters = []
+
+    for s in range(n_stems):
+        # Stems emerge from the collar, angled outward
+        stem_angle = (s / n_stems) * math.tau + rng.uniform(-0.25, 0.25)
+        # Lean outward — more spread for outer stems
+        lean = rng.uniform(0.15, 0.35)
+        ca, sa = math.cos(stem_angle), math.sin(stem_angle)
+
+        stem_origin = Vector((ca * 0.03, sa * 0.03, 0.06))  # emerge from collar top
+        stem_dir = Vector((ca * lean, sa * lean, 1.0)).normalized()  # mostly up, some outward
+
+        stem_height = rng.uniform(2.2, 3.2)
+        stem_r = rng.uniform(0.022, 0.035)
+
+        # max_depth=3 for finer twig structure — real spicebush has intricate
+        # branching that creates the dense foliage cloud
+        _make_branch(bm, stem_origin, stem_dir, stem_height, stem_r,
+                    n_segs=5, zigzag_amt=0.18,
+                    stem_color_base=bark_base, stem_color_tip=bark_tip,
+                    uv_layer=uv, col_layer=co, rng=rng,
+                    depth=0, max_depth=3, cluster_list=all_clusters)
+
+    # --- Scatter leaf clusters at all branch-attached positions ---
+    # Convert (pos, radius, branch_dir) to (pos, radius) for scatter function
+    cluster_positions = [(pos, radius) for pos, radius, _ in all_clusters]
+
+    # 12 cards per cluster (was 8) + larger cards (0.32m) — fills gaps between
+    # clusters for the dense foliage cloud real spicebush shows in summer.
+    _scatter_cluster_cards(bm, cluster_positions, card_size=0.32,
+                          uv_layer=uv, col_layer=co, rng=rng,
+                          n_cards_per_cluster=12, flatten=0.65)
 
     return bm
 

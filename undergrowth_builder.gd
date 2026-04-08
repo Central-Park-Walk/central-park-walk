@@ -26,6 +26,11 @@ var _hm_d: int
 var _hm_ws: float
 var _hm_half: float
 
+# Canopy coverage map (CPU-side) for shade-dependent placement
+var _canopy_buf: PackedByteArray  # L8 grayscale, 0=open sky, 255=dense canopy
+var _canopy_res: int = 0
+var _canopy_cell_m: float = 0.0
+
 # Zone type data from ground_cover_instances
 var _zone_map: Dictionary = {}  # "cx|cz" (grass chunk) -> dominant zone type
 
@@ -138,37 +143,37 @@ const SPECIES := [
 #   4=SportsTurf, 5=NorthWoods, 6=Ramble, 7=Waterside, 8=WildMeadow, 9=OpenLawn
 const ZONE_SPECIES := {
 	# Zones 0,1,3,4: no undergrowth (maintained lawn / formal / sports)
-	5: [  # North Woods — rich native understory
-		[0, 1.5],   # spicebush (dominant shrub)
-		[1, 0.6],   # witch hazel
-		[2, 0.8],   # viburnum
-		[7, 1.0],   # ostrich fern (stream-adjacent)
-		[8, 2.5],   # christmas fern (evergreen, rocky slopes)
-		[9, 0.8],   # cinnamon fern
-		[10, 0.6],  # sensitive fern
-		[16, 3.5],  # white wood aster (woodland carpet)
-		[17, 1.5],  # jewelweed (stream banks)
-		[19, 1.2],  # white snakeroot
-		[24, 0.8],  # bottlebrush grass
-		[33, 1.5],  # PA sedge (shade ground cover)
+	5: [  # North Woods — rich native understory, dense enough you can't see 20m in summer
+		[0, 4.0],   # spicebush (dominant shrub — forms thickets)
+		[1, 1.2],   # witch hazel
+		[2, 1.8],   # viburnum
+		[7, 2.0],   # ostrich fern (stream-adjacent)
+		[8, 5.0],   # christmas fern (evergreen, rocky slopes — carpets)
+		[9, 1.5],   # cinnamon fern
+		[10, 1.2],  # sensitive fern
+		[16, 6.0],  # white wood aster (woodland carpet — blanketing)
+		[17, 3.0],  # jewelweed (stream banks)
+		[19, 2.5],  # white snakeroot
+		[24, 1.5],  # bottlebrush grass
+		[33, 3.0],  # PA sedge (shade ground cover)
 	],
 	6: [  # Ramble — dense wild understory, heaviest species diversity
-		[0, 2.2],   # spicebush (very common)
-		[1, 0.8],   # witch hazel
-		[2, 1.2],   # viburnum
-		[4, 0.5],   # elderberry
-		[7, 1.5],   # ostrich fern
-		[8, 3.0],   # christmas fern
-		[9, 1.0],   # cinnamon fern
-		[10, 0.8],  # sensitive fern
-		[11, 0.8],  # pokeweed
-		[16, 4.5],  # white wood aster (carpets)
-		[17, 2.0],  # jewelweed
-		[18, 1.0],  # mugwort (invasive but present)
-		[19, 1.5],  # white snakeroot
-		[22, 0.4],  # burdock
-		[24, 1.0],  # bottlebrush grass
-		[33, 2.0],  # PA sedge (shade ground cover)
+		[0, 5.0],   # spicebush (very common — thicket-forming)
+		[1, 1.5],   # witch hazel
+		[2, 2.5],   # viburnum
+		[4, 1.0],   # elderberry
+		[7, 3.0],   # ostrich fern
+		[8, 6.0],   # christmas fern
+		[9, 2.0],   # cinnamon fern
+		[10, 1.5],  # sensitive fern
+		[11, 1.5],  # pokeweed
+		[16, 8.0],  # white wood aster (carpets)
+		[17, 3.5],  # jewelweed
+		[18, 1.5],  # mugwort (invasive but present)
+		[19, 3.0],  # white snakeroot
+		[22, 0.8],  # burdock
+		[24, 2.0],  # bottlebrush grass
+		[33, 4.0],  # PA sedge (shade ground cover)
 	],
 	7: [  # Waterside — wetland specialists
 		[25, 3.0],  # cattail (signature)
@@ -203,13 +208,13 @@ const ZONE_SPECIES := {
 # Woodland chunks (no pre-baked data) get understory — but ONLY in actual
 # woodland foliage zones, not on maintained lawns that happen to lack data.
 const WOODLAND_SPECIES: Array = [
-	[0, 1.2],   # spicebush
-	[8, 2.5],   # christmas fern (evergreen)
-	[7, 0.8],   # ostrich fern
-	[16, 3.5],  # white wood aster
-	[17, 1.2],  # jewelweed
-	[19, 0.8],  # white snakeroot
-	[24, 0.8],  # bottlebrush grass
+	[0, 3.5],   # spicebush (thicket-forming dominant)
+	[8, 5.0],   # christmas fern (evergreen carpets)
+	[7, 1.5],   # ostrich fern
+	[16, 6.0],  # white wood aster (blankets)
+	[17, 2.5],  # jewelweed
+	[19, 2.0],  # white snakeroot
+	[24, 1.5],  # bottlebrush grass
 ]
 # Z ranges where woodland fallback is allowed (from park_data.json foliage_zones)
 const WOODLAND_Z_RANGES: Array = [
@@ -271,6 +276,15 @@ func _build_undergrowth() -> void:
 	_hm_d = _loader._hm_depth
 	_hm_ws = _loader._hm_world_size
 	_hm_half = _hm_ws * 0.5
+
+	# Cache canopy coverage map for shade-dependent placement
+	if _loader._canopy_texture:
+		var cimg: Image = _loader._canopy_texture.get_image()
+		if cimg:
+			_canopy_res = cimg.get_width()
+			_canopy_cell_m = _loader._hm_world_size / float(_canopy_res)
+			_canopy_buf = cimg.get_data()
+			print("Undergrowth: canopy map cached (%d×%d)" % [_canopy_res, _canopy_res])
 
 	# Build zone map from ground_cover_instances (same data as grass builder)
 	_build_zone_map()
@@ -418,6 +432,15 @@ func _chunk_loaded(ck: String) -> bool:
 	return false
 
 
+func _canopy_at(wx: float, wz: float) -> int:
+	# Returns canopy coverage 0-255 at world position. 0 = open sky.
+	if _canopy_res == 0: return 0
+	var px: int = int((wx + _hm_half) / _canopy_cell_m)
+	var pz: int = int((wz + _hm_half) / _canopy_cell_m)
+	if px < 0 or px >= _canopy_res or pz < 0 or pz >= _canopy_res: return 0
+	return _canopy_buf[pz * _canopy_res + px]
+
+
 func _build_chunk(ck: String) -> void:
 	var ck_p: PackedStringArray = ck.split("|")
 	var cx: float = float(ck_p[0]) * CHUNK
@@ -426,6 +449,7 @@ func _build_chunk(ck: String) -> void:
 	# Determine what species to place based on zone type
 	var zone_type: int = _zone_map.get(ck, -1)
 	var species_list: Array
+	var require_canopy := false  # if true, each instance must be under tree cover
 	if zone_type >= 0 and ZONE_SPECIES.has(zone_type):
 		species_list = ZONE_SPECIES[zone_type]
 	else:
@@ -439,7 +463,10 @@ func _build_chunk(ck: String) -> void:
 				in_woodland = true
 				break
 		if in_woodland:
+			# Woodland fallback: require canopy overhead so shrubs don't
+			# appear in open clearings that happen to be in the Z range
 			species_list = WOODLAND_SPECIES
+			require_canopy = true
 		elif zone_type < 0:
 			return  # No data and not woodland — skip
 		else:
@@ -498,6 +525,8 @@ func _build_chunk(ck: String) -> void:
 			if _atlas_data[ai] != 1: continue
 			# Check occupancy — avoid trees, benches, etc.
 			if _atlas_data[ai + 1] != 0: continue
+			# Canopy check — woodland fallback requires tree cover overhead
+			if require_canopy and _canopy_at(bx, bz) < 30: continue
 			# Path proximity buffer (~1.5m = ~2.5 atlas cells at 0.6m/cell)
 			var near_path := false
 			for dxy in [[-2,0],[2,0],[0,-2],[0,2],[-2,-2],[2,2],[-2,2],[2,-2]]:
