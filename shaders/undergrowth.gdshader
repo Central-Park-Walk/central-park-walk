@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode cull_disabled;
+render_mode cull_disabled, depth_prepass_alpha, alpha_to_coverage;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/seasonal.gdshaderinc"
@@ -152,8 +152,8 @@ void fragment() {
 		// Leaf micro-texture normal perturbation: veins, cell structure, cuticle bumps.
 		bump_coarse = vnoise(frag_world.xz * 55.0);
 		bump_fine = vnoise(frag_world.xz * 130.0);
-		bump_h = bump_coarse * 0.55 + bump_fine * 0.45;
-		NORMAL = normalize(NORMAL + vec3(dFdx(bump_h), dFdy(bump_h), 0.0) * 0.9);
+		bump_h = bump_coarse * 0.6 + bump_fine * 0.4;
+		NORMAL = normalize(NORMAL + vec3(dFdx(bump_h), dFdy(bump_h), 0.0) * 1.2);
 	}
 
 	// Winter discard — deciduous shrubs disappear under snow
@@ -166,12 +166,16 @@ void fragment() {
 	// ---- COLOR ----
 	vec3 col = is_stem > 0.5 ? stem_color : tex_color;
 
-	// Per-instance hue variation
-	col *= mix(vec3(0.95, 1.02, 1.04), vec3(1.05, 0.98, 0.94), v_seed);
+	// Per-instance color variation: brightness ±12%, warm/cool hue shift
+	// (matches tree_leaf.gdshader so undergrowth blends into the canopy palette)
+	float bright_off = (v_seed - 0.5) * 0.25;
+	col *= 1.0 + bright_off;
+	float warm_off = fract(v_seed * 7.37) - 0.5;
+	col += warm_off * vec3(0.025, -0.008, -0.03);
 
-	// Broad spatial variation
+	// Broad spatial variation (patch-scale color drift)
 	float broad = vnoise(v_world_pos.xz / 10.0);
-	col *= mix(0.90, 1.10, broad);
+	col *= mix(0.88, 1.12, broad);
 
 	// ---- AO from vertex height ----
 	// Gentle darkening at ground contact to anchor plants without making small
@@ -240,20 +244,28 @@ void fragment() {
 	vec3 world_n_lit = mat3(INV_VIEW_MATRIX) * NORMAL;
 	float top_lit = world_n_lit.y * 0.5 + 0.5;
 	col *= mix(0.85, 1.08, top_lit);
-	// Underside warm ground-bounce from grass below
+	// Underside warm ground-bounce from grass below + cool sky-fill
 	col = mix(col, col * vec3(0.97, 1.02, 0.95), (1.0 - top_lit) * 0.15);
+	col = mix(col, col * vec3(0.94, 0.97, 1.04), (1.0 - top_lit) * 0.10);
 
 	// ---- FRESNEL RIM LIGHT ----
 	// Thin leaf edges glow at grazing view angles — depth cue for translucent fronds
 	float fresnel = pow(1.0 - abs(dot(NORMAL, VIEW)), 3.0);
 	col += col * fresnel * 0.15;
 
+	// ---- CANOPY INTERIOR POCKETS + PER-LEAF BRIGHTNESS ----
+	// Dark shadow pockets where foliage overlaps (same as tree_leaf.gdshader)
+	float detail_n = vnoise(UV * 12.0 + v_world_pos.xz * 0.5);
+	float pocket_n = vnoise(UV * 4.0 + v_world_pos.xz * 0.3);
+	col *= mix(1.0, 0.78, smoothstep(0.3, 0.6, pocket_n) * 0.22);
+	col *= (0.92 + detail_n * 0.16);
+
 	// ---- PER-PIXEL MICRO-VARIATION ----
-	// Chlorophyll patches, dust, cell structure — no two pixels identical
+	// Chlorophyll patches, dust, cell structure — ±4% brightness, ±3% hue
 	vec2 px_uv = frag_world.xz * 97.3;
-	float px_n = hash2(px_uv) * 0.06 - 0.03;
-	float px_hr = hash2(px_uv + vec2(71.9, 0.0)) * 0.02;
-	float px_hb = hash2(px_uv + vec2(0.0, 53.1)) * 0.02;
+	float px_n = hash2(px_uv) * 0.08 - 0.04;
+	float px_hr = hash2(px_uv + vec2(71.9, 0.0)) * 0.03;
+	float px_hb = hash2(px_uv + vec2(0.0, 53.1)) * 0.03;
 	col += vec3(px_n + px_hr, px_n, px_n + px_hb);
 
 	ALBEDO = col;
@@ -274,25 +286,25 @@ void fragment() {
 		spec = mix(0.08, 0.16, height_frac);
 	}
 	// Micro-roughness variation from surface bump (veins matte, smooth patches glossy)
-	float rough_var = (bump_coarse - 0.5) * 0.12;
+	float rough_var = (bump_coarse - 0.5) * 0.14;
 	rough = clamp(rough + rough_var, 0.3, 0.98);
-	spec = clamp(spec - rough_var * 0.06, 0.02, 0.30);
+	spec = clamp(spec - rough_var * 0.08, 0.02, 0.30);
 	ROUGHNESS = rough;
 	SPECULAR = spec;
 	METALLIC = 0.0;
 
 	// ---- ENHANCED SUBSURFACE SCATTERING ----
 	// Leaves only — stems are opaque woody tissue, no light transmission.
+	// Matched to tree_leaf.gdshader SSS pipeline for visual coherence.
 	if (is_stem < 0.5) {
-		// Fern fronds and thin leaves are translucent — light passes through tissue.
-		// Color-tinted so autumn fronds glow amber, season-modulated, per-species tunable.
-		vec3 sss_col = vec3(0.42, 0.45, 0.10);
-		sss_col = mix(sss_col, col * 0.55, 0.4);
+		vec3 sss_col = vec3(0.46, 0.36, 0.10);  // warm green-gold (matches tree shader)
+		// Tint with leaf color so autumn leaves glow amber/red
+		sss_col = mix(sss_col, col * 0.6, 0.45);
 		float sss_str = translucency;
-		// Spring fronds are thinner, more translucent
+		// Spring leaves are thinner, more translucent
 		sss_str *= mix(1.0, 1.3, spring_t);
-		// Height-dependent: tips thinner than rachis base
-		sss_str *= mix(0.6, 1.0, height_frac);
+		// Height-dependent: tips thinner than base
+		sss_str *= mix(0.7, 1.0, height_frac);
 		BACKLIGHT = sss_col * sss_str;
 	}
 
