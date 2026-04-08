@@ -524,8 +524,8 @@ func _ecology_density_mult(wx: float, wz: float) -> float:
 	var nx: float = wx * 0.022 + 31.7
 	var nz: float = wz * 0.022 + 17.3
 	# Simple 2D hash noise (deterministic, no import needed)
-	var patch: float = fract(sin(nx * 127.1 + nz * 311.7) * 43758.5453)
-	var patch2: float = fract(sin(nx * 0.7 * 269.5 + nz * 0.7 * 183.3) * 43758.5453)
+	var patch: float = fposmod(sin(nx * 127.1 + nz * 311.7) * 43758.5453, 1.0)
+	var patch2: float = fposmod(sin(nx * 0.7 * 269.5 + nz * 0.7 * 183.3) * 43758.5453, 1.0)
 	var patch_val: float = (patch + patch2) * 0.5  # 0-1, clustered
 	# Map to 0.15 – 2.0 range: some spots nearly bare, others dense thickets
 	mult *= lerpf(0.15, 2.0, patch_val)
