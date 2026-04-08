@@ -772,7 +772,7 @@ def _make_branch(bm, origin, direction, length, r_start, n_segs, zigzag_amt,
     n_foliage_samples = max(4, n_segs)  # sample at coarse-node density
     for i in range(n_foliage_samples + 1):
         t = i / n_foliage_samples
-        min_foliage_t = [0.50, 0.30, 0.0, 0.0][min(depth, 3)]
+        min_foliage_t = [0.25, 0.15, 0.0, 0.0][min(depth, 3)]
         if t >= min_foliage_t:
             # Map to smooth pts index
             pi = min(int(t * n_segs_smooth), n_segs_smooth)
@@ -878,7 +878,7 @@ def make_spicebush():
         lean = rng.uniform(0.15, 0.35)
         ca, sa = math.cos(stem_angle), math.sin(stem_angle)
 
-        stem_origin = Vector((ca * 0.03, sa * 0.03, 0.06))  # emerge from collar top
+        stem_origin = Vector((ca * 0.03, sa * 0.03, -0.08))  # start below ground
         stem_dir = Vector((ca * lean, sa * lean, 1.0)).normalized()  # mostly up, some outward
 
         stem_height = rng.uniform(2.2, 3.2)
