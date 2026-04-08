@@ -131,6 +131,13 @@ def finalize_and_export(bm, name, mat=None):
     obj = bpy.data.objects.new(name, mesh)
     bpy.context.collection.objects.link(obj)
 
+    # Ensure our bmesh color layer ("Col") is the active render color attribute.
+    # Without this, textured materials cause the exporter to write material
+    # vertex colors (all white) as COLOR_0, pushing our stem/leaf alpha tags
+    # to COLOR_1 where the Godot shader can't read them.
+    if mesh.color_attributes:
+        mesh.color_attributes.render_color_index = 0
+
     # Check for cluster texture first (volumetric card approach), then single-leaf
     cluster_path = os.path.join(OUT_DIR, f"cluster_{name}_v0.png")
     tex_path = os.path.join(OUT_DIR, f"tex_leaf_{name}.png")
