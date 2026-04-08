@@ -58,17 +58,18 @@ void vertex() {
 	float px = instance_origin.x * 0.08 + instance_origin.z * 0.12;
 	float pz = instance_origin.z * 0.10 + instance_origin.x * 0.06;
 
-	float rustle = (0.15 + wind_str * 0.6) * flex;
-	VERTEX.x += sin(TIME * 1.2 + px) * 0.08 * sway * rustle;
-	VERTEX.z += sin(TIME * 1.5 + pz) * 0.06 * sway * rustle;
+	float rustle = (0.15 + wind_str * 0.8) * flex;
+	VERTEX.x += sin(TIME * 1.2 + px) * 0.12 * sway * rustle;
+	VERTEX.z += sin(TIME * 1.5 + pz) * 0.10 * sway * rustle;
 
-	VERTEX.x += wind_vec.x * sway * 0.25 * flex;
-	VERTEX.z += wind_vec.y * sway * 0.25 * flex;
+	// Steady lean — undergrowth bends substantially in strong wind
+	VERTEX.x += wind_vec.x * sway * 0.55 * flex;
+	VERTEX.z += wind_vec.y * sway * 0.55 * flex;
 
 	float gust_phase = instance_origin.x * 0.03 + instance_origin.z * 0.04;
 	float gust = sin(TIME * 0.4 + gust_phase) * 0.5 + 0.5;
 	gust = gust * gust;
-	float gust_str = gust * wind_str * 0.3 * flex;
+	float gust_str = gust * wind_str * 0.6 * flex;
 	VERTEX.x += wind_vec.x * sway * gust_str;
 	VERTEX.z += wind_vec.y * sway * gust_str;
 
