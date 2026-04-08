@@ -160,7 +160,8 @@ void fragment() {
 	float winter_discard = sn_winter_kill(season_t);
 	// Snow accelerates hiding: heavy snow hides shrubs earlier
 	float snow_hide = snow_cover * 0.6;
-	if ((winter_discard + snow_hide) > 0.7 && is_evergreen < 0.5) discard;
+	// Only discard LEAF fragments in winter — stems stay visible as bare branching
+	if ((winter_discard + snow_hide) > 0.7 && is_evergreen < 0.5 && is_stem < 0.5) discard;
 
 
 	// ---- COLOR ----
