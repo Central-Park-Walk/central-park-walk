@@ -539,22 +539,8 @@ func _build_chunk(ck: String) -> void:
 						break
 			if near_path: continue
 
-			# Heightmap lookup
-			var xi: float = (bx + _hm_half) / _hm_ws * (_hm_w - 1)
-			var zi: float = (bz + _hm_half) / _hm_ws * (_hm_d - 1)
-			var xi0: int = clampi(int(xi), 0, _hm_w - 2)
-			var zi0: int = clampi(int(zi), 0, _hm_d - 2)
-			var fx: float = xi - xi0
-			var fz: float = zi - zi0
-			var h00: float = float(_hm_data[zi0 * _hm_w + xi0])
-			var h10: float = float(_hm_data[zi0 * _hm_w + xi0 + 1])
-			var h01: float = float(_hm_data[(zi0 + 1) * _hm_w + xi0])
-			var h11: float = float(_hm_data[(zi0 + 1) * _hm_w + xi0 + 1])
-			var wy: float
-			if fz <= fx:
-				wy = h00 + (h10 - h00) * fx + (h11 - h10) * fz
-			else:
-				wy = h00 + (h11 - h01) * fx + (h01 - h00) * fz
+			# Height from Terrain3D surface (not raw DEM — avoids floating plants)
+			var wy: float = _loader._terrain_y(bx, bz)
 
 			var yr: float = rng.randf() * TAU
 			# Normal distribution (mean at 40% of range, sd = 20% of range)
