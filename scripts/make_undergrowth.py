@@ -793,7 +793,8 @@ def _make_branch(bm, origin, direction, length, r_start, n_segs, zigzag_amt,
     n_foliage_samples = max(4, n_segs)  # sample at coarse-node density
     for i in range(n_foliage_samples + 1):
         t = i / n_foliage_samples
-        min_foliage_t = [0.25, 0.15, 0.0, 0.0][min(depth, 3)]
+        # Main stems bare in lower portion (real spicebush: foliage starts ~40-50%)
+        min_foliage_t = [0.42, 0.20, 0.0, 0.0][min(depth, 3)]
         if t >= min_foliage_t:
             # Map to smooth pts index
             pi = min(int(t * n_segs_smooth), n_segs_smooth)
@@ -864,8 +865,8 @@ def make_spicebush():
     leaf_color = (0.303, 0.456, 0.244)  # Lindera benzoin — spectral_colors.py
 
     # --- Root collar ---
-    # Slight mound where all stems emerge — thickened base
-    collar_r = 0.08
+    # Wide mound where all stems emerge — real spicebush root crowns are 15-25cm
+    collar_r = 0.14
     collar_pts = [
         Vector((0, 0, -0.05)),  # just below ground
         Vector((0, 0, 0.0)),    # ground level
@@ -890,19 +891,24 @@ def make_spicebush():
                   root_color, root_color, uv_layer=uv, col_layer=co)
 
     # --- Main stems ---
-    # More stems for denser form — real spicebush is thicket-like
-    n_stems = rng.randint(7, 9)
+    # Real spicebush: 5-8 stems emerging from a wide root crown, leaning
+    # strongly outward to form a vase shape wider than tall. Lower stems
+    # are bare — foliage concentrated in upper half.
+    # Ref: Lindera benzoin_webbc0078__03548.jpg
+    n_stems = rng.randint(5, 8)
     all_clusters = []
 
     for s in range(n_stems):
-        # Stems emerge from the collar, angled outward
+        # Stems emerge from the collar perimeter, widely spaced
         stem_angle = (s / n_stems) * math.tau + rng.uniform(-0.25, 0.25)
-        # Lean outward — more spread for outer stems
-        lean = rng.uniform(0.15, 0.35)
+        # Strong outward lean — creates the wide vase/umbrella shape
+        lean = rng.uniform(0.35, 0.65)
         ca, sa = math.cos(stem_angle), math.sin(stem_angle)
 
-        stem_origin = Vector((ca * 0.03, sa * 0.03, -0.08))  # start below ground
-        stem_dir = Vector((ca * lean, sa * lean, 1.0)).normalized()  # mostly up, some outward
+        # Origins spread 10-15cm from center (not 3cm) — matches wide root crown
+        spread = rng.uniform(0.10, 0.15)
+        stem_origin = Vector((ca * spread, sa * spread, -0.08))
+        stem_dir = Vector((ca * lean, sa * lean, 1.0)).normalized()
 
         stem_height = rng.uniform(2.2, 3.2)
         stem_r = rng.uniform(0.022, 0.035)
