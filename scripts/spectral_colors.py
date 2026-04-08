@@ -314,13 +314,127 @@ SPECIES = {
 }
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Broadleaf shrub species — effective albedo (reflectance + transmittance)
+#
+# Broadleaf deciduous leaves are thicker than grass blades (0.2-0.4mm
+# mesophyll vs 0.1-0.2mm), so transmittance T contributes less to
+# effective albedo. However, the internal spongy mesophyll scattering
+# produces broader green peaks and sharper red edges.
+#
+# Values synthesized from:
+#   - PROSPECT model (Jacquemoud & Baret 1990): R+T for given N, Cab
+#   - LOPEX database (Hosgood et al. 1995): measured deciduous broadleaf
+#   - Hovi et al. (2017): boreal broadleaf R+T measurements
+#   - Gates et al. (1965): spectral properties of plants (classic ref)
+#
+# Key PROSPECT parameters used per species:
+#   N = leaf structure (1.3-1.8), Cab = chlorophyll (μg/cm²),
+#   Car = carotenoids (μg/cm²)
+# ═══════════════════════════════════════════════════════════════════════════
+
+SHRUB_SPECIES = {
+    "spicebush": {
+        # Lindera benzoin — dominant CP understory shrub
+        # Shade-adapted, thin-ish broadleaf (N≈1.5, Cab≈30)
+        # Smooth upper surface, lighter abaxial
+        "albedo": np.array([
+            #380   400   420   440   460   480
+            0.036, 0.046, 0.040, 0.052, 0.060, 0.076,
+            #500   520   540   550
+            0.108, 0.152, 0.190, 0.204,
+            #560   580   600   620   640   660   680
+            0.195, 0.148, 0.095, 0.068, 0.054, 0.044, 0.040,
+            #700   720   750   780
+            0.275, 0.610, 0.775, 0.815,
+        ]),
+    },
+    "witch_hazel": {
+        # Hamamelis virginiana — late-season understory
+        # Thicker leaf (N≈1.6, Cab≈25), higher carotenoid → warmer green
+        "albedo": np.array([
+            0.040, 0.050, 0.044, 0.050, 0.058, 0.072,
+            0.098, 0.138, 0.172, 0.185,
+            0.178, 0.142, 0.098, 0.075, 0.062, 0.052, 0.048,
+            0.260, 0.590, 0.760, 0.800,
+        ]),
+    },
+    "viburnum": {
+        # Viburnum dentatum — glossy dark green, dense canopy
+        # Higher chlorophyll (N≈1.4, Cab≈40) → deeper absorption
+        "albedo": np.array([
+            0.030, 0.038, 0.032, 0.038, 0.048, 0.065,
+            0.095, 0.132, 0.162, 0.172,
+            0.164, 0.125, 0.080, 0.055, 0.042, 0.035, 0.032,
+            0.250, 0.600, 0.770, 0.810,
+        ]),
+    },
+    "sumac": {
+        # Rhus typhina — sun-adapted, thin compound leaflets
+        # (N≈1.3, Cab≈28, Car≈12 → warm green)
+        "albedo": np.array([
+            0.028, 0.035, 0.030, 0.038, 0.052, 0.070,
+            0.112, 0.165, 0.210, 0.225,
+            0.218, 0.170, 0.110, 0.078, 0.060, 0.048, 0.042,
+            0.290, 0.650, 0.800, 0.835,
+        ]),
+    },
+    "elderberry": {
+        # Sambucus canadensis — compound leaf, woodland edge
+        # Moderate (N≈1.4, Cab≈32)
+        "albedo": np.array([
+            0.034, 0.044, 0.038, 0.048, 0.058, 0.074,
+            0.105, 0.148, 0.185, 0.198,
+            0.190, 0.148, 0.096, 0.068, 0.054, 0.045, 0.040,
+            0.270, 0.615, 0.780, 0.818,
+        ]),
+    },
+    "mountain_laurel": {
+        # Kalmia latifolia — evergreen, thick waxy leaf
+        # (N≈1.8, Cab≈45) → very dark green, low effective albedo
+        "albedo": np.array([
+            0.028, 0.034, 0.028, 0.032, 0.038, 0.050,
+            0.072, 0.098, 0.120, 0.128,
+            0.122, 0.095, 0.065, 0.048, 0.040, 0.035, 0.032,
+            0.210, 0.520, 0.710, 0.760,
+        ]),
+    },
+    "dogwood": {
+        # Cornus florida — understory tree/shrub, thin ovate leaf
+        # (N≈1.4, Cab≈30)
+        "albedo": np.array([
+            0.035, 0.045, 0.040, 0.050, 0.060, 0.076,
+            0.108, 0.150, 0.188, 0.200,
+            0.192, 0.150, 0.098, 0.070, 0.056, 0.046, 0.042,
+            0.272, 0.610, 0.775, 0.815,
+        ]),
+    },
+    "sweet_pepperbush": {
+        # Clethra alnifolia — wetland edge, moderate shade
+        # (N≈1.5, Cab≈28)
+        "albedo": np.array([
+            0.034, 0.044, 0.038, 0.050, 0.058, 0.074,
+            0.106, 0.148, 0.186, 0.200,
+            0.192, 0.150, 0.098, 0.072, 0.058, 0.048, 0.044,
+            0.268, 0.605, 0.770, 0.812,
+        ]),
+    },
+}
+
+
 def compute_species_color(name, stress_blend=0.0):
     """Compute sRGB color for a species.
 
     stress_blend: 0.0 = healthy, 1.0 = full stress (reduced chlorophyll).
     Stress blends toward dead_grass spectrum → yellower, lighter.
     """
-    sp = SPECIES[name]
+    # Check both grass and shrub species dicts
+    if name in SPECIES:
+        sp = SPECIES[name]
+    elif name in SHRUB_SPECIES:
+        sp = SHRUB_SPECIES[name]
+    else:
+        raise KeyError(f"Unknown species: {name}")
     albedo_key = sp["albedo"].copy()
 
     if stress_blend > 0 and name not in ("dead_grass", "dead_grass_bleached"):
@@ -531,9 +645,46 @@ def main():
                   f"{old_hi[ch]:<10.3f} {new_hi[ch]:<10.3f} {delta_hi:>+.0f}%")
         print()
 
+    # ─── Undergrowth shrub colors (for make_undergrowth.py) ──────────
+    print("\n\n─── Undergrowth Shrub Colors: make_undergrowth.py ─────────")
+    print(f"{'Species':<22} {'Linear sRGB':<28} {'Gamma sRGB':<28} {'RGB8':<18}")
+    print("-" * 96)
+    for name in SHRUB_SPECIES:
+        c = compute_species_color(name)
+        lin_str = f"({c['linear'][0]:.4f}, {c['linear'][1]:.4f}, {c['linear'][2]:.4f})"
+        gam_str = f"({c['gamma'][0]:.3f}, {c['gamma'][1]:.3f}, {c['gamma'][2]:.3f})"
+        rgb_str = f"({c['rgb8'][0]:>3}, {c['rgb8'][1]:>3}, {c['rgb8'][2]:>3})"
+        print(f"{name:<22} {lin_str:<28} {gam_str:<28} {rgb_str:<18}")
+
+    # Ready-to-paste vertex color values (gamma-space for Blender vertex colors)
+    print("\n# Vertex color values (gamma-space sRGB, for Blender vertex colors):")
+    print("SHRUB_LEAF_COLORS = {")
+    for name in SHRUB_SPECIES:
+        c = compute_species_color(name)
+        g = c["gamma"]
+        print(f'    "{name}": ({g[0]:.3f}, {g[1]:.3f}, {g[2]:.3f}),')
+    print("}")
+
+    # Shadow variant (for stem-base darkening, 70% brightness)
+    print("\n# Shadow variants (70% brightness, for understory shade):")
+    print("SHRUB_SHADOW_COLORS = {")
+    for name in SHRUB_SPECIES:
+        c = compute_species_color(name)
+        dark = np.clip(linear_to_gamma(c["linear"] * 0.70), 0, 1)
+        print(f'    "{name}": ({dark[0]:.3f}, {dark[1]:.3f}, {dark[2]:.3f}),')
+    print("}")
+
     # ─── Save reference JSON ─────────────────────────────────────────
     ref = {}
     for name in SPECIES:
+        c = compute_species_color(name)
+        ref[name] = {
+            "linear_srgb": c["linear"].tolist(),
+            "gamma_srgb": c["gamma"].tolist(),
+            "rgb8": c["rgb8"].tolist(),
+            "xyz": c["xyz"].tolist(),
+        }
+    for name in SHRUB_SPECIES:
         c = compute_species_color(name)
         ref[name] = {
             "linear_srgb": c["linear"].tolist(),
