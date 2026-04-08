@@ -33,8 +33,8 @@ const BIOME_SPACING := {0: 1.20, 1: 1.60, 2: 1.40, 3: 1.60}
 ## Visibility range — tufts appear inside the particle fade zone.
 ## Godot's built-in FADE_SELF handles smooth entry/exit.
 const VIS_BEGIN := 13.0
-const VIS_END := 75.0
-const VIS_FADE := 10.0
+const VIS_END := 120.0
+const VIS_FADE := 15.0
 
 ## Zone → biome mapping (matches grass_particles.gdshader)
 const ZONE_TO_BIOME := {

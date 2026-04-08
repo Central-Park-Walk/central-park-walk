@@ -185,10 +185,10 @@ void fragment() {
 	vec4 tex = texture(albedo_tex, UV);
 	float lum = dot(tex.rgb, vec3(0.3, 0.6, 0.1));
 	float alpha = tex.a * v_leaf_density;
-	// depth_prepass_alpha uses this discard for the depth buffer pass.
-	// alpha_to_coverage then distributes remaining alpha across 4x MSAA samples
-	// in the main pass — smooth edges without binary popping.
-	if (alpha < 0.15) discard;
+	// Early-out for fully transparent pixels (texture gap).
+	// Kept loose (0.02) so distance-adaptive boost below can rescue
+	// mipmapped leaf fragments that would otherwise be culled prematurely.
+	if (alpha < 0.02) discard;
 
 	vec3 col = v_leaf_color * (0.4 + lum * 0.6);  // reduced: Blender vertex colors are too bright for PBR
 	int sp = int(v_species_idx + 0.5);
@@ -334,11 +334,18 @@ void fragment() {
 
 	// Distance-adaptive alpha: counteract mipmap erosion that thins leaves at distance.
 	// At distance, mipmapped alpha textures lose coverage — leaf cards become transparent
-	// confetti. Boosting alpha at distance makes canopy read as solid mass.
-	alpha *= mix(1.0, 1.5, leaf_aerial);
+	// confetti. LOD1/LOD2 models have fewer leaf cards from decimation, compounding
+	// the problem — need aggressive boost to maintain canopy mass beyond 130m.
+	alpha *= mix(1.0, 3.0, leaf_aerial);
 	alpha = min(alpha, 1.0);
 
+	// Distance-adaptive discard: lower threshold at distance so partially-covered
+	// leaf fragments survive instead of being culled. Near-field keeps tight 0.15
+	// threshold for clean edges; far-field drops to 0.03 to preserve canopy volume.
+	float discard_thresh = mix(0.15, 0.03, leaf_aerial);
+	if (alpha < discard_thresh) discard;
+
 	// Feed continuous alpha to alpha_to_coverage (4x MSAA).
-	// Depth prepass already wrote depth for fragments above 0.15 threshold.
+	// Depth prepass already wrote depth for fragments above discard threshold.
 	ALPHA = alpha;
 }
