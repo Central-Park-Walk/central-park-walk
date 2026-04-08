@@ -539,8 +539,10 @@ func _build_chunk(ck: String) -> void:
 						break
 			if near_path: continue
 
-			# Height from Terrain3D surface (not raw DEM — avoids floating plants)
-			var wy: float = _loader._terrain_y(bx, bz)
+			# Height from Terrain3D surface, sunk 15cm to bury roots into terrain.
+			# Terrain3D clipmap can be slightly above get_height() at LOD
+			# boundaries; the sink ensures ground contact at all distances.
+			var wy: float = _loader._terrain_y(bx, bz) - 0.15
 
 			var yr: float = rng.randf() * TAU
 			# Normal distribution (mean at 40% of range, sd = 20% of range)
