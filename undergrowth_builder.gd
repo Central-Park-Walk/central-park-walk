@@ -539,10 +539,24 @@ func _build_chunk(ck: String) -> void:
 						break
 			if near_path: continue
 
-			# Height from Terrain3D surface, sunk 15cm to bury roots into terrain.
-			# Terrain3D clipmap can be slightly above get_height() at LOD
-			# boundaries; the sink ensures ground contact at all distances.
-			var wy: float = _loader._terrain_y(bx, bz) - 0.15
+			# Height from raw DEM heightmap — same source the GPU grass uses.
+			# Terrain3D.get_height() returns values above the rendered surface;
+			# the DEM matches the grass plane exactly.
+			var xi: float = (bx + _hm_half) / _hm_ws * (_hm_w - 1)
+			var zi: float = (bz + _hm_half) / _hm_ws * (_hm_d - 1)
+			var xi0: int = clampi(int(xi), 0, _hm_w - 2)
+			var zi0: int = clampi(int(zi), 0, _hm_d - 2)
+			var fx: float = xi - xi0
+			var fz: float = zi - zi0
+			var h00: float = float(_hm_data[zi0 * _hm_w + xi0])
+			var h10: float = float(_hm_data[zi0 * _hm_w + xi0 + 1])
+			var h01: float = float(_hm_data[(zi0 + 1) * _hm_w + xi0])
+			var h11: float = float(_hm_data[(zi0 + 1) * _hm_w + xi0 + 1])
+			var wy: float
+			if fz <= fx:
+				wy = h00 + (h10 - h00) * fx + (h11 - h10) * fz
+			else:
+				wy = h00 + (h11 - h01) * fx + (h01 - h00) * fz
 
 			var yr: float = rng.randf() * TAU
 			# Normal distribution (mean at 40% of range, sd = 20% of range)
