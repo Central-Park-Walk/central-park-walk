@@ -337,9 +337,10 @@ SPICEBUSH = {
 def main():
     print("Generating cluster textures...")
 
-    # Generate 3 variants per species for visual variety in-game
+    # Generate 1 cluster texture per model variant (3 variants)
+    # Named cluster_Shrub_Spicebush_{variant}_v0.png to match finalize_and_export lookup
     for variant in range(3):
-        name = f"cluster_Shrub_Spicebush_v{variant}"
+        name = f"cluster_Shrub_Spicebush_{variant}_v0"
         config = dict(SPICEBUSH)
         # Per-variant: slight color shift + different seed
         v_rng = random.Random(variant * 37 + 11)

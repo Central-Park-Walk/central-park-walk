@@ -841,19 +841,20 @@ def _make_branch(bm, origin, direction, length, r_start, n_segs, zigzag_amt,
     return cluster_list
 
 
-def make_spicebush():
+def make_spicebush(seed=101):
     """Spicebush (Lindera benzoin) — THE dominant Central Park understory shrub.
-    2-4m, multi-stemmed, dense spreading form, zigzag branching.
+    2-4m, multi-stemmed, wide vase shape, zigzag branching.
 
-    Architecture: root collar → 8-12 main stems → recursive branching (3 levels)
-    with zigzag nodes → dense leaf clusters attached at branch tips and nodes.
-    Real spicebush forms a nearly opaque cloud of foliage in summer — you can
-    barely see through it. Each level of branching gets thinner, shorter,
-    more foliage."""
+    Architecture: root collar → 5-8 main stems leaning outward → recursive
+    branching (3 levels) → dense leaf clusters in upper canopy.
+    Lower stems are bare, foliage concentrated in upper half.
+    Ref: Lindera benzoin_webbc0078__03548.jpg
+
+    seed: random seed for this variant (different seeds → different branching)."""
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
     co = bm.loops.layers.color.new("Col")
-    rng = random.Random(101)
+    rng = random.Random(seed)
 
     # --- Colors (spectral pipeline: CIE 1931 + D65 → sRGB) ---
     # Bark: olive-brown at base, greener toward tips
@@ -2473,7 +2474,11 @@ def make_black_eyed_susan():
 
 SPECIES = [
     # Tier 1+2: shrubs (BD3D replaced — skipped), herbs, ferns, wetland
-    (make_spicebush,           "Shrub_Spicebush"),
+    # Spicebush: 3 variants with different seeds for visual variety
+    # Named _0/_1/_2 to match undergrowth_builder.gd variant loader
+    (lambda: make_spicebush(seed=101), "Shrub_Spicebush_0"),
+    (lambda: make_spicebush(seed=202), "Shrub_Spicebush_1"),
+    (lambda: make_spicebush(seed=303), "Shrub_Spicebush_2"),
     (make_witch_hazel,         "Shrub_WitchHazel"),
     (make_viburnum,            "Shrub_Viburnum"),
     (make_sumac,               "Shrub_Sumac"),

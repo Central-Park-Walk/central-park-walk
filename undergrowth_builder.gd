@@ -52,7 +52,7 @@ const SPECIES := [
 	# --- SHRUBS (0-6) --- multi-stemmed woody plants 1.5-4m ---
 	# sc: stem_color RGB, sr: stem_roughness (woody bark = 0.90+, herbaceous = 0.80-0.88)
 	# 0: Spicebush (Lindera benzoin) — dominant understory, yellow fall, tiny yellow spring flowers
-	{name="Shrub_Spicebush", s=[0.6, 1.1], flex=0.30, green=0, fall=[0.82, 0.75, 0.15], fc=[0.70, 0.68, 0.10], bl=[0.2, 0.7], trans=0.90, sc=[0.35, 0.28, 0.15], sr=0.92},
+	{name="Shrub_Spicebush", v=3, s=[0.6, 1.1], flex=0.30, green=0, fall=[0.82, 0.75, 0.15], fc=[0.70, 0.68, 0.10], bl=[0.2, 0.7], trans=0.90, sc=[0.35, 0.28, 0.15], sr=0.92},
 	# 1: Witch Hazel (Hamamelis virginiana) — zigzag branches, yellow fall, flowers in AUTUMN
 	{name="Shrub_WitchHazel", s=[0.7, 1.2], flex=0.25, green=0, fall=[0.75, 0.65, 0.12], fc=[0.80, 0.72, 0.08], bl=[2.2, 3.0], sc=[0.30, 0.25, 0.18], sr=0.93},
 	# 2: Viburnum (Viburnum dentatum) — dense screening, red-purple fall, white spring flowers
