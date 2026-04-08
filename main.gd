@@ -78,11 +78,15 @@ const _KF_HOURS: Array = [5.0, 6.5, 12.0, 19.0, 21.0]
 var _terrain_only := false
 var _weather_mode := "clear"  # clear, rain, thunderstorm, snow, fog
 
-# Wind system — layered crossing breezes
-var _wind_vec := Vector2.ZERO   # current wind XZ direction+strength
-var _wind_time := 0.0           # accumulated wind time (independent of game clock)
-var _wind_override := -1.0      # <0 = auto, 0-1 = manual strength multiplier
-var _gust_envelope := 0.0       # asymmetric gust: fast rise, slow decay
+# Wind system — noise-driven randomized wind with gusts and lulls
+var _wind_vec := Vector2.ZERO       # current wind XZ direction+strength
+var _wind_time := 0.0               # accumulated wind time (independent of game clock)
+var _wind_override := -1.0          # <0 = auto, 0-1 = manual strength multiplier
+var _gust_envelope := 0.0           # asymmetric gust: fast rise, slow decay
+var _wind_dir_noise: FastNoiseLite   # direction wander
+var _wind_base_noise: FastNoiseLite  # base breeze level
+var _wind_swell_noise: FastNoiseLite # medium swells
+var _wind_gust_noise: FastNoiseLite  # gust event triggers
 
 # Snow accumulation
 var _snow_cover := 0.0          # 0-1, ramps up during snow weather
@@ -222,6 +226,7 @@ func _ready() -> void:
 	RenderingServer.global_shader_parameter_add("cloud_coverage_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.5)
 	RenderingServer.global_shader_parameter_add("cloud_speed_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.00004)
 	RenderingServer.global_shader_parameter_add("impostor_brightness", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 1.0)
+	_init_wind_noise()
 	print("main: environment: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	# Terrain3D MUST init before park — builders need accurate terrain height
 	_setup_ground()
@@ -2846,8 +2851,35 @@ func _setup_color_grade() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Wind — layered crossing breezes that vary with time of day and weather
+# Wind — noise-driven randomized gusts and lulls (unique every session)
 # ---------------------------------------------------------------------------
+
+func _init_wind_noise() -> void:
+	# Each noise source gets a unique random seed so every session is different.
+	# FastNoiseLite.TYPE_SIMPLEX_SMOOTH gives smooth, non-repeating variation.
+	_wind_dir_noise = FastNoiseLite.new()
+	_wind_dir_noise.seed = randi()
+	_wind_dir_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	_wind_dir_noise.frequency = 0.003        # ~5 min direction drift cycle
+	_wind_dir_noise.fractal_octaves = 2      # primary drift + subtle wobble
+
+	_wind_base_noise = FastNoiseLite.new()
+	_wind_base_noise.seed = randi()
+	_wind_base_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	_wind_base_noise.frequency = 0.006       # ~3 min breeze modulation
+	_wind_base_noise.fractal_octaves = 3     # layered: slow trend + medium ripple
+
+	_wind_swell_noise = FastNoiseLite.new()
+	_wind_swell_noise.seed = randi()
+	_wind_swell_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	_wind_swell_noise.frequency = 0.02       # ~50s swells
+
+	_wind_gust_noise = FastNoiseLite.new()
+	_wind_gust_noise.seed = randi()
+	_wind_gust_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	_wind_gust_noise.frequency = 0.04        # ~25s gust opportunities
+	_wind_gust_noise.fractal_octaves = 3     # sharp features for distinct gusts
+
 
 func _update_wind(delta: float) -> void:
 	_wind_time += delta
@@ -2873,33 +2905,33 @@ func _update_wind(delta: float) -> void:
 	elif _weather_mode == "fog":
 		wx = 0.3
 
-	# --- Direction: slow persistent drift with occasional shifts ---
-	# Base direction wanders via low-frequency sines with incommensurate
-	# periods (~4.7 min, ~2.3 min). Creates long stretches of steady
-	# direction with gradual veering — like real pressure system movement.
-	var dir_angle := t * 0.011 + sin(t * 0.0073) * 1.2 + sin(t * 0.031) * 0.4
+	# --- Direction: noise-driven wander ---
+	# Primary drift creates long stretches of steady direction with gradual
+	# veering. Offset sample adds subtle wobble so it's not too smooth.
+	var dir_primary := _wind_dir_noise.get_noise_1d(t) * PI
+	var dir_wobble := _wind_dir_noise.get_noise_1d(t * 3.0 + 500.0) * 0.4
+	var dir_angle := dir_primary + dir_wobble
 	var wind_dir := Vector2(cos(dir_angle), sin(dir_angle))
 
-	# --- Base breeze: always present, slow modulation ---
-	# Very low frequency so there are multi-minute stretches of near-calm
-	# followed by breezy periods. Range ~0.03–0.18.
-	var breeze := 0.08 + sin(t * 0.047 + 2.3) * 0.05 + sin(t * 0.013) * 0.04
-	breeze = maxf(breeze, 0.03)
+	# --- Base breeze: noise-driven, range ~0.03–0.20 ---
+	# Multi-octave noise creates natural runs of calm and breezy weather.
+	# Unlike sine waves, the pattern never repeats.
+	var base_n := _wind_base_noise.get_noise_1d(t)   # -1 to 1
+	var breeze := remap(base_n, -1.0, 1.0, 0.03, 0.20)
 
-	# --- Medium wind: broad swells with ~25–40s period ---
-	# Product of two sines = amplitude modulation, creating natural swells.
-	var swell_a := sin(t * 0.157 + 0.7) * 0.5 + 0.5
-	var swell_b := sin(t * 0.089 + 1.9) * 0.5 + 0.5
-	var medium := swell_a * swell_b * 0.25
+	# --- Medium swells: ~25-50s variation ---
+	# Only the positive half of the noise creates swells, so there are
+	# stretches of quiet between them — like real pressure fluctuations.
+	var swell_n := _wind_swell_noise.get_noise_1d(t)
+	var medium := maxf(swell_n, 0.0) * 0.25
 
-	# --- Gust events: thresholded product of incommensurate waves ---
-	# Three waves (~17s, ~12s, ~33s) must align for a gust to fire.
-	# Smoothstep threshold means only peaks become gusts — long calm
-	# stretches between bursts, like real wind arriving in fronts.
-	var gust_raw := (sin(t * 0.37 + 1.1) * 0.5 + 0.5)
-	gust_raw *= (sin(t * 0.53 + 2.7) * 0.5 + 0.5)
-	gust_raw *= (sin(t * 0.19 + 0.3) * 0.5 + 0.5)
-	var gust_trigger := smoothstep(0.15, 0.35, gust_raw) * 0.35
+	# --- Gust events: two noise channels must align ---
+	# Multiplying two independent noise samples means gusts only fire when
+	# both are high simultaneously, creating natural rarity and randomness.
+	var gust_a := _wind_gust_noise.get_noise_1d(t)
+	var gust_b := _wind_gust_noise.get_noise_1d(t * 1.7 + 1000.0)
+	var gust_raw := maxf(gust_a, 0.0) * maxf(gust_b, 0.0)
+	var gust_trigger := smoothstep(0.05, 0.25, gust_raw) * 0.40
 
 	# Asymmetric envelope: fast rise (~0.3s), slow decay (~2.5s).
 	# Gusts arrive suddenly and fade gradually — the real-world pattern.
@@ -2908,9 +2940,8 @@ func _update_wind(delta: float) -> void:
 	else:
 		_gust_envelope = lerpf(_gust_envelope, gust_trigger, minf(delta * 0.4, 1.0))
 
-	# Gust cross-wind: mostly aligned with base direction but with slight
-	# lateral component so gust fronts aren't perfectly parallel.
-	var gust_cross := sin(t * 0.71 + 3.1) * 0.25
+	# Gust cross-wind: slight lateral deviation from base direction
+	var gust_cross := _wind_dir_noise.get_noise_1d(t * 2.0 + 200.0) * 0.25
 	var gust_dir := Vector2(
 		wind_dir.x - wind_dir.y * gust_cross,
 		wind_dir.y + wind_dir.x * gust_cross
@@ -2933,12 +2964,7 @@ func _update_wind(delta: float) -> void:
 		if is_instance_valid(gn):
 			gn.set("wind_vec", _wind_vec)
 
-	# Drive volumetric cloud movement from wind.
-	# Real-world calibration: cumulus at ~2km altitude.
-	# Surface wind → cloud-level wind is roughly 2-3x surface speed.
-	# _wind_vec magnitude: calm ~0.03-0.08, breezy ~0.15-0.25,
-	# gusty ~0.3-0.6, storm ~0.8-1.7.
-	# At zero wind clouds should be nearly frozen; max storm = clear drift.
+	# Drive volumetric cloud movement from wind
 	if _vol_sky:
 		var wlen: float = _wind_vec.length()
 		if wlen > 0.01:
