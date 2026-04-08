@@ -854,12 +854,14 @@ def make_spicebush():
     co = bm.loops.layers.color.new("Col")
     rng = random.Random(101)
 
-    # --- Colors ---
+    # --- Colors (spectral pipeline: CIE 1931 + D65 → sRGB) ---
     # Bark: olive-brown at base, greener toward tips
     bark_base = (0.28, 0.24, 0.14)
     bark_tip = (0.26, 0.32, 0.16)
     # Root collar is darker
     root_color = (0.22, 0.18, 0.10)
+    # Leaf color from spectral reflectance data (gamma sRGB)
+    leaf_color = (0.303, 0.456, 0.244)  # Lindera benzoin — spectral_colors.py
 
     # --- Root collar ---
     # Slight mound where all stems emerge — thickened base
@@ -917,11 +919,12 @@ def make_spicebush():
     # Convert (pos, radius, branch_dir) to (pos, radius) for scatter function
     cluster_positions = [(pos, radius) for pos, radius, _ in all_clusters]
 
-    # 12 cards per cluster (was 8) + larger cards (0.32m) — fills gaps between
-    # clusters for the dense foliage cloud real spicebush shows in summer.
-    _scatter_cluster_cards(bm, cluster_positions, card_size=0.32,
+    # 20 cards/cluster at 0.20m — smaller cards break up blobby silhouette,
+    # higher density fills the volume without individual quads being visible.
+    _scatter_cluster_cards(bm, cluster_positions, card_size=0.20,
                           uv_layer=uv, col_layer=co, rng=rng,
-                          n_cards_per_cluster=12, flatten=0.65)
+                          n_cards_per_cluster=20, flatten=0.65,
+                          leaf_color=leaf_color)
 
     return bm
 
