@@ -441,6 +441,98 @@ func _canopy_at(wx: float, wz: float) -> int:
 	return _canopy_buf[pz * _canopy_res + px]
 
 
+# ── Ecology-driven density modulation ──────────────────────────────────
+# Real understory density varies with microsite conditions. Instead of
+# uniform placement, modulate per-chunk density based on what drives
+# vegetation growth in Eastern deciduous forest:
+#
+#   Canopy cover: Shade-tolerant shrubs (spicebush, viburnum) peak at
+#     40-75% cover. Deep shade (>85%) suppresses even shade species.
+#     Full sun (<20%) favors grass over shrubs.
+#
+#   Slope: Steep terrain → thin soil, erosion, poor rooting. Gentle
+#     slopes and flats accumulate organic matter and moisture.
+#
+#   Moisture proxy: Lower local elevation relative to surroundings =
+#     moister microsite. Spicebush especially loves moist soil.
+#
+#   Patch structure: Large-scale noise creates natural thicket/clearing
+#     mosaic. Real forests are patchy — dense in some spots, open in
+#     others, driven by disturbance history and soil variation.
+
+func _slope_at(wx: float, wz: float) -> float:
+	# Return slope magnitude (0 = flat, 1+ = steep) from DEM heightmap.
+	# Central difference over ~2m step.
+	var step := 1.0
+	var h_c := _dem_height(wx, wz)
+	var h_e := _dem_height(wx + step, wz)
+	var h_n := _dem_height(wx, wz - step)
+	var dx := (h_e - h_c) / step
+	var dz := (h_n - h_c) / step
+	return sqrt(dx * dx + dz * dz)
+
+func _dem_height(wx: float, wz: float) -> float:
+	var xi: float = (wx + _hm_half) / _hm_ws * (_hm_w - 1)
+	var zi: float = (wz + _hm_half) / _hm_ws * (_hm_d - 1)
+	var xi0: int = clampi(int(xi), 0, _hm_w - 2)
+	var zi0: int = clampi(int(zi), 0, _hm_d - 2)
+	var fx: float = xi - xi0
+	var fz: float = zi - zi0
+	var h00: float = float(_hm_data[zi0 * _hm_w + xi0])
+	var h10: float = float(_hm_data[zi0 * _hm_w + xi0 + 1])
+	var h01: float = float(_hm_data[(zi0 + 1) * _hm_w + xi0])
+	var h11: float = float(_hm_data[(zi0 + 1) * _hm_w + xi0 + 1])
+	if fz <= fx:
+		return h00 + (h10 - h00) * fx + (h11 - h10) * fz
+	else:
+		return h00 + (h11 - h01) * fx + (h01 - h00) * fz
+
+func _ecology_density_mult(wx: float, wz: float) -> float:
+	# Returns 0.15 – 2.5 multiplier on base density for this position.
+	var mult := 1.0
+
+	# 1) Canopy sweet spot — understory peaks at partial shade (40-75%).
+	#    Deep shade (>85%) or full sun (<20%) suppresses growth.
+	var canopy: float = float(_canopy_at(wx, wz)) / 255.0  # 0-1
+	if canopy < 0.20:
+		mult *= 0.3  # open sun — grass dominates
+	elif canopy < 0.40:
+		mult *= lerpf(0.3, 1.0, (canopy - 0.20) / 0.20)  # transition
+	elif canopy <= 0.75:
+		mult *= lerpf(1.0, 1.4, (canopy - 0.40) / 0.35)  # sweet spot — peaks at 75%
+	elif canopy <= 0.85:
+		mult *= lerpf(1.4, 0.8, (canopy - 0.75) / 0.10)  # declining in deep shade
+	else:
+		mult *= lerpf(0.8, 0.4, (canopy - 0.85) / 0.15)  # suppressed
+
+	# 2) Slope penalty — steep terrain has thin soil, poor rooting.
+	var slope: float = _slope_at(wx, wz)
+	if slope > 0.3:
+		mult *= lerpf(1.0, 0.2, clampf((slope - 0.3) / 0.5, 0.0, 1.0))
+
+	# 3) Moisture proxy — lower relative elevation = moister = more growth.
+	#    Compare chunk center height to local neighborhood average.
+	var h_center := _dem_height(wx, wz)
+	var h_avg := (_dem_height(wx - 10, wz) + _dem_height(wx + 10, wz)
+	            + _dem_height(wx, wz - 10) + _dem_height(wx, wz + 10)) * 0.25
+	var elev_diff: float = h_center - h_avg  # negative = lower = moister
+	# Moist hollows get up to 1.3x, ridgetops get 0.7x
+	mult *= clampf(1.0 - elev_diff * 0.15, 0.7, 1.3)
+
+	# 4) Patch noise — large-scale (30-50m) spatial variation creates
+	#    natural thicket/clearing mosaic. Hash-based for determinism.
+	var nx: float = wx * 0.022 + 31.7
+	var nz: float = wz * 0.022 + 17.3
+	# Simple 2D hash noise (deterministic, no import needed)
+	var patch: float = fract(sin(nx * 127.1 + nz * 311.7) * 43758.5453)
+	var patch2: float = fract(sin(nx * 0.7 * 269.5 + nz * 0.7 * 183.3) * 43758.5453)
+	var patch_val: float = (patch + patch2) * 0.5  # 0-1, clustered
+	# Map to 0.15 – 2.0 range: some spots nearly bare, others dense thickets
+	mult *= lerpf(0.15, 2.0, patch_val)
+
+	return clampf(mult, 0.15, 2.5)
+
+
 func _build_chunk(ck: String) -> void:
 	var ck_p: PackedStringArray = ck.split("|")
 	var cx: float = float(ck_p[0]) * CHUNK
@@ -482,6 +574,10 @@ func _build_chunk(ck: String) -> void:
 	# Rain boosts mushroom density
 	var rain_boost: float = 1.0 + rain_wetness * 0.5
 
+	# Ecology-driven density modulation: sample chunk center to get a
+	# multiplier based on canopy cover, slope, moisture, and patch noise.
+	var eco_mult := _ecology_density_mult(cx + CHUNK * 0.5, cz + CHUNK * 0.5)
+
 	# Pre-allocate buffers per species
 	var bufs: Dictionary = {}
 	var cnts: Dictionary = {}
@@ -489,7 +585,7 @@ func _build_chunk(ck: String) -> void:
 
 	for sp_entry in species_list:
 		var sp_idx: int = sp_entry[0]
-		var density: float = sp_entry[1]
+		var density: float = sp_entry[1] * eco_mult
 		var sp_name: String = SPECIES[sp_idx].name
 		if not _meshes.has(sp_name): continue
 
