@@ -83,9 +83,16 @@ void vertex() {
 }
 
 void fragment() {
-	// Sample canopy texture — texture itself has ~45% coverage with leaf gaps
+	// Sample canopy texture
 	vec4 tex = texture(canopy_tex, UV);
 	float alpha = tex.a * v_canopy_alpha;
+
+	// Mip-level alpha compensation: counteract coverage loss from mipmap averaging
+	float delta_max = max(length(dFdx(UV)), length(dFdy(UV)));
+	float mip_level = max(log2(max(delta_max * 1024.0, 1.0)), 0.0);
+	alpha *= 1.0 + mip_level * 0.3;
+	alpha = min(alpha, 1.0);
+
 	if (alpha < 0.3) discard;
 
 	vec3 col = v_canopy_color;
