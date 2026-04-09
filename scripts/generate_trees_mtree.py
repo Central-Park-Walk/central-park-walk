@@ -446,8 +446,8 @@ SPECIES = {
         "branch_split_angle": 50.0,    # Wide secondary splits (was 45)
         "branch_flatness": 0.50,       # Strong lateral spread (was 0.35)
         "branch_break_chance": 0.01,
-        "branch_resolution": 1.4,
-        "sub_density": 0.7,            # Dense canopy curtain (1.5→1.2→1.0→0.7, controls bark vert count)
+        "branch_resolution": 0.8,
+        "sub_density": 0.20,            # Canopy curtain (1.5→…→0.7→0.20, controls bark vert count — keeps GLB <100MB)
         "sub_length_ratio": 0.16,
         "sub_angle": 55,               # Sub-branches spread wide too
         "sub_gravity": 16.0,           # Heavy droop — canopy curtain hangs down
@@ -456,7 +456,7 @@ SPECIES = {
         "sub_split_prob": 0.30,
         "sub_split_angle": 35.0,
         "sub_flatness": 0.35,
-        "sub_resolution": 1.0,
+        "sub_resolution": 0.8,
         "bark_color": (0.28, 0.23, 0.16),
         "bark_roughness": 0.90,
         "leaf_shape": "elliptic",
