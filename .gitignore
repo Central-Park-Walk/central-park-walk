@@ -39,6 +39,7 @@ models/
 !models/vegetation/Vine_*.glb
 textures/*
 !textures/terrain3d/
+!textures/leaves/
 sounds/
 
 # Terrain tiles and LiDAR source data (re-download via scripts)
