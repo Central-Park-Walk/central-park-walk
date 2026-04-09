@@ -141,7 +141,7 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic"
     edge_fn = EDGE_FNS[edge_name]
     TEX = tex_size
     if spread is None:
-        spread = TEX // 4
+        spread = TEX * 2 // 5  # fill ~80% of texture area (industry standard)
 
     img = bpy.data.images.new(name, width=TEX, height=TEX, alpha=True)
     pixels = [0.0] * (TEX * TEX * 4)

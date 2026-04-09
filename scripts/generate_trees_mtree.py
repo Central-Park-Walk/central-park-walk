@@ -362,7 +362,7 @@ SPECIES = {
         "bark_color": (0.22, 0.18, 0.12),
         "bark_roughness": 0.92,
         "leaf_shape": "lobed",
-        "leaf_n": 22,
+        "leaf_n": 50,
         "leaf_tex_size": 1024,
         "leaf_seed": 881,
         "leaf_cluster_size_range": (0.38, 0.83),
@@ -411,7 +411,7 @@ SPECIES = {
         "bark_color": (0.30, 0.25, 0.18),
         "bark_roughness": 0.88,
         "leaf_shape": "elliptic",
-        "leaf_n": 22,
+        "leaf_n": 50,
         "leaf_tex_size": 1024,
         "leaf_seed": 777,
         "leaf_cluster_size_range": (0.38, 0.83),
@@ -460,7 +460,7 @@ SPECIES = {
         "bark_color": (0.28, 0.23, 0.16),
         "bark_roughness": 0.90,
         "leaf_shape": "elliptic",
-        "leaf_n": 24,
+        "leaf_n": 52,
         "leaf_tex_size": 1024,
         "leaf_seed": 888,
         "leaf_cluster_size_range": (0.45, 0.90),
@@ -509,7 +509,7 @@ SPECIES = {
         "bark_color": (0.38, 0.32, 0.26),
         "bark_roughness": 0.88,
         "leaf_shape": "palmate",
-        "leaf_n": 22,
+        "leaf_n": 50,
         "leaf_tex_size": 1024,
         "leaf_seed": 552,
         "leaf_cluster_size_range": (0.33, 0.75),
@@ -559,7 +559,7 @@ SPECIES = {
         "bark_color": (0.28, 0.22, 0.18),
         "bark_roughness": 0.92,
         "leaf_shape": "needle",
-        "leaf_n": 28,
+        "leaf_n": 60,
         "leaf_tex_size": 1024,
         "leaf_seed": 601,
         "leaf_cluster_size_range": (0.42, 0.83),
@@ -610,7 +610,7 @@ SPECIES = {
         "bark_color": (0.35, 0.20, 0.14),
         "bark_roughness": 0.72,
         "leaf_shape": "elliptic",
-        "leaf_n": 20,
+        "leaf_n": 48,
         "leaf_tex_size": 1024,
         "leaf_seed": 443,
         "leaf_cluster_size_range": (0.30, 0.68),
@@ -660,7 +660,7 @@ SPECIES = {
         "bark_color": (0.82, 0.78, 0.72),
         "bark_roughness": 0.65,
         "leaf_shape": "elliptic",
-        "leaf_n": 18,
+        "leaf_n": 45,
         "leaf_tex_size": 1024,
         "leaf_seed": 551,
         "leaf_cluster_size_range": (0.27, 0.60),
@@ -712,7 +712,7 @@ SPECIES = {
         "bark_color": (0.35, 0.28, 0.20),
         "bark_roughness": 0.88,
         "leaf_shape": "compound",
-        "leaf_n": 20,
+        "leaf_n": 55,
         "leaf_tex_size": 1024,
         "leaf_seed": 661,
         "leaf_cluster_size_range": (0.30, 0.63),
@@ -764,7 +764,7 @@ SPECIES = {
         "bark_color": (0.42, 0.36, 0.28),
         "bark_roughness": 0.82,
         "leaf_shape": "ovate",
-        "leaf_n": 22,
+        "leaf_n": 50,
         "leaf_tex_size": 1024,
         "leaf_seed": 557,
         "leaf_cluster_size_range": (0.33, 0.72),
@@ -815,7 +815,7 @@ SPECIES = {
         "bark_color": (0.40, 0.35, 0.28),
         "bark_roughness": 0.88,
         "leaf_shape": "lanceolate",
-        "leaf_n": 22,
+        "leaf_n": 55,
         "leaf_tex_size": 1024,
         "leaf_seed": 801,
         "leaf_cluster_size_range": (0.27, 0.60),
@@ -868,7 +868,7 @@ SPECIES = {
         "bark_color": (0.35, 0.30, 0.24),
         "bark_roughness": 0.85,
         "leaf_shape": "ovate",
-        "leaf_n": 24,
+        "leaf_n": 48,
         "leaf_tex_size": 1024,
         "leaf_seed": 773,
         "leaf_cluster_size_range": (0.33, 0.72),
@@ -919,7 +919,7 @@ SPECIES = {
         "bark_color": (0.48, 0.45, 0.36),
         "bark_roughness": 0.75,
         "leaf_shape": "lobed",
-        "leaf_n": 20,
+        "leaf_n": 48,
         "leaf_tex_size": 1024,
         "leaf_seed": 447,
         "leaf_cluster_size_range": (0.38, 0.83),
@@ -969,7 +969,7 @@ SPECIES = {
         "bark_color": (0.38, 0.34, 0.28),
         "bark_roughness": 0.90,
         "leaf_shape": "fan",
-        "leaf_n": 18,
+        "leaf_n": 50,
         "leaf_tex_size": 1024,
         "leaf_seed": 557,
         "leaf_cluster_size_range": (0.27, 0.60),
@@ -1024,7 +1024,7 @@ SPECIES = {
         "bark_color": (0.42, 0.38, 0.32),
         "bark_roughness": 0.78,
         "leaf_shape": "ovate",
-        "leaf_n": 18,
+        "leaf_n": 45,
         "leaf_tex_size": 1024,
         "leaf_seed": 663,
         "leaf_cluster_size_range": (0.38, 0.83),
@@ -1074,7 +1074,7 @@ SPECIES = {
         "bark_color": (0.32, 0.27, 0.20),
         "bark_roughness": 0.85,
         "leaf_shape": "elliptic",
-        "leaf_n": 22,
+        "leaf_n": 50,
         "leaf_tex_size": 1024,
         "leaf_seed": 700,
         "leaf_cluster_size_range": (0.33, 0.75),
@@ -1744,34 +1744,17 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
     print(f"  Output: {out_path}")
     print(f"{'='*60}")
 
-    # Create leaf material (shared across variants)
-    # LOD1/LOD2 use denser textures: more leaves, wider spread, larger size.
-    # At 130m+ you can't see individual leaves — you need solid green mass.
+    # Create leaf material (shared across variants).
+    # All tiers use the same dense texture (60-80% alpha coverage).
+    # Industry standard: high coverage works at all distances.
     fascicle = sp["leaf_shape"] == "needle"
-    tier_n_leaves = sp["leaf_n"]
-    tier_spread = None       # default (TEX // 4)
-    tier_size_scale = 1.0
-    tier_twigs = True
-    if tier_name == "m":
-        tier_n_leaves = max(int(sp["leaf_n"] * 2.5), 50)
-        tier_spread = sp["leaf_tex_size"] * 2 // 5
-        tier_size_scale = 1.3
-        tier_twigs = False
-    elif tier_name == "s":
-        tier_n_leaves = max(int(sp["leaf_n"] * 3), 60)
-        tier_spread = sp["leaf_tex_size"] * 2 // 5
-        tier_size_scale = 1.5
-        tier_twigs = False
     leaf_mat = create_leaf_material(
         f"{species_name}_leaf",
         leaf_shape=sp["leaf_shape"],
-        n_leaves=tier_n_leaves,
+        n_leaves=sp["leaf_n"],
         tex_size=sp["leaf_tex_size"],
         seed=sp["leaf_seed"],
         fascicle_mode=fascicle,
-        draw_twigs=tier_twigs,
-        spread=tier_spread,
-        size_scale=tier_size_scale,
     )
     # Viewport display color for Workbench thumbnail renderer
     if fascicle:
