@@ -1542,6 +1542,164 @@ def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=
     return all_objects
 
 
+def create_crown_fill_cards(placements, leaf_mat, rng, target_height):
+    """LOD1 (tier _m): fill the crown volume with large overlapping cards.
+
+    AAA approach (SpeedTree LOD1): instead of placing small cards along
+    branches, scatter large "frond" cards throughout the crown bounding
+    ellipsoid. At 130-350m viewing distance, individual branch structure
+    is invisible — you need solid green mass in the right shape.
+
+    ~80-120 cards per tree, each 0.8-1.5m wide, overlapping to create
+    dense canopy coverage from any viewing angle.
+    """
+    if not placements:
+        return []
+
+    # Compute crown bounding ellipsoid from branch-walk placements
+    xs = [p[0].x for p in placements]
+    ys = [p[0].y for p in placements]
+    zs = [p[0].z for p in placements]
+    cx = (min(xs) + max(xs)) * 0.5
+    cy = (min(ys) + max(ys)) * 0.5
+    cz = (min(zs) + max(zs)) * 0.5
+    rx = max((max(xs) - min(xs)) * 0.5, 0.5)
+    ry = max((max(ys) - min(ys)) * 0.5, 0.5)
+    rz = max((max(zs) - min(zs)) * 0.5, 0.5)
+    center = Vector((cx, cy, cz))
+
+    # Card sizing: must subtend ≥5px at 250m (mid LOD1 range)
+    # 250m × 5px / 1663 px_per_m_at_1m ≈ 0.75m minimum
+    # Use 0.9-1.6m for good overlap
+    base_card = target_height * 0.06  # ~1.2m for a 20m tree
+    n_fronds = max(int(80 * (rx * rz) / 4.0), 40)  # scale with crown area
+    n_fronds = min(n_fronds, 150)
+
+    all_objects = []
+    bm = bmesh.new()
+    uv_layer = bm.loops.layers.uv.new("UVMap")
+
+    for i in range(n_fronds):
+        # Scatter within ellipsoid, bias toward the surface (where leaves are)
+        u = rng.random()
+        r_frac = 0.4 + 0.6 * (u ** 0.3)  # bias toward surface
+        theta = rng.uniform(0, math.pi * 2)
+        phi = rng.uniform(-0.7, 0.9)  # slight upward bias
+        px = cx + rx * r_frac * math.cos(theta) * math.cos(phi)
+        py = cy + ry * r_frac * math.sin(phi)
+        pz = cz + rz * r_frac * math.sin(theta) * math.cos(phi)
+
+        # Card size with variation
+        w = base_card * rng.uniform(0.75, 1.35)
+        h = w * rng.uniform(0.6, 1.0)
+
+        # Random orientation: full yaw, moderate pitch
+        yaw = rng.uniform(0, math.pi * 2)
+        pitch = rng.uniform(-0.8, 0.8)
+        # 30% near-horizontal for overhead coverage
+        if rng.random() < 0.30:
+            pitch = rng.uniform(1.0, 1.45)
+
+        half_w, half_h = w * 0.5, h * 0.5
+        cy_r, sy_r = math.cos(yaw), math.sin(yaw)
+        cp, sp_val = math.cos(pitch), math.sin(pitch)
+
+        local_corners = [
+            (-half_w, 0, -half_h),
+            ( half_w, 0, -half_h),
+            ( half_w, 0,  half_h),
+            (-half_w, 0,  half_h),
+        ]
+        corners = []
+        for lx, ly, lz in local_corners:
+            rx2 = lx * cy_r - ly * sy_r
+            ry2 = lx * sy_r + ly * cy_r
+            rz2 = lz
+            ry3 = ry2 * cp - rz2 * sp_val
+            rz3 = ry2 * sp_val + rz2 * cp
+            corners.append(Vector((rx2 + px, ry3 + py, rz3 + pz)))
+
+        bm_verts = [bm.verts.new(c) for c in corners]
+        face = bm.faces.new(bm_verts)
+        for loop, uv in zip(face.loops, [(0, 0), (1, 0), (1, 1), (0, 1)]):
+            loop[uv_layer].uv = uv
+
+    mesh = bpy.data.meshes.new("crown_fill")
+    bm.to_mesh(mesh)
+    bm.free()
+    obj = bpy.data.objects.new("crown_fill", mesh)
+    obj.data.materials.append(leaf_mat)
+    bpy.context.collection.objects.link(obj)
+    all_objects.append(obj)
+    return all_objects
+
+
+def create_crossed_billboard_cards(placements, leaf_mat, rng, target_height):
+    """LOD2 (tier _s): a few large crossed billboard quads filling the crown.
+
+    AAA approach (SpeedTree LOD2): 6-8 large quads at different rotations
+    spanning the entire crown volume. At 300-600m viewing distance, this
+    reads as a solid canopy mass. Classic crossed-billboard pattern used
+    by every AAA engine for distant vegetation.
+    """
+    if not placements:
+        return []
+
+    # Crown bounding box from placements
+    xs = [p[0].x for p in placements]
+    ys = [p[0].y for p in placements]
+    zs = [p[0].z for p in placements]
+    cx = (min(xs) + max(xs)) * 0.5
+    cy = (min(ys) + max(ys)) * 0.5
+    cz = (min(zs) + max(zs)) * 0.5
+    half_w = max((max(xs) - min(xs)) * 0.5, 0.8)
+    half_h = max((max(ys) - min(ys)) * 0.5, 0.8)
+    half_d = max((max(zs) - min(zs)) * 0.5, 0.8)
+
+    # 8 crossed quads at 22.5° increments around Y axis
+    n_planes = 8
+    angle_step = math.pi / n_planes  # 22.5°
+
+    all_objects = []
+    bm = bmesh.new()
+    uv_layer = bm.loops.layers.uv.new("UVMap")
+
+    for i in range(n_planes):
+        angle = i * angle_step + rng.uniform(-0.1, 0.1)  # slight jitter
+        cos_a, sin_a = math.cos(angle), math.sin(angle)
+
+        # Quad spans the full crown width and height
+        w = max(half_w, half_d) * 2.0 * rng.uniform(0.85, 1.0)
+        h = half_h * 2.0 * rng.uniform(0.85, 1.0)
+        hw, hh = w * 0.5, h * 0.5
+
+        # Slight random offset from center for natural variation
+        ox = rng.uniform(-half_w * 0.15, half_w * 0.15)
+        oz = rng.uniform(-half_d * 0.15, half_d * 0.15)
+
+        # 4 corners of a vertical quad rotated around Y
+        corners = [
+            Vector((cx + ox - hw * cos_a, cy - hh, cz + oz - hw * sin_a)),
+            Vector((cx + ox + hw * cos_a, cy - hh, cz + oz + hw * sin_a)),
+            Vector((cx + ox + hw * cos_a, cy + hh, cz + oz + hw * sin_a)),
+            Vector((cx + ox - hw * cos_a, cy + hh, cz + oz - hw * sin_a)),
+        ]
+
+        bm_verts = [bm.verts.new(c) for c in corners]
+        face = bm.faces.new(bm_verts)
+        for loop, uv in zip(face.loops, [(0, 0), (1, 0), (1, 1), (0, 1)]):
+            loop[uv_layer].uv = uv
+
+    mesh = bpy.data.meshes.new("crossed_billboards")
+    bm.to_mesh(mesh)
+    bm.free()
+    obj = bpy.data.objects.new("crossed_billboards", mesh)
+    obj.data.materials.append(leaf_mat)
+    bpy.context.collection.objects.link(obj)
+    all_objects.append(obj)
+    return all_objects
+
+
 def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=False):
     """Generate all variants for one species at one size tier.
 
@@ -1630,8 +1788,17 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
         # but before join (so only bark mesh is affected).
         clean_degenerate_geometry(trunk_obj)
 
+        # --- Create foliage geometry (tier-specific strategy) ---
+        # LOD0 (_l): AAA scatter — many small cards along branches
+        # LOD1 (_m): Crown fill — large frond cards filling crown volume
+        # LOD2 (_s): Crossed billboards — a few huge quads spanning crown
         n_cards = sp.get("cards_per_cluster", FOLIAGE_DEFAULTS["cards_per_cluster"])
-        leaf_objs = create_leaf_cards_at_positions(placements, leaf_mat, rng, tier=tier_name, n_cards=n_cards)
+        if tier_name == "m":
+            leaf_objs = create_crown_fill_cards(placements, leaf_mat, rng, target_h)
+        elif tier_name == "s":
+            leaf_objs = create_crossed_billboard_cards(placements, leaf_mat, rng, target_h)
+        else:
+            leaf_objs = create_leaf_cards_at_positions(placements, leaf_mat, rng, tier=tier_name, n_cards=n_cards)
 
         # --- Join all objects ---
         bpy.ops.object.select_all(action='DESELECT')
