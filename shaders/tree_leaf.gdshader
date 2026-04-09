@@ -185,10 +185,19 @@ void fragment() {
 	vec4 tex = texture(albedo_tex, UV);
 	float lum = dot(tex.rgb, vec3(0.3, 0.6, 0.1));
 	float alpha = tex.a * v_leaf_density;
-	// depth_prepass_alpha uses this discard for the depth buffer pass.
-	// alpha_to_coverage then distributes remaining alpha across 4x MSAA samples
-	// in the main pass — smooth edges without binary popping.
-	if (alpha < 0.15) discard;
+
+	// Distance-adaptive alpha threshold (TreeIt technique).
+	// Leaf textures have ~30-40% coverage — at distance, mipmapped alpha
+	// averages down and the fixed 0.15 threshold culls most fragments,
+	// making LOD1/LOD2 crown-fill cards invisible. Ramping the threshold
+	// toward zero at distance lets those fragments survive, reading as
+	// solid canopy mass (which is correct at 130m+ where you can't
+	// distinguish individual leaves anyway).
+	vec3 frag_tree_pos = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	float frag_cam_dist = length(frag_tree_pos - INV_VIEW_MATRIX[3].xyz);
+	float dist_fade = smoothstep(60.0, 180.0, frag_cam_dist);
+	float discard_thresh = mix(0.15, 0.02, dist_fade);
+	if (alpha < discard_thresh) discard;
 
 	vec3 col = v_leaf_color * (0.4 + lum * 0.6);  // reduced: Blender vertex colors are too bright for PBR
 	int sp = int(v_species_idx + 0.5);
@@ -332,13 +341,12 @@ void fragment() {
 	float leaf_aerial = smoothstep(60.0, 300.0, leaf_dist);
 	ALBEDO = apply_aerial(ALBEDO, leaf_aerial, 0.30, 0.30, sky_reflect_color);
 
-	// Distance-adaptive alpha: counteract mipmap erosion that thins leaves at distance.
-	// At distance, mipmapped alpha textures lose coverage — leaf cards become transparent
-	// confetti. Boosting alpha at distance makes canopy read as solid mass.
-	alpha *= mix(1.0, 1.5, leaf_aerial);
+	// Distance-adaptive alpha boost: at distance, push alpha toward 1.0 so
+	// crown-fill cards read as solid canopy mass through alpha_to_coverage.
+	// Near-field keeps natural transparency for delicate leaf edges.
+	alpha *= mix(1.0, 2.5, leaf_aerial);
 	alpha = min(alpha, 1.0);
 
 	// Feed continuous alpha to alpha_to_coverage (4x MSAA).
-	// Depth prepass already wrote depth for fragments above 0.15 threshold.
 	ALPHA = alpha;
 }
