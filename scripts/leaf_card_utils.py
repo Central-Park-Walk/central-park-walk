@@ -152,13 +152,13 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic"
     if fascicle_mode:
         # Pine fascicle mode: needles grouped into bundles radiating
         # from shared fascicle points, each with a brown sheath.
-        n_fascicles = max(1, n_leaves // 4)
+        n_fascicles = max(1, n_leaves // 3)
         fascicle_centers = []
         for fi in range(n_fascicles):
             fcx = TEX // 2 + rng.randint(-spread, spread)
             fcy = TEX // 2 + rng.randint(-spread, spread)
             fascicle_centers.append((fcx, fcy))
-            n_needles = rng.randint(2, 5)
+            n_needles = rng.randint(4, 7)
             bundle_angle = rng.uniform(0, math.pi * 2)
             needle_len = TEX * rng.uniform(0.12, 0.20) * size_scale
 
@@ -170,7 +170,10 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic"
                 cy = int(fcy + math.sin(angle) * needle_len * 0.5)
                 # Align needle long axis along radial direction
                 rot = angle - math.pi / 2
-                leaf_w = max(2, int(needle_len * 0.08))
+                # Width exaggerated for visibility — real needles are 1:80
+                # aspect but sub-pixel at distance. 1:5 reads as "needle"
+                # in-game while providing usable alpha coverage.
+                leaf_w = max(4, int(needle_len * 0.22))
                 leaf_h = int(needle_len)
 
                 leaves.append({
