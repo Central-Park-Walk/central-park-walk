@@ -204,6 +204,15 @@ void fragment() {
 	float discard_thresh = mix(0.15, 0.02, dist_fade);
 	if (alpha < discard_thresh) discard;
 
+	// Beyond ~120m, force surviving fragments toward full opacity.
+	// Alpha_to_coverage quantizes alpha to MSAA coverage mask (5 levels
+	// with 4x MSAA). Low alpha fragments (0.05-0.15) that survive the
+	// discard test get mapped to coverage 0/4 = fully transparent.
+	// At 120m+ you can't see individual leaf shapes, so clamping to 1.0
+	// is visually correct (solid canopy mass).
+	float opaque_blend = smoothstep(100.0, 180.0, frag_cam_dist);
+	alpha = mix(alpha, 1.0, opaque_blend);
+
 	vec3 col = v_leaf_color * (0.4 + lum * 0.6);  // reduced: Blender vertex colors are too bright for PBR
 	int sp = int(v_species_idx + 0.5);
 	// Desaturate slightly — preserve species hue while keeping it natural
@@ -346,12 +355,7 @@ void fragment() {
 	float leaf_aerial = smoothstep(60.0, 300.0, leaf_dist);
 	ALBEDO = apply_aerial(ALBEDO, leaf_aerial, 0.30, 0.30, sky_reflect_color);
 
-	// Distance-adaptive alpha boost: at distance, push alpha toward 1.0 so
-	// crown-fill cards read as solid canopy mass through alpha_to_coverage.
-	// Near-field keeps natural transparency for delicate leaf edges.
-	alpha *= mix(1.0, 2.5, leaf_aerial);
-	alpha = min(alpha, 1.0);
-
-	// Feed continuous alpha to alpha_to_coverage (4x MSAA).
+	// Feed alpha to alpha_to_coverage (4x MSAA).
+	// Distance opacity clamping already handled after discard test above.
 	ALPHA = alpha;
 }
