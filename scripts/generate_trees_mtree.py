@@ -1264,7 +1264,9 @@ def _extract_leaf_positions_tips(mesh_obj, sp, target_height, rng, tier="l"):
             clusters[key] = []
         clusters[key].append(pos)
 
-    tier_size_factor = {"l": 1.0, "m": 1.2, "s": 1.5}
+    # Card size multiplier per tier — sized so the average card subtends ≥3 px
+    # at the tier's maximum viewing distance (LOD0=180m, LOD1=350m, LOD2=600m).
+    tier_size_factor = {"l": 1.4, "m": 3.0, "s": 7.0}
     size_mult = tier_size_factor.get(tier, 1.0)
 
     placements = []
@@ -1339,9 +1341,10 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
     boost = sp.get("sparse_branch_boost",
                    FOLIAGE_DEFAULTS["sparse_branch_boost"])
 
-    # Target cluster count for this tier
+    # Target cluster count — fewer clusters on lower tiers since each card
+    # is much larger (3× for _m, 7× for _s) and covers more canopy volume.
     target_l = sp.get("target_cluster_count_l", 600)
-    tier_fraction = {"l": 1.0, "m": 0.70, "s": 0.45}
+    tier_fraction = {"l": 1.0, "m": 0.40, "s": 0.15}
     target_count = int(target_l * tier_fraction.get(tier, 1.0))
 
     # Eligible vertices: valid, thin branches, sufficient depth
@@ -1437,7 +1440,8 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
     # Build placements with size and flatten
     lo, hi = sp["leaf_cluster_size_range"]
     flo, fhi = sp["leaf_flatten_range"]
-    tier_size_factor = {"l": 1.0, "m": 1.2, "s": 1.5}
+    # Card size per tier — matches extract_leaf_positions_tips() factors.
+    tier_size_factor = {"l": 1.4, "m": 3.0, "s": 7.0}
     size_mult = tier_size_factor.get(tier, 1.0)
 
     placements = []
@@ -1464,9 +1468,9 @@ def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=
 
     Returns a list of bmesh objects to be joined into the tree mesh.
     """
-    # Quads per cluster: L tier = n_cards, M/S get proportionally more
-    # (larger cards on sparser tiers need more quads to fill the same volume)
-    tier_quad_count = {"l": n_cards, "m": n_cards + 4, "s": n_cards + 8}
+    # Quads per cluster — lower tiers use fewer, larger cards. The _m/_s cards
+    # are physically 3-7× bigger, so fewer quads maintain equivalent coverage.
+    tier_quad_count = {"l": n_cards, "m": max(n_cards - 12, 12), "s": max(n_cards - 22, 8)}
     n_quads = tier_quad_count.get(tier, n_cards)
 
     all_objects = []
