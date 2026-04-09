@@ -186,13 +186,18 @@ void fragment() {
 	float lum = dot(tex.rgb, vec3(0.3, 0.6, 0.1));
 	float alpha = tex.a * v_leaf_density;
 
+	// Mip-level alpha compensation (Ben Golus technique).
+	// Standard mipmapping averages alpha, destroying coverage at distance:
+	// a 70% coverage texture can drop to 40% at mip 2+, making trees vanish.
+	// Boost alpha proportional to estimated mip level to counteract this.
+	float delta_max = max(length(dFdx(UV)), length(dFdy(UV)));
+	float mip_level = max(log2(max(delta_max * 1024.0, 1.0)), 0.0);
+	alpha *= 1.0 + mip_level * 0.3;
+	alpha = min(alpha, 1.0);
+
 	// Distance-adaptive alpha threshold (TreeIt technique).
-	// Leaf textures have ~30-40% coverage — at distance, mipmapped alpha
-	// averages down and the fixed 0.15 threshold culls most fragments,
-	// making LOD1/LOD2 crown-fill cards invisible. Ramping the threshold
-	// toward zero at distance lets those fragments survive, reading as
-	// solid canopy mass (which is correct at 130m+ where you can't
-	// distinguish individual leaves anyway).
+	// At distance, ramp the discard threshold toward zero so crown-fill
+	// and billboard cards read as solid canopy mass.
 	vec3 frag_tree_pos = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	float frag_cam_dist = length(frag_tree_pos - INV_VIEW_MATRIX[3].xyz);
 	float dist_fade = smoothstep(60.0, 180.0, frag_cam_dist);

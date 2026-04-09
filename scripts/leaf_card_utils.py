@@ -124,7 +124,8 @@ def _draw_twig_line(pixels, tex_size, x0, y0, x1, y1,
 
 
 def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic",
-                          seed=42, draw_twigs=True, fascicle_mode=False):
+                          seed=42, draw_twigs=True, fascicle_mode=False,
+                          spread=None, size_scale=1.0):
     """Generate a leaf cluster texture with proper alpha for alpha-to-coverage.
 
     Returns a bpy.types.Image with scattered overlapping leaves.
@@ -132,11 +133,15 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic"
 
     If draw_twigs=True, subtle twig lines connect leaves to center.
     If fascicle_mode=True, needles are grouped into fascicle bundles (pine).
+    spread: placement radius from center (default TEX//4). Larger = fills more of texture.
+    size_scale: multiplier for leaf size (default 1.0). >1 for denser LOD textures.
     """
     rng = random.Random(seed)
     aspect, edge_name = LEAF_SHAPES.get(leaf_shape, LEAF_SHAPES["elliptic"])
     edge_fn = EDGE_FNS[edge_name]
     TEX = tex_size
+    if spread is None:
+        spread = TEX // 4
 
     img = bpy.data.images.new(name, width=TEX, height=TEX, alpha=True)
     pixels = [0.0] * (TEX * TEX * 4)
@@ -150,12 +155,12 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic"
         n_fascicles = max(1, n_leaves // 4)
         fascicle_centers = []
         for fi in range(n_fascicles):
-            fcx = TEX // 2 + rng.randint(-TEX // 4, TEX // 4)
-            fcy = TEX // 2 + rng.randint(-TEX // 4, TEX // 4)
+            fcx = TEX // 2 + rng.randint(-spread, spread)
+            fcy = TEX // 2 + rng.randint(-spread, spread)
             fascicle_centers.append((fcx, fcy))
             n_needles = rng.randint(2, 5)
             bundle_angle = rng.uniform(0, math.pi * 2)
-            needle_len = TEX * rng.uniform(0.12, 0.20)
+            needle_len = TEX * rng.uniform(0.12, 0.20) * size_scale
 
             for ni in range(n_needles):
                 angle = (bundle_angle + ni * (math.pi * 2 / n_needles)
@@ -197,9 +202,9 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic"
     else:
         # Standard leaf mode
         for leaf_i in range(n_leaves):
-            cx = TEX // 2 + rng.randint(-TEX // 4, TEX // 4)
-            cy = TEX // 2 + rng.randint(-TEX // 4, TEX // 4)
-            base_size = TEX * rng.uniform(0.10, 0.22)
+            cx = TEX // 2 + rng.randint(-spread, spread)
+            cy = TEX // 2 + rng.randint(-spread, spread)
+            base_size = TEX * rng.uniform(0.10, 0.22) * size_scale
             leaf_w = int(base_size * aspect)
             leaf_h = int(base_size)
             rot = rng.uniform(0, math.pi * 2)
@@ -287,12 +292,12 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic"
 
 def create_leaf_material(name, leaf_shape="elliptic", n_leaves=22,
                          tex_size=512, seed=42, draw_twigs=True,
-                         fascicle_mode=False):
+                         fascicle_mode=False, spread=None, size_scale=1.0):
     """Create a leaf material with a multi-leaf cluster texture."""
     leaf_img = generate_leaf_texture(
         f"{name}Tex", tex_size=tex_size, n_leaves=n_leaves,
         leaf_shape=leaf_shape, seed=seed, draw_twigs=draw_twigs,
-        fascicle_mode=fascicle_mode)
+        fascicle_mode=fascicle_mode, spread=spread, size_scale=size_scale)
 
     mat = bpy.data.materials.new(name=name)
     mat.use_nodes = True

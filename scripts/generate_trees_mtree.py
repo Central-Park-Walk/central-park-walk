@@ -1572,8 +1572,8 @@ def create_crown_fill_cards(placements, leaf_mat, rng, target_height):
     # 250m × 5px / 1663 px_per_m_at_1m ≈ 0.75m minimum
     # Use 0.9-1.6m for good overlap
     base_card = target_height * 0.06  # ~1.2m for a 20m tree
-    n_fronds = max(int(80 * (rx * rz) / 4.0), 40)  # scale with crown area
-    n_fronds = min(n_fronds, 150)
+    n_fronds = max(int(100 * (rx * rz) / 4.0), 60)  # scale with crown area
+    n_fronds = min(n_fronds, 200)
 
     all_objects = []
     bm = bmesh.new()
@@ -1596,8 +1596,8 @@ def create_crown_fill_cards(placements, leaf_mat, rng, target_height):
         # Random orientation: full yaw, moderate pitch
         yaw = rng.uniform(0, math.pi * 2)
         pitch = rng.uniform(-0.8, 0.8)
-        # 30% near-horizontal for overhead coverage
-        if rng.random() < 0.30:
+        # 40% near-horizontal for overhead coverage (critical for aerial views)
+        if rng.random() < 0.40:
             pitch = rng.uniform(1.0, 1.45)
 
         half_w, half_h = w * 0.5, h * 0.5
@@ -1690,6 +1690,36 @@ def create_crossed_billboard_cards(placements, leaf_mat, rng, target_height):
         for loop, uv in zip(face.loops, [(0, 0), (1, 0), (1, 1), (0, 1)]):
             loop[uv_layer].uv = uv
 
+    # Horizontal crown-cap cards: 2-3 near-horizontal quads at the top of
+    # the crown. Without these, overhead views see through all vertical
+    # planes. Essential for the "green carpet" look from aerial perspectives.
+    for cap_i in range(3):
+        cap_y = cy + half_h * rng.uniform(0.5, 0.9)
+        cap_r = max(half_w, half_d) * rng.uniform(0.7, 1.1)
+        cap_angle = rng.uniform(0, math.pi * 2)  # random yaw
+        cap_tilt = rng.uniform(-0.15, 0.15)       # slight tilt for natural look
+        cos_ca, sin_ca = math.cos(cap_angle), math.sin(cap_angle)
+        cos_ct, sin_ct = math.cos(cap_tilt), math.sin(cap_tilt)
+
+        local = [
+            (-cap_r, 0, -cap_r),
+            ( cap_r, 0, -cap_r),
+            ( cap_r, 0,  cap_r),
+            (-cap_r, 0,  cap_r),
+        ]
+        cap_corners = []
+        for lx, ly, lz in local:
+            rx2 = lx * cos_ca - lz * sin_ca
+            rz2 = lx * sin_ca + lz * cos_ca
+            ry2 = ly * cos_ct - rz2 * sin_ct
+            rz3 = ly * sin_ct + rz2 * cos_ct
+            cap_corners.append(Vector((cx + rx2, cap_y + ry2, cz + rz3)))
+
+        bm_verts = [bm.verts.new(c) for c in cap_corners]
+        face = bm.faces.new(bm_verts)
+        for loop, uv in zip(face.loops, [(0, 0), (1, 0), (1, 1), (0, 1)]):
+            loop[uv_layer].uv = uv
+
     mesh = bpy.data.meshes.new("crossed_billboards")
     bm.to_mesh(mesh)
     bm.free()
@@ -1715,14 +1745,33 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
     print(f"{'='*60}")
 
     # Create leaf material (shared across variants)
+    # LOD1/LOD2 use denser textures: more leaves, wider spread, larger size.
+    # At 130m+ you can't see individual leaves — you need solid green mass.
     fascicle = sp["leaf_shape"] == "needle"
+    tier_n_leaves = sp["leaf_n"]
+    tier_spread = None       # default (TEX // 4)
+    tier_size_scale = 1.0
+    tier_twigs = True
+    if tier_name == "m":
+        tier_n_leaves = max(int(sp["leaf_n"] * 2.5), 50)
+        tier_spread = sp["leaf_tex_size"] * 2 // 5
+        tier_size_scale = 1.3
+        tier_twigs = False
+    elif tier_name == "s":
+        tier_n_leaves = max(int(sp["leaf_n"] * 3), 60)
+        tier_spread = sp["leaf_tex_size"] * 2 // 5
+        tier_size_scale = 1.5
+        tier_twigs = False
     leaf_mat = create_leaf_material(
         f"{species_name}_leaf",
         leaf_shape=sp["leaf_shape"],
-        n_leaves=sp["leaf_n"],
+        n_leaves=tier_n_leaves,
         tex_size=sp["leaf_tex_size"],
         seed=sp["leaf_seed"],
         fascicle_mode=fascicle,
+        draw_twigs=tier_twigs,
+        spread=tier_spread,
+        size_scale=tier_size_scale,
     )
     # Viewport display color for Workbench thumbnail renderer
     if fascicle:
