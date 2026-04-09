@@ -320,7 +320,11 @@ func _build_trees(trees: Array) -> void:
 							var leaf_mat := ShaderMaterial.new()
 							leaf_mat.shader = leaf_shader
 							leaf_mat.set_shader_parameter("albedo_tint", leaf_tint)
-							if ltexs[mi]:
+							# Prefer DDS with coverage-preserving mipmaps over GLB-embedded texture
+							var dds_path := "res://textures/leaves/%s_leaf.dds" % model_base
+							if ResourceLoader.exists(dds_path):
+								leaf_mat.set_shader_parameter("albedo_tex", load(dds_path))
+							elif ltexs[mi]:
 								leaf_mat.set_shader_parameter("albedo_tex", ltexs[mi])
 							m.surface_set_material(si, leaf_mat)
 						else:
@@ -700,47 +704,10 @@ func _build_trees(trees: Array) -> void:
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		_loader.add_child(mmi)
 
-	# --- Canopy occluders for dense woodland chunks ---
-	var occ_count := 0
-	for bk in chunk_bounds:
-		var b: Dictionary = chunk_bounds[bk]
-		if b["n"] < 6:
-			continue  # too sparse to occlude
-		var parts: PackedStringArray = bk.split("|")
-		var cx_i := int(parts[0])
-		var cz_i := int(parts[1])
-		var chunk_center_z := (cz_i + 0.5) * CHUNK
-		var in_woodland := false
-		for zr in WOODLAND_Z:
-			if chunk_center_z >= zr[0] and chunk_center_z <= zr[1]:
-				in_woodland = true
-				break
-		if not in_woodland:
-			continue
-		# Build box occluder spanning the canopy volume
-		var sx: float = maxf(float(b["x1"]) - float(b["x0"]), 4.0)
-		var sz: float = maxf(float(b["z1"]) - float(b["z0"]), 4.0)
-		var sy: float = maxf(float(b["yt"]) - float(b["yb"]), 3.0)
-		# Shrink slightly so camera inside canopy doesn't trigger self-occlusion
-		var occ := BoxOccluder3D.new()
-		occ.size = Vector3(sx * 0.85, sy * 0.7, sz * 0.85)
-		var oi := OccluderInstance3D.new()
-		oi.occluder = occ
-		var cx_mid: float = (float(b["x0"]) + float(b["x1"])) * 0.5
-		var cz_mid: float = (float(b["z0"]) + float(b["z1"])) * 0.5
-		var cy_mid: float = (float(b["yb"]) + float(b["yt"])) * 0.5
-		oi.position = Vector3(cx_mid, cy_mid, cz_mid)
-		oi.name = "TreeOcc_%d_%d" % [cx_i, cz_i]
-		# Limit occluder to range where solid tree geometry exists (LOD0-LOD1).
-		# Without this, occluders hide terrain even during LOD gaps, causing
-		# terrain to pop in/out and water/land to flicker.
-		oi.visibility_range_begin = 0.0
-		oi.visibility_range_end = 350.0
-		oi.visibility_range_end_margin = 60.0
-		_loader.add_child(oi)
-		occ_count += 1
-	if occ_count > 0:
-		print("Trees: %d canopy occluders in woodland zones" % occ_count)
+	# Canopy occluders disabled: OccluderInstance3D inherits Node3D (not
+	# GeometryInstance3D) so visibility_range cannot limit them. Without a
+	# distance gate they stay active at all ranges, hiding LOD2/impostor
+	# trees behind canopy boxes and making distant woodland look sparse.
 
 	# --- LOD1: _m models (derived from _l — same silhouette) ---
 	_build_lod_tier_chunks(_lod1_xf, _lod1_cd, "TreeL1",

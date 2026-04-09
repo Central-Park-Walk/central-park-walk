@@ -1762,6 +1762,18 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
     else:
         leaf_mat.diffuse_color = (0.38, 0.62, 0.30, 1.0)  # deciduous green
 
+    # Export leaf texture as PNG for DDS pipeline (coverage-preserving mipmaps).
+    # Only needs to happen once per species (all tiers share the same texture).
+    png_dir = os.path.join(MODEL_DIR, "leaf_textures")
+    os.makedirs(png_dir, exist_ok=True)
+    png_path = os.path.join(png_dir, f"{species_name}_leaf.png")
+    if not os.path.exists(png_path) or tier_name == "l":
+        leaf_img = leaf_mat.node_tree.nodes["Image Texture"].image
+        leaf_img.filepath_raw = png_path
+        leaf_img.file_format = 'PNG'
+        leaf_img.save()
+        print(f"  Leaf texture: {png_path}")
+
     # Create bark material
     bark_mat = bpy.data.materials.new(f"{species_name}_bark")
     bark_mat.use_nodes = True
