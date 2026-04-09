@@ -709,12 +709,12 @@ func _build_trees(trees: Array) -> void:
 	# distance gate they stay active at all ranges, hiding LOD2/impostor
 	# trees behind canopy boxes and making distant woodland look sparse.
 
-	# --- LOD1: _m models — narrowed range, impostors handle 200m+ ---
+	# --- LOD1: _m models — narrow crossfade band, impostor takes over at 180m ---
 	_build_lod_tier_chunks(_lod1_xf, _lod1_cd, "TreeL1",
-		130.0, 250.0, 50.0, 50.0)
-	# --- LOD2: _s models — thin band before impostor takeover ---
-	_build_lod_tier_chunks(_lod2_xf, _lod2_cd, "TreeL2",
-		200.0, 350.0, 50.0, 50.0)
+		130.0, 180.0, 30.0, 20.0)
+	# --- LOD2: _s models — disabled (impostor handles 160m+) ---
+	#_build_lod_tier_chunks(_lod2_xf, _lod2_cd, "TreeL2",
+	#	180.0, 220.0, 20.0, 20.0)
 
 	_build_tree_collision(all_trunk_xf)
 	# Debug: print a few tree heights to verify scale
@@ -1015,10 +1015,10 @@ func _build_canopy_shells() -> void:
 		mmi.material_override = _impostor_materials[model_name]
 		mmi.position = chunk_origin
 		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
-		# LOD3: octahedral billboard impostors — pulled close for solid canopy at distance
-		mmi.visibility_range_begin = 200.0
+		# LOD3: octahedral billboard impostors — start right where LOD0 ends
+		mmi.visibility_range_begin = 150.0
 		mmi.visibility_range_end = 2500.0
-		mmi.visibility_range_begin_margin = 80.0
+		mmi.visibility_range_begin_margin = 30.0
 		mmi.visibility_range_end_margin = 200.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
