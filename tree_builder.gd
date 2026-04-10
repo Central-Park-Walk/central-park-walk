@@ -52,16 +52,16 @@ const TIER_BOUNDS := {
 	"cathedral_elm": [0.0, 26.0],   # no _s tier — all Mall elms are mature
 	"deciduous":     [14.0, 22.0],
 	"pine":          [10.0, 18.0],
-	"birch":         [8.0, 12.0],
+	"birch":         [0.0, 12.0],   # no _s tier (0 in census)
 	"cherry":        [9.0, 16.0],
 	"honeylocust":   [14.0, 22.0],
 	"callery_pear":  [10.0, 18.0],
 	"ginkgo":        [14.0, 22.0],
-	"london_plane":  [15.0, 25.0],
+	"london_plane":  [0.0, 25.0],   # no _s tier (0 in census)
 	"linden":        [14.0, 22.0],
-	"willow":        [14.0, 20.0],
-	"magnolia":      [9.0, 16.0],
-	"conifer":       [10.0, 18.0],  # shares pine models
+	"willow":        [14.0, 999.0], # no _l tier (0 in census); only _s and _m
+	"magnolia":      [0.0, 0.0],    # only _s tier (41 in census, all small)
+	"conifer":       [0.0, 18.0],   # no _s tier (0 in census); shares pine models
 	"zelkova":       [14.0, 22.0],  # shares elm models
 	"dead":          [0.0, 0.0],    # no tiers
 }

@@ -576,8 +576,6 @@ SPECIES = {
         "base_seed": 400,
         "seed_step": 29,
         "tiers": {
-            "s": {"target_h": 8, "height_range": [6, 10], "skeleton_overrides": {
-                "branch_density": 1.2, "branch_split_prob": 0.25, "sub_density": 0.6}},
             "m": {"target_h": 14, "height_range": [10, 18], "skeleton_overrides": {
                 "branch_density": 1.6, "branch_split_prob": 0.35, "sub_density": 1.5}},
             "l": {"target_h": 20, "height_range": [18, 25]},
@@ -682,8 +680,6 @@ SPECIES = {
         "base_seed": 300,
         "seed_step": 23,
         "tiers": {
-            "s": {"target_h": 6, "height_range": [4, 8], "skeleton_overrides": {
-                "branch_density": 0.6, "branch_split_prob": 0.20, "sub_density": 0.3}},
             "m": {"target_h": 9, "height_range": [8, 12], "skeleton_overrides": {
                 "branch_density": 0.8, "branch_split_prob": 0.30, "sub_density": 0.8}},
             "l": {"target_h": 14, "height_range": [12, 16]},
@@ -848,7 +844,6 @@ SPECIES = {
                 "branch_density": 0.7, "branch_split_prob": 0.25, "sub_density": 0.3}},
             "m": {"target_h": 16, "height_range": [14, 20], "skeleton_overrides": {
                 "branch_density": 1.0, "branch_split_prob": 0.35, "sub_density": 0.8}},
-            "l": {"target_h": 22, "height_range": [20, 26]},
         },
     },
 
@@ -949,8 +944,6 @@ SPECIES = {
         "base_seed": 200,
         "seed_step": 31,
         "tiers": {
-            "s": {"target_h": 12, "height_range": [8, 15], "skeleton_overrides": {
-                "branch_density": 0.7, "branch_split_prob": 0.30, "sub_density": 0.3}},
             "m": {"target_h": 22, "height_range": [15, 25], "skeleton_overrides": {
                 "branch_density": 0.9, "branch_split_prob": 0.45, "sub_density": 0.7}},
             "l": {"target_h": 30, "height_range": [25, 35]},
@@ -1060,9 +1053,6 @@ SPECIES = {
         "tiers": {
             "s": {"target_h": 7, "height_range": [5, 9], "skeleton_overrides": {
                 "branch_density": 0.7, "branch_split_prob": 0.25, "sub_density": 0.3}},
-            "m": {"target_h": 12, "height_range": [9, 16], "skeleton_overrides": {
-                "branch_density": 1.0, "branch_split_prob": 0.35, "sub_density": 0.8}},
-            "l": {"target_h": 18, "height_range": [16, 22]},
         },
     },
 
