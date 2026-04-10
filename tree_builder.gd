@@ -887,7 +887,8 @@ func _load_impostor_atlases() -> void:
 				imp_scale = d.get("scale", imp_scale)
 				aabb_max = d.get("aabb_max", imp_scale * 0.5)
 				var po: Array = d.get("position_offset", [0, 0, 0])
-				pos_offset = Vector3(po[0], po[1], po[2])
+				# Negate Z: bake script outputs Blender coords, Godot uses -Z forward
+				pos_offset = Vector3(po[0], po[1], -po[2])
 			f.close()
 		_impostor_meta[model_name] = {
 			"scale": imp_scale,
@@ -1018,12 +1019,24 @@ func _build_canopy_shells() -> void:
 		# LOD3: octahedral billboard impostors — start right where LOD0 ends
 		mmi.visibility_range_begin = 150.0
 		mmi.visibility_range_end = 2500.0
-		mmi.visibility_range_begin_margin = 30.0
-		mmi.visibility_range_end_margin = 200.0
-		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		mmi.visibility_range_begin_margin = 0.0
+		mmi.visibility_range_end_margin = 0.0
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_loader.add_child(mmi)
 		impostor_count += xf_list.size()
 
+	# Debug: dump first impostor chunk details
+	var _dbg_imp := 0
+	for ck in chunks:
+		if _dbg_imp >= 3: break
+		var cd = chunks[ck]
+		var mmi_node = _loader.find_child("TreeImp_%s_%s" % [cd.model, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)], false)
+		if mmi_node:
+			print("  DBG impostor '%s': pos=%s vis=%s-%s instances=%d" % [
+				mmi_node.name, mmi_node.position,
+				mmi_node.visibility_range_begin, mmi_node.visibility_range_end,
+				mmi_node.multimesh.instance_count])
+			_dbg_imp += 1
 	print("Trees LOD3: %d octahedral billboard impostors in %d chunks (%d species)" % [
 		impostor_count, chunks.size(), _impostor_materials.size()])
