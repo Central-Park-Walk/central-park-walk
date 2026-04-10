@@ -229,14 +229,23 @@ func _build_trees(trees: Array) -> void:
 			push_warning("Trees: missing bark textures for style %d" % style_id)
 
 	var _base_model_names := ["maple", "birch", "deciduous", "pine", "elm", "oak", "cherry", "ginkgo", "honeylocust", "linden", "london_plane", "callery_pear", "dead", "willow", "magnolia", "cathedral_elm"]
-	# Load tiered models (_s, _m, _l) for each base model. Dead has no tiers.
+	# Load tiered models (_s, _m, _l) + decimated LOD variants for each.
+	# The _s/_m/_l are age/size variants (different trees). The _lod1/_lod2
+	# are decimated versions of the SAME tree (same shape, fewer polygons).
 	for base_name in _base_model_names:
 		var tier_list: Array
 		if base_name == "dead":
-			tier_list = [""]  # single model, no tier suffix
+			tier_list = [""]
 		else:
 			tier_list = ["_s", "_m", "_l"]
-		for tier_suffix in tier_list:
+		# Also load decimated LOD variants (_s_lod1, _s_lod2, _m_lod1, etc.)
+		var full_list: Array = []
+		for ts in tier_list:
+			full_list.append(ts)
+			if ts != "":
+				full_list.append(ts + "_lod1")
+				full_list.append(ts + "_lod2")
+		for tier_suffix in full_list:
 			var model_key: String = base_name + tier_suffix
 			# Try .res cache first (skips GLTF parsing — much faster on subsequent loads)
 			var cached := _try_load_cached_tree(model_key)
@@ -310,7 +319,9 @@ func _build_trees(trees: Array) -> void:
 		if archetype == "dead":
 			tier_suffixes = [""]
 		else:
-			tier_suffixes = ["_s", "_m", "_l"]
+			# Include decimated LOD variants alongside base tiers
+			tier_suffixes = ["_s", "_m", "_l",
+				"_s_lod1", "_s_lod2", "_m_lod1", "_m_lod2", "_l_lod1", "_l_lod2"]
 		for tier_suffix in tier_suffixes:
 			var model_key: String = model_base + tier_suffix
 			if not base_meshes.has(model_key):
@@ -544,37 +555,17 @@ func _build_trees(trees: Array) -> void:
 		var cd := Color(float(pheno_idx) / 13.0, timing_off + 0.5, is_evergreen, color_jitter)
 		cd_by_key[key].append(cd)
 
-		# 4-tier LOD chain: LOD0=best, LOD1=_m, LOD2=_s, LOD3=impostor
-		# Every tree MUST populate ALL tiers to avoid distance gaps.
-		# Missing _m/_s variants reuse the tree's own mesh — crossfade
-		# is invisible (same mesh at different visibility ranges).
+		# LOD chain: decimated versions of the SAME tree model.
+		# Each tree keeps its identity across all LOD tiers — same trunk,
+		# same branches, same leaf positions, just fewer triangles.
+		# Falls back to LOD0 mesh if decimated variant not available.
 		for lod_idx in [1, 2]:
-			var lod_tier_suffix: String
-			if lod_idx == 1:
-				# LOD1 prefers _m; falls back to _s, then same tier
-				if _species_meshes.has(species + "_m"):
-					lod_tier_suffix = "_m"
-				elif _species_meshes.has(species + "_s"):
-					lod_tier_suffix = "_s"
-				else:
-					lod_tier_suffix = tier_suffix
-			else:
-				# LOD2 always _s (cheapest 3D)
-				if _species_meshes.has(species + "_s"):
-					lod_tier_suffix = "_s"
-				elif _species_meshes.has(species + "_m"):
-					lod_tier_suffix = "_m"
-				else:
-					lod_tier_suffix = tier_suffix
-			var lod_sp := species + lod_tier_suffix
+			var lod_sp := species_tier + "_lod%d" % lod_idx
 			if not _species_meshes.has(lod_sp):
-				lod_sp = "deciduous" + lod_tier_suffix
+				# Fallback: reuse the tree's own LOD0 mesh
+				lod_sp = species_tier
 			if not _species_meshes.has(lod_sp):
-				# Final fallback: reuse the tree's own mesh rather than
-				# skipping this LOD tier (which creates a visibility gap)
-				lod_sp = species + tier_suffix
-			if not _species_meshes.has(lod_sp):
-				continue  # truly no mesh available
+				continue
 			var lod_vars: Array = _species_meshes[lod_sp]
 			var lod_vi := i % lod_vars.size()
 			var lod_mh: float = _species_heights.get(lod_sp, mesh_h)
