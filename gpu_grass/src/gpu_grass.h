@@ -46,6 +46,8 @@ private:
 	RID compute_pipeline;
 	RID uniform_set;
 	RID heightmap_sampler;
+	RID landuse_sampler;
+	RID canopy_sampler;
 
 	// State
 	bool initialized = false;

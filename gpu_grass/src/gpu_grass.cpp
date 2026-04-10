@@ -137,6 +137,7 @@ void GPUGrass::_initialize() {
 
 	_setup_compute();
 	if (!compute_pipeline.is_valid()) {
+		UtilityFunctions::push_error("GPUGrass: Compute pipeline creation failed");
 		return;
 	}
 
@@ -169,7 +170,8 @@ void GPUGrass::_setup_multimesh() {
 		rs->instance_geometry_set_material_override(mm_instance_rid, grass_material->get_rid());
 	}
 
-	AABB big_aabb(Vector3(-3000, -100, -3000), Vector3(6000, 200, 6000));
+	float half_ws = world_size * 0.5f;
+	AABB big_aabb(Vector3(-half_ws, -100, -half_ws), Vector3(world_size, 200, world_size));
 	rs->multimesh_set_custom_aabb(mm_rid, big_aabb);
 
 	instance_buffer = rs->multimesh_get_buffer_rd_rid(mm_rid);
@@ -218,14 +220,24 @@ void GPUGrass::_setup_compute() {
 
 	compute_pipeline = rd->compute_pipeline_create(compute_shader);
 
-	// Create sampler for texture lookups
-	Ref<RDSamplerState> sampler_state;
-	sampler_state.instantiate();
-	sampler_state->set_mag_filter(RenderingDevice::SAMPLER_FILTER_LINEAR);
-	sampler_state->set_min_filter(RenderingDevice::SAMPLER_FILTER_LINEAR);
-	sampler_state->set_repeat_u(RenderingDevice::SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE);
-	sampler_state->set_repeat_v(RenderingDevice::SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE);
-	heightmap_sampler = rd->sampler_create(sampler_state);
+	// Create samplers for texture lookups — each texture type gets appropriate filtering
+	Ref<RDSamplerState> linear_state;
+	linear_state.instantiate();
+	linear_state->set_mag_filter(RenderingDevice::SAMPLER_FILTER_LINEAR);
+	linear_state->set_min_filter(RenderingDevice::SAMPLER_FILTER_LINEAR);
+	linear_state->set_repeat_u(RenderingDevice::SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE);
+	linear_state->set_repeat_v(RenderingDevice::SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE);
+	heightmap_sampler = rd->sampler_create(linear_state);
+	canopy_sampler = rd->sampler_create(linear_state);
+
+	// Landuse needs NEAREST filtering to preserve zone ID precision
+	Ref<RDSamplerState> nearest_state;
+	nearest_state.instantiate();
+	nearest_state->set_mag_filter(RenderingDevice::SAMPLER_FILTER_NEAREST);
+	nearest_state->set_min_filter(RenderingDevice::SAMPLER_FILTER_NEAREST);
+	nearest_state->set_repeat_u(RenderingDevice::SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE);
+	nearest_state->set_repeat_v(RenderingDevice::SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE);
+	landuse_sampler = rd->sampler_create(nearest_state);
 
 	// --- Set 0: Storage buffers ---
 	TypedArray<RDUniform> set0_uniforms;
@@ -257,26 +269,26 @@ void GPUGrass::_setup_compute() {
 		set0_uniforms.push_back(u_hm);
 	}
 
-	// Landuse
+	// Landuse — NEAREST sampler for zone ID precision
 	RID lu_rd = _get_texture_rd_rid(landuse_texture);
 	if (lu_rd.is_valid()) {
 		Ref<RDUniform> u_lu;
 		u_lu.instantiate();
 		u_lu->set_uniform_type(RenderingDevice::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE);
 		u_lu->set_binding(3);
-		u_lu->add_id(heightmap_sampler);
+		u_lu->add_id(landuse_sampler);
 		u_lu->add_id(lu_rd);
 		set0_uniforms.push_back(u_lu);
 	}
 
-	// Canopy
+	// Canopy — LINEAR sampler for smooth density gradients
 	RID cn_rd = _get_texture_rd_rid(canopy_texture);
 	if (cn_rd.is_valid()) {
 		Ref<RDUniform> u_cn;
 		u_cn.instantiate();
 		u_cn->set_uniform_type(RenderingDevice::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE);
 		u_cn->set_binding(4);
-		u_cn->add_id(heightmap_sampler);
+		u_cn->add_id(canopy_sampler);
 		u_cn->add_id(cn_rd);
 		set0_uniforms.push_back(u_cn);
 	}
@@ -362,6 +374,14 @@ void GPUGrass::_cleanup() {
 		if (heightmap_sampler.is_valid()) {
 			rd->free_rid(heightmap_sampler);
 			heightmap_sampler = RID();
+		}
+		if (landuse_sampler.is_valid()) {
+			rd->free_rid(landuse_sampler);
+			landuse_sampler = RID();
+		}
+		if (canopy_sampler.is_valid()) {
+			rd->free_rid(canopy_sampler);
+			canopy_sampler = RID();
 		}
 		rd = nullptr;
 	}
