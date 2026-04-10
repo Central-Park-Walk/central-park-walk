@@ -887,8 +887,10 @@ func _load_impostor_atlases() -> void:
 				imp_scale = d.get("scale", imp_scale)
 				aabb_max = d.get("aabb_max", imp_scale * 0.5)
 				var po: Array = d.get("position_offset", [0, 0, 0])
-				# Negate Z: bake script outputs Blender coords, Godot uses -Z forward
-				pos_offset = Vector3(po[0], po[1], -po[2])
+				# Blender→Godot axis: (X,Y,Z) → (X, Z, -Y)
+				# Y offset zeroed: instance is already at crown center,
+				# bake camera also targeted crown center. Only XZ displacement matters.
+				pos_offset = Vector3(po[0], 0.0, -po[1])
 			f.close()
 		_impostor_meta[model_name] = {
 			"scale": imp_scale,
