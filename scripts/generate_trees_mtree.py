@@ -372,8 +372,10 @@ SPECIES = {
         "base_seed": 105,   # shifted from 100 to avoid Mtree mesher crash at _m tier
         "seed_step": 23,
         "tiers": {
-            "s": {"target_h": 10, "height_range": [8, 12]},
-            "m": {"target_h": 18, "height_range": [12, 20]},
+            "s": {"target_h": 10, "height_range": [8, 12], "skeleton_overrides": {
+                "branch_density": 0.7, "branch_split_prob": 0.30, "sub_density": 0.4}},
+            "m": {"target_h": 18, "height_range": [12, 20], "skeleton_overrides": {
+                "branch_density": 1.0, "branch_split_prob": 0.45, "sub_density": 1.0}},
             "l": {"target_h": 25, "height_range": [20, 30]},
         },
     },
@@ -421,8 +423,10 @@ SPECIES = {
         "base_seed": 42,
         "seed_step": 17,
         "tiers": {
-            "s": {"target_h": 12, "height_range": [8, 14]},
-            "m": {"target_h": 20, "height_range": [14, 22]},
+            "s": {"target_h": 12, "height_range": [8, 14], "skeleton_overrides": {
+                "branch_density": 0.8, "branch_split_prob": 0.30, "sub_density": 0.2}},
+            "m": {"target_h": 20, "height_range": [14, 22], "skeleton_overrides": {
+                "branch_density": 1.1, "branch_split_prob": 0.40, "sub_density": 0.5}},
             "l": {"target_h": 28, "height_range": [22, 30]},
         },
     },
@@ -470,8 +474,10 @@ SPECIES = {
         "base_seed": 101,
         "seed_step": 23,
         "tiers": {
-            "s": {"target_h": 15, "height_range": [12, 18]},
-            "m": {"target_h": 22, "height_range": [18, 26]},
+            "s": {"target_h": 15, "height_range": [12, 18], "skeleton_overrides": {
+                "branch_density": 0.7, "branch_split_prob": 0.30, "sub_density": 0.05}},
+            "m": {"target_h": 22, "height_range": [18, 26], "skeleton_overrides": {
+                "branch_density": 0.9, "branch_split_prob": 0.45, "sub_density": 0.12}},
             "l": {"target_h": 30, "height_range": [26, 35]},
         },
     },
@@ -519,8 +525,10 @@ SPECIES = {
         "base_seed": 300,
         "seed_step": 29,
         "tiers": {
-            "s": {"target_h": 10, "height_range": [8, 14]},
-            "m": {"target_h": 18, "height_range": [14, 22]},
+            "s": {"target_h": 10, "height_range": [8, 14], "skeleton_overrides": {
+                "branch_density": 0.8, "branch_split_prob": 0.30, "sub_density": 0.4}},
+            "m": {"target_h": 18, "height_range": [14, 22], "skeleton_overrides": {
+                "branch_density": 1.1, "branch_split_prob": 0.40, "sub_density": 1.0}},
             "l": {"target_h": 25, "height_range": [22, 28]},
         },
     },
@@ -570,8 +578,10 @@ SPECIES = {
         "base_seed": 400,
         "seed_step": 29,
         "tiers": {
-            "s": {"target_h": 8, "height_range": [6, 10]},
-            "m": {"target_h": 14, "height_range": [10, 18]},
+            "s": {"target_h": 8, "height_range": [6, 10], "skeleton_overrides": {
+                "branch_density": 1.2, "branch_split_prob": 0.25, "sub_density": 0.6}},
+            "m": {"target_h": 14, "height_range": [10, 18], "skeleton_overrides": {
+                "branch_density": 1.6, "branch_split_prob": 0.35, "sub_density": 1.5}},
             "l": {"target_h": 20, "height_range": [18, 25]},
         },
     },
@@ -620,8 +630,10 @@ SPECIES = {
         "base_seed": 200,
         "seed_step": 19,
         "tiers": {
-            "s": {"target_h": 7, "height_range": [5, 9]},
-            "m": {"target_h": 12, "height_range": [9, 16]},
+            "s": {"target_h": 7, "height_range": [5, 9], "skeleton_overrides": {
+                "branch_density": 0.8, "branch_split_prob": 0.25, "sub_density": 0.4}},
+            "m": {"target_h": 12, "height_range": [9, 16], "skeleton_overrides": {
+                "branch_density": 1.1, "branch_split_prob": 0.35, "sub_density": 1.0}},
             "l": {"target_h": 18, "height_range": [16, 22]},
         },
     },
@@ -672,8 +684,10 @@ SPECIES = {
         "base_seed": 300,
         "seed_step": 23,
         "tiers": {
-            "s": {"target_h": 6, "height_range": [4, 8]},
-            "m": {"target_h": 9, "height_range": [8, 12]},
+            "s": {"target_h": 6, "height_range": [4, 8], "skeleton_overrides": {
+                "branch_density": 0.6, "branch_split_prob": 0.20, "sub_density": 0.3}},
+            "m": {"target_h": 9, "height_range": [8, 12], "skeleton_overrides": {
+                "branch_density": 0.8, "branch_split_prob": 0.30, "sub_density": 0.8}},
             "l": {"target_h": 14, "height_range": [12, 16]},
         },
     },
@@ -723,8 +737,10 @@ SPECIES = {
         "base_seed": 400,
         "seed_step": 29,
         "tiers": {
-            "s": {"target_h": 10, "height_range": [8, 14]},
-            "m": {"target_h": 18, "height_range": [14, 22]},
+            "s": {"target_h": 10, "height_range": [8, 14], "skeleton_overrides": {
+                "branch_density": 0.6, "branch_split_prob": 0.30, "sub_density": 0.3}},
+            "m": {"target_h": 18, "height_range": [14, 22], "skeleton_overrides": {
+                "branch_density": 0.8, "branch_split_prob": 0.40, "sub_density": 0.8}},
             "l": {"target_h": 25, "height_range": [22, 28]},
         },
     },
@@ -774,8 +790,10 @@ SPECIES = {
         "base_seed": 362,     # Shifted from 351 to avoid Mtree mesher crash at _m tier
         "seed_step": 23,
         "tiers": {
-            "s": {"target_h": 8, "height_range": [6, 10]},
-            "m": {"target_h": 14, "height_range": [10, 18]},
+            "s": {"target_h": 8, "height_range": [6, 10], "skeleton_overrides": {
+                "branch_density": 0.8, "branch_split_prob": 0.25, "sub_density": 0.3}},
+            "m": {"target_h": 14, "height_range": [10, 18], "skeleton_overrides": {
+                "branch_density": 1.0, "branch_split_prob": 0.35, "sub_density": 0.8}},
             "l": {"target_h": 20, "height_range": [18, 24]},
         },
     },
@@ -828,8 +846,10 @@ SPECIES = {
         "base_seed": 50,
         "seed_step": 41,
         "tiers": {
-            "s": {"target_h": 12, "height_range": [8, 14]},
-            "m": {"target_h": 16, "height_range": [14, 20]},
+            "s": {"target_h": 12, "height_range": [8, 14], "skeleton_overrides": {
+                "branch_density": 0.7, "branch_split_prob": 0.25, "sub_density": 0.3}},
+            "m": {"target_h": 16, "height_range": [14, 20], "skeleton_overrides": {
+                "branch_density": 1.0, "branch_split_prob": 0.35, "sub_density": 0.8}},
             "l": {"target_h": 22, "height_range": [20, 26]},
         },
     },
@@ -879,8 +899,10 @@ SPECIES = {
         "base_seed": 500,
         "seed_step": 37,
         "tiers": {
-            "s": {"target_h": 10, "height_range": [8, 14]},
-            "m": {"target_h": 18, "height_range": [14, 22]},
+            "s": {"target_h": 10, "height_range": [8, 14], "skeleton_overrides": {
+                "branch_density": 0.8, "branch_split_prob": 0.30, "sub_density": 0.4}},
+            "m": {"target_h": 18, "height_range": [14, 22], "skeleton_overrides": {
+                "branch_density": 1.1, "branch_split_prob": 0.40, "sub_density": 1.0}},
             "l": {"target_h": 25, "height_range": [22, 28]},
         },
     },
@@ -929,8 +951,10 @@ SPECIES = {
         "base_seed": 200,
         "seed_step": 31,
         "tiers": {
-            "s": {"target_h": 12, "height_range": [8, 15]},
-            "m": {"target_h": 22, "height_range": [15, 25]},
+            "s": {"target_h": 12, "height_range": [8, 15], "skeleton_overrides": {
+                "branch_density": 0.7, "branch_split_prob": 0.30, "sub_density": 0.3}},
+            "m": {"target_h": 22, "height_range": [15, 25], "skeleton_overrides": {
+                "branch_density": 0.9, "branch_split_prob": 0.45, "sub_density": 0.7}},
             "l": {"target_h": 30, "height_range": [25, 35]},
         },
     },
@@ -984,8 +1008,10 @@ SPECIES = {
         "base_seed": 50,
         "seed_step": 31,
         "tiers": {
-            "s": {"target_h": 10, "height_range": [8, 14]},
-            "m": {"target_h": 18, "height_range": [14, 22]},
+            "s": {"target_h": 10, "height_range": [8, 14], "skeleton_overrides": {
+                "branch_density": 0.5, "branch_split_prob": 0.25, "sub_density": 0.3}},
+            "m": {"target_h": 18, "height_range": [14, 22], "skeleton_overrides": {
+                "branch_density": 0.7, "branch_split_prob": 0.35, "sub_density": 0.8}},
             "l": {"target_h": 22, "height_range": [20, 25]},
         },
     },
@@ -1034,8 +1060,10 @@ SPECIES = {
         "base_seed": 500,
         "seed_step": 29,
         "tiers": {
-            "s": {"target_h": 7, "height_range": [5, 9]},
-            "m": {"target_h": 12, "height_range": [9, 16]},
+            "s": {"target_h": 7, "height_range": [5, 9], "skeleton_overrides": {
+                "branch_density": 0.7, "branch_split_prob": 0.25, "sub_density": 0.3}},
+            "m": {"target_h": 12, "height_range": [9, 16], "skeleton_overrides": {
+                "branch_density": 1.0, "branch_split_prob": 0.35, "sub_density": 0.8}},
             "l": {"target_h": 18, "height_range": [16, 22]},
         },
     },
@@ -1084,8 +1112,10 @@ SPECIES = {
         "base_seed": 700,
         "seed_step": 31,
         "tiers": {
-            "s": {"target_h": 10, "height_range": [8, 14]},
-            "m": {"target_h": 18, "height_range": [14, 22]},
+            "s": {"target_h": 10, "height_range": [8, 14], "skeleton_overrides": {
+                "branch_density": 0.7, "branch_split_prob": 0.30, "sub_density": 0.4}},
+            "m": {"target_h": 18, "height_range": [14, 22], "skeleton_overrides": {
+                "branch_density": 1.0, "branch_split_prob": 0.40, "sub_density": 1.0}},
             "l": {"target_h": 25, "height_range": [22, 28]},
         },
     },
@@ -1249,9 +1279,8 @@ def _extract_leaf_positions_tips(mesh_obj, sp, target_height, rng, tier="l"):
         return []
 
     density = sp.get("leaf_density", 0.75)
-    tier_cell_factor = {"l": 1.0, "m": 0.75, "s": 0.5}
     base_cell = target_height * 0.035
-    cell_size = base_cell / max(density, 0.3) * tier_cell_factor.get(tier, 1.0)
+    cell_size = base_cell / max(density, 0.3)
 
     clusters = {}
     for pos in tip_positions:
@@ -1264,10 +1293,8 @@ def _extract_leaf_positions_tips(mesh_obj, sp, target_height, rng, tier="l"):
             clusters[key] = []
         clusters[key].append(pos)
 
-    # Card size multiplier per tier — sized so the average card subtends ≥3 px
-    # at the tier's maximum viewing distance (LOD0=180m, LOD1=350m, LOD2=600m).
-    tier_size_factor = {"l": 1.4, "m": 3.0, "s": 7.0}
-    size_mult = tier_size_factor.get(tier, 1.0)
+    # Card size: uniform across all tiers (age/size variants, not LOD tiers)
+    size_mult = 1.4
 
     placements = []
     lo, hi = sp["leaf_cluster_size_range"]
@@ -1440,9 +1467,10 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
     # Build placements with size and flatten
     lo, hi = sp["leaf_cluster_size_range"]
     flo, fhi = sp["leaf_flatten_range"]
-    # Card size per tier — matches extract_leaf_positions_tips() factors.
-    tier_size_factor = {"l": 1.4, "m": 3.0, "s": 7.0}
-    size_mult = tier_size_factor.get(tier, 1.0)
+    # Card size: uniform across all tiers. The _s/_m/_l are age/size
+    # variants that render simultaneously, not LOD tiers — they all
+    # need the same per-cluster detail level.
+    size_mult = 1.4
 
     placements = []
     for pos in candidates:
@@ -1468,10 +1496,9 @@ def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=
 
     Returns a list of bmesh objects to be joined into the tree mesh.
     """
-    # Quads per cluster — lower tiers use fewer, larger cards. The _m/_s cards
-    # are physically 3-7× bigger, so fewer quads maintain equivalent coverage.
-    tier_quad_count = {"l": n_cards, "m": max(n_cards - 12, 12), "s": max(n_cards - 22, 8)}
-    n_quads = tier_quad_count.get(tier, n_cards)
+    # Quads per cluster — uniform across all tiers. The _s/_m/_l are
+    # age/size variants that coexist in the scene, not LOD tiers.
+    n_quads = n_cards
 
     all_objects = []
     for pos, size, flatten in placements:
@@ -1832,17 +1859,13 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
         # but before join (so only bark mesh is affected).
         clean_degenerate_geometry(trunk_obj)
 
-        # --- Create foliage geometry (tier-specific strategy) ---
-        # LOD0 (_l): AAA scatter — many small cards along branches
-        # LOD1 (_m): Crown fill — large frond cards filling crown volume
-        # LOD2 (_s): Crossed billboards — a few huge quads spanning crown
+        # --- Create foliage geometry (same strategy for all tiers) ---
+        # All tiers use AAA scatter — the _s/_m/_l are age/size variants
+        # that render simultaneously, not LOD tiers. Each needs full-quality
+        # leaf cards. Smaller trees naturally get fewer clusters (fewer
+        # branch tips), but each cluster gets the same detail level.
         n_cards = sp.get("cards_per_cluster", FOLIAGE_DEFAULTS["cards_per_cluster"])
-        if tier_name == "m":
-            leaf_objs = create_crown_fill_cards(placements, leaf_mat, rng, target_h)
-        elif tier_name == "s":
-            leaf_objs = create_crossed_billboard_cards(placements, leaf_mat, rng, target_h)
-        else:
-            leaf_objs = create_leaf_cards_at_positions(placements, leaf_mat, rng, tier=tier_name, n_cards=n_cards)
+        leaf_objs = create_leaf_cards_at_positions(placements, leaf_mat, rng, tier=tier_name, n_cards=n_cards)
 
         # --- Join all objects ---
         bpy.ops.object.select_all(action='DESELECT')
