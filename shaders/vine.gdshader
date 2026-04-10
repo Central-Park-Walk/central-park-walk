@@ -3,6 +3,7 @@ render_mode cull_disabled;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/seasonal.gdshaderinc"
+#include "res://shaders/include/wind.gdshaderinc"
 
 global uniform vec2 wind_vec;
 global uniform float season_t;
@@ -55,10 +56,8 @@ void vertex() {
 		VERTEX.x += wind_vec.x * pendulum * 0.35 * flex;
 		VERTEX.z += wind_vec.y * pendulum * 0.35 * flex;
 
-		// Gusts
-		float gust_phase = instance_origin.x * 0.025 + instance_origin.z * 0.035;
-		float gust = sin(TIME * 0.35 + gust_phase) * 0.5 + 0.5;
-		gust = gust * gust;
+		// Gusts (shared gust generation)
+		float gust = wind_gust(instance_origin, 0.35, 2.0);
 		float gust_str = gust * wind_str * 0.4 * flex;
 		VERTEX.x += wind_vec.x * pendulum * gust_str;
 		VERTEX.z += wind_vec.y * pendulum * gust_str;

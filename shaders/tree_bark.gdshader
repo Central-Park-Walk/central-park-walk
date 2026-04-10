@@ -25,6 +25,7 @@ varying vec3 world_nrm;
 #include "res://shaders/include/seasonal.gdshaderinc"
 #include "res://shaders/include/aerial_perspective.gdshaderinc"
 #include "res://shaders/include/tree_species.gdshaderinc"
+#include "res://shaders/include/wind.gdshaderinc"
 
 // Variable-octave FBM for bark texture detail
 float fbm(vec2 p, int oct) {
@@ -34,7 +35,7 @@ float fbm(vec2 p, int oct) {
 }
 
 void vertex() {
-	// --- Per-species wind sway ---
+	// --- Per-species wind sway (shared wind include) ---
 	int sp_idx = int(INSTANCE_CUSTOM.r * 13.0 + 0.5);
 	vec4 wp = WIND_PARAMS[sp_idx];
 	float trunk_flex = wp.x;
@@ -43,34 +44,23 @@ void vertex() {
 	float gust_resp = wp.w;
 
 	vec3 tree_origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-	// Height in model space — reliable gradient (0 at base, increases upward)
 	float h = max(VERTEX.y, 0.0);
 	float wind_str = length(wind_vec);
 	float rustle = 0.3 + wind_str * 0.7;
-	float phase = tree_origin.x * 0.04 + tree_origin.z * 0.06;
+	float phase = wind_phase(tree_origin);
 
-	// Baked branch detail from COLOR_0 (degrades gracefully if not available)
-	float branch_w = COLOR.g;
 	float branch_phase = COLOR.b * 6.283 + phase;
 	float crown = smoothstep(1.5, 4.0, h);
 
-	// Trunk sway: cantilever bending (displacement ∝ height²)
-	float trunk_h = h * h * 0.008;
-	VERTEX.x += sin(TIME * 0.7 * sway_freq + phase) * trunk_flex * trunk_h * rustle;
-	VERTEX.z += sin(TIME * 1.1 * sway_freq + phase * 1.3) * trunk_flex * trunk_h * 0.6 * rustle;
+	// Cantilever trunk + branch sway + wind push
+	vec2 trunk_d = wind_cantilever_trunk(h, sway_freq, trunk_flex, rustle, phase);
+	vec2 branch_d = wind_branch_sway(h, crown, sway_freq, branch_flex, branch_phase, rustle, 0.06, 0.04);
+	vec2 push_d = wind_push(wind_vec, h, 0.10, trunk_flex);
+	VERTEX.x += trunk_d.x + branch_d.x + push_d.x;
+	VERTEX.z += trunk_d.y + branch_d.y + push_d.y;
 
-	// Branch sway: secondary oscillation at ~2× trunk frequency
-	VERTEX.x += sin(TIME * 1.4 * sway_freq + branch_phase) * branch_flex * 0.06 * h * crown * rustle;
-	VERTEX.z += sin(TIME * 1.9 * sway_freq + branch_phase * 0.7) * branch_flex * 0.04 * h * crown * rustle;
-
-	// Wind push: constant lean in wind direction
-	VERTEX.x += wind_vec.x * h * 0.10 * mix(0.5, 1.0, trunk_flex);
-	VERTEX.z += wind_vec.y * h * 0.10 * mix(0.5, 1.0, trunk_flex);
-
-	// Gusts: periodic stronger push traveling across the canopy
-	float gust_ph = tree_origin.x * 0.02 + tree_origin.z * 0.03;
-	float gust = sin(TIME * 0.3 + gust_ph) * 0.5 + 0.5;
-	gust = gust * gust * gust;
+	// Gusts
+	float gust = wind_gust(tree_origin, 0.3, 3.0);
 	float gust_strength = gust * wind_str * 0.20 * gust_resp;
 	VERTEX.x += wind_vec.x * h * gust_strength;
 	VERTEX.z += wind_vec.y * h * gust_strength;

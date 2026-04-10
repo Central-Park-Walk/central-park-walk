@@ -4,6 +4,7 @@ render_mode cull_disabled, depth_prepass_alpha, alpha_to_coverage;
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/seasonal.gdshaderinc"
 #include "res://shaders/include/aerial_perspective.gdshaderinc"
+#include "res://shaders/include/wind.gdshaderinc"
 
 global uniform vec2 wind_vec;
 global uniform float season_t;
@@ -50,9 +51,8 @@ void vertex() {
 	v_seed = INSTANCE_CUSTOM.r;
 	v_is_stem = step(0.5, 1.0 - COLOR.a);  // COLOR.a=0 → stem (1.0), COLOR.a=1 → leaf (0.0)
 
-	// -- Wind sway --
-	// Squared height curve (cantilever model) — base stays locked to ground,
-	// upper branches sway freely. Linear sway made bases slide sideways.
+	// -- Wind sway (shared wind include) --
+	// Cantilever model: h² curve, base locked, upper branches sway freely.
 	float h = max(VERTEX.y, 0.0);
 	float sway = h * h;
 	float wind_str = length(wind_vec);
@@ -69,9 +69,8 @@ void vertex() {
 	VERTEX.x += wind_vec.x * sway * 0.28 * flex;
 	VERTEX.z += wind_vec.y * sway * 0.28 * flex;
 
-	float gust_phase = instance_origin.x * 0.03 + instance_origin.z * 0.04;
-	float gust = sin(TIME * 0.4 + gust_phase) * 0.5 + 0.5;
-	gust = gust * gust;
+	// Gusts (shared gust generation, squared peaks for undergrowth)
+	float gust = wind_gust(instance_origin, 0.4, 2.0);
 	float gust_str = gust * wind_str * 0.3 * flex;
 	VERTEX.x += wind_vec.x * sway * gust_str;
 	VERTEX.z += wind_vec.y * sway * gust_str;

@@ -4,6 +4,7 @@ render_mode cull_disabled, depth_prepass_alpha;
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/aerial_perspective.gdshaderinc"
 #include "res://shaders/include/tree_species.gdshaderinc"
+#include "res://shaders/include/wind.gdshaderinc"
 
 global uniform vec2 wind_vec;
 global uniform float season_t;
@@ -74,10 +75,8 @@ void vertex() {
 	// Branch shimmer: slight cross-axis flutter
 	float shimmer = sin(TIME * 1.6 * wp.z + phase * 1.5) * 0.008 * wp.y * wind_str;
 	VERTEX.z += shimmer * VERTEX.y;
-	// Gust response
-	float gust_ph = world_pos.x * 0.02 + world_pos.z * 0.03;
-	float gust = sin(TIME * 0.3 + gust_ph) * 0.5 + 0.5;
-	gust = gust * gust * gust;
+	// Gust response (shared gust generation)
+	float gust = wind_gust(world_pos, 0.3, 3.0);
 	VERTEX.x += wind_vec.x * VERTEX.y * gust * wind_str * 0.015 * wp.w;
 	VERTEX.z += wind_vec.y * VERTEX.y * gust * wind_str * 0.015 * wp.w;
 }
