@@ -698,9 +698,9 @@ func _build_trees(trees: Array) -> void:
 		mmi.name = "Tree_%s" % ckey.replace("|", "_")
 		# LOD0: full geometry (best quality)
 		mmi.visibility_range_begin = 0.0
-		mmi.visibility_range_end = 130.0
+		mmi.visibility_range_end = 120.0
 		mmi.visibility_range_begin_margin = 0.0
-		mmi.visibility_range_end_margin = 40.0
+		mmi.visibility_range_end_margin = 30.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		_loader.add_child(mmi)
 
@@ -711,10 +711,10 @@ func _build_trees(trees: Array) -> void:
 
 	# --- LOD1: _m models — medium detail crossfade ---
 	_build_lod_tier_chunks(_lod1_xf, _lod1_cd, "TreeL1",
-		90.0, 220.0, 40.0, 40.0)
+		90.0, 180.0, 30.0, 30.0)
 	# --- LOD2: _s models — simplest 3D, bridges gap to impostor ---
 	_build_lod_tier_chunks(_lod2_xf, _lod2_cd, "TreeL2",
-		180.0, 350.0, 40.0, 40.0)
+		150.0, 250.0, 30.0, 30.0)
 
 	_build_tree_collision(all_trunk_xf)
 	# Debug: print a few tree heights to verify scale
@@ -911,7 +911,7 @@ func _load_impostor_atlases() -> void:
 			mat.set_shader_parameter("atlas_normal", normal_tex)
 		if depth_tex:
 			mat.set_shader_parameter("atlas_depth", depth_tex)
-			mat.set_shader_parameter("depth_scale", 0.3)
+			mat.set_shader_parameter("depth_scale", 0.12)
 		_impostor_materials[model_name] = mat
 
 	var n_with_normals := _impostor_normals.size()
@@ -1019,9 +1019,9 @@ func _build_canopy_shells() -> void:
 		mmi.position = chunk_origin
 		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
 		# LOD3: octahedral billboard impostors — crossfade with LOD2
-		mmi.visibility_range_begin = 300.0
+		mmi.visibility_range_begin = 220.0
 		mmi.visibility_range_end = 2500.0
-		mmi.visibility_range_begin_margin = 50.0
+		mmi.visibility_range_begin_margin = 30.0
 		mmi.visibility_range_end_margin = 0.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
