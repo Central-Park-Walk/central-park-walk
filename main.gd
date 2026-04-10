@@ -38,6 +38,7 @@ var _sky_mat: ShaderMaterial
 var _vol_sky = null  # clayjohn volumetric cloud sky (if loaded)
 var _sun: DirectionalLight3D
 var _lamp_emission: float = 0.0  # cached for SpotLight3D pool
+var _last_night_factor: float = -1.0  # cached to avoid per-frame facade material iteration
 var _terrain3d: Terrain3D
 var _time_label: Label
 var _speed_label: Label
@@ -46,6 +47,13 @@ var _location_label: Label
 # Dynamic lamppost lighting — pool of SpotLight3D nodes that follow player
 var _lamp_lights: Array = []  # Array of SpotLight3D
 var _lamp_positions: PackedVector3Array = PackedVector3Array()
+
+# Cached node references (avoid repeated get_node/find_children)
+var _player_head: Node3D
+var _player_camera: Camera3D
+var _cached_label3d_nodes: Array = []
+var _cached_area: String = ""
+var _cached_area_pos := Vector3.ZERO
 
 var _hud_canvas: CanvasLayer
 var _perf_canvas: CanvasLayer
@@ -76,7 +84,10 @@ const _KF_HOURS: Array = [5.0, 6.5, 12.0, 19.0, 21.0]
 
 
 var _terrain_only := false
-var _weather_mode := "clear"  # clear, rain, thunderstorm, snow, fog
+# Weather state — enum for fast comparison in hot paths
+enum Weather { CLEAR, RAIN, THUNDERSTORM, SNOW, FOG }
+const WEATHER_NAMES: Array = ["clear", "rain", "thunderstorm", "snow", "fog"]
+var _weather_mode: int = Weather.CLEAR
 
 # Wind system — noise-driven randomized wind with gusts and lulls
 var _wind_vec := Vector2.ZERO       # current wind XZ direction+strength
@@ -148,7 +159,11 @@ func _ready() -> void:
 		elif key == "--time" and val != "":
 			cli_time = val
 		elif key == "--weather" and val != "":
-			_weather_mode = val
+			var widx := WEATHER_NAMES.find(val)
+			if widx >= 0:
+				_weather_mode = widx
+			else:
+				print("Unknown --weather '%s'. Options: %s" % [val, ", ".join(WEATHER_NAMES)])
 		elif key == "--pos" and val != "":
 			var parts := val.split(",")
 			if parts.size() >= 2:
@@ -204,8 +219,8 @@ func _ready() -> void:
 			print("Time locked: %.1fh" % _time_of_day)
 		else:
 			print("Unknown --time '%s'. Options: dawn morning noon golden_hour dusk night (or 0-24)" % cli_time)
-	if _weather_mode != "clear":
-		print("Weather: %s" % _weather_mode)
+	if _weather_mode != Weather.CLEAR:
+		print("Weather: %s" % WEATHER_NAMES[_weather_mode])
 	# Enable GPU-based occlusion culling (used by canopy occluders in woodland)
 	get_viewport().use_occlusion_culling = true
 	var _mt := Time.get_ticks_msec()
@@ -256,8 +271,11 @@ func _ready() -> void:
 	if _park_loader and _park_loader.boundary_polygon.size() > 2:
 		_player.boundary_polygon = _park_loader.boundary_polygon
 	# Terrain3D needs the camera for clipmap LOD and dynamic collision
-	if _terrain3d and _player and _player.has_node("CameraMount/Camera3D"):
-		_terrain3d.set_camera(_player.get_node("CameraMount/Camera3D"))
+	if _player:
+		_player_head = _player.get_node_or_null("Head")
+		_player_camera = _player.get_node_or_null("CameraMount/Camera3D")
+	if _terrain3d and _player_camera:
+		_terrain3d.set_camera(_player_camera)
 	_setup_hud()
 	_setup_color_grade()
 	if not _terrain_only:
@@ -740,12 +758,12 @@ func _process(delta: float) -> void:
 
 	# Ambient audio
 	if _audio_manager:
-		_audio_manager.update(delta, _wind_vec.length(), _weather_mode,
+		_audio_manager.update(delta, _wind_vec.length(), WEATHER_NAMES[_weather_mode],
 			_rain_wetness, _time_of_day, _lightning_flash)
 
 	# Snow accumulation — ramps up during snow, melts otherwise
 	var prev_snow := _snow_cover
-	if _weather_mode == "snow":
+	if _weather_mode == Weather.SNOW:
 		_snow_cover = minf(_snow_cover + delta * 0.02, 1.0)  # ~50s to full cover
 	else:
 		_snow_cover = maxf(_snow_cover - delta * 0.05, 0.0)  # ~20s to melt
@@ -754,8 +772,8 @@ func _process(delta: float) -> void:
 
 	# Rain wetness — ground darkens, gets glossy
 	var prev_wet := _rain_wetness
-	if _weather_mode == "rain" or _weather_mode == "thunderstorm":
-		var wet_cap := 1.0 if _weather_mode == "thunderstorm" else 0.55
+	if _weather_mode == Weather.RAIN or _weather_mode == Weather.THUNDERSTORM:
+		var wet_cap := 1.0 if _weather_mode == Weather.THUNDERSTORM else 0.55
 		_rain_wetness = minf(_rain_wetness + delta * 0.04, wet_cap)  # ~14s gentle, ~25s storm
 	else:
 		_rain_wetness = maxf(_rain_wetness - delta * 0.015, 0.0)  # ~67s to dry
@@ -823,7 +841,7 @@ func _process(delta: float) -> void:
 		_blossom_particles.amount = int(lerpf(100.0, 1200.0, bloom_strength))
 
 	# Lightning flashes during thunderstorm
-	if _weather_mode == "thunderstorm":
+	if _weather_mode == Weather.THUNDERSTORM:
 		_lightning_flash = maxf(_lightning_flash - delta * 4.0, 0.0)  # rapid decay (~0.25s)
 		_lightning_timer += delta
 		if _lightning_timer >= _lightning_next:
@@ -945,8 +963,11 @@ func _update_hud() -> void:
 
 
 func _set_labels_visible(vis: bool) -> void:
-	for n: Node in find_children("*", "Label3D", true, false):
-		n.visible = vis
+	if _cached_label3d_nodes.is_empty():
+		_cached_label3d_nodes = find_children("*", "Label3D", true, false)
+	for n: Node in _cached_label3d_nodes:
+		if is_instance_valid(n):
+			n.visible = vis
 
 
 func _tour_teleport(idx: int) -> void:
@@ -960,9 +981,8 @@ func _tour_teleport(idx: int) -> void:
 	_player.global_position = Vector3(x, _terrain_height(x, z) + cam_height, z)
 	_player.velocity = Vector3.ZERO
 	_player.rotation_degrees.y = yaw
-	var head: Node3D = _player.get_node("Head")
-	if head:
-		head.rotation_degrees.x = pitch
+	if _player_head:
+		_player_head.rotation_degrees.x = pitch
 	_time_of_day = hour
 	_time_speed = 0.0
 	# Apply weather if specified
@@ -976,24 +996,29 @@ func _tour_teleport(idx: int) -> void:
 	_apply_time_of_day()
 
 
-func _set_weather(mode: String) -> void:
+func _set_weather(mode) -> void:
 	## Set weather mode, tearing down previous particles and pre-accumulating cover.
+	## Accepts either Weather enum int or string name.
 	if _rain_particles:
 		_rain_particles.queue_free()
 		_rain_particles = null
 	if _snow_particles:
 		_snow_particles.queue_free()
 		_snow_particles = null
-	_weather_mode = mode
+	if mode is String:
+		var widx := WEATHER_NAMES.find(mode)
+		_weather_mode = widx if widx >= 0 else Weather.CLEAR
+	else:
+		_weather_mode = mode
 	_setup_weather()
 	# Pre-accumulate snow/rain so screenshots don't need to wait
-	if mode == "snow":
+	if _weather_mode == Weather.SNOW:
 		_snow_cover = 1.0
 		_rain_wetness = 0.0
-	elif mode == "rain":
+	elif _weather_mode == Weather.RAIN:
 		_rain_wetness = 0.55
 		_snow_cover = 0.0
-	elif mode == "thunderstorm":
+	elif _weather_mode == Weather.THUNDERSTORM:
 		_rain_wetness = 1.0
 		_snow_cover = 0.0
 	else:
@@ -1096,9 +1121,16 @@ const PARK_AREAS: Array = [
 ]
 
 func _nearest_area(x: float, z: float) -> String:
+	# Cache result — only recompute when player moves >5m from last check
+	var pos := Vector3(x, 0.0, z)
+	if _cached_area_pos.distance_squared_to(pos) < 25.0 and not _cached_area.is_empty():
+		return _cached_area
+	_cached_area_pos = pos
 	for area in PARK_AREAS:
 		if x >= float(area[0]) and x <= float(area[1]) and z >= float(area[2]) and z <= float(area[3]):
-			return area[4]
+			_cached_area = area[4]
+			return _cached_area
+	_cached_area = ""
 	return ""
 
 
@@ -1266,9 +1298,8 @@ func _grass_tour_teleport() -> void:
 	_player.global_position = Vector3(x, _terrain_height(x, z) + 1.55, z)
 	_player.velocity = Vector3.ZERO
 	_player.rotation_degrees.y = spot["yaw"]
-	var head: Node3D = _player.get_node("Head")
-	if head:
-		head.rotation_degrees.x = spot["pitch"]
+	if _player_head:
+		_player_head.rotation_degrees.x = spot["pitch"]
 	# Set time, season, weather for this shot
 	if spot.has("hour"):
 		_time_of_day = spot["hour"]
@@ -1276,13 +1307,7 @@ func _grass_tour_teleport() -> void:
 		_season_t = spot["season"]
 		RenderingServer.global_shader_parameter_set("season_t", _season_t)
 	if spot.has("weather"):
-		_weather_mode = spot["weather"]
-		if spot["weather"] == "snow":
-			_snow_cover = 1.0
-			RenderingServer.global_shader_parameter_set("snow_cover", _snow_cover)
-		else:
-			_snow_cover = 0.0
-			RenderingServer.global_shader_parameter_set("snow_cover", 0.0)
+		_set_weather(spot["weather"])
 	_apply_time_of_day()
 	print("Photo tour: %s (%.0f,%.0f) %s %.1fh %s" % [
 		spot["name"], x, z, _month_name(_season_t), spot.get("hour", 12.0), spot.get("weather", "clear")])
@@ -1757,7 +1782,7 @@ func _apply_time_of_day() -> void:
 	_env.volumetric_fog_anisotropy = lerpf(base_aniso, 0.88, sun_low_factor * 0.5)
 
 	# Weather overrides — mostly cloudy (not overcast) for non-clear weather
-	if _weather_mode == "fog":
+	if _weather_mode == Weather.FOG:
 		_env.volumetric_fog_density = 0.005
 		_env.adjustment_saturation = 0.45
 		_env.adjustment_brightness = 0.90
@@ -1768,7 +1793,7 @@ func _apply_time_of_day() -> void:
 			_sky_mat.set_shader_parameter("cloud_coverage", 0.75)
 			_sky_mat.set_shader_parameter("cloud_density", 0.80)
 			_sky_mat.set_shader_parameter("cloud_type", 1.0)
-	elif _weather_mode == "rain":
+	elif _weather_mode == Weather.RAIN:
 		_env.volumetric_fog_density = 0.004
 		_env.adjustment_saturation *= 0.7
 		_env.adjustment_brightness *= 0.88
@@ -1779,7 +1804,7 @@ func _apply_time_of_day() -> void:
 			_sky_mat.set_shader_parameter("cloud_coverage", 0.72)
 			_sky_mat.set_shader_parameter("cloud_density", 0.78)
 			_sky_mat.set_shader_parameter("cloud_type", 1.0)
-	elif _weather_mode == "thunderstorm":
+	elif _weather_mode == Weather.THUNDERSTORM:
 		_env.volumetric_fog_density = 0.008
 		_env.adjustment_saturation *= 0.50
 		_env.adjustment_brightness *= 0.75
@@ -1790,7 +1815,7 @@ func _apply_time_of_day() -> void:
 			_sky_mat.set_shader_parameter("cloud_coverage", 0.82)
 			_sky_mat.set_shader_parameter("cloud_density", 0.85)
 			_sky_mat.set_shader_parameter("cloud_type", 2.0)
-	elif _weather_mode == "snow":
+	elif _weather_mode == Weather.SNOW:
 		_env.volumetric_fog_density = 0.003
 		_env.adjustment_saturation *= 0.75
 		if _vol_sky:
@@ -1824,13 +1849,13 @@ func _apply_time_of_day() -> void:
 			dew = smoothstep(4.5, 6.0, _time_of_day)
 		else:
 			dew = 1.0 - smoothstep(6.0, 8.5, _time_of_day)
-	if _weather_mode != "clear":
+	if _weather_mode != Weather.CLEAR:
 		dew = 0.0  # no visible dew in rain/snow
 	RenderingServer.global_shader_parameter_set("dew_amount", dew)
 
 	# Dawn mist — natural morning fog that lifts with sunrise (5-7:30 AM)
 	# Common phenomenon in Central Park near water bodies and in wooded areas
-	if _weather_mode == "clear":
+	if _weather_mode == Weather.CLEAR:
 		var dawn_mist := 0.0
 		if _time_of_day >= 4.5 and _time_of_day <= 7.5:
 			# Peak at 5:30, fading by 7:30
@@ -1864,7 +1889,7 @@ func _apply_time_of_day() -> void:
 	var month_next: int = (month_idx + 1) % 12
 	var month_frac: float = fmod(_season_t * 3.0, 1.0)
 	var data_cover: float = lerpf(monthly_cover[month_idx], monthly_cover[month_next], month_frac)
-	if _weather_mode == "clear":
+	if _weather_mode == Weather.CLEAR:
 		if _vol_sky:
 			_vol_sky.cloud_coverage = maxf(lerpf(_vol_sky.cloud_coverage, data_cover, 0.7), 0.25)
 		else:
@@ -1894,7 +1919,9 @@ func _apply_time_of_day() -> void:
 		nf = 1.0  # full night
 	elif _time_of_day >= 5.0 and _time_of_day < 7.0:
 		nf = 1.0 - (_time_of_day - 5.0) / 2.0  # dawn ramp
-	if _park_loader:
+	# Only iterate facade materials when night_factor actually changes
+	if absf(nf - _last_night_factor) > 0.005 and _park_loader:
+		_last_night_factor = nf
 		for fm in _park_loader.facade_materials:
 			if fm is ShaderMaterial:
 				fm.set_shader_parameter("night_factor", nf)
@@ -2896,13 +2923,13 @@ func _update_wind(delta: float) -> void:
 
 	# Weather multiplier
 	var wx := 1.0
-	if _weather_mode == "rain":
+	if _weather_mode == Weather.RAIN:
 		wx = 1.8
-	elif _weather_mode == "thunderstorm":
+	elif _weather_mode == Weather.THUNDERSTORM:
 		wx = 2.8
-	elif _weather_mode == "snow":
+	elif _weather_mode == Weather.SNOW:
 		wx = 0.5
-	elif _weather_mode == "fog":
+	elif _weather_mode == Weather.FOG:
 		wx = 0.3
 
 	# --- Direction: noise-driven wander ---
@@ -2972,8 +2999,6 @@ func _update_wind(delta: float) -> void:
 		_vol_sky.wind_speed = wlen * 0.6
 
 
-const WEATHER_MODES: Array = ["clear", "rain", "thunderstorm", "snow", "fog"]
-
 func _cycle_weather() -> void:
 	# Tear down current weather effects
 	if _rain_particles:
@@ -2982,16 +3007,13 @@ func _cycle_weather() -> void:
 	if _snow_particles:
 		_snow_particles.queue_free()
 		_snow_particles = null
-	# Advance to next mode
-	var idx := WEATHER_MODES.find(_weather_mode)
-	if idx < 0:
-		idx = 0
-	_weather_mode = WEATHER_MODES[(idx + 1) % WEATHER_MODES.size()]
+	# Advance to next enum value
+	_weather_mode = (_weather_mode + 1) % Weather.size()
 	_setup_weather()
 	# Force re-apply time-of-day so keyframe values override stale weather fog/clouds
 	_last_applied_tod = -999.0
 	_apply_time_of_day()
-	print("Weather: %s" % _weather_mode)
+	print("Weather: %s" % WEATHER_NAMES[_weather_mode])
 
 
 func _extract_mesh_from_glb(path: String) -> Mesh:
@@ -3011,13 +3033,13 @@ func _extract_mesh_from_glb(path: String) -> Mesh:
 
 
 func _setup_weather() -> void:
-	if _weather_mode == "rain":
+	if _weather_mode == Weather.RAIN:
 		_setup_rain()
-	elif _weather_mode == "thunderstorm":
+	elif _weather_mode == Weather.THUNDERSTORM:
 		_setup_thunderstorm()
-	elif _weather_mode == "snow":
+	elif _weather_mode == Weather.SNOW:
 		_setup_snow()
-	elif _weather_mode == "fog":
+	elif _weather_mode == Weather.FOG:
 		_setup_fog_weather()
 
 
