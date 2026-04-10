@@ -696,11 +696,11 @@ func _build_trees(trees: Array) -> void:
 		mmi.multimesh = mm
 		mmi.position = chunk_origin
 		mmi.name = "Tree_%s" % ckey.replace("|", "_")
-		# LOD0: full geometry — extended range for leafy canopy visibility
+		# LOD0: full geometry (best quality)
 		mmi.visibility_range_begin = 0.0
-		mmi.visibility_range_end = 180.0
+		mmi.visibility_range_end = 130.0
 		mmi.visibility_range_begin_margin = 0.0
-		mmi.visibility_range_end_margin = 50.0
+		mmi.visibility_range_end_margin = 40.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		_loader.add_child(mmi)
 
@@ -709,12 +709,12 @@ func _build_trees(trees: Array) -> void:
 	# distance gate they stay active at all ranges, hiding LOD2/impostor
 	# trees behind canopy boxes and making distant woodland look sparse.
 
-	# --- LOD1: _m models — narrow crossfade band, impostor takes over at 180m ---
+	# --- LOD1: _m models — medium detail crossfade ---
 	_build_lod_tier_chunks(_lod1_xf, _lod1_cd, "TreeL1",
-		130.0, 180.0, 30.0, 20.0)
-	# --- LOD2: _s models — disabled (impostor handles 160m+) ---
-	#_build_lod_tier_chunks(_lod2_xf, _lod2_cd, "TreeL2",
-	#	180.0, 220.0, 20.0, 20.0)
+		90.0, 220.0, 40.0, 40.0)
+	# --- LOD2: _s models — simplest 3D, bridges gap to impostor ---
+	_build_lod_tier_chunks(_lod2_xf, _lod2_cd, "TreeL2",
+		180.0, 350.0, 40.0, 40.0)
 
 	_build_tree_collision(all_trunk_xf)
 	# Debug: print a few tree heights to verify scale
@@ -1018,12 +1018,12 @@ func _build_canopy_shells() -> void:
 		mmi.material_override = _impostor_materials[model_name]
 		mmi.position = chunk_origin
 		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
-		# LOD3: octahedral billboard impostors — start right where LOD0 ends
-		mmi.visibility_range_begin = 150.0
+		# LOD3: octahedral billboard impostors — crossfade with LOD2
+		mmi.visibility_range_begin = 300.0
 		mmi.visibility_range_end = 2500.0
-		mmi.visibility_range_begin_margin = 0.0
+		mmi.visibility_range_begin_margin = 50.0
 		mmi.visibility_range_end_margin = 0.0
-		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_loader.add_child(mmi)
 		impostor_count += xf_list.size()

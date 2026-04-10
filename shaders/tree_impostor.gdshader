@@ -17,8 +17,10 @@ global uniform float impostor_brightness;
 global uniform vec2 wind_vec;
 global uniform float snow_cover;
 global uniform float season_t;
+global uniform vec3 sky_reflect_color;
 
 #include "res://shaders/include/tree_species.gdshaderinc"
+#include "res://shaders/include/aerial_perspective.gdshaderinc"
 
 // --- Varyings ---
 varying vec2 v_uv_frame1;
@@ -313,17 +315,34 @@ void fragment() {
 	NORMAL = nm;
 
 	// Recolor: extract atlas luminance, apply species season color.
-	// Range matched to tree_leaf.gdshader's (0.4 + lum * 0.6) with slight
-	// boost since impostors lack the LOD0 shader's darkening effects.
+	// Formula matches tree_leaf.gdshader exactly: (0.4 + lum * 0.6)
 	float lum = dot(tex.rgb, vec3(0.3, 0.6, 0.1));
-	vec3 color = v_season_color * (0.45 + lum * 0.7);
+	vec3 color = v_season_color * (0.4 + lum * 0.6);
 	color *= max(impostor_brightness, 0.5);
+
+	// Desaturation — match LOD0's 28% desaturation
+	float color_lum = dot(color, vec3(0.299, 0.587, 0.114));
+	color = mix(vec3(color_lum), color, 0.72);
+
+	// Warm darken — match LOD0's tonal correction
+	color *= vec3(0.94, 0.90, 0.80);
+
+	// Top-lit canopy gradient — approximate LOD0's world-normal-based top-lit.
+	// UV.y=0 → billboard bottom (trunk base), UV.y=1 → billboard top (crown top).
+	float top_lit = UV.y;
+	color *= mix(0.85, 1.08, top_lit);
 
 	// Snow accumulation on upper canopy
 	if (snow_cover > 0.1) {
-		float snow_top = snow_cover * smoothstep(0.3, 0.7, 1.0 - UV.y);
+		float snow_top = snow_cover * smoothstep(0.3, 0.7, top_lit);
 		color = mix(color, vec3(0.85, 0.88, 0.92), snow_top * 0.4);
 	}
+
+	// Aerial perspective — match tree_leaf.gdshader's distance fog
+	vec3 imp_world = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	float imp_dist = length(imp_world - (INV_VIEW_MATRIX * vec4(vec3(0.0), 1.0)).xyz);
+	float imp_aerial = smoothstep(60.0, 300.0, imp_dist);
+	color = apply_aerial(color, imp_aerial, 0.30, 0.30, sky_reflect_color);
 
 	ALBEDO = color;
 	ROUGHNESS = 0.82;
