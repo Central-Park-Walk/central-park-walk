@@ -69,21 +69,13 @@ const LAMP_LIGHT_RANGE := 22.0
 const LAMP_LIGHT_UPDATE_INTERVAL := 0.5  # seconds between position updates
 
 
-# Weather particles
-var _rain_particles: GPUParticles3D
-var _snow_particles: GPUParticles3D
-var _leaf_particles: GPUParticles3D  # autumn falling leaves
-var _blossom_particles: GPUParticles3D  # spring cherry blossom petals
 var _audio_manager = null  # ambient sound (wind, city, water, footsteps)
-
-# 5 keyframes defining the full day/night cycle
-# Night (21→5) wraps seamlessly; 8 hours of steady darkness.
-
 
 var _terrain_only := false
 # Weather state — enum for fast comparison in hot paths
 enum Weather { CLEAR, RAIN, THUNDERSTORM, SNOW, FOG }
 const WEATHER_NAMES: Array = ["clear", "rain", "thunderstorm", "snow", "fog"]
+var _weather_mgr: Node  # WeatherManager instance
 var _weather_mode: int = Weather.CLEAR
 
 # Wind system — extracted to wind_system.gd
@@ -242,6 +234,9 @@ func _ready() -> void:
 	_wind_system = preload("res://wind_system.gd").new()
 	_wind_system.name = "WindSystem"
 	add_child(_wind_system)
+	_weather_mgr = preload("res://weather_manager.gd").new()
+	_weather_mgr.name = "WeatherManager"
+	add_child(_weather_mgr)
 	print("main: environment: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	# Terrain3D MUST init before park — builders need accurate terrain height
 	_setup_ground()
@@ -285,7 +280,7 @@ func _ready() -> void:
 	print("main: total _ready: %d ms" % (Time.get_ticks_msec() - _mt))
 	_day_night.force_apply(_time_of_day, _weather_mode, _wind_vec,
 		_lightning_flash, _user_gamma, _season_t)
-	_setup_weather()
+	_weather_mgr.mode = _weather_mode
 	# Ambient audio — disabled for now
 	#if not _terrain_only and _park_loader and _player:
 	#	_audio_manager = preload("res://audio_manager.gd").new(_park_loader)
@@ -777,24 +772,11 @@ func _process(delta: float) -> void:
 		_audio_manager.update(delta, _wind_vec.length(), WEATHER_NAMES[_weather_mode],
 			_rain_wetness, _time_of_day, _lightning_flash)
 
-	# Snow accumulation — ramps up during snow, melts otherwise
-	var prev_snow := _snow_cover
-	if _weather_mode == Weather.SNOW:
-		_snow_cover = minf(_snow_cover + delta * 0.02, 1.0)  # ~50s to full cover
-	else:
-		_snow_cover = maxf(_snow_cover - delta * 0.05, 0.0)  # ~20s to melt
-	if _snow_cover != prev_snow:
-		RenderingServer.global_shader_parameter_set("snow_cover", _snow_cover)
-
-	# Rain wetness — ground darkens, gets glossy
-	var prev_wet := _rain_wetness
-	if _weather_mode == Weather.RAIN or _weather_mode == Weather.THUNDERSTORM:
-		var wet_cap := 1.0 if _weather_mode == Weather.THUNDERSTORM else 0.55
-		_rain_wetness = minf(_rain_wetness + delta * 0.04, wet_cap)  # ~14s gentle, ~25s storm
-	else:
-		_rain_wetness = maxf(_rain_wetness - delta * 0.015, 0.0)  # ~67s to dry
-	if _rain_wetness != prev_wet:
-		RenderingServer.global_shader_parameter_set("rain_wetness", _rain_wetness)
+	# Weather particles, snow/rain accumulation, seasonal leaves/blossoms
+	if _player:
+		_weather_mgr.update(delta, _player.global_position, _wind_vec, _season_t)
+		_rain_wetness = _weather_mgr.rain_wetness
+		_snow_cover = _weather_mgr.snow_cover
 
 	# Season advance
 	if _season_speed > 0.0:
@@ -808,53 +790,9 @@ func _process(delta: float) -> void:
 	if _player and _park_loader and _park_loader._ground_cover_builder:
 		_park_loader._ground_cover_builder.season_t = _season_t
 		_park_loader._ground_cover_builder.update_camera(_player.global_position)
-	# grass accents removed — particle system handles all grass types
 
 	# Grass tour auto-teleport + screenshot
 	_grass_tour_process(delta)
-
-	# Particles follow player — wind deflects rain/snow
-	if _rain_particles and _player:
-		_rain_particles.global_position = _player.global_position + Vector3(0, 14, 0)
-		var rpm: ParticleProcessMaterial = _rain_particles.process_material
-		rpm.gravity = Vector3(_wind_vec.x * 5.0, -1.5, _wind_vec.y * 5.0)
-	if _snow_particles and _player:
-		_snow_particles.global_position = _player.global_position + Vector3(0, 15, 0)
-		var spm: ParticleProcessMaterial = _snow_particles.process_material
-		spm.gravity = Vector3(_wind_vec.x * 3.0, -1.5, _wind_vec.y * 3.0)
-
-	# Autumn falling leaves — activate during fall season (2.0-3.2)
-	var autumn_strength := smoothstep(1.8, 2.3, _season_t) * (1.0 - smoothstep(2.8, 3.2, _season_t))
-	if autumn_strength > 0.05 and not _leaf_particles:
-		_setup_leaf_particles()
-	elif autumn_strength < 0.02 and _leaf_particles:
-		_leaf_particles.queue_free()
-		_leaf_particles = null
-	if _leaf_particles and _player:
-		_leaf_particles.global_position = _player.global_position + Vector3(0, 12, 0)
-		var lpm: ParticleProcessMaterial = _leaf_particles.process_material
-		# Wind pushes leaves strongly — they drift on the breeze
-		lpm.gravity = Vector3(_wind_vec.x * 4.0, -0.3, _wind_vec.y * 4.0)
-		# Vary amount by autumn intensity (sparse early/late, dense at peak)
-		_leaf_particles.amount = int(lerpf(200.0, 2000.0, autumn_strength))
-
-	# Spring cherry blossom petals — activate during bloom season (0.2-1.0)
-	# Peak bloom around season_t 0.5 (mid-spring), tapering off into summer
-	var bloom_strength := smoothstep(0.1, 0.4, _season_t) * (1.0 - smoothstep(0.7, 1.1, _season_t))
-	# Also catch late-winter to spring wrap (season_t near 4.0→0)
-	if _season_t > 3.8:
-		bloom_strength = maxf(bloom_strength, smoothstep(3.8, 3.95, _season_t) * 0.5)
-	if bloom_strength > 0.05 and not _blossom_particles:
-		_setup_blossom_particles()
-	elif bloom_strength < 0.02 and _blossom_particles:
-		_blossom_particles.queue_free()
-		_blossom_particles = null
-	if _blossom_particles and _player:
-		_blossom_particles.global_position = _player.global_position + Vector3(0, 10, 0)
-		var bpm: ParticleProcessMaterial = _blossom_particles.process_material
-		# Petals drift gently on the breeze — lighter than autumn leaves
-		bpm.gravity = Vector3(_wind_vec.x * 3.0, -0.15, _wind_vec.y * 3.0)
-		_blossom_particles.amount = int(lerpf(100.0, 1200.0, bloom_strength))
 
 	# Lightning flashes during thunderstorm
 	if _weather_mode == Weather.THUNDERSTORM:
@@ -1014,35 +952,11 @@ func _tour_teleport(idx: int) -> void:
 
 
 func _set_weather(mode) -> void:
-	## Set weather mode, tearing down previous particles and pre-accumulating cover.
-	## Accepts either Weather enum int or string name.
-	if _rain_particles:
-		_rain_particles.queue_free()
-		_rain_particles = null
-	if _snow_particles:
-		_snow_particles.queue_free()
-		_snow_particles = null
-	if mode is String:
-		var widx := WEATHER_NAMES.find(mode)
-		_weather_mode = widx if widx >= 0 else Weather.CLEAR
-	else:
-		_weather_mode = mode
-	_setup_weather()
-	# Pre-accumulate snow/rain so screenshots don't need to wait
-	if _weather_mode == Weather.SNOW:
-		_snow_cover = 1.0
-		_rain_wetness = 0.0
-	elif _weather_mode == Weather.RAIN:
-		_rain_wetness = 0.55
-		_snow_cover = 0.0
-	elif _weather_mode == Weather.THUNDERSTORM:
-		_rain_wetness = 1.0
-		_snow_cover = 0.0
-	else:
-		_snow_cover = 0.0
-		_rain_wetness = 0.0
-	RenderingServer.global_shader_parameter_set("snow_cover", _snow_cover)
-	RenderingServer.global_shader_parameter_set("rain_wetness", _rain_wetness)
+	_weather_mgr.set_mode(mode, _day_night, _time_of_day, _wind_vec,
+		_lightning_flash, _user_gamma, _season_t)
+	_weather_mode = _weather_mgr.mode
+	_snow_cover = _weather_mgr.snow_cover
+	_rain_wetness = _weather_mgr.rain_wetness
 
 
 func _tour_write_manifest() -> void:
@@ -2447,302 +2361,9 @@ func _setup_color_grade() -> void:
 
 
 func _cycle_weather() -> void:
-	# Tear down current weather effects
-	if _rain_particles:
-		_rain_particles.queue_free()
-		_rain_particles = null
-	if _snow_particles:
-		_snow_particles.queue_free()
-		_snow_particles = null
-	# Advance to next enum value
-	_weather_mode = (_weather_mode + 1) % Weather.size()
-	_setup_weather()
-	# Force re-apply time-of-day so keyframe values override stale weather fog/clouds
-	_day_night.force_apply(_time_of_day, _weather_mode, _wind_vec,
+	_weather_mgr.cycle(_day_night, _time_of_day, _wind_vec,
 		_lightning_flash, _user_gamma, _season_t)
-	print("Weather: %s" % WEATHER_NAMES[_weather_mode])
-
-
-func _extract_mesh_from_glb(path: String) -> Mesh:
-	## Load a GLB and return the first mesh resource found.
-	var scene: PackedScene = load(path)
-	if not scene:
-		push_warning("Could not load GLB: %s" % path)
-		return null
-	var inst := scene.instantiate()
-	var mesh: Mesh = null
-	for child in inst.get_children():
-		if child is MeshInstance3D:
-			mesh = child.mesh
-			break
-	inst.queue_free()
-	return mesh
-
-
-func _setup_weather() -> void:
-	if _weather_mode == Weather.RAIN:
-		_setup_rain()
-	elif _weather_mode == Weather.THUNDERSTORM:
-		_setup_thunderstorm()
-	elif _weather_mode == Weather.SNOW:
-		_setup_snow()
-	elif _weather_mode == Weather.FOG:
-		_setup_fog_weather()
-
-
-func _setup_rain() -> void:
-	# Gentle rain — soft oblong drops with rounded shader
-	_rain_particles = GPUParticles3D.new()
-	_rain_particles.amount = 6000
-	_rain_particles.lifetime = 4.0
-	_rain_particles.visibility_aabb = AABB(Vector3(-25, -15, -25), Vector3(50, 30, 50))
-
-	var pm := ParticleProcessMaterial.new()
-	pm.direction = Vector3(0, -1, 0)
-	pm.spread = 8.0
-	pm.initial_velocity_min = 1.5
-	pm.initial_velocity_max = 2.2
-	pm.gravity = Vector3(0, -1.0, 0)
-	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-	pm.emission_box_extents = Vector3(25.0, 0.5, 25.0)
-	_rain_particles.process_material = pm
-
-	var mesh := QuadMesh.new()
-	mesh.size = Vector2(0.008, 0.12)
-	_rain_particles.draw_pass_1 = mesh
-
-	var mat := ShaderMaterial.new()
-	mat.shader = load("res://shaders/rain_drop.gdshader")
-	mat.set_shader_parameter("drop_color", Color(0.7, 0.75, 0.85, 0.25))
-	mat.set_shader_parameter("core_brightness", 0.35)
-	_rain_particles.material_override = mat
-
-	add_child(_rain_particles)
-	print("Rain: 6000 gentle drops")
-
-
-func _setup_thunderstorm() -> void:
-	# Heavy downpour — dense, fast, thick drops
-	_rain_particles = GPUParticles3D.new()
-	_rain_particles.amount = 30000
-	_rain_particles.lifetime = 2.5
-	_rain_particles.visibility_aabb = AABB(Vector3(-25, -15, -25), Vector3(50, 30, 50))
-
-	var pm := ParticleProcessMaterial.new()
-	pm.direction = Vector3(0, -1, 0)
-	pm.spread = 12.0
-	pm.initial_velocity_min = 5.0
-	pm.initial_velocity_max = 7.5
-	pm.gravity = Vector3(0, -3.0, 0)
-	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-	pm.emission_box_extents = Vector3(25.0, 0.5, 25.0)
-	_rain_particles.process_material = pm
-
-	var mesh := QuadMesh.new()
-	mesh.size = Vector2(0.014, 0.26)
-	_rain_particles.draw_pass_1 = mesh
-
-	var mat := ShaderMaterial.new()
-	mat.shader = load("res://shaders/rain_drop.gdshader")
-	mat.set_shader_parameter("drop_color", Color(0.6, 0.65, 0.75, 0.4))
-	mat.set_shader_parameter("core_brightness", 0.25)
-	_rain_particles.material_override = mat
-
-	add_child(_rain_particles)
-	print("Thunderstorm: 30000 heavy drops")
-
-
-func _setup_snow() -> void:
-	_snow_particles = GPUParticles3D.new()
-	_snow_particles.amount = 14000
-	_snow_particles.lifetime = 5.0
-	_snow_particles.visibility_aabb = AABB(Vector3(-25, -20, -25), Vector3(50, 40, 50))
-
-	var pm := ParticleProcessMaterial.new()
-	pm.direction = Vector3(0, -1, 0)
-	pm.spread = 15.0
-	pm.initial_velocity_min = 0.8
-	pm.initial_velocity_max = 2.0
-	pm.gravity = Vector3(0, -1.2, 0)
-	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-	pm.emission_box_extents = Vector3(25.0, 0.5, 25.0)
-	# Gentle flutter: slow twist, slight lateral drift (real snowflakes oscillate, not tumble)
-	pm.orbit_velocity_min = 0.03
-	pm.orbit_velocity_max = 0.12
-	pm.angular_velocity_min = -25.0
-	pm.angular_velocity_max = 25.0
-	pm.damping_min = 0.8
-	pm.damping_max = 2.0
-
-	# Load 3D snowflake mesh from GLB
-	var snow_mesh := _extract_mesh_from_glb("res://models/vegetation/Snowflake.glb")
-	if snow_mesh:
-		# GLB model is ~1 unit — scale down to 3-6cm snowflakes
-		pm.scale_min = 0.03
-		pm.scale_max = 0.06
-		_snow_particles.draw_pass_1 = snow_mesh
-		# 3D model tumbles naturally via angular_velocity — no billboard needed
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Color(0.92, 0.94, 1.0, 0.45)
-		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-		mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
-		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-		# Iridescent crystal shimmer
-		mat.rim_enabled = true
-		mat.rim = 0.6
-		mat.rim_tint = 0.3
-		# Sunlight glow: emission adds a warm sparkle in lit conditions
-		mat.emission_enabled = true
-		mat.emission = Color(1.0, 0.95, 0.85)
-		mat.emission_energy_multiplier = 0.4
-		_snow_particles.material_override = mat
-	else:
-		# Fallback billboard quad — 4cm with size variation
-		var fallback := QuadMesh.new()
-		fallback.size = Vector2(0.04, 0.04)
-		pm.scale_min = 0.7
-		pm.scale_max = 1.5
-		_snow_particles.draw_pass_1 = fallback
-		var mat := ShaderMaterial.new()
-		mat.shader = load("res://shaders/snow.gdshader")
-		mat.set_shader_parameter("snow_color", Color(0.92, 0.94, 1.0, 0.45))
-		_snow_particles.material_override = mat
-	_snow_particles.process_material = pm
-
-	add_child(_snow_particles)
-	print("Snow: 14000 snowflake particles")
-
-
-
-func _setup_leaf_particles() -> void:
-	## Autumn falling leaves — textured leaf meshes drifting down through canopy.
-	## Uses 4 photographic leaf models from RBG_illustrations (CC-BY).
-	## Active only during autumn season (season_t 2.0-3.2). Amount varies
-	## with season intensity: sparse at start/end, dense at peak color.
-	_leaf_particles = GPUParticles3D.new()
-	_leaf_particles.amount = 800  # adjusted dynamically in _process
-	_leaf_particles.lifetime = 8.0  # slow drift down
-	_leaf_particles.visibility_aabb = AABB(Vector3(-30, -15, -30), Vector3(60, 30, 60))
-
-	var pm := ParticleProcessMaterial.new()
-	pm.direction = Vector3(0, -1, 0)
-	pm.spread = 45.0  # wide spread — leaves tumble in all directions
-	pm.initial_velocity_min = 0.3
-	pm.initial_velocity_max = 0.8
-	pm.gravity = Vector3(0, -0.3, 0)  # very slow fall (wind does most of the work)
-	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-	pm.emission_box_extents = Vector3(30.0, 2.0, 30.0)
-	# Orbit for tumbling/spinning as leaves fall
-	pm.orbit_velocity_min = 0.15
-	pm.orbit_velocity_max = 0.45
-	# Angular velocity for spinning
-	pm.angular_velocity_min = -90.0
-	pm.angular_velocity_max = 90.0
-	# Scale: leaf models are 1 unit, we want ~0.025-0.045
-	pm.scale_min = 0.025
-	pm.scale_max = 0.045
-	# Subtle alpha fade over lifetime (leaves brown and become transparent)
-	var alpha_curve := CurveTexture.new()
-	var curve := Curve.new()
-	curve.add_point(Vector2(0.0, 1.0))
-	curve.add_point(Vector2(0.7, 0.9))
-	curve.add_point(Vector2(1.0, 0.5))
-	alpha_curve.curve = curve
-	pm.alpha_curve = alpha_curve
-	pm.damping_min = 1.0
-	pm.damping_max = 3.0
-	_leaf_particles.process_material = pm
-
-	# Load 4 textured leaf meshes — each draw pass gives variety
-	var leaf_paths := [
-		"res://models/vegetation/Leaf_Autumn_01.glb",
-		"res://models/vegetation/Leaf_Autumn_02.glb",
-		"res://models/vegetation/Leaf_Autumn_03.glb",
-		"res://models/vegetation/Leaf_Autumn_04.glb",
-	]
-	var fallback_mesh := QuadMesh.new()
-	fallback_mesh.size = Vector2(0.035, 0.025)
-	for i in range(4):
-		var mesh := _extract_mesh_from_glb(leaf_paths[i])
-		if not mesh:
-			mesh = fallback_mesh
-		match i:
-			0: _leaf_particles.draw_pass_1 = mesh
-			1: _leaf_particles.draw_pass_2 = mesh
-			2: _leaf_particles.draw_pass_3 = mesh
-			3: _leaf_particles.draw_pass_4 = mesh
-
-	add_child(_leaf_particles)
-	print("Autumn leaves: 4 textured leaf meshes, drifting particles")
-
-
-func _setup_blossom_particles() -> void:
-	## Spring cherry blossom petals — pale pink quads floating down like snow.
-	## Active during spring bloom (season_t 0.2-1.0). Yoshino cherry, callery pear,
-	## and magnolia all shed petals in Central Park's April bloom.
-	_blossom_particles = GPUParticles3D.new()
-	_blossom_particles.amount = 600  # adjusted dynamically in _process
-	_blossom_particles.lifetime = 12.0  # very slow drift — petals are light
-	_blossom_particles.visibility_aabb = AABB(Vector3(-35, -15, -35), Vector3(70, 30, 70))
-
-	var pm := ParticleProcessMaterial.new()
-	pm.direction = Vector3(0, -1, 0)
-	pm.spread = 60.0  # wide spread — petals flutter in all directions
-	pm.initial_velocity_min = 0.1
-	pm.initial_velocity_max = 0.5
-	pm.gravity = Vector3(0, -0.15, 0)  # extremely slow fall (petals are featherlight)
-	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-	pm.emission_box_extents = Vector3(35.0, 3.0, 35.0)
-	# Gentle orbit for graceful fluttering descent
-	pm.orbit_velocity_min = 0.08
-	pm.orbit_velocity_max = 0.25
-	# Slow spin — petals rotate gracefully, not chaotically
-	pm.angular_velocity_min = -45.0
-	pm.angular_velocity_max = 45.0
-	# Scale variation — small petals
-	pm.scale_min = 0.5
-	pm.scale_max = 1.2
-	# Color: cherry blossom pink palette
-	pm.color = Color(0.95, 0.82, 0.85, 0.90)
-	var color_ramp := GradientTexture1D.new()
-	var grad := Gradient.new()
-	grad.set_color(0, Color(1.0, 0.92, 0.94, 0.95))    # almost white (fresh petal)
-	grad.add_point(0.25, Color(0.98, 0.82, 0.86, 0.92)) # pale pink (Yoshino cherry)
-	grad.add_point(0.5, Color(0.95, 0.72, 0.78, 0.88))  # medium pink
-	grad.add_point(0.75, Color(0.92, 0.65, 0.72, 0.80)) # deeper pink (aging petal)
-	grad.set_color(1, Color(0.88, 0.60, 0.65, 0.50))    # browning edge (ground)
-	color_ramp.gradient = grad
-	pm.color_initial_ramp = color_ramp
-	# Damping so petals slow down as they drift
-	pm.damping_min = 1.0
-	pm.damping_max = 3.0
-	_blossom_particles.process_material = pm
-
-	var mesh := QuadMesh.new()
-	mesh.size = Vector2(0.018, 0.016)  # tiny petal shape — slightly wider than tall
-
-	_blossom_particles.draw_pass_1 = mesh
-
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.97, 0.85, 0.88, 0.90)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	# Slight emission for that ethereal glow of sunlit petals
-	mat.emission_enabled = true
-	mat.emission = Color(0.95, 0.80, 0.82)
-	mat.emission_energy_multiplier = 0.15
-	_blossom_particles.material_override = mat
-
-	add_child(_blossom_particles)
-	print("Cherry blossoms: spring petal drift particles")
-
-
-func _setup_fog_weather() -> void:
-	# Fog multipliers are applied per-frame in the day/night cycle update
-	print("Fog: heavy atmospheric fog")
+	_weather_mode = _weather_mgr.mode
 
 
 func _setup_hud() -> void:
