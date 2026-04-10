@@ -324,10 +324,12 @@ void fragment() {
 	// Warm darken — match LOD0's tonal correction
 	color *= vec3(0.94, 0.90, 0.80);
 
-	// Top-lit canopy gradient — approximate LOD0's world-normal-based top-lit.
-	// UV.y=0 → billboard bottom (trunk base), UV.y=1 → billboard top (crown top).
-	float top_lit = UV.y;
-	color *= mix(0.85, 1.08, top_lit);
+	// Top-lit via blended normal map (atlas normals already encode canopy shape).
+	// Works correctly with spherical billboarding — uses actual surface orientation,
+	// not UV proxy which breaks when billboard tilts for overhead views.
+	vec3 world_n = mat3(INV_VIEW_MATRIX) * NORMAL;
+	float top_lit = world_n.y * 0.5 + 0.5;
+	color *= mix(0.88, 1.06, top_lit);
 
 	// Snow accumulation on upper canopy
 	if (snow_cover > 0.1) {
