@@ -1,0 +1,289 @@
+extends Node
+## Day/night cycle: 5-keyframe interpolation controlling sky, sun, fog,
+## ambient, SSAO, color grading, volumetric fog, cloud coverage.
+##
+## Self-contained: receives environment objects at init, called with
+## current state each frame. Pushes global shader parameters.
+
+# Weather enum must match main.gd
+enum Weather { CLEAR, RAIN, THUNDERSTORM, SNOW, FOG }
+
+# Environment objects — set by main.gd after _setup_environment()
+var env: Environment
+var sky_mat: ShaderMaterial
+var vol_sky = null  # clayjohn volumetric cloud sky (if loaded)
+var sun: DirectionalLight3D
+
+# Facade materials — set by main.gd after park_loader finishes
+var facade_materials: Array = []
+
+# Internal state
+var _keyframes: Array = []
+var _last_applied_tod: float = -999.0
+var _last_night_factor: float = -1.0
+
+const _KF_HOURS: Array = [5.0, 6.5, 12.0, 19.0, 21.0]
+
+
+func _ready() -> void:
+	_build_keyframes()
+
+
+func apply(time_of_day: float, weather: int, wind_vec: Vector2,
+		lightning_flash: float, user_gamma: float, season_t: float) -> void:
+	if not env or not sky_mat or not sun:
+		return
+	# Only update when time actually changes (~0.01h threshold)
+	if absf(time_of_day - _last_applied_tod) < 0.01 and _last_applied_tod >= 0.0:
+		return
+	_apply(time_of_day, weather, wind_vec, lightning_flash, user_gamma, season_t)
+
+
+func force_apply(time_of_day: float, weather: int, wind_vec: Vector2,
+		lightning_flash: float, user_gamma: float, season_t: float) -> void:
+	_last_applied_tod = -999.0
+	_apply(time_of_day, weather, wind_vec, lightning_flash, user_gamma, season_t)
+
+
+func get_lamp_emission() -> float:
+	## Returns interpolated lamp emission for SpotLight3D pool.
+	return _lamp_emission
+
+var _lamp_emission: float = 0.0
+
+
+func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
+		lightning_flash: float, user_gamma: float, season_t: float) -> void:
+	var pair: Array = _find_keyframe_pair(time_of_day)
+	var a: Dictionary = pair[0]
+	var b: Dictionary = pair[1]
+	var t: float = float(pair[2])
+
+	# Cloud properties
+	var cc_val: float = _lerp_kf("cloud_coverage", a, b, t)
+	var cs_val: float = _lerp_kf("cloud_speed", a, b, t)
+	if vol_sky:
+		vol_sky.cloud_coverage = clampf(cc_val, 0.20, 0.50)
+		vol_sky.density = clampf(_lerp_kf("cloud_density", a, b, t) * 0.08, 0.02, 0.10)
+	else:
+		var sky_top: Color = _lerp_kf("sky_top", a, b, t)
+		var sky_hor: Color = _lerp_kf("sky_horizon", a, b, t)
+		var gnd_bot: Color = _lerp_kf("gnd_bottom", a, b, t)
+		var gnd_hor: Color = _lerp_kf("gnd_horizon", a, b, t)
+		sky_mat.set_shader_parameter("sky_top_color", Vector3(sky_top.r, sky_top.g, sky_top.b))
+		sky_mat.set_shader_parameter("sky_horizon_color", Vector3(sky_hor.r, sky_hor.g, sky_hor.b))
+		sky_mat.set_shader_parameter("ground_bottom_color", Vector3(gnd_bot.r, gnd_bot.g, gnd_bot.b))
+		sky_mat.set_shader_parameter("ground_horizon_color", Vector3(gnd_hor.r, gnd_hor.g, gnd_hor.b))
+		sky_mat.set_shader_parameter("cloud_coverage", cc_val)
+		sky_mat.set_shader_parameter("cloud_density", _lerp_kf("cloud_density", a, b, t))
+		var cc_top: Color = _lerp_kf("cloud_color_top", a, b, t)
+		var cc_bot: Color = _lerp_kf("cloud_color_bottom", a, b, t)
+		sky_mat.set_shader_parameter("cloud_color_top", Vector3(cc_top.r, cc_top.g, cc_top.b))
+		sky_mat.set_shader_parameter("cloud_color_bottom", Vector3(cc_bot.r, cc_bot.g, cc_bot.b))
+		sky_mat.set_shader_parameter("cloud_speed", cs_val)
+	RenderingServer.global_shader_parameter_set("cloud_coverage_g", cc_val)
+	RenderingServer.global_shader_parameter_set("cloud_speed_g", cs_val)
+
+	# Ambient
+	env.ambient_light_color  = _lerp_kf("ambient_color", a, b, t)
+	env.ambient_light_energy = _lerp_kf("ambient_energy", a, b, t)
+
+	# Impostor brightness tracks ambient
+	var imp_bright: float = clamp(env.ambient_light_energy / 0.95, 0.3, 1.5)
+	RenderingServer.global_shader_parameter_set("impostor_brightness", imp_bright)
+
+	# Tonemapping
+	env.tonemap_exposure = _lerp_kf("exposure", a, b, t)
+	env.tonemap_white    = _lerp_kf("white", a, b, t)
+
+	# SSAO
+	env.ssao_radius    = _lerp_kf("ssao_radius", a, b, t)
+	env.ssao_intensity = _lerp_kf("ssao_intensity", a, b, t)
+	env.ssao_power     = _lerp_kf("ssao_power", a, b, t)
+
+	# Colour grading
+	env.adjustment_saturation = _lerp_kf("saturation", a, b, t)
+	env.adjustment_contrast   = _lerp_kf("contrast", a, b, t)
+	env.adjustment_brightness = _lerp_kf("brightness", a, b, t) * user_gamma
+	if lightning_flash > 0.01:
+		env.adjustment_brightness *= (1.0 + lightning_flash * 0.8)
+
+	# Volumetric fog
+	env.volumetric_fog_density = _lerp_kf("vol_fog_density", a, b, t)
+	var base_aniso: float = _lerp_kf("vol_fog_anisotropy", a, b, t)
+	var pitch_val: float = _lerp_kf("sun_pitch", a, b, t)
+	var sun_low_factor: float = smoothstep(-25.0, -5.0, pitch_val) * smoothstep(5.0, -5.0, pitch_val)
+	env.volumetric_fog_anisotropy = lerpf(base_aniso, 0.88, sun_low_factor * 0.5)
+
+	# Weather overrides
+	if weather == Weather.FOG:
+		env.volumetric_fog_density = 0.005
+		env.adjustment_saturation = 0.45
+		env.adjustment_brightness = 0.90
+		if vol_sky:
+			vol_sky.cloud_coverage = 0.60
+			vol_sky.density = 0.08
+		else:
+			sky_mat.set_shader_parameter("cloud_coverage", 0.75)
+			sky_mat.set_shader_parameter("cloud_density", 0.80)
+			sky_mat.set_shader_parameter("cloud_type", 1.0)
+	elif weather == Weather.RAIN:
+		env.volumetric_fog_density = 0.004
+		env.adjustment_saturation *= 0.7
+		env.adjustment_brightness *= 0.88
+		if vol_sky:
+			vol_sky.cloud_coverage = 0.58
+			vol_sky.density = 0.07
+		else:
+			sky_mat.set_shader_parameter("cloud_coverage", 0.72)
+			sky_mat.set_shader_parameter("cloud_density", 0.78)
+			sky_mat.set_shader_parameter("cloud_type", 1.0)
+	elif weather == Weather.THUNDERSTORM:
+		env.volumetric_fog_density = 0.008
+		env.adjustment_saturation *= 0.50
+		env.adjustment_brightness *= 0.75
+		if vol_sky:
+			vol_sky.cloud_coverage = 0.68
+			vol_sky.density = 0.10
+		else:
+			sky_mat.set_shader_parameter("cloud_coverage", 0.82)
+			sky_mat.set_shader_parameter("cloud_density", 0.85)
+			sky_mat.set_shader_parameter("cloud_type", 2.0)
+	elif weather == Weather.SNOW:
+		env.volumetric_fog_density = 0.003
+		env.adjustment_saturation *= 0.75
+		if vol_sky:
+			vol_sky.cloud_coverage = 0.55
+			vol_sky.density = 0.06
+		else:
+			sky_mat.set_shader_parameter("cloud_coverage", 0.70)
+			sky_mat.set_shader_parameter("cloud_density", 0.72)
+			sky_mat.set_shader_parameter("cloud_type", 1.0)
+
+	# Wind reduces volumetric fog slightly
+	var wind_str: float = wind_vec.length()
+	if wind_str > 0.1:
+		env.volumetric_fog_density *= lerpf(1.0, 0.85, clampf(wind_str * 0.3, 0.0, 1.0))
+
+	# Sky reflection color for water surfaces
+	var sky_r: Color = _lerp_kf("fog_color", a, b, t)
+	var sun_c: Color = _lerp_kf("sun_color", a, b, t)
+	var reflect := sky_r.lerp(sun_c, 0.2)
+	reflect = Color(reflect.r * 0.75, reflect.g * 0.85, reflect.b * 1.1)
+	RenderingServer.global_shader_parameter_set("sky_reflect_color",
+		Vector3(reflect.r, reflect.g, reflect.b))
+
+	# Morning dew
+	var dew := 0.0
+	if time_of_day >= 4.5 and time_of_day <= 8.5:
+		if time_of_day <= 6.0:
+			dew = smoothstep(4.5, 6.0, time_of_day)
+		else:
+			dew = 1.0 - smoothstep(6.0, 8.5, time_of_day)
+	if weather != Weather.CLEAR:
+		dew = 0.0
+	RenderingServer.global_shader_parameter_set("dew_amount", dew)
+
+	# Dawn mist
+	if weather == Weather.CLEAR:
+		var dawn_mist := 0.0
+		if time_of_day >= 4.5 and time_of_day <= 7.5:
+			if time_of_day <= 5.5:
+				dawn_mist = smoothstep(4.5, 5.5, time_of_day)
+			else:
+				dawn_mist = 1.0 - smoothstep(5.5, 7.5, time_of_day)
+			env.volumetric_fog_density += dawn_mist * 0.002
+			env.adjustment_saturation *= (1.0 - dawn_mist * 0.15)
+
+	# Seasonal fog and atmosphere modulation
+	var s_autumn := smoothstep(1.5, 2.5, season_t) * (1.0 - smoothstep(2.5, 3.5, season_t))
+	var s_winter := smoothstep(2.5, 3.5, season_t)
+	if s_autumn > 0.01:
+		env.volumetric_fog_density *= (1.0 + s_autumn * 0.12)
+	if s_winter > 0.01:
+		env.volumetric_fog_density *= (1.0 + s_winter * 0.15)
+		env.adjustment_saturation *= (1.0 - s_winter * 0.2)
+
+	# Monthly cloud coverage from NOAA data
+	var monthly_cover: Array = [0.47, 0.45, 0.44, 0.36, 0.31, 0.30,
+		0.34, 0.41, 0.37, 0.47, 0.43, 0.47]
+	var month_idx: int = int(season_t * 3.0) % 12
+	var month_next: int = (month_idx + 1) % 12
+	var month_frac: float = fmod(season_t * 3.0, 1.0)
+	var data_cover: float = lerpf(monthly_cover[month_idx], monthly_cover[month_next], month_frac)
+	if weather == Weather.CLEAR:
+		if vol_sky:
+			vol_sky.cloud_coverage = maxf(lerpf(vol_sky.cloud_coverage, data_cover, 0.7), 0.25)
+		else:
+			var cc: float = sky_mat.get_shader_parameter("cloud_coverage")
+			sky_mat.set_shader_parameter("cloud_coverage", lerpf(cc, data_cover, 0.7))
+			if s_winter > 0.3:
+				sky_mat.set_shader_parameter("cloud_type", lerpf(0.0, 1.0, s_winter))
+
+	# Sun / moon directional light
+	sun.light_energy    = _lerp_kf("sun_energy", a, b, t)
+	sun.light_color     = _lerp_kf("sun_color", a, b, t)
+	var pitch: float    = _lerp_kf("sun_pitch", a, b, t)
+	var yaw: float      = _lerp_kf("sun_yaw", a, b, t)
+	sun.rotation_degrees = Vector3(pitch, yaw, 0.0)
+	sun.directional_shadow_max_distance = _lerp_kf("shadow_dist", a, b, t)
+
+	# Lamp emission
+	_lamp_emission = _lerp_kf("lamp_emission", a, b, t)
+	RenderingServer.global_shader_parameter_set("lamp_glow", clampf(_lamp_emission / 5.0, 0.0, 1.0))
+
+	# Building window night_factor
+	var nf: float = 0.0
+	if time_of_day >= 18.0 and time_of_day < 21.0:
+		nf = (time_of_day - 18.0) / 3.0
+	elif time_of_day >= 21.0 or time_of_day < 5.0:
+		nf = 1.0
+	elif time_of_day >= 5.0 and time_of_day < 7.0:
+		nf = 1.0 - (time_of_day - 5.0) / 2.0
+	if absf(nf - _last_night_factor) > 0.005:
+		_last_night_factor = nf
+		for fm in facade_materials:
+			if fm is ShaderMaterial:
+				fm.set_shader_parameter("night_factor", nf)
+
+	_last_applied_tod = time_of_day
+
+
+func _find_keyframe_pair(hour: float) -> Array:
+	var n: int = _keyframes.size()
+	for i in n:
+		var ha: float = float(_keyframes[i]["hour"])
+		var j: int = (i + 1) % n
+		var hb: float = float(_keyframes[j]["hour"])
+		var span: float
+		var off: float
+		if hb <= ha:
+			span = (hb + 24.0) - ha
+			if hour >= ha:
+				off = hour - ha
+			else:
+				off = (hour + 24.0) - ha
+		else:
+			span = hb - ha
+			off = hour - ha
+		if off >= 0.0 and off < span:
+			var t: float = off / span
+			return [_keyframes[i], _keyframes[j], t]
+	return [_keyframes[0], _keyframes[0], 0.0]
+
+
+func _lerp_kf(key: String, a: Dictionary, b: Dictionary, t: float):
+	var va = a[key]
+	var vb = b[key]
+	if va is Color:
+		return (va as Color).lerp(vb as Color, t)
+	else:
+		return lerpf(float(va), float(vb), t)
+
+
+func _build_keyframes() -> void:
+	_keyframes.append({"hour": 5.0, "sky_top": Color(0.02, 0.02, 0.06), "sky_horizon": Color(0.14, 0.11, 0.20), "gnd_bottom": Color(0.02, 0.02, 0.035), "gnd_horizon": Color(0.10, 0.07, 0.12), "ambient_color": Color(0.16, 0.14, 0.22), "ambient_energy": 0.45, "exposure": 1.05, "white": 6.0, "ssao_radius": 2.0, "ssao_intensity": 1.4, "ssao_power": 1.5, "saturation": 0.75, "contrast": 1.02, "brightness": 0.96, "fog_color": Color(0.12, 0.10, 0.14), "fog_energy": 0.20, "fog_scatter": 0.05, "fog_density": 0.0005, "fog_aerial": 0.20, "fog_sky_affect": 0.6, "sun_energy": 0.05, "sun_color": Color(0.65, 0.72, 0.95), "sun_pitch": -10.0, "sun_yaw": -100.0, "shadow_dist": 250.0, "lamp_emission": 5.0, "vol_fog_density": 0.0004, "vol_fog_anisotropy": 0.45, "cloud_coverage": 0.24, "cloud_density": 0.55, "cloud_color_top": Color(0.42, 0.40, 0.44), "cloud_color_bottom": Color(0.16, 0.14, 0.18), "cloud_speed": 0.00003})
+	_keyframes.append({"hour": 6.5, "sky_top": Color(0.18, 0.32, 0.62), "sky_horizon": Color(0.75, 0.52, 0.35), "gnd_bottom": Color(0.10, 0.08, 0.06), "gnd_horizon": Color(0.46, 0.34, 0.22), "ambient_color": Color(0.48, 0.38, 0.26), "ambient_energy": 0.75, "exposure": 0.95, "white": 5.5, "ssao_radius": 1.5, "ssao_intensity": 1.5, "ssao_power": 1.5, "saturation": 1.0, "contrast": 1.02, "brightness": 1.0, "fog_color": Color(0.50, 0.42, 0.34), "fog_energy": 0.45, "fog_scatter": 0.18, "fog_density": 0.0005, "fog_aerial": 0.18, "fog_sky_affect": 0.30, "sun_energy": 0.90, "sun_color": Color(1.0, 0.75, 0.50), "sun_pitch": -12.0, "sun_yaw": -95.0, "shadow_dist": 350.0, "lamp_emission": 0.0, "vol_fog_density": 0.0003, "vol_fog_anisotropy": 0.80, "cloud_coverage": 0.25, "cloud_density": 0.50, "cloud_color_top": Color(0.95, 0.85, 0.72), "cloud_color_bottom": Color(0.52, 0.42, 0.32), "cloud_speed": 0.00005})
+	_keyframes.append({"hour": 12.0, "sky_top": Color(0.12, 0.28, 0.65), "sky_horizon": Color(0.55, 0.60, 0.68), "gnd_bottom": Color(0.12, 0.12, 0.10), "gnd_horizon": Color(0.38, 0.36, 0.32), "ambient_color": Color(0.50, 0.46, 0.38), "ambient_energy": 0.95, "exposure": 1.0, "white": 6.0, "ssao_radius": 2.0, "ssao_intensity": 1.3, "ssao_power": 1.4, "saturation": 1.0, "contrast": 1.01, "brightness": 1.0, "fog_color": Color(0.62, 0.60, 0.56), "fog_energy": 0.5, "fog_scatter": 0.06, "fog_density": 0.00015, "fog_aerial": 0.12, "fog_sky_affect": 0.30, "sun_energy": 0.95, "sun_color": Color(0.95, 0.92, 0.85), "sun_pitch": -55.0, "sun_yaw": -20.0, "shadow_dist": 400.0, "lamp_emission": 0.0, "vol_fog_density": 0.0001, "vol_fog_anisotropy": 0.45, "cloud_coverage": 0.28, "cloud_density": 0.50, "cloud_color_top": Color(0.95, 0.95, 0.93), "cloud_color_bottom": Color(0.68, 0.68, 0.66), "cloud_speed": 0.00006})
+	_keyframes.append({"hour": 19.0, "sky_top": Color(0.18, 0.14, 0.38), "sky_horizon": Color(0.82, 0.50, 0.28), "gnd_bottom": Color(0.10, 0.07, 0.04), "gnd_horizon": Color(0.48, 0.35, 0.20), "ambient_color": Color(0.48, 0.42, 0.32), "ambient_energy": 0.88, "exposure": 0.95, "white": 5.5, "ssao_radius": 2.0, "ssao_intensity": 1.4, "ssao_power": 1.5, "saturation": 1.0, "contrast": 1.02, "brightness": 0.98, "fog_color": Color(0.55, 0.45, 0.35), "fog_energy": 0.45, "fog_scatter": 0.18, "fog_density": 0.0005, "fog_aerial": 0.18, "fog_sky_affect": 0.30, "sun_energy": 0.95, "sun_color": Color(1.0, 0.72, 0.45), "sun_pitch": -12.0, "sun_yaw": 95.0, "shadow_dist": 350.0, "lamp_emission": 0.0, "vol_fog_density": 0.0003, "vol_fog_anisotropy": 0.80, "cloud_coverage": 0.28, "cloud_density": 0.50, "cloud_color_top": Color(0.85, 0.55, 0.38), "cloud_color_bottom": Color(0.55, 0.30, 0.18), "cloud_speed": 0.00005})
+	_keyframes.append({"hour": 21.0, "sky_top": Color(0.015, 0.01, 0.01), "sky_horizon": Color(0.08, 0.05, 0.03), "gnd_bottom": Color(0.02, 0.015, 0.01), "gnd_horizon": Color(0.08, 0.06, 0.04), "ambient_color": Color(0.85, 0.65, 0.40), "ambient_energy": 0.06, "exposure": 0.90, "white": 6.0, "ssao_radius": 2.0, "ssao_intensity": 1.4, "ssao_power": 1.5, "saturation": 0.50, "contrast": 1.01, "brightness": 0.88, "fog_color": Color(0.08, 0.06, 0.04), "fog_energy": 0.20, "fog_scatter": 0.06, "fog_density": 0.0003, "fog_aerial": 0.15, "fog_sky_affect": 0.4, "sun_energy": 0.05, "sun_color": Color(0.70, 0.78, 1.00), "sun_pitch": -65.0, "sun_yaw": 40.0, "shadow_dist": 250.0, "lamp_emission": 5.0, "vol_fog_density": 0.0005, "vol_fog_anisotropy": 0.35, "cloud_coverage": 0.20, "cloud_density": 0.50, "cloud_color_top": Color(0.14, 0.12, 0.18), "cloud_color_bottom": Color(0.06, 0.05, 0.08), "cloud_speed": 0.00003})

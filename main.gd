@@ -25,11 +25,11 @@ var _latlon_label:  Label
 # ---------------------------------------------------------------------------
 # Day/night cycle
 # ---------------------------------------------------------------------------
+var _day_night: Node  # DayNightCycle instance
 var _time_of_day: float = 16.0        # start at 4 PM
 var _user_gamma: float = 1.0          # user brightness: , = darker, . = brighter
 var _time_speed: float  = 0.001      # game-hours per real-second (~400 min full cycle)
 var _time_speed_idx: int = 0
-var _last_applied_tod: float = -999.0  # tracks last _apply_time_of_day() value
 const TIME_SPEEDS: Array = [0.001, 0.01, 0.1, 0.0]
 const TIME_SPEED_NAMES: Array = ["1x", "10x", "100x", "Paused"]
 
@@ -38,7 +38,6 @@ var _sky_mat: ShaderMaterial
 var _vol_sky = null  # clayjohn volumetric cloud sky (if loaded)
 var _sun: DirectionalLight3D
 var _lamp_emission: float = 0.0  # cached for SpotLight3D pool
-var _last_night_factor: float = -1.0  # cached to avoid per-frame facade material iteration
 var _terrain3d: Terrain3D
 var _time_label: Label
 var _speed_label: Label
@@ -79,8 +78,6 @@ var _audio_manager = null  # ambient sound (wind, city, water, footsteps)
 
 # 5 keyframes defining the full day/night cycle
 # Night (21→5) wraps seamlessly; 8 hours of steady darkness.
-var _keyframes: Array = []
-const _KF_HOURS: Array = [5.0, 6.5, 12.0, 19.0, 21.0]
 
 
 var _terrain_only := false
@@ -218,11 +215,18 @@ func _ready() -> void:
 	# Enable GPU-based occlusion culling (used by canopy occluders in woodland)
 	get_viewport().use_occlusion_culling = true
 	var _mt := Time.get_ticks_msec()
-	_build_keyframes()
+	_day_night = preload("res://day_night_cycle.gd").new()
+	_day_night.name = "DayNightCycle"
+	add_child(_day_night)
 	_load_heightmap()
 	_carve_terrain_voids()
 	print("main: heightmap + terrain voids: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_setup_environment()
+	# Wire DayNightCycle to environment objects
+	_day_night.env = _env
+	_day_night.sky_mat = _sky_mat
+	_day_night.vol_sky = _vol_sky
+	_day_night.sun = _sun
 	# Register global shader parameters BEFORE park_loader creates materials
 	RenderingServer.global_shader_parameter_add("wind_vec", RenderingServer.GLOBAL_VAR_TYPE_VEC2, Vector2.ZERO)
 	RenderingServer.global_shader_parameter_add("snow_cover", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
@@ -244,6 +248,8 @@ func _ready() -> void:
 	print("main: Terrain3D setup: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	if not _terrain_only:
 		_setup_park()
+		if _park_loader:
+			_day_night.facade_materials = _park_loader.facade_materials
 		print("main: park_loader: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	if not _terrain_only:
 		# Structure textures + boundary mask + structure mask now handled by
@@ -277,7 +283,8 @@ func _ready() -> void:
 	if not _terrain_only:
 		_setup_lamp_lights()
 	print("main: total _ready: %d ms" % (Time.get_ticks_msec() - _mt))
-	_apply_time_of_day()
+	_day_night.force_apply(_time_of_day, _weather_mode, _wind_vec,
+		_lightning_flash, _user_gamma, _season_t)
 	_setup_weather()
 	# Ambient audio — disabled for now
 	#if not _terrain_only and _park_loader and _player:
@@ -658,7 +665,8 @@ func _process(delta: float) -> void:
 					_tour_teleport(_tour_idx)
 			3:  # DONE
 				pass
-		_apply_time_of_day()
+		_day_night.force_apply(_time_of_day, _weather_mode, _wind_vec,
+		_lightning_flash, _user_gamma, _season_t)
 		_update_hud()
 		return
 
@@ -715,7 +723,8 @@ func _process(delta: float) -> void:
 		if _walk_bot_shot_timer >= _walk_bot_interval:
 			_walk_bot_shot_timer -= _walk_bot_interval
 			_walk_bot_capture()
-		_apply_time_of_day()
+		_day_night.force_apply(_time_of_day, _weather_mode, _wind_vec,
+		_lightning_flash, _user_gamma, _season_t)
 		_update_hud()
 		return
 
@@ -868,9 +877,10 @@ func _process(delta: float) -> void:
 		_time_of_day -= 24.0
 	elif _time_of_day < 0.0:
 		_time_of_day += 24.0
-	# Only update sky/env/lighting when time actually changes (~0.01h threshold)
-	if absf(_time_of_day - _last_applied_tod) > 0.01 or _last_applied_tod < 0.0:
-		_apply_time_of_day()
+	# Day/night cycle — threshold check is internal to DayNightCycle
+	_day_night.apply(_time_of_day, _weather_mode, _wind_vec,
+		_lightning_flash, _user_gamma, _season_t)
+	_lamp_emission = _day_night.get_lamp_emission()
 
 	_update_hud()
 	_update_perf_overlay(delta)
@@ -999,8 +1009,8 @@ func _tour_teleport(idx: int) -> void:
 	if shot.has("season"):
 		_season_t = float(shot["season"])
 		RenderingServer.global_shader_parameter_set("season_t", _season_t)
-	_last_applied_tod = -999.0  # force full lighting update
-	_apply_time_of_day()
+	_day_night.force_apply(_time_of_day, _weather_mode, _wind_vec,
+		_lightning_flash, _user_gamma, _season_t)
 
 
 func _set_weather(mode) -> void:
@@ -1154,11 +1164,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventJoypadButton and event.pressed:
 		if event.button_index == JOY_BUTTON_DPAD_LEFT:
 			_time_of_day = fmod(_time_of_day - 1.0 + 24.0, 24.0)
-			_apply_time_of_day()
+			_day_night.force_apply(_time_of_day, _weather_mode, _wind_vec,
+		_lightning_flash, _user_gamma, _season_t)
 			print("Time: %.1f h" % _time_of_day)
 		elif event.button_index == JOY_BUTTON_DPAD_RIGHT:
 			_time_of_day = fmod(_time_of_day + 1.0, 24.0)
-			_apply_time_of_day()
+			_day_night.force_apply(_time_of_day, _weather_mode, _wind_vec,
+		_lightning_flash, _user_gamma, _season_t)
 			print("Time: %.1f h" % _time_of_day)
 		elif event.button_index == JOY_BUTTON_LEFT_SHOULDER:
 			_cycle_weather()
@@ -1175,11 +1187,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		print("Time speed: ", TIME_SPEED_NAMES[_time_speed_idx])
 	elif event.keycode == KEY_BRACKETLEFT:
 		_time_of_day = fmod(_time_of_day - 1.0 + 24.0, 24.0)
-		_apply_time_of_day()
+		_day_night.force_apply(_time_of_day, _weather_mode, _wind_vec,
+		_lightning_flash, _user_gamma, _season_t)
 		print("Time: %.1f h" % _time_of_day)
 	elif event.keycode == KEY_BRACKETRIGHT:
 		_time_of_day = fmod(_time_of_day + 1.0, 24.0)
-		_apply_time_of_day()
+		_day_night.force_apply(_time_of_day, _weather_mode, _wind_vec,
+		_lightning_flash, _user_gamma, _season_t)
 		print("Time: %.1f h" % _time_of_day)
 	elif event.keycode == KEY_P:
 		_cycle_weather()
@@ -1315,7 +1329,8 @@ func _grass_tour_teleport() -> void:
 		RenderingServer.global_shader_parameter_set("season_t", _season_t)
 	if spot.has("weather"):
 		_set_weather(spot["weather"])
-	_apply_time_of_day()
+	_day_night.force_apply(_time_of_day, _weather_mode, _wind_vec,
+		_lightning_flash, _user_gamma, _season_t)
 	print("Photo tour: %s (%.0f,%.0f) %s %.1fh %s" % [
 		spot["name"], x, z, _month_name(_season_t), spot.get("hour", 12.0), spot.get("weather", "clear")])
 	_grass_tour_timer = 0.0
@@ -1481,460 +1496,6 @@ func _setup_environment() -> void:
 		vol_sky.sun = _sun
 
 	print("Sky: day/night cycle — start 6:00 AM")
-
-
-# ---------------------------------------------------------------------------
-# Day/night keyframes
-# ---------------------------------------------------------------------------
-func _build_keyframes() -> void:
-	# ---- 5.0  Pre-dawn ----
-	# NYC light pollution: horizon never fully dark, ambient glow from city
-	_keyframes.append({
-		"hour": 5.0,
-		"sky_top":        Color(0.02, 0.02, 0.06),
-		"sky_horizon":    Color(0.14, 0.11, 0.20),  # light pollution glow
-		"gnd_bottom":     Color(0.02, 0.02, 0.035),
-		"gnd_horizon":    Color(0.10, 0.07, 0.12),
-		"ambient_color":  Color(0.16, 0.14, 0.22),
-		"ambient_energy": 0.45,   # NYC ambient from light pollution
-		"exposure":       1.05,
-		"white":          6.0,
-		"ssao_radius":    2.0,
-		"ssao_intensity": 1.4,
-		"ssao_power":     1.5,
-		"saturation":     0.75,
-		"contrast":       1.02,
-		"brightness":     0.96,
-		"fog_color":      Color(0.12, 0.10, 0.14),
-		"fog_energy":     0.20,
-		"fog_scatter":    0.05,
-		"fog_density":    0.0005,
-		"fog_aerial":     0.20,
-		"fog_sky_affect": 0.6,
-		"sun_energy":     0.05,
-		"sun_color":      Color(0.65, 0.72, 0.95),
-		"sun_pitch":      -10.0,
-		"sun_yaw":        -100.0,
-		"shadow_dist":    250.0,
-		"lamp_emission":  5.0,  # pre-dawn: lamps on (direct SpotLight3D energy)
-		"vol_fog_density":    0.0004,
-		"vol_fog_anisotropy": 0.45,
-		"cloud_coverage":     0.24,
-		"cloud_density":      0.55,
-		"cloud_color_top":    Color(0.42, 0.40, 0.44),
-		"cloud_color_bottom": Color(0.16, 0.14, 0.18),
-		"cloud_speed":        0.00003,
-	})
-
-	# ---- 6.5  Sunrise / Golden hour ----
-	# Morning light from the east bathes the Fifth Avenue buildings in gold,
-	# long shadows stretch westward across the lawns, mist rises from the ponds.
-	_keyframes.append({
-		"hour": 6.5,
-		"sky_top":        Color(0.18, 0.32, 0.62),  # deeper dawn blue
-		"sky_horizon":    Color(0.75, 0.52, 0.35),    # richer sunrise glow
-		"gnd_bottom":     Color(0.10, 0.08, 0.06),
-		"gnd_horizon":    Color(0.46, 0.34, 0.22),
-		"ambient_color":  Color(0.48, 0.38, 0.26),
-		"ambient_energy": 0.75,
-		"exposure":       0.95,
-		"white":          5.5,
-		"ssao_radius":    1.5,
-		"ssao_intensity": 1.5,
-		"ssao_power":     1.5,
-		"saturation":     1.0,
-		"contrast":       1.02,
-		"brightness":     1.0,
-		"fog_color":      Color(0.50, 0.42, 0.34),   # subtle warm haze, not amber wash
-		"fog_energy":     0.45,
-		"fog_scatter":    0.18,
-		"fog_density":    0.0005,   # golden hour haze — buildings fade into warm atmosphere
-		"fog_aerial":     0.18,     # gentle atmospheric depth
-		"fog_sky_affect": 0.30,
-		"sun_energy":     0.90,
-		"sun_color":      Color(1.0, 0.75, 0.50),    # warm but not deep amber
-		"sun_pitch":      -12.0,
-		"sun_yaw":        -95.0,
-		"shadow_dist":    350.0,
-		"lamp_emission":  0.0,
-		"vol_fog_density":    0.0003,  # subtle sunrise haze
-		"vol_fog_anisotropy": 0.80,    # moderate forward scatter
-		"cloud_coverage":     0.25,
-		"cloud_density":      0.50,
-		"cloud_color_top":    Color(0.95, 0.85, 0.72),   # gold-lit cloud tops
-		"cloud_color_bottom": Color(0.52, 0.42, 0.32),
-		"cloud_speed":        0.00005,
-	})
-
-	# ---- 12.0  Noon (clear, bright daylight) ----
-	_keyframes.append({
-		"hour": 12.0,
-		"sky_top":        Color(0.12, 0.28, 0.65),  # deep noon blue
-		"sky_horizon":    Color(0.55, 0.60, 0.68),
-		"gnd_bottom":     Color(0.12, 0.12, 0.10),
-		"gnd_horizon":    Color(0.38, 0.36, 0.32),
-		"ambient_color":  Color(0.50, 0.46, 0.38),
-		"ambient_energy": 0.95,
-		"exposure":       1.0,
-		"white":          6.0,
-		"ssao_radius":    2.0,
-		"ssao_intensity": 1.3,
-		"ssao_power":     1.4,
-		"saturation":     1.0,
-		"contrast":       1.01,
-		"brightness":     1.0,
-		"fog_color":      Color(0.62, 0.60, 0.56),  # warmer haze — NYC summer atmosphere
-		"fog_energy":     0.5,
-		"fog_scatter":    0.06,
-		"fog_density":    0.00015,  # noon: clearest air of the day, crisp visibility
-		"fog_aerial":     0.12,     # subtle atmospheric scattering on distant objects
-		"fog_sky_affect": 0.30,
-		"sun_energy":     0.95,
-		"sun_color":      Color(0.95, 0.92, 0.85),
-		"sun_pitch":      -55.0,
-		"sun_yaw":        -20.0,
-		"shadow_dist":    400.0,
-		"lamp_emission":  0.0,
-		"vol_fog_density":    0.0001,  # very subtle volumetric — just enough for depth
-		"vol_fog_anisotropy": 0.45,
-		"cloud_coverage":     0.28,
-		"cloud_density":      0.50,
-		"cloud_color_top":    Color(0.95, 0.95, 0.93),
-		"cloud_color_bottom": Color(0.68, 0.68, 0.66),
-		"cloud_speed":        0.00006,
-	})
-
-	# ---- 19.0  Sunset / Golden hour ----
-	# The most photogenic time in Central Park — warm light raking across meadows,
-	# long shadows, golden tree canopy, NYC skyline silhouettes catching fire.
-	_keyframes.append({
-		"hour": 19.0,
-		"sky_top":        Color(0.18, 0.14, 0.38),   # deep sunset purple
-		"sky_horizon":    Color(0.82, 0.50, 0.28),    # richer orange at horizon
-		"gnd_bottom":     Color(0.10, 0.07, 0.04),
-		"gnd_horizon":    Color(0.48, 0.35, 0.20),    # warm ground reflection
-		"ambient_color":  Color(0.48, 0.42, 0.32),    # warm ambient but not saturated amber
-		"ambient_energy": 0.88,
-		"exposure":       0.95,
-		"white":          5.5,
-		"ssao_radius":    2.0,
-		"ssao_intensity": 1.4,
-		"ssao_power":     1.5,
-		"saturation":     1.0,    # natural — let sun color do the work
-		"contrast":       1.02,   # soft long shadows
-		"brightness":     0.98,
-		"fog_color":      Color(0.55, 0.45, 0.35),    # neutral warm haze, not amber blanket
-		"fog_energy":     0.45,
-		"fog_scatter":    0.18,
-		"fog_density":    0.0005,   # golden hour atmospheric haze
-		"fog_aerial":     0.18,     # gentle atmospheric depth
-		"fog_sky_affect": 0.30,
-		"sun_energy":     0.95,    # strong low sun but not overblown
-		"sun_color":      Color(1.0, 0.72, 0.45),     # warm golden, not deep amber
-		"sun_pitch":      -12.0,   # lower sun angle for longer shadows
-		"sun_yaw":        95.0,
-		"shadow_dist":    350.0,
-		"lamp_emission":  0.0,  # lamps off until after sunset (ramp 19h→21h)
-		"vol_fog_density":    0.0003,  # subtle haze — clarity over drama
-		"vol_fog_anisotropy": 0.80,    # moderate forward scatter
-		"cloud_coverage":     0.28,
-		"cloud_density":      0.50,
-		"cloud_color_top":    Color(0.85, 0.55, 0.38),  # golden-lit cloud tops
-		"cloud_color_bottom": Color(0.55, 0.30, 0.18),  # warm undersides
-		"cloud_speed":        0.00005,
-	})
-
-	# ---- 21.0  Night ----
-	# NYC light pollution: never truly dark. Central Park is surrounded by 6,557 lit buildings.
-	# Real nighttime in CP: you can see paths, grass, trees clearly. The city bathes everything in warm glow.
-	_keyframes.append({
-		"hour": 21.0,
-		"sky_top":        Color(0.015, 0.01, 0.01),  # very dark — NYC Bortle 9 zenith
-		"sky_horizon":    Color(0.08, 0.05, 0.03),   # dim amber glow at horizon
-		"gnd_bottom":     Color(0.02, 0.015, 0.01),
-		"gnd_horizon":    Color(0.08, 0.06, 0.04),  # warm ground glow from city
-		"ambient_color":  Color(0.85, 0.65, 0.40),  # warm amber city glow — NYC sodium vapor spill
-		"ambient_energy": 0.06,   # deep dark — only lamppost pools provide real light
-		"exposure":       0.90,   # dark night but AgX needs more exposure than Filmic
-		"white":          6.0,
-		"ssao_radius":    2.0,
-		"ssao_intensity": 1.4,
-		"ssao_power":     1.5,
-		"saturation":     0.50,   # colors are very muted at night — olive/brown, not green
-		"contrast":       1.01,
-		"brightness":     0.88,
-		"fog_color":      Color(0.08, 0.06, 0.04),  # dimmer amber night haze
-		"fog_energy":     0.20,
-		"fog_scatter":    0.06,
-		"fog_density":    0.0003,
-		"fog_aerial":     0.15,
-		"fog_sky_affect": 0.4,
-		"sun_energy":     0.05,
-		"sun_color":      Color(0.70, 0.78, 1.00),
-		"sun_pitch":      -65.0,
-		"sun_yaw":        40.0,
-		"shadow_dist":    250.0,
-		"lamp_emission":  5.0,  # night: direct SpotLight3D energy (was 110 via 22x multiplier)
-		"vol_fog_density":    0.0005,  # slight night haze catches lamplight scatter
-		"vol_fog_anisotropy": 0.35,
-		"cloud_coverage":     0.20,
-		"cloud_density":      0.50,
-		"cloud_color_top":    Color(0.14, 0.12, 0.18),
-		"cloud_color_bottom": Color(0.06, 0.05, 0.08),
-		"cloud_speed":        0.00003,
-	})
-
-
-func _find_keyframe_pair(hour: float) -> Array:
-	## Returns [kf_a: Dictionary, kf_b: Dictionary, t: float]
-	var n: int = _keyframes.size()
-	for i in n:
-		var ha: float = float(_keyframes[i]["hour"])
-		var j: int = (i + 1) % n
-		var hb: float = float(_keyframes[j]["hour"])
-		# Handle wrap-around (night 21→pre-dawn 5 spans midnight)
-		var span: float
-		var off: float
-		if hb <= ha:
-			# Wrapping pair (e.g. 21→5 = 8 hours through midnight)
-			span = (hb + 24.0) - ha
-			if hour >= ha:
-				off = hour - ha
-			else:
-				off = (hour + 24.0) - ha
-		else:
-			span = hb - ha
-			off = hour - ha
-		if off >= 0.0 and off < span:
-			var t: float = off / span
-			return [_keyframes[i], _keyframes[j], t]
-	# Fallback (should not happen)
-	return [_keyframes[0], _keyframes[0], 0.0]
-
-
-func _lerp_kf(key: String, a: Dictionary, b: Dictionary, t: float):
-	var va = a[key]
-	var vb = b[key]
-	if va is Color:
-		return (va as Color).lerp(vb as Color, t)
-	else:
-		return lerpf(float(va), float(vb), t)
-
-
-func _apply_time_of_day() -> void:
-	if not _env or not _sky_mat or not _sun:
-		return
-	var pair: Array = _find_keyframe_pair(_time_of_day)
-	var a: Dictionary = pair[0]
-	var b: Dictionary = pair[1]
-	var t: float = float(pair[2])
-
-	# Cloud properties — route to volumetric sky or old shader
-	var _cc_val: float = _lerp_kf("cloud_coverage", a, b, t)
-	var _cs_val: float = _lerp_kf("cloud_speed", a, b, t)
-	if _vol_sky:
-		_vol_sky.cloud_coverage = clampf(_cc_val, 0.20, 0.50)  # partly cloudy for clear weather
-		_vol_sky.density = clampf(_lerp_kf("cloud_density", a, b, t) * 0.08, 0.02, 0.10)
-	else:
-		var sky_top: Color = _lerp_kf("sky_top", a, b, t)
-		var sky_hor: Color = _lerp_kf("sky_horizon", a, b, t)
-		var gnd_bot: Color = _lerp_kf("gnd_bottom", a, b, t)
-		var gnd_hor: Color = _lerp_kf("gnd_horizon", a, b, t)
-		_sky_mat.set_shader_parameter("sky_top_color", Vector3(sky_top.r, sky_top.g, sky_top.b))
-		_sky_mat.set_shader_parameter("sky_horizon_color", Vector3(sky_hor.r, sky_hor.g, sky_hor.b))
-		_sky_mat.set_shader_parameter("ground_bottom_color", Vector3(gnd_bot.r, gnd_bot.g, gnd_bot.b))
-		_sky_mat.set_shader_parameter("ground_horizon_color", Vector3(gnd_hor.r, gnd_hor.g, gnd_hor.b))
-		_sky_mat.set_shader_parameter("cloud_coverage", _cc_val)
-		_sky_mat.set_shader_parameter("cloud_density", _lerp_kf("cloud_density", a, b, t))
-		var cc_top: Color = _lerp_kf("cloud_color_top", a, b, t)
-		var cc_bot: Color = _lerp_kf("cloud_color_bottom", a, b, t)
-		_sky_mat.set_shader_parameter("cloud_color_top", Vector3(cc_top.r, cc_top.g, cc_top.b))
-		_sky_mat.set_shader_parameter("cloud_color_bottom", Vector3(cc_bot.r, cc_bot.g, cc_bot.b))
-		_sky_mat.set_shader_parameter("cloud_speed", _cs_val)
-	# Push to globals for cloud shadows on terrain/grass
-	RenderingServer.global_shader_parameter_set("cloud_coverage_g", _cc_val)
-	RenderingServer.global_shader_parameter_set("cloud_speed_g", _cs_val)
-
-	# Ambient
-	_env.ambient_light_color  = _lerp_kf("ambient_color", a, b, t)
-	_env.ambient_light_energy = _lerp_kf("ambient_energy", a, b, t)
-
-	# Impostor brightness tracks ambient — brighter at noon, dimmer at night
-	# Normalized to 1.0 at noon (ambient_energy ~0.95), scales proportionally
-	var _imp_bright: float = clamp(_env.ambient_light_energy / 0.95, 0.3, 1.5)
-	RenderingServer.global_shader_parameter_set("impostor_brightness", _imp_bright)
-
-	# Tonemapping
-	_env.tonemap_exposure = _lerp_kf("exposure", a, b, t)
-	_env.tonemap_white    = _lerp_kf("white", a, b, t)
-
-	# SSAO
-	_env.ssao_radius    = _lerp_kf("ssao_radius", a, b, t)
-	_env.ssao_intensity = _lerp_kf("ssao_intensity", a, b, t)
-	_env.ssao_power     = _lerp_kf("ssao_power", a, b, t)
-
-	# Colour grading
-	_env.adjustment_saturation = _lerp_kf("saturation", a, b, t)
-	_env.adjustment_contrast   = _lerp_kf("contrast", a, b, t)
-	_env.adjustment_brightness = _lerp_kf("brightness", a, b, t) * _user_gamma
-	if _lightning_flash > 0.01:
-		_env.adjustment_brightness *= (1.0 + _lightning_flash * 0.8)
-
-	# Volumetric fog only — standard fog disabled (was double-dipping)
-	_env.volumetric_fog_density    = _lerp_kf("vol_fog_density", a, b, t)
-	var base_aniso: float = _lerp_kf("vol_fog_anisotropy", a, b, t)
-	# Boost anisotropy for god rays when sun is low (light shafts through trees/clouds)
-	var pitch_val: float = _lerp_kf("sun_pitch", a, b, t)
-	var sun_low_factor: float = smoothstep(-25.0, -5.0, pitch_val) * smoothstep(5.0, -5.0, pitch_val)
-	_env.volumetric_fog_anisotropy = lerpf(base_aniso, 0.88, sun_low_factor * 0.5)
-
-	# Weather overrides — mostly cloudy (not overcast) for non-clear weather
-	if _weather_mode == Weather.FOG:
-		_env.volumetric_fog_density = 0.005
-		_env.adjustment_saturation = 0.45
-		_env.adjustment_brightness = 0.90
-		if _vol_sky:
-			_vol_sky.cloud_coverage = 0.60
-			_vol_sky.density = 0.08
-		else:
-			_sky_mat.set_shader_parameter("cloud_coverage", 0.75)
-			_sky_mat.set_shader_parameter("cloud_density", 0.80)
-			_sky_mat.set_shader_parameter("cloud_type", 1.0)
-	elif _weather_mode == Weather.RAIN:
-		_env.volumetric_fog_density = 0.004
-		_env.adjustment_saturation *= 0.7
-		_env.adjustment_brightness *= 0.88
-		if _vol_sky:
-			_vol_sky.cloud_coverage = 0.58
-			_vol_sky.density = 0.07
-		else:
-			_sky_mat.set_shader_parameter("cloud_coverage", 0.72)
-			_sky_mat.set_shader_parameter("cloud_density", 0.78)
-			_sky_mat.set_shader_parameter("cloud_type", 1.0)
-	elif _weather_mode == Weather.THUNDERSTORM:
-		_env.volumetric_fog_density = 0.008
-		_env.adjustment_saturation *= 0.50
-		_env.adjustment_brightness *= 0.75
-		if _vol_sky:
-			_vol_sky.cloud_coverage = 0.68
-			_vol_sky.density = 0.10
-		else:
-			_sky_mat.set_shader_parameter("cloud_coverage", 0.82)
-			_sky_mat.set_shader_parameter("cloud_density", 0.85)
-			_sky_mat.set_shader_parameter("cloud_type", 2.0)
-	elif _weather_mode == Weather.SNOW:
-		_env.volumetric_fog_density = 0.003
-		_env.adjustment_saturation *= 0.75
-		if _vol_sky:
-			_vol_sky.cloud_coverage = 0.55
-			_vol_sky.density = 0.06
-		else:
-			_sky_mat.set_shader_parameter("cloud_coverage", 0.70)
-			_sky_mat.set_shader_parameter("cloud_density", 0.72)
-			_sky_mat.set_shader_parameter("cloud_type", 1.0)
-
-	# Wind reduces volumetric fog slightly (wind disperses mist)
-	var wind_str: float = _wind_vec.length()
-	if wind_str > 0.1:
-		_env.volumetric_fog_density *= lerpf(1.0, 0.85, clampf(wind_str * 0.3, 0.0, 1.0))
-
-	# Sky reflection color for water surfaces — tracks time-of-day sky tone
-	var sky_r: Color = _lerp_kf("fog_color", a, b, t)
-	var sun_c: Color = _lerp_kf("sun_color", a, b, t)
-	# Blend fog color (ambient sky) with sun color, bias toward cooler tones
-	# Real water preferentially reflects blue/gray sky, not warm ground haze
-	var reflect := sky_r.lerp(sun_c, 0.2)
-	# Cool bias: shift toward blue-gray to prevent brown water at golden hour
-	reflect = Color(reflect.r * 0.75, reflect.g * 0.85, reflect.b * 1.1)
-	RenderingServer.global_shader_parameter_set("sky_reflect_color",
-		Vector3(reflect.r, reflect.g, reflect.b))
-
-	# Morning dew — specular on grass surfaces at dawn (4:30-8:30 AM)
-	var dew := 0.0
-	if _time_of_day >= 4.5 and _time_of_day <= 8.5:
-		if _time_of_day <= 6.0:
-			dew = smoothstep(4.5, 6.0, _time_of_day)
-		else:
-			dew = 1.0 - smoothstep(6.0, 8.5, _time_of_day)
-	if _weather_mode != Weather.CLEAR:
-		dew = 0.0  # no visible dew in rain/snow
-	RenderingServer.global_shader_parameter_set("dew_amount", dew)
-
-	# Dawn mist — natural morning fog that lifts with sunrise (5-7:30 AM)
-	# Common phenomenon in Central Park near water bodies and in wooded areas
-	if _weather_mode == Weather.CLEAR:
-		var dawn_mist := 0.0
-		if _time_of_day >= 4.5 and _time_of_day <= 7.5:
-			# Peak at 5:30, fading by 7:30
-			if _time_of_day <= 5.5:
-				dawn_mist = smoothstep(4.5, 5.5, _time_of_day)
-			else:
-				dawn_mist = 1.0 - smoothstep(5.5, 7.5, _time_of_day)
-			_env.volumetric_fog_density += dawn_mist * 0.002
-			_env.adjustment_saturation *= (1.0 - dawn_mist * 0.15)  # slightly desaturated mist
-
-	# Seasonal fog and atmosphere modulation
-	# Autumn: warmer golden haze, slightly denser
-	# Winter: cooler blue-gray haze, denser, more desaturated
-	# Spring: fresh, clear, slightly green-tinted
-	var s_autumn := smoothstep(1.5, 2.5, _season_t) * (1.0 - smoothstep(2.5, 3.5, _season_t))
-	var s_winter := smoothstep(2.5, 3.5, _season_t)
-	if s_autumn > 0.01:
-		# Warm golden haze — slightly denser volumetric
-		_env.volumetric_fog_density *= (1.0 + s_autumn * 0.12)
-	if s_winter > 0.01:
-		# Cold atmosphere — denser, more desaturated
-		_env.volumetric_fog_density *= (1.0 + s_winter * 0.15)
-		_env.adjustment_saturation *= (1.0 - s_winter * 0.2)
-	# Monthly cloud coverage from NOAA/Weather Atlas data for NYC
-	# season_t: 0=Mar(47%), 0.33=Apr(45%), 0.67=May(44%), 1.0=Jun(36%),
-	# 1.33=Jul(31%), 1.67=Aug(30%), 2.0=Sep(34%), 2.33=Oct(41%),
-	# 2.67=Nov(37%), 3.0=Dec(47%), 3.33=Jan(43%), 3.67=Feb(47%)
-	var monthly_cover: Array = [0.47, 0.45, 0.44, 0.36, 0.31, 0.30,
-		0.34, 0.41, 0.37, 0.47, 0.43, 0.47]
-	var month_idx: int = int(_season_t * 3.0) % 12
-	var month_next: int = (month_idx + 1) % 12
-	var month_frac: float = fmod(_season_t * 3.0, 1.0)
-	var data_cover: float = lerpf(monthly_cover[month_idx], monthly_cover[month_next], month_frac)
-	if _weather_mode == Weather.CLEAR:
-		if _vol_sky:
-			_vol_sky.cloud_coverage = maxf(lerpf(_vol_sky.cloud_coverage, data_cover, 0.7), 0.25)
-		else:
-			var cc: float = _sky_mat.get_shader_parameter("cloud_coverage")
-			_sky_mat.set_shader_parameter("cloud_coverage", lerpf(cc, data_cover, 0.7))
-			if s_winter > 0.3:
-				_sky_mat.set_shader_parameter("cloud_type", lerpf(0.0, 1.0, s_winter))
-
-	# Sun / moon directional light
-	_sun.light_energy    = _lerp_kf("sun_energy", a, b, t)
-	_sun.light_color     = _lerp_kf("sun_color", a, b, t)
-	var pitch: float     = _lerp_kf("sun_pitch", a, b, t)
-	var yaw: float       = _lerp_kf("sun_yaw", a, b, t)
-	_sun.rotation_degrees = Vector3(pitch, yaw, 0.0)
-	_sun.directional_shadow_max_distance = _lerp_kf("shadow_dist", a, b, t)
-
-	# Lamp emission level — drives SpotLight3D pool energy + globe glow
-	_lamp_emission = _lerp_kf("lamp_emission", a, b, t)
-	RenderingServer.global_shader_parameter_set("lamp_glow", clampf(_lamp_emission / 5.0, 0.0, 1.0))
-
-	# Building window emission — smooth night_factor curve
-	# 0.0 during day (7h-18h), ramps to 1.0 at night (21h-5h)
-	var nf: float = 0.0
-	if _time_of_day >= 18.0 and _time_of_day < 21.0:
-		nf = (_time_of_day - 18.0) / 3.0  # sunset ramp
-	elif _time_of_day >= 21.0 or _time_of_day < 5.0:
-		nf = 1.0  # full night
-	elif _time_of_day >= 5.0 and _time_of_day < 7.0:
-		nf = 1.0 - (_time_of_day - 5.0) / 2.0  # dawn ramp
-	# Only iterate facade materials when night_factor actually changes
-	if absf(nf - _last_night_factor) > 0.005 and _park_loader:
-		_last_night_factor = nf
-		for fm in _park_loader.facade_materials:
-			if fm is ShaderMaterial:
-				fm.set_shader_parameter("night_factor", nf)
-
-	_last_applied_tod = _time_of_day
-
 
 
 # ---------------------------------------------------------------------------
@@ -2897,8 +2458,8 @@ func _cycle_weather() -> void:
 	_weather_mode = (_weather_mode + 1) % Weather.size()
 	_setup_weather()
 	# Force re-apply time-of-day so keyframe values override stale weather fog/clouds
-	_last_applied_tod = -999.0
-	_apply_time_of_day()
+	_day_night.force_apply(_time_of_day, _weather_mode, _wind_vec,
+		_lightning_flash, _user_gamma, _season_t)
 	print("Weather: %s" % WEATHER_NAMES[_weather_mode])
 
 
