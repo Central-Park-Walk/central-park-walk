@@ -13,10 +13,12 @@ uniform float curb_below_grade = 0.04;  // extend below terrain to prevent gaps
 global uniform float rain_wetness;
 global uniform float snow_cover;
 global uniform float season_t;
+global uniform vec3 sky_reflect_color;
 
 #include "res://shaders/include/decode_terrain.gdshaderinc"
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/seasonal.gdshaderinc"
+#include "res://shaders/include/aerial_perspective.gdshaderinc"
 
 varying vec3 world_pos;
 varying vec3 world_nrm;
@@ -121,6 +123,11 @@ void fragment() {
 		base = mix(base, vec3(0.91, 0.92, 0.95), snow_amt * 0.8);
 		rough = mix(rough, 0.80, snow_amt);
 	}
+
+	// Aerial perspective — desaturate + haze at distance
+	float cam_dist = length(world_pos - CAMERA_POSITION_WORLD);
+	float aerial_t = smoothstep(80.0, 300.0, cam_dist);
+	base = apply_aerial_no_cool(base, aerial_t, 0.25, 0.25, sky_reflect_color);
 
 	ALBEDO = base;
 	ROUGHNESS = rough;

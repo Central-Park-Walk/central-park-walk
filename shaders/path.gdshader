@@ -26,6 +26,7 @@ varying vec3 world_pos;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/seasonal.gdshaderinc"
+#include "res://shaders/include/aerial_perspective.gdshaderinc"
 
 void vertex() {
 	vec3 world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -139,6 +140,11 @@ void fragment() {
 			}
 		}
 	}
+
+	// Aerial perspective — desaturate + haze at distance (no cool shift for ground surfaces)
+	float cam_dist = length(world_pos - CAMERA_POSITION_WORLD);
+	float aerial_t = smoothstep(80.0, 300.0, cam_dist);
+	ALBEDO = apply_aerial_no_cool(ALBEDO, aerial_t, 0.25, 0.25, sky_reflect_color);
 
 	DEPTH = FRAGCOORD.z - depth_jitter;
 }
