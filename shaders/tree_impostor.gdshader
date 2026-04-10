@@ -64,11 +64,17 @@ vec3 frame_to_ray(vec2 frame_coord, vec2 frames_m1) {
 // ── Billboard projection (from GodotImposter) ───────────────────────────────
 
 vec3 sprite_projection(vec3 pivot_to_cam_dir, vec2 size, vec2 uv) {
+	// Cylindrical billboarding: rotate around Y axis to face camera,
+	// but stay upright. Trees don't tilt toward the viewer.
 	vec3 z = normalize(pivot_to_cam_dir);
 	vec3 up = vec3(0.0, 1.0, 0.0);
-	if (abs(z.y) > 0.999) up = vec3(0.0, 0.0, -1.0);
 	vec3 x = normalize(cross(up, z));
-	vec3 y = normalize(cross(x, z));
+	// Lock Y to world-up (cylindrical), blend toward camera-facing
+	// for steep overhead angles so top-down atlas frames display correctly.
+	float overhead = abs(z.y);
+	vec3 y_cyl = up;
+	vec3 y_sph = normalize(cross(x, z));
+	vec3 y = normalize(mix(y_cyl, y_sph, overhead * overhead));
 	vec2 centered = (uv - vec2(0.5)) * 2.0;
 	return x * centered.x * size.x * 0.5 + y * centered.y * size.y * 0.5;
 }
