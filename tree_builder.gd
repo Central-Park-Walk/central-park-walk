@@ -49,7 +49,7 @@ const TIER_BOUNDS := {
 	"oak":           [12.0, 20.0],
 	"maple":         [14.0, 22.0],
 	"elm":           [14.0, 22.0],
-	"cathedral_elm": [18.0, 26.0],
+	"cathedral_elm": [0.0, 26.0],   # no _s tier — all Mall elms are mature
 	"deciduous":     [14.0, 22.0],
 	"pine":          [10.0, 18.0],
 	"birch":         [8.0, 12.0],

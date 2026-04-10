@@ -474,8 +474,6 @@ SPECIES = {
         "base_seed": 101,
         "seed_step": 23,
         "tiers": {
-            "s": {"target_h": 15, "height_range": [12, 18], "skeleton_overrides": {
-                "branch_density": 0.7, "branch_split_prob": 0.30, "sub_density": 0.05}},
             "m": {"target_h": 22, "height_range": [18, 26], "skeleton_overrides": {
                 "branch_density": 0.9, "branch_split_prob": 0.45, "sub_density": 0.12}},
             "l": {"target_h": 30, "height_range": [26, 35]},
