@@ -885,7 +885,9 @@ func _load_impostor_atlases() -> void:
 			if json.parse(f.get_as_text()) == OK:
 				var d: Dictionary = json.data
 				imp_scale = d.get("scale", imp_scale)
-				aabb_max = d.get("aabb_max", imp_scale * 0.5)
+				# Cap depth bias — large values push billboard too far from origin.
+				# With spherical billboarding + custom_aabb, no need for large bias.
+				aabb_max = minf(d.get("aabb_max", imp_scale * 0.5), 0.5)
 				var po: Array = d.get("position_offset", [0, 0, 0])
 				# Blender→Godot axis: (X,Y,Z) → (X, Z, -Y)
 				# Y offset zeroed: instance is already at crown center,
@@ -911,7 +913,7 @@ func _load_impostor_atlases() -> void:
 			mat.set_shader_parameter("atlas_normal", normal_tex)
 		if depth_tex:
 			mat.set_shader_parameter("atlas_depth", depth_tex)
-			mat.set_shader_parameter("depth_scale", 0.12)
+			mat.set_shader_parameter("depth_scale", 0.0)
 		_impostor_materials[model_name] = mat
 
 	var n_with_normals := _impostor_normals.size()
@@ -1007,11 +1009,24 @@ func _build_canopy_shells() -> void:
 		mm.use_custom_data = true
 		mm.mesh = billboard_mesh
 		mm.instance_count = xf_list.size()
+		# Track AABB for frustum culling — shader projects vertices far
+		# beyond the tiny billboard mesh, so auto-AABB is too small.
+		var aabb_min := Vector3(INF, INF, INF)
+		var aabb_max_v := Vector3(-INF, -INF, -INF)
 		for i in xf_list.size():
 			var tf: Transform3D = xf_list[i]
 			var local_tf := Transform3D(tf.basis, tf.origin - chunk_origin)
 			mm.set_instance_transform(i, local_tf)
 			mm.set_instance_custom_data(i, cd_list[i])
+			var pos := local_tf.origin
+			aabb_min = aabb_min.min(pos)
+			aabb_max_v = aabb_max_v.max(pos)
+		# Billboard world extent: scale * mesh_scale can reach ~27m.
+		# Pad generously so frustum culling never hides visible impostors.
+		var imp_meta: Dictionary = _impostor_meta.get(model_name, {})
+		var pad: float = imp_meta.get("scale", 4.0) * 8.0
+		mm.custom_aabb = AABB(aabb_min - Vector3.ONE * pad,
+			(aabb_max_v - aabb_min) + Vector3.ONE * pad * 2.0)
 
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
