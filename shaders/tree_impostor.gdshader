@@ -41,7 +41,10 @@ varying flat float v_color_jitter;
 // ── Octahedral hemisphere mapping ────────────────────────────────────────────
 
 vec2 hemi_octa(vec3 dir) {
-	dir.y = max(dir.y, 0.001);
+	// Mirror back-hemisphere views to front: trees are roughly symmetric,
+	// so viewing from behind reuses front-hemisphere atlas frames.
+	// Without this, back views clamp to equator → flat/wrong appearance.
+	dir.y = max(abs(dir.y), 0.001);
 	dir = normalize(dir);
 	vec3 octant = sign(dir);
 	float sum = dot(dir, octant);
