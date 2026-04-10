@@ -94,21 +94,29 @@ void fragment() {
 
 	if (alpha < 0.3) discard;
 
+	// Base color from per-species seasonal color
 	vec3 col = v_canopy_color;
+
+	// Per-pixel variation from texture luminance — range matches tree_leaf.gdshader
+	float tex_lum = dot(tex.rgb, vec3(0.3, 0.6, 0.1));
+	col *= (0.4 + tex_lum * 0.6);
+
+	// Desaturation — match LOD0's 28% desaturation for natural tones
+	float col_lum = dot(col, vec3(0.299, 0.587, 0.114));
+	col = mix(vec3(col_lum), col, 0.72);
+
+	// Warm darken — match LOD0's tonal correction
+	col *= vec3(0.94, 0.90, 0.80);
 
 	// Top-lit gradient: sunlit top, darker underside
 	vec3 world_n = mat3(INV_VIEW_MATRIX) * NORMAL;
 	float top_lit = world_n.y * 0.5 + 0.5;  // 0=bottom, 1=top
-	col *= mix(0.55, 1.15, top_lit);
+	col *= mix(0.82, 1.10, top_lit);
 
-	// Per-pixel variation from texture luminance
-	float tex_lum = dot(tex.rgb, vec3(0.3, 0.6, 0.1));
-	col *= (0.7 + tex_lum * 0.5);
-
-	// Aerial perspective (matches tree_leaf.gdshader exactly)
+	// Aerial perspective — same distance range as tree_leaf.gdshader
 	vec3 shell_world = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	float shell_dist = length(shell_world - INV_VIEW_MATRIX[3].xyz);
-	float shell_aerial = smoothstep(200.0, 500.0, shell_dist);
+	float shell_aerial = smoothstep(60.0, 300.0, shell_dist);
 	col = apply_aerial(col, shell_aerial, 0.30, 0.30, sky_reflect_color);
 
 	ALBEDO = col;
