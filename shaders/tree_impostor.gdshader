@@ -205,11 +205,9 @@ void vertex() {
 	v_frame2_normal = (MODELVIEW_MATRIX * vec4(dir2, 0.0)).xyz;
 	v_frame3_normal = (MODELVIEW_MATRIX * vec4(dir3, 0.0)).xyz;
 
-	// Billboard projection — compensate for instance transform scaling.
-	// VERTEX is local space; MODEL_MATRIX (including instance scale) applies after.
-	// Without compensation, the billboard would be instance_scale × shader_scale.
-	float instance_scale = length(MODEL_MATRIX[0].xyz);
-	vec2 size = vec2(2.0) * scale / max(instance_scale, 0.01);
+	// Billboard projection — scale is bounding radius at model scale.
+	// Instance transform (MODEL_MATRIX) scales this to world size automatically.
+	vec2 size = vec2(2.0) * scale;
 	vec3 projected = sprite_projection(pivot_to_cam_dir, size, UV);
 	vec3 vtx_to_cam_ray = pivot_to_cam_ray - projected;
 	vec3 vtx_to_cam_dir = normalize(vtx_to_cam_ray);
@@ -228,10 +226,9 @@ void vertex() {
 	v_uv_frame3 = virtual_plane_uv(dir3, px3, py3, pivot_to_cam_ray, vtx_to_cam_ray, scale);
 	v_xy_frame3 = project_on_plane_basis(-vtx_to_cam_dir, dir3, px3, py3).xy;
 
-	// Position output — all offsets in local space, compensate for instance scale
-	vec3 offset_compensated = (position_offset + wind_offset) / max(instance_scale, 0.01);
-	VERTEX.xyz = projected + offset_compensated;
-	VERTEX.xyz += pivot_to_cam_dir * aabb_max / max(instance_scale, 0.01);
+	// Position output
+	VERTEX.xyz = projected + position_offset + wind_offset;
+	VERTEX.xyz += pivot_to_cam_dir * aabb_max;
 
 	NORMAL = normalize(pivot_to_cam_dir);
 	TANGENT = normalize(cross(NORMAL, vec3(0.0, 1.0, 0.0)));
