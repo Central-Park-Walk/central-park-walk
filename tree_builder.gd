@@ -709,13 +709,12 @@ func _build_trees(trees: Array) -> void:
 	# distance gate they stay active at all ranges, hiding LOD2/impostor
 	# trees behind canopy boxes and making distant woodland look sparse.
 
-	# --- LOD1: _m models — extended range, bridges to canopy shells ---
-	# LOD2 (_s models) removed: too sparse, created jarring skeleton
-	# pop-in when transitioning from solid canopy shell domes.
+	# --- LOD1: _m models ---
 	_build_lod_tier_chunks(_lod1_xf, _lod1_cd, "TreeL1",
-		90.0, 260.0, 30.0, 40.0)
-	_lod2_xf.clear()
-	_lod2_cd.clear()
+		90.0, 200.0, 30.0, 30.0)
+	# --- LOD2: _s models ---
+	_build_lod_tier_chunks(_lod2_xf, _lod2_cd, "TreeL2",
+		170.0, 300.0, 30.0, 30.0)
 
 	_build_tree_collision(all_trunk_xf)
 	# Debug: print a few tree heights to verify scale
@@ -834,216 +833,202 @@ func _tree_glb_leaf_shader_code() -> String:
 
 
 # ---------------------------------------------------------------------------
-# LOD3/4: Volumetric canopy shells + cross-quad distant LOD
-# Replaces single-quad billboard impostors which fail from overhead views.
-# LOD3 (220-500m): hemisphere dome mesh — true 3D volume from all angles.
-# LOD4 (450-2500m): crossed static quads — parallax from any direction.
-# Both use tree_canopy_shell.gdshader with leaf texture + per-instance season data.
+# LOD3: Star impostor — 3 vertical quads at 60° + 1 horizontal cap.
+# Uses the species-specific octahedral atlas textures for correct tree
+# appearance. Static geometry (no billboarding) — the intersecting planes
+# create parallax from any viewing angle including overhead.
+# Each quad's UVs are pre-baked to sample a specific atlas frame matching
+# that quad's facing direction. Recolored with seasonal color via the
+# canopy shell shader.
 # ---------------------------------------------------------------------------
 
-func _create_hemisphere_mesh(segments: int = 10, rings: int = 5) -> ArrayMesh:
-	"""Build a hemisphere (dome) mesh. Y=0 at equator (base), Y=1 at pole (top).
-	UVs tiled 4× for leaf texture repeat across surface."""
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var verts: Array[Vector3] = []
-	var norms: Array[Vector3] = []
-	var uvs: Array[Vector2] = []
-	for ring in range(rings + 1):
-		var v := float(ring) / float(rings)
-		var phi := v * PI * 0.5
-		var y := sin(phi)
-		var r := cos(phi)
-		for seg in range(segments + 1):
-			var u := float(seg) / float(segments)
-			var theta := u * TAU
-			var x := cos(theta) * r
-			var z := sin(theta) * r
-			verts.append(Vector3(x, y, z))
-			norms.append(Vector3(x, y, z).normalized())
-			uvs.append(Vector2(u * 4.0, v * 4.0))
-	for ring in range(rings):
-		for seg in range(segments):
-			var i0 := ring * (segments + 1) + seg
-			var i1 := i0 + 1
-			var i2 := (ring + 1) * (segments + 1) + seg
-			var i3 := i2 + 1
-			st.set_normal(norms[i0]); st.set_uv(uvs[i0]); st.add_vertex(verts[i0])
-			st.set_normal(norms[i2]); st.set_uv(uvs[i2]); st.add_vertex(verts[i2])
-			st.set_normal(norms[i1]); st.set_uv(uvs[i1]); st.add_vertex(verts[i1])
-			st.set_normal(norms[i1]); st.set_uv(uvs[i1]); st.add_vertex(verts[i1])
-			st.set_normal(norms[i2]); st.set_uv(uvs[i2]); st.add_vertex(verts[i2])
-			st.set_normal(norms[i3]); st.set_uv(uvs[i3]); st.add_vertex(verts[i3])
-	return st.commit()
+const IMPOSTOR_DIR := "res://textures/impostors"
 
-func _create_cross_quad_mesh() -> ArrayMesh:
-	"""Build two vertical quads at 90° (cross pattern). Static geometry —
-	the intersecting alpha-tested planes create natural parallax from any angle.
-	Y from 0 (base) to 1 (top), XZ from -0.5 to 0.5."""
+func _create_star_impostor_mesh() -> ArrayMesh:
+	"""Build a 4-quad star impostor: 3 vertical quads at 60° + 1 horizontal cap.
+	Each quad's UVs sample a specific region of the 8×8 octahedral atlas.
+	Y from 0 (crown base) to 1 (crown top), XZ from -0.5 to 0.5."""
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	# Quad 1: spans X axis (faces Z)
-	var n1 := Vector3(0.0, 0.0, 1.0)
-	st.set_normal(n1); st.set_uv(Vector2(0, 1)); st.add_vertex(Vector3(-0.5, 0, 0))
-	st.set_normal(n1); st.set_uv(Vector2(1, 1)); st.add_vertex(Vector3( 0.5, 0, 0))
-	st.set_normal(n1); st.set_uv(Vector2(1, 0)); st.add_vertex(Vector3( 0.5, 1, 0))
-	st.set_normal(n1); st.set_uv(Vector2(0, 1)); st.add_vertex(Vector3(-0.5, 0, 0))
-	st.set_normal(n1); st.set_uv(Vector2(1, 0)); st.add_vertex(Vector3( 0.5, 1, 0))
-	st.set_normal(n1); st.set_uv(Vector2(0, 0)); st.add_vertex(Vector3(-0.5, 1, 0))
-	# Quad 2: spans Z axis (faces X)
-	var n2 := Vector3(1.0, 0.0, 0.0)
-	st.set_normal(n2); st.set_uv(Vector2(0, 1)); st.add_vertex(Vector3(0, 0, -0.5))
-	st.set_normal(n2); st.set_uv(Vector2(1, 1)); st.add_vertex(Vector3(0, 0,  0.5))
-	st.set_normal(n2); st.set_uv(Vector2(1, 0)); st.add_vertex(Vector3(0, 1,  0.5))
-	st.set_normal(n2); st.set_uv(Vector2(0, 1)); st.add_vertex(Vector3(0, 0, -0.5))
-	st.set_normal(n2); st.set_uv(Vector2(1, 0)); st.add_vertex(Vector3(0, 1,  0.5))
-	st.set_normal(n2); st.set_uv(Vector2(0, 0)); st.add_vertex(Vector3(0, 1, -0.5))
+	# Atlas frame regions (8×8 grid). Equatorial frames for side views,
+	# corner frame for overhead cap.
+	# Frame (4,3): ~10° right of front → front-facing quad
+	# Frame (6,1): ~68° right → right-rotated quad
+	# Frame (1,6): ~68° left → left-rotated quad
+	# Frame (6,6): ~45° overhead → horizontal cap
+	var frames := [
+		Vector4(4.0, 3.0, 0.0, 0.0),    # front quad (vertical)
+		Vector4(6.0, 1.0, 60.0, 0.0),   # 60° quad (vertical)
+		Vector4(1.0, 6.0, -60.0, 0.0),  # -60° quad (vertical)
+	]
+	var fs := 1.0 / 8.0  # frame size in UV space
+	# --- 3 vertical quads ---
+	for fi in frames.size():
+		var fx: float = frames[fi].x
+		var fy: float = frames[fi].y
+		var angle_deg: float = frames[fi].z
+		var angle := deg_to_rad(angle_deg)
+		var ca := cos(angle)
+		var sa := sin(angle)
+		# Quad corners in XZ plane, rotated by angle, Y from 0 to 1
+		var bl := Vector3(-0.5 * ca, 0.0, -0.5 * sa)
+		var br := Vector3( 0.5 * ca, 0.0,  0.5 * sa)
+		var tl := Vector3(-0.5 * ca, 1.0, -0.5 * sa)
+		var tr := Vector3( 0.5 * ca, 1.0,  0.5 * sa)
+		var normal := Vector3(sa, 0.0, -ca)
+		# UV: map quad to atlas frame region
+		var u0 := fx * fs
+		var v0 := fy * fs
+		var u1 := u0 + fs
+		var v1 := v0 + fs
+		# Tri 1: bl, br, tr
+		st.set_normal(normal); st.set_uv(Vector2(u0, v1)); st.add_vertex(bl)
+		st.set_normal(normal); st.set_uv(Vector2(u1, v1)); st.add_vertex(br)
+		st.set_normal(normal); st.set_uv(Vector2(u1, v0)); st.add_vertex(tr)
+		# Tri 2: bl, tr, tl
+		st.set_normal(normal); st.set_uv(Vector2(u0, v1)); st.add_vertex(bl)
+		st.set_normal(normal); st.set_uv(Vector2(u1, v0)); st.add_vertex(tr)
+		st.set_normal(normal); st.set_uv(Vector2(u0, v0)); st.add_vertex(tl)
+	# --- Horizontal cap at crown top ---
+	# Frame (6,6): 45° overhead view — shows crown from above
+	var cap_fx := 6.0
+	var cap_fy := 6.0
+	var cu0 := cap_fx * fs
+	var cv0 := cap_fy * fs
+	var cu1 := cu0 + fs
+	var cv1 := cv0 + fs
+	var cap_n := Vector3(0.0, 1.0, 0.0)
+	var cap_y := 0.92  # slightly below crown peak for overlap
+	# Tri 1: front-left, front-right, back-right
+	st.set_normal(cap_n); st.set_uv(Vector2(cu0, cv1)); st.add_vertex(Vector3(-0.5, cap_y, -0.5))
+	st.set_normal(cap_n); st.set_uv(Vector2(cu1, cv1)); st.add_vertex(Vector3( 0.5, cap_y, -0.5))
+	st.set_normal(cap_n); st.set_uv(Vector2(cu1, cv0)); st.add_vertex(Vector3( 0.5, cap_y,  0.5))
+	# Tri 2: front-left, back-right, back-left
+	st.set_normal(cap_n); st.set_uv(Vector2(cu0, cv1)); st.add_vertex(Vector3(-0.5, cap_y, -0.5))
+	st.set_normal(cap_n); st.set_uv(Vector2(cu1, cv0)); st.add_vertex(Vector3( 0.5, cap_y,  0.5))
+	st.set_normal(cap_n); st.set_uv(Vector2(cu0, cv0)); st.add_vertex(Vector3(-0.5, cap_y,  0.5))
 	return st.commit()
 
 func _build_canopy_shells() -> void:
 	if _shell_data.is_empty():
 		return
 
-	# Load canopy shell shader + leaf texture (shared by all species)
+	# Load canopy shell shader — used with species atlas textures for recoloring
 	var shell_shader: Shader = load("res://shaders/tree_canopy_shell.gdshader")
 	if not shell_shader:
-		print("Trees LOD3/4: canopy shell shader not found")
+		print("Trees LOD3: canopy shell shader not found")
 		return
-	var canopy_tex: Texture2D = load("res://textures/leaves/oak_leaf.dds")
-	if not canopy_tex:
-		canopy_tex = load("res://models/trees/leaf_textures/oak_leaf.png")
-	if not canopy_tex:
-		print("Trees LOD3/4: no canopy texture found")
+
+	# Load species-specific impostor atlas textures (albedo only — gives the
+	# pre-rendered tree appearance). One material per species.
+	var species_mats: Dictionary = {}  # model_name -> ShaderMaterial
+	for model_name in ARCHETYPE_MODEL.values():
+		if species_mats.has(model_name):
+			continue
+		var albedo_path := "%s/%s_impostor_albedo.png" % [IMPOSTOR_DIR, model_name]
+		var tex: Texture2D = load(albedo_path)
+		if not tex:
+			continue
+		var mat := ShaderMaterial.new()
+		mat.shader = shell_shader
+		mat.set_shader_parameter("canopy_tex", tex)
+		species_mats[model_name] = mat
+
+	if species_mats.is_empty():
+		print("Trees LOD3: no impostor atlases found — skipping")
 		return
-	var shell_mat := ShaderMaterial.new()
-	shell_mat.shader = shell_shader
-	shell_mat.set_shader_parameter("canopy_tex", canopy_tex)
+	print("Trees LOD3: loaded %d species atlas materials" % species_mats.size())
 
-	var hemi_mesh := _create_hemisphere_mesh(10, 5)  # 100 tris
-	var cross_mesh := _create_cross_quad_mesh()       # 4 tris
+	var star_mesh := _create_star_impostor_mesh()  # 8 tris (3 vertical + 1 cap)
 
-	# Bucket shell data into spatial chunks (one material for all species)
+	# Bucket into spatial chunks × species (each species has its own material)
 	const CHUNK := 80.0
-	var chunks: Dictionary = {}  # "cx|cz" -> {"xf": [], "cd": []}
+	var chunks: Dictionary = {}  # "cx|cz|model" -> {"xf": [], "cd": [], "model": ""}
 
 	for sd in _shell_data:
 		if sd.dead:
 			continue
+		var model_name: String = ARCHETYPE_MODEL.get(sd.archetype, "deciduous")
+		if not species_mats.has(model_name):
+			model_name = "deciduous"
+		if not species_mats.has(model_name):
+			continue
+
 		var cx: int = int(floorf(sd.x / CHUNK))
 		var cz: int = int(floorf(sd.z / CHUNK))
-		var ck := "%d|%d" % [cx, cz]
+		var ck := "%d|%d|%s" % [cx, cz, model_name]
 		if not chunks.has(ck):
-			chunks[ck] = {"xf_hemi": [], "cd_hemi": [],
-			              "xf_cross": [], "cd_cross": []}
+			chunks[ck] = {"xf": [], "cd": [], "model": model_name}
 
-		# Crown geometry: species-specific proportions.
-		# Conifers are narrow/tall cones; deciduous are wide/flat domes.
-		var crown_start := 0.35  # fraction of tree height where crown begins
-		var width_mult := 1.0    # crown width multiplier
-		if sd.archetype == "conifer" or sd.archetype == "pine":
-			crown_start = 0.15   # crown starts lower on conifers
-			width_mult = 0.55    # narrow conical shape
+		# Crown geometry: species-specific proportions
+		var crown_start := 0.35
+		var width_mult := 1.0
+		if sd.archetype in ["conifer", "pine"]:
+			crown_start = 0.15
+			width_mult = 0.55
 		elif sd.archetype == "birch":
 			crown_start = 0.40
-			width_mult = 0.65    # narrow upright oval
+			width_mult = 0.65
 		elif sd.archetype == "willow":
 			crown_start = 0.25
-			width_mult = 1.2     # wide drooping canopy
+			width_mult = 1.2
 		elif sd.archetype == "cathedral_elm":
 			crown_start = 0.30
-			width_mult = 1.3     # wide vase shape
+			width_mult = 1.3
 		var crown_base_y: float = sd.y + sd.h * crown_start
 		var crown_depth: float = sd.h * (1.0 - crown_start)
 		var crown_w: float = sd.r * width_mult
-		# Per-tree Y rotation for visual variety (deterministic from position)
+
+		# Per-tree Y rotation for variety
 		var y_rot := fmod(abs(sin(sd.x * 127.1 + sd.z * 311.7) * 43758.5453), 1.0) * TAU
 		var cd := Color(float(sd.sp) / 13.0, sd.timing, sd.ev, sd.jitter)
 
-		# Hemisphere transform: dome mesh is unit hemisphere (radius 1, Y 0→1)
-		var hemi_basis := Basis(Vector3.UP, y_rot) * Basis().scaled(
-			Vector3(crown_w, crown_depth, crown_w))
-		var hemi_tf := Transform3D(hemi_basis, Vector3(sd.x, crown_base_y, sd.z))
-		chunks[ck].xf_hemi.append(hemi_tf)
-		chunks[ck].cd_hemi.append(cd)
-
-		# Cross-quad transform: mesh is Y 0→1, XZ ±0.5
-		var cross_basis := Basis(Vector3.UP, y_rot) * Basis().scaled(
+		# Star mesh is Y 0→1, XZ ±0.5. Scale to crown dimensions.
+		var basis := Basis(Vector3.UP, y_rot) * Basis().scaled(
 			Vector3(crown_w * 2.0, crown_depth, crown_w * 2.0))
-		var cross_tf := Transform3D(cross_basis, Vector3(sd.x, crown_base_y, sd.z))
-		chunks[ck].xf_cross.append(cross_tf)
-		chunks[ck].cd_cross.append(cd)
+		var tf := Transform3D(basis, Vector3(sd.x, crown_base_y, sd.z))
+		chunks[ck].xf.append(tf)
+		chunks[ck].cd.append(cd)
 
-	var hemi_count := 0
-	var cross_count := 0
-
+	var star_count := 0
 	for ck in chunks:
 		var chunk_data: Dictionary = chunks[ck]
+		var xf_list: Array = chunk_data.xf
+		var cd_list: Array = chunk_data.cd
+		var model_name: String = chunk_data.model
+		if xf_list.is_empty():
+			continue
 
-		# --- LOD3: Hemisphere canopy shells (220-500m) ---
-		var xf_h: Array = chunk_data.xf_hemi
-		var cd_h: Array = chunk_data.cd_hemi
-		if not xf_h.is_empty():
-			var cx_sum := 0.0; var cy_sum := 0.0; var cz_sum := 0.0
-			for tf: Transform3D in xf_h:
-				cx_sum += tf.origin.x; cy_sum += tf.origin.y; cz_sum += tf.origin.z
-			var n := float(xf_h.size())
-			var origin := Vector3(cx_sum / n, cy_sum / n, cz_sum / n)
+		var cx_sum := 0.0; var cy_sum := 0.0; var cz_sum := 0.0
+		for tf: Transform3D in xf_list:
+			cx_sum += tf.origin.x; cy_sum += tf.origin.y; cz_sum += tf.origin.z
+		var n := float(xf_list.size())
+		var origin := Vector3(cx_sum / n, cy_sum / n, cz_sum / n)
 
-			var mm := MultiMesh.new()
-			mm.transform_format = MultiMesh.TRANSFORM_3D
-			mm.use_custom_data = true
-			mm.mesh = hemi_mesh
-			mm.instance_count = xf_h.size()
-			for i in xf_h.size():
-				mm.set_instance_transform(i, Transform3D(xf_h[i].basis, xf_h[i].origin - origin))
-				mm.set_instance_custom_data(i, cd_h[i])
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_custom_data = true
+		mm.mesh = star_mesh
+		mm.instance_count = xf_list.size()
+		for i in xf_list.size():
+			var local_tf := Transform3D(xf_list[i].basis, xf_list[i].origin - origin)
+			mm.set_instance_transform(i, local_tf)
+			mm.set_instance_custom_data(i, cd_list[i])
 
-			var mmi := MultiMeshInstance3D.new()
-			mmi.multimesh = mm
-			mmi.material_override = shell_mat
-			mmi.position = origin
-			mmi.name = "TreeShell_%s" % ck
-			mmi.visibility_range_begin = 220.0
-			mmi.visibility_range_end = 500.0
-			mmi.visibility_range_begin_margin = 30.0
-			mmi.visibility_range_end_margin = 50.0
-			mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
-			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			_loader.add_child(mmi)
-			hemi_count += xf_h.size()
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.material_override = species_mats[model_name]
+		mmi.position = origin
+		mmi.name = "TreeStar_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
+		# LOD3: star impostors — crossfade with LOD2
+		mmi.visibility_range_begin = 260.0
+		mmi.visibility_range_end = 2500.0
+		mmi.visibility_range_begin_margin = 40.0
+		mmi.visibility_range_end_margin = 0.0
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_loader.add_child(mmi)
+		star_count += xf_list.size()
 
-		# --- LOD4: Cross-quad static billboards (450-2500m) ---
-		var xf_c: Array = chunk_data.xf_cross
-		var cd_c: Array = chunk_data.cd_cross
-		if not xf_c.is_empty():
-			var cx_sum := 0.0; var cy_sum := 0.0; var cz_sum := 0.0
-			for tf: Transform3D in xf_c:
-				cx_sum += tf.origin.x; cy_sum += tf.origin.y; cz_sum += tf.origin.z
-			var n := float(xf_c.size())
-			var origin := Vector3(cx_sum / n, cy_sum / n, cz_sum / n)
-
-			var mm := MultiMesh.new()
-			mm.transform_format = MultiMesh.TRANSFORM_3D
-			mm.use_custom_data = true
-			mm.mesh = cross_mesh
-			mm.instance_count = xf_c.size()
-			for i in xf_c.size():
-				mm.set_instance_transform(i, Transform3D(xf_c[i].basis, xf_c[i].origin - origin))
-				mm.set_instance_custom_data(i, cd_c[i])
-
-			var mmi := MultiMeshInstance3D.new()
-			mmi.multimesh = mm
-			mmi.material_override = shell_mat
-			mmi.position = origin
-			mmi.name = "TreeCross_%s" % ck
-			mmi.visibility_range_begin = 450.0
-			mmi.visibility_range_end = 2500.0
-			mmi.visibility_range_begin_margin = 50.0
-			mmi.visibility_range_end_margin = 0.0
-			mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
-			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			_loader.add_child(mmi)
-			cross_count += xf_c.size()
-
-	print("Trees LOD3: %d canopy shells (220-500m), LOD4: %d cross-quads (450-2500m) in %d chunks" % [
-		hemi_count, cross_count, chunks.size()])
+	print("Trees LOD3: %d star impostors (260-2500m) in %d chunks (%d species)" % [
+		star_count, chunks.size(), species_mats.size()])

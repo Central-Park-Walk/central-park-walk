@@ -125,7 +125,7 @@ void fragment() {
 	METALLIC = 0.0;
 
 	// Backlight — canopy shell glows when backlit
-	BACKLIGHT = v_canopy_color * 0.3;
+	BACKLIGHT = v_canopy_color * 0.15;
 
 	// Snow
 	if (snow_cover > 0.01) {
