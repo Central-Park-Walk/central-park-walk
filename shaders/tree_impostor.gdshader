@@ -58,7 +58,11 @@ vec3 hemi_octa_decode(vec2 coord) {
 
 vec3 frame_to_ray(vec2 frame_coord, vec2 frames_m1) {
 	vec2 f = frame_coord / frames_m1;
-	return normalize(hemi_octa_decode(f));
+	vec3 bake = normalize(hemi_octa_decode(f));
+	// Convert Blender space (X=right, Y=forward, Z=up) back to
+	// Godot model space (X=right, Y=up, Z=back) so downstream
+	// dot products with camera rays are in the same coordinate system.
+	return vec3(bake.x, bake.z, -bake.y);
 }
 
 // ── Billboard projection (from GodotImposter) ───────────────────────────────
