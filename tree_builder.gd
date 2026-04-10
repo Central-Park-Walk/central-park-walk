@@ -709,12 +709,13 @@ func _build_trees(trees: Array) -> void:
 	# distance gate they stay active at all ranges, hiding LOD2/impostor
 	# trees behind canopy boxes and making distant woodland look sparse.
 
-	# --- LOD1: _m models — medium detail crossfade ---
+	# --- LOD1: _m models — extended range, bridges to canopy shells ---
+	# LOD2 (_s models) removed: too sparse, created jarring skeleton
+	# pop-in when transitioning from solid canopy shell domes.
 	_build_lod_tier_chunks(_lod1_xf, _lod1_cd, "TreeL1",
-		90.0, 180.0, 30.0, 30.0)
-	# --- LOD2: _s models — simplest 3D, bridges gap to impostor ---
-	_build_lod_tier_chunks(_lod2_xf, _lod2_cd, "TreeL2",
-		150.0, 250.0, 30.0, 30.0)
+		90.0, 260.0, 30.0, 40.0)
+	_lod2_xf.clear()
+	_lod2_cd.clear()
 
 	_build_tree_collision(all_trunk_xf)
 	# Debug: print a few tree heights to verify scale
@@ -935,10 +936,25 @@ func _build_canopy_shells() -> void:
 			chunks[ck] = {"xf_hemi": [], "cd_hemi": [],
 			              "xf_cross": [], "cd_cross": []}
 
-		# Crown geometry: dome base at ~35% tree height, crown = upper 65%
-		var crown_base_y: float = sd.y + sd.h * 0.35
-		var crown_depth: float = sd.h * 0.65
-		var crown_w: float = sd.r
+		# Crown geometry: species-specific proportions.
+		# Conifers are narrow/tall cones; deciduous are wide/flat domes.
+		var crown_start := 0.35  # fraction of tree height where crown begins
+		var width_mult := 1.0    # crown width multiplier
+		if sd.archetype == "conifer" or sd.archetype == "pine":
+			crown_start = 0.15   # crown starts lower on conifers
+			width_mult = 0.55    # narrow conical shape
+		elif sd.archetype == "birch":
+			crown_start = 0.40
+			width_mult = 0.65    # narrow upright oval
+		elif sd.archetype == "willow":
+			crown_start = 0.25
+			width_mult = 1.2     # wide drooping canopy
+		elif sd.archetype == "cathedral_elm":
+			crown_start = 0.30
+			width_mult = 1.3     # wide vase shape
+		var crown_base_y: float = sd.y + sd.h * crown_start
+		var crown_depth: float = sd.h * (1.0 - crown_start)
+		var crown_w: float = sd.r * width_mult
 		# Per-tree Y rotation for visual variety (deterministic from position)
 		var y_rot := fmod(abs(sin(sd.x * 127.1 + sd.z * 311.7) * 43758.5453), 1.0) * TAU
 		var cd := Color(float(sd.sp) / 13.0, sd.timing, sd.ev, sd.jitter)
