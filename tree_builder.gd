@@ -81,10 +81,18 @@ const CACHE_DIR := "user://cache/trees/"
 
 func _try_load_cached_tree(model_name: String) -> Dictionary:
 	## Load tree meshes from .res cache (much faster than GLTF parsing).
-	## Returns empty dict on cache miss.
+	## Returns empty dict on cache miss or stale cache.
 	var meta_path := CACHE_DIR + model_name + ".cfg"
 	if not FileAccess.file_exists(meta_path):
 		return {}
+	# Invalidate cache if source GLB is newer than cached .cfg
+	var glb_path := ProjectSettings.globalize_path("res://models/trees/%s.glb" % model_name)
+	var cfg_abs := ProjectSettings.globalize_path(meta_path)
+	if FileAccess.file_exists(glb_path):
+		var glb_time := FileAccess.get_modified_time(glb_path)
+		var cfg_time := FileAccess.get_modified_time(cfg_abs)
+		if glb_time > cfg_time:
+			return {}  # source is newer — force re-parse
 	var cfg := ConfigFile.new()
 	if cfg.load(meta_path) != OK:
 		return {}
