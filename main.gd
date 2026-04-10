@@ -89,15 +89,9 @@ enum Weather { CLEAR, RAIN, THUNDERSTORM, SNOW, FOG }
 const WEATHER_NAMES: Array = ["clear", "rain", "thunderstorm", "snow", "fog"]
 var _weather_mode: int = Weather.CLEAR
 
-# Wind system — noise-driven randomized wind with gusts and lulls
-var _wind_vec := Vector2.ZERO       # current wind XZ direction+strength
-var _wind_time := 0.0               # accumulated wind time (independent of game clock)
-var _wind_override := -1.0          # <0 = auto, 0-1 = manual strength multiplier
-var _gust_envelope := 0.0           # asymmetric gust: fast rise, slow decay
-var _wind_dir_noise: FastNoiseLite   # direction wander
-var _wind_base_noise: FastNoiseLite  # base breeze level
-var _wind_swell_noise: FastNoiseLite # medium swells
-var _wind_gust_noise: FastNoiseLite  # gust event triggers
+# Wind system — extracted to wind_system.gd
+var _wind_system: Node  # WindSystem instance
+var _wind_vec := Vector2.ZERO  # cached for convenience (read from _wind_system each frame)
 
 # Snow accumulation
 var _snow_cover := 0.0          # 0-1, ramps up during snow weather
@@ -241,7 +235,9 @@ func _ready() -> void:
 	RenderingServer.global_shader_parameter_add("cloud_coverage_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.5)
 	RenderingServer.global_shader_parameter_add("cloud_speed_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.00004)
 	RenderingServer.global_shader_parameter_add("impostor_brightness", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 1.0)
-	_init_wind_noise()
+	_wind_system = preload("res://wind_system.gd").new()
+	_wind_system.name = "WindSystem"
+	add_child(_wind_system)
 	print("main: environment: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	# Terrain3D MUST init before park — builders need accurate terrain height
 	_setup_ground()
@@ -754,7 +750,18 @@ func _process(delta: float) -> void:
 		_update_lamp_lights()
 
 	# Wind
-	_update_wind(delta)
+	_wind_system.update(delta, _time_of_day, _weather_mode)
+	_wind_vec = _wind_system.wind_vec
+	# Push wind to GPU grass compute shaders
+	for gn in _gpu_grass_nodes:
+		if is_instance_valid(gn):
+			gn.set("wind_vec", _wind_vec)
+	# Drive volumetric cloud movement from wind
+	if _vol_sky:
+		var wlen: float = _wind_vec.length()
+		if wlen > 0.01:
+			_vol_sky.wind_direction = atan2(_wind_vec.y, _wind_vec.x)
+		_vol_sky.wind_speed = wlen * 0.6
 
 	# Ambient audio
 	if _audio_manager:
@@ -1205,15 +1212,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		print("Gamma: %.2f" % _user_gamma)
 	# +/- reserved for movement speed (player.gd)
 	elif event.keycode == KEY_9:
-		if _wind_override < 0.0:
-			_wind_override = 1.0
-		_wind_override = clampf(_wind_override - 0.1, 0.0, 3.0)
-		print("Wind: %.0f%%" % (_wind_override * 100.0))
+		if _wind_system.wind_override < 0.0:
+			_wind_system.wind_override = 1.0
+		_wind_system.wind_override = clampf(_wind_system.wind_override - 0.1, 0.0, 3.0)
+		print("Wind: %.0f%%" % (_wind_system.wind_override * 100.0))
 	elif event.keycode == KEY_0:
-		if _wind_override < 0.0:
-			_wind_override = 1.0
-		_wind_override = clampf(_wind_override + 0.1, 0.0, 3.0)
-		print("Wind: %.0f%%" % (_wind_override * 100.0))
+		if _wind_system.wind_override < 0.0:
+			_wind_system.wind_override = 1.0
+		_wind_system.wind_override = clampf(_wind_system.wind_override + 0.1, 0.0, 3.0)
+		print("Wind: %.0f%%" % (_wind_system.wind_override * 100.0))
 	elif event.keycode == KEY_N:
 		if event.shift_pressed:
 			_season_t = fmod(_season_t - 1.0 / 3.0 + 4.0, 4.0)
@@ -2876,127 +2883,6 @@ func _setup_color_grade() -> void:
 	add_child(grade_canvas)
 	print("Post-process: color grade shader applied")
 
-
-# ---------------------------------------------------------------------------
-# Wind — noise-driven randomized gusts and lulls (unique every session)
-# ---------------------------------------------------------------------------
-
-func _init_wind_noise() -> void:
-	# Each noise source gets a unique random seed so every session is different.
-	# FastNoiseLite.TYPE_SIMPLEX_SMOOTH gives smooth, non-repeating variation.
-	_wind_dir_noise = FastNoiseLite.new()
-	_wind_dir_noise.seed = randi()
-	_wind_dir_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	_wind_dir_noise.frequency = 0.003        # ~5 min direction drift cycle
-	_wind_dir_noise.fractal_octaves = 2      # primary drift + subtle wobble
-
-	_wind_base_noise = FastNoiseLite.new()
-	_wind_base_noise.seed = randi()
-	_wind_base_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	_wind_base_noise.frequency = 0.006       # ~3 min breeze modulation
-	_wind_base_noise.fractal_octaves = 3     # layered: slow trend + medium ripple
-
-	_wind_swell_noise = FastNoiseLite.new()
-	_wind_swell_noise.seed = randi()
-	_wind_swell_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	_wind_swell_noise.frequency = 0.02       # ~50s swells
-
-	_wind_gust_noise = FastNoiseLite.new()
-	_wind_gust_noise.seed = randi()
-	_wind_gust_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	_wind_gust_noise.frequency = 0.04        # ~25s gust opportunities
-	_wind_gust_noise.fractal_octaves = 3     # sharp features for distinct gusts
-
-
-func _update_wind(delta: float) -> void:
-	_wind_time += delta
-	var t := _wind_time
-
-	# Time-of-day strength: calm 17-22h so fireflies aren't blown away
-	var tod_mult := 1.0
-	if _time_of_day >= 17.0 and _time_of_day < 18.0:
-		tod_mult = lerpf(1.0, 0.12, (_time_of_day - 17.0))
-	elif _time_of_day >= 18.0 and _time_of_day < 21.0:
-		tod_mult = 0.12
-	elif _time_of_day >= 21.0 and _time_of_day < 22.0:
-		tod_mult = lerpf(0.12, 1.0, (_time_of_day - 21.0))
-
-	# Weather multiplier
-	var wx := 1.0
-	if _weather_mode == Weather.RAIN:
-		wx = 1.8
-	elif _weather_mode == Weather.THUNDERSTORM:
-		wx = 2.8
-	elif _weather_mode == Weather.SNOW:
-		wx = 0.5
-	elif _weather_mode == Weather.FOG:
-		wx = 0.3
-
-	# --- Direction: noise-driven wander ---
-	# Primary drift creates long stretches of steady direction with gradual
-	# veering. Offset sample adds subtle wobble so it's not too smooth.
-	var dir_primary := _wind_dir_noise.get_noise_1d(t) * PI
-	var dir_wobble := _wind_dir_noise.get_noise_1d(t * 3.0 + 500.0) * 0.4
-	var dir_angle := dir_primary + dir_wobble
-	var wind_dir := Vector2(cos(dir_angle), sin(dir_angle))
-
-	# --- Base breeze: noise-driven, range ~0.03–0.20 ---
-	# Multi-octave noise creates natural runs of calm and breezy weather.
-	# Unlike sine waves, the pattern never repeats.
-	var base_n := _wind_base_noise.get_noise_1d(t)   # -1 to 1
-	var breeze := remap(base_n, -1.0, 1.0, 0.03, 0.20)
-
-	# --- Medium swells: ~25-50s variation ---
-	# Only the positive half of the noise creates swells, so there are
-	# stretches of quiet between them — like real pressure fluctuations.
-	var swell_n := _wind_swell_noise.get_noise_1d(t)
-	var medium := maxf(swell_n, 0.0) * 0.25
-
-	# --- Gust events: two noise channels must align ---
-	# Multiplying two independent noise samples means gusts only fire when
-	# both are high simultaneously, creating natural rarity and randomness.
-	var gust_a := _wind_gust_noise.get_noise_1d(t)
-	var gust_b := _wind_gust_noise.get_noise_1d(t * 1.7 + 1000.0)
-	var gust_raw := maxf(gust_a, 0.0) * maxf(gust_b, 0.0)
-	var gust_trigger := smoothstep(0.05, 0.25, gust_raw) * 0.40
-
-	# Asymmetric envelope: fast rise (~0.3s), slow decay (~2.5s).
-	# Gusts arrive suddenly and fade gradually — the real-world pattern.
-	if gust_trigger > _gust_envelope:
-		_gust_envelope = lerpf(_gust_envelope, gust_trigger, minf(delta * 3.3, 1.0))
-	else:
-		_gust_envelope = lerpf(_gust_envelope, gust_trigger, minf(delta * 0.4, 1.0))
-
-	# Gust cross-wind: slight lateral deviation from base direction
-	var gust_cross := _wind_dir_noise.get_noise_1d(t * 2.0 + 200.0) * 0.25
-	var gust_dir := Vector2(
-		wind_dir.x - wind_dir.y * gust_cross,
-		wind_dir.y + wind_dir.x * gust_cross
-	).normalized()
-
-	# Combine: direction × (breeze + swells) + gust front
-	var base_wind := wind_dir * (breeze + medium)
-	var gust_wind := gust_dir * _gust_envelope
-	_wind_vec = (base_wind + gust_wind) * tod_mult * wx
-
-	# Manual override (- / = keys)
-	if _wind_override >= 0.0:
-		_wind_vec = wind_dir * _wind_override * 0.55
-
-	# Push to global shader uniform
-	RenderingServer.global_shader_parameter_set("wind_vec", _wind_vec)
-
-	# Push wind to GPU grass compute shaders
-	for gn in _gpu_grass_nodes:
-		if is_instance_valid(gn):
-			gn.set("wind_vec", _wind_vec)
-
-	# Drive volumetric cloud movement from wind
-	if _vol_sky:
-		var wlen: float = _wind_vec.length()
-		if wlen > 0.01:
-			_vol_sky.wind_direction = atan2(_wind_vec.y, _wind_vec.x)
-		_vol_sky.wind_speed = wlen * 0.6
 
 
 func _cycle_weather() -> void:
