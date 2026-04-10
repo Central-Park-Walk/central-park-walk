@@ -176,7 +176,11 @@ void vertex() {
 	wind_offset += vec3(wind_vec.x, 0.0, wind_vec.y) * gust * wind_str * 0.06 * wp.w;
 
 	// Atlas frame selection (octahedral hemisphere)
-	vec2 grid = hemi_octa(pivot_to_cam_dir);
+	// Convert Godot space → bake script space (Blender):
+	// Godot (X, Y, Z) = (right, up, back) → Blender (X, Y, Z) = (right, forward, up)
+	// Mapping: bake_x = godot_x, bake_y = -godot_z, bake_z = godot_y
+	vec3 bake_dir = vec3(pivot_to_cam_dir.x, -pivot_to_cam_dir.z, pivot_to_cam_dir.y);
+	vec2 grid = hemi_octa(bake_dir);
 	grid = clamp((grid + 1.0) * 0.5, vec2(0.0), vec2(1.0));
 	grid *= frames_m1;
 	grid = clamp(grid, vec2(0.0), frames_m1);
@@ -297,9 +301,11 @@ void fragment() {
 	                          v_blend_weights, atlas_normal);
 	NORMAL = nm;
 
-	// Recolor: extract atlas luminance, apply species season color
+	// Recolor: extract atlas luminance, apply species season color.
+	// Range matched to tree_leaf.gdshader's (0.4 + lum * 0.6) with slight
+	// boost since impostors lack the LOD0 shader's darkening effects.
 	float lum = dot(tex.rgb, vec3(0.3, 0.6, 0.1));
-	vec3 color = v_season_color * (lum * 2.5 + 0.15);
+	vec3 color = v_season_color * (0.45 + lum * 0.7);
 	color *= max(impostor_brightness, 0.5);
 
 	// Snow accumulation on upper canopy
