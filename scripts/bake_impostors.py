@@ -62,23 +62,30 @@ def clear_scene():
                 block.remove(item)
 
 
-def import_tree(species):
-    """Import the _m tier GLB for atlas baking. The _m tier represents the
-    most common tree size (78% of census trees) and gives a reasonable
-    impostor for all size tiers of the same species."""
-    glb_path = os.path.join(TREE_DIR, f"{species}_m.glb")
-    if not os.path.exists(glb_path):
-        glb_path = os.path.join(TREE_DIR, f"{species}_l.glb")
-    if not os.path.exists(glb_path):
-        glb_path = os.path.join(TREE_DIR, f"{species}_s.glb")
-    if not os.path.exists(glb_path):
-        print(f"  WARNING: {glb_path} not found")
-        return None
+def import_tree(species, tier=None):
+    """Import tree GLB for atlas baking.
+
+    When tier is specified (e.g. 's', 'm', 'l'), loads that exact tier.
+    When tier is None, falls back to _m > _l > _s for compatibility."""
+    if tier:
+        glb_path = os.path.join(TREE_DIR, f"{species}_{tier}.glb")
+        if not os.path.exists(glb_path):
+            print(f"  WARNING: {species}_{tier}.glb not found")
+            return None
+    else:
+        glb_path = os.path.join(TREE_DIR, f"{species}_m.glb")
+        if not os.path.exists(glb_path):
+            glb_path = os.path.join(TREE_DIR, f"{species}_l.glb")
+        if not os.path.exists(glb_path):
+            glb_path = os.path.join(TREE_DIR, f"{species}_s.glb")
+        if not os.path.exists(glb_path):
+            print(f"  WARNING: no GLB found for {species}")
+            return None
 
     bpy.ops.import_scene.gltf(filepath=glb_path)
     imported = [o for o in bpy.context.scene.objects if o.type == 'MESH']
     if not imported:
-        print(f"  WARNING: no mesh objects in {species}_m.glb")
+        print(f"  WARNING: no mesh objects in {os.path.basename(glb_path)}")
         return None
 
     parent = bpy.data.objects.new(species, None)
@@ -86,6 +93,15 @@ def import_tree(species):
     for obj in imported:
         obj.parent = parent
     return parent
+
+
+def get_available_tiers(species):
+    """Return list of available tiers for a species (e.g. ['s','m','l'])."""
+    tiers = []
+    for t in ['s', 'm', 'l']:
+        if os.path.exists(os.path.join(TREE_DIR, f"{species}_{t}.glb")):
+            tiers.append(t)
+    return tiers
 
 
 def get_bounding_sphere(obj):
@@ -133,7 +149,11 @@ def setup_camera(center, radius, direction):
 
 
 def setup_albedo_render():
-    """Configure for standard albedo rendering."""
+    """Configure for ambient-only albedo rendering.
+
+    Uses uniform hemisphere lighting (no directional sun) so the atlas
+    captures pure albedo without baked-in shadows. Runtime shader handles
+    all lighting — baked shadows look wrong at different times of day."""
     scene = bpy.context.scene
     scene.render.engine = 'BLENDER_EEVEE_NEXT'
     scene.render.resolution_x = FRAME_RES
@@ -142,14 +162,15 @@ def setup_albedo_render():
     scene.render.image_settings.file_format = 'PNG'
     scene.render.image_settings.color_mode = 'RGBA'
 
-    # Ensure world exists
+    # Bright uniform ambient — no directional light, just hemisphere fill
+    # so the atlas captures material color without shadows or highlights
     if not scene.world:
         scene.world = bpy.data.worlds.new("World")
     scene.world.use_nodes = True
     bg = scene.world.node_tree.nodes.get("Background")
     if bg:
-        bg.inputs[0].default_value = (0.8, 0.8, 0.85, 1.0)
-        bg.inputs[1].default_value = 1.5
+        bg.inputs[0].default_value = (1.0, 1.0, 1.0, 1.0)
+        bg.inputs[1].default_value = 2.5
 
     # Disable compositor (render direct)
     scene.use_nodes = False
@@ -360,23 +381,23 @@ def save_atlas(atlas, path, mode='RGBA'):
     bpy.data.images.remove(img)
 
 
-def bake_species(species):
-    """Bake 8×8 hemisphere impostor atlas (albedo + normal + depth) for one species."""
+def bake_species(species, tier=None):
+    """Bake 8×8 hemisphere impostor atlas (albedo + normal + depth).
+
+    When tier is specified, bakes that tier and names files species_tier_impostor_*.
+    When tier is None, bakes with the default model fallback (legacy behavior)."""
+    label = f"{species}_{tier}" if tier else species
     print(f"\n{'='*50}")
-    print(f"Baking impostor: {species}")
+    print(f"Baking impostor: {label}")
     print(f"{'='*50}")
 
     clear_scene()
     setup_albedo_render()
 
-    # Add sun light for albedo
-    light_data = bpy.data.lights.new("Sun", 'SUN')
-    light_data.energy = 3.0
-    light_obj = bpy.data.objects.new("Sun", light_data)
-    light_obj.rotation_euler = (math.radians(50), math.radians(10), math.radians(-30))
-    bpy.context.scene.collection.objects.link(light_obj)
+    # No directional light — ambient-only rendering for pure albedo capture.
+    # Runtime shader handles all lighting (sun direction, time of day, etc.)
 
-    tree = import_tree(species)
+    tree = import_tree(species, tier)
     if not tree:
         return False
 
@@ -404,18 +425,16 @@ def bake_species(species):
             direction = hemisphere_octa(u, v)
             setup_camera(center, radius, direction)
 
-            # --- Pass 1: Albedo ---
+            # --- Pass 1: Albedo (ambient-only, no directional light) ---
             restore_materials(tree, orig_mats)
-            light_obj.hide_render = False
             bpy.context.scene.use_nodes = False
             bpy.context.scene.render.filepath = tmp_path
             bpy.ops.render.render(write_still=True)
             pixels = read_frame_pixels(tmp_path)
             paste_frame(albedo_atlas, pixels, ix, iy)
 
-            # --- Pass 2: Normals (material override) ---
+            # --- Pass 2: Normals (material override, unlit) ---
             apply_material_override(tree, norm_mat)
-            light_obj.hide_render = True  # no lighting for normal capture
             bpy.context.scene.use_nodes = False
             bpy.context.scene.render.filepath = tmp_path
             bpy.ops.render.render(write_still=True)
@@ -426,7 +445,6 @@ def bake_species(species):
 
             # --- Pass 3: Depth (compositor) ---
             restore_materials(tree, orig_mats)
-            light_obj.hide_render = False
             setup_depth_compositor(clip_start, clip_end)
             bpy.context.scene.render.filepath = tmp_path
             bpy.ops.render.render(write_still=True)
@@ -446,10 +464,10 @@ def bake_species(species):
     dilate_atlas(normal_atlas, alpha_channel=3)
     dilate_atlas(depth_atlas, alpha_channel=3)
 
-    # Save atlases
-    albedo_path = os.path.join(OUT_DIR, f"{species}_impostor_albedo.png")
-    normal_path = os.path.join(OUT_DIR, f"{species}_impostor_normal.png")
-    depth_path = os.path.join(OUT_DIR, f"{species}_impostor_depth.png")
+    # Save atlases — include tier in filename when per-tier baking
+    albedo_path = os.path.join(OUT_DIR, f"{label}_impostor_albedo.png")
+    normal_path = os.path.join(OUT_DIR, f"{label}_impostor_normal.png")
+    depth_path = os.path.join(OUT_DIR, f"{label}_impostor_depth.png")
 
     save_atlas(albedo_atlas, albedo_path)
     save_atlas(normal_atlas, normal_path)
@@ -465,7 +483,7 @@ def bake_species(species):
 
     # Save metadata
     meta = {
-        "species": species,
+        "species": label,
         "frame_size": FRAME_SIZE,
         "atlas_res": ATLAS_RES,
         "center": [center.x, center.y, center.z],
@@ -476,7 +494,7 @@ def bake_species(species):
         "clip_start": clip_start,
         "clip_end": clip_end,
     }
-    meta_path = os.path.join(OUT_DIR, f"{species}_impostor_meta.json")
+    meta_path = os.path.join(OUT_DIR, f"{label}_impostor_meta.json")
     with open(meta_path, 'w') as f:
         json.dump(meta, f, indent=2)
 
@@ -491,23 +509,41 @@ def main():
     print("\n" + "=" * 60)
     print("Octahedral Impostor Baker — Central Park Walk Trees")
     print(f"Atlas: {ATLAS_RES}×{ATLAS_RES}, {FRAME_SIZE}×{FRAME_SIZE} frames")
-    print(f"Passes: albedo + normal + depth")
+    print(f"Passes: albedo + normal + depth (ambient-only lighting)")
     print(f"Output: {OUT_DIR}")
     print("=" * 60)
 
     filter_species = ""
+    per_tier = True  # Bake each available tier separately for shape matching
     for arg in sys.argv:
         if arg.startswith("--only="):
             filter_species = arg.split("=", 1)[1]
+        if arg == "--no-tiers":
+            per_tier = False
 
     success = 0
+    total = 0
     for species in SPECIES:
         if filter_species and species != filter_species:
             continue
-        if bake_species(species):
-            success += 1
+        if per_tier:
+            tiers = get_available_tiers(species)
+            if not tiers:
+                print(f"  WARNING: no tiers found for {species}")
+                continue
+            for tier in tiers:
+                total += 1
+                if bake_species(species, tier):
+                    success += 1
+            # Also bake a generic (no-tier) version for fallback
+            total += 1
+            if bake_species(species):
+                success += 1
+        else:
+            total += 1
+            if bake_species(species):
+                success += 1
 
-    total = len(SPECIES) if not filter_species else 1
     print(f"\n{'='*60}")
     print(f"Done: {success}/{total} impostor atlases baked (3 textures each)")
     print("=" * 60)

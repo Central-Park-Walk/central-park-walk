@@ -589,11 +589,12 @@ func _build_trees(trees: Array) -> void:
 		var crown_r: float = desired_h * (0.25 if species == "conifer" else 0.35)
 		canopy_data.append({"x": tx, "z": tz, "r": crown_r, "ev": species == "conifer"})
 
-		# LOD1 canopy shell data — collected for dome mesh generation
+		# LOD3 impostor data — per-tree info for billboard generation
 		_shell_data.append({"x": tx, "y": ty, "z": tz, "h": desired_h,
 			"r": crown_r, "sp": pheno_idx, "ev": is_evergreen,
 			"timing": timing_off + 0.5, "dead": species == "dead",
-			"archetype": species, "jitter": color_jitter})
+			"archetype": species, "jitter": color_jitter,
+			"tier": tier_suffix.trim_prefix("_")})
 
 		# Collision: trunk cylinder from actual DBH data (census measurement)
 		var trunk_r: float
@@ -867,39 +868,32 @@ func _build_canopy_shells() -> void:
 		print("Trees LOD3: impostor shader not found")
 		return
 
-	# Load species-specific impostor atlas textures (albedo + normal + depth)
-	# and metadata (bounding sphere, scale). One material per species.
-	var species_mats: Dictionary = {}  # model_name -> ShaderMaterial
-	var species_meta: Dictionary = {}  # model_name -> metadata dict
-	for model_name in ARCHETYPE_MODEL.values():
-		if species_mats.has(model_name):
-			continue
-		var albedo_path := "%s/%s_impostor_albedo.png" % [IMPOSTOR_DIR, model_name]
-		var normal_path := "%s/%s_impostor_normal.png" % [IMPOSTOR_DIR, model_name]
-		var depth_path := "%s/%s_impostor_depth.png" % [IMPOSTOR_DIR, model_name]
-		var meta_path := "%s/%s_impostor_meta.json" % [IMPOSTOR_DIR, model_name]
+	# Load impostor atlas textures (albedo + normal + depth) and metadata.
+	# Per-tier atlases (e.g. oak_m) preferred for shape matching; falls back
+	# to generic species atlas (e.g. oak) when per-tier not available.
+	var impostor_mats: Dictionary = {}  # "model_tier" or "model" -> ShaderMaterial
+	var impostor_meta: Dictionary = {}  # same key -> metadata dict
+
+	# Helper: try to load an impostor material for a given label (e.g. "oak_m" or "oak")
+	var _load_impostor_mat := func(label: String) -> bool:
+		if impostor_mats.has(label):
+			return true
+		var albedo_path := "%s/%s_impostor_albedo.png" % [IMPOSTOR_DIR, label]
 		var albedo_tex: Texture2D = load(albedo_path)
 		if not albedo_tex:
-			continue
-		var normal_tex: Texture2D = load(normal_path)
-		var depth_tex: Texture2D = load(depth_path)
-		# Load metadata JSON for bounding sphere and scale
+			return false
+		var normal_tex: Texture2D = load("%s/%s_impostor_normal.png" % [IMPOSTOR_DIR, label])
+		var depth_tex: Texture2D = load("%s/%s_impostor_depth.png" % [IMPOSTOR_DIR, label])
 		var meta := {}
-		var meta_file := FileAccess.open(meta_path, FileAccess.READ)
+		var meta_file := FileAccess.open("%s/%s_impostor_meta.json" % [IMPOSTOR_DIR, label], FileAccess.READ)
 		if meta_file:
 			meta = JSON.parse_string(meta_file.get_as_text())
 			meta_file.close()
 		if meta.is_empty():
-			# Fallback defaults if metadata missing
 			meta = {"scale": 3.0, "aabb_max": 1.5, "position_offset": [0, 0, 0]}
-
-		# Convert position_offset from Blender space to Godot space.
-		# Metadata stores -center in Blender (X=right, Y=forward, Z=up).
-		# We need +center in Godot (X=right, Y=up, Z=back).
-		# Blender(x,y,z) → Godot(x, z, -y), then negate for +center.
+		# Convert position_offset: Blender(-center) → Godot(+center)
 		var po: Array = meta.get("position_offset", [0, 0, 0])
 		var godot_offset := Vector3(-po[0], -po[2], po[1])
-
 		var mat := ShaderMaterial.new()
 		mat.shader = impostor_shader
 		mat.set_shader_parameter("atlas", albedo_tex)
@@ -911,13 +905,20 @@ func _build_canopy_shells() -> void:
 		mat.set_shader_parameter("position_offset", godot_offset)
 		mat.set_shader_parameter("depth_scale", 0.3)
 		mat.set_shader_parameter("alpha_clamp", 0.3)
-		species_mats[model_name] = mat
-		species_meta[model_name] = meta
+		impostor_mats[label] = mat
+		impostor_meta[label] = meta
+		return true
 
-	if species_mats.is_empty():
+	# Pre-load all available impostor materials (per-tier + generic fallbacks)
+	for model_name in ARCHETYPE_MODEL.values():
+		for tier in ["s", "m", "l"]:
+			_load_impostor_mat.call("%s_%s" % [model_name, tier])
+		_load_impostor_mat.call(model_name)  # generic fallback
+
+	if impostor_mats.is_empty():
 		print("Trees LOD3: no impostor atlases found — skipping")
 		return
-	print("Trees LOD3: loaded %d species impostor materials" % species_mats.size())
+	print("Trees LOD3: loaded %d impostor materials (per-tier + fallbacks)" % impostor_mats.size())
 
 	var billboard_mesh := _create_billboard_quad_mesh()  # 2 tris
 
@@ -929,32 +930,37 @@ func _build_canopy_shells() -> void:
 		if sd.dead:
 			continue
 		var model_name: String = ARCHETYPE_MODEL.get(sd.archetype, "deciduous")
-		if not species_mats.has(model_name):
-			model_name = "deciduous"
-		if not species_mats.has(model_name):
+		var tier: String = sd.get("tier", "m")
+
+		# Select impostor material: prefer per-tier, fall back to generic species
+		var mat_key := "%s_%s" % [model_name, tier]
+		if not impostor_mats.has(mat_key):
+			mat_key = model_name
+		if not impostor_mats.has(mat_key):
+			mat_key = "deciduous_%s" % tier
+		if not impostor_mats.has(mat_key):
+			mat_key = "deciduous"
+		if not impostor_mats.has(mat_key):
 			continue
 
 		var cx: int = int(floorf(sd.x / CHUNK))
 		var cz: int = int(floorf(sd.z / CHUNK))
-		var ck := "%d|%d|%s" % [cx, cz, model_name]
+		var ck := "%d|%d|%s" % [cx, cz, mat_key]
 		if not chunks.has(ck):
-			chunks[ck] = {"xf": [], "cd": [], "model": model_name}
+			chunks[ck] = {"xf": [], "cd": [], "model": mat_key}
 
 		# Per-tree Y rotation for atlas view variety across instances
 		var y_rot := fmod(abs(sin(sd.x * 127.1 + sd.z * 311.7) * 43758.5453), 1.0) * TAU
 		var cd := Color(float(sd.sp) / 13.0, sd.timing, sd.ev, sd.jitter)
 
 		# Billboard instance: uniform scale at trunk base. The shader's
-		# position_offset shifts the billboard up to the canopy center,
-		# and the billboard projection handles sizing from the scale uniform.
-		var mesh_h: float = species_meta.get(model_name, {}).get("radius", 3.0)
-		# Scale uniformly so the model-space bounding sphere matches world size.
-		# Tree's world half-height ≈ desired_h/2, model bounding radius ≈ mesh_h,
-		# so scale = desired_h / (mesh_h * 2) would make bounding sphere = desired_h.
-		# But simpler: just use the same scale as LOD0 (desired_h / model_height).
-		var model_height: float = _species_heights.get(model_name + "_m",
+		# position_offset shifts the billboard up to the canopy center.
+		# Use the same scale factor as LOD0 (desired_h / model_height).
+		var tier_key := model_name + "_" + tier
+		var model_height: float = _species_heights.get(tier_key,
+			_species_heights.get(model_name + "_m",
 			_species_heights.get(model_name + "_l",
-			_species_heights.get(model_name + "_s", 5.0)))
+			_species_heights.get(model_name + "_s", 5.0))))
 		var sy: float = sd.h / maxf(model_height, 0.1)
 		var sx: float = sy * (1.50 if sd.archetype == "cathedral_elm" else 1.0)
 		var basis := Basis(Vector3.UP, y_rot) * Basis().scaled(Vector3(sx, sy, sx))
@@ -989,7 +995,7 @@ func _build_canopy_shells() -> void:
 
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
-		mmi.material_override = species_mats[model_name]
+		mmi.material_override = impostor_mats[model_name]
 		mmi.position = origin
 		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
 		# LOD3: octahedral billboard impostors
