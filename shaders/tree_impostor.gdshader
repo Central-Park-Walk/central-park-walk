@@ -312,10 +312,10 @@ void fragment() {
 	NORMAL = nm;
 
 	// Recolor: extract atlas luminance, apply species season color.
-	// Formula matches tree_leaf.gdshader: (0.50 + lum * 0.50)
+	// Ambient-lit atlases have higher luminance (~0.5-0.7) than leaf textures
+	// (~0.3-0.5), so we use a tighter range to match LOD0 brightness.
 	float lum = dot(tex.rgb, vec3(0.3, 0.6, 0.1));
-	vec3 color = v_season_color * (0.50 + lum * 0.50);
-	color *= max(impostor_brightness, 0.5);
+	vec3 color = v_season_color * (0.40 + lum * 0.40);
 
 	// Desaturation — match LOD0's 20% desaturation
 	float color_lum = dot(color, vec3(0.299, 0.587, 0.114));
@@ -323,6 +323,10 @@ void fragment() {
 
 	// Warm darken — match LOD0's tonal correction
 	color *= vec3(0.96, 0.94, 0.88);
+
+	// Time-of-day brightness applied AFTER desaturation to avoid
+	// distorting the saturation blend at non-unity values.
+	color *= max(impostor_brightness, 0.5);
 
 	// Top-lit via blended normal map (atlas normals already encode canopy shape).
 	// Works correctly with spherical billboarding — uses actual surface orientation,
