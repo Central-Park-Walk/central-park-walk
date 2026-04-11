@@ -1028,4 +1028,4 @@ func _build_canopy_shells() -> void:
 		impostor_count += xf_list.size()
 
 	print("Trees LOD3: %d billboard impostors (260-2500m) in %d chunks (%d species)" % [
-		impostor_count, chunks.size(), species_mats.size()])
+		impostor_count, chunks.size(), impostor_mats.size()])
