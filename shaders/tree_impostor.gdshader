@@ -312,24 +312,24 @@ void fragment() {
 	NORMAL = nm;
 
 	// Recolor: extract atlas luminance, apply species season color.
-	// Formula matches tree_leaf.gdshader exactly: (0.4 + lum * 0.6)
+	// Formula matches tree_leaf.gdshader: (0.50 + lum * 0.50)
 	float lum = dot(tex.rgb, vec3(0.3, 0.6, 0.1));
-	vec3 color = v_season_color * (0.4 + lum * 0.6);
+	vec3 color = v_season_color * (0.50 + lum * 0.50);
 	color *= max(impostor_brightness, 0.5);
 
-	// Desaturation — match LOD0's 28% desaturation
+	// Desaturation — match LOD0's 20% desaturation
 	float color_lum = dot(color, vec3(0.299, 0.587, 0.114));
-	color = mix(vec3(color_lum), color, 0.72);
+	color = mix(vec3(color_lum), color, 0.80);
 
 	// Warm darken — match LOD0's tonal correction
-	color *= vec3(0.94, 0.90, 0.80);
+	color *= vec3(0.96, 0.94, 0.88);
 
 	// Top-lit via blended normal map (atlas normals already encode canopy shape).
 	// Works correctly with spherical billboarding — uses actual surface orientation,
 	// not UV proxy which breaks when billboard tilts for overhead views.
 	vec3 world_n = mat3(INV_VIEW_MATRIX) * NORMAL;
 	float top_lit = world_n.y * 0.5 + 0.5;
-	color *= mix(0.88, 1.06, top_lit);
+	color *= mix(0.86, 1.08, top_lit);
 
 	// Snow accumulation on upper canopy
 	if (snow_cover > 0.1) {

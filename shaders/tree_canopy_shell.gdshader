@@ -97,21 +97,21 @@ void fragment() {
 	// Base color from per-species seasonal color
 	vec3 col = v_canopy_color;
 
-	// Per-pixel variation from texture luminance — range matches tree_leaf.gdshader
+	// Per-pixel variation from texture luminance — matches tree_leaf.gdshader
 	float tex_lum = dot(tex.rgb, vec3(0.3, 0.6, 0.1));
-	col *= (0.4 + tex_lum * 0.6);
+	col *= (0.50 + tex_lum * 0.50);
 
-	// Desaturation — match LOD0's 28% desaturation for natural tones
+	// Desaturation — match LOD0's 20% desaturation
 	float col_lum = dot(col, vec3(0.299, 0.587, 0.114));
-	col = mix(vec3(col_lum), col, 0.72);
+	col = mix(vec3(col_lum), col, 0.80);
 
 	// Warm darken — match LOD0's tonal correction
-	col *= vec3(0.94, 0.90, 0.80);
+	col *= vec3(0.96, 0.94, 0.88);
 
 	// Top-lit gradient: sunlit top, darker underside
 	vec3 world_n = mat3(INV_VIEW_MATRIX) * NORMAL;
 	float top_lit = world_n.y * 0.5 + 0.5;  // 0=bottom, 1=top
-	col *= mix(0.82, 1.10, top_lit);
+	col *= mix(0.86, 1.08, top_lit);
 
 	// Aerial perspective — same distance range as tree_leaf.gdshader
 	vec3 shell_world = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;

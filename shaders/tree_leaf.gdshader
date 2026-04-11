@@ -199,19 +199,19 @@ void fragment() {
 	float opaque_blend = smoothstep(100.0, 180.0, frag_cam_dist);
 	alpha = mix(alpha, 1.0, opaque_blend);
 
-	vec3 col = v_leaf_color * (0.4 + lum * 0.6);  // reduced: Blender vertex colors are too bright for PBR
+	vec3 col = v_leaf_color * (0.50 + lum * 0.50);  // texture luminance modulation (raised floor for denser canopy read)
 	int sp = int(v_species_idx + 0.5);
 	// Desaturate slightly — preserve species hue while keeping it natural
 	float leaf_lum = dot(col, vec3(0.299, 0.587, 0.114));
-	col = mix(vec3(leaf_lum), col, 0.72);  // 28% desaturation (was 35%)
-	col *= vec3(0.94, 0.90, 0.80);  // subtle warm darken
+	col = mix(vec3(leaf_lum), col, 0.80);  // 20% desaturation (keeps green vibrancy)
+	col *= vec3(0.96, 0.94, 0.88);  // subtle warm darken (lighter than before)
 
 	// --- Top-lit canopy gradient: world-space normal creates 3D depth ---
 	// Sunlit top = bright, shaded underside = darker blue-shifted.
 	// This is the single biggest cue for 3D canopy shape.
 	vec3 world_n = mat3(INV_VIEW_MATRIX) * NORMAL;
 	float top_lit = world_n.y * 0.5 + 0.5;  // 0=facing down, 1=facing up
-	col *= mix(0.82, 1.10, top_lit);  // 82% underneath (was 72% — too dark without GI)
+	col *= mix(0.86, 1.08, top_lit);  // 86% underneath — less harsh underside darkening
 	// Underside gets warm ground-bounce (green grass reflects up into canopy)
 	// plus cool sky-fill — fakes indirect illumination without GI
 	float underside = (1.0 - top_lit);
@@ -238,8 +238,8 @@ void fragment() {
 	vec3 tree_pos = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	float detail_n = vnoise(UV * 12.0 + tree_pos.xz * 0.5);  // per-leaf-scale noise
 	float pocket_n = vnoise(UV * 4.0 + tree_pos.xz * 0.3);   // shadow pocket scale
-	// Dark shadow pockets in canopy interior (softer than before)
-	col *= mix(1.0, 0.78, smoothstep(0.3, 0.6, pocket_n) * 0.22);
+	// Dark shadow pockets in canopy interior
+	col *= mix(1.0, 0.78, smoothstep(0.3, 0.6, pocket_n) * 0.15);
 	// Per-leaf brightness variation (some leaves catch more light)
 	col *= (0.92 + detail_n * 0.16);
 
