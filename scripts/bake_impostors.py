@@ -63,8 +63,14 @@ def clear_scene():
 
 
 def import_tree(species):
-    """Import the medium-tier tree GLB. Returns root object or None."""
+    """Import the _m tier GLB for atlas baking. The _m tier represents the
+    most common tree size (78% of census trees) and gives a reasonable
+    impostor for all size tiers of the same species."""
     glb_path = os.path.join(TREE_DIR, f"{species}_m.glb")
+    if not os.path.exists(glb_path):
+        glb_path = os.path.join(TREE_DIR, f"{species}_l.glb")
+    if not os.path.exists(glb_path):
+        glb_path = os.path.join(TREE_DIR, f"{species}_s.glb")
     if not os.path.exists(glb_path):
         print(f"  WARNING: {glb_path} not found")
         return None

@@ -130,7 +130,6 @@ def process_model(model_name, lod_name, ratio):
         use_selection=True,
         export_apply=True,
         export_materials='EXPORT',
-        export_colors=True,
         export_yup=True,
     )
 
