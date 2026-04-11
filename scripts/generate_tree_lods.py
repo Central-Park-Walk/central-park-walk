@@ -125,8 +125,12 @@ def find_leaf_islands(bm, leaf_mat_idx):
 def leaf_aware_lod(obj, keep_ratio, seed):
     """SpeedTree-style leaf card reduction.
 
-    - Bark geometry: untouched
-    - Leaf geometry: randomly remove whole cards, scale survivors up
+    Leaf cards are individually scattered quads (AAA scatter placement),
+    each an independent mesh island. We randomly remove whole quads and
+    scale survivors up by 1/sqrt(keep_ratio) to maintain coverage density.
+
+    - Bark geometry: untouched (identical across all LODs)
+    - Leaf geometry: random quad removal + survivor scaling
     """
     mesh = obj.data
     leaf_mat_idx = find_leaf_material_index(mesh)
@@ -156,7 +160,7 @@ def leaf_aware_lod(obj, keep_ratio, seed):
     keep_islands = islands[:n_keep]
     remove_islands = islands[n_keep:]
 
-    # Scale surviving cards around each island's centroid
+    # Scale surviving cards around each card's centroid
     scale_factor = 1.0 / math.sqrt(keep_ratio)
     for island_faces in keep_islands:
         # Collect unique vertices in this island
@@ -192,11 +196,11 @@ def leaf_aware_lod(obj, keep_ratio, seed):
     bm.free()
     mesh.update()
 
-    leaf_kept = sum(len(isl) for isl in keep_islands)
-    leaf_removed = sum(len(isl) for isl in remove_islands)
-    print(f"    {obj.name}: {n_total} leaf islands → kept {n_keep} "
+    kept_faces = sum(len(isl) for isl in keep_islands)
+    removed_faces = sum(len(isl) for isl in remove_islands)
+    print(f"    {obj.name}: {n_total} cards → kept {n_keep} "
           f"({n_keep/n_total*100:.0f}%), scaled {scale_factor:.2f}×, "
-          f"removed {leaf_removed} faces, kept {leaf_kept} faces")
+          f"removed {removed_faces} faces, kept {kept_faces} faces")
 
 
 def decimate_bark_only(obj, ratio):
