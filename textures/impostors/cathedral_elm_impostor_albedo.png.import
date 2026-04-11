@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://eqr71goow1cq"
-path="res://.godot/imported/cathedral_elm_impostor_albedo.png-fc042c4041496616e1737190b8bb34c3.ctex"
+path.s3tc="res://.godot/imported/cathedral_elm_impostor_albedo.png-fc042c4041496616e1737190b8bb34c3.s3tc.ctex"
+path.etc2="res://.godot/imported/cathedral_elm_impostor_albedo.png-fc042c4041496616e1737190b8bb34c3.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/impostors/cathedral_elm_impostor_albedo.png"
-dest_files=["res://.godot/imported/cathedral_elm_impostor_albedo.png-fc042c4041496616e1737190b8bb34c3.ctex"]
+dest_files=["res://.godot/imported/cathedral_elm_impostor_albedo.png-fc042c4041496616e1737190b8bb34c3.s3tc.ctex", "res://.godot/imported/cathedral_elm_impostor_albedo.png-fc042c4041496616e1737190b8bb34c3.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

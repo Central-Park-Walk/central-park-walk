@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dh4qm3sp36tnj"
-path="res://.godot/imported/maple_impostor_normal.png-c4a8efe2d5a0bd8bf586dc2adf42c93f.ctex"
+path.s3tc="res://.godot/imported/maple_impostor_normal.png-c4a8efe2d5a0bd8bf586dc2adf42c93f.s3tc.ctex"
+path.etc2="res://.godot/imported/maple_impostor_normal.png-c4a8efe2d5a0bd8bf586dc2adf42c93f.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/impostors/maple_impostor_normal.png"
-dest_files=["res://.godot/imported/maple_impostor_normal.png-c4a8efe2d5a0bd8bf586dc2adf42c93f.ctex"]
+dest_files=["res://.godot/imported/maple_impostor_normal.png-c4a8efe2d5a0bd8bf586dc2adf42c93f.s3tc.ctex", "res://.godot/imported/maple_impostor_normal.png-c4a8efe2d5a0bd8bf586dc2adf42c93f.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

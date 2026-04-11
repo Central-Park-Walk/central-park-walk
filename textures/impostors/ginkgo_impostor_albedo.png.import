@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cx6w33hnfh6xg"
-path="res://.godot/imported/ginkgo_impostor_albedo.png-3d2bfc3b4d8baf92841d178cc0a2f834.ctex"
+path.s3tc="res://.godot/imported/ginkgo_impostor_albedo.png-3d2bfc3b4d8baf92841d178cc0a2f834.s3tc.ctex"
+path.etc2="res://.godot/imported/ginkgo_impostor_albedo.png-3d2bfc3b4d8baf92841d178cc0a2f834.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/impostors/ginkgo_impostor_albedo.png"
-dest_files=["res://.godot/imported/ginkgo_impostor_albedo.png-3d2bfc3b4d8baf92841d178cc0a2f834.ctex"]
+dest_files=["res://.godot/imported/ginkgo_impostor_albedo.png-3d2bfc3b4d8baf92841d178cc0a2f834.s3tc.ctex", "res://.godot/imported/ginkgo_impostor_albedo.png-3d2bfc3b4d8baf92841d178cc0a2f834.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

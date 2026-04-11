@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cs1051cx6wsk8"
-path="res://.godot/imported/honeylocust_impostor_albedo.png-8e28239dacce0b5aa72a35099b43ba93.ctex"
+path.s3tc="res://.godot/imported/honeylocust_impostor_albedo.png-8e28239dacce0b5aa72a35099b43ba93.s3tc.ctex"
+path.etc2="res://.godot/imported/honeylocust_impostor_albedo.png-8e28239dacce0b5aa72a35099b43ba93.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/impostors/honeylocust_impostor_albedo.png"
-dest_files=["res://.godot/imported/honeylocust_impostor_albedo.png-8e28239dacce0b5aa72a35099b43ba93.ctex"]
+dest_files=["res://.godot/imported/honeylocust_impostor_albedo.png-8e28239dacce0b5aa72a35099b43ba93.s3tc.ctex", "res://.godot/imported/honeylocust_impostor_albedo.png-8e28239dacce0b5aa72a35099b43ba93.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://idi07oo5oj3d"
-path="res://.godot/imported/callery_pear_impostor_normal.png-ba807c7f1199e95abd6de6a3a238a963.ctex"
+path.s3tc="res://.godot/imported/callery_pear_impostor_normal.png-ba807c7f1199e95abd6de6a3a238a963.s3tc.ctex"
+path.etc2="res://.godot/imported/callery_pear_impostor_normal.png-ba807c7f1199e95abd6de6a3a238a963.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/impostors/callery_pear_impostor_normal.png"
-dest_files=["res://.godot/imported/callery_pear_impostor_normal.png-ba807c7f1199e95abd6de6a3a238a963.ctex"]
+dest_files=["res://.godot/imported/callery_pear_impostor_normal.png-ba807c7f1199e95abd6de6a3a238a963.s3tc.ctex", "res://.godot/imported/callery_pear_impostor_normal.png-ba807c7f1199e95abd6de6a3a238a963.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

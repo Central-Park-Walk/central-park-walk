@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://4vqx4auyimvt"
-path="res://.godot/imported/pine_impostor_depth.png-5e46fceeed2e7c93e5dbfa41fe5827df.ctex"
+path.s3tc="res://.godot/imported/pine_impostor_depth.png-5e46fceeed2e7c93e5dbfa41fe5827df.s3tc.ctex"
+path.etc2="res://.godot/imported/pine_impostor_depth.png-5e46fceeed2e7c93e5dbfa41fe5827df.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/impostors/pine_impostor_depth.png"
-dest_files=["res://.godot/imported/pine_impostor_depth.png-5e46fceeed2e7c93e5dbfa41fe5827df.ctex"]
+dest_files=["res://.godot/imported/pine_impostor_depth.png-5e46fceeed2e7c93e5dbfa41fe5827df.s3tc.ctex", "res://.godot/imported/pine_impostor_depth.png-5e46fceeed2e7c93e5dbfa41fe5827df.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

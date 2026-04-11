@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c7fivm53372n6"
-path="res://.godot/imported/oak_impostor_depth.png-e600d9585fe25b74ddbdcda8ad563f79.ctex"
+path.s3tc="res://.godot/imported/oak_impostor_depth.png-e600d9585fe25b74ddbdcda8ad563f79.s3tc.ctex"
+path.etc2="res://.godot/imported/oak_impostor_depth.png-e600d9585fe25b74ddbdcda8ad563f79.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/impostors/oak_impostor_depth.png"
-dest_files=["res://.godot/imported/oak_impostor_depth.png-e600d9585fe25b74ddbdcda8ad563f79.ctex"]
+dest_files=["res://.godot/imported/oak_impostor_depth.png-e600d9585fe25b74ddbdcda8ad563f79.s3tc.ctex", "res://.godot/imported/oak_impostor_depth.png-e600d9585fe25b74ddbdcda8ad563f79.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c1pwbggtblycq"
-path="res://.godot/imported/deciduous_impostor_depth.png-7b1b0e8c20b42296c75ec9ef7933c5f9.ctex"
+path.s3tc="res://.godot/imported/deciduous_impostor_depth.png-7b1b0e8c20b42296c75ec9ef7933c5f9.s3tc.ctex"
+path.etc2="res://.godot/imported/deciduous_impostor_depth.png-7b1b0e8c20b42296c75ec9ef7933c5f9.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/impostors/deciduous_impostor_depth.png"
-dest_files=["res://.godot/imported/deciduous_impostor_depth.png-7b1b0e8c20b42296c75ec9ef7933c5f9.ctex"]
+dest_files=["res://.godot/imported/deciduous_impostor_depth.png-7b1b0e8c20b42296c75ec9ef7933c5f9.s3tc.ctex", "res://.godot/imported/deciduous_impostor_depth.png-7b1b0e8c20b42296c75ec9ef7933c5f9.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

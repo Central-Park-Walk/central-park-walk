@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://m3ff50ucopk1"
-path="res://.godot/imported/london_plane_impostor_albedo.png-e724e18dd4f703fdc1cab3d70033f747.ctex"
+path.s3tc="res://.godot/imported/london_plane_impostor_albedo.png-e724e18dd4f703fdc1cab3d70033f747.s3tc.ctex"
+path.etc2="res://.godot/imported/london_plane_impostor_albedo.png-e724e18dd4f703fdc1cab3d70033f747.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/impostors/london_plane_impostor_albedo.png"
-dest_files=["res://.godot/imported/london_plane_impostor_albedo.png-e724e18dd4f703fdc1cab3d70033f747.ctex"]
+dest_files=["res://.godot/imported/london_plane_impostor_albedo.png-e724e18dd4f703fdc1cab3d70033f747.s3tc.ctex", "res://.godot/imported/london_plane_impostor_albedo.png-e724e18dd4f703fdc1cab3d70033f747.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

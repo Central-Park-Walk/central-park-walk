@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dexodc1p5utvk"
-path="res://.godot/imported/willow_impostor_albedo.png-7c91dc65cdbb30badd4db313c8ddafd2.ctex"
+path.s3tc="res://.godot/imported/willow_impostor_albedo.png-7c91dc65cdbb30badd4db313c8ddafd2.s3tc.ctex"
+path.etc2="res://.godot/imported/willow_impostor_albedo.png-7c91dc65cdbb30badd4db313c8ddafd2.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/impostors/willow_impostor_albedo.png"
-dest_files=["res://.godot/imported/willow_impostor_albedo.png-7c91dc65cdbb30badd4db313c8ddafd2.ctex"]
+dest_files=["res://.godot/imported/willow_impostor_albedo.png-7c91dc65cdbb30badd4db313c8ddafd2.s3tc.ctex", "res://.godot/imported/willow_impostor_albedo.png-7c91dc65cdbb30badd4db313c8ddafd2.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

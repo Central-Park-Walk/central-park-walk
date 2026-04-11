@@ -928,11 +928,11 @@ func _build_canopy_shells() -> void:
 		impostor_meta[label] = meta
 		return true
 
-	# Pre-load all available impostor materials (per-tier + generic fallbacks)
+	# Load generic species impostor materials only (15 sets × 3 textures).
+	# Per-tier atlases exist on disk but loading all 56 sets uses 2.6 GB VRAM
+	# (uncompressed). Generic species atlases suffice at 260m+ viewing distance.
 	for model_name in ARCHETYPE_MODEL.values():
-		for tier in ["s", "m", "l"]:
-			_load_impostor_mat.call("%s_%s" % [model_name, tier])
-		_load_impostor_mat.call(model_name)  # generic fallback
+		_load_impostor_mat.call(model_name)
 
 	if impostor_mats.is_empty():
 		print("Trees LOD3: no impostor atlases found — skipping")

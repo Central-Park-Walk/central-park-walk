@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b8isn23fvqrbp"
-path="res://.godot/imported/cathedral_elm_impostor_depth.png-4c2c41c1ce38a5506b45c2e92619a28a.ctex"
+path.s3tc="res://.godot/imported/cathedral_elm_impostor_depth.png-4c2c41c1ce38a5506b45c2e92619a28a.s3tc.ctex"
+path.etc2="res://.godot/imported/cathedral_elm_impostor_depth.png-4c2c41c1ce38a5506b45c2e92619a28a.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://textures/impostors/cathedral_elm_impostor_depth.png"
-dest_files=["res://.godot/imported/cathedral_elm_impostor_depth.png-4c2c41c1ce38a5506b45c2e92619a28a.ctex"]
+dest_files=["res://.godot/imported/cathedral_elm_impostor_depth.png-4c2c41c1ce38a5506b45c2e92619a28a.s3tc.ctex", "res://.godot/imported/cathedral_elm_impostor_depth.png-4c2c41c1ce38a5506b45c2e92619a28a.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
