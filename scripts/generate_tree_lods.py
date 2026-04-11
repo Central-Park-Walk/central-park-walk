@@ -22,10 +22,11 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
 MODEL_DIR = os.path.join(PROJECT_DIR, "models", "trees")
 
-# Decimation ratios: fraction of faces to KEEP
+# Decimation ratios: fraction of faces to KEEP.
+# Industry standard (SpeedTree): each tier ~50% of previous.
 LOD_RATIOS = {
-    "lod1": 0.35,   # ~35% of faces — good at 90-200m
-    "lod2": 0.12,   # ~12% of faces — good at 170-300m
+    "lod1": 0.50,   # 50% of faces — standard LOD1
+    "lod2": 0.25,   # 25% of faces — standard LOD2
 }
 
 SPECIES_TIERS = []
