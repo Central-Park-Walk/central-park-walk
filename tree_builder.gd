@@ -736,22 +736,28 @@ func _build_trees(trees: Array) -> void:
 	# --- LOD3: Octahedral billboard impostors for distant trees ---
 	_build_canopy_shells()
 
-	# Set per-tier outgoing dither fade on ALL mesh materials.
+	# Set per-tier dither fade ranges on ALL mesh materials.
+	# Both incoming (fade_in) and outgoing (fade_out) for complementary dithering.
 	# Shader dithering replaces Godot's VISIBILITY_RANGE_FADE_SELF which has
 	# a known bug (#88854) with alpha_to_coverage materials.
 	for sp_key in _species_meshes:
-		var fade := Vector2(0.0, 0.0)
+		var fade_out := Vector2(0.0, 0.0)
+		var fade_in := Vector2(0.0, 0.0)
 		if "_lod2" in sp_key:
-			fade = Vector2(270.0, 330.0)   # LOD2: fade out 270-330m
+			fade_out = Vector2(270.0, 330.0)  # LOD2: fade out 270-330m
+			fade_in = Vector2(170.0, 230.0)   # LOD2: fade in 170-230m
 		elif "_lod1" in sp_key:
-			fade = Vector2(170.0, 230.0)   # LOD1: fade out 170-230m
+			fade_out = Vector2(170.0, 230.0)  # LOD1: fade out 170-230m
+			fade_in = Vector2(90.0, 150.0)    # LOD1: fade in 90-150m
 		else:
-			fade = Vector2(90.0, 150.0)    # LOD0: fade out 90-150m
+			fade_out = Vector2(90.0, 150.0)   # LOD0: fade out 90-150m
+			# LOD0: no incoming fade (always visible from 0m)
 		for mesh: Mesh in _species_meshes[sp_key]:
 			for si in mesh.get_surface_count():
 				var mat = mesh.surface_get_material(si)
 				if mat is ShaderMaterial:
-					mat.set_shader_parameter("lod_fade_out", fade)
+					mat.set_shader_parameter("lod_fade_out", fade_out)
+					mat.set_shader_parameter("lod_fade_in", fade_in)
 
 
 func _build_lod_tier_chunks(xf_data: Dictionary, cd_data: Dictionary,
@@ -935,6 +941,10 @@ func _build_canopy_shells() -> void:
 		for tier in ["s", "m", "l"]:
 			_load_impostor_mat.call("%s_%s" % [model_name, tier])
 		_load_impostor_mat.call(model_name)  # generic fallback
+
+	# Set incoming dither on all impostor materials (LOD3 fades in 270-330m)
+	for mat_key in impostor_mats:
+		impostor_mats[mat_key].set_shader_parameter("lod_fade_in", Vector2(270.0, 330.0))
 
 	if impostor_mats.is_empty():
 		print("Trees LOD3: no impostor atlases found — skipping")

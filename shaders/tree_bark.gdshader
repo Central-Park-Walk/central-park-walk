@@ -17,8 +17,9 @@ uniform sampler2D bark_normal_tex : hint_normal, filter_linear_mipmap_anisotropi
 uniform sampler2D bark_roughness_tex : filter_linear_mipmap_anisotropic;
 uniform float tex_blend = 0.45;        // 0=pure procedural, 1=pure texture
 uniform float tex_uv_scale = 0.7;      // world-space tiling frequency
-// LOD crossfade: outgoing dither range (begin, end). Set per LOD tier.
+// LOD crossfade dither ranges (begin, end). Set per LOD tier.
 uniform vec2 lod_fade_out = vec2(0.0, 0.0);
+uniform vec2 lod_fade_in = vec2(0.0, 0.0);
 
 varying vec3 world_pos;
 varying vec3 world_nrm;
@@ -75,11 +76,15 @@ void vertex() {
 void fragment() {
 	// LOD crossfade dithering (must be early to avoid wasted shading)
 	vec3 tree_base = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-	if (lod_fade_out.y > 0.0) {
+	if (lod_fade_out.y > 0.0 || lod_fade_in.y > 0.0) {
 		float bark_cam_dist = length(tree_base - INV_VIEW_MATRIX[3].xyz);
-		if (bark_cam_dist > lod_fade_out.x) {
+		if (lod_fade_out.y > 0.0 && bark_cam_dist > lod_fade_out.x) {
 			if (lod_dither_discard(bark_cam_dist, lod_fade_out.x, lod_fade_out.y,
 			                       FRAGCOORD.xy, false)) discard;
+		}
+		if (lod_fade_in.y > 0.0 && bark_cam_dist < lod_fade_in.y) {
+			if (lod_dither_discard(bark_cam_dist, lod_fade_in.x, lod_fade_in.y,
+			                       FRAGCOORD.xy, true)) discard;
 		}
 	}
 

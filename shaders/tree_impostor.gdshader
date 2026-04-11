@@ -19,8 +19,12 @@ global uniform float snow_cover;
 global uniform float season_t;
 global uniform vec3 sky_reflect_color;
 
+// LOD crossfade: incoming dither range (begin, end).
+uniform vec2 lod_fade_in = vec2(0.0, 0.0);
+
 #include "res://shaders/include/tree_species.gdshaderinc"
 #include "res://shaders/include/aerial_perspective.gdshaderinc"
+#include "res://shaders/include/lod_dither.gdshaderinc"
 
 // --- Varyings ---
 varying vec2 v_uv_frame1;
@@ -304,6 +308,17 @@ void fragment() {
 	float alpha = tex.a * v_leaf_density;
 	if (snow_cover > 0.6 && v_leaf_density < 0.3) discard;
 	if (alpha < alpha_clamp) discard;
+
+	// LOD incoming dither: fade in as camera approaches from beyond LOD2's fade-out.
+	// Complementary to LOD2's outgoing dither — each pixel shows exactly one tier.
+	if (lod_fade_in.y > 0.0) {
+		vec3 imp_pos = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+		float imp_cam_dist = length(imp_pos - (INV_VIEW_MATRIX * vec4(vec3(0.0), 1.0)).xyz);
+		if (imp_cam_dist < lod_fade_in.y) {
+			if (lod_dither_discard(imp_cam_dist, lod_fade_in.x, lod_fade_in.y,
+			                       FRAGCOORD.xy, true)) discard;
+		}
+	}
 
 	// Normal map
 	vec3 nm = blended_normals(uv1, v_frame1_normal, uv2, v_frame2_normal,

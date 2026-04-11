@@ -10,9 +10,10 @@ global uniform float season_t;
 global uniform float rain_wetness;
 global uniform vec3 sky_reflect_color;
 
-// LOD crossfade: outgoing dither range (begin, end). Set per LOD tier.
-// vec2(0,0) = no dithering (default for LOD tiers without outgoing fade).
+// LOD crossfade dither ranges (begin, end). Set per LOD tier.
+// vec2(0,0) = no dithering (default).
 uniform vec2 lod_fade_out = vec2(0.0, 0.0);
+uniform vec2 lod_fade_in = vec2(0.0, 0.0);
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/aerial_perspective.gdshaderinc"
@@ -195,12 +196,17 @@ void fragment() {
 	float discard_thresh = mix(0.15, 0.02, dist_fade);
 	if (alpha < discard_thresh) discard;
 
-	// LOD crossfade: dither-discard fragments as this tier fades out.
-	// Complementary with the incoming tier's full rendering — each screen pixel
-	// is covered by exactly one tier. TAA smooths the dither pattern.
+	// LOD crossfade: complementary dithering at tier boundaries.
+	// Outgoing: this tier dissolves away as camera moves beyond its range.
+	// Incoming: this tier dissolves in as camera enters from the previous tier.
+	// TAA smooths the dither pattern across frames.
 	if (lod_fade_out.y > 0.0 && frag_cam_dist > lod_fade_out.x) {
 		if (lod_dither_discard(frag_cam_dist, lod_fade_out.x, lod_fade_out.y,
 		                       FRAGCOORD.xy, false)) discard;
+	}
+	if (lod_fade_in.y > 0.0 && frag_cam_dist < lod_fade_in.y) {
+		if (lod_dither_discard(frag_cam_dist, lod_fade_in.x, lod_fade_in.y,
+		                       FRAGCOORD.xy, true)) discard;
 	}
 
 	// Beyond ~120m, force surviving fragments toward full opacity.
