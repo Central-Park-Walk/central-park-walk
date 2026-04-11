@@ -1,20 +1,27 @@
-"""Generate decimated LOD variants of tree models for smooth LOD transitions.
+"""Generate leaf-aware LOD variants of tree models (SpeedTree approach).
 
-Takes each existing tree GLB (e.g., oak_l.glb with 5 variants) and produces
-decimated versions that preserve the tree's shape with fewer polygons:
-  oak_l_lod1.glb — ~35% of original faces (medium distance)
-  oak_l_lod2.glb — ~12% of original faces (far distance)
+Instead of generic mesh decimation (which destroys leaf card UVs and creates
+canopy holes), this script:
+  1. Separates leaf geometry from bark by material name ("leaf")
+  2. Keeps bark geometry IDENTICAL across all LODs
+  3. Randomly removes entire leaf card quads (not edge-collapse)
+  4. Scales surviving cards UP to maintain constant canopy coverage density
 
-The decimated models share the exact same trunk/branch structure and leaf
-placement as the original — they're the same tree, just with fewer triangles.
-This ensures LOD transitions don't change the tree's identity.
+The scale factor is 1/sqrt(keep_ratio):
+  LOD1 (50% cards): each card 1.41× larger → same total leaf area
+  LOD2 (25% cards): each card 2.0× larger → same total leaf area
+
+For bark-only models (e.g., dead trees), falls back to Blender Decimate.
 
 Run: blender4 --background --python scripts/generate_tree_lods.py
      blender4 --background --python scripts/generate_tree_lods.py -- --only=oak_l
 """
 
 import bpy
+import bmesh
+import math
 import os
+import random
 import sys
 import time
 
@@ -22,19 +29,16 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
 MODEL_DIR = os.path.join(PROJECT_DIR, "models", "trees")
 
-# Decimation ratios: fraction of faces to KEEP.
-# Industry standard (SpeedTree): each tier ~50% of previous.
+# Fraction of leaf cards to KEEP at each LOD tier.
 LOD_RATIOS = {
-    "lod1": 0.50,   # 50% of faces — standard LOD1
-    "lod2": 0.25,   # 25% of faces — standard LOD2
+    "lod1": 0.50,   # 50% of cards, each scaled 1.41×
+    "lod2": 0.25,   # 25% of cards, each scaled 2.0×
 }
 
 SPECIES_TIERS = []
-# Build list from existing GLB files
 for f in sorted(os.listdir(MODEL_DIR)):
     if f.endswith(".glb") and "_lod" not in f:
         name = f.replace(".glb", "")
-        # Skip non-tier files (e.g., "dead.glb" has no tier suffix)
         if any(name.endswith(s) for s in ("_s", "_m", "_l")):
             SPECIES_TIERS.append(name)
         elif name == "dead":
@@ -52,17 +56,154 @@ def clear_scene():
                 block.remove(item)
 
 
-def decimate_mesh_object(obj, ratio):
-    """Apply Decimate modifier to a mesh object.
+def find_leaf_material_index(mesh):
+    """Return the material index for the leaf material, or -1 if none."""
+    for i, mat in enumerate(mesh.materials):
+        if mat and "leaf" in mat.name.lower():
+            return i
+    return -1
 
-    Uses Collapse mode which intelligently removes vertices while
-    minimizing visual change to the silhouette. Preserves UVs and
-    material assignments.
+
+def find_leaf_islands(bm, leaf_mat_idx):
+    """Find connected components among faces with the leaf material.
+
+    Returns a list of islands, each island being a list of face indices.
+    Uses Union-Find for efficiency on large meshes.
     """
+    # Build mapping: vertex -> set of leaf face indices that use it
+    vert_to_faces = {}
+    for f in bm.faces:
+        if f.material_index == leaf_mat_idx:
+            for v in f.verts:
+                vert_to_faces.setdefault(v.index, []).append(f.index)
+
+    # Union-Find
+    parent = {}
+    rank = {}
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra == rb:
+            return
+        if rank[ra] < rank[rb]:
+            ra, rb = rb, ra
+        parent[rb] = ra
+        if rank[ra] == rank[rb]:
+            rank[ra] += 1
+
+    leaf_face_indices = set()
+    for f in bm.faces:
+        if f.material_index == leaf_mat_idx:
+            fi = f.index
+            leaf_face_indices.add(fi)
+            parent[fi] = fi
+            rank[fi] = 0
+
+    # Union faces that share a vertex (both must be leaf faces)
+    for vert_idx, face_list in vert_to_faces.items():
+        if len(face_list) < 2:
+            continue
+        first = face_list[0]
+        for other in face_list[1:]:
+            union(first, other)
+
+    # Group by root
+    groups = {}
+    for fi in leaf_face_indices:
+        root = find(fi)
+        groups.setdefault(root, []).append(fi)
+
+    return list(groups.values())
+
+
+def leaf_aware_lod(obj, keep_ratio, seed):
+    """SpeedTree-style leaf card reduction.
+
+    - Bark geometry: untouched
+    - Leaf geometry: randomly remove whole cards, scale survivors up
+    """
+    mesh = obj.data
+    leaf_mat_idx = find_leaf_material_index(mesh)
+
+    if leaf_mat_idx == -1:
+        # Bark-only model (e.g., dead tree) — apply gentle decimation
+        decimate_bark_only(obj, keep_ratio)
+        return
+
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bm.faces.ensure_lookup_table()
+    bm.verts.ensure_lookup_table()
+
+    islands = find_leaf_islands(bm, leaf_mat_idx)
+    n_total = len(islands)
+
+    if n_total == 0:
+        bm.free()
+        return
+
+    # Deterministic shuffle so LOD variants are reproducible
+    rng = random.Random(seed)
+    rng.shuffle(islands)
+
+    n_keep = max(1, round(n_total * keep_ratio))
+    keep_islands = islands[:n_keep]
+    remove_islands = islands[n_keep:]
+
+    # Scale surviving cards around each island's centroid
+    scale_factor = 1.0 / math.sqrt(keep_ratio)
+    for island_faces in keep_islands:
+        # Collect unique vertices in this island
+        island_verts = set()
+        for fi in island_faces:
+            for v in bm.faces[fi].verts:
+                island_verts.add(v)
+
+        # Compute centroid
+        cx = sum(v.co.x for v in island_verts) / len(island_verts)
+        cy = sum(v.co.y for v in island_verts) / len(island_verts)
+        cz = sum(v.co.z for v in island_verts) / len(island_verts)
+
+        # Scale each vertex away from centroid
+        for v in island_verts:
+            v.co.x = cx + (v.co.x - cx) * scale_factor
+            v.co.y = cy + (v.co.y - cy) * scale_factor
+            v.co.z = cz + (v.co.z - cz) * scale_factor
+
+    # Delete removed leaf cards
+    faces_to_delete = []
+    for island_faces in remove_islands:
+        for fi in island_faces:
+            faces_to_delete.append(bm.faces[fi])
+    bmesh.ops.delete(bm, geom=faces_to_delete, context='FACES')
+
+    # Clean up orphaned vertices
+    loose = [v for v in bm.verts if not v.link_faces]
+    if loose:
+        bmesh.ops.delete(bm, geom=loose, context='VERTS')
+
+    bm.to_mesh(mesh)
+    bm.free()
+    mesh.update()
+
+    leaf_kept = sum(len(isl) for isl in keep_islands)
+    leaf_removed = sum(len(isl) for isl in remove_islands)
+    print(f"    {obj.name}: {n_total} leaf islands → kept {n_keep} "
+          f"({n_keep/n_total*100:.0f}%), scaled {scale_factor:.2f}×, "
+          f"removed {leaf_removed} faces, kept {leaf_kept} faces")
+
+
+def decimate_bark_only(obj, ratio):
+    """Fallback: Blender Decimate for bark-only models (e.g., dead trees)."""
     if obj.type != 'MESH':
         return
 
-    # Apply any existing modifiers first
     bpy.context.view_layer.objects.active = obj
     for mod in list(obj.modifiers):
         try:
@@ -70,11 +211,9 @@ def decimate_mesh_object(obj, ratio):
         except RuntimeError:
             pass
 
-    # Add and apply Decimate modifier
     mod = obj.modifiers.new("Decimate", 'DECIMATE')
     mod.decimate_type = 'COLLAPSE'
     mod.ratio = ratio
-    # Preserve UV seams to avoid texture artifacts
     mod.use_collapse_triangulate = False
 
     orig_faces = len(obj.data.polygons)
@@ -82,18 +221,17 @@ def decimate_mesh_object(obj, ratio):
         bpy.ops.object.modifier_apply(modifier="Decimate")
     except RuntimeError as e:
         print(f"    WARNING: Decimate failed on {obj.name}: {e}")
-        # Remove the modifier if apply failed
         if "Decimate" in obj.modifiers:
             obj.modifiers.remove(obj.modifiers["Decimate"])
         return
 
     new_faces = len(obj.data.polygons)
     print(f"    {obj.name}: {orig_faces} -> {new_faces} faces "
-          f"({new_faces/max(orig_faces,1)*100:.0f}%)")
+          f"({new_faces/max(orig_faces,1)*100:.0f}%) [bark decimate]")
 
 
 def process_model(model_name, lod_name, ratio):
-    """Load a GLB, decimate all mesh objects, and export as a new GLB."""
+    """Load a GLB, apply leaf-aware LOD reduction, and export."""
     src_path = os.path.join(MODEL_DIR, f"{model_name}.glb")
     dst_path = os.path.join(MODEL_DIR, f"{model_name}_{lod_name}.glb")
 
@@ -103,7 +241,6 @@ def process_model(model_name, lod_name, ratio):
 
     clear_scene()
 
-    # Import
     bpy.ops.import_scene.gltf(filepath=src_path)
     imported = [o for o in bpy.context.scene.objects if o.type == 'MESH']
 
@@ -113,12 +250,13 @@ def process_model(model_name, lod_name, ratio):
 
     total_orig = sum(len(o.data.polygons) for o in imported)
 
-    # Decimate each mesh object
-    bpy.ops.object.select_all(action='DESELECT')
+    # Use model name + lod name as seed for reproducibility
+    seed = hash(f"{model_name}_{lod_name}")
+
     for obj in imported:
         obj.select_set(True)
         bpy.context.view_layer.objects.active = obj
-        decimate_mesh_object(obj, ratio)
+        leaf_aware_lod(obj, ratio, seed)
         obj.select_set(False)
 
     total_new = sum(len(o.data.polygons) for o in imported if o.type == 'MESH')
@@ -143,7 +281,7 @@ def process_model(model_name, lod_name, ratio):
 
 def main():
     print("\n" + "=" * 60)
-    print("Tree LOD Decimation — Central Park Walk")
+    print("Tree LOD — Leaf-Aware Card Reduction (SpeedTree approach)")
     print(f"Models: {MODEL_DIR}")
     print(f"LOD levels: {list(LOD_RATIOS.keys())}")
     print("=" * 60)
