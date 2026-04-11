@@ -732,7 +732,7 @@ func _build_trees(trees: Array) -> void:
 	print("Trees: %d placed, %d LOD0 chunks (skipped %d non-grass, nudged %d from paths)" % [
 		all_trunk_xf.size(), lod0_chunks.size(), _skip_surface, _nudged])
 
-	# --- LOD2: Crossed-quad impostors for distant trees ---
+	# --- LOD3: Octahedral billboard impostors for distant trees ---
 	_build_canopy_shells()
 
 
@@ -832,113 +832,94 @@ func _tree_glb_leaf_shader_code() -> String:
 
 
 # ---------------------------------------------------------------------------
-# LOD3: Star impostor — 3 vertical quads at 60° + 1 horizontal cap.
-# Uses the species-specific octahedral atlas textures for correct tree
-# appearance. Static geometry (no billboarding) — the intersecting planes
-# create parallax from any viewing angle including overhead.
-# Each quad's UVs are pre-baked to sample a specific atlas frame matching
-# that quad's facing direction. Recolored with seasonal color via the
-# canopy shell shader.
+# LOD3: Octahedral billboard impostor — camera-facing quad with view-dependent
+# atlas sampling. The shader selects and blends 3 nearest atlas frames based on
+# camera angle, with depth-based parallax correction for pseudo-3D appearance.
+# Uses per-species 8×8 hemi-octahedral atlases (albedo + normal + depth).
 # ---------------------------------------------------------------------------
 
 const IMPOSTOR_DIR := "res://textures/impostors"
 
-func _create_star_impostor_mesh() -> ArrayMesh:
-	"""Build a 4-quad star impostor: 3 vertical quads at 60° + 1 horizontal cap.
-	Each quad's UVs sample a specific region of the 8×8 octahedral atlas.
-	Y from 0 (crown base) to 1 (crown top), XZ from -0.5 to 0.5."""
+func _create_billboard_quad_mesh() -> ArrayMesh:
+	"""Simple unit quad for billboard impostor. UVs 0→1 drive the shader's
+	billboard projection — actual vertex positions are overwritten by the shader."""
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	# Atlas frame regions (8×8 grid). Equatorial frames for side views,
-	# corner frame for overhead cap.
-	# Frame (4,3): ~10° right of front → front-facing quad
-	# Frame (6,1): ~68° right → right-rotated quad
-	# Frame (1,6): ~68° left → left-rotated quad
-	# Frame (6,6): ~45° overhead → horizontal cap
-	var frames := [
-		Vector4(4.0, 3.0, 0.0, 0.0),    # front quad (vertical)
-		Vector4(6.0, 1.0, 60.0, 0.0),   # 60° quad (vertical)
-		Vector4(1.0, 6.0, -60.0, 0.0),  # -60° quad (vertical)
-	]
-	var fs := 1.0 / 8.0  # frame size in UV space
-	# --- 3 vertical quads ---
-	for fi in frames.size():
-		var fx: float = frames[fi].x
-		var fy: float = frames[fi].y
-		var angle_deg: float = frames[fi].z
-		var angle := deg_to_rad(angle_deg)
-		var ca := cos(angle)
-		var sa := sin(angle)
-		# Quad corners in XZ plane, rotated by angle, Y from 0 to 1
-		var bl := Vector3(-0.5 * ca, 0.0, -0.5 * sa)
-		var br := Vector3( 0.5 * ca, 0.0,  0.5 * sa)
-		var tl := Vector3(-0.5 * ca, 1.0, -0.5 * sa)
-		var tr := Vector3( 0.5 * ca, 1.0,  0.5 * sa)
-		var normal := Vector3(sa, 0.0, -ca)
-		# UV: map quad to atlas frame region
-		var u0 := fx * fs
-		var v0 := fy * fs
-		var u1 := u0 + fs
-		var v1 := v0 + fs
-		# Tri 1: bl, br, tr
-		st.set_normal(normal); st.set_uv(Vector2(u0, v1)); st.add_vertex(bl)
-		st.set_normal(normal); st.set_uv(Vector2(u1, v1)); st.add_vertex(br)
-		st.set_normal(normal); st.set_uv(Vector2(u1, v0)); st.add_vertex(tr)
-		# Tri 2: bl, tr, tl
-		st.set_normal(normal); st.set_uv(Vector2(u0, v1)); st.add_vertex(bl)
-		st.set_normal(normal); st.set_uv(Vector2(u1, v0)); st.add_vertex(tr)
-		st.set_normal(normal); st.set_uv(Vector2(u0, v0)); st.add_vertex(tl)
-	# --- Horizontal cap at crown top ---
-	# Frame (6,6): 45° overhead view — shows crown from above
-	var cap_fx := 6.0
-	var cap_fy := 6.0
-	var cu0 := cap_fx * fs
-	var cv0 := cap_fy * fs
-	var cu1 := cu0 + fs
-	var cv1 := cv0 + fs
-	var cap_n := Vector3(0.0, 1.0, 0.0)
-	var cap_y := 0.92  # slightly below crown peak for overlap
-	# Tri 1: front-left, front-right, back-right
-	st.set_normal(cap_n); st.set_uv(Vector2(cu0, cv1)); st.add_vertex(Vector3(-0.5, cap_y, -0.5))
-	st.set_normal(cap_n); st.set_uv(Vector2(cu1, cv1)); st.add_vertex(Vector3( 0.5, cap_y, -0.5))
-	st.set_normal(cap_n); st.set_uv(Vector2(cu1, cv0)); st.add_vertex(Vector3( 0.5, cap_y,  0.5))
-	# Tri 2: front-left, back-right, back-left
-	st.set_normal(cap_n); st.set_uv(Vector2(cu0, cv1)); st.add_vertex(Vector3(-0.5, cap_y, -0.5))
-	st.set_normal(cap_n); st.set_uv(Vector2(cu1, cv0)); st.add_vertex(Vector3( 0.5, cap_y,  0.5))
-	st.set_normal(cap_n); st.set_uv(Vector2(cu0, cv0)); st.add_vertex(Vector3(-0.5, cap_y,  0.5))
+	var n := Vector3(0.0, 0.0, 1.0)
+	# Tri 1: BL, BR, TR
+	st.set_normal(n); st.set_uv(Vector2(0.0, 1.0)); st.add_vertex(Vector3(-0.5, -0.5, 0.0))
+	st.set_normal(n); st.set_uv(Vector2(1.0, 1.0)); st.add_vertex(Vector3( 0.5, -0.5, 0.0))
+	st.set_normal(n); st.set_uv(Vector2(1.0, 0.0)); st.add_vertex(Vector3( 0.5,  0.5, 0.0))
+	# Tri 2: BL, TR, TL
+	st.set_normal(n); st.set_uv(Vector2(0.0, 1.0)); st.add_vertex(Vector3(-0.5, -0.5, 0.0))
+	st.set_normal(n); st.set_uv(Vector2(1.0, 0.0)); st.add_vertex(Vector3( 0.5,  0.5, 0.0))
+	st.set_normal(n); st.set_uv(Vector2(0.0, 0.0)); st.add_vertex(Vector3(-0.5,  0.5, 0.0))
 	return st.commit()
 
 func _build_canopy_shells() -> void:
 	if _shell_data.is_empty():
 		return
 
-	# Load canopy shell shader — used with species atlas textures for recoloring
-	var shell_shader: Shader = load("res://shaders/tree_canopy_shell.gdshader")
-	if not shell_shader:
-		print("Trees LOD3: canopy shell shader not found")
+	# Load octahedral billboard impostor shader — view-dependent 3-frame
+	# blending with depth parallax for photorealistic distant trees.
+	var impostor_shader: Shader = load("res://shaders/tree_impostor.gdshader")
+	if not impostor_shader:
+		print("Trees LOD3: impostor shader not found")
 		return
 
-	# Load species-specific impostor atlas textures (albedo only — gives the
-	# pre-rendered tree appearance). One material per species.
+	# Load species-specific impostor atlas textures (albedo + normal + depth)
+	# and metadata (bounding sphere, scale). One material per species.
 	var species_mats: Dictionary = {}  # model_name -> ShaderMaterial
+	var species_meta: Dictionary = {}  # model_name -> metadata dict
 	for model_name in ARCHETYPE_MODEL.values():
 		if species_mats.has(model_name):
 			continue
 		var albedo_path := "%s/%s_impostor_albedo.png" % [IMPOSTOR_DIR, model_name]
-		var tex: Texture2D = load(albedo_path)
-		if not tex:
+		var normal_path := "%s/%s_impostor_normal.png" % [IMPOSTOR_DIR, model_name]
+		var depth_path := "%s/%s_impostor_depth.png" % [IMPOSTOR_DIR, model_name]
+		var meta_path := "%s/%s_impostor_meta.json" % [IMPOSTOR_DIR, model_name]
+		var albedo_tex: Texture2D = load(albedo_path)
+		if not albedo_tex:
 			continue
+		var normal_tex: Texture2D = load(normal_path)
+		var depth_tex: Texture2D = load(depth_path)
+		# Load metadata JSON for bounding sphere and scale
+		var meta := {}
+		var meta_file := FileAccess.open(meta_path, FileAccess.READ)
+		if meta_file:
+			meta = JSON.parse_string(meta_file.get_as_text())
+			meta_file.close()
+		if meta.is_empty():
+			# Fallback defaults if metadata missing
+			meta = {"scale": 3.0, "aabb_max": 1.5, "position_offset": [0, 0, 0]}
+
+		# Convert position_offset from Blender space to Godot space.
+		# Metadata stores -center in Blender (X=right, Y=forward, Z=up).
+		# We need +center in Godot (X=right, Y=up, Z=back).
+		# Blender(x,y,z) → Godot(x, z, -y), then negate for +center.
+		var po: Array = meta.get("position_offset", [0, 0, 0])
+		var godot_offset := Vector3(-po[0], -po[2], po[1])
+
 		var mat := ShaderMaterial.new()
-		mat.shader = shell_shader
-		mat.set_shader_parameter("canopy_tex", tex)
+		mat.shader = impostor_shader
+		mat.set_shader_parameter("atlas", albedo_tex)
+		mat.set_shader_parameter("atlas_normal", normal_tex if normal_tex else albedo_tex)
+		mat.set_shader_parameter("atlas_depth", depth_tex if depth_tex else albedo_tex)
+		mat.set_shader_parameter("frames", Vector2(8.0, 8.0))
+		mat.set_shader_parameter("scale", meta.get("scale", 3.0))
+		mat.set_shader_parameter("aabb_max", meta.get("aabb_max", 1.5))
+		mat.set_shader_parameter("position_offset", godot_offset)
+		mat.set_shader_parameter("depth_scale", 0.3)
+		mat.set_shader_parameter("alpha_clamp", 0.3)
 		species_mats[model_name] = mat
+		species_meta[model_name] = meta
 
 	if species_mats.is_empty():
 		print("Trees LOD3: no impostor atlases found — skipping")
 		return
-	print("Trees LOD3: loaded %d species atlas materials" % species_mats.size())
+	print("Trees LOD3: loaded %d species impostor materials" % species_mats.size())
 
-	var star_mesh := _create_star_impostor_mesh()  # 8 tris (3 vertical + 1 cap)
+	var billboard_mesh := _create_billboard_quad_mesh()  # 2 tris
 
 	# Bucket into spatial chunks × species (each species has its own material)
 	const CHUNK := 80.0
@@ -959,37 +940,29 @@ func _build_canopy_shells() -> void:
 		if not chunks.has(ck):
 			chunks[ck] = {"xf": [], "cd": [], "model": model_name}
 
-		# Crown geometry: species-specific proportions
-		var crown_start := 0.35
-		var width_mult := 1.0
-		if sd.archetype in ["conifer", "pine"]:
-			crown_start = 0.15
-			width_mult = 0.55
-		elif sd.archetype == "birch":
-			crown_start = 0.40
-			width_mult = 0.65
-		elif sd.archetype == "willow":
-			crown_start = 0.25
-			width_mult = 1.2
-		elif sd.archetype == "cathedral_elm":
-			crown_start = 0.30
-			width_mult = 1.3
-		var crown_base_y: float = sd.y + sd.h * crown_start
-		var crown_depth: float = sd.h * (1.0 - crown_start)
-		var crown_w: float = sd.r * width_mult
-
-		# Per-tree Y rotation for variety
+		# Per-tree Y rotation for atlas view variety across instances
 		var y_rot := fmod(abs(sin(sd.x * 127.1 + sd.z * 311.7) * 43758.5453), 1.0) * TAU
 		var cd := Color(float(sd.sp) / 13.0, sd.timing, sd.ev, sd.jitter)
 
-		# Star mesh is Y 0→1, XZ ±0.5. Scale to crown dimensions.
-		var basis := Basis(Vector3.UP, y_rot) * Basis().scaled(
-			Vector3(crown_w * 2.0, crown_depth, crown_w * 2.0))
-		var tf := Transform3D(basis, Vector3(sd.x, crown_base_y, sd.z))
+		# Billboard instance: uniform scale at trunk base. The shader's
+		# position_offset shifts the billboard up to the canopy center,
+		# and the billboard projection handles sizing from the scale uniform.
+		var mesh_h: float = species_meta.get(model_name, {}).get("radius", 3.0)
+		# Scale uniformly so the model-space bounding sphere matches world size.
+		# Tree's world half-height ≈ desired_h/2, model bounding radius ≈ mesh_h,
+		# so scale = desired_h / (mesh_h * 2) would make bounding sphere = desired_h.
+		# But simpler: just use the same scale as LOD0 (desired_h / model_height).
+		var model_height: float = _species_heights.get(model_name + "_m",
+			_species_heights.get(model_name + "_l",
+			_species_heights.get(model_name + "_s", 5.0)))
+		var sy: float = sd.h / maxf(model_height, 0.1)
+		var sx: float = sy * (1.50 if sd.archetype == "cathedral_elm" else 1.0)
+		var basis := Basis(Vector3.UP, y_rot) * Basis().scaled(Vector3(sx, sy, sx))
+		var tf := Transform3D(basis, Vector3(sd.x, sd.y, sd.z))
 		chunks[ck].xf.append(tf)
 		chunks[ck].cd.append(cd)
 
-	var star_count := 0
+	var impostor_count := 0
 	for ck in chunks:
 		var chunk_data: Dictionary = chunks[ck]
 		var xf_list: Array = chunk_data.xf
@@ -1007,7 +980,7 @@ func _build_canopy_shells() -> void:
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.use_custom_data = true
-		mm.mesh = star_mesh
+		mm.mesh = billboard_mesh
 		mm.instance_count = xf_list.size()
 		for i in xf_list.size():
 			var local_tf := Transform3D(xf_list[i].basis, xf_list[i].origin - origin)
@@ -1018,8 +991,8 @@ func _build_canopy_shells() -> void:
 		mmi.multimesh = mm
 		mmi.material_override = species_mats[model_name]
 		mmi.position = origin
-		mmi.name = "TreeStar_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
-		# LOD3: star impostors — crossfade with LOD2
+		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
+		# LOD3: octahedral billboard impostors
 		mmi.visibility_range_begin = 260.0
 		mmi.visibility_range_end = 2500.0
 		mmi.visibility_range_begin_margin = 40.0
@@ -1027,7 +1000,7 @@ func _build_canopy_shells() -> void:
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_loader.add_child(mmi)
-		star_count += xf_list.size()
+		impostor_count += xf_list.size()
 
-	print("Trees LOD3: %d star impostors (260-2500m) in %d chunks (%d species)" % [
-		star_count, chunks.size(), species_mats.size()])
+	print("Trees LOD3: %d billboard impostors (260-2500m) in %d chunks (%d species)" % [
+		impostor_count, chunks.size(), species_mats.size()])
