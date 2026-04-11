@@ -696,12 +696,12 @@ func _build_trees(trees: Array) -> void:
 		mmi.multimesh = mm
 		mmi.position = chunk_origin
 		mmi.name = "Tree_%s" % ckey.replace("|", "_")
-		# LOD0: full geometry (best quality)
+		# LOD0: full geometry — shader dithering handles crossfade
 		mmi.visibility_range_begin = 0.0
-		mmi.visibility_range_end = 120.0
+		mmi.visibility_range_end = 150.0
 		mmi.visibility_range_begin_margin = 0.0
-		mmi.visibility_range_end_margin = 30.0
-		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		mmi.visibility_range_end_margin = 0.0
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 		_loader.add_child(mmi)
 
 	# Canopy occluders disabled: OccluderInstance3D inherits Node3D (not
@@ -709,12 +709,12 @@ func _build_trees(trees: Array) -> void:
 	# distance gate they stay active at all ranges, hiding LOD2/impostor
 	# trees behind canopy boxes and making distant woodland look sparse.
 
-	# --- LOD1: _m models ---
+	# --- LOD1: _m models (shader fade 170-230m) ---
 	_build_lod_tier_chunks(_lod1_xf, _lod1_cd, "TreeL1",
-		90.0, 200.0, 30.0, 30.0)
-	# --- LOD2: _s models ---
+		90.0, 230.0, 0.0, 0.0)
+	# --- LOD2: _s models (shader fade 270-330m) ---
 	_build_lod_tier_chunks(_lod2_xf, _lod2_cd, "TreeL2",
-		170.0, 300.0, 30.0, 30.0)
+		170.0, 330.0, 0.0, 0.0)
 
 	_build_tree_collision(all_trunk_xf)
 	# Debug: print a few tree heights to verify scale
@@ -735,6 +735,23 @@ func _build_trees(trees: Array) -> void:
 
 	# --- LOD3: Octahedral billboard impostors for distant trees ---
 	_build_canopy_shells()
+
+	# Set per-tier outgoing dither fade on ALL mesh materials.
+	# Shader dithering replaces Godot's VISIBILITY_RANGE_FADE_SELF which has
+	# a known bug (#88854) with alpha_to_coverage materials.
+	for sp_key in _species_meshes:
+		var fade := Vector2(0.0, 0.0)
+		if "_lod2" in sp_key:
+			fade = Vector2(270.0, 330.0)   # LOD2: fade out 270-330m
+		elif "_lod1" in sp_key:
+			fade = Vector2(170.0, 230.0)   # LOD1: fade out 170-230m
+		else:
+			fade = Vector2(90.0, 150.0)    # LOD0: fade out 90-150m
+		for mesh: Mesh in _species_meshes[sp_key]:
+			for si in mesh.get_surface_count():
+				var mat = mesh.surface_get_material(si)
+				if mat is ShaderMaterial:
+					mat.set_shader_parameter("lod_fade_out", fade)
 
 
 func _build_lod_tier_chunks(xf_data: Dictionary, cd_data: Dictionary,
@@ -794,11 +811,13 @@ func _build_lod_tier_chunks(xf_data: Dictionary, cd_data: Dictionary,
 		mmi.multimesh = mm
 		mmi.position = chunk_origin
 		mmi.name = "%s_%s" % [prefix, ckey.replace("|", "_")]
+		# Shader dithering handles crossfade — disable Godot's alpha fade
+		# which has a bug with alpha_to_coverage (#88854).
 		mmi.visibility_range_begin = vis_begin
 		mmi.visibility_range_end = vis_end
-		mmi.visibility_range_begin_margin = begin_margin
-		mmi.visibility_range_end_margin = end_margin
-		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		mmi.visibility_range_begin_margin = 0.0
+		mmi.visibility_range_end_margin = 0.0
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 		_loader.add_child(mmi)
 		instance_count += xf_list.size()
 
@@ -998,12 +1017,12 @@ func _build_canopy_shells() -> void:
 		mmi.material_override = impostor_mats[model_name]
 		mmi.position = origin
 		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
-		# LOD3: octahedral billboard impostors
-		mmi.visibility_range_begin = 260.0
+		# LOD3: octahedral billboard impostors — starts where LOD2 fades out
+		mmi.visibility_range_begin = 270.0
 		mmi.visibility_range_end = 2500.0
-		mmi.visibility_range_begin_margin = 40.0
+		mmi.visibility_range_begin_margin = 0.0
 		mmi.visibility_range_end_margin = 0.0
-		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_loader.add_child(mmi)
 		impostor_count += xf_list.size()

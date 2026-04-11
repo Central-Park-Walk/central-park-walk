@@ -17,6 +17,8 @@ uniform sampler2D bark_normal_tex : hint_normal, filter_linear_mipmap_anisotropi
 uniform sampler2D bark_roughness_tex : filter_linear_mipmap_anisotropic;
 uniform float tex_blend = 0.45;        // 0=pure procedural, 1=pure texture
 uniform float tex_uv_scale = 0.7;      // world-space tiling frequency
+// LOD crossfade: outgoing dither range (begin, end). Set per LOD tier.
+uniform vec2 lod_fade_out = vec2(0.0, 0.0);
 
 varying vec3 world_pos;
 varying vec3 world_nrm;
@@ -26,6 +28,7 @@ varying vec3 world_nrm;
 #include "res://shaders/include/aerial_perspective.gdshaderinc"
 #include "res://shaders/include/tree_species.gdshaderinc"
 #include "res://shaders/include/wind.gdshaderinc"
+#include "res://shaders/include/lod_dither.gdshaderinc"
 
 // Variable-octave FBM for bark texture detail
 float fbm(vec2 p, int oct) {
@@ -70,8 +73,17 @@ void vertex() {
 }
 
 void fragment() {
-	// Per-tree variation seed from model origin
+	// LOD crossfade dithering (must be early to avoid wasted shading)
 	vec3 tree_base = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	if (lod_fade_out.y > 0.0) {
+		float bark_cam_dist = length(tree_base - INV_VIEW_MATRIX[3].xyz);
+		if (bark_cam_dist > lod_fade_out.x) {
+			if (lod_dither_discard(bark_cam_dist, lod_fade_out.x, lod_fade_out.y,
+			                       FRAGCOORD.xy, false)) discard;
+		}
+	}
+
+	// Per-tree variation seed from model origin
 	float tree_var = hash2(floor(tree_base.xz * 0.5));
 	vec3 col = bark_color * (0.90 + tree_var * 0.20);
 

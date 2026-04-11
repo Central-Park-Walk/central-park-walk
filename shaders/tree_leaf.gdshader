@@ -10,10 +10,15 @@ global uniform float season_t;
 global uniform float rain_wetness;
 global uniform vec3 sky_reflect_color;
 
+// LOD crossfade: outgoing dither range (begin, end). Set per LOD tier.
+// vec2(0,0) = no dithering (default for LOD tiers without outgoing fade).
+uniform vec2 lod_fade_out = vec2(0.0, 0.0);
+
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/aerial_perspective.gdshaderinc"
 #include "res://shaders/include/tree_species.gdshaderinc"
 #include "res://shaders/include/wind.gdshaderinc"
+#include "res://shaders/include/lod_dither.gdshaderinc"
 
 varying float v_leaf_density;
 varying vec3 v_leaf_color;
@@ -189,6 +194,14 @@ void fragment() {
 	float dist_fade = smoothstep(60.0, 180.0, frag_cam_dist);
 	float discard_thresh = mix(0.15, 0.02, dist_fade);
 	if (alpha < discard_thresh) discard;
+
+	// LOD crossfade: dither-discard fragments as this tier fades out.
+	// Complementary with the incoming tier's full rendering — each screen pixel
+	// is covered by exactly one tier. TAA smooths the dither pattern.
+	if (lod_fade_out.y > 0.0 && frag_cam_dist > lod_fade_out.x) {
+		if (lod_dither_discard(frag_cam_dist, lod_fade_out.x, lod_fade_out.y,
+		                       FRAGCOORD.xy, false)) discard;
+	}
 
 	// Beyond ~120m, force surviving fragments toward full opacity.
 	// Alpha_to_coverage quantizes alpha to MSAA coverage mask (5 levels
