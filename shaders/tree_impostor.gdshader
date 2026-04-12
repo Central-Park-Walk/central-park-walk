@@ -44,16 +44,11 @@ varying flat vec3 v_frame1_normal;
 varying flat vec3 v_frame2_normal;
 varying flat vec3 v_frame3_normal;
 varying vec4 v_blend_weights;
-varying flat float v_leaf_density;
 varying flat vec3 v_season_color;
-varying flat float v_color_jitter;
-// 0 during summer, rises toward 1 as autumn fall color dominates. Drives
-// the fragment's fall-hue recolor on the summer atlas.
-varying flat float v_fall_mix_t;
-// 0 in summer, 1 in deep winter — drives the summer/winter atlas blend.
-// Rises with `shed` (same curve leaf_density uses), so the visual
-// transition matches the canopy-fall arc.
-varying flat float v_winter_mix_t;
+// Packed scalars: x = leaf_density, y = color_jitter, z = fall_mix_t,
+// w = winter_mix_t. Packed into a single vec4 because the hardware varying
+// budget is 32 floats and the unpacked set overflows by one slot.
+varying flat vec4 v_scalars;
 
 // ── Octahedral hemisphere mapping ────────────────────────────────────────────
 
@@ -182,11 +177,8 @@ void vertex() {
 	season_color *= 1.0 + bright_off;
 	float warm_off = fract(jitter * 7.37) - 0.5;
 	season_color += warm_off * vec3(0.025, -0.008, -0.03);
-	v_leaf_density = leaf_density;
 	v_season_color = season_color;
-	v_color_jitter = jitter;
-	v_fall_mix_t = fall_mix;
-	v_winter_mix_t = winter_mix;
+	v_scalars = vec4(leaf_density, jitter, fall_mix, winter_mix);
 
 	// --- Billboard projection ---
 	vec2 frames_m1 = frames - vec2(1.0);
@@ -330,14 +322,16 @@ void fragment() {
 	// at the transition and lets the GPU overlap the fetches.
 	vec4 tex_summer = blend_colors(uv1, uv2, uv3, v_blend_weights, atlas);
 	vec4 tex_winter = blend_colors(uv1, uv2, uv3, v_blend_weights, atlas_winter);
-	vec4 tex = mix(tex_summer, tex_winter, v_winter_mix_t);
+	float winter_mix_t = v_scalars.w;
+	float leaf_density = v_scalars.x;
+	vec4 tex = mix(tex_summer, tex_winter, winter_mix_t);
 
 	// Alpha is pre-encoded per-season in each atlas (summer = full canopy,
-	// winter = bare or sparse). v_leaf_density further trims the summer side
+	// winter = bare or sparse). leaf_density further trims the summer side
 	// during transitional weeks; winter side already shows what survives.
-	float summer_alpha = tex_summer.a * v_leaf_density;
-	float alpha = mix(summer_alpha, tex_winter.a, v_winter_mix_t);
-	if (snow_cover > 0.6 && v_leaf_density < 0.3) discard;
+	float summer_alpha = tex_summer.a * leaf_density;
+	float alpha = mix(summer_alpha, tex_winter.a, winter_mix_t);
+	if (snow_cover > 0.6 && leaf_density < 0.3) discard;
 	if (alpha < alpha_clamp) discard;
 
 	// LOD incoming dither: fade in as camera approaches from beyond LOD2's fade-out.
@@ -366,10 +360,11 @@ void fragment() {
 	// during fall using the atlas's own luminance to preserve texture detail.
 	// Factor 3.0 compensates for baked summer luminance (~0.33) scaling down
 	// the re-tinted output to roughly match summer brightness.
-	if (v_fall_mix_t > 0.0) {
+	float fall_mix_t = v_scalars.z;
+	if (fall_mix_t > 0.0) {
 		float atlas_lum = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
 		vec3 fall_recolor = v_season_color * atlas_lum * 3.0;
-		color = mix(color, fall_recolor, v_fall_mix_t);
+		color = mix(color, fall_recolor, fall_mix_t);
 	}
 
 	// Time-of-day brightness (night dim) — applied uniformly.
