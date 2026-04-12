@@ -2,7 +2,11 @@ shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_disabled, diffuse_burley, specular_schlick_ggx;
 
 // --- Atlas textures (8×8 hemisphere octahedral, baked per species) ---
+// `atlas` is the summer bake; `atlas_winter` is a second bake at season_t=3.3
+// — clean-abscission species come out as bare trunks, marcescent species as
+// sparse dead-brown canopy. Sampled at the same UV and blended in fragment.
 uniform sampler2D atlas : source_color, filter_linear_mipmap;
+uniform sampler2D atlas_winter : source_color, filter_linear_mipmap;
 uniform sampler2D atlas_normal : hint_normal, filter_linear_mipmap;
 uniform sampler2D atlas_depth : hint_default_white, filter_linear_mipmap;
 uniform vec2 frames = vec2(8.0, 8.0);
@@ -43,6 +47,13 @@ varying vec4 v_blend_weights;
 varying flat float v_leaf_density;
 varying flat vec3 v_season_color;
 varying flat float v_color_jitter;
+// 0 during summer, rises toward 1 as autumn fall color dominates. Drives
+// the fragment's fall-hue recolor on the summer atlas.
+varying flat float v_fall_mix_t;
+// 0 in summer, 1 in deep winter — drives the summer/winter atlas blend.
+// Rises with `shed` (same curve leaf_density uses), so the visual
+// transition matches the canopy-fall arc.
+varying flat float v_winter_mix_t;
 
 // ── Octahedral hemisphere mapping ────────────────────────────────────────────
 
@@ -141,6 +152,8 @@ void vertex() {
 
 	float leaf_density = 1.0;
 	vec3 season_color = SUMMER_COLORS[sp_idx];
+	float fall_mix = 0.0;
+	float winter_mix = 0.0;
 	if (is_evergreen < 0.5) {
 		vec4 ph = PHENOLOGY[sp_idx];
 		float retention = WINTER_RETENTION[sp_idx];
@@ -155,6 +168,14 @@ void vertex() {
 		season_color = mix(season_color, fall_col, fall_t);
 		float late_fall = smoothstep(ph.y, ph.z, s);
 		season_color = mix(season_color, fall_col * 0.5, late_fall * 0.6);
+		// Combined fall weighting — peaks at the fall_peak phenology stamp
+		// and fades as leaves shed. Fragment uses this to pull summer atlas
+		// toward season_color without erasing atlas texture character.
+		fall_mix = clamp(fall_t - late_fall * 0.4, 0.0, 1.0);
+		// Winter atlas crossfade — tracks the shed curve so the visual
+		// transition matches how leaves actually fall off.
+		winter_mix = 1.0 - smoothstep(ph.z - 0.2, ph.z + 0.3, s);
+		winter_mix = 1.0 - min(grow, winter_mix);  // also bare in early spring
 	}
 	// Per-tree color variation: brightness ±12%, warm/cool ±shift
 	float bright_off = (jitter - 0.5) * 0.25;
@@ -164,6 +185,8 @@ void vertex() {
 	v_leaf_density = leaf_density;
 	v_season_color = season_color;
 	v_color_jitter = jitter;
+	v_fall_mix_t = fall_mix;
+	v_winter_mix_t = winter_mix;
 
 	// --- Billboard projection ---
 	vec2 frames_m1 = frames - vec2(1.0);
@@ -301,11 +324,19 @@ void fragment() {
 	vec2 uv2 = recalc_uv(v_uv_frame2, v_frame2, v_xy_frame2, frame_size, depth_scale, atlas_depth);
 	vec2 uv3 = recalc_uv(v_uv_frame3, v_frame3, v_xy_frame3, frame_size, depth_scale, atlas_depth);
 
-	// 3-frame blended sampling
-	vec4 tex = blend_colors(uv1, uv2, uv3, v_blend_weights, atlas);
+	// 3-frame blended sampling — both seasonal atlases at the same UVs so
+	// we can crossfade by phenology. Only one branch of the mix dominates
+	// at any given time, but sampling both unconditionally avoids flicker
+	// at the transition and lets the GPU overlap the fetches.
+	vec4 tex_summer = blend_colors(uv1, uv2, uv3, v_blend_weights, atlas);
+	vec4 tex_winter = blend_colors(uv1, uv2, uv3, v_blend_weights, atlas_winter);
+	vec4 tex = mix(tex_summer, tex_winter, v_winter_mix_t);
 
-	// Alpha: modulated by leaf density (deciduous shedding)
-	float alpha = tex.a * v_leaf_density;
+	// Alpha is pre-encoded per-season in each atlas (summer = full canopy,
+	// winter = bare or sparse). v_leaf_density further trims the summer side
+	// during transitional weeks; winter side already shows what survives.
+	float summer_alpha = tex_summer.a * v_leaf_density;
+	float alpha = mix(summer_alpha, tex_winter.a, v_winter_mix_t);
 	if (snow_cover > 0.6 && v_leaf_density < 0.3) discard;
 	if (alpha < alpha_clamp) discard;
 
@@ -326,29 +357,26 @@ void fragment() {
 	                          v_blend_weights, atlas_normal);
 	NORMAL = nm;
 
-	// Recolor: extract atlas luminance, apply species season color.
-	// Ambient-lit atlases have higher luminance (~0.5-0.7) than leaf textures
-	// (~0.3-0.5), so we use a tighter range to match LOD0 brightness.
-	float lum = dot(tex.rgb, vec3(0.3, 0.6, 0.1));
-	vec3 color = v_season_color * (0.40 + lum * 0.40);
+	// Atlas albedo is already species-colored, desaturated, warm-darkened and
+	// view-angle top-lit — it was baked by impostor_baker.gd through the live
+	// tree_leaf.gdshader. No recolor chain is needed; just use the sample.
+	vec3 color = tex.rgb;
 
-	// Desaturation — match LOD0's 20% desaturation
-	float color_lum = dot(color, vec3(0.299, 0.587, 0.114));
-	color = mix(vec3(color_lum), color, 0.80);
+	// Seasonal shift: atlas is summer-only, so pull hue toward season_color
+	// during fall using the atlas's own luminance to preserve texture detail.
+	// Factor 3.0 compensates for baked summer luminance (~0.33) scaling down
+	// the re-tinted output to roughly match summer brightness.
+	if (v_fall_mix_t > 0.0) {
+		float atlas_lum = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
+		vec3 fall_recolor = v_season_color * atlas_lum * 3.0;
+		color = mix(color, fall_recolor, v_fall_mix_t);
+	}
 
-	// Warm darken — match LOD0's tonal correction
-	color *= vec3(0.96, 0.94, 0.88);
-
-	// Time-of-day brightness applied AFTER desaturation to avoid
-	// distorting the saturation blend at non-unity values.
+	// Time-of-day brightness (night dim) — applied uniformly.
 	color *= max(impostor_brightness, 0.5);
 
-	// Top-lit via blended normal map (atlas normals already encode canopy shape).
-	// Works correctly with spherical billboarding — uses actual surface orientation,
-	// not UV proxy which breaks when billboard tilts for overhead views.
 	vec3 world_n = mat3(INV_VIEW_MATRIX) * NORMAL;
 	float top_lit = world_n.y * 0.5 + 0.5;
-	color *= mix(0.86, 1.08, top_lit);
 
 	// Snow accumulation on upper canopy
 	if (snow_cover > 0.1) {

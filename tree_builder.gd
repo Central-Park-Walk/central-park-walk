@@ -909,6 +909,11 @@ func _build_canopy_shells() -> void:
 			return false
 		var normal_tex: Texture2D = load("%s/%s_impostor_normal.png" % [IMPOSTOR_DIR, label])
 		var depth_tex: Texture2D = load("%s/%s_impostor_depth.png" % [IMPOSTOR_DIR, label])
+		# Winter atlas (baked at season_t=3.3 by impostor_baker.gd). When
+		# absent — e.g. during a summer-only iteration — fall back to the
+		# summer atlas so the shader's winter_mix_t blend is a no-op.
+		var winter_path := "%s/%s_impostor_albedo_winter.png" % [IMPOSTOR_DIR, label]
+		var winter_tex: Texture2D = load(winter_path) if ResourceLoader.exists(winter_path) else albedo_tex
 		var meta := {}
 		var meta_file := FileAccess.open("%s/%s_impostor_meta.json" % [IMPOSTOR_DIR, label], FileAccess.READ)
 		if meta_file:
@@ -922,6 +927,7 @@ func _build_canopy_shells() -> void:
 		var mat := ShaderMaterial.new()
 		mat.shader = impostor_shader
 		mat.set_shader_parameter("atlas", albedo_tex)
+		mat.set_shader_parameter("atlas_winter", winter_tex)
 		mat.set_shader_parameter("atlas_normal", normal_tex if normal_tex else albedo_tex)
 		mat.set_shader_parameter("atlas_depth", depth_tex if depth_tex else albedo_tex)
 		mat.set_shader_parameter("frames", Vector2(8.0, 8.0))
