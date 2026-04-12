@@ -419,7 +419,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.40, 0.70),
         "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
-        "target_cluster_count_l": 320,
+        "target_cluster_count_l": 700,  # LAI 4-5; American elm is iconic dense shade
         "base_seed": 42,
         "seed_step": 17,
         "tiers": {
@@ -519,7 +519,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.33, 0.75),
         "leaf_flatten_range": (0.45, 0.60),
         "leaf_density": 0.9,  # canopy density (0-1, from real-world LAI)
-        "target_cluster_count_l": 780,
+        "target_cluster_count_l": 1000,  # LAI 5-7; sugar maple denser than oak
         "base_seed": 300,
         "seed_step": 29,
         "tiers": {
@@ -622,7 +622,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.30, 0.68),
         "leaf_flatten_range": (0.50, 0.75),
         "leaf_density": 0.55,  # Cherry LAI 3.0-4.0 → moderate, dappled shade
-        "target_cluster_count_l": 480,
+        "target_cluster_count_l": 600,  # LAI 3-4 moderate canopy
         "base_seed": 200,
         "seed_step": 19,
         "tiers": {
@@ -674,7 +674,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.27, 0.60),
         "leaf_flatten_range": (0.40, 0.70),
         "leaf_density": 0.5,  # canopy density (0-1, from real-world LAI)
-        "target_cluster_count_l": 340,
+        "target_cluster_count_l": 600,  # LAI 3-4; corrects sparser-than-honeylocust bug
         "foliage_radius_threshold": 0.28,  # Few thin branches → include more of them
         "foliage_extent_range": (0.20, 0.95),
         "base_seed": 300,
@@ -940,7 +940,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.45, 0.65),
         "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
-        "target_cluster_count_l": 350,
+        "target_cluster_count_l": 900,  # LAI 5-6; major shade canopy, was dramatically undersized
         "base_seed": 200,
         "seed_step": 31,
         "tiers": {
@@ -990,7 +990,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.27, 0.60),
         "leaf_flatten_range": (0.50, 0.70),
         "leaf_density": 0.55,  # canopy density (0-1, from real-world LAI)
-        "target_cluster_count_l": 480,
+        "target_cluster_count_l": 600,  # LAI 3-4; ginkgo fan cluster tops
         "foliage_radius_threshold": 0.40,  # No sub-branches → main branches are thick
         "foliage_min_depth": 0,
         "foliage_extent_range": (0.15, 0.95),
@@ -1047,7 +1047,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.45, 0.65),
         "leaf_density": 0.7,  # canopy density (0-1, from real-world LAI)
-        "target_cluster_count_l": 420,
+        "target_cluster_count_l": 550,  # LAI 3-4; saucer magnolia thick waxy leaves
         "base_seed": 500,
         "seed_step": 29,
         "tiers": {
