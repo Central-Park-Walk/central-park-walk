@@ -44,6 +44,15 @@ void vertex() {
 		col = summer_col;
 	}
 
+	// Per-tree color jitter — match tree_leaf.gdshader so LOD0 → LOD1/2
+	// transitions don't visibly pop. Without this, canopy shell paints every
+	// tree in a stand the same shade while leaves vary tree-to-tree.
+	float jitter = INSTANCE_CUSTOM.a;
+	float bright_off = (jitter - 0.5) * 0.25;
+	col *= 1.0 + bright_off;
+	float warm_off = fract(jitter * 7.37) - 0.5;
+	col += warm_off * vec3(0.025, -0.008, -0.03);
+
 	v_canopy_color = col;
 	// Winter: canopy shell becomes transparent (bare branches)
 	v_canopy_alpha = mix(1.0, 0.0, winter_bare * (1.0 - evergreen));

@@ -356,6 +356,17 @@ void fragment() {
 	// tree_leaf.gdshader. No recolor chain is needed; just use the sample.
 	vec3 color = tex.rgb;
 
+	// Per-tree color jitter, mirroring tree_leaf.gdshader (±12% brightness,
+	// small warm/cool shift). The atlas was baked with neutral jitter=0.5 so
+	// all impostors would otherwise be identical; this restores the tree-to-
+	// tree variation LOD0 has and eliminates the "LOD0 varies / impostors
+	// flat" mismatch.
+	float jitter = v_scalars.y;
+	float bright_off = (jitter - 0.5) * 0.25;
+	color *= 1.0 + bright_off;
+	float warm_off = fract(jitter * 7.37) - 0.5;
+	color += warm_off * vec3(0.025, -0.008, -0.03);
+
 	// Seasonal shift: atlas is summer-only, so pull hue toward season_color
 	// during fall using the atlas's own luminance to preserve texture detail.
 	// Factor 3.0 compensates for baked summer luminance (~0.33) scaling down
