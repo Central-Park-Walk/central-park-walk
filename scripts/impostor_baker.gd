@@ -278,8 +278,6 @@ func _bake_one(species: String, label: String, glb_path: String, suffix: String 
 
 func _assign_bake_materials(mesh: Mesh, info: Dictionary, species: String) -> void:
 	var leaf_tint: Vector3 = info.tint
-	var bark_col: Color = info.bark
-	var bstyle: int = info.bstyle
 	for si in mesh.get_surface_count():
 		var smat: Material = mesh.surface_get_material(si)
 		var is_leaf := false
@@ -299,16 +297,29 @@ func _assign_bake_materials(mesh: Mesh, info: Dictionary, species: String) -> vo
 				leaf_mat.set_shader_parameter("albedo_tex", (smat as StandardMaterial3D).albedo_texture)
 			mesh.surface_set_material(si, leaf_mat)
 		else:
-			var bark_mat := ShaderMaterial.new()
-			bark_mat.shader = _bark_shader
-			bark_mat.set_shader_parameter("bark_color", Vector3(bark_col.r, bark_col.g, bark_col.b))
-			bark_mat.set_shader_parameter("bark_style", bstyle)
-			if _bark_tex_cache.has(bstyle):
-				var btex: Dictionary = _bark_tex_cache[bstyle]
-				bark_mat.set_shader_parameter("bark_albedo_tex", btex["albedo"])
-				bark_mat.set_shader_parameter("bark_normal_tex", btex["normal"])
-				bark_mat.set_shader_parameter("bark_roughness_tex", btex["roughness"])
-			mesh.surface_set_material(si, bark_mat)
+			# Canopy-only impostor: swap bark for an invisible material. At
+			# impostor range (260m+) the trunk is 1-3 pixels wide; its only
+			# meaningful effect is polluting mipmap averages with bark color.
+			# For white-barked species (birch: 0.80/0.76/0.68) this pulls
+			# distant canopy toward bright-white, producing the pale washout
+			# observed in cpw_005. Dropping the trunk lets the canopy dominate
+			# the atlas silhouette — closer to what a tree looks like from
+			# a few hundred meters away anyway.
+			mesh.surface_set_material(si, _invisible_material())
+
+
+var _invisible_mat: StandardMaterial3D = null
+
+func _invisible_material() -> StandardMaterial3D:
+	if _invisible_mat != null:
+		return _invisible_mat
+	var m := StandardMaterial3D.new()
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	m.alpha_scissor_threshold = 0.99
+	m.albedo_color = Color(0, 0, 0, 0)
+	m.disable_receive_shadows = true
+	_invisible_mat = m
+	return _invisible_mat
 
 
 func _look_at_from_position(pos: Vector3, target: Vector3) -> Transform3D:
