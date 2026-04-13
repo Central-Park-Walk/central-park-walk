@@ -743,26 +743,21 @@ func _build_trees(trees: Array) -> void:
 	for sp_key in _species_meshes:
 		var fade_out := Vector2(0.0, 0.0)
 		var fade_in := Vector2(0.0, 0.0)
-		var debug_tint := Vector3(1.0, 1.0, 1.0)
 		if "_lod2" in sp_key:
 			fade_out = Vector2(270.0, 330.0)  # LOD2: fade out 270-330m
 			fade_in = Vector2(170.0, 230.0)   # LOD2: fade in 170-230m
-			debug_tint = Vector3(1.0, 0.0, 0.9)  # LOD2 = magenta
 		elif "_lod1" in sp_key:
 			fade_out = Vector2(170.0, 230.0)  # LOD1: fade out 170-230m
 			fade_in = Vector2(90.0, 150.0)    # LOD1: fade in 90-150m
-			debug_tint = Vector3(0.0, 0.3, 1.0)  # LOD1 = blue
 		else:
 			fade_out = Vector2(90.0, 150.0)   # LOD0: fade out 90-150m
 			# LOD0: no incoming fade (always visible from 0m)
-			debug_tint = Vector3(0.0, 0.9, 0.1)  # LOD0 = green
 		for mesh: Mesh in _species_meshes[sp_key]:
 			for si in mesh.get_surface_count():
 				var mat = mesh.surface_get_material(si)
 				if mat is ShaderMaterial:
 					mat.set_shader_parameter("lod_fade_out", fade_out)
 					mat.set_shader_parameter("lod_fade_in", fade_in)
-					mat.set_shader_parameter("debug_tier_tint", debug_tint)
 
 
 func _build_lod_tier_chunks(xf_data: Dictionary, cd_data: Dictionary,
@@ -956,7 +951,6 @@ func _build_canopy_shells() -> void:
 	# Set incoming dither on all impostor materials (LOD3 fades in 270-330m)
 	for mat_key in impostor_mats:
 		impostor_mats[mat_key].set_shader_parameter("lod_fade_in", Vector2(270.0, 330.0))
-		impostor_mats[mat_key].set_shader_parameter("debug_tier_tint", Vector3(1.0, 0.0, 0.3))  # LOD3 = red
 
 	if impostor_mats.is_empty():
 		print("Trees LOD3: no impostor atlases found — skipping")
