@@ -397,7 +397,7 @@ void fragment() {
 	float imp_aerial = smoothstep(60.0, 300.0, imp_dist);
 	color = apply_aerial(color, imp_aerial, 0.30, 0.30, sky_reflect_color);
 
-	color *= debug_tier_tint;
+	color = mix(color, debug_tier_tint, 0.80);
 
 	ALBEDO = color;
 	ROUGHNESS = 0.82;

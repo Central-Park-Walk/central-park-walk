@@ -361,7 +361,7 @@ void fragment() {
 	float leaf_aerial = smoothstep(60.0, 300.0, leaf_dist);
 	ALBEDO = apply_aerial(ALBEDO, leaf_aerial, 0.30, 0.30, sky_reflect_color);
 
-	ALBEDO *= debug_tier_tint;
+	ALBEDO = mix(ALBEDO, debug_tier_tint, 0.80);
 
 	// Feed alpha to alpha_to_coverage (4x MSAA).
 	// Distance opacity clamping already handled after discard test above.
