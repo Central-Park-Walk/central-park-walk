@@ -3,6 +3,7 @@ render_mode cull_disabled, depth_prepass_alpha, alpha_to_coverage;
 
 uniform vec3 albedo_tint = vec3(0.28, 0.48, 0.18);
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic;
+uniform vec3 debug_tier_tint : source_color = vec3(1.0);
 
 global uniform vec2 wind_vec;
 global uniform float snow_cover;
@@ -359,6 +360,8 @@ void fragment() {
 	float leaf_dist = length(leaf_world - INV_VIEW_MATRIX[3].xyz);
 	float leaf_aerial = smoothstep(60.0, 300.0, leaf_dist);
 	ALBEDO = apply_aerial(ALBEDO, leaf_aerial, 0.30, 0.30, sky_reflect_color);
+
+	ALBEDO *= debug_tier_tint;
 
 	// Feed alpha to alpha_to_coverage (4x MSAA).
 	// Distance opacity clamping already handled after discard test above.

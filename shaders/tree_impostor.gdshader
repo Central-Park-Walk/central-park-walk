@@ -6,6 +6,7 @@ render_mode blend_mix, depth_draw_opaque, cull_disabled, diffuse_burley, specula
 // — clean-abscission species come out as bare trunks, marcescent species as
 // sparse dead-brown canopy. Sampled at the same UV and blended in fragment.
 uniform sampler2D atlas : source_color, filter_linear_mipmap;
+uniform vec3 debug_tier_tint : source_color = vec3(1.0);
 uniform sampler2D atlas_winter : source_color, filter_linear_mipmap;
 uniform sampler2D atlas_normal : hint_normal, filter_linear_mipmap;
 uniform sampler2D atlas_depth : hint_default_white, filter_linear_mipmap;
@@ -395,6 +396,8 @@ void fragment() {
 	float imp_dist = length(imp_world - (INV_VIEW_MATRIX * vec4(vec3(0.0), 1.0)).xyz);
 	float imp_aerial = smoothstep(60.0, 300.0, imp_dist);
 	color = apply_aerial(color, imp_aerial, 0.30, 0.30, sky_reflect_color);
+
+	color *= debug_tier_tint;
 
 	ALBEDO = color;
 	ROUGHNESS = 0.82;
