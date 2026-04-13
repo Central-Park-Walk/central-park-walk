@@ -21,6 +21,8 @@ extends Node
 const FRAME_SIZE := 8
 const ATLAS_RES := 2048
 const FRAME_RES := ATLAS_RES / FRAME_SIZE     # 256
+const SUPERSAMPLE := 2                         # render 2× then downsample → cleaner edges
+const FRAME_RES_BAKE := FRAME_RES * SUPERSAMPLE
 const OUT_DIR := "res://textures/impostors/"
 const TREE_DIR := "res://models/trees/"
 
@@ -82,7 +84,7 @@ func _ready() -> void:
 	if _filter_species != "":
 		print("impostor_baker: filter species = '%s'" % _filter_species)
 
-	sub_viewport.size = Vector2i(FRAME_RES, FRAME_RES)
+	sub_viewport.size = Vector2i(FRAME_RES_BAKE, FRAME_RES_BAKE)
 	sub_viewport.transparent_bg = true
 	sub_viewport.msaa_3d = Viewport.MSAA_4X       # alpha_to_coverage needs MSAA
 	sub_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
@@ -122,17 +124,31 @@ func _register_global(name: String, type: int, value) -> void:
 
 
 func _set_environment_for_bake() -> void:
-	# Bright, uniform, directionless lighting — the leaf shader already bakes
-	# a top-lit gradient into its ALBEDO, and we capture ALBEDO directly. So
-	# we want the environment to contribute ≈1.0 everywhere, nothing else.
+	# Sky-dome ambient + SSAO: replaces the old flat (1,1,1) ambient. The sky
+	# gives natural cool-top/warm-horizon modulation, and SSAO bakes canopy
+	# self-occlusion into the atlas so branches read 3D from distance.
 	var env := Environment.new()
-	env.background_mode = Environment.BG_CLEAR_COLOR
+	var sky := Sky.new()
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color(0.55, 0.70, 0.92)
+	sky_mat.sky_horizon_color = Color(0.82, 0.85, 0.90)
+	sky_mat.sky_curve = 0.15
+	sky_mat.sky_energy_multiplier = 1.0
+	sky_mat.ground_bottom_color = Color(0.22, 0.20, 0.17)
+	sky_mat.ground_horizon_color = Color(0.55, 0.50, 0.42)
+	sky_mat.ground_curve = 0.02
+	sky_mat.ground_energy_multiplier = 0.55  # dim the ground so canopy doesn't light from below too strongly
+	sky.sky_material = sky_mat
+	env.sky = sky
+	env.background_mode = Environment.BG_CLEAR_COLOR    # Keep alpha-transparent bg for atlas
 	env.background_color = Color(0, 0, 0, 0)
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(1, 1, 1)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_sky_contribution = 1.0
 	env.ambient_light_energy = 1.0
-	env.ambient_light_sky_contribution = 0.0
-	env.ssao_enabled = false
+	env.ssao_enabled = true
+	env.ssao_intensity = 1.8
+	env.ssao_radius = 0.8
+	env.ssao_horizon = 0.08
 	env.glow_enabled = false
 	env.adjustment_enabled = false
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
@@ -263,6 +279,10 @@ func _bake_one(species: String, label: String, glb_path: String, suffix: String 
 			var frame_img: Image = sub_viewport.get_texture().get_image()
 			if frame_img.get_format() != Image.FORMAT_RGBA8:
 				frame_img.convert(Image.FORMAT_RGBA8)
+			# Super-sample downsample: render at 2× target res, downsample
+			# to FRAME_RES for cleaner edges + better alpha coverage.
+			if SUPERSAMPLE > 1:
+				frame_img.resize(FRAME_RES, FRAME_RES, Image.INTERPOLATE_LANCZOS)
 			atlas.blit_rect(frame_img, Rect2i(0, 0, FRAME_RES, FRAME_RES),
 				Vector2i(ix * FRAME_RES, iy * FRAME_RES))
 
@@ -278,6 +298,8 @@ func _bake_one(species: String, label: String, glb_path: String, suffix: String 
 
 func _assign_bake_materials(mesh: Mesh, info: Dictionary, species: String) -> void:
 	var leaf_tint: Vector3 = info.tint
+	var bark_col: Color = info.bark
+	var bstyle: int = info.bstyle
 	for si in mesh.get_surface_count():
 		var smat: Material = mesh.surface_get_material(si)
 		var is_leaf := false
@@ -297,29 +319,22 @@ func _assign_bake_materials(mesh: Mesh, info: Dictionary, species: String) -> vo
 				leaf_mat.set_shader_parameter("albedo_tex", (smat as StandardMaterial3D).albedo_texture)
 			mesh.surface_set_material(si, leaf_mat)
 		else:
-			# Canopy-only impostor: swap bark for an invisible material. At
-			# impostor range (260m+) the trunk is 1-3 pixels wide; its only
-			# meaningful effect is polluting mipmap averages with bark color.
-			# For white-barked species (birch: 0.80/0.76/0.68) this pulls
-			# distant canopy toward bright-white, producing the pale washout
-			# observed in cpw_005. Dropping the trunk lets the canopy dominate
-			# the atlas silhouette — closer to what a tree looks like from
-			# a few hundred meters away anyway.
-			mesh.surface_set_material(si, _invisible_material())
-
-
-var _invisible_mat: StandardMaterial3D = null
-
-func _invisible_material() -> StandardMaterial3D:
-	if _invisible_mat != null:
-		return _invisible_mat
-	var m := StandardMaterial3D.new()
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-	m.alpha_scissor_threshold = 0.99
-	m.albedo_color = Color(0, 0, 0, 0)
-	m.disable_receive_shadows = true
-	_invisible_mat = m
-	return _invisible_mat
+			# Bark: restored for silhouette parity with LOD2 mesh. The previous
+			# canopy-only approach made distant birch less washed-out but
+			# introduced a universal trunk-pop at the LOD2↔impostor transition
+			# boundary (verified via silhouette comparison across all species).
+			# Mipmap bark-bleed is now mitigated by post-bake alpha dilation
+			# (scripts/dilate_impostors.py) + aerial perspective fog at distance.
+			var bark_mat := ShaderMaterial.new()
+			bark_mat.shader = _bark_shader
+			bark_mat.set_shader_parameter("bark_color", Vector3(bark_col.r, bark_col.g, bark_col.b))
+			bark_mat.set_shader_parameter("bark_style", bstyle)
+			if _bark_tex_cache.has(bstyle):
+				var btex: Dictionary = _bark_tex_cache[bstyle]
+				bark_mat.set_shader_parameter("bark_albedo_tex", btex["albedo"])
+				bark_mat.set_shader_parameter("bark_normal_tex", btex["normal"])
+				bark_mat.set_shader_parameter("bark_roughness_tex", btex["roughness"])
+			mesh.surface_set_material(si, bark_mat)
 
 
 func _look_at_from_position(pos: Vector3, target: Vector3) -> Transform3D:
