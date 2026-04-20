@@ -10,6 +10,8 @@ var rain_wetness: float = 0.0   # updated by main.gd each frame
 var _meshes: Dictionary = {}    # species_name -> Mesh (or species_base -> [Mesh, Mesh, ...] for variants)
 var _shader: Shader
 var _leaf_atlas: Texture2D       # 2048x2048 leaf texture atlas (4x4 grid)
+var _shared_mat: ShaderMaterial  # single shared material for all undergrowth (Phase 2)
+var _shared_mat_rid: RID         # cached RID for RS material override
 var _active_chunks: Dictionary = {}  # "sp_idx|cx|cz" -> [mm_rid, inst_rid]
 var _last_update_pos := Vector3(-99999, 0, -99999)
 var _build_queue: Array = []
@@ -267,6 +269,9 @@ func _build_undergrowth() -> void:
 	print("Undergrowth: %d/%d species loaded" % [loaded, SPECIES.size()])
 	if loaded == 0: return
 
+	# Build shared material with species data texture + texture array
+	_build_shared_material()
+
 	# Cache scenario for RenderingServer instances
 	_scenario = _loader.get_world_3d().get_scenario()
 
@@ -299,6 +304,81 @@ func _build_undergrowth() -> void:
 	_update_chunks_near(spawn)
 	print("Undergrowth: ready (%d chunks queued, %.0fms)" % [
 		_build_queue.size(), Time.get_ticks_msec() - t0])
+
+
+func _build_shared_material() -> void:
+	## Create species data texture (35×5 RGBAF) encoding all per-species parameters.
+	var sp_count := SPECIES.size()
+	var data_img := Image.create(sp_count, 5, false, Image.FORMAT_RGBAF)
+	for i in sp_count:
+		var sp: Dictionary = SPECIES[i]
+		var ft: Array = sp.get("fall", [0.5, 0.35, 0.08])
+		var fc: Array = sp.get("fc", [0.0, 0.0, 0.0])
+		var bl: Array = sp.get("bl", [1.0, 2.0])
+		var sc: Array = sp.get("sc", [0.30, 0.25, 0.15])
+		# Row 0: wind_flex, is_evergreen, roughness_base, specular_base
+		data_img.set_pixel(i, 0, Color(
+			sp.get("flex", 0.3), float(sp.get("green", 0)),
+			sp.get("rough", 0.82), sp.get("spec", 0.04)))
+		# Row 1: fall_tint.rgb, translucency
+		data_img.set_pixel(i, 1, Color(ft[0], ft[1], ft[2], sp.get("trans", 0.5)))
+		# Row 2: flower_color.rgb, stem_roughness
+		data_img.set_pixel(i, 2, Color(fc[0], fc[1], fc[2], sp.get("sr", 0.92)))
+		# Row 3: bloom_range.xy, stem_color.rg
+		data_img.set_pixel(i, 3, Color(bl[0], bl[1], sc[0], sc[1]))
+		# Row 4: stem_color.b, use_texture, use_atlas, atlas_index
+		# use_texture/use_atlas determined by whether mesh has embedded textures
+		var has_tex := 0.0
+		var mesh: Mesh = _meshes.get(sp.name)
+		if mesh:
+			for si in mesh.get_surface_count():
+				var mat = mesh.surface_get_material(si)
+				if mat is StandardMaterial3D and mat.albedo_texture:
+					has_tex = 1.0
+					break
+		data_img.set_pixel(i, 4, Color(sc[2], has_tex, 0.0, 0.0))
+	var species_data_tex := ImageTexture.create_from_image(data_img)
+
+	## Create species albedo Texture2DArray — one layer per species.
+	var tex_size := Vector2i(512, 512)
+	var images: Array[Image] = []
+	for i in sp_count:
+		var sp: Dictionary = SPECIES[i]
+		var mesh: Mesh = _meshes.get(sp.name)
+		var img: Image = null
+		if mesh:
+			for si in mesh.get_surface_count():
+				var mat = mesh.surface_get_material(si)
+				if mat is StandardMaterial3D and mat.albedo_texture:
+					img = mat.albedo_texture.get_image()
+					break
+		if img == null:
+			img = Image.create(tex_size.x, tex_size.y, false, Image.FORMAT_RGBA8)
+			img.fill(Color(0.3, 0.5, 0.2, 1.0))
+		else:
+			if img.is_compressed():
+				img.decompress()
+			if img.get_format() != Image.FORMAT_RGBA8:
+				img.convert(Image.FORMAT_RGBA8)
+			img.resize(tex_size.x, tex_size.y)
+		img.generate_mipmaps()
+		images.append(img)
+	var species_tex_arr := Texture2DArray.new()
+	species_tex_arr.create_from_images(images)
+	print("Undergrowth: species data %dx%d, texture array %d layers" % [
+		sp_count, 5, images.size()])
+
+	## Build the shared ShaderMaterial
+	_shared_mat = ShaderMaterial.new()
+	_shared_mat.shader = _shader
+	_shared_mat.set_shader_parameter("species_data", species_data_tex)
+	_shared_mat.set_shader_parameter("species_textures", species_tex_arr)
+	if _leaf_atlas:
+		_shared_mat.set_shader_parameter("leaf_atlas", _leaf_atlas)
+	if _loader._canopy_texture:
+		_shared_mat.set_shader_parameter("canopy_map", _loader._canopy_texture)
+	_shared_mat.set_shader_parameter("hm_world_size", _loader._hm_world_size)
+	_shared_mat_rid = _shared_mat.get_rid()
 
 
 func _build_zone_map() -> void:
@@ -707,7 +787,7 @@ func _build_chunk(ck: String) -> void:
 			buf[o]    = cr * sc * mx;        buf[o+1]  = sr * st * sc * mx; buf[o+2]  = sr * ct * sc * mx; buf[o+3]  = bx
 			buf[o+4]  = 0.0;                 buf[o+5]  = ct * sc;           buf[o+6]  = -st * sc;          buf[o+7]  = wy
 			buf[o+8]  = -sr * sc;            buf[o+9]  = cr * st * sc;      buf[o+10] = cr * ct * sc;      buf[o+11] = bz
-			buf[o+12] = seed_val; buf[o+13] = sc; buf[o+14] = 0.0; buf[o+15] = 0.0
+			buf[o+12] = seed_val; buf[o+13] = sc; buf[o+14] = float(sp_idx); buf[o+15] = 0.0
 			cnts[sp_idx] = c + 1
 			sums[sp_idx][0] += bx
 			sums[sp_idx][1] += wy
@@ -759,6 +839,7 @@ func _build_chunk(ck: String) -> void:
 		RS.instance_set_transform(inst_rid, Transform3D(Basis.IDENTITY, Vector3(ox, oy, oz)))
 		RS.instance_set_visible(inst_rid, true)
 		RS.instance_geometry_set_cast_shadows_setting(inst_rid, RS.SHADOW_CASTING_SETTING_OFF)
+		RS.instance_geometry_set_material_override(inst_rid, _shared_mat_rid)
 		var cull_d := _species_cull_dist(sp_idx)
 		RS.instance_geometry_set_visibility_range(inst_rid, 0.0, cull_d, 0.0,
 			minf(VIS_FADE_MARGIN, cull_d * 0.2), RS.VISIBILITY_RANGE_FADE_SELF)
@@ -776,79 +857,6 @@ func _load_model(sp_name: String) -> Mesh:
 	if not FileAccess.file_exists(abs_path): return null
 	var meshes: Dictionary = _loader._load_glb_meshes(abs_path)
 	if meshes.is_empty(): return null
-	var mesh: Mesh = meshes.values()[0]
-
-	# Find species config
-	var sp_cfg: Dictionary = {}
-	for sp in SPECIES:
-		if sp.name == sp_name:
-			sp_cfg = sp
-			break
-
-	# Atlas grid coordinates from species config
-	var ai: int = sp_cfg.get("ai", -1)
-	var atlas_off := Vector2.ZERO
-	var has_atlas := ai >= 0
-	if has_atlas:
-		var atlas_col: int = ai % ATLAS_COLS
-		var atlas_row: int = ai / ATLAS_COLS
-		atlas_off = Vector2(float(atlas_col) / ATLAS_COLS, float(atlas_row) / ATLAS_ROWS)
-
-	# Detect embedded PBR textures from 3D meshes.
-	# The GLB importer creates StandardMaterial3D per surface — extract
-	# albedo textures before we replace materials with our custom shader.
-	var surface_textures: Array = []
-	var has_embedded_tex := false
-	for si in mesh.get_surface_count():
-		var orig_mat = mesh.surface_get_material(si)
-		var tex: Texture2D = null
-		if orig_mat is StandardMaterial3D:
-			tex = orig_mat.albedo_texture
-			if tex:
-				has_embedded_tex = true
-		elif orig_mat != null:
-			# Debug: what material type did we get?
-			print("  %s surf %d: material is %s (not StandardMaterial3D)" % [sp_name, si, orig_mat.get_class()])
-		surface_textures.append(tex)
-	if has_embedded_tex:
-		print("  %s: embedded textures detected (%d surfaces)" % [sp_name, surface_textures.size()])
-
-	# Apply undergrowth shader per surface
-	for si in mesh.get_surface_count():
-		var mat := ShaderMaterial.new()
-		mat.shader = _shader
-		mat.set_shader_parameter("wind_flex", sp_cfg.get("flex", 0.3))
-		mat.set_shader_parameter("is_evergreen", float(sp_cfg.get("green", 0)))
-		var ft: Array = sp_cfg.get("fall", [0.5, 0.35, 0.08])
-		mat.set_shader_parameter("fall_tint", Color(ft[0], ft[1], ft[2]))
-		# Flower color and bloom season
-		var fc: Array = sp_cfg.get("fc", [0.0, 0.0, 0.0])
-		mat.set_shader_parameter("flower_color", Vector3(fc[0], fc[1], fc[2]))
-		var bl: Array = sp_cfg.get("bl", [1.0, 2.0])
-		mat.set_shader_parameter("bloom_range", Vector2(bl[0], bl[1]))
-		# Per-species PBR material tuning
-		mat.set_shader_parameter("roughness_base", sp_cfg.get("rough", 0.82))
-		mat.set_shader_parameter("specular_base", sp_cfg.get("spec", 0.04))
-		mat.set_shader_parameter("translucency", sp_cfg.get("trans", 0.5))
-		# Stem rendering — species-specific bark/stem color and roughness
-		var sc: Array = sp_cfg.get("sc", [0.30, 0.25, 0.15])
-		mat.set_shader_parameter("stem_color", Color(sc[0], sc[1], sc[2]))
-		mat.set_shader_parameter("stem_roughness", sp_cfg.get("sr", 0.92))
-		mat.set_shader_parameter("hm_world_size", _loader._hm_world_size)
-		if _loader._canopy_texture:
-			mat.set_shader_parameter("canopy_map", _loader._canopy_texture)
-
-		if has_embedded_tex and si < surface_textures.size() and surface_textures[si]:
-			# 3D mesh with PBR texture — use albedo_tex mode
-			mat.set_shader_parameter("use_texture", 1.0)
-			mat.set_shader_parameter("albedo_tex", surface_textures[si])
-			mat.set_shader_parameter("use_atlas", 0.0)
-		elif _leaf_atlas and has_atlas:
-			# Flat-card mesh — use shared leaf atlas
-			mat.set_shader_parameter("use_texture", 0.0)
-			mat.set_shader_parameter("leaf_atlas", _leaf_atlas)
-			mat.set_shader_parameter("atlas_offset", atlas_off)
-			mat.set_shader_parameter("atlas_cell_size", Vector2(1.0 / ATLAS_COLS, 1.0 / ATLAS_ROWS))
-			mat.set_shader_parameter("use_atlas", 1.0)
-		mesh.surface_set_material(si, mat)
-	return mesh
+	# Mesh geometry only — material is overridden by shared ShaderMaterial
+	# via RenderingServer.instance_geometry_set_material_override()
+	return meshes.values()[0]

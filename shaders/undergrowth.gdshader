@@ -12,44 +12,41 @@ global uniform float snow_cover;
 global uniform float rain_wetness;
 global uniform vec3 sky_reflect_color;
 
-uniform float wind_flex : hint_range(0.0, 1.0) = 0.4;
-uniform float is_evergreen : hint_range(0.0, 1.0) = 0.0;
-uniform vec3 fall_tint = vec3(0.5, 0.35, 0.08);
-uniform vec3 flower_color = vec3(0.0, 0.0, 0.0);  // (0,0,0) = no flowers
-uniform vec2 bloom_range = vec2(1.0, 2.0);  // season_t range when flowers appear
+// Shared textures (set once on shared material)
 uniform sampler2D canopy_map : filter_linear, repeat_disable;
 uniform float hm_world_size = 5000.0;
-
-// Leaf texture atlas (4-col grid, variable rows, 512px per species cell)
 uniform sampler2D leaf_atlas : filter_linear, repeat_disable;
-uniform vec2 atlas_offset = vec2(0.0, 0.0);  // species cell position in atlas (UV space)
-uniform vec2 atlas_cell_size = vec2(0.25, 0.25);  // cell size in UV space (1/cols, 1/rows)
-uniform float use_atlas = 0.0;  // 1.0 = sample atlas, 0.0 = procedural only
 
-// Per-surface albedo texture for 3D meshes (BD3D plant library etc.)
-uniform sampler2D albedo_tex : source_color, filter_linear;
-uniform float use_texture = 0.0;  // 1.0 = read albedo+alpha from albedo_tex
+// Species data texture: 35×5 RGBAF — per-species parameters indexed by species_id.
+// Row 0: wind_flex, is_evergreen, roughness_base, specular_base
+// Row 1: fall_tint.rgb, translucency
+// Row 2: flower_color.rgb, stem_roughness
+// Row 3: bloom_range.xy, stem_color.rg
+// Row 4: stem_color.b, use_texture, use_atlas, atlas_index
+uniform sampler2D species_data : filter_nearest, repeat_disable;
 
-// Per-species material tuning (set in undergrowth_builder.gd)
-uniform float roughness_base : hint_range(0.3, 1.0) = 0.82;
-uniform float specular_base : hint_range(0.0, 0.5) = 0.04;
-uniform float translucency : hint_range(0.0, 1.5) = 0.5;
-
-// Stem rendering — procedural bark when COLOR.a < 0.5 (stem vertex)
-uniform vec3 stem_color : source_color = vec3(0.30, 0.25, 0.15);
-uniform float stem_roughness : hint_range(0.5, 1.0) = 0.92;
+// Per-species albedo textures stacked as layers, indexed by species_id
+uniform sampler2DArray species_textures : source_color, filter_linear;
 
 
 varying vec3 v_world_pos;
 varying float v_seed;
 varying float v_wind_amount;
 varying float v_is_stem;  // 1.0 when COLOR.a < 0.5 (stem vertex), 0.0 for leaf
+varying flat float v_species_id;
 
 void vertex() {
 	vec3 instance_origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	v_world_pos = instance_origin;
 	v_seed = INSTANCE_CUSTOM.r;
+	v_species_id = INSTANCE_CUSTOM.b;
 	v_is_stem = step(0.5, 1.0 - COLOR.a);  // COLOR.a=0 → stem (1.0), COLOR.a=1 → leaf (0.0)
+
+	// Look up per-species wind_flex + is_evergreen from data texture
+	int sp_id = int(v_species_id);
+	vec4 sp_row0 = texelFetch(species_data, ivec2(sp_id, 0), 0);
+	float wind_flex = sp_row0.r;
+	float is_evergreen = sp_row0.g;
 
 	// -- Wind sway (shared wind include) --
 	// Cantilever model: h² curve, base locked, upper branches sway freely.
@@ -87,6 +84,26 @@ void vertex() {
 void fragment() {
 	if (!FRONT_FACING) NORMAL = -NORMAL;
 
+	// ---- Species parameter lookup from data texture ----
+	int sp_id = int(v_species_id);
+	vec4 sp_row0 = texelFetch(species_data, ivec2(sp_id, 0), 0);
+	vec4 sp_row1 = texelFetch(species_data, ivec2(sp_id, 1), 0);
+	vec4 sp_row2 = texelFetch(species_data, ivec2(sp_id, 2), 0);
+	vec4 sp_row3 = texelFetch(species_data, ivec2(sp_id, 3), 0);
+	vec4 sp_row4 = texelFetch(species_data, ivec2(sp_id, 4), 0);
+
+	float is_evergreen = sp_row0.g;
+	float roughness_base = sp_row0.b;
+	float specular_base = sp_row0.a;
+	vec3 fall_tint = sp_row1.rgb;
+	float translucency = sp_row1.a;
+	vec3 flower_color = sp_row2.rgb;
+	float stem_roughness = sp_row2.a;
+	vec2 bloom_range = sp_row3.xy;
+	vec3 stem_color = vec3(sp_row3.z, sp_row3.w, sp_row4.r);
+	float use_texture = sp_row4.g;
+	float use_atlas = sp_row4.b;
+
 	// ---- STEM vs LEAF BRANCHING ----
 	float is_stem = v_is_stem;  // 1.0 = stem vertex, 0.0 = leaf vertex
 
@@ -96,8 +113,8 @@ void fragment() {
 
 	if (is_stem < 0.5) {
 		if (use_texture > 0.5) {
-			// 3D mesh with per-surface PBR texture (BD3D plant library)
-			vec4 tex = texture(albedo_tex, UV);
+			// 3D mesh with per-surface PBR texture — from species texture array
+			vec4 tex = texture(species_textures, vec3(UV, v_species_id));
 			tex_color = tex.rgb;
 			leaf_alpha = tex.a;
 
@@ -109,6 +126,12 @@ void fragment() {
 			// Flat-card mesh with shared leaf atlas
 			float edge_dist = abs(UV.x - 0.5) * 2.0;
 			float is_leaf_card = smoothstep(0.05, 0.2, edge_dist);
+			// atlas_index stored in sp_row4.a
+			float atlas_idx = sp_row4.a;
+			int atlas_col = int(mod(atlas_idx, 4.0));
+			int atlas_row = int(atlas_idx) / 4;
+			vec2 atlas_offset = vec2(float(atlas_col) / 4.0, float(atlas_row) / 7.0);
+			vec2 atlas_cell_size = vec2(0.25, 1.0 / 7.0);
 			vec2 atlas_uv = atlas_offset + UV * atlas_cell_size;
 			vec4 tex = texture(leaf_atlas, atlas_uv);
 			tex_color = mix(COLOR.rgb, tex.rgb, is_leaf_card * step(0.1, tex.a));
