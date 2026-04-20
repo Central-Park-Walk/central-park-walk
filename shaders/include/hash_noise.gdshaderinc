@@ -16,6 +16,29 @@ float fbm3(vec2 p) {
 	return vnoise(p) * 0.5 + vnoise(p * 2.13) * 0.3 + vnoise(p * 4.57) * 0.2;
 }
 
+// Variable-octave FBM with tunable lacunarity and persistence.
+// Shaders define a local fbm(p, oct) wrapper with their preferred params.
+// Terrain uses (2.13, 0.47), bark uses (2.17, 0.49).
+float fbm_n(vec2 p, int oct, float lac, float pers) {
+	float v = 0.0, a = 0.5;
+	for (int i = 0; i < oct; i++) { v += a * vnoise(p); p *= lac; a *= pers; }
+	return v;
+}
+
+// Gradient noise (returns -1..1) — used by water, stream shaders.
+vec2 ghash(vec2 p) {
+	p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+	return fract(sin(p) * 43758.5453) * 2.0 - 1.0;
+}
+float gnoise(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	return mix(mix(dot(ghash(i),          f),
+	               dot(ghash(i+vec2(1,0)), f-vec2(1,0)), u.x),
+	           mix(dot(ghash(i+vec2(0,1)), f-vec2(0,1)),
+	               dot(ghash(i+vec2(1,1)), f-vec2(1,1)), u.x), u.y);
+}
+
 // Cloud shadow: project world position onto cloud plane along sun direction,
 // sample matching noise to darken ground under clouds.
 // cloud_coverage/cloud_speed/cloud_time are global uniforms set by main.gd.

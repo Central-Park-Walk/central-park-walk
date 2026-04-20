@@ -31,12 +31,8 @@ varying vec3 world_nrm;
 #include "res://shaders/include/wind.gdshaderinc"
 #include "res://shaders/include/lod_dither.gdshaderinc"
 
-// Variable-octave FBM for bark texture detail
-float fbm(vec2 p, int oct) {
-	float v = 0.0, a = 0.5;
-	for (int i = 0; i < oct; i++) { v += a*vnoise(p); p *= 2.17; a *= 0.49; }
-	return v;
-}
+// Noise logic in hash_noise.gdshaderinc; bark-specific tuning here
+float fbm(vec2 p, int oct) { return fbm_n(p, oct, 2.17, 0.49); }
 
 void vertex() {
 	// --- Per-species wind sway (shared wind include) ---

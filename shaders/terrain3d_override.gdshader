@@ -172,11 +172,8 @@ void vertex() {
 
 // hash2, vnoise, cloud_shadow now from hash_noise.gdshaderinc
 
-float fbm(vec2 p, int oct) {
-	float v = 0.0, a = 0.5;
-	for (int i = 0; i < oct; i++) { v += a * vnoise(p); p *= 2.13; a *= 0.47; }
-	return v;
-}
+// Noise logic in hash_noise.gdshaderinc; terrain-specific tuning here
+float fbm(vec2 p, int oct) { return fbm_n(p, oct, 2.13, 0.47); }
 
 // ===========================================================================
 // Fragment

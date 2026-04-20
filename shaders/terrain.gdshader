@@ -82,12 +82,8 @@ varying vec3 world_pos;
 #include "res://shaders/include/seasonal.gdshaderinc"
 #include "res://shaders/include/grass_zone_colors.gdshaderinc"
 
-// Variable-octave FBM (terrain needs more than 3 octaves in places)
-float fbm(vec2 p, int oct) {
-	float v = 0.0, a = 0.5;
-	for (int i = 0; i < oct; i++) { v += a*vnoise(p); p *= 2.13; a *= 0.47; }
-	return v;
-}
+// Noise logic in hash_noise.gdshaderinc; terrain-specific tuning here
+float fbm(vec2 p, int oct) { return fbm_n(p, oct, 2.13, 0.47); }
 
 // Inigo Quilez textureNoTile — kills tiling at all distances with 2 extra samples
 vec3 textureNoTile_c(sampler2D tex, vec2 uv) {

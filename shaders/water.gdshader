@@ -39,21 +39,9 @@ float raindrop_ripple(vec2 p) {
 }
 
 #include "res://shaders/include/decode_terrain.gdshaderinc"
+#include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/seasonal.gdshaderinc"
-
-// Gradient noise (returns -1..1)
-vec2 ghash(vec2 p) {
-	p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
-	return fract(sin(p) * 43758.5453) * 2.0 - 1.0;
-}
-float gnoise(vec2 p) {
-	vec2 i = floor(p); vec2 f = fract(p);
-	vec2 u = f * f * (3.0 - 2.0 * f);
-	return mix(mix(dot(ghash(i),          f),
-	               dot(ghash(i+vec2(1,0)), f-vec2(1,0)), u.x),
-	           mix(dot(ghash(i+vec2(0,1)), f-vec2(0,1)),
-	               dot(ghash(i+vec2(1,1)), f-vec2(1,1)), u.x), u.y);
-}
+// gnoise/ghash now provided by hash_noise.gdshaderinc
 
 // World-space wave normal from three overlapping noise layers
 // Wind biases wave direction and increases amplitude
