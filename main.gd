@@ -16,11 +16,8 @@ var _hm_width:         int     = 0
 var _hm_depth:         int     = 0
 var _hm_world_size:    float   = 5000.0
 
-# HUD label references kept for per-frame updates
 var _player:        CharacterBody3D
-var _coord_label:   Label
-var _heading_label: Label
-var _latlon_label:  Label
+var _hud = null     # HudManager instance (hud_manager.gd)
 
 # ---------------------------------------------------------------------------
 # Day/night cycle
@@ -39,9 +36,6 @@ var _vol_sky = null  # clayjohn volumetric cloud sky (if loaded)
 var _sun: DirectionalLight3D
 var _lamp_emission: float = 0.0  # cached for SpotLight3D pool
 var _terrain3d: Terrain3D
-var _time_label: Label
-var _speed_label: Label
-var _location_label: Label
 
 # Dynamic lamppost lighting — pool of SpotLight3D nodes that follow player
 var _lamp_lights: Array = []  # Array of SpotLight3D
@@ -51,15 +45,6 @@ var _lamp_positions: PackedVector3Array = PackedVector3Array()
 var _player_head: Node3D
 var _player_camera: Camera3D
 var _cached_label3d_nodes: Array = []
-var _cached_area: String = ""
-var _cached_area_pos := Vector3.ZERO
-
-var _hud_canvas: CanvasLayer
-var _perf_canvas: CanvasLayer
-var _perf_label: Label
-var _perf_visible := false
-var _perf_update_timer := 0.0
-const PERF_UPDATE_INTERVAL := 0.25  # update 4x/sec to avoid flicker
 var _lamp_light_timer: float = 0.0
 var _lightning_timer: float = 0.0
 var _lightning_flash: float = 0.0     # 0-1 current flash intensity (decays rapidly)
@@ -277,7 +262,8 @@ func _ready() -> void:
 		_player_camera = _player.get_node_or_null("CameraMount/Camera3D")
 	if _terrain3d and _player_camera:
 		_terrain3d.set_camera(_player_camera)
-	_setup_hud()
+	_hud = preload("res://hud_manager.gd").new()
+	_hud.setup(self)
 	_setup_color_grade()
 	if not _terrain_only:
 		_setup_lamp_lights()
@@ -499,11 +485,11 @@ func _carve_terrain_rect(x_min: float, x_max: float, z_min: float, z_max: float,
 func _process(delta: float) -> void:
 	# --- Tour mode state machine ---
 	if _tour_mode:
-		if _hud_canvas and _hud_canvas.visible:
-			_hud_canvas.visible = false  # hide HUD for clean screenshots
+		if _hud.canvas and _hud.canvas.visible:
+			_hud.canvas.visible = false  # hide HUD for clean screenshots
 			_set_labels_visible(false)
-		if _perf_canvas and _perf_canvas.visible:
-			_perf_canvas.visible = false
+		if _hud.perf_canvas and _hud.perf_canvas.visible:
+			_hud.perf_canvas.visible = false
 		_tour_timer += delta
 		match _tour_state:
 			0:  # WAIT_LOAD — let scene fully build (Terrain3D textures, trees, sky, grass)
@@ -537,7 +523,7 @@ func _process(delta: float) -> void:
 				pass
 		_day_night.force_apply(_time_of_day, _weather_mode, _wind_vec,
 		_lightning_flash, _user_gamma, _season_t)
-		_update_hud()
+		_hud.update(_player, _time_of_day, TIME_SPEED_NAMES[_time_speed_idx], _season_t)
 		return
 
 	# --walk bot: auto-walk forward, capture screenshots at interval
@@ -545,10 +531,10 @@ func _process(delta: float) -> void:
 		_walk_bot_timer += delta
 		# Phase 1: settle — let scene load, grass spawn, lighting converge
 		if not _walk_bot_settled:
-			if _walk_bot_timer >= 2.0 and _hud_canvas and _hud_canvas.visible:
-				_hud_canvas.visible = false
-			if _walk_bot_timer >= 2.0 and _perf_canvas and _perf_canvas.visible:
-				_perf_canvas.visible = false
+			if _walk_bot_timer >= 2.0 and _hud.canvas and _hud.canvas.visible:
+				_hud.canvas.visible = false
+			if _walk_bot_timer >= 2.0 and _hud.perf_canvas and _hud.perf_canvas.visible:
+				_hud.perf_canvas.visible = false
 			if _walk_bot_timer >= 2.0:
 				_set_labels_visible(false)
 			if _walk_bot_timer >= _walk_bot_settle:
@@ -595,7 +581,7 @@ func _process(delta: float) -> void:
 			_walk_bot_capture()
 		_day_night.force_apply(_time_of_day, _weather_mode, _wind_vec,
 		_lightning_flash, _user_gamma, _season_t)
-		_update_hud()
+		_hud.update(_player, _time_of_day, TIME_SPEED_NAMES[_time_speed_idx], _season_t)
 		return
 
 	# Auto-screenshot for headless capture (only with --quit-after)
@@ -604,10 +590,10 @@ func _process(delta: float) -> void:
 		if _screenshot_timer <= delta and _player:
 			_player.set_physics_process(false)
 			_player.velocity = Vector3.ZERO
-		if _screenshot_timer >= 6.0 and _hud_canvas and _hud_canvas.visible:
-			_hud_canvas.visible = false  # hide HUD before capture
-		if _screenshot_timer >= 6.0 and _perf_canvas and _perf_canvas.visible:
-			_perf_canvas.visible = false
+		if _screenshot_timer >= 6.0 and _hud.canvas and _hud.canvas.visible:
+			_hud.canvas.visible = false  # hide HUD before capture
+		if _screenshot_timer >= 6.0 and _hud.perf_canvas and _hud.perf_canvas.visible:
+			_hud.perf_canvas.visible = false
 		if _screenshot_timer >= 6.0 and not _labels_hidden_for_screenshot:
 			_labels_hidden_for_screenshot = true
 			_set_labels_visible(false)   # hide Label3D (building names, etc.)
@@ -619,8 +605,8 @@ func _process(delta: float) -> void:
 				print("Screenshot saved to /tmp/godot_screenshot.png")
 			if _player:
 				_player.set_physics_process(true)
-			if _hud_canvas:
-				_hud_canvas.visible = true  # restore HUD after capture
+			if _hud.canvas:
+				_hud.canvas.visible = true  # restore HUD after capture
 				_set_labels_visible(true)
 	# Update lamp lights every 0.5s
 	_lamp_light_timer += delta
@@ -695,101 +681,11 @@ func _process(delta: float) -> void:
 		_lightning_flash, _user_gamma, _season_t)
 	_lamp_emission = _day_night.get_lamp_emission()
 
-	_update_hud()
-	_update_perf_overlay(delta)
+	_hud.update(_player, _time_of_day, TIME_SPEED_NAMES[_time_speed_idx], _season_t)
+	_hud.update_perf(delta)
 
 
-func _update_perf_overlay(delta: float) -> void:
-	if not _perf_visible or not _perf_label:
-		return
-	_perf_update_timer += delta
-	if _perf_update_timer < PERF_UPDATE_INTERVAL:
-		return
-	_perf_update_timer = 0.0
-
-	var fps := Performance.get_monitor(Performance.TIME_FPS)
-	var frame_ms := 1000.0 / maxf(fps, 1.0)
-	var process_ms := Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
-	var physics_ms := Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
-
-	var draw_calls := int(RenderingServer.get_rendering_info(
-		RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME))
-	var primitives := int(RenderingServer.get_rendering_info(
-		RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME))
-	var objects := int(RenderingServer.get_rendering_info(
-		RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME))
-
-	var vram_tex := RenderingServer.get_rendering_info(
-		RenderingServer.RENDERING_INFO_TEXTURE_MEM_USED)
-	var vram_buf := RenderingServer.get_rendering_info(
-		RenderingServer.RENDERING_INFO_BUFFER_MEM_USED)
-	var vram_total := RenderingServer.get_rendering_info(
-		RenderingServer.RENDERING_INFO_VIDEO_MEM_USED)
-
-	var node_count := Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
-
-	# Format triangle count with K/M suffix
-	var tri_str: String
-	if primitives >= 1_000_000:
-		tri_str = "%.1fM" % (primitives / 1_000_000.0)
-	elif primitives >= 1_000:
-		tri_str = "%.0fK" % (primitives / 1_000.0)
-	else:
-		tri_str = str(primitives)
-
-	# Frame budget bar: 16.67ms = 60fps target
-	var budget_pct := frame_ms / 16.667 * 100.0
-	var budget_bar: String
-	if budget_pct <= 80.0:
-		budget_bar = "[OK]"
-	elif budget_pct <= 100.0:
-		budget_bar = "[WARN]"
-	else:
-		budget_bar = "[OVER]"
-
-	_perf_label.text = (
-		"--- PERFORMANCE BUDGET ---\n" +
-		"FPS: %d  (%.1f ms)\n" % [int(fps), frame_ms] +
-		"Budget: %.0f%% of 60fps %s\n" % [budget_pct, budget_bar] +
-		"\n" +
-		"Process:  %5.1f ms\n" % process_ms +
-		"Physics:  %5.1f ms\n" % physics_ms +
-		"Render:   %5.1f ms (est)\n" % maxf(frame_ms - process_ms - physics_ms, 0.0) +
-		"\n" +
-		"Draw calls:  %d\n" % draw_calls +
-		"Triangles:   %s\n" % tri_str +
-		"Objects:     %d\n" % objects +
-		"Nodes:       %d\n" % int(node_count) +
-		"\n" +
-		"VRAM total:  %d MB\n" % (vram_total / 1_048_576) +
-		"  Textures:  %d MB\n" % (vram_tex / 1_048_576) +
-		"  Buffers:   %d MB\n" % (vram_buf / 1_048_576)
-	)
-
-
-func _update_hud() -> void:
-	if not _player or not _coord_label:
-		return
-	var pos := _player.position
-	_coord_label.text = "X: %7.1f      Z: %7.1f" % [pos.x, pos.z]
-	var bearing := fmod(fmod(-_player.rotation_degrees.y, 360.0) + 360.0, 360.0)
-	_heading_label.text = "Heading: %5.1f°  %s" % [bearing, _compass_label(bearing)]
-	var lat :=  REF_LAT + (-pos.z / METRES_PER_DEG_LAT)
-	var lon :=  REF_LON + ( pos.x / METRES_PER_DEG_LON)
-	_latlon_label.text  = "%.6f° N    %.6f° W" % [lat, absf(lon)]
-	if _time_label:
-		var h12: int = int(_time_of_day) % 12
-		if h12 == 0:
-			h12 = 12
-		var mins: int = int(fmod(_time_of_day, 1.0) * 60.0)
-		var ampm: String = "AM" if _time_of_day < 12.0 else "PM"
-		_time_label.text = "%d:%02d %s  [%s]  %s" % [h12, mins, ampm, TIME_SPEED_NAMES[_time_speed_idx], _month_name(_season_t)]
-	if _speed_label and _player:
-		_speed_label.text = "%s (%.1f m/s)" % [_player.SPEED_NAMES[_player._speed_idx], _player.walk_speed]
-	if _location_label:
-		var area := _nearest_area(pos.x, pos.z)
-		_location_label.text = area if area else ""
-		_location_label.visible = not area.is_empty()
+## _update_perf_overlay, _update_hud moved to hud_manager.gd
 
 
 func _set_labels_visible(vis: bool) -> void:
@@ -844,25 +740,7 @@ func _tour_write_manifest() -> void:
 	print("Tour: manifest.json written")
 
 
-func _compass_label(deg: float) -> String:
-	var labels := ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
-	return labels[int(fmod(deg + 22.5, 360.0) / 45.0) % 8]
-
-
-## PARK_AREAS moved to tour_data.gd (TourData.PARK_AREAS)
-
-func _nearest_area(x: float, z: float) -> String:
-	# Cache result — only recompute when player moves >5m from last check
-	var pos := Vector3(x, 0.0, z)
-	if _cached_area_pos.distance_squared_to(pos) < 25.0 and not _cached_area.is_empty():
-		return _cached_area
-	_cached_area_pos = pos
-	for area in TourData.PARK_AREAS:
-		if x >= float(area[0]) and x <= float(area[1]) and z >= float(area[2]) and z <= float(area[3]):
-			_cached_area = area[4]
-			return _cached_area
-	_cached_area = ""
-	return ""
+## _compass_label, _nearest_area moved to hud_manager.gd
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -918,13 +796,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			gb.set_visible(vis)
 			print("Data gaps: %s" % ("ON" if vis else "OFF"))
 	elif event.keycode == KEY_H:
-		if _hud_canvas:
-			_hud_canvas.visible = not _hud_canvas.visible
+		if _hud.canvas:
+			_hud.canvas.visible = not _hud.canvas.visible
 	elif event.keycode == KEY_F9:
-		_perf_visible = not _perf_visible
-		if _perf_canvas:
-			_perf_canvas.visible = _perf_visible
-		print("Perf overlay: %s" % ("ON" if _perf_visible else "OFF"))
+		_hud.toggle_perf()
+		print("Perf overlay: %s" % ("ON" if _hud.perf_visible else "OFF"))
 	elif event.keycode == KEY_F11:
 		if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
@@ -972,15 +848,7 @@ func _season_name(t: float) -> String:
 	return "Winter"
 
 
-func _month_name(t: float) -> String:
-	# season_t: 0=spring equinox (Mar 20), 1=summer solstice (Jun 21),
-	# 2=autumn equinox (Sep 22), 3=winter solstice (Dec 21)
-	# Each 1/3 of a season ≈ 1 month
-	var month_idx := int(t * 3.0) % 12
-	const MONTHS := ["March", "April", "May", "June", "July", "August",
-		"September", "October", "November", "December", "January", "February"]
-	return MONTHS[month_idx]
-
+## _month_name moved to hud_manager.gd
 
 # --- Grass tour: F10 visits all grass type locations + screenshots ---
 var _grass_tour_spots := []  # populated at runtime with random positions
@@ -2166,111 +2034,7 @@ func _cycle_weather() -> void:
 	_weather_mode = _weather_mgr.mode
 
 
-func _setup_hud() -> void:
-	var canvas := CanvasLayer.new()
-	canvas.name = "HUD"
-	_hud_canvas = canvas
-	add_child(canvas)
-
-	var style := StyleBoxFlat.new()
-	style.bg_color                   = Color(0.0, 0.0, 0.0, 0.58)
-	style.corner_radius_top_left     = 7
-	style.corner_radius_top_right    = 7
-	style.corner_radius_bottom_left  = 7
-	style.corner_radius_bottom_right = 7
-	style.content_margin_left   = 14.0
-	style.content_margin_right  = 14.0
-	style.content_margin_top    = 10.0
-	style.content_margin_bottom = 10.0
-
-	var panel := PanelContainer.new()
-	panel.position = Vector2(18.0, 18.0)
-	panel.add_theme_stylebox_override("panel", style)
-	canvas.add_child(panel)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 4)
-	panel.add_child(vbox)
-
-	_coord_label = Label.new()
-	_coord_label.text = "X:       0.0      Z:       0.0"
-	_coord_label.add_theme_font_size_override("font_size", 22)
-	_coord_label.add_theme_color_override("font_color", Color(0.85, 1.00, 0.85))
-	vbox.add_child(_coord_label)
-
-	_heading_label = Label.new()
-	_heading_label.text = "Heading:    0.0°  N"
-	_heading_label.add_theme_font_size_override("font_size", 22)
-	_heading_label.add_theme_color_override("font_color", Color(0.85, 0.92, 1.00))
-	vbox.add_child(_heading_label)
-
-	_latlon_label = Label.new()
-	_latlon_label.text = "40.782900° N    73.965400° W"
-	_latlon_label.add_theme_font_size_override("font_size", 22)
-	_latlon_label.add_theme_color_override("font_color", Color(1.00, 0.95, 0.75))
-	vbox.add_child(_latlon_label)
-
-	_time_label = Label.new()
-	_time_label.text = "6:00 AM  [1x]"
-	_time_label.add_theme_font_size_override("font_size", 22)
-	_time_label.add_theme_color_override("font_color", Color(1.0, 0.88, 0.55))
-	vbox.add_child(_time_label)
-
-	_speed_label = Label.new()
-	_speed_label.text = "Stroll (0.4 m/s)"
-	_speed_label.add_theme_font_size_override("font_size", 22)
-	_speed_label.add_theme_color_override("font_color", Color(0.75, 0.90, 1.0))
-	vbox.add_child(_speed_label)
-
-	_location_label = Label.new()
-	_location_label.text = ""
-	_location_label.add_theme_font_size_override("font_size", 26)
-	_location_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.95))
-	_location_label.visible = false
-	vbox.add_child(_location_label)
-
-	var hint := Label.new()
-	hint.text = "WASD: move   Mouse+RMB: look   Scroll/+/-: speed   9/0: wind   T: time   [/]: ±1h   P: weather   N: month   H: HUD   F9: perf"
-	hint.add_theme_font_size_override("font_size", 15)
-	hint.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
-	vbox.add_child(hint)
-
-	# --- Performance budget overlay (top-right, hidden by default) ---
-	_perf_canvas = CanvasLayer.new()
-	_perf_canvas.name = "PerfOverlay"
-	_perf_canvas.visible = false
-	add_child(_perf_canvas)
-
-	var perf_style := StyleBoxFlat.new()
-	perf_style.bg_color                   = Color(0.0, 0.0, 0.0, 0.72)
-	perf_style.corner_radius_top_left     = 7
-	perf_style.corner_radius_top_right    = 7
-	perf_style.corner_radius_bottom_left  = 7
-	perf_style.corner_radius_bottom_right = 7
-	perf_style.content_margin_left   = 14.0
-	perf_style.content_margin_right  = 14.0
-	perf_style.content_margin_top    = 10.0
-	perf_style.content_margin_bottom = 10.0
-
-	# Anchor to top-right via a MarginContainer that fills the viewport
-	var perf_margin := MarginContainer.new()
-	perf_margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	perf_margin.add_theme_constant_override("margin_top", 18)
-	perf_margin.add_theme_constant_override("margin_right", 18)
-	_perf_canvas.add_child(perf_margin)
-
-	var perf_panel := PanelContainer.new()
-	perf_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	perf_panel.size_flags_horizontal = Control.SIZE_SHRINK_END
-	perf_panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	perf_panel.add_theme_stylebox_override("panel", perf_style)
-	perf_margin.add_child(perf_panel)
-
-	_perf_label = Label.new()
-	_perf_label.text = "--- PERFORMANCE BUDGET ---\nLoading..."
-	_perf_label.add_theme_font_size_override("font_size", 18)
-	_perf_label.add_theme_color_override("font_color", Color(0.9, 1.0, 0.85))
-	perf_panel.add_child(_perf_label)
+## _setup_hud moved to hud_manager.gd
 
 
 
