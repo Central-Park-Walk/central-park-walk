@@ -126,12 +126,12 @@ var _walk_bot_settled := false
 var _walk_bot_frame := 0
 var _walk_bot_started := false
 
-func _ready() -> void:
-	# Check for CLI args early
+
+func _parse_cli_args() -> void:
+	## Parse all --key and --key=value CLI arguments, setting member variables.
 	var cli_time := ""
 	for i in OS.get_cmdline_user_args().size():
 		var arg: String = OS.get_cmdline_user_args()[i]
-		# Support both "--key value" and "--key=value" formats
 		var key := arg.split("=")[0]
 		var has_eq := arg.contains("=")
 		var eq_val := arg.substr(arg.find("=") + 1) if has_eq else ""
@@ -204,6 +204,10 @@ func _ready() -> void:
 			print("Unknown --time '%s'. Options: dawn morning noon golden_hour dusk night (or 0-24)" % cli_time)
 	if _weather_mode != Weather.CLEAR:
 		print("Weather: %s" % WEATHER_NAMES[_weather_mode])
+
+
+func _ready() -> void:
+	_parse_cli_args()
 	# Enable GPU-based occlusion culling (used by canopy occluders in woodland)
 	get_viewport().use_occlusion_culling = true
 	var _mt := Time.get_ticks_msec()
