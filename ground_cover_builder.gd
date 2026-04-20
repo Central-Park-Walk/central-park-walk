@@ -71,7 +71,7 @@ const WOODLAND_Z_RANGES: Array = [
 ]
 
 func _build_ground_cover() -> void:
-	_init_chunks(20.0, 180.0, 195.0, 3.0, 140.0, 25.0)
+	_init_chunks(20.0, 120.0, 135.0, 3.0, 100.0, 20.0)
 
 	# Load ground cover models
 	var loaded := 0
@@ -122,6 +122,15 @@ func _build_chunk(ck: String) -> void:
 	var is_spring_summer: bool = season_t < 2.0
 	var is_autumn_winter: bool = season_t >= 2.0
 
+	# Distance-based density thinning
+	var chunk_center := Vector3(chunk_x + _chunk_size * 0.5, 0, chunk_z + _chunk_size * 0.5)
+	var chunk_dist := chunk_center.distance_to(_last_update_pos)
+	var tier_mult := 1.0
+	if chunk_dist >= 80.0:
+		tier_mult = 0.5
+	elif chunk_dist >= 50.0:
+		tier_mult = 0.75
+
 	var chunk_parts: Array = []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(ck) + 7919
@@ -145,7 +154,7 @@ func _build_chunk(ck: String) -> void:
 			continue
 
 		var mesh: Mesh = _meshes[cm.name]
-		var target: int = int(density * _chunk_size * _chunk_size / 100.0)
+		var target: int = int(density * _chunk_size * _chunk_size / 100.0 * tier_mult)
 		if target < 1:
 			target = 1
 

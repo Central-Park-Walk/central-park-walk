@@ -36,11 +36,11 @@ var _canopy_cell_m: float = 0.0
 var _zone_map: Dictionary = {}  # "cx|cz" (grass chunk) -> dominant zone type
 
 const CHUNK := 20.0
-const LOAD_RANGE := 260.0
-const UNLOAD_RANGE := 280.0
+const LOAD_RANGE := 160.0
+const UNLOAD_RANGE := 180.0
 const UPDATE_DIST := 2.0
-const VIS_END := 220.0
-const VIS_FADE_MARGIN := 40.0
+const VIS_END := 200.0
+const VIS_FADE_MARGIN := 30.0
 
 # Species definitions — 30 species across shrubs, ferns, herbs, wetland, grasses.
 # Parameters are research-backed from CPC/NYBG/iNat field data.
@@ -539,6 +539,29 @@ func _ecology_density_mult(wx: float, wz: float) -> float:
 	return clampf(mult, 0.15, 2.5)
 
 
+func _species_cull_dist(sp_idx: int) -> float:
+	## Per-species visibility range based on plant size.
+	## Small herbs invisible at 80m, large shrubs visible to 200m.
+	var s_hi: float = SPECIES[sp_idx].s[1]
+	if s_hi <= 0.5:
+		return 80.0
+	elif s_hi <= 1.0:
+		return 140.0
+	else:
+		return VIS_END
+
+
+func _density_tier(chunk_dist: float) -> float:
+	## Distance-based density thinning — AAA standard.
+	## Full density near camera, progressively thinner at distance.
+	if chunk_dist < 60.0:
+		return 1.0
+	elif chunk_dist < 120.0:
+		return 0.5
+	else:
+		return 0.25
+
+
 func _build_chunk(ck: String) -> void:
 	var ck_p: PackedStringArray = ck.split("|")
 	var cx: float = float(ck_p[0]) * CHUNK
@@ -570,6 +593,11 @@ func _build_chunk(ck: String) -> void:
 		else:
 			return  # Mowed lawn, formal garden, etc. — no undergrowth
 
+	# Distance-based density thinning
+	var chunk_center := Vector3(cx + CHUNK * 0.5, 0, cz + CHUNK * 0.5)
+	var chunk_dist := chunk_center.distance_to(_last_update_pos)
+	var tier_mult := _density_tier(chunk_dist)
+
 	var rng := RandomNumberGenerator.new()
 	rng.seed = (int(ck_p[0]) * 73856093 + int(ck_p[1]) * 19349669 + 42) & 0x7FFFFFFF
 
@@ -600,7 +628,7 @@ func _build_chunk(ck: String) -> void:
 			if not mushroom_active: continue
 			density *= rain_boost
 
-		var target := int(density * CHUNK * CHUNK / 100.0)
+		var target := int(density * CHUNK * CHUNK / 100.0 * tier_mult)
 		if target <= 0: continue
 
 		var buf := PackedFloat32Array()
@@ -731,8 +759,9 @@ func _build_chunk(ck: String) -> void:
 		RS.instance_set_transform(inst_rid, Transform3D(Basis.IDENTITY, Vector3(ox, oy, oz)))
 		RS.instance_set_visible(inst_rid, true)
 		RS.instance_geometry_set_cast_shadows_setting(inst_rid, RS.SHADOW_CASTING_SETTING_OFF)
-		RS.instance_geometry_set_visibility_range(inst_rid, 0.0, VIS_END, 0.0, VIS_FADE_MARGIN,
-			RS.VISIBILITY_RANGE_FADE_SELF)
+		var cull_d := _species_cull_dist(sp_idx)
+		RS.instance_geometry_set_visibility_range(inst_rid, 0.0, cull_d, 0.0,
+			minf(VIS_FADE_MARGIN, cull_d * 0.2), RS.VISIBILITY_RANGE_FADE_SELF)
 
 		_active_chunks["%d|%s" % [sp_idx, ck]] = [mm_rid, inst_rid]
 
