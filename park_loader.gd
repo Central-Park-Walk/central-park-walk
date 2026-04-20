@@ -1523,6 +1523,17 @@ func _load_glb_scene(abs_path: String) -> Node:
 
 ## Load a GLB file and return a Dictionary of {mesh_name: Mesh}.
 var _glb_cache: Dictionary = {}
+func _load_first_mesh(res_path: String) -> Mesh:
+	## Load a GLB and return the first mesh found, or null if file missing/empty.
+	var abs_path := ProjectSettings.globalize_path(res_path)
+	if not FileAccess.file_exists(abs_path):
+		return null
+	var meshes := _load_glb_meshes(abs_path)
+	for mname in meshes:
+		return meshes[mname] as Mesh
+	return null
+
+
 func _load_glb_meshes(abs_path: String) -> Dictionary:
 	if _glb_cache.has(abs_path):
 		return _glb_cache[abs_path]
