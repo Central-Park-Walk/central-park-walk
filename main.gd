@@ -1,5 +1,7 @@
 extends Node3D
 
+const TourData = preload("res://tour_data.gd")
+
 # ---------------------------------------------------------------------------
 # Geo-projection constants – must match convert_to_godot.py
 #   origin  = centre of Central Park
@@ -769,7 +771,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == JOY_BUTTON_RIGHT_SHOULDER:
 			_season_t = fmod(_season_t + 1.0 / 3.0, 4.0)
 			RenderingServer.global_shader_parameter_set("season_t", _season_t)
-			print("Month: %s (season_t=%.2f)" % [_month_name(_season_t), _season_t])
+			print("Month: %s (season_t=%.2f)" % [_hud._month_name(_season_t), _season_t])
 		return
 	if not (event is InputEventKey and event.pressed):
 		return
@@ -831,7 +833,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			_season_t = fmod(_season_t + 1.0 / 3.0, 4.0)
 		RenderingServer.global_shader_parameter_set("season_t", _season_t)
-		print("Month: %s (season_t=%.2f)" % [_month_name(_season_t), _season_t])
+		print("Month: %s (season_t=%.2f)" % [_hud._month_name(_season_t), _season_t])
 	elif event.keycode == KEY_F12:
 		_take_screenshot()
 	elif event.keycode == KEY_F10:
@@ -914,7 +916,7 @@ func _grass_tour_teleport() -> void:
 	_day_night.force_apply(_time_of_day, _weather_mode, _wind_vec,
 		_lightning_flash, _user_gamma, _season_t)
 	print("Photo tour: %s (%.0f,%.0f) %s %.1fh %s" % [
-		spot["name"], x, z, _month_name(_season_t), spot.get("hour", 12.0), spot.get("weather", "clear")])
+		spot["name"], x, z, _hud._month_name(_season_t), spot.get("hour", 12.0), spot.get("weather", "clear")])
 	_grass_tour_timer = 0.0
 
 func _grass_tour_process(delta: float) -> void:

@@ -13,7 +13,7 @@ func _init(loader) -> void:
 # Dog run fencing — chain-link fence around 3 off-leash dog areas
 # ---------------------------------------------------------------------------
 func _build_dog_run_fences(landuse: Array) -> void:
-	var fence_mesh := _loader._load_first_mesh("res://models/furniture/cp_dog_run_fence.glb")
+	var fence_mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_dog_run_fence.glb")
 	if fence_mesh == null:
 		return
 
@@ -64,7 +64,7 @@ func _build_dog_run_fences(landuse: Array) -> void:
 # Park wayfinding signs — brown wooden signs at major path intersections
 # ---------------------------------------------------------------------------
 func _build_park_signs(paths: Array) -> void:
-	var sign_mesh := _loader._load_first_mesh("res://models/furniture/cp_park_sign.glb")
+	var sign_mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_park_sign.glb")
 	if sign_mesh == null:
 		return
 
@@ -234,7 +234,7 @@ func _build_park_signs(paths: Array) -> void:
 # Reservoir fence — tall chain-link around JKO Reservoir running track
 # ---------------------------------------------------------------------------
 func _build_reservoir_fence(water: Array) -> void:
-	var fence_mesh := _loader._load_first_mesh("res://models/furniture/cp_reservoir_fence.glb")
+	var fence_mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_reservoir_fence.glb")
 	if fence_mesh == null:
 		return
 
@@ -306,8 +306,8 @@ func _build_reservoir_fence(water: Array) -> void:
 # Playground equipment — swing sets + play structures at playground zones
 # ---------------------------------------------------------------------------
 func _build_playground_equipment(landuse: Array) -> void:
-	var swing_mesh := _loader._load_first_mesh("res://models/furniture/cp_swing_set.glb")
-	var play_mesh := _loader._load_first_mesh("res://models/furniture/cp_play_structure.glb")
+	var swing_mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_swing_set.glb")
+	var play_mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_play_structure.glb")
 	if swing_mesh == null and play_mesh == null:
 		return
 
@@ -361,8 +361,8 @@ func _build_playground_equipment(landuse: Array) -> void:
 # Sports equipment — backstops at baseball diamonds, hoops at basketball courts
 # ---------------------------------------------------------------------------
 func _build_sports_equipment(landuse: Array) -> void:
-	var backstop_mesh := _loader._load_first_mesh("res://models/furniture/cp_backstop.glb")
-	var hoop_mesh := _loader._load_first_mesh("res://models/furniture/cp_basketball_hoop.glb")
+	var backstop_mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_backstop.glb")
+	var hoop_mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_basketball_hoop.glb")
 	if backstop_mesh == null and hoop_mesh == null:
 		return
 
@@ -443,7 +443,7 @@ func _build_sports_equipment(landuse: Array) -> void:
 	if not hoop_xforms.is_empty() and hoop_mesh:
 		_loader._spawn_multimesh(hoop_mesh, null, hoop_xforms, "BasketballHoops")
 	# Tennis nets
-	var net_mesh := _loader._load_first_mesh("res://models/furniture/cp_tennis_net.glb")
+	var net_mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_tennis_net.glb")
 	var net_xforms: Array = []
 
 	if net_mesh:
@@ -492,7 +492,7 @@ func _build_sports_equipment(landuse: Array) -> void:
 		_loader._spawn_multimesh(net_mesh, null, net_xforms, "TennisNets")
 
 	# Soccer goals
-	var goal_mesh := _loader._load_first_mesh("res://models/furniture/cp_soccer_goal.glb")
+	var goal_mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_soccer_goal.glb")
 	var goal_xforms: Array = []
 
 	if goal_mesh:
@@ -548,7 +548,7 @@ func _build_sports_equipment(landuse: Array) -> void:
 		_loader._spawn_multimesh(goal_mesh, null, goal_xforms, "SoccerGoals")
 
 	# Handball walls
-	var hwall_mesh := _loader._load_first_mesh("res://models/furniture/cp_handball_wall.glb")
+	var hwall_mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_handball_wall.glb")
 	var hwall_xforms: Array = []
 
 	if hwall_mesh:
@@ -964,7 +964,7 @@ func _add_rail_segment(p0: Vector3, p1: Vector3, radius: float, segs: int,
 # Fitness stations — exercise equipment along running paths
 # ---------------------------------------------------------------------------
 func _build_fitness_stations(paths: Array) -> void:
-	var mesh := _loader._load_first_mesh("res://models/furniture/cp_fitness_station.glb")
+	var mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_fitness_station.glb")
 	if mesh == null:
 		return
 
@@ -1024,7 +1024,7 @@ func _build_fitness_stations(paths: Array) -> void:
 # Mile markers — bronze distance markers along the loop drive
 # ---------------------------------------------------------------------------
 func _build_mile_markers(paths: Array) -> void:
-	var mesh := _loader._load_first_mesh("res://models/furniture/cp_mile_marker.glb")
+	var mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_mile_marker.glb")
 	if mesh == null:
 		return
 
@@ -1084,7 +1084,7 @@ func _build_mile_markers(paths: Array) -> void:
 # Balustrades — ornamental stone railings at formal terraces
 # ---------------------------------------------------------------------------
 func _build_balustrades() -> void:
-	var mesh := _loader._load_first_mesh("res://models/furniture/cp_balustrade.glb")
+	var mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_balustrade.glb")
 	if mesh == null:
 		return
 
@@ -1143,7 +1143,7 @@ func _build_balustrades() -> void:
 # Drive-side waste bins — wire mesh trash cans along loop drives
 # ---------------------------------------------------------------------------
 func _build_drive_waste_bins(paths: Array) -> void:
-	var mesh := _loader._load_first_mesh("res://models/furniture/cp_wire_trash_can.glb")
+	var mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_wire_trash_can.glb")
 	if mesh == null:
 		return
 
@@ -1300,7 +1300,7 @@ func _build_retaining_walls(paths: Array) -> void:
 # Bollards — cast iron posts at park entrances and drive restrictions
 # ---------------------------------------------------------------------------
 func _build_bollards() -> void:
-	var mesh := _loader._load_first_mesh("res://models/furniture/cp_bollard.glb")
+	var mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_bollard.glb")
 	if mesh == null:
 		return
 
@@ -1366,7 +1366,7 @@ func _build_bollards() -> void:
 # Emergency call boxes — blue-light phones along paths
 # ---------------------------------------------------------------------------
 func _build_call_boxes(paths: Array) -> void:
-	var mesh := _loader._load_first_mesh("res://models/furniture/cp_call_box.glb")
+	var mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_call_box.glb")
 	if mesh == null:
 		return
 
@@ -1420,7 +1420,7 @@ func _build_call_boxes(paths: Array) -> void:
 # Info kiosks — wayfinding map panels at major intersections
 # ---------------------------------------------------------------------------
 func _build_info_kiosks() -> void:
-	var mesh := _loader._load_first_mesh("res://models/furniture/cp_info_kiosk.glb")
+	var mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_info_kiosk.glb")
 	if mesh == null:
 		return
 
@@ -1462,7 +1462,7 @@ func _build_info_kiosks() -> void:
 # Storm drain grates — flush with pavement on drives
 # ---------------------------------------------------------------------------
 func _build_drain_grates(paths: Array) -> void:
-	var mesh := _loader._load_first_mesh("res://models/furniture/cp_drain_grate.glb")
+	var mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_drain_grate.glb")
 	if mesh == null:
 		return
 
@@ -1527,7 +1527,7 @@ func _build_drain_grates(paths: Array) -> void:
 # Bicycle racks — inverted-U racks near facilities and entrances
 # ---------------------------------------------------------------------------
 func _build_bike_racks() -> void:
-	var mesh := _loader._load_first_mesh("res://models/furniture/cp_bike_rack.glb")
+	var mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_bike_rack.glb")
 	if mesh == null:
 		return
 
@@ -1590,7 +1590,7 @@ func _build_bike_racks() -> void:
 # Tree pit grates — cast iron grates around street-side trees
 # ---------------------------------------------------------------------------
 func _build_tree_pit_grates(trees: Array) -> void:
-	var mesh := _loader._load_first_mesh("res://models/furniture/cp_tree_pit_grate.glb")
+	var mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_tree_pit_grate.glb")
 	if mesh == null:
 		return
 
@@ -1640,7 +1640,7 @@ func _build_tree_pit_grates(trees: Array) -> void:
 # Curb ramps — ADA accessible crossings where paths meet drives
 # ---------------------------------------------------------------------------
 func _build_curb_ramps(paths: Array) -> void:
-	var mesh := _loader._load_first_mesh("res://models/furniture/cp_curb_ramp.glb")
+	var mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_curb_ramp.glb")
 	if mesh == null:
 		return
 
@@ -1700,7 +1700,7 @@ func _build_curb_ramps(paths: Array) -> void:
 # Decorative stone urns — classical vases at formal terraces
 # ---------------------------------------------------------------------------
 func _build_stone_urns() -> void:
-	var mesh := _loader._load_first_mesh("res://models/furniture/cp_stone_urn.glb")
+	var mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_stone_urn.glb")
 	if mesh == null:
 		return
 

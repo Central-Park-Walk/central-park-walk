@@ -1,4 +1,4 @@
-class_name TourData
+extends RefCounted
 ## Static data for tour mode, showcase shots, README captures, and named park areas.
 ## Extracted from main.gd to keep constant data separate from runtime logic.
 

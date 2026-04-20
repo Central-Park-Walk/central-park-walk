@@ -2,6 +2,8 @@ extends RefCounted
 ## HUD overlay — coordinate display, time/speed, location name, performance overlay.
 ## Extracted from main.gd to separate display logic from game logic.
 
+const TourData = preload("res://tour_data.gd")
+
 # Geo-projection constants (must match main.gd / convert_to_godot.py)
 const REF_LAT            := 40.7829
 const REF_LON            := -73.9654

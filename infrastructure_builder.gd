@@ -795,7 +795,7 @@ func _build_amenities(amenities: Array) -> void:
 		return
 
 	# Load drinking fountain GLB (surface 0=Stone, surface 1=Iron)
-	var df_mesh := _loader._load_first_mesh("res://models/furniture/cp_drinking_fountain.glb")
+	var df_mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_drinking_fountain.glb")
 	if df_mesh:
 		# Apply cast iron material to all surfaces
 		var iron_sh: Shader = _loader._get_shader("cast_iron", "res://shaders/cast_iron.gdshader")

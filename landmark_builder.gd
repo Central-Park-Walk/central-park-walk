@@ -244,7 +244,7 @@ func _build_belvedere_castle() -> void:
 # ---------------------------------------------------------------------------
 func _build_comfort_stations(amenities: Array) -> void:
 	# Load comfort station GLB model
-	var cs_mesh := _loader._load_first_mesh("res://models/furniture/cp_comfort_station.glb")
+	var cs_mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_comfort_station.glb")
 	if cs_mesh == null:
 		print("  Comfort stations: GLB not found, skipping")
 		return
@@ -477,7 +477,7 @@ func _build_model_boathouse() -> void:
 # Boat landings — wooden docks on the Lake shore
 # ---------------------------------------------------------------------------
 func _build_boat_landings() -> void:
-	var dock_mesh := _loader._load_first_mesh("res://models/furniture/cp_boat_landing.glb")
+	var dock_mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_boat_landing.glb")
 	if dock_mesh == null:
 		return
 	var dock_positions: Array = [
@@ -618,7 +618,7 @@ func _build_dana_pier() -> void:
 # Stone weirs — low dams along The Loch and other streams
 # ---------------------------------------------------------------------------
 func _build_stone_weirs() -> void:
-	var weir_mesh := _loader._load_first_mesh("res://models/furniture/cp_stone_weir.glb")
+	var weir_mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_stone_weir.glb")
 	if weir_mesh == null:
 		return
 	# Weir positions along The Loch and other waterfall locations
@@ -733,7 +733,7 @@ func _build_conservatory_fountains() -> void:
 # Rustic bridges — log bridges at woodland stream crossings
 # ---------------------------------------------------------------------------
 func _build_rustic_bridges() -> void:
-	var bridge_mesh := _loader._load_first_mesh("res://models/furniture/cp_rustic_bridge.glb")
+	var bridge_mesh : Mesh = _loader._load_first_mesh("res://models/furniture/cp_rustic_bridge.glb")
 	if bridge_mesh == null:
 		return
 	# Known rustic bridge locations at stream crossings in woodland areas
