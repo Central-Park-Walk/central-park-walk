@@ -13,14 +13,7 @@ func _init(loader) -> void:
 # Dog run fencing — chain-link fence around 3 off-leash dog areas
 # ---------------------------------------------------------------------------
 func _build_dog_run_fences(landuse: Array) -> void:
-	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_dog_run_fence.glb")
-	if not FileAccess.file_exists(glb_path):
-		return
-	var fence_meshes: Dictionary = _loader._load_glb_meshes(glb_path)
-	var fence_mesh: Mesh = null
-	for mname in fence_meshes:
-		fence_mesh = fence_meshes[mname] as Mesh
-		break
+	var fence_mesh := _loader._load_first_mesh("res://models/furniture/cp_dog_run_fence.glb")
 	if fence_mesh == null:
 		return
 
@@ -71,14 +64,7 @@ func _build_dog_run_fences(landuse: Array) -> void:
 # Park wayfinding signs — brown wooden signs at major path intersections
 # ---------------------------------------------------------------------------
 func _build_park_signs(paths: Array) -> void:
-	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_park_sign.glb")
-	if not FileAccess.file_exists(glb_path):
-		return
-	var sign_meshes: Dictionary = _loader._load_glb_meshes(glb_path)
-	var sign_mesh: Mesh = null
-	for mname in sign_meshes:
-		sign_mesh = sign_meshes[mname] as Mesh
-		break
+	var sign_mesh := _loader._load_first_mesh("res://models/furniture/cp_park_sign.glb")
 	if sign_mesh == null:
 		return
 
@@ -248,14 +234,7 @@ func _build_park_signs(paths: Array) -> void:
 # Reservoir fence — tall chain-link around JKO Reservoir running track
 # ---------------------------------------------------------------------------
 func _build_reservoir_fence(water: Array) -> void:
-	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_reservoir_fence.glb")
-	if not FileAccess.file_exists(glb_path):
-		return
-	var fence_meshes: Dictionary = _loader._load_glb_meshes(glb_path)
-	var fence_mesh: Mesh = null
-	for mname in fence_meshes:
-		fence_mesh = fence_meshes[mname] as Mesh
-		break
+	var fence_mesh := _loader._load_first_mesh("res://models/furniture/cp_reservoir_fence.glb")
 	if fence_mesh == null:
 		return
 
@@ -327,22 +306,8 @@ func _build_reservoir_fence(water: Array) -> void:
 # Playground equipment — swing sets + play structures at playground zones
 # ---------------------------------------------------------------------------
 func _build_playground_equipment(landuse: Array) -> void:
-	var swing_path := ProjectSettings.globalize_path("res://models/furniture/cp_swing_set.glb")
-	var play_path := ProjectSettings.globalize_path("res://models/furniture/cp_play_structure.glb")
-
-	var swing_mesh: Mesh = null
-	var play_mesh: Mesh = null
-
-	var sw_meshes: Dictionary = _loader._load_glb_meshes(swing_path)
-	for mname in sw_meshes:
-		swing_mesh = sw_meshes[mname] as Mesh
-		break
-
-	var pl_meshes: Dictionary = _loader._load_glb_meshes(play_path)
-	for mname in pl_meshes:
-		play_mesh = pl_meshes[mname] as Mesh
-		break
-
+	var swing_mesh := _loader._load_first_mesh("res://models/furniture/cp_swing_set.glb")
+	var play_mesh := _loader._load_first_mesh("res://models/furniture/cp_play_structure.glb")
 	if swing_mesh == null and play_mesh == null:
 		return
 
@@ -396,22 +361,8 @@ func _build_playground_equipment(landuse: Array) -> void:
 # Sports equipment — backstops at baseball diamonds, hoops at basketball courts
 # ---------------------------------------------------------------------------
 func _build_sports_equipment(landuse: Array) -> void:
-	var backstop_path := ProjectSettings.globalize_path("res://models/furniture/cp_backstop.glb")
-	var hoop_path := ProjectSettings.globalize_path("res://models/furniture/cp_basketball_hoop.glb")
-
-	var backstop_mesh: Mesh = null
-	var hoop_mesh: Mesh = null
-
-	var bs_meshes: Dictionary = _loader._load_glb_meshes(backstop_path)
-	for mname in bs_meshes:
-		backstop_mesh = bs_meshes[mname] as Mesh
-		break
-
-	var hp_meshes: Dictionary = _loader._load_glb_meshes(hoop_path)
-	for mname in hp_meshes:
-		hoop_mesh = hp_meshes[mname] as Mesh
-		break
-
+	var backstop_mesh := _loader._load_first_mesh("res://models/furniture/cp_backstop.glb")
+	var hoop_mesh := _loader._load_first_mesh("res://models/furniture/cp_basketball_hoop.glb")
 	if backstop_mesh == null and hoop_mesh == null:
 		return
 
@@ -492,12 +443,7 @@ func _build_sports_equipment(landuse: Array) -> void:
 	if not hoop_xforms.is_empty() and hoop_mesh:
 		_loader._spawn_multimesh(hoop_mesh, null, hoop_xforms, "BasketballHoops")
 	# Tennis nets
-	var net_path := ProjectSettings.globalize_path("res://models/furniture/cp_tennis_net.glb")
-	var net_mesh: Mesh = null
-	var nt_meshes: Dictionary = _loader._load_glb_meshes(net_path)
-	for mname in nt_meshes:
-		net_mesh = nt_meshes[mname] as Mesh
-		break
+	var net_mesh := _loader._load_first_mesh("res://models/furniture/cp_tennis_net.glb")
 	var net_xforms: Array = []
 
 	if net_mesh:
@@ -546,12 +492,7 @@ func _build_sports_equipment(landuse: Array) -> void:
 		_loader._spawn_multimesh(net_mesh, null, net_xforms, "TennisNets")
 
 	# Soccer goals
-	var goal_path := ProjectSettings.globalize_path("res://models/furniture/cp_soccer_goal.glb")
-	var goal_mesh: Mesh = null
-	var gl_meshes: Dictionary = _loader._load_glb_meshes(goal_path)
-	for mname in gl_meshes:
-		goal_mesh = gl_meshes[mname] as Mesh
-		break
+	var goal_mesh := _loader._load_first_mesh("res://models/furniture/cp_soccer_goal.glb")
 	var goal_xforms: Array = []
 
 	if goal_mesh:
@@ -607,12 +548,7 @@ func _build_sports_equipment(landuse: Array) -> void:
 		_loader._spawn_multimesh(goal_mesh, null, goal_xforms, "SoccerGoals")
 
 	# Handball walls
-	var hwall_path := ProjectSettings.globalize_path("res://models/furniture/cp_handball_wall.glb")
-	var hwall_mesh: Mesh = null
-	var hw_meshes: Dictionary = _loader._load_glb_meshes(hwall_path)
-	for mname in hw_meshes:
-		hwall_mesh = hw_meshes[mname] as Mesh
-		break
+	var hwall_mesh := _loader._load_first_mesh("res://models/furniture/cp_handball_wall.glb")
 	var hwall_xforms: Array = []
 
 	if hwall_mesh:
@@ -1028,14 +964,7 @@ func _add_rail_segment(p0: Vector3, p1: Vector3, radius: float, segs: int,
 # Fitness stations — exercise equipment along running paths
 # ---------------------------------------------------------------------------
 func _build_fitness_stations(paths: Array) -> void:
-	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_fitness_station.glb")
-	if not FileAccess.file_exists(glb_path):
-		return
-	var meshes: Dictionary = _loader._load_glb_meshes(glb_path)
-	var mesh: Mesh = null
-	for mname in meshes:
-		mesh = meshes[mname] as Mesh
-		break
+	var mesh := _loader._load_first_mesh("res://models/furniture/cp_fitness_station.glb")
 	if mesh == null:
 		return
 
@@ -1095,14 +1024,7 @@ func _build_fitness_stations(paths: Array) -> void:
 # Mile markers — bronze distance markers along the loop drive
 # ---------------------------------------------------------------------------
 func _build_mile_markers(paths: Array) -> void:
-	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_mile_marker.glb")
-	if not FileAccess.file_exists(glb_path):
-		return
-	var meshes: Dictionary = _loader._load_glb_meshes(glb_path)
-	var mesh: Mesh = null
-	for mname in meshes:
-		mesh = meshes[mname] as Mesh
-		break
+	var mesh := _loader._load_first_mesh("res://models/furniture/cp_mile_marker.glb")
 	if mesh == null:
 		return
 
@@ -1162,14 +1084,7 @@ func _build_mile_markers(paths: Array) -> void:
 # Balustrades — ornamental stone railings at formal terraces
 # ---------------------------------------------------------------------------
 func _build_balustrades() -> void:
-	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_balustrade.glb")
-	if not FileAccess.file_exists(glb_path):
-		return
-	var meshes: Dictionary = _loader._load_glb_meshes(glb_path)
-	var mesh: Mesh = null
-	for mname in meshes:
-		mesh = meshes[mname] as Mesh
-		break
+	var mesh := _loader._load_first_mesh("res://models/furniture/cp_balustrade.glb")
 	if mesh == null:
 		return
 
@@ -1228,14 +1143,7 @@ func _build_balustrades() -> void:
 # Drive-side waste bins — wire mesh trash cans along loop drives
 # ---------------------------------------------------------------------------
 func _build_drive_waste_bins(paths: Array) -> void:
-	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_wire_trash_can.glb")
-	if not FileAccess.file_exists(glb_path):
-		return
-	var meshes: Dictionary = _loader._load_glb_meshes(glb_path)
-	var mesh: Mesh = null
-	for mname in meshes:
-		mesh = meshes[mname] as Mesh
-		break
+	var mesh := _loader._load_first_mesh("res://models/furniture/cp_wire_trash_can.glb")
 	if mesh == null:
 		return
 
@@ -1392,14 +1300,7 @@ func _build_retaining_walls(paths: Array) -> void:
 # Bollards — cast iron posts at park entrances and drive restrictions
 # ---------------------------------------------------------------------------
 func _build_bollards() -> void:
-	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_bollard.glb")
-	if not FileAccess.file_exists(glb_path):
-		return
-	var meshes: Dictionary = _loader._load_glb_meshes(glb_path)
-	var mesh: Mesh = null
-	for mname in meshes:
-		mesh = meshes[mname] as Mesh
-		break
+	var mesh := _loader._load_first_mesh("res://models/furniture/cp_bollard.glb")
 	if mesh == null:
 		return
 
@@ -1465,14 +1366,7 @@ func _build_bollards() -> void:
 # Emergency call boxes — blue-light phones along paths
 # ---------------------------------------------------------------------------
 func _build_call_boxes(paths: Array) -> void:
-	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_call_box.glb")
-	if not FileAccess.file_exists(glb_path):
-		return
-	var meshes: Dictionary = _loader._load_glb_meshes(glb_path)
-	var mesh: Mesh = null
-	for mname in meshes:
-		mesh = meshes[mname] as Mesh
-		break
+	var mesh := _loader._load_first_mesh("res://models/furniture/cp_call_box.glb")
 	if mesh == null:
 		return
 
@@ -1526,14 +1420,7 @@ func _build_call_boxes(paths: Array) -> void:
 # Info kiosks — wayfinding map panels at major intersections
 # ---------------------------------------------------------------------------
 func _build_info_kiosks() -> void:
-	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_info_kiosk.glb")
-	if not FileAccess.file_exists(glb_path):
-		return
-	var meshes: Dictionary = _loader._load_glb_meshes(glb_path)
-	var mesh: Mesh = null
-	for mname in meshes:
-		mesh = meshes[mname] as Mesh
-		break
+	var mesh := _loader._load_first_mesh("res://models/furniture/cp_info_kiosk.glb")
 	if mesh == null:
 		return
 
@@ -1575,14 +1462,7 @@ func _build_info_kiosks() -> void:
 # Storm drain grates — flush with pavement on drives
 # ---------------------------------------------------------------------------
 func _build_drain_grates(paths: Array) -> void:
-	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_drain_grate.glb")
-	if not FileAccess.file_exists(glb_path):
-		return
-	var meshes: Dictionary = _loader._load_glb_meshes(glb_path)
-	var mesh: Mesh = null
-	for mname in meshes:
-		mesh = meshes[mname] as Mesh
-		break
+	var mesh := _loader._load_first_mesh("res://models/furniture/cp_drain_grate.glb")
 	if mesh == null:
 		return
 
@@ -1647,14 +1527,7 @@ func _build_drain_grates(paths: Array) -> void:
 # Bicycle racks — inverted-U racks near facilities and entrances
 # ---------------------------------------------------------------------------
 func _build_bike_racks() -> void:
-	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_bike_rack.glb")
-	if not FileAccess.file_exists(glb_path):
-		return
-	var meshes: Dictionary = _loader._load_glb_meshes(glb_path)
-	var mesh: Mesh = null
-	for mname in meshes:
-		mesh = meshes[mname] as Mesh
-		break
+	var mesh := _loader._load_first_mesh("res://models/furniture/cp_bike_rack.glb")
 	if mesh == null:
 		return
 
@@ -1717,14 +1590,7 @@ func _build_bike_racks() -> void:
 # Tree pit grates — cast iron grates around street-side trees
 # ---------------------------------------------------------------------------
 func _build_tree_pit_grates(trees: Array) -> void:
-	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_tree_pit_grate.glb")
-	if not FileAccess.file_exists(glb_path):
-		return
-	var meshes: Dictionary = _loader._load_glb_meshes(glb_path)
-	var mesh: Mesh = null
-	for mname in meshes:
-		mesh = meshes[mname] as Mesh
-		break
+	var mesh := _loader._load_first_mesh("res://models/furniture/cp_tree_pit_grate.glb")
 	if mesh == null:
 		return
 
@@ -1774,14 +1640,7 @@ func _build_tree_pit_grates(trees: Array) -> void:
 # Curb ramps — ADA accessible crossings where paths meet drives
 # ---------------------------------------------------------------------------
 func _build_curb_ramps(paths: Array) -> void:
-	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_curb_ramp.glb")
-	if not FileAccess.file_exists(glb_path):
-		return
-	var meshes: Dictionary = _loader._load_glb_meshes(glb_path)
-	var mesh: Mesh = null
-	for mname in meshes:
-		mesh = meshes[mname] as Mesh
-		break
+	var mesh := _loader._load_first_mesh("res://models/furniture/cp_curb_ramp.glb")
 	if mesh == null:
 		return
 
@@ -1841,14 +1700,7 @@ func _build_curb_ramps(paths: Array) -> void:
 # Decorative stone urns — classical vases at formal terraces
 # ---------------------------------------------------------------------------
 func _build_stone_urns() -> void:
-	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_stone_urn.glb")
-	if not FileAccess.file_exists(glb_path):
-		return
-	var meshes: Dictionary = _loader._load_glb_meshes(glb_path)
-	var mesh: Mesh = null
-	for mname in meshes:
-		mesh = meshes[mname] as Mesh
-		break
+	var mesh := _loader._load_first_mesh("res://models/furniture/cp_stone_urn.glb")
 	if mesh == null:
 		return
 
