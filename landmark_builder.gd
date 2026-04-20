@@ -244,18 +244,9 @@ func _build_belvedere_castle() -> void:
 # ---------------------------------------------------------------------------
 func _build_comfort_stations(amenities: Array) -> void:
 	# Load comfort station GLB model
-	var cs_path := ProjectSettings.globalize_path("res://models/furniture/cp_comfort_station.glb")
-	if not FileAccess.file_exists(cs_path):
-		print("  Comfort stations: GLB not found, skipping")
-		return
-
-	var cs_meshes: Dictionary = _loader._load_glb_meshes(cs_path)
-	var cs_mesh: Mesh = null
-	for mname in cs_meshes:
-		cs_mesh = cs_meshes[mname] as Mesh
-		break  # take first mesh
+	var cs_mesh := _loader._load_first_mesh("res://models/furniture/cp_comfort_station.glb")
 	if cs_mesh == null:
-		print("  Comfort stations: no mesh found in GLB")
+		print("  Comfort stations: GLB not found, skipping")
 		return
 
 	# Apply stone material
@@ -486,21 +477,14 @@ func _build_model_boathouse() -> void:
 # Boat landings — wooden docks on the Lake shore
 # ---------------------------------------------------------------------------
 func _build_boat_landings() -> void:
-	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_boat_landing.glb")
-	if not FileAccess.file_exists(glb_path):
+	var dock_mesh := _loader._load_first_mesh("res://models/furniture/cp_boat_landing.glb")
+	if dock_mesh == null:
 		return
 	var dock_positions: Array = [
 		[-688.0, 593.0, PI * 0.7],   # Hernshead
 		[-692.0, 770.0, PI * 0.5],   # Western Shore
 		[-669.0, 895.0, PI * 0.4],   # Wagner Cove
 	]
-	var dock_meshes: Dictionary = _loader._load_glb_meshes(glb_path)
-	var dock_mesh: Mesh = null
-	for mname in dock_meshes:
-		dock_mesh = dock_meshes[mname] as Mesh
-		break
-	if dock_mesh == null:
-		return
 	var xforms: Array = []
 	for dock in dock_positions:
 		var dx: float = dock[0]
@@ -634,14 +618,7 @@ func _build_dana_pier() -> void:
 # Stone weirs — low dams along The Loch and other streams
 # ---------------------------------------------------------------------------
 func _build_stone_weirs() -> void:
-	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_stone_weir.glb")
-	if not FileAccess.file_exists(glb_path):
-		return
-	var weir_meshes: Dictionary = _loader._load_glb_meshes(glb_path)
-	var weir_mesh: Mesh = null
-	for mname in weir_meshes:
-		weir_mesh = weir_meshes[mname] as Mesh
-		break
+	var weir_mesh := _loader._load_first_mesh("res://models/furniture/cp_stone_weir.glb")
 	if weir_mesh == null:
 		return
 	# Weir positions along The Loch and other waterfall locations
@@ -756,14 +733,7 @@ func _build_conservatory_fountains() -> void:
 # Rustic bridges — log bridges at woodland stream crossings
 # ---------------------------------------------------------------------------
 func _build_rustic_bridges() -> void:
-	var glb_path := ProjectSettings.globalize_path("res://models/furniture/cp_rustic_bridge.glb")
-	if not FileAccess.file_exists(glb_path):
-		return
-	var bridge_meshes: Dictionary = _loader._load_glb_meshes(glb_path)
-	var bridge_mesh: Mesh = null
-	for mname in bridge_meshes:
-		bridge_mesh = bridge_meshes[mname] as Mesh
-		break
+	var bridge_mesh := _loader._load_first_mesh("res://models/furniture/cp_rustic_bridge.glb")
 	if bridge_mesh == null:
 		return
 	# Known rustic bridge locations at stream crossings in woodland areas
