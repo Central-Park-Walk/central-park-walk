@@ -10,10 +10,11 @@ var rain_wetness: float = 0.0   # updated by main.gd each frame
 var _meshes: Dictionary = {}    # species_name -> Mesh (or species_base -> [Mesh, Mesh, ...] for variants)
 var _shader: Shader
 var _leaf_atlas: Texture2D       # 2048x2048 leaf texture atlas (4x4 grid)
-var _active_chunks: Dictionary = {}
+var _active_chunks: Dictionary = {}  # "sp_idx|cx|cz" -> [mm_rid, inst_rid]
 var _last_update_pos := Vector3(-99999, 0, -99999)
 var _build_queue: Array = []
 var _queued_set: Dictionary = {}
+var _scenario: RID               # cached World3D scenario for RenderingServer instances
 
 # Cached data refs
 var _atlas_data: PackedByteArray
@@ -266,6 +267,9 @@ func _build_undergrowth() -> void:
 	print("Undergrowth: %d/%d species loaded" % [loaded, SPECIES.size()])
 	if loaded == 0: return
 
+	# Cache scenario for RenderingServer instances
+	_scenario = _loader.get_world_3d().get_scenario()
+
 	# Cache atlas/heightmap
 	_atlas_data = _loader._atlas_data
 	_atlas_res = _loader._atlas_res
@@ -389,7 +393,9 @@ func _update_chunks_near(pos: Vector3) -> void:
 		var p: PackedStringArray = key.split("|")
 		var ck := "%s|%s" % [p[1], p[2]]
 		if not needed.has(ck):
-			_active_chunks[key].queue_free()
+			var rids: Array = _active_chunks[key]
+			RenderingServer.free_rid(rids[1])  # instance first
+			RenderingServer.free_rid(rids[0])  # then multimesh
 			to_remove.append(key)
 	for key in to_remove:
 		_active_chunks.erase(key)
@@ -700,30 +706,35 @@ func _build_chunk(ck: String) -> void:
 		var oy: float = sums[sp_idx][1] / float(c)
 		var oz: float = sums[sp_idx][2] / float(c)
 
-		# Relocate to local space
+		# Relocate to local space and compute AABB
+		var aabb_min := Vector3(buf[3], buf[7], buf[11])
+		var aabb_max := aabb_min
 		for j in c:
 			var o: int = j * 16
 			buf[o+3] -= ox; buf[o+7] -= oy; buf[o+11] -= oz
+			var lp := Vector3(buf[o+3], buf[o+7], buf[o+11])
+			aabb_min = Vector3(minf(aabb_min.x, lp.x), minf(aabb_min.y, lp.y), minf(aabb_min.z, lp.z))
+			aabb_max = Vector3(maxf(aabb_max.x, lp.x), maxf(aabb_max.y, lp.y), maxf(aabb_max.z, lp.z))
 		buf.resize(c * 16)
 
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.use_custom_data = true
-		mm.mesh = mesh
-		mm.instance_count = c
-		mm.buffer = buf
+		var RS := RenderingServer
+		var mm_rid := RS.multimesh_create()
+		RS.multimesh_allocate_data(mm_rid, c, RS.MULTIMESH_TRANSFORM_3D, false, true)
+		RS.multimesh_set_mesh(mm_rid, mesh.get_rid())
+		RS.multimesh_set_buffer(mm_rid, buf)
+		var aabb := AABB(aabb_min - Vector3(3, 3, 3), aabb_max - aabb_min + Vector3(6, 6, 6))
+		RS.multimesh_set_custom_aabb(mm_rid, aabb)
 
-		var mmi := MultiMeshInstance3D.new()
-		mmi.multimesh = mm
-		mmi.position = Vector3(ox, oy, oz)
-		mmi.name = "UG_%s_%s" % [sp_name, ck]
-		mmi.visibility_range_end = VIS_END
-		mmi.visibility_range_end_margin = VIS_FADE_MARGIN
-		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
-		mmi.visibility_range_begin = 0.0
-		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_loader.add_child(mmi)
-		_active_chunks["%d|%s" % [sp_idx, ck]] = mmi
+		var inst_rid := RS.instance_create()
+		RS.instance_set_base(inst_rid, mm_rid)
+		RS.instance_set_scenario(inst_rid, _scenario)
+		RS.instance_set_transform(inst_rid, Transform3D(Basis.IDENTITY, Vector3(ox, oy, oz)))
+		RS.instance_set_visible(inst_rid, true)
+		RS.instance_geometry_set_cast_shadows_setting(inst_rid, RS.SHADOW_CASTING_SETTING_OFF)
+		RS.instance_geometry_set_visibility_range(inst_rid, 0.0, VIS_END, 0.0, VIS_FADE_MARGIN,
+			RS.VISIBILITY_RANGE_FADE_SELF)
+
+		_active_chunks["%d|%s" % [sp_idx, ck]] = [mm_rid, inst_rid]
 
 
 func _load_model(sp_name: String) -> Mesh:

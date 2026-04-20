@@ -216,22 +216,31 @@ func _build_chunk(ck: String) -> void:
 			buf[i * 16 + 7] -= oy
 			buf[i * 16 + 11] -= oz
 
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.use_custom_data = true
-		mm.instance_count = placed
-		mm.mesh = mesh
-		mm.buffer = buf
+		# Compute AABB from local positions
+		var aabb_min := Vector3(buf[3], buf[7], buf[11])
+		var aabb_max := aabb_min
+		for i in range(placed):
+			var o := i * 16
+			var lp := Vector3(buf[o+3], buf[o+7], buf[o+11])
+			aabb_min = Vector3(minf(aabb_min.x, lp.x), minf(aabb_min.y, lp.y), minf(aabb_min.z, lp.z))
+			aabb_max = Vector3(maxf(aabb_max.x, lp.x), maxf(aabb_max.y, lp.y), maxf(aabb_max.z, lp.z))
 
-		var mmi := MultiMeshInstance3D.new()
-		mmi.multimesh = mm
-		mmi.position = Vector3(ox, oy, oz)
-		mmi.name = "GC_%s_%s" % [cm.name, ck]
-		mmi.visibility_range_end = _vis_end
-		mmi.visibility_range_end_margin = _vis_fade_margin
-		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
-		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_loader.add_child(mmi)
-		chunk_parts.append(mmi)
+		var RS := RenderingServer
+		var mm_rid := RS.multimesh_create()
+		RS.multimesh_allocate_data(mm_rid, placed, RS.MULTIMESH_TRANSFORM_3D, false, true)
+		RS.multimesh_set_mesh(mm_rid, mesh.get_rid())
+		RS.multimesh_set_buffer(mm_rid, buf)
+		var aabb := AABB(aabb_min - Vector3(2, 2, 2), aabb_max - aabb_min + Vector3(4, 4, 4))
+		RS.multimesh_set_custom_aabb(mm_rid, aabb)
+
+		var inst_rid := RS.instance_create()
+		RS.instance_set_base(inst_rid, mm_rid)
+		RS.instance_set_scenario(inst_rid, _scenario)
+		RS.instance_set_transform(inst_rid, Transform3D(Basis.IDENTITY, Vector3(ox, oy, oz)))
+		RS.instance_set_visible(inst_rid, true)
+		RS.instance_geometry_set_cast_shadows_setting(inst_rid, RS.SHADOW_CASTING_SETTING_OFF)
+		RS.instance_geometry_set_visibility_range(inst_rid, 0.0, _vis_end, 0.0,
+			_vis_fade_margin, RS.VISIBILITY_RANGE_FADE_SELF)
+		chunk_parts.append([mm_rid, inst_rid])
 
 	_active_chunks[ck] = chunk_parts
