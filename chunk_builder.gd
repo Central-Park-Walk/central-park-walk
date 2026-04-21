@@ -9,6 +9,7 @@ var _active_chunks: Dictionary = {}
 var _last_update_pos := Vector3(-99999, 0, -99999)
 var _build_queue: Array = []
 var _queued_set: Dictionary = {}
+var _scenario: RID
 
 # Cached data refs
 var _atlas_data: PackedByteArray
@@ -44,6 +45,7 @@ func _init_chunks(chunk: float, load_r: float, unload_r: float,
 	_update_dist = update_d
 	_vis_end = vis_end
 	_vis_fade_margin = vis_fade
+	_scenario = _loader.get_world_3d().get_scenario()
 	_atlas_data = _loader._atlas_data
 	_atlas_res = _loader._atlas_res
 	_atlas_scale = float(_atlas_res) / _loader._hm_world_size
@@ -91,9 +93,9 @@ func _update_chunks_near(pos: Vector3) -> void:
 	var to_remove: Array = []
 	for ck in _active_chunks:
 		if not needed.has(ck):
-			for nd in _active_chunks[ck]:
-				if is_instance_valid(nd):
-					nd.queue_free()
+			for rids in _active_chunks[ck]:
+				RenderingServer.free_rid(rids[1])  # instance first
+				RenderingServer.free_rid(rids[0])  # multimesh second
 			to_remove.append(ck)
 	for ck in to_remove:
 		_active_chunks.erase(ck)

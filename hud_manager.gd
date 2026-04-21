@@ -163,7 +163,7 @@ func update(player: CharacterBody3D, time_of_day: float,
 		_location_label.visible = not area.is_empty()
 
 
-func update_perf(delta: float) -> void:
+func update_perf(delta: float, prof: Dictionary = {}) -> void:
 	if not perf_visible or not _perf_label:
 		return
 	_perf_update_timer += delta
@@ -209,7 +209,7 @@ func update_perf(delta: float) -> void:
 	else:
 		budget_bar = "[OVER]"
 
-	_perf_label.text = (
+	var text := (
 		"--- PERFORMANCE BUDGET ---\n" +
 		"FPS: %d  (%.1f ms)\n" % [int(fps), frame_ms] +
 		"Budget: %.0f%% of 60fps %s\n" % [budget_pct, budget_bar] +
@@ -227,6 +227,36 @@ func update_perf(delta: float) -> void:
 		"  Textures:  %d MB\n" % (vram_tex / 1_048_576) +
 		"  Buffers:   %d MB\n" % (vram_buf / 1_048_576)
 	)
+
+	# Per-subsystem profiling breakdown
+	if not prof.is_empty():
+		# Separate timing entries from metadata (chunk counts etc.)
+		var timing_keys := ["lamps", "wind", "weather", "undergrowth",
+			"ground_cover", "daynight", "hud"]
+		var total_us: float = 0.0
+		for k in timing_keys:
+			if prof.has(k):
+				total_us += prof[k]
+		text += "\n--- CPU SUBSYSTEMS (ms) ---\n"
+		var entries: Array = []
+		for k in timing_keys:
+			if prof.has(k):
+				entries.append([k, prof[k]])
+		entries.sort_custom(func(a, b): return a[1] > b[1])
+		for e in entries:
+			var ms: float = e[1] / 1000.0
+			var pct: float = e[1] / maxf(total_us, 1.0) * 100.0
+			text += "  %-14s %5.2f  (%2.0f%%)\n" % [e[0], ms, pct]
+		text += "  %-14s %5.2f\n" % ["TOTAL", total_us / 1000.0]
+		# Chunk counts
+		if prof.has("ug_chunks"):
+			text += "\nUndergrowth: %d chunks, %d queued\n" % [
+				int(prof["ug_chunks"]), int(prof.get("ug_queue", 0))]
+		if prof.has("gc_chunks"):
+			text += "GroundCover: %d chunks, %d queued\n" % [
+				int(prof["gc_chunks"]), int(prof.get("gc_queue", 0))]
+
+	_perf_label.text = text
 
 
 func toggle_perf() -> void:

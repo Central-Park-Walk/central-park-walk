@@ -33,6 +33,7 @@ var _canopy_cell_m: float = 0.0
 
 # Zone type data from ground_cover_instances
 var _zone_map: Dictionary = {}  # "cx|cz" (grass chunk) -> dominant zone type
+var _scenario: RID               # cached world scenario for RS instance creation
 
 const CHUNK := 20.0
 const LOAD_RANGE := 160.0
@@ -289,6 +290,9 @@ func _build_undergrowth() -> void:
 	# Build zone map from ground_cover_instances (same data as grass builder)
 	_build_zone_map()
 
+	# Cache scenario RID for RS direct instance creation
+	_scenario = _loader.get_world_3d().get_scenario()
+
 	# Initial chunk loading near spawn
 	var spawn := Vector3(-480, 0, 1020)
 	_last_update_pos = spawn
@@ -389,7 +393,9 @@ func _update_chunks_near(pos: Vector3) -> void:
 		var p: PackedStringArray = key.split("|")
 		var ck := "%s|%s" % [p[1], p[2]]
 		if not needed.has(ck):
-			_active_chunks[key].queue_free()
+			var rids: Array = _active_chunks[key]
+			RenderingServer.free_rid(rids[1])  # instance first
+			RenderingServer.free_rid(rids[0])  # multimesh second
 			to_remove.append(key)
 	for key in to_remove:
 		_active_chunks.erase(key)
@@ -734,25 +740,42 @@ func _build_chunk(ck: String) -> void:
 			buf[o+3] -= ox; buf[o+7] -= oy; buf[o+11] -= oz
 		buf.resize(c * 16)
 
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.use_custom_data = true
-		mm.mesh = mesh
-		mm.instance_count = c
-		mm.buffer = buf
+		var RS := RenderingServer
+		var mm_rid := RS.multimesh_create()
+		RS.multimesh_allocate_data(mm_rid, c, RS.MULTIMESH_TRANSFORM_3D, false, true)
+		RS.multimesh_set_mesh(mm_rid, mesh.get_rid())
+		RS.multimesh_set_buffer(mm_rid, buf)
 
-		var mmi := MultiMeshInstance3D.new()
-		mmi.multimesh = mm
-		mmi.position = Vector3(ox, oy, oz)
-		mmi.name = "UG_%s_%s" % [sp_name, ck]
+		# Compute tight AABB from local-space instance positions for frustum culling
+		var aabb_min := Vector3(INF, INF, INF)
+		var aabb_max := Vector3(-INF, -INF, -INF)
+		for j in c:
+			var o := j * 16
+			var px: float = buf[o + 3]
+			var py: float = buf[o + 7]
+			var pz: float = buf[o + 11]
+			if px < aabb_min.x: aabb_min.x = px
+			if py < aabb_min.y: aabb_min.y = py
+			if pz < aabb_min.z: aabb_min.z = pz
+			if px > aabb_max.x: aabb_max.x = px
+			if py > aabb_max.y: aabb_max.y = py
+			if pz > aabb_max.z: aabb_max.z = pz
+		# Pad for mesh extent (plants up to ~3m tall/wide)
+		aabb_min -= Vector3(3, 1, 3)
+		aabb_max += Vector3(3, 4, 3)
+		RS.multimesh_set_custom_aabb(mm_rid, AABB(aabb_min, aabb_max - aabb_min))
+
+		var inst_rid := RS.instance_create()
+		RS.instance_set_base(inst_rid, mm_rid)
+		RS.instance_set_scenario(inst_rid, _scenario)
+		RS.instance_set_transform(inst_rid, Transform3D(Basis.IDENTITY, Vector3(ox, oy, oz)))
+		RS.instance_set_visible(inst_rid, true)
 		var cull_d := _species_cull_dist(sp_idx)
-		mmi.visibility_range_end = cull_d
-		mmi.visibility_range_end_margin = minf(VIS_FADE_MARGIN, cull_d * 0.2)
-		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
-		mmi.visibility_range_begin = 0.0
-		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_loader.add_child(mmi)
-		_active_chunks["%d|%s" % [sp_idx, ck]] = mmi
+		RS.instance_geometry_set_visibility_range(inst_rid, 0.0, cull_d, 0.0,
+			minf(VIS_FADE_MARGIN, cull_d * 0.2), RS.VISIBILITY_RANGE_FADE_SELF)
+		RS.instance_geometry_set_cast_shadows_setting(inst_rid,
+			RS.SHADOW_CASTING_SETTING_OFF)
+		_active_chunks["%d|%s" % [sp_idx, ck]] = [mm_rid, inst_rid]
 
 
 func _load_model(sp_name: String) -> Mesh:

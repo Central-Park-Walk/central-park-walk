@@ -55,6 +55,15 @@ const LAMP_LIGHT_COUNT := 48
 const LAMP_LIGHT_RANGE := 22.0
 const LAMP_LIGHT_UPDATE_INTERVAL := 0.5  # seconds between position updates
 
+# Per-subsystem timing (microseconds, smoothed) — displayed in F9 perf overlay
+var _prof_lamps_us: float = 0.0
+var _prof_wind_us: float = 0.0
+var _prof_weather_us: float = 0.0
+var _prof_undergrowth_us: float = 0.0
+var _prof_ground_cover_us: float = 0.0
+var _prof_daynight_us: float = 0.0
+var _prof_hud_us: float = 0.0
+const PROF_SMOOTH := 0.9  # EMA smoothing factor (higher = more stable)
 
 var _audio_manager = null  # ambient sound (wind, city, water, footsteps)
 
@@ -610,49 +619,58 @@ func _process(delta: float) -> void:
 			if _hud.canvas:
 				_hud.canvas.visible = true  # restore HUD after capture
 				_set_labels_visible(true)
+	var _t0: int  # profiling scratch
+
 	# Update lamp lights every 0.5s
+	_t0 = Time.get_ticks_usec()
 	_lamp_light_timer += delta
 	if _lamp_light_timer >= LAMP_LIGHT_UPDATE_INTERVAL:
 		_lamp_light_timer = 0.0
 		_update_lamp_lights()
+	_prof_lamps_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_lamps_us, PROF_SMOOTH)
 
-	# Wind
+	# Wind + GPU grass push + volumetric clouds
+	_t0 = Time.get_ticks_usec()
 	_wind_system.update(delta, _time_of_day, _weather_mode)
 	_wind_vec = _wind_system.wind_vec
-	# Push wind to GPU grass compute shaders
 	for gn in _gpu_grass_nodes:
 		if is_instance_valid(gn):
 			gn.set("wind_vec", _wind_vec)
-	# Drive volumetric cloud movement from wind
 	if _vol_sky:
 		var wlen: float = _wind_vec.length()
 		if wlen > 0.01:
 			_vol_sky.wind_direction = atan2(_wind_vec.y, _wind_vec.x)
 		_vol_sky.wind_speed = wlen * 0.6
+	_prof_wind_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_wind_us, PROF_SMOOTH)
 
-	# Ambient audio
+	# Ambient audio + weather + season
+	_t0 = Time.get_ticks_usec()
 	if _audio_manager:
 		_audio_manager.update(delta, _wind_vec.length(), WEATHER_NAMES[_weather_mode],
 			_rain_wetness, _time_of_day, _lightning_flash)
-
-	# Weather particles, snow/rain accumulation, seasonal leaves/blossoms
 	if _player:
 		_weather_mgr.update(delta, _player.global_position, _wind_vec, _season_t)
 		_rain_wetness = _weather_mgr.rain_wetness
 		_snow_cover = _weather_mgr.snow_cover
-
-	# Season advance
 	if _season_speed > 0.0:
 		_season_t = fmod(_season_t + _season_speed * delta, 4.0)
 		RenderingServer.global_shader_parameter_set("season_t", _season_t)
+	_prof_weather_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_weather_us, PROF_SMOOTH)
 
+	# Undergrowth chunk builder
+	_t0 = Time.get_ticks_usec()
 	if _player and _park_loader and _park_loader._undergrowth_builder:
 		_park_loader._undergrowth_builder.season_t = _season_t
 		_park_loader._undergrowth_builder.rain_wetness = _rain_wetness
 		_park_loader._undergrowth_builder.update_camera(_player.global_position)
+	_prof_undergrowth_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_undergrowth_us, PROF_SMOOTH)
+
+	# Ground cover chunk builder
+	_t0 = Time.get_ticks_usec()
 	if _player and _park_loader and _park_loader._ground_cover_builder:
 		_park_loader._ground_cover_builder.season_t = _season_t
 		_park_loader._ground_cover_builder.update_camera(_player.global_position)
+	_prof_ground_cover_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_ground_cover_us, PROF_SMOOTH)
 
 	# Grass tour auto-teleport + screenshot
 	_grass_tour_process(delta)
@@ -672,19 +690,45 @@ func _process(delta: float) -> void:
 		_lightning_flash = maxf(_lightning_flash - delta * 4.0, 0.0)
 	RenderingServer.global_shader_parameter_set("lightning_flash", _lightning_flash)
 
-	# Advance clock
+	# Advance clock + day/night cycle
+	_t0 = Time.get_ticks_usec()
 	_time_of_day += _time_speed * delta
 	if _time_of_day >= 24.0:
 		_time_of_day -= 24.0
 	elif _time_of_day < 0.0:
 		_time_of_day += 24.0
-	# Day/night cycle — threshold check is internal to DayNightCycle
 	_day_night.apply(_time_of_day, _weather_mode, _wind_vec,
 		_lightning_flash, _user_gamma, _season_t)
 	_lamp_emission = _day_night.get_lamp_emission()
+	_prof_daynight_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_daynight_us, PROF_SMOOTH)
 
+	# HUD
+	_t0 = Time.get_ticks_usec()
 	_hud.update(_player, _time_of_day, TIME_SPEED_NAMES[_time_speed_idx], _season_t)
-	_hud.update_perf(delta)
+	_hud.update_perf(delta, _get_prof_data())
+	_prof_hud_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_hud_us, PROF_SMOOTH)
+
+
+func _get_prof_data() -> Dictionary:
+	var data := {
+		"lamps": _prof_lamps_us,
+		"wind": _prof_wind_us,
+		"weather": _prof_weather_us,
+		"undergrowth": _prof_undergrowth_us,
+		"ground_cover": _prof_ground_cover_us,
+		"daynight": _prof_daynight_us,
+		"hud": _prof_hud_us,
+	}
+	# Chunk counts for context
+	if _park_loader and _park_loader._undergrowth_builder:
+		var ub = _park_loader._undergrowth_builder
+		data["ug_chunks"] = ub._active_chunks.size()
+		data["ug_queue"] = ub._build_queue.size()
+	if _park_loader and _park_loader._ground_cover_builder:
+		var gb = _park_loader._ground_cover_builder
+		data["gc_chunks"] = gb._active_chunks.size()
+		data["gc_queue"] = gb._build_queue.size()
+	return data
 
 
 ## _update_perf_overlay, _update_hud moved to hud_manager.gd
