@@ -9,6 +9,8 @@ uniform sampler2D grass_albedo : source_color, filter_linear_mipmap;
 uniform sampler2D grass_normal : hint_normal, filter_linear_mipmap;
 uniform bool has_normal_map = false;
 uniform bool use_texture = true;
+uniform bool debug_highlight = false;
+uniform vec3 debug_color : source_color = vec3(1.0, 0.0, 1.0);
 
 global uniform float season_t;
 global uniform vec2 wind_vec;
@@ -196,7 +198,12 @@ void fragment() {
 	float daytime_cs = smoothstep(0.05, 0.20, sky_lum_cs);
 	col *= (1.0 - cloud_shadow(v_world_pos.xz, cloud_coverage_g, cloud_speed_g, TIME, wind_vec) * daytime_cs);
 
-	ALBEDO = col;
+	if (debug_highlight) {
+		ALBEDO = debug_color;  // per-biome flat color — verifies coverage + height
+		ALPHA = 1.0;
+	} else {
+		ALBEDO = col;
+	}
 
 	// Normal map
 	if (has_normal_map) {

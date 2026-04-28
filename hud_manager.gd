@@ -248,10 +248,16 @@ func update_perf(delta: float, prof: Dictionary = {}) -> void:
 			var pct: float = e[1] / maxf(total_us, 1.0) * 100.0
 			text += "  %-14s %5.2f  (%2.0f%%)\n" % [e[0], ms, pct]
 		text += "  %-14s %5.2f\n" % ["TOTAL", total_us / 1000.0]
+		var unaccounted_ms: float = process_ms - (total_us / 1000.0)
+		text += "  %-14s %5.2f  (engine + unprofiled)\n" % ["unaccounted", unaccounted_ms]
 		# Chunk counts
 		if prof.has("ug_chunks"):
 			text += "\nUndergrowth: %d chunks, %d queued\n" % [
 				int(prof["ug_chunks"]), int(prof.get("ug_queue", 0))]
+			if prof.has("ug_peak_build_us"):
+				text += "  build: last %.1f ms, peak %.1f ms\n" % [
+					prof["ug_last_build_us"] / 1000.0,
+					prof["ug_peak_build_us"] / 1000.0]
 		if prof.has("gc_chunks"):
 			text += "GroundCover: %d chunks, %d queued\n" % [
 				int(prof["gc_chunks"]), int(prof.get("gc_queue", 0))]

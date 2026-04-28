@@ -15,6 +15,10 @@ var _last_update_pos := Vector3(-99999, 0, -99999)
 var _build_queue: Array = []
 var _queued_set: Dictionary = {}
 
+# Diagnostic: peak/last _build_chunk wall time (microseconds)
+var _peak_build_us: int = 0
+var _last_build_us: int = 0
+
 # Cached data refs
 var _atlas_data: PackedByteArray
 var _atlas_res: int
@@ -429,7 +433,13 @@ func _process_queue(pos: Vector3) -> void:
 	_build_queue.remove_at(best_i)
 	_queued_set.erase(ck)
 	if not _chunk_loaded(ck):
+		var _bt0 := Time.get_ticks_usec()
 		_build_chunk(ck)
+		var _bt_us := Time.get_ticks_usec() - _bt0
+		if _bt_us > _peak_build_us: _peak_build_us = _bt_us
+		_last_build_us = _bt_us
+		if _bt_us > 5000:
+			print("[undergrowth] _build_chunk %s: %.1f ms (queue=%d)" % [ck, _bt_us / 1000.0, _build_queue.size()])
 
 
 func _chunk_loaded(ck: String) -> bool:

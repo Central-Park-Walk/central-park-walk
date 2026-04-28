@@ -137,11 +137,17 @@ void main() {
 	} else if (zone_id == 7) {
 		biome_id = 3; // sedge
 	}
-	if (biome_id < 0) return; // Not a grass zone
+	int target_biome_early = int(pc.wind_config.x);
+	if (target_biome_early != -2 && biome_id < 0) return; // Not a grass zone
 
-	// Biome filter: skip positions that don't match target biome
+	// Biome filter: skip positions that don't match target biome.
+	// target_biome == -2 is a debug mode that bypasses zone/canopy/distance
+	// filters and forces a blade at every grid position (regardless of
+	// landuse zone). Used by F3 to diagnose whether the rendering pipeline
+	// is alive, independent of zone-data correctness.
 	int target_biome = int(pc.wind_config.x);
-	if (target_biome >= 0 && biome_id != target_biome) return;
+	bool debug_force = target_biome == -2;
+	if (!debug_force && target_biome >= 0 && biome_id != target_biome) return;
 
 	// Sample canopy coverage
 	float canopy = texture(canopy_tex, uv).r;
@@ -152,7 +158,7 @@ void main() {
 	else if (biome_id == 1) suppress = 0.30;  // Shade: tolerant
 	else suppress = 0.60;                      // Wild/Sedge: moderate
 	float canopy_thresh = canopy * suppress;
-	if (hash1(world_xz * 3.7) < canopy_thresh) return;
+	if (!debug_force && hash1(world_xz * 3.7) < canopy_thresh) return;
 
 	// Deterministic per-position properties
 	float h1 = hash1(world_xz);
@@ -168,11 +174,17 @@ void main() {
 	// Start late (60%) so near-field stays dense; thin to nothing by max.
 	float dist_ratio = dist / pc.grid_params.y;
 	float thin_prob = smoothstep(0.6, 1.0, dist_ratio);
-	if (hash1(world_xz * 5.3 + vec2(71.0, 13.0)) < thin_prob) return;
+	if (!debug_force && hash1(world_xz * 5.3 + vec2(71.0, 13.0)) < thin_prob) return;
 
-	// Allocate instance slot
+	// Allocate instance slot. atomicAdd always increments, so threads that
+	// overflow past max_instances must clamp instanceCount back via atomicMin
+	// — otherwise the indirect draw issues 3-10× more draws than buffer slots,
+	// causing OOB reads in vkCmdDrawIndexedIndirect.
 	uint idx = atomicAdd(cmd.data[1], 1);
-	if (idx >= uint(pc.grid_params.z)) return;
+	if (idx >= uint(pc.grid_params.z)) {
+		atomicMin(cmd.data[1], uint(pc.grid_params.z));
+		return;
+	}
 
 	// Build Y-rotation + scale transform
 	float cos_r = cos(rotation);

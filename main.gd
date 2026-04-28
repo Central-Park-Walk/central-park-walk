@@ -708,6 +708,21 @@ func _process(delta: float) -> void:
 	_hud.update_perf(delta, _get_prof_data())
 	_prof_hud_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_hud_us, PROF_SMOOTH)
 
+	# Periodic perf log — runs regardless of overlay state, so we can
+	# A/B test the overlay's own cost by toggling F9 off.
+	_diag_log_timer += delta
+	if _diag_log_timer >= 2.0:
+		_diag_log_timer = 0.0
+		var fps := Performance.get_monitor(Performance.TIME_FPS)
+		var p_ms: float = Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+		var phy_ms: float = Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
+		var sub_us: float = (_prof_lamps_us + _prof_wind_us + _prof_weather_us
+			+ _prof_undergrowth_us + _prof_ground_cover_us + _prof_daynight_us
+			+ _prof_hud_us)
+		print("[PERF] fps=%d process=%.1f physics=%.1f sub=%.2f unacc=%.1f overlay=%s" % [
+			int(fps), p_ms, phy_ms, sub_us / 1000.0, p_ms - sub_us / 1000.0,
+			"ON" if _hud.perf_visible else "OFF"])
+
 
 func _get_prof_data() -> Dictionary:
 	var data := {
@@ -724,6 +739,8 @@ func _get_prof_data() -> Dictionary:
 		var ub = _park_loader._undergrowth_builder
 		data["ug_chunks"] = ub._active_chunks.size()
 		data["ug_queue"] = ub._build_queue.size()
+		data["ug_peak_build_us"] = ub._peak_build_us
+		data["ug_last_build_us"] = ub._last_build_us
 	if _park_loader and _park_loader._ground_cover_builder:
 		var gb = _park_loader._ground_cover_builder
 		data["gc_chunks"] = gb._active_chunks.size()
@@ -740,6 +757,120 @@ func _set_labels_visible(vis: bool) -> void:
 	for n: Node in _cached_label3d_nodes:
 		if is_instance_valid(n):
 			n.visible = vis
+
+
+# ── Diagnostic A/B toggles (F6/F7/F8) ───────────────────────────────────
+# Hide major subsystems to isolate which one owns the unaccounted
+# engine-internal main-thread cost in TIME_PROCESS.
+var _diag_trees_hidden: bool = false
+var _diag_ug_hidden: bool = false
+var _diag_grass_hidden: bool = false
+var _diag_terrain_hidden: bool = false
+var _diag_tree_mmis: Array = []
+var _diag_log_timer: float = 0.0
+
+func _diag_toggle_terrain() -> void:
+	if not _terrain3d:
+		print("[DIAG] Terrain3D not present")
+		return
+	_diag_terrain_hidden = not _diag_terrain_hidden
+	_terrain3d.visible = not _diag_terrain_hidden
+	print("[DIAG] Terrain3D %s" % ("HIDDEN" if _diag_terrain_hidden else "VISIBLE"))
+
+func _diag_toggle_trees() -> void:
+	if _diag_tree_mmis.is_empty() and _park_loader:
+		var patterns := ["Tree_*", "TreeL1_*", "TreeL2_*", "TreeImp_*"]
+		for pat: String in patterns:
+			for n: Node in _park_loader.find_children(pat, "MultiMeshInstance3D", true, false):
+				_diag_tree_mmis.append(n)
+	_diag_trees_hidden = not _diag_trees_hidden
+	for n: Node in _diag_tree_mmis:
+		if is_instance_valid(n):
+			n.visible = not _diag_trees_hidden
+	print("[DIAG] Trees %s (%d MMIs)" % [
+		"HIDDEN" if _diag_trees_hidden else "VISIBLE", _diag_tree_mmis.size()])
+
+func _diag_toggle_undergrowth() -> void:
+	if not (_park_loader and _park_loader._undergrowth_builder):
+		return
+	_diag_ug_hidden = not _diag_ug_hidden
+	var ub = _park_loader._undergrowth_builder
+	var count := 0
+	for key in ub._active_chunks:
+		var rids: Array = ub._active_chunks[key]
+		# rids[1] is the instance RID
+		RenderingServer.instance_set_visible(rids[1], not _diag_ug_hidden)
+		count += 1
+	print("[DIAG] Undergrowth %s (%d instances)" % [
+		"HIDDEN" if _diag_ug_hidden else "VISIBLE", count])
+
+func _diag_toggle_grass() -> void:
+	# Node3D.visible doesn't propagate to RS-direct instances created inside
+	# the GPUGrass GDExtension, so we toggle set_process to stop the per-frame
+	# compute dispatch. is_processing() is logged to confirm the flag actually
+	# flipped (rules out GDExtension ignoring the base-class flag).
+	_diag_grass_hidden = not _diag_grass_hidden
+	var states := []
+	for gn in _gpu_grass_nodes:
+		if is_instance_valid(gn):
+			gn.set_process(not _diag_grass_hidden)
+			states.append("%s=%s" % [gn.name, gn.is_processing()])
+	print("[DIAG] GPU grass dispatch %s — %s" % [
+		"OFF" if _diag_grass_hidden else "ON", ", ".join(states)])
+
+var _diag_grass_force: bool = false
+var _diag_grass_orig_biomes: Array = []
+func _diag_toggle_grass_force() -> void:
+	# Set every grass node's target_biome to -2, which triggers a debug
+	# bypass in grass_compute.glsl that places a blade at every grid
+	# position, regardless of zone/canopy/distance filters. If grass
+	# appears in this mode but not in normal mode, the zone filter or
+	# its input data is the problem. If grass STILL doesn't appear,
+	# the failure is downstream (mesh, instance, AABB, indirect draw).
+	_diag_grass_force = not _diag_grass_force
+	if _diag_grass_force and _diag_grass_orig_biomes.is_empty():
+		for gn in _gpu_grass_nodes:
+			_diag_grass_orig_biomes.append(gn.get("target_biome"))
+	for i in _gpu_grass_nodes.size():
+		var gn = _gpu_grass_nodes[i]
+		if not is_instance_valid(gn):
+			continue
+		if _diag_grass_force:
+			gn.set("target_biome", -2)
+		else:
+			gn.set("target_biome", _diag_grass_orig_biomes[i])
+	print("[DIAG] Grass force-place %s (4 nodes, target_biome=%s)" % [
+		"ON (zone filter bypassed)" if _diag_grass_force else "OFF",
+		"-2" if _diag_grass_force else "original"])
+
+var _diag_grass_highlight: bool = false
+const _DIAG_BIOME_COLORS := {
+	"Lawn":  Color(1.0, 0.0, 0.0),  # red
+	"Shade": Color(0.0, 1.0, 0.0),  # green
+	"Wild":  Color(0.0, 0.4, 1.0),  # blue
+	"Sedge": Color(1.0, 1.0, 0.0),  # yellow
+}
+func _diag_toggle_grass_highlight() -> void:
+	# Color each biome distinctly so a single screenshot at altitude shows
+	# (a) which biomes are placing blades, (b) where they're placing them
+	# spatially, and (c) the height differences between blade meshes
+	# (Blade_Lawn=7.6cm, Shade=12cm, Wild=25cm, Sedge=16cm).
+	_diag_grass_highlight = not _diag_grass_highlight
+	var n := 0
+	for gn in _gpu_grass_nodes:
+		if not is_instance_valid(gn):
+			continue
+		var mat = gn.get("grass_material")
+		if not (mat is ShaderMaterial):
+			continue
+		mat.set_shader_parameter("debug_highlight", _diag_grass_highlight)
+		# Node name is "GPUGrass_<biome>" — extract suffix to pick color
+		var biome: String = String(gn.name).trim_prefix("GPUGrass_")
+		var c: Color = _DIAG_BIOME_COLORS.get(biome, Color(1.0, 0.0, 1.0))
+		mat.set_shader_parameter("debug_color", Vector3(c.r, c.g, c.b))
+		n += 1
+	print("[DIAG] Grass highlight %s — %d materials. Lawn=red Shade=green Wild=blue Sedge=yellow" % [
+		"ON" if _diag_grass_highlight else "OFF", n])
 
 
 func _tour_teleport(idx: int) -> void:
@@ -847,6 +978,18 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.keycode == KEY_F9:
 		_hud.toggle_perf()
 		print("Perf overlay: %s" % ("ON" if _hud.perf_visible else "OFF"))
+	elif event.keycode == KEY_F3:
+		_diag_toggle_grass_force()
+	elif event.keycode == KEY_F4:
+		_diag_toggle_grass_highlight()
+	elif event.keycode == KEY_F5:
+		_diag_toggle_terrain()
+	elif event.keycode == KEY_F6:
+		_diag_toggle_trees()
+	elif event.keycode == KEY_F7:
+		_diag_toggle_undergrowth()
+	elif event.keycode == KEY_F8:
+		_diag_toggle_grass()
 	elif event.keycode == KEY_F11:
 		if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
@@ -1675,6 +1818,19 @@ func _setup_gpu_grass() -> void:
 			if mat is BaseMaterial3D and mat.albedo_texture:
 				albedo_tex = mat.albedo_texture
 		blade_inst.queue_free()
+		# Diagnostic: dump mesh structure so we can compare across biomes
+		# (a difference in primitive type / index count would explain why
+		# only one biome's indirect-draw MultiMesh actually renders).
+		if blade_mesh:
+			var sc := blade_mesh.get_surface_count()
+			var info := "GPU grass mesh [%s]: surfaces=%d" % [cfg.name, sc]
+			for s in sc:
+				var arrs: Array = blade_mesh.surface_get_arrays(s)
+				var verts: PackedVector3Array = arrs[Mesh.ARRAY_VERTEX] if arrs.size() > Mesh.ARRAY_VERTEX else PackedVector3Array()
+				var idx: PackedInt32Array = arrs[Mesh.ARRAY_INDEX] if arrs.size() > Mesh.ARRAY_INDEX and arrs[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
+				var prim: int = blade_mesh.surface_get_primitive_type(s)
+				info += " | s%d: prim=%d verts=%d idx=%d" % [s, prim, verts.size(), idx.size()]
+			print(info)
 		if not blade_mesh:
 			push_warning("GPU grass: no mesh in %s" % cfg.mesh)
 			continue
