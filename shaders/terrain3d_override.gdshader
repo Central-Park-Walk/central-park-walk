@@ -349,6 +349,21 @@ void fragment() {
 	bool is_grass_zone = (zone_id == 0 || zone_id == 1 || zone_id == 2
 	                   || zone_id == 3 || zone_id == 7);
 
+	// Per-biome terrain tint — the GPU grass blades only render within 80m,
+	// so the dominant visual signal at any distance is the terrain texture.
+	// Tinting it per biome makes lawn/shade/wild/sedge zones read distinctly.
+	// Moderate strength: keep terrain looking natural while making boundaries
+	// visible. Mirrors the per-biome tints applied to grass blades.
+	vec3 biome_terrain_tint = vec3(1.0);
+	if (zone_id == 5 || zone_id == 6 || zone_id == 10 || zone_id == 11) {
+		biome_terrain_tint = vec3(0.78, 0.92, 1.10);  // Shade: cool blue-green
+	} else if (zone_id == 7) {
+		biome_terrain_tint = vec3(0.82, 1.02, 1.18);  // Sedge: cool teal
+	} else if (zone_id == 8) {
+		biome_terrain_tint = vec3(1.20, 1.05, 0.72);  // Wild: warm amber
+	}
+	ALBEDO *= biome_terrain_tint;
+
 	// ---- Canopy leaf litter (under dense tree cover) ----
 	{
 		float canopy_cover = texture(canopy_map, splat_uv).r;

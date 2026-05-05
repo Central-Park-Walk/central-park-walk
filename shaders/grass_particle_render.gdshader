@@ -103,12 +103,12 @@ void fragment() {
 		ALPHA_HASH_SCALE = 1.0;
 	}
 
-	// Decode zone + terrain data from COLOR (set by particle process shader)
-	// R = zone_id / 15.0, G = canopy_cover, B = terrain_tint.r, A = terrain_tint.g
+	// Decode zone + biome from COLOR (set by particle process shader).
+	// R = zone_id/15, G = canopy_cover, B = biome_id*0.25, A = reserved.
 	int zone_id = int(COLOR.r * 15.0 + 0.5);
 	float canopy_cover = COLOR.g;
+	int biome_id = int(COLOR.b * 4.0 + 0.5);  // 0=Lawn 1=Shade 2=Wild 3=Sedge
 	float blade_seed = data.r;
-	vec3 terrain_tint = vec3(COLOR.b, COLOR.a, min(COLOR.b, COLOR.a));
 
 	// --- Base color from shared zone palette + macro variation ---
 	// grass_base_color handles: zone palette, macro splotchiness (20m),
@@ -123,25 +123,39 @@ void fragment() {
 		float tex_lum = dot(texture(grass_albedo, UV).rgb, vec3(0.299, 0.587, 0.114));
 		col *= mix(0.85, 1.15, tex_lum);
 	} else {
-		// Blade meshes (no texture): raw palette green is 3× red — too vivid
-		// compared to naturally muted tufts and terrain. Real massed grass
-		// at eye level reads as olive, not vivid green.
+		// Blade meshes (no texture): light desaturation only.
 		float blade_lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
-		col = mix(col, vec3(blade_lum), 0.28); // 28% desaturation
-		col *= vec3(1.06, 0.99, 0.90);         // strong warm shift
+		col = mix(col, vec3(blade_lum), 0.08);
+		col *= vec3(1.02, 1.00, 0.97);
 	}
 
-	// Root-to-tip gradient: subtle darkening at base only.
-	// 0.80 base (was 0.70) — blade roots still slightly darker than tips
-	// but not enough to create a visible dark circle around the camera.
-	float root_t = smoothstep(0.0, 0.30, v_height_t);
-	col *= mix(0.80, 1.0, root_t);
+	// Per-biome tint — moderate now that the terrain shader also tints
+	// per biome. Blades and terrain pull in the same hue direction so
+	// boundaries read clearly without either fighting the other.
+	if (biome_id == 0) {
+		col *= vec3(1.05, 1.02, 0.92);  // Lawn: subtle warm
+	} else if (biome_id == 1) {
+		col *= vec3(0.75, 0.88, 1.18);  // Shade: cool blue-green
+	} else if (biome_id == 2) {
+		col *= vec3(1.32, 1.05, 0.65);  // Wild: warm amber
+	} else if (biome_id == 3) {
+		col *= vec3(0.78, 1.02, 1.25);  // Sedge: cool teal
+	}
 
-	// Thatch tint at base — ties roots to terrain character.
+	// Root-to-tip gradient: very subtle darkening at base only.
+	// 0.92 base — was 0.80 but created a "chasing shadow" effect where
+	// dense blade bases near camera collectively read as a dark carpet
+	// extending to the grass cull radius (~80m), then transitioning to
+	// brighter terrain texture beyond.
+	float root_t = smoothstep(0.0, 0.30, v_height_t);
+	col *= mix(0.92, 1.0, root_t);
+
+	// Thatch tint at base — much subtler now, just enough to tie roots
+	// to terrain character without creating a visible dark zone.
 	vec3 c_lo, c_hi;
 	grass_zone_palette(zone_id, c_lo, c_hi);
 	vec3 thatch_col = c_lo * 0.5;
-	col = mix(col, thatch_col, (1.0 - root_t) * 0.25);
+	col = mix(col, thatch_col, (1.0 - root_t) * 0.10);
 
 	// terrain_tint removed — dithered crossfade means terrain between blades
 	// is now filled by the next LOD tier, not visible through blade gaps.

@@ -1234,7 +1234,7 @@ func _setup_environment() -> void:
 	# NYC clear-day visibility: 10-16km. At 1-2km (building distance),
 	# aerial perspective should noticeably desaturate + lighten objects.
 	_env.volumetric_fog_enabled = true
-	_env.volumetric_fog_density = 0.0002
+	_env.volumetric_fog_density = 0.003  # CD-style dense atmosphere — visible god-ray shafts under canopy
 	_env.volumetric_fog_albedo = Color(0.92, 0.93, 0.96)  # slightly blue-white haze
 	_env.volumetric_fog_emission = Color(0.75, 0.80, 0.88)
 	_env.volumetric_fog_emission_energy = 0.06
@@ -1253,7 +1253,7 @@ func _setup_environment() -> void:
 	_sun = DirectionalLight3D.new()
 	_sun.shadow_enabled = true
 	_sun.light_angular_distance = 1.5  # soft penumbra — velvety shadows
-	_sun.light_volumetric_fog_energy = 2.0  # god rays through volumetric fog
+	_sun.light_volumetric_fog_energy = 5.0  # stronger god rays for Crimson-Desert-style forest shafts
 	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	_sun.directional_shadow_split_1      = 0.05   # tighter first cascade for near-field detail
 	_sun.directional_shadow_split_2      = 0.15
