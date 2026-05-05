@@ -96,3 +96,10 @@ reference-photos.md
 
 # Blender addons/tools (install from source)
 tools/
+
+# Walk-bot debug captures (regenerated on demand)
+walk_captures/
+walk_debug_trees/
+
+# Third-party Blender libraries (not redistributable)
+assets/plant_library/
