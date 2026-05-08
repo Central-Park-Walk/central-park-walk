@@ -342,12 +342,16 @@ void fragment() {
 	float cam_dist = length(v_vertex - _camera_pos);
 	vec2 splat_uv = (v_vertex.xz + world_size * 0.5) / world_size;
 
-	// Zone lookup (for season/weather zone awareness)
+	// Zone lookup. Encoding: 0=unzoned 1=garden 2=grass 3=pitch 4=playground
+	// 5=nature_reserve 6=dog_park 7=sports 8=pool 9=track 10=wood 11=forest
+	// 12=water 13=shore 14=wild_meadow.
 	float zone_val = texture(landuse_map, splat_uv).r * 255.0;
 	int zone_id = int(zone_val + 0.5);
 	bool is_woodland = (zone_id == 5 || zone_id == 10 || zone_id == 11);
 	bool is_grass_zone = (zone_id == 0 || zone_id == 1 || zone_id == 2
-	                   || zone_id == 3 || zone_id == 7);
+	                   || zone_id == 3 || zone_id == 4 || zone_id == 6
+	                   || zone_id == 7 || zone_id == 9
+	                   || zone_id == 13 || zone_id == 14);
 
 	// Per-biome terrain tint — the GPU grass blades only render within 80m,
 	// so the dominant visual signal at any distance is the terrain texture.
@@ -355,12 +359,12 @@ void fragment() {
 	// Moderate strength: keep terrain looking natural while making boundaries
 	// visible. Mirrors the per-biome tints applied to grass blades.
 	vec3 biome_terrain_tint = vec3(1.0);
-	if (zone_id == 5 || zone_id == 6 || zone_id == 10 || zone_id == 11) {
+	if (zone_id == 5 || zone_id == 10 || zone_id == 11) {
 		biome_terrain_tint = vec3(0.78, 0.92, 1.10);  // Shade: cool blue-green
-	} else if (zone_id == 7) {
-		biome_terrain_tint = vec3(0.82, 1.02, 1.18);  // Sedge: cool teal
-	} else if (zone_id == 8) {
-		biome_terrain_tint = vec3(1.20, 1.05, 0.72);  // Wild: warm amber
+	} else if (zone_id == 13) {
+		biome_terrain_tint = vec3(0.82, 1.02, 1.18);  // Sedge: cool teal (shore)
+	} else if (zone_id == 14) {
+		biome_terrain_tint = vec3(1.20, 1.05, 0.72);  // Wild: warm amber (hand-marked meadow)
 	}
 	ALBEDO *= biome_terrain_tint;
 

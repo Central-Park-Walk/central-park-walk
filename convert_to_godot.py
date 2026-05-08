@@ -3401,7 +3401,8 @@ def prebake_grass_instances(landuse_zones):
         7:  (4, 2),   # sports → sports_turf
         10: (5, 6),   # wood → north_woods
         11: (5, 6),   # forest → north_woods
-        13: (7, 3),   # shore → waterside
+        13: (7, 3),   # shore → waterside (Tussock Sedge)
+        14: (8, 3),   # wild_meadow (hand-marked) → wild_meadow grass type
     }
 
     # Location-specific type overrides for zone 0 (unzoned) cells.
@@ -3781,9 +3782,10 @@ def prebake_landuse_map(landuse_zones, water_bodies):
     """Pre-bake landuse zone map at 8192×8192 resolution → landuse_map.png.
 
     Replaces runtime GDScript scanline rasterization (1024×1024) with a
-    higher-resolution pre-baked texture.  Zone encoding matches main.gd:
+    higher-resolution pre-baked texture.  Zone encoding:
       0=unzoned, 1=garden, 2=grass, 3=pitch, 4=playground, 5=nature_reserve,
-      6=dog_park, 7=sports, 8=pool, 9=track, 10=wood, 11=forest, 12=water, 13=shore
+      6=dog_park, 7=sports, 8=pool, 9=track, 10=wood, 11=forest,
+      12=water, 13=shore, 14=wild_meadow
     """
     import numpy as np
     from PIL import Image, ImageDraw
@@ -3794,6 +3796,56 @@ def prebake_landuse_map(landuse_zones, water_bodies):
         "sports_centre": 7, "swimming_pool": 8, "pool": 8,
         "track": 9, "wood": 10, "forest": 11,
     }
+
+    # Hand-drawn wild_meadow zones (zone 14).
+    #
+    # Per the CPC Turf Care Handbook, ALL named Central Park lawns and meadows
+    # are maintained turf — even "Sheep Meadow", "Great Lawn", "North Meadow",
+    # "East Meadow" are A-class (2x/week mowing, auto-irrigated, Kentucky
+    # Bluegrass / Perennial Ryegrass at 2.5–3"). The named hills and Greens
+    # (Cedar Hill, Pilgrim Hill, Great Hill, East Green, The Dene) are B-class
+    # (1x/week mowing, still maintained turf). C/D-class lawns are mowed at
+    # the same 3" height with the same species mixes.
+    #
+    # In practice, the only actual wildflower meadows in the park (native-
+    # species plantings, not mown turf) are two specific 1.25-acre patches
+    # that the Conservancy has explicitly established and named as such:
+    #
+    #   1. 102nd Street Wildflower Meadow — at the 102nd Cross Drive, just
+    #      east of Glen Span Arch and the Loch. 50+ native species. Not
+    #      tagged as a polygon in OSM (only "The Loch" exists, as a node).
+    #
+    #   2. Dene Slope — southwest corner of The Dene landscape (66th–72nd
+    #      St, east side). Restored from an eroded weedy hillside into a
+    #      wildflower meadow with 50+ native species.
+    #
+    # Both are too small/specific to be in OSM as their own polygons, so we
+    # hand-draw bounding boxes from CPC handbook map and CPC website
+    # descriptions. Coordinates are in our local meters frame (X east+,
+    # Z south+, ref center near Belvedere Castle). The user may refine
+    # these if more accurate boundaries are documented.
+    WILD_MEADOW_HAND_DRAWN = [
+        # 102nd St Wildflower Meadow (north end, west side at the cross drive)
+        # ~1.25 acres ≈ 5060 sqm. Estimated as a 100×50m rectangle along the
+        # 102nd transverse, east of Glen Span Arch (~x=525), south of the
+        # transverse line (z≈-1170).
+        ("102nd Street Wildflower Meadow", [
+            (560.0, -1230.0),
+            (660.0, -1230.0),
+            (660.0, -1180.0),
+            (560.0, -1180.0),
+        ]),
+        # Dene Slope (east side, SW corner of The Dene)
+        # The Dene bbox is roughly (-489,1275)-(-265,1517). The SW corner in
+        # our coords is at (~-489, 1517) — west and south within the park.
+        # 1.25 acres on a slope, estimated as a 71×71m square at that corner.
+        ("Dene Slope Wildflower Meadow", [
+            (-489.0, 1446.0),
+            (-418.0, 1446.0),
+            (-418.0, 1517.0),
+            (-489.0, 1517.0),
+        ]),
+    ]
 
     RES = ATLAS_RES  # 8192 — matches heightmap and world atlas
     HALF = WORLD_SIZE / 2.0
@@ -3823,6 +3875,16 @@ def prebake_landuse_map(landuse_zones, water_bodies):
         draw.polygon(poly, fill=zone_id)
         filled += 1
     print(f"  Landuse: {filled} zones rasterized")
+
+    # --- Hand-drawn wildflower meadows (zone 14) ---
+    # The two CPC-established native wildflower plantings: 102nd St and
+    # Dene Slope. Painted before water/shore so those still take precedence.
+    wild_count = 0
+    for nm, pts in WILD_MEADOW_HAND_DRAWN:
+        poly = [world_to_pixel(float(pt[0]), float(pt[1])) for pt in pts]
+        draw.polygon(poly, fill=14)
+        wild_count += 1
+    print(f"  Landuse: {wild_count} wildflower meadows painted (zone 14)")
 
     # --- Rasterize water bodies (zone 12) ---
     water_count = 0

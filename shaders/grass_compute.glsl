@@ -121,21 +121,23 @@ void main() {
 	float zone_raw = texture(landuse_tex, uv).r;
 	int zone_id = int(zone_raw * 15.0 + 0.5);
 
-	// Zone filtering: only place grass on grass-bearing zones
-	// Biome 0 (lawn): zones 0,1,2,3,4,9
-	// Biome 1 (shade): zones 5,6,10,11
-	// Biome 2 (wild): zone 8
-	// Biome 3 (sedge): zone 7
-	// Skip non-grass zones (paths, water, buildings, etc.)
+	// Zone filtering: only place grass on grass-bearing zones.
+	// Biome 0 (lawn):  0=unzoned, 1=garden, 2=grass, 3=pitch, 4=playground,
+	//                  6=dog_park, 7=sports, 9=track
+	// Biome 1 (shade): 5=nature_reserve, 10=wood, 11=forest
+	// Biome 2 (wild):  14=wild_meadow (hand-marked D-class lawns)
+	// Biome 3 (sedge): 13=shore (15m dilation of water bodies)
+	// Skip 8=pool, 12=water, and anything else.
 	int biome_id = -1;
-	if (zone_id == 0 || zone_id == 1 || zone_id == 2 || zone_id == 3 || zone_id == 4 || zone_id == 9) {
+	if (zone_id == 0 || zone_id == 1 || zone_id == 2 || zone_id == 3
+		|| zone_id == 4 || zone_id == 6 || zone_id == 7 || zone_id == 9) {
 		biome_id = 0; // lawn
-	} else if (zone_id == 5 || zone_id == 6 || zone_id == 10 || zone_id == 11) {
+	} else if (zone_id == 5 || zone_id == 10 || zone_id == 11) {
 		biome_id = 1; // shade
-	} else if (zone_id == 8) {
-		biome_id = 2; // wild
-	} else if (zone_id == 7) {
-		biome_id = 3; // sedge
+	} else if (zone_id == 14) {
+		biome_id = 2; // wild meadow
+	} else if (zone_id == 13) {
+		biome_id = 3; // sedge / waterside
 	}
 	int target_biome_early = int(pc.wind_config.x);
 	if (target_biome_early != -2 && biome_id < 0) return; // Not a grass zone

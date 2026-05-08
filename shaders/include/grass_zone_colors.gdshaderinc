@@ -35,33 +35,34 @@ void grass_zone_palette(int zone_id, out vec3 c_lo, out vec3 c_hi) {
 		// SportsTurf: Kentucky Bluegrass — heavy foot traffic
 		c_lo = vec3(0.059, 0.171, 0.038);
 		c_hi = vec3(0.082, 0.237, 0.052);
-	} else if (zone_id == 5 || zone_id == 6) {
-		// NorthWoods/Ramble: Fine Fescue (Festuca rubra) — shade-tolerant.
+	} else if (zone_id == 5) {
+		// nature_reserve (Hallett etc.): Fine Fescue — shade-tolerant.
 		// Pushed darker + cooler so woodland reads distinctly vs lawn.
 		c_lo = vec3(0.045, 0.110, 0.055);
 		c_hi = vec3(0.062, 0.155, 0.078);
-	} else if (zone_id == 7) {
-		// Waterside: Tussock Sedge (Carex stricta).
-		// Pushed cooler/bluer so wetland reads as cool-saturated teal-green.
-		c_lo = vec3(0.050, 0.155, 0.075);
-		c_hi = vec3(0.072, 0.215, 0.108);
-	} else if (zone_id == 8) {
-		// WildMeadow: Switchgrass (Panicum virgatum).
-		// Pushed warmer + more amber for prairie meadow look — distinctly
-		// yellower than maintained lawn or cool wetland.
-		c_lo = vec3(0.130, 0.185, 0.025);
-		c_hi = vec3(0.180, 0.245, 0.035);
 	} else if (zone_id == 9) {
 		// OpenLawn: Kentucky Bluegrass — standard maintained
 		c_lo = vec3(0.056, 0.171, 0.037);
 		c_hi = vec3(0.078, 0.236, 0.051);
 	} else if (zone_id == 10 || zone_id == 11) {
-		// Woodland understory: Fine Fescue — leaf litter influence.
-		// Same cool-dark palette as zones 5/6.
+		// wood / forest: Fine Fescue — leaf-litter influence.
+		// Same cool-dark palette as zone 5.
 		c_lo = vec3(0.052, 0.115, 0.058);
 		c_hi = vec3(0.072, 0.165, 0.082);
+	} else if (zone_id == 13) {
+		// shore (15m water dilation): Tussock Sedge (Carex stricta).
+		// Cool/bluer so wetland reads as cool-saturated teal-green.
+		c_lo = vec3(0.050, 0.155, 0.075);
+		c_hi = vec3(0.072, 0.215, 0.108);
+	} else if (zone_id == 14) {
+		// wild_meadow (hand-marked D-class lawns): Switchgrass (Panicum
+		// virgatum). Warmer + amber for prairie meadow look — distinctly
+		// yellower than maintained lawn or cool wetland.
+		c_lo = vec3(0.130, 0.185, 0.025);
+		c_hi = vec3(0.180, 0.245, 0.035);
 	} else {
-		// Default: Kentucky Bluegrass
+		// Default (covers zone 6=dog_park, 7=sports, and any unhandled):
+		// Kentucky Bluegrass.
 		c_lo = vec3(0.056, 0.171, 0.037);
 		c_hi = vec3(0.078, 0.236, 0.051);
 	}
