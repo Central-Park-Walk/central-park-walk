@@ -12,6 +12,26 @@ global uniform float snow_cover;
 global uniform float rain_wetness;
 global uniform vec3 sky_reflect_color;
 
+// Per-species canopy opacity calibrated to LAI / light-transmission data
+// (USDA Silvics, Nowak 1996, ISA). Mirrors the array in tree_leaf.gdshader.
+// See reference_tree_canopy_data.md for the underlying numbers.
+const float CANOPY_OPACITY[14] = float[14](
+	0.85,  // 0  oak           — 15–25% trans
+	1.00,  // 1  maple         —  3–8%  trans
+	0.95,  // 2  elm           —  5–15% trans
+	0.60,  // 3  birch         — 15–30% trans (airy)
+	0.85,  // 4  deciduous
+	0.85,  // 5  conifer       — 10–20% trans
+	0.45,  // 6  honeylocust   — 30–50% trans (very lacy)
+	0.92,  // 7  callery_pear  —  8–15% trans
+	0.65,  // 8  ginkgo        — 20–35% trans
+	0.92,  // 9  london_plane  —  8–15% trans
+	1.00,  // 10 linden        —  1–5%  trans (opaque)
+	0.65,  // 11 cherry        — 20–35% trans
+	0.70,  // 12 willow        — 15–25% trans (curtain)
+	0.85   // 13 magnolia      — 10–20% trans
+);
+
 uniform sampler2D canopy_tex : source_color, filter_linear_mipmap;
 
 varying vec3 v_canopy_color;
@@ -54,8 +74,12 @@ void vertex() {
 	col += warm_off * vec3(0.025, -0.008, -0.03);
 
 	v_canopy_color = col;
-	// Winter: canopy shell becomes transparent (bare branches)
+	// Winter: canopy shell becomes transparent (bare branches).
+	// Then thin further by per-species canopy opacity so lacy species
+	// read see-through (Honeylocust, Birch, Cherry, Ginkgo) and dense
+	// species stay opaque (Linden, Maple, Elm).
 	v_canopy_alpha = mix(1.0, 0.0, winter_bare * (1.0 - evergreen));
+	v_canopy_alpha *= CANOPY_OPACITY[sp];
 
 	// ---- Organic silhouette noise ----
 	// Subtle displacement to break up the perfect hemisphere.
