@@ -2671,14 +2671,8 @@ def main(args=None) -> None:
                     surface_arr = atlas_raw.reshape(ah, aw, 2)[:, :, 0].copy()
                 print(f"    Loaded surface_arr ({aw}×{ah}) from world_atlas.bin")
 
-            # Landuse map
-            if _should_run("prebake") and not cache.is_current(
-                    "landuse", prebake_inputs, ["landuse_map.png"]):
-                futures[pool.submit(
-                    prebake_landuse_map, landuse_out, water_out
-                )] = "landuse"
-            elif _should_run("prebake"):
-                print("  Landuse map: cached (skipping)")
+            # Landuse map runs sequentially after this batch — it needs the
+            # world_atlas surface array (for path exclusion in shore zone).
 
             # Boundary mask
             if _should_run("prebake") and not cache.is_current(
@@ -2708,9 +2702,6 @@ def main(args=None) -> None:
                         surface_arr = result
                         cache.record("world_atlas", prebake_inputs,
                                      ["world_atlas.bin"])
-                    elif name == "landuse":
-                        cache.record("landuse", prebake_inputs,
-                                     ["landuse_map.png"])
                     elif name == "boundary_mask":
                         cache.record("boundary_mask", prebake_inputs,
                                      ["boundary_mask.png"])
@@ -2721,6 +2712,16 @@ def main(args=None) -> None:
                 except Exception as e:
                     print(f"  ERROR in {name}: {e}", file=sys.stderr)
                     raise
+
+    # Sequential post-batch-1: landuse map. Needs world_atlas surface array
+    # (for shore-zone path exclusion), so it can't run in the parallel pool.
+    with StageTimer("Prebake landuse map"):
+        if _should_run("prebake") and not cache.is_current(
+                "landuse", prebake_inputs, ["landuse_map.png"]):
+            prebake_landuse_map(landuse_out, water_out, surface_arr)
+            cache.record("landuse", prebake_inputs, ["landuse_map.png"])
+        elif _should_run("prebake"):
+            print("  Landuse map: cached (skipping)")
 
     # Batch 2: grass instances (needs world_atlas.bin + landuse_map.png)
     with StageTimer("Prebake grass instances"):
@@ -3778,7 +3779,7 @@ def prebake_grass_instances(landuse_zones):
     print(f"    {gc_bd}")
 
 
-def prebake_landuse_map(landuse_zones, water_bodies):
+def prebake_landuse_map(landuse_zones, water_bodies, surface_arr=None):
     """Pre-bake landuse zone map at 8192×8192 resolution → landuse_map.png.
 
     Replaces runtime GDScript scanline rasterization (1024×1024) with a
@@ -3786,6 +3787,16 @@ def prebake_landuse_map(landuse_zones, water_bodies):
       0=unzoned, 1=garden, 2=grass, 3=pitch, 4=playground, 5=nature_reserve,
       6=dog_park, 7=sports, 8=pool, 9=track, 10=wood, 11=forest,
       12=water, 13=shore, 14=wild_meadow
+
+    Shore (zone 13) handling:
+      - If surface_arr is provided (8192×8192 uint8 from world_atlas),
+        applies per-water-body shore widths AND excludes cells within
+        ~2m of paved/unpaved paths. This matches the reality that the
+        Reservoir and walled designed ponds (Conservatory Water, Turtle
+        Pond) have no shore vegetation, while naturalistic bodies have
+        widths of 2–6m.
+      - If surface_arr is None, falls back to a uniform 3–12m ring with
+        no path exclusion (legacy parallel-pool path).
     """
     import numpy as np
     from PIL import Image, ImageDraw
@@ -3897,25 +3908,108 @@ def prebake_landuse_map(landuse_zones, water_bodies):
         water_count += 1
     print(f"  Landuse: {water_count} water bodies rasterized")
 
-    # --- Dilate water → shore zone (13) using numpy ---
-    # At 8192 over 5000m, 1 pixel ≈ 0.61m. 24-pixel radius ≈ 15m shore.
+    # --- Shore zone (13): per-water-body widths + path exclusion ---
+    # At 8192 over 5000m, 1 pixel ≈ 0.61m.
+    # Real CP shorelines are not uniform. The Reservoir is fenced + path-edged
+    # (no shore vegetation). Conservatory Water and Turtle Pond are stone-
+    # walled (no shore). The Lake / Pool / Loch / Harlem Meer have natural
+    # banks with varied widths. And anywhere a path runs right at the water,
+    # there's no shore vegetation regardless of body type (Bethesda Terrace).
+    #
+    # Inner buffer: a 3m exclusion from the actual water edge prevents
+    # Tussock Sedge blades (0.5–1m tall) from having their tips visible over
+    # the water surface from low camera angles.
     if water_count > 0:
         arr = np.array(img, dtype=np.uint8)
         water_mask = (arr == 12)
-        # Create circular structuring element
-        SHORE_R = 24  # pixels ≈ 15m at 8192
-        y_idx, x_idx = np.ogrid[-SHORE_R:SHORE_R+1, -SHORE_R:SHORE_R+1]
-        disk = (x_idx**2 + y_idx**2) <= SHORE_R**2
-        # Dilate water mask
         from scipy.ndimage import binary_dilation
-        dilated = binary_dilation(water_mask, structure=disk)
-        # Shore = dilated AND NOT water AND NOT already a non-zero zone
-        shore_mask = dilated & ~water_mask & (arr == 0)
-        # Also allow shore to overwrite grass (zone 1,2) near water
-        shore_mask |= dilated & ~water_mask & ((arr == 1) | (arr == 2))
-        shore_count = int(shore_mask.sum())
+
+        PIX_PER_M = RES / WORLD_SIZE  # 8192/5000 ≈ 1.638 px/m
+
+        # Per-body shore widths (meters). 0 = no naturalistic shore vegetation
+        # (hard edge — fence, stone wall, or path right at the water).
+        SHORE_WIDTH_M = {
+            "The Reservoir": 0,
+            "Jacqueline Kennedy Onassis Reservoir": 0,
+            "Conservatory Water": 0,
+            "Turtle Pond": 0,
+            "59th Street Pond": 3,
+            "The Pond": 3,
+            "Harlem Meer": 4,
+            "The Lake": 6,
+            "The Pool": 2,
+            "The Loch": 2,
+        }
+        DEFAULT_WIDTH_M = 3
+        INNER_BUFFER_M = 3
+        PATH_EXCL_M = 2
+
+        # Inner buffer disk (shared across all bodies).
+        inner_radius = max(1, int(round(INNER_BUFFER_M * PIX_PER_M)))
+        y_i, x_i = np.ogrid[-inner_radius:inner_radius+1, -inner_radius:inner_radius+1]
+        disk_inner = (x_i**2 + y_i**2) <= inner_radius**2
+
+        # Build path-exclusion mask if world_atlas surface is available.
+        path_excl_mask = None
+        if surface_arr is not None:
+            path_cells = (surface_arr == 2) | (surface_arr == 3)
+            path_radius = max(1, int(round(PATH_EXCL_M * PIX_PER_M)))
+            y_p, x_p = np.ogrid[-path_radius:path_radius+1, -path_radius:path_radius+1]
+            disk_path = (x_p**2 + y_p**2) <= path_radius**2
+            path_excl_mask = binary_dilation(path_cells, structure=disk_path)
+
+        # Group bodies by shore width so each width does ONE dilation rather
+        # than one per body — there are hundreds of stream segments and small
+        # ponds, but only a handful of unique widths.
+        from collections import defaultdict
+        bodies_by_width = defaultdict(list)
+        zero_width_bodies = 0
+        for body in water_bodies:
+            nm = body.get("name", "").strip()
+            width_m = SHORE_WIDTH_M.get(nm, DEFAULT_WIDTH_M)
+            if width_m <= 0:
+                zero_width_bodies += 1
+                continue
+            pts = body.get("points", [])
+            if len(pts) < 3:
+                continue
+            bodies_by_width[width_m].append(pts)
+
+        shore_mask = np.zeros_like(arr, dtype=bool)
+        for width_m, polys in bodies_by_width.items():
+            # Rasterize all bodies of this width into one mask.
+            group_img = Image.new('L', (RES, RES), 0)
+            group_draw = ImageDraw.Draw(group_img)
+            for pts in polys:
+                group_draw.polygon(
+                    [world_to_pixel(float(pt[0]), float(pt[1])) for pt in pts],
+                    fill=1)
+            group_water = np.array(group_img, dtype=bool)
+            if not group_water.any():
+                continue
+            outer_radius = max(1, int(round(width_m * PIX_PER_M)))
+            y_o, x_o = np.ogrid[-outer_radius:outer_radius+1, -outer_radius:outer_radius+1]
+            disk_outer = (x_o**2 + y_o**2) <= outer_radius**2
+            dilated_outer = binary_dilation(group_water, structure=disk_outer)
+            dilated_inner = binary_dilation(group_water, structure=disk_inner)
+            shore_mask |= dilated_outer & ~dilated_inner & ~group_water
+
+        # Restrict to original zones 0/1/2 (don't overwrite explicit zones).
+        shore_mask &= (arr == 0) | (arr == 1) | (arr == 2)
+        # Make sure no shore lands on the global water mask.
+        shore_mask &= ~water_mask
+        # Exclude path proximity if surface was available.
+        if path_excl_mask is not None:
+            shore_mask &= ~path_excl_mask
+
         arr[shore_mask] = 13
-        print(f"  Landuse: {shore_count} shore pixels ({SHORE_R}px ≈ 15m radius)")
+        shore_count = int(shore_mask.sum())
+        msg = f"  Landuse: {shore_count} shore pixels"
+        if path_excl_mask is None:
+            msg += " (per-body widths, no path exclusion — surface_arr unavailable)"
+        else:
+            msg += f" (per-body widths, {PATH_EXCL_M}m path exclusion, {zero_width_bodies} hardscape bodies skipped)"
+        print(msg)
         img = Image.fromarray(arr, mode='L')
 
     img.save("landuse_map.png")

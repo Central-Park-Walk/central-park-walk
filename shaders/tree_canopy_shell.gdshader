@@ -133,8 +133,11 @@ void fragment() {
 	SPECULAR = 0.06;
 	METALLIC = 0.0;
 
-	// Backlight — canopy shell glows when backlit
-	BACKLIGHT = v_canopy_color * 0.15;
+	// Backlight — canopy shell glows when backlit. Boosted from 0.15 to 0.30
+	// so the full canopy mass reads as translucent against bright sky, not
+	// a flat opaque silhouette. Real broadleaf canopies show a visible
+	// green-gold halo at edges from layered transmittance.
+	BACKLIGHT = v_canopy_color * 0.30;
 
 	// Snow
 	if (snow_cover > 0.01) {

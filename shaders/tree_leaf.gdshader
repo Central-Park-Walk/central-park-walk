@@ -331,13 +331,17 @@ void fragment() {
 	}
 
 	// --- Enhanced subsurface scattering / transmission ---
-	// Real leaves are translucent — light physically passes through the tissue.
-	// BACKLIGHT must stay well below ALBEDO or it washes the canopy white.
-	// Target: ~30-40% of front-face brightness for a visible green-gold glow.
-	vec3 backlight_col = vec3(0.46, 0.36, 0.10);  // warm green-gold (modest boost from original)
-	// Tint with leaf color so autumn leaves glow amber/red
-	backlight_col = mix(backlight_col, v_leaf_color * 0.6, 0.45);
-	float sss_strength = v_leaf_density;
+	// Real leaves are translucent — fresh broadleaf foliage transmits 5–15%
+	// of green light when front-lit, but when back-lit by direct sun the
+	// transmitted light dominates the pixel value, reading as a vivid
+	// green-gold glow. Without this, canopies become flat opaque silhouettes
+	// against a bright sky — which is what was happening before this boost.
+	// BACKLIGHT must still stay below ALBEDO at noon to avoid washing the
+	// canopy white; the cap below clamps it.
+	vec3 backlight_col = vec3(0.62, 0.50, 0.14);  // warmer + brighter than the prior conservative pass
+	// Tint with leaf color so autumn leaves glow amber/red, blossoms pink, etc.
+	backlight_col = mix(backlight_col, v_leaf_color * 0.75, 0.5);
+	float sss_strength = v_leaf_density * 1.6;  // ~60% boost — visible at all distances
 	// Spring leaves are thinner, more translucent
 	float spring_boost = (1.0 - smoothstep(0.3, 0.8, season_t)) * 0.3;
 	sss_strength += spring_boost;
