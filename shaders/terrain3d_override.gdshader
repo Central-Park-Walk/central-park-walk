@@ -353,20 +353,36 @@ void fragment() {
 	                   || zone_id == 7 || zone_id == 9
 	                   || zone_id == 13 || zone_id == 14);
 
-	// Per-biome terrain tint — the GPU grass blades only render within 80m,
-	// so the dominant visual signal at any distance is the terrain texture.
-	// Tinting it per biome makes lawn/shade/wild/sedge zones read distinctly.
-	// Moderate strength: keep terrain looking natural while making boundaries
-	// visible. Mirrors the per-biome tints applied to grass blades.
-	vec3 biome_terrain_tint = vec3(1.0);
-	if (zone_id == 5 || zone_id == 10 || zone_id == 11) {
-		biome_terrain_tint = vec3(0.78, 0.92, 1.10);  // Shade: cool blue-green
-	} else if (zone_id == 13) {
-		biome_terrain_tint = vec3(0.82, 1.02, 1.18);  // Sedge: cool teal (shore)
-	} else if (zone_id == 14) {
-		biome_terrain_tint = vec3(1.20, 1.05, 0.72);  // Wild: warm amber (hand-marked meadow)
+	// Water bed (zone 12) — terrain BELOW water level should read as a dark
+	// silty/aquatic bottom, not as grass. The water surface mesh draws above
+	// terrain, but terrain peeks through wherever the water mesh is offset
+	// or transparent (ripples, edges, refraction). With the default grass
+	// albedo, that peek-through reads as "grass growing in/under the lake."
+	// Override to a dark olive-brown sediment color and skip the rest of
+	// the grass/biome processing.
+	if (zone_id == 12) {
+		vec3 water_bed = vec3(0.038, 0.052, 0.045);  // dark silty olive-brown
+		// Slight macro variation so it's not flat grey
+		float bed_v = vnoise(v_vertex.xz * 0.15);
+		water_bed *= mix(0.85, 1.15, bed_v);
+		ALBEDO = water_bed;
+		ROUGHNESS = 1.0;
+	} else {
+		// Per-biome terrain tint — the GPU grass blades only render within 80m,
+		// so the dominant visual signal at any distance is the terrain texture.
+		// Tinting it per biome makes lawn/shade/wild/sedge zones read distinctly.
+		// Moderate strength: keep terrain looking natural while making boundaries
+		// visible. Mirrors the per-biome tints applied to grass blades.
+		vec3 biome_terrain_tint = vec3(1.0);
+		if (zone_id == 5 || zone_id == 10 || zone_id == 11) {
+			biome_terrain_tint = vec3(0.78, 0.92, 1.10);  // Shade: cool blue-green
+		} else if (zone_id == 13) {
+			biome_terrain_tint = vec3(0.82, 1.02, 1.18);  // Sedge: cool teal (shore)
+		} else if (zone_id == 14) {
+			biome_terrain_tint = vec3(1.20, 1.05, 0.72);  // Wild: warm amber (hand-marked meadow)
+		}
+		ALBEDO *= biome_terrain_tint;
 	}
-	ALBEDO *= biome_terrain_tint;
 
 	// ---- Canopy leaf litter (under dense tree cover) ----
 	{
