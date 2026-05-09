@@ -2718,7 +2718,8 @@ def main(args=None) -> None:
     with StageTimer("Prebake landuse map"):
         if _should_run("prebake") and not cache.is_current(
                 "landuse", prebake_inputs, ["landuse_map.png"]):
-            prebake_landuse_map(landuse_out, water_out, surface_arr)
+            prebake_landuse_map(landuse_out, water_out, surface_arr,
+                                streams=streams_out)
             cache.record("landuse", prebake_inputs, ["landuse_map.png"])
         elif _should_run("prebake"):
             print("  Landuse map: cached (skipping)")
@@ -3779,7 +3780,7 @@ def prebake_grass_instances(landuse_zones):
     print(f"    {gc_bd}")
 
 
-def prebake_landuse_map(landuse_zones, water_bodies, surface_arr=None):
+def prebake_landuse_map(landuse_zones, water_bodies, surface_arr=None, streams=None):
     """Pre-bake landuse zone map at 8192×8192 resolution → landuse_map.png.
 
     Replaces runtime GDScript scanline rasterization (1024×1024) with a
@@ -3907,6 +3908,43 @@ def prebake_landuse_map(landuse_zones, water_bodies, surface_arr=None):
         draw.polygon(poly, fill=12)
         water_count += 1
     print(f"  Landuse: {water_count} water bodies rasterized")
+
+    # --- Rasterize streams as zone 12 with width buffer ---
+    # Streams (waterway=stream/river) are linear features in OSM — The Loch and
+    # The Gill in CP. Without rasterization here, grass would render in the
+    # stream beds because the surrounding zone defaults to 0 (lawn-eligible).
+    # Use 2m half-width (4m total) — slightly wider than the actual streams to
+    # ensure the bed is fully covered.
+    stream_count = 0
+    if streams:
+        from scipy.ndimage import binary_dilation
+        PIX_PER_M = ATLAS_RES / WORLD_SIZE
+        STREAM_HALF_WIDTH_M = 2.0
+        sw_radius = max(1, int(round(STREAM_HALF_WIDTH_M * PIX_PER_M)))
+        stream_img = Image.new('L', (ATLAS_RES, ATLAS_RES), 0)
+        stream_draw = ImageDraw.Draw(stream_img)
+        for s in streams:
+            pts_3d = s.get("points", [])
+            if len(pts_3d) < 2:
+                continue
+            # Streams stored as [x, y, z]; landuse uses (x, z).
+            line_xy = [world_to_pixel(float(p[0]), float(p[2])) for p in pts_3d]
+            stream_draw.line(line_xy, fill=1, width=1)
+            stream_count += 1
+        stream_mask_thin = np.array(stream_img, dtype=bool)
+        if stream_mask_thin.any():
+            y_s, x_s = np.ogrid[-sw_radius:sw_radius+1, -sw_radius:sw_radius+1]
+            disk_s = (x_s**2 + y_s**2) <= sw_radius**2
+            stream_mask = binary_dilation(stream_mask_thin, structure=disk_s)
+            arr_temp = np.array(img, dtype=np.uint8)
+            arr_temp[stream_mask] = 12
+            img = Image.fromarray(arr_temp, mode='L')
+            draw = ImageDraw.Draw(img)
+            print(f"  Landuse: {stream_count} streams rasterized as water "
+                  f"({int(stream_mask.sum())} px, "
+                  f"{STREAM_HALF_WIDTH_M*2:.0f}m wide)")
+        else:
+            print(f"  Landuse: {stream_count} streams found but mask empty")
 
     # --- Shore zone (13): per-water-body widths + path exclusion ---
     # At 8192 over 5000m, 1 pixel ≈ 0.61m.
