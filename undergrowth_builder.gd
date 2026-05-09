@@ -146,79 +146,39 @@ const SPECIES := [
 # Densities calibrated from CPC field surveys and NYBG Flora of Central Park.
 # Zone types: 0=SheepMeadow, 1=GreatLawn, 2=NorthMeadow, 3=FormalGarden,
 #   4=SportsTurf, 5=NorthWoods, 6=Ramble, 7=Waterside, 8=WildMeadow, 9=OpenLawn
+#
+# Primitive species (2026-05-08): generic-helper shrubs (1-6), procedural ferns
+# (7-10), procedural herbs (11-23), procedural wetland (25-28) all retired from
+# placement. Only Spicebush (0, bespoke) and unverified grasses/aster/black-eyed-
+# susan (24, 29-34) remain. Data gap over fake — see Task 14 bespoke queue.
 const ZONE_SPECIES := {
 	# Zones 0,1,3,4: no undergrowth (maintained lawn / formal / sports)
-	5: [  # North Woods — rich native understory, dense enough you can't see 20m in summer
+	5: [  # North Woods — only Spicebush until bespoke understory lands
 		[0, 4.0],   # spicebush (dominant shrub — forms thickets)
-		[1, 1.2],   # witch hazel
-		[2, 1.8],   # viburnum
-		[7, 2.0],   # ostrich fern (stream-adjacent)
-		[8, 5.0],   # christmas fern (evergreen, rocky slopes — carpets)
-		[9, 1.5],   # cinnamon fern
-		[10, 1.2],  # sensitive fern
-		[16, 6.0],  # white wood aster (woodland carpet — blanketing)
-		[17, 3.0],  # jewelweed (stream banks)
-		[19, 2.5],  # white snakeroot
-		[24, 1.5],  # bottlebrush grass
 		[33, 3.0],  # PA sedge (shade ground cover)
 	],
-	6: [  # Ramble — dense wild understory, heaviest species diversity
+	6: [  # Ramble — only Spicebush until bespoke understory lands
 		[0, 5.0],   # spicebush (very common — thicket-forming)
-		[1, 1.5],   # witch hazel
-		[2, 2.5],   # viburnum
-		[4, 1.0],   # elderberry
-		[7, 3.0],   # ostrich fern
-		[8, 6.0],   # christmas fern
-		[9, 2.0],   # cinnamon fern
-		[10, 1.5],  # sensitive fern
-		[11, 1.5],  # pokeweed
-		[16, 8.0],  # white wood aster (carpets)
-		[17, 3.5],  # jewelweed
-		[18, 1.5],  # mugwort (invasive but present)
-		[19, 3.0],  # white snakeroot
-		[22, 0.8],  # burdock
-		[24, 2.0],  # bottlebrush grass
 		[33, 4.0],  # PA sedge (shade ground cover)
 	],
-	7: [  # Waterside — wetland specialists
-		[25, 3.0],  # cattail (signature)
-		[28, 2.0],  # phragmites (invasive reed)
-		[26, 1.5],  # yellow iris
-		[15, 1.0],  # cardinal flower
-		[13, 0.8],  # joe-pye weed
-		[27, 1.0],  # lizard's tail
-		[21, 0.5],  # rose mallow
-		[20, 0.6],  # ironweed
-		[5, 0.4],   # sweet pepperbush
+	7: [  # Waterside — bespoke wetland queued; bare until then
 		[32, 1.5],  # tussock sedge (wetland clumps)
 	],
 	8: [  # Wild Meadow — tall wildflowers + native grasses
-		[23, 2.5],  # goldenrod (dominant fall display)
 		[29, 2.0],  # aster
-		[13, 1.0],  # joe-pye weed
-		[14, 0.8],  # coneflower
-		[20, 0.6],  # ironweed
 		[34, 1.5],  # black-eyed susan (meadow signature)
-		[12, 0.8],  # Japanese knotweed (invasive edge)
-		[18, 0.6],  # mugwort
 		[30, 2.0],  # little bluestem (signature native grass)
 		[31, 1.5],  # switchgrass
 		[24, 1.0],  # bottlebrush grass
 	],
-	9: [  # Open Lawn — very sparse, only at edges
-		[18, 0.2],  # mugwort (occasional invasive)
-	],
+	9: [],  # Open Lawn
 }
 
 # Woodland chunks (no pre-baked data) get understory — but ONLY in actual
 # woodland foliage zones, not on maintained lawns that happen to lack data.
+# Primitives retired 2026-05-08 (ferns 7,8 / aster 16 / jewelweed 17 / snakeroot 19).
 const WOODLAND_SPECIES: Array = [
 	[0, 3.5],   # spicebush (thicket-forming dominant)
-	[8, 5.0],   # christmas fern (evergreen carpets)
-	[7, 1.5],   # ostrich fern
-	[16, 6.0],  # white wood aster (blankets)
-	[17, 2.5],  # jewelweed
-	[19, 2.0],  # white snakeroot
 	[24, 1.5],  # bottlebrush grass
 ]
 # Z ranges where woodland fallback is allowed (from park_data.json foliage_zones)
