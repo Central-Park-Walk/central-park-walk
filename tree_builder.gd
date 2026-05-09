@@ -560,6 +560,10 @@ func _build_trees(trees: Array) -> void:
 		# same branches, same leaf positions, just fewer triangles.
 		# Falls back to LOD0 mesh if decimated variant not available.
 		for lod_idx in [1, 2]:
+			# Dead snags cull at LOD1 fade-out (~200m). They have no impostor
+			# (line ~967) and are sub-pixel slivers past 200m.
+			if species == "dead" and lod_idx == 2:
+				continue
 			var lod_sp := species_tier + "_lod%d" % lod_idx
 			if not _species_meshes.has(lod_sp):
 				# Fallback: reuse the tree's own LOD0 mesh
