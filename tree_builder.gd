@@ -938,9 +938,9 @@ func _build_canopy_shells() -> void:
 			_load_impostor_mat.call("%s_%s" % [model_name, tier])
 		_load_impostor_mat.call(model_name)  # generic fallback
 
-	# Impostors fade in 90-150m, complementing LOD0's fade-out band.
+	# Impostors fade in 230-250m, complementing LOD1's fade-out band.
 	for mat_key in impostor_mats:
-		impostor_mats[mat_key].set_shader_parameter("lod_fade_in", Vector2(90.0, 150.0))
+		impostor_mats[mat_key].set_shader_parameter("lod_fade_in", Vector2(230.0, 250.0))
 
 	if impostor_mats.is_empty():
 		print("Trees Impostor: no impostor atlases found — skipping")
@@ -1025,9 +1025,11 @@ func _build_canopy_shells() -> void:
 		mmi.material_override = impostor_mats[model_name]
 		mmi.position = origin
 		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
-		# Impostors take over where LOD0 mesh fades out (~90m); shader-side
-		# dither (lod_fade_in) handles the 90-150m crossfade band.
-		mmi.visibility_range_begin = 90.0
+		# Impostors take over where LOD1 mesh fades out (~230m). Chunk
+		# visibility begins at 190m (= 230 - half CHUNK) so chunks whose
+		# origin is just inside fade-in band still render. Shader-side
+		# dither (lod_fade_in) handles the 230-250m crossfade.
+		mmi.visibility_range_begin = 190.0
 		mmi.visibility_range_end = 2500.0
 		mmi.visibility_range_begin_margin = 0.0
 		mmi.visibility_range_end_margin = 0.0
@@ -1036,5 +1038,5 @@ func _build_canopy_shells() -> void:
 		_loader.add_child(mmi)
 		impostor_count += xf_list.size()
 
-	print("Trees LOD1: %d billboard impostors (90-2500m) in %d chunks (%d species)" % [
+	print("Trees Impostor: %d billboard impostors (190-2500m) in %d chunks (%d species)" % [
 		impostor_count, chunks.size(), impostor_mats.size()])
