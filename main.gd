@@ -1347,8 +1347,8 @@ const GRASS_BIOMES := [
 		# Lawn: densest base coverage (maintained Kentucky bluegrass turf).
 		"spacing": 0.10, "cell_width": 11.0, "grid_width": 11,
 		"random_spacing": 0.5,
-		"min_scale": Vector3(0.5, 0.4, 0.5),
-		"max_scale": Vector3(1.8, 1.8, 1.8),
+		"min_scale": Vector3(0.6, 0.6, 0.6),
+		"max_scale": Vector3(1.4, 1.4, 1.4),
 		"position_offset": Vector3(0, -0.003, 0),
 	},
 	{  # Blade_Shade: 3 segments, 12cm tall, 10mm wide, 6 tris
@@ -1357,8 +1357,8 @@ const GRASS_BIOMES := [
 		# Shade: sparser woodland floor (less light, fewer blades).
 		"spacing": 0.16, "cell_width": 11.0, "grid_width": 11,
 		"random_spacing": 0.5,
-		"min_scale": Vector3(0.5, 0.4, 0.5),
-		"max_scale": Vector3(1.8, 1.8, 1.8),
+		"min_scale": Vector3(0.6, 0.6, 0.6),
+		"max_scale": Vector3(1.4, 1.4, 1.4),
 		"position_offset": Vector3(0, -0.003, 0),
 	},
 	{  # Blade_Wild: 4 segments, 25cm tall, 15mm wide, 8 tris
@@ -1367,8 +1367,8 @@ const GRASS_BIOMES := [
 		# Wild meadow: clumpy native grasses, gaps between bunches.
 		"spacing": 0.19, "cell_width": 11.0, "grid_width": 11,
 		"random_spacing": 0.5,
-		"min_scale": Vector3(0.4, 0.4, 0.4),
-		"max_scale": Vector3(1.6, 1.6, 1.6),
+		"min_scale": Vector3(0.6, 0.6, 0.6),
+		"max_scale": Vector3(1.4, 1.4, 1.4),
 		"position_offset": Vector3(0, -0.005, 0),
 	},
 	{  # Blade_Sedge: 3 segments, 16cm tall, 9mm wide, 6 tris
@@ -1377,8 +1377,8 @@ const GRASS_BIOMES := [
 		# Sedge: waterside, moderate density.
 		"spacing": 0.16, "cell_width": 11.0, "grid_width": 11,
 		"random_spacing": 0.5,
-		"min_scale": Vector3(0.5, 0.4, 0.5),
-		"max_scale": Vector3(1.7, 1.7, 1.7),
+		"min_scale": Vector3(0.6, 0.6, 0.6),
+		"max_scale": Vector3(1.4, 1.4, 1.4),
 		"position_offset": Vector3(0, -0.003, 0),
 	},
 ]
@@ -1392,8 +1392,8 @@ const GRASS_TIER0 := [
 		"mesh_path": "res://models/vegetation/Blade_Lawn_Thin.glb",
 		"spacing": 0.0625, "cell_width": 4.0, "grid_width": 3,
 		"random_spacing": 0.6,
-		"min_scale": Vector3(0.5, 0.4, 0.5),
-		"max_scale": Vector3(1.6, 1.6, 1.6),
+		"min_scale": Vector3(0.6, 0.6, 0.6),
+		"max_scale": Vector3(1.4, 1.4, 1.4),
 		"position_offset": Vector3(0, -0.002, 0),
 	},
 	{  # Ryegrass broad blade — wider, shorter than Tier 1
@@ -1401,8 +1401,8 @@ const GRASS_TIER0 := [
 		"mesh_path": "res://models/vegetation/Blade_Lawn_Wide.glb",
 		"spacing": 0.0625, "cell_width": 4.0, "grid_width": 3,
 		"random_spacing": 0.6,
-		"min_scale": Vector3(0.6, 0.5, 0.6),
-		"max_scale": Vector3(1.5, 1.5, 1.5),
+		"min_scale": Vector3(0.6, 0.6, 0.6),
+		"max_scale": Vector3(1.4, 1.4, 1.4),
 		"position_offset": Vector3(0, -0.002, 0),
 	},
 	{  # Fine fescue — very thin, delicate shade grass
@@ -1410,8 +1410,8 @@ const GRASS_TIER0 := [
 		"mesh_path": "res://models/vegetation/Blade_Shade_Thin.glb",
 		"spacing": 0.0625, "cell_width": 4.0, "grid_width": 3,
 		"random_spacing": 0.6,
-		"min_scale": Vector3(0.5, 0.4, 0.5),
-		"max_scale": Vector3(1.8, 1.8, 1.8),
+		"min_scale": Vector3(0.6, 0.6, 0.6),
+		"max_scale": Vector3(1.4, 1.4, 1.4),
 		"position_offset": Vector3(0, -0.002, 0),
 	},
 	{  # Broad woodland floor leaf
@@ -1419,8 +1419,8 @@ const GRASS_TIER0 := [
 		"mesh_path": "res://models/vegetation/Blade_Shade_Wide.glb",
 		"spacing": 0.0625, "cell_width": 4.0, "grid_width": 3,
 		"random_spacing": 0.6,
-		"min_scale": Vector3(0.5, 0.4, 0.5),
-		"max_scale": Vector3(1.6, 1.6, 1.6),
+		"min_scale": Vector3(0.6, 0.6, 0.6),
+		"max_scale": Vector3(1.4, 1.4, 1.4),
 		"position_offset": Vector3(0, -0.002, 0),
 	},
 	{  # Switchgrass — narrow, tall
@@ -1428,8 +1428,8 @@ const GRASS_TIER0 := [
 		"mesh_path": "res://models/vegetation/Blade_Wild_Thin.glb",
 		"spacing": 0.0625, "cell_width": 4.0, "grid_width": 3,
 		"random_spacing": 0.5,
-		"min_scale": Vector3(0.4, 0.4, 0.4),
-		"max_scale": Vector3(1.6, 1.6, 1.6),
+		"min_scale": Vector3(0.6, 0.6, 0.6),
+		"max_scale": Vector3(1.4, 1.4, 1.4),
 		"position_offset": Vector3(0, -0.004, 0),
 	},
 	{  # Big Bluestem — wide, shorter
@@ -1437,8 +1437,8 @@ const GRASS_TIER0 := [
 		"mesh_path": "res://models/vegetation/Blade_Wild_Wide.glb",
 		"spacing": 0.0625, "cell_width": 4.0, "grid_width": 3,
 		"random_spacing": 0.5,
-		"min_scale": Vector3(0.4, 0.4, 0.4),
-		"max_scale": Vector3(1.5, 1.5, 1.5),
+		"min_scale": Vector3(0.6, 0.6, 0.6),
+		"max_scale": Vector3(1.4, 1.4, 1.4),
 		"position_offset": Vector3(0, -0.004, 0),
 	},
 	{  # Rush needle — very thin, stiff
@@ -1446,8 +1446,8 @@ const GRASS_TIER0 := [
 		"mesh_path": "res://models/vegetation/Blade_Sedge_Thin.glb",
 		"spacing": 0.0625, "cell_width": 4.0, "grid_width": 3,
 		"random_spacing": 0.5,
-		"min_scale": Vector3(0.5, 0.4, 0.5),
-		"max_scale": Vector3(1.7, 1.7, 1.7),
+		"min_scale": Vector3(0.6, 0.6, 0.6),
+		"max_scale": Vector3(1.4, 1.4, 1.4),
 		"position_offset": Vector3(0, -0.003, 0),
 	},
 	{  # Tussock broad leaf
@@ -1455,8 +1455,8 @@ const GRASS_TIER0 := [
 		"mesh_path": "res://models/vegetation/Blade_Sedge_Wide.glb",
 		"spacing": 0.0625, "cell_width": 4.0, "grid_width": 3,
 		"random_spacing": 0.5,
-		"min_scale": Vector3(0.5, 0.4, 0.5),
-		"max_scale": Vector3(1.6, 1.6, 1.6),
+		"min_scale": Vector3(0.6, 0.6, 0.6),
+		"max_scale": Vector3(1.4, 1.4, 1.4),
 		"position_offset": Vector3(0, -0.003, 0),
 	},
 	# Curved variants retired 2026-05-09 — the per-blade random_rotation,
