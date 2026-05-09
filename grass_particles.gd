@@ -27,10 +27,13 @@ extends Node3D
 		_set_offsets()
 
 
-## Width of an individual cell of the grid
-@export_range(8.0, 256.0, 1.0) var cell_width: float = 32.0:
+## Width of an individual cell of the grid. Lower bound relaxed from 8.0 → 4.0
+## (2026-05-09) so Tier 0 close-up layers honor their configured 4m cell — the
+## previous 8.0 floor silently doubled their coverage area and quadrupled
+## particle count per cell.
+@export_range(4.0, 256.0, 1.0) var cell_width: float = 32.0:
 	set(value):
-		cell_width = clamp(value, 8.0, 256.0)
+		cell_width = clamp(value, 4.0, 256.0)
 		rows = maxi(int(cell_width / instance_spacing), 1)
 		amount = rows * rows
 		min_draw_distance = 1.0
