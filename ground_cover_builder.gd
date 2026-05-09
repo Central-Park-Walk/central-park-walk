@@ -20,43 +20,34 @@ const COVER_MODELS := [
 ]
 
 # Zone -> list of [model_index, density_per_100m2, scale_min, scale_max]
+# Primitives retired 2026-05-08: ForestLeaves (2,3) and Moss (4,5) are flat
+# cards too sparse to read as ground cover. Available gscatter BarkMulch and
+# BankHaircapMoss are tiny single-element scans (~3-7cm) that need a much
+# higher-density scatter system to substitute. Branches (6,7) and seedlings
+# (8,9) kept pending fitness verification.
 const ZONE_COVER := {
-	5: [  # North Woods — rich forest floor
-		[2, 3.5, 0.8, 1.3],   # decomposed leaves (dominant)
-		[3, 2.0, 0.7, 1.2],
-		[4, 2.0, 0.8, 1.3],   # moss
-		[5, 1.5, 0.7, 1.2],
+	5: [  # North Woods — branches + seedlings only until bespoke litter/moss
 		[6, 1.0, 0.7, 1.0],   # fallen branches
 		[7, 0.5, 0.6, 1.0],
 		[8, 0.3, 0.6, 1.0],   # seedlings
 		[9, 0.2, 0.5, 0.9],
 	],
-	6: [  # Ramble — denser forest floor
-		[2, 4.5, 0.8, 1.3],   # decomposed leaves
-		[3, 3.0, 0.7, 1.2],
-		[4, 2.5, 0.8, 1.3],   # moss
-		[5, 2.0, 0.7, 1.2],
+	6: [  # Ramble — branches + seedlings only
 		[6, 1.2, 0.7, 1.0],   # branches
 		[7, 0.8, 0.6, 1.0],
 		[8, 0.4, 0.6, 1.0],   # seedlings
 		[9, 0.3, 0.5, 0.9],
 	],
 	7: [  # Waterside — sparse, no moss
-		[2, 1.5, 0.7, 1.2],   # some decomposed leaves
 		[6, 0.5, 0.6, 1.0],   # scattered branches
 	],
 	8: [  # Wild Meadow — dry litter
-		[2, 1.0, 0.7, 1.2],   # scattered litter
 		[6, 0.8, 0.7, 1.0],   # dry branches
 	],
 }
 
 # Woodland fallback (for chunks in WOODLAND_Z_RANGES without zone data)
 const WOODLAND_COVER: Array = [
-	[2, 3.5, 0.8, 1.3],   # decomposed leaves (dominant)
-	[3, 2.0, 0.7, 1.2],
-	[4, 2.0, 0.8, 1.3],   # moss
-	[5, 1.5, 0.7, 1.2],
 	[6, 1.0, 0.7, 1.0],   # fallen branches
 	[7, 0.5, 0.6, 1.0],
 	[8, 0.3, 0.6, 1.0],   # seedlings
