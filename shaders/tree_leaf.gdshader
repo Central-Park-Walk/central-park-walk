@@ -158,6 +158,17 @@ void vertex() {
 	leaf_color *= 1.0 + bright_off;
 	float warm_off = fract(jitter * 7.37) - 0.5;
 	leaf_color += warm_off * vec3(0.025, -0.008, -0.03);
+
+	// Per-leaf jitter — each leaf card hashes its world XZ (quantized to 5 cm)
+	// so all 4 vertices of one card share a seed and neighboring cards differ.
+	// Sits between per-tree (±12%) and per-pixel (±4%) variation in scale.
+	vec3 leaf_world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	float leaf_seed = hash2(floor(leaf_world_pos.xz * 20.0));
+	float leaf_bright = (leaf_seed - 0.5) * 0.12;                // ±6%
+	float leaf_warm   = (fract(leaf_seed * 13.7) - 0.5) * 0.04;
+	leaf_color *= 1.0 + leaf_bright;
+	leaf_color += leaf_warm * vec3(0.04, -0.01, -0.04);
+
 	v_leaf_color = leaf_color;
 
 	// --- Per-species wind biomechanics (shared wind include) ---
@@ -247,6 +258,16 @@ void fragment() {
 	alpha = mix(alpha, 1.0, opaque_blend);
 
 	vec3 col = v_leaf_color * (0.50 + lum * 0.50);  // texture luminance modulation (raised floor for denser canopy read)
+
+	// Within-leaf gradient: base (greener, denser chlorophyll) → tip (warmer, yellower).
+	// Assumes Mtree UV convention with leaf running 0=base to 1=tip along UV.y.
+	// Flipped UVs across leaves average out, so worst-case is half the leaves
+	// carry the gradient inverted — still adds variation. Suppressed on blossoms
+	// where petal patterns are radial, not axial.
+	vec3 grad_tint = mix(vec3(0.96, 1.03, 0.92), vec3(1.05, 0.99, 0.86), UV.y);
+	grad_tint = mix(grad_tint, vec3(1.0), v_blossom);
+	col *= grad_tint;
+
 	int sp = int(v_species_idx + 0.5);
 	// Desaturate slightly — preserve species hue while keeping it natural
 	float leaf_lum = dot(col, vec3(0.299, 0.587, 0.114));
