@@ -29,6 +29,27 @@ uniform vec2 lod_fade_in = vec2(0.0, 0.0);
 #include "res://shaders/include/tree_species.gdshaderinc"
 #include "res://shaders/include/aerial_perspective.gdshaderinc"
 #include "res://shaders/include/lod_dither.gdshaderinc"
+#include "res://shaders/include/hash_noise.gdshaderinc"
+
+// World-space tonal-region overlay (Far Cry / Ghost of Tsushima pattern).
+// Without this, distant impostors mipmap-average to one flat green and
+// aerial perspective blends them all toward the same haze color, reading
+// as a "monochrome wall" at the horizon. Two octaves of value noise drive
+// a small HSV shift per impostor instance (sampled at world XZ), creating
+// tonal patches at 50-150m scales that survive the aerial blend.
+vec3 rgb_to_hsv(vec3 c) {
+	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+	vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+	vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+	float d = q.x - min(q.w, q.y);
+	float e = 1.0e-10;
+	return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+vec3 hsv_to_rgb(vec3 c) {
+	vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+	vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+	return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
 
 // --- Varyings ---
 varying vec2 v_uv_frame1;
@@ -390,8 +411,24 @@ void fragment() {
 		color = mix(color, vec3(0.85, 0.88, 0.92), snow_top * 0.4);
 	}
 
-	// Aerial perspective — match tree_leaf.gdshader's distance fog
 	vec3 imp_world = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+
+	// World-space tonal-region overlay (plan C). Two-octave fBm at world XZ
+	// drives a small HSV shift per impostor; the per-instance variation
+	// survives mipmap averaging at distance because it's modulating the
+	// final color, not the atlas texel. Centered around 0.5 so unperturbed
+	// regions average to identity.
+	vec2 wp = imp_world.xz;
+	float n_big = vnoise(wp * (1.0 / 130.0));        // ~130m wavelength
+	float n_med = vnoise(wp * (1.0 / 55.0) + 17.3);  // ~55m wavelength, offset
+	float n_combined = mix(n_big, n_med, 0.35);      // bias toward big patches
+	vec3 hsv = rgb_to_hsv(color);
+	hsv.x = fract(hsv.x + (n_big - 0.5) * 0.05);     // hue ±9° (region scale)
+	hsv.y = clamp(hsv.y * (1.0 + (n_med - 0.5) * 0.20), 0.0, 1.0);  // sat ±10%
+	hsv.z *= 1.0 + (n_combined - 0.5) * 0.12;        // value ±6%
+	color = hsv_to_rgb(hsv);
+
+	// Aerial perspective — match tree_leaf.gdshader's distance fog
 	float imp_dist = length(imp_world - (INV_VIEW_MATRIX * vec4(vec3(0.0), 1.0)).xyz);
 	float imp_aerial = smoothstep(60.0, 300.0, imp_dist);
 	color = apply_aerial(color, imp_aerial, 0.30, 0.30, sky_reflect_color);
