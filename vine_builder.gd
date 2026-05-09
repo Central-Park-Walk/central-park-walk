@@ -102,26 +102,14 @@ func _init(loader) -> void:
 
 
 func _build_vines(trees: Array) -> void:
-	# Load per-species vine meshes
-	var loaded := 0
-	for sp in VINE_SPECIES:
-		if sp.name == "Vine_Wisteria":
-			continue  # Wisteria placed on structures, not trees
-		var glb_path := ProjectSettings.globalize_path(
-			"res://models/vegetation/%s.glb" % sp.name)
-		if not FileAccess.file_exists(glb_path):
-			continue
-		var meshes: Dictionary = _loader._load_glb_meshes(glb_path)
-		if meshes.is_empty():
-			continue
-		_species_meshes[sp.name] = meshes.values()
-		loaded += 1
-	print("Vine: loaded %d species (%d total mesh variants)" % [
-		loaded, _species_meshes.values().reduce(func(a, b): return a + b.size(), 0)])
-
-	if loaded == 0:
-		print("Vine: no vine models found — skipping")
-		return
+	# Vines disabled 2026-05-08 — all 7 procedural Vine_*.glb are stick-card primitives
+	# below the bespoke quality bar (Spicebush). Available gscatter CommonIvy_Creeping
+	# is leaf-patch tiles (~20cm × 4cm × 12cm) sized for surface scatter, not full
+	# tree-climbing vine geometry. No drop-in replacement exists. Re-enable when
+	# either (a) bespoke long-vine generators land or (b) full-vine photogrammetry
+	# is sourced. Until then, woodland trees show no vines — data gap over fake.
+	print("Vine: disabled (primitive cards retired, no bespoke replacement yet)")
+	return
 
 	_vine_shader = _loader._get_shader("vine", "res://shaders/vine.gdshader")
 
