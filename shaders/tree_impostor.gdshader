@@ -1,5 +1,11 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_disabled, diffuse_burley, specular_schlick_ggx;
+// Premultiplied alpha — atlas RGB is stored as color*alpha (see
+// scripts/premultiply_impostors.py). Eliminates the silhouette-halo
+// artifact that straight-alpha mipmap averaging produces around
+// transparent borders. The blend equation becomes:
+//   final = src.rgb + (1 - src.a) * dest.rgb
+// so src.rgb is added directly without a second alpha multiply.
+render_mode blend_premul_alpha, depth_draw_opaque, cull_disabled, diffuse_burley, specular_schlick_ggx;
 
 // --- Atlas textures (8×8 hemisphere octahedral, baked per species) ---
 // `atlas` is the summer bake; `atlas_winter` is a second bake at season_t=3.3
@@ -341,17 +347,19 @@ void fragment() {
 	// we can crossfade by phenology. Only one branch of the mix dominates
 	// at any given time, but sampling both unconditionally avoids flicker
 	// at the transition and lets the GPU overlap the fetches.
+	// Atlases are premultiplied (color*alpha); see scripts/premultiply_impostors.py.
 	vec4 tex_summer = blend_colors(uv1, uv2, uv3, v_blend_weights, atlas);
 	vec4 tex_winter = blend_colors(uv1, uv2, uv3, v_blend_weights, atlas_winter);
 	float winter_mix_t = v_scalars.w;
 	float leaf_density = v_scalars.x;
+
+	// leaf_density attenuates the summer side only (winter atlas already
+	// shows what survives leaf-fall). Apply uniformly to RGB and alpha so
+	// the premultiplied invariant holds.
+	tex_summer *= leaf_density;
 	vec4 tex = mix(tex_summer, tex_winter, winter_mix_t);
 
-	// Alpha is pre-encoded per-season in each atlas (summer = full canopy,
-	// winter = bare or sparse). leaf_density further trims the summer side
-	// during transitional weeks; winter side already shows what survives.
-	float summer_alpha = tex_summer.a * leaf_density;
-	float alpha = mix(summer_alpha, tex_winter.a, winter_mix_t);
+	float alpha = tex.a;
 	if (snow_cover > 0.6 && leaf_density < 0.3) discard;
 	if (alpha < alpha_clamp) discard;
 
@@ -372,10 +380,10 @@ void fragment() {
 	                          v_blend_weights, atlas_normal);
 	NORMAL = nm;
 
-	// Atlas albedo is already species-colored, desaturated, warm-darkened and
-	// view-angle top-lit — it was baked by impostor_baker.gd through the live
-	// tree_leaf.gdshader. No recolor chain is needed; just use the sample.
-	vec3 color = tex.rgb;
+	// Un-premultiply so downstream color math (jitter, season tint, snow,
+	// aerial perspective) operates on the actual color, not on color*alpha.
+	// We re-premultiply at the bottom (ALBEDO = color * alpha).
+	vec3 color = tex.rgb / max(alpha, 0.001);
 
 	// Per-tree color jitter, mirroring tree_leaf.gdshader (±12% brightness,
 	// small warm/cool shift). The atlas was baked with neutral jitter=0.5 so
@@ -394,7 +402,7 @@ void fragment() {
 	// the re-tinted output to roughly match summer brightness.
 	float fall_mix_t = v_scalars.z;
 	if (fall_mix_t > 0.0) {
-		float atlas_lum = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
+		float atlas_lum = dot(color, vec3(0.299, 0.587, 0.114));
 		vec3 fall_recolor = v_season_color * atlas_lum * 3.0;
 		color = mix(color, fall_recolor, fall_mix_t);
 	}
@@ -433,7 +441,11 @@ void fragment() {
 	float imp_aerial = smoothstep(60.0, 300.0, imp_dist);
 	color = apply_aerial(color, imp_aerial, 0.30, 0.30, sky_reflect_color);
 
-	ALBEDO = color;
+	// Re-premultiply for blend_premul_alpha output. ALPHA controls the
+	// destination factor (1 - alpha); ALBEDO is added directly without a
+	// second alpha multiply.
+	ALBEDO = color * alpha;
+	ALPHA = alpha;
 	ROUGHNESS = 0.82;
 	SPECULAR = 0.12;
 	METALLIC = 0.0;
