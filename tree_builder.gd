@@ -3,7 +3,7 @@
 # Extracted from park_loader.gd — all shared utilities accessed via _loader reference.
 
 var _loader  # Reference to park_loader for shared utilities
-var _shell_data: Array = []  # per-tree canopy shell data for LOD1
+var _shell_data: Array = []  # per-tree data for impostor billboards
 var species_filter: Array = []  # CLI: only place these species (empty = all)
 
 # Maps data species archetype → phenology index for GPU seasonal color (12 species)
@@ -32,10 +32,6 @@ const ARCHETYPE_MODEL := {
 const CATHEDRAL_ELM_ZONE := Rect2(-720.0, 1180.0, 90.0, 340.0)  # x, z, w, h
 
 var canopy_data: Array = []  # [{x, z, radius}] for canopy map generation
-var _lod1_xf: Dictionary = {}  # LOD1: _m model transforms per key
-var _lod1_cd: Dictionary = {}  # LOD1: custom data per key
-var _lod2_xf: Dictionary = {}  # LOD2: _s model transforms per key
-var _lod2_cd: Dictionary = {}  # LOD2: custom data per key
 var _species_meshes: Dictionary = {}  # archetype_name -> Array[Mesh]
 var _species_heights: Dictionary = {} # archetype_name -> float (mesh height)
 
@@ -182,7 +178,7 @@ func _build_trees(trees: Array) -> void:
 		"cathedral_elm": Color(0.30, 0.25, 0.18),     # same as elm
 	}
 	# --- Load 5 base GLB models, then create per-archetype colored copies ---
-	# Uses class members _species_meshes and _species_heights (shared with _build_lod1_chunks)
+	# Uses class members _species_meshes and _species_heights.
 	_species_meshes.clear()
 	_species_heights.clear()
 
@@ -228,23 +224,14 @@ func _build_trees(trees: Array) -> void:
 			push_warning("Trees: missing bark textures for style %d" % style_id)
 
 	var _base_model_names := ["maple", "birch", "deciduous", "pine", "elm", "oak", "cherry", "ginkgo", "honeylocust", "linden", "london_plane", "callery_pear", "dead", "willow", "magnolia", "cathedral_elm"]
-	# Load tiered models (_s, _m, _l) + decimated LOD variants for each.
-	# The _s/_m/_l are age/size variants (different trees). The _lod1/_lod2
-	# are decimated versions of the SAME tree (same shape, fewer polygons).
+	# Load tiered models (_s, _m, _l): age/size variants per archetype.
 	for base_name in _base_model_names:
 		var tier_list: Array
 		if base_name == "dead":
 			tier_list = [""]
 		else:
 			tier_list = ["_s", "_m", "_l"]
-		# Also load decimated LOD variants (_s_lod1, _s_lod2, _m_lod1, etc.)
-		var full_list: Array = []
-		for ts in tier_list:
-			full_list.append(ts)
-			if ts != "":
-				full_list.append(ts + "_lod1")
-				full_list.append(ts + "_lod2")
-		for tier_suffix in full_list:
+		for tier_suffix in tier_list:
 			var model_key: String = base_name + tier_suffix
 			# Try .res cache first (skips GLTF parsing — much faster on subsequent loads)
 			var cached := _try_load_cached_tree(model_key)
@@ -318,9 +305,7 @@ func _build_trees(trees: Array) -> void:
 		if archetype == "dead":
 			tier_suffixes = [""]
 		else:
-			# Include decimated LOD variants alongside base tiers
-			tier_suffixes = ["_s", "_m", "_l",
-				"_s_lod1", "_s_lod2", "_m_lod1", "_m_lod2", "_l_lod1", "_l_lod2"]
+			tier_suffixes = ["_s", "_m", "_l"]
 		for tier_suffix in tier_suffixes:
 			var model_key: String = model_base + tier_suffix
 			if not base_meshes.has(model_key):
@@ -554,45 +539,14 @@ func _build_trees(trees: Array) -> void:
 		var cd := Color(float(pheno_idx) / 13.0, timing_off + 0.5, is_evergreen, color_jitter)
 		cd_by_key[key].append(cd)
 
-		# LOD chain: decimated versions of the SAME tree model.
-		# Each tree keeps its identity across all LOD tiers — same trunk,
-		# same branches, same leaf positions, just fewer triangles.
-		# Falls back to LOD0 mesh if decimated variant not available.
-		for lod_idx in [1, 2]:
-			# Dead snags cull at LOD1 fade-out (~200m). They have no impostor
-			# (line ~967) and are sub-pixel slivers past 200m.
-			if species == "dead" and lod_idx == 2:
-				continue
-			var lod_sp := species_tier + "_lod%d" % lod_idx
-			if not _species_meshes.has(lod_sp):
-				# Fallback: reuse the tree's own LOD0 mesh
-				lod_sp = species_tier
-			if not _species_meshes.has(lod_sp):
-				continue
-			var lod_vars: Array = _species_meshes[lod_sp]
-			var lod_vi := i % lod_vars.size()
-			var lod_mh: float = _species_heights.get(lod_sp, mesh_h)
-			var lod_sy := desired_h / maxf(lod_mh, 0.06)
-			var lod_sx := lod_sy * (1.50 if species == "cathedral_elm" else 1.0)
-			var lod_basis := Basis(Vector3.UP, y_rot) * Basis().scaled(Vector3(lod_sx, lod_sy, lod_sx))
-			var lod_tf := Transform3D(lod_basis, Vector3(tx, ty, tz))
-			var lod_key := "%s_%d" % [lod_sp, lod_vi]
-			var xf_dict: Dictionary = _lod1_xf if lod_idx == 1 else _lod2_xf
-			var cd_dict: Dictionary = _lod1_cd if lod_idx == 1 else _lod2_cd
-			if not xf_dict.has(lod_key):
-				xf_dict[lod_key] = []
-				cd_dict[lod_key] = []
-			xf_dict[lod_key].append(lod_tf)
-			cd_dict[lod_key].append(cd)
-
-		# Canopy data for dappled shade map + LOD1 shells.
+		# Canopy data for dappled shade map.
 		# LiDAR crown_a measures only the dense inner canopy (often 10-30m²
 		# for a 20m tree), producing absurdly small crown radii (1-3m).
 		# Use proportional radius from desired_h instead — matches visual spread.
 		var crown_r: float = desired_h * (0.25 if species == "conifer" else 0.35)
 		canopy_data.append({"x": tx, "z": tz, "r": crown_r, "ev": species == "conifer"})
 
-		# LOD3 impostor data — per-tree info for billboard generation
+		# Impostor data — per-tree info for billboard generation
 		_shell_data.append({"x": tx, "y": ty, "z": tz, "h": desired_h,
 			"r": crown_r, "sp": pheno_idx, "ev": is_evergreen,
 			"timing": timing_off + 0.5, "dead": species == "dead",
@@ -709,15 +663,8 @@ func _build_trees(trees: Array) -> void:
 
 	# Canopy occluders disabled: OccluderInstance3D inherits Node3D (not
 	# GeometryInstance3D) so visibility_range cannot limit them. Without a
-	# distance gate they stay active at all ranges, hiding LOD2/impostor
+	# distance gate they stay active at all ranges, hiding distant impostor
 	# trees behind canopy boxes and making distant woodland look sparse.
-
-	# --- LOD1: _m models (shader fade 170-230m) ---
-	_build_lod_tier_chunks(_lod1_xf, _lod1_cd, "TreeL1",
-		90.0, 230.0, 0.0, 0.0)
-	# --- LOD2: _s models (shader fade 270-330m) ---
-	_build_lod_tier_chunks(_lod2_xf, _lod2_cd, "TreeL2",
-		170.0, 330.0, 0.0, 0.0)
 
 	_build_tree_collision(all_trunk_xf)
 	# Debug: print a few tree heights to verify scale
@@ -736,104 +683,22 @@ func _build_trees(trees: Array) -> void:
 	print("Trees: %d placed, %d LOD0 chunks (skipped %d non-grass, nudged %d from paths)" % [
 		all_trunk_xf.size(), lod0_chunks.size(), _skip_surface, _nudged])
 
-	# --- LOD3: Octahedral billboard impostors for distant trees ---
+	# --- Impostors: octahedral billboards for distant trees (>90m) ---
 	_build_canopy_shells()
 
-	# Set per-tier dither fade ranges on ALL mesh materials.
-	# Both incoming (fade_in) and outgoing (fade_out) for complementary dithering.
-	# Shader dithering replaces Godot's VISIBILITY_RANGE_FADE_SELF which has
-	# a known bug (#88854) with alpha_to_coverage materials.
+	# LOD0 dither fade-out 90-150m (impostor billboards fade in over the same
+	# band — see _build_canopy_shells). Shader dithering replaces Godot's
+	# VISIBILITY_RANGE_FADE_SELF which has a known bug (#88854) with
+	# alpha_to_coverage materials.
+	const LOD0_FADE_OUT := Vector2(90.0, 150.0)
+	const NO_FADE := Vector2(0.0, 0.0)
 	for sp_key in _species_meshes:
-		var fade_out := Vector2(0.0, 0.0)
-		var fade_in := Vector2(0.0, 0.0)
-		if "_lod2" in sp_key:
-			fade_out = Vector2(270.0, 330.0)  # LOD2: fade out 270-330m
-			fade_in = Vector2(170.0, 230.0)   # LOD2: fade in 170-230m
-		elif "_lod1" in sp_key:
-			fade_out = Vector2(170.0, 230.0)  # LOD1: fade out 170-230m
-			fade_in = Vector2(90.0, 150.0)    # LOD1: fade in 90-150m
-		else:
-			fade_out = Vector2(90.0, 150.0)   # LOD0: fade out 90-150m
-			# LOD0: no incoming fade (always visible from 0m)
 		for mesh: Mesh in _species_meshes[sp_key]:
 			for si in mesh.get_surface_count():
 				var mat = mesh.surface_get_material(si)
 				if mat is ShaderMaterial:
-					mat.set_shader_parameter("lod_fade_out", fade_out)
-					mat.set_shader_parameter("lod_fade_in", fade_in)
-
-
-func _build_lod_tier_chunks(xf_data: Dictionary, cd_data: Dictionary,
-		prefix: String, vis_begin: float, vis_end: float,
-		begin_margin: float, end_margin: float) -> void:
-	## Generic LOD tier chunk builder. Spawns MultiMesh chunks from
-	## pre-collected transform/custom-data dictionaries.
-	if xf_data.is_empty():
-		return
-	const CHUNK := 80.0
-	var chunks: Dictionary = {}
-	for key in xf_data:
-		var xf_arr: Array = xf_data[key]
-		var cd_arr: Array = cd_data[key]
-		for j in xf_arr.size():
-			var tf: Transform3D = xf_arr[j]
-			var cx := int(floorf(tf.origin.x / CHUNK))
-			var cz := int(floorf(tf.origin.z / CHUNK))
-			var ck := "%s|%d|%d" % [key, cx, cz]
-			if not chunks.has(ck):
-				chunks[ck] = {"mesh_key": key, "xf": [], "cd": []}
-			chunks[ck]["xf"].append(tf)
-			chunks[ck]["cd"].append(cd_arr[j])
-
-	var instance_count := 0
-	for ckey in chunks:
-		var info: Dictionary = chunks[ckey]
-		var mesh_key: String = info["mesh_key"]
-		var xf_list: Array = info["xf"]
-		var cd_list: Array = info["cd"]
-		if xf_list.is_empty():
-			continue
-		var last_us := mesh_key.rfind("_")
-		var sp_name: String = mesh_key.substr(0, last_us)
-		var vi: int = int(mesh_key.substr(last_us + 1))
-		if not _species_meshes.has(sp_name):
-			continue
-		var variants: Array = _species_meshes[sp_name]
-		if vi >= variants.size():
-			continue
-		var mesh: Mesh = variants[vi]
-		var cx_sum := 0.0; var cy_sum := 0.0; var cz_sum := 0.0
-		for tf: Transform3D in xf_list:
-			cx_sum += tf.origin.x; cy_sum += tf.origin.y; cz_sum += tf.origin.z
-		var n := float(xf_list.size())
-		var chunk_origin := Vector3(cx_sum / n, cy_sum / n, cz_sum / n)
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.use_custom_data = true
-		mm.mesh = mesh
-		mm.instance_count = xf_list.size()
-		for i in xf_list.size():
-			var tf: Transform3D = xf_list[i]
-			mm.set_instance_transform(i, Transform3D(tf.basis, tf.origin - chunk_origin))
-			mm.set_instance_custom_data(i, cd_list[i])
-		var mmi := MultiMeshInstance3D.new()
-		mmi.multimesh = mm
-		mmi.position = chunk_origin
-		mmi.name = "%s_%s" % [prefix, ckey.replace("|", "_")]
-		# Shader dithering handles crossfade — disable Godot's alpha fade
-		# which has a bug with alpha_to_coverage (#88854).
-		mmi.visibility_range_begin = vis_begin
-		mmi.visibility_range_end = vis_end
-		mmi.visibility_range_begin_margin = 0.0
-		mmi.visibility_range_end_margin = 0.0
-		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
-		_loader.add_child(mmi)
-		instance_count += xf_list.size()
-
-	print("%s: %d instances in %d chunks (%.0f-%.0fm)" % [
-		prefix, instance_count, chunks.size(), vis_begin, vis_end])
-	xf_data.clear()
-	cd_data.clear()
+					mat.set_shader_parameter("lod_fade_out", LOD0_FADE_OUT)
+					mat.set_shader_parameter("lod_fade_in", NO_FADE)
 
 
 func _build_tree_collision(trunk_xf: Array) -> void:
@@ -861,7 +726,7 @@ func _tree_glb_leaf_shader_code() -> String:
 
 
 # ---------------------------------------------------------------------------
-# LOD3: Octahedral billboard impostor — camera-facing quad with view-dependent
+# Impostor: octahedral billboard — camera-facing quad with view-dependent
 # atlas sampling. The shader selects and blends 3 nearest atlas frames based on
 # camera angle, with depth-based parallax correction for pseudo-3D appearance.
 # Uses per-species 8×8 hemi-octahedral atlases (albedo + normal + depth).
@@ -893,7 +758,7 @@ func _build_canopy_shells() -> void:
 	# blending with depth parallax for photorealistic distant trees.
 	var impostor_shader: Shader = load("res://shaders/tree_impostor.gdshader")
 	if not impostor_shader:
-		print("Trees LOD3: impostor shader not found")
+		print("Trees Impostor: impostor shader not found")
 		return
 
 	# Load impostor atlas textures (albedo + normal + depth) and metadata.
@@ -951,14 +816,14 @@ func _build_canopy_shells() -> void:
 			_load_impostor_mat.call("%s_%s" % [model_name, tier])
 		_load_impostor_mat.call(model_name)  # generic fallback
 
-	# Set incoming dither on all impostor materials (LOD3 fades in 270-330m)
+	# Impostors fade in 90-150m, complementing LOD0's fade-out band.
 	for mat_key in impostor_mats:
-		impostor_mats[mat_key].set_shader_parameter("lod_fade_in", Vector2(270.0, 330.0))
+		impostor_mats[mat_key].set_shader_parameter("lod_fade_in", Vector2(90.0, 150.0))
 
 	if impostor_mats.is_empty():
-		print("Trees LOD3: no impostor atlases found — skipping")
+		print("Trees Impostor: no impostor atlases found — skipping")
 		return
-	print("Trees LOD3: loaded %d impostor materials (per-tier + fallbacks)" % impostor_mats.size())
+	print("Trees Impostor: loaded %d impostor materials (per-tier + fallbacks)" % impostor_mats.size())
 
 	var billboard_mesh := _create_billboard_quad_mesh()  # 2 tris
 
@@ -1038,8 +903,9 @@ func _build_canopy_shells() -> void:
 		mmi.material_override = impostor_mats[model_name]
 		mmi.position = origin
 		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
-		# LOD3: octahedral billboard impostors — starts where LOD2 fades out
-		mmi.visibility_range_begin = 270.0
+		# Impostors take over where LOD0 mesh fades out (~90m); shader-side
+		# dither (lod_fade_in) handles the 90-150m crossfade band.
+		mmi.visibility_range_begin = 90.0
 		mmi.visibility_range_end = 2500.0
 		mmi.visibility_range_begin_margin = 0.0
 		mmi.visibility_range_end_margin = 0.0
@@ -1048,5 +914,5 @@ func _build_canopy_shells() -> void:
 		_loader.add_child(mmi)
 		impostor_count += xf_list.size()
 
-	print("Trees LOD3: %d billboard impostors (260-2500m) in %d chunks (%d species)" % [
+	print("Trees LOD1: %d billboard impostors (90-2500m) in %d chunks (%d species)" % [
 		impostor_count, chunks.size(), impostor_mats.size()])
