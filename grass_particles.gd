@@ -108,6 +108,14 @@ extends Node3D
 ## World size for UV coordinate calculation
 @export var world_size: float = 5000.0
 
+@export_group("Central Park")
+## Inner cull radius. Particles closer than this distance to the camera are
+## skipped — used so Tier 1 base-coverage layers don't render under the
+## denser Tier 0 blades within their 0..near_cull_distance band. Default 0
+## means draw all the way to camera (correct for Tier 0 / Accents).
+@export var near_cull_distance: float = 0.0
+
+
 @export_group("Info")
 ## The minimum distance that particles will be drawn upto
 ## If using fade out effects like pixel alpha this is the limit to use.
@@ -246,6 +254,7 @@ func _update_process_parameters() -> void:
 			RenderingServer.material_set_param(process_rid, "instance_spacing", instance_spacing)
 			RenderingServer.material_set_param(process_rid, "instance_rows", rows)
 			RenderingServer.material_set_param(process_rid, "max_dist", min_draw_distance)
+			RenderingServer.material_set_param(process_rid, "min_dist", near_cull_distance)
 			# Central Park custom uniforms — pass texture RIDs every frame
 			RenderingServer.material_set_param(process_rid, "world_size", world_size)
 			if landuse_texture:

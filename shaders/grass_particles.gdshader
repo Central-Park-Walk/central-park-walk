@@ -53,6 +53,11 @@ uniform int biome_id = -1;
 
 group_uniforms private;
 uniform float max_dist = 1.;
+// Inner cull radius — particles closer than min_dist are skipped. Used by
+// Tier 1 base-coverage layers so they don't render under the denser Tier 0
+// blades within the 0..min_dist band, saving fill rate and reducing visual
+// stacking. Default 0 keeps Tier 0 / Accents rendering all the way to camera.
+uniform float min_dist = 0.0;
 uniform vec3 camera_position = vec3(0.);
 uniform uint instance_rows = 1;
 uniform float instance_spacing = 0.5;
@@ -388,11 +393,12 @@ void start() {
 	// Maintains coverage (no dark gaps) while reducing visual presence.
 	// Tufts render underneath in the overlap zone, fully established
 	// before particles vanish at max_dist.
-	if (length(camera_position - pos) > max_dist) {
+	float cam_dist = length(camera_position - pos);
+	if (cam_dist > max_dist || cam_dist < min_dist) {
 		pos.y = 0. / 0.;
 		pos.xz = vec2(100000.0);
 	} else {
-		float fade_factor = 1.0 - smoothstep(max_dist * distance_fade_ammount, max_dist + 0.0001, length(camera_position - pos)) + 0.001;
+		float fade_factor = 1.0 - smoothstep(max_dist * distance_fade_ammount, max_dist + 0.0001, cam_dist) + 0.001;
 		scale.y *= fade_factor;
 		offset *= fade_factor;
 	}
