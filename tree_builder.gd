@@ -685,9 +685,11 @@ func _build_trees(trees: Array) -> void:
 		mmi.multimesh = mm
 		mmi.position = chunk_origin
 		mmi.name = "Tree_%s" % ckey.replace("|", "_")
-		# LOD0: full geometry — shader dithering handles crossfade
+		# LOD0: full geometry, dithers out 80-100m. Chunk visibility extends
+		# 40m past fade_end (= half CHUNK) so chunks whose origin is past
+		# 100m but contain near-side instances at 60-100m still render.
 		mmi.visibility_range_begin = 0.0
-		mmi.visibility_range_end = 150.0
+		mmi.visibility_range_end = 140.0
 		mmi.visibility_range_begin_margin = 0.0
 		mmi.visibility_range_end_margin = 0.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
@@ -698,8 +700,10 @@ func _build_trees(trees: Array) -> void:
 	# distance gate they stay active at all ranges, hiding distant impostor
 	# trees behind canopy boxes and making distant woodland look sparse.
 
-	# --- LOD1: decimated mesh, fills the mid-distance band (P1.3 sets ranges) ---
-	_build_lod_tier_chunks(_lod1_xf, _lod1_cd, "TreeL1", 80.0, 250.0)
+	# --- LOD1: decimated mesh fills mid-distance, fades 80-100m and 230-250m ---
+	# Chunk visibility 40-290m (= fade extents ± half CHUNK) to catch
+	# instances mid-fade when chunk origin is just outside the fade band.
+	_build_lod_tier_chunks(_lod1_xf, _lod1_cd, "TreeL1", 40.0, 290.0)
 
 	_build_tree_collision(all_trunk_xf)
 	# Debug: print a few tree heights to verify scale
