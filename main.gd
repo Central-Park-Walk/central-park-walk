@@ -255,15 +255,13 @@ func _ready() -> void:
 		if _park_loader and _park_loader._canopy_texture:
 			_set_terrain_param("canopy_map", _park_loader._canopy_texture)
 		print("main: canopy map: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
-		# GPU particle grass — replaces old hexaquo MultiMesh system
+		# Unified to Godot's particle system 2026-05-09: Tier 1 + Tier 0 + Accents
+		# all run through _setup_grass_particles. Previous GDExtension (Tier 1) and
+		# static tuft chunks (Tier 2) retired — single source of truth for zone
+		# filtering, density tables, and coordinate transforms.
 		if _terrain3d:
-			# Tier 0 near-field variants + botanical accents (particles)
 			_setup_grass_particles()
-			# Tier 2: static tuft chunks (13-70m, MultiMeshInstance3D)
-			_setup_grass_tuft_chunks()
-			print("main: grass tuft chunks: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
-			_setup_gpu_grass()
-			print("main: gpu grass: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
+			print("main: grass particles: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_player = _setup_player()
 	if _park_loader and _park_loader.boundary_polygon.size() > 2:
 		_player.boundary_polygon = _park_loader.boundary_polygon
@@ -1556,9 +1554,9 @@ func _setup_grass_particles() -> void:
 	noise_tex.noise = noise
 
 	var all_grass_layers: Array = []
-	# GRASS_BIOMES (Tier 1) now handled by GPUGrass GDExtension
-	all_grass_layers.append_array(GRASS_TIER0)
-	all_grass_layers.append_array(GRASS_ACCENTS)
+	all_grass_layers.append_array(GRASS_BIOMES)   # Tier 1: 0-22m base coverage per biome
+	all_grass_layers.append_array(GRASS_TIER0)    # Tier 0: 0-6m near-field variants
+	all_grass_layers.append_array(GRASS_ACCENTS)  # 0-6m botanical detail
 
 	for biome in all_grass_layers:
 		# Load tuft GLB via Godot's native load()
