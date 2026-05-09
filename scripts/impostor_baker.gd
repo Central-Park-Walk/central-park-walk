@@ -144,11 +144,13 @@ func _set_environment_for_bake() -> void:
 	env.background_color = Color(0, 0, 0, 0)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.ambient_light_sky_contribution = 1.0
-	env.ambient_light_energy = 1.0
-	env.ssao_enabled = true
-	env.ssao_intensity = 1.8
-	env.ssao_radius = 0.8
-	env.ssao_horizon = 0.08
+	# Ambient lowered 1.0 → 0.7 (was washing out canopy tops at distance).
+	# SSAO disabled — at impostor distance the AO detail is invisible, and
+	# ssao_intensity=1.8 was producing dark-hat rim artifacts that defined
+	# the silhouette against bright sky. If canopies read flat after this
+	# rebake, reintroduce SSAO at 0.3.
+	env.ambient_light_energy = 0.7
+	env.ssao_enabled = false
 	env.glow_enabled = false
 	env.adjustment_enabled = false
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
