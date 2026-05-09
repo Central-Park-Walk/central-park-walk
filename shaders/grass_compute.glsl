@@ -23,7 +23,7 @@ layout(set = 0, binding = 1, std430) restrict buffer CommandBuffer {
 // Binding 2: Heightmap texture (R channel = terrain height in world units)
 layout(set = 0, binding = 2) uniform sampler2D heightmap_tex;
 
-// Binding 3: Landuse zone map (R channel = zone_id / 15.0)
+// Binding 3: Landuse zone map (R channel = raw byte zone_id, 0..14)
 layout(set = 0, binding = 3) uniform sampler2D landuse_tex;
 
 // Binding 4: Canopy coverage map (R channel = 0-1 canopy density)
@@ -117,9 +117,9 @@ void main() {
 	// Sample terrain height
 	float terrain_height = texture(heightmap_tex, uv).r;
 
-	// Sample landuse zone (0-15 encoded as zone_id / 15.0)
+	// Sample landuse zone (R8 byte 0..14 sampled as float 0..14/255)
 	float zone_raw = texture(landuse_tex, uv).r;
-	int zone_id = int(zone_raw * 15.0 + 0.5);
+	int zone_id = int(zone_raw * 255.0 + 0.5);
 
 	// Zone filtering: only place grass on grass-bearing zones.
 	// Biome 0 (lawn):  0=unzoned, 1=garden, 2=grass, 3=pitch, 4=playground,
