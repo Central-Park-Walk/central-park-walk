@@ -32,6 +32,8 @@ const ARCHETYPE_MODEL := {
 const CATHEDRAL_ELM_ZONE := Rect2(-720.0, 1180.0, 90.0, 340.0)  # x, z, w, h
 
 var canopy_data: Array = []  # [{x, z, radius}] for canopy map generation
+var _lod1_xf: Dictionary = {}  # LOD1 (decimated _lod1 mesh) transforms per key
+var _lod1_cd: Dictionary = {}  # LOD1 custom data per key
 var _species_meshes: Dictionary = {}  # archetype_name -> Array[Mesh]
 var _species_heights: Dictionary = {} # archetype_name -> float (mesh height)
 
@@ -225,13 +227,20 @@ func _build_trees(trees: Array) -> void:
 
 	var _base_model_names := ["maple", "birch", "deciduous", "pine", "elm", "oak", "cherry", "ginkgo", "honeylocust", "linden", "london_plane", "callery_pear", "dead", "willow", "magnolia", "cathedral_elm"]
 	# Load tiered models (_s, _m, _l): age/size variants per archetype.
+	# Plus _lod1 decimated variants of each (same tree, fewer polygons) for
+	# the 3-tier LOD system (LOD0 mesh → LOD1 decimated → impostor).
 	for base_name in _base_model_names:
 		var tier_list: Array
 		if base_name == "dead":
 			tier_list = [""]
 		else:
 			tier_list = ["_s", "_m", "_l"]
-		for tier_suffix in tier_list:
+		var full_list: Array = []
+		for ts in tier_list:
+			full_list.append(ts)
+			if ts != "":
+				full_list.append(ts + "_lod1")
+		for tier_suffix in full_list:
 			var model_key: String = base_name + tier_suffix
 			# Try .res cache first (skips GLTF parsing — much faster on subsequent loads)
 			var cached := _try_load_cached_tree(model_key)
@@ -305,7 +314,7 @@ func _build_trees(trees: Array) -> void:
 		if archetype == "dead":
 			tier_suffixes = [""]
 		else:
-			tier_suffixes = ["_s", "_m", "_l"]
+			tier_suffixes = ["_s", "_m", "_l", "_s_lod1", "_m_lod1", "_l_lod1"]
 		for tier_suffix in tier_suffixes:
 			var model_key: String = model_base + tier_suffix
 			if not base_meshes.has(model_key):
@@ -539,6 +548,29 @@ func _build_trees(trees: Array) -> void:
 		var cd := Color(float(pheno_idx) / 13.0, timing_off + 0.5, is_evergreen, color_jitter)
 		cd_by_key[key].append(cd)
 
+		# LOD1: decimated mesh of the SAME tree (same trunk, branches, leaf
+		# positions — fewer triangles). Falls back to the LOD0 mesh if no
+		# _lod1 variant exists. Dead snags skip LOD1 (they cull at LOD1's
+		# fade-out distance and have no impostor anyway).
+		if species != "dead":
+			var lod1_sp: String = species_tier + "_lod1"
+			if not _species_meshes.has(lod1_sp):
+				lod1_sp = species_tier
+			if _species_meshes.has(lod1_sp):
+				var lod1_vars: Array = _species_meshes[lod1_sp]
+				var lod1_vi: int = i % lod1_vars.size()
+				var lod1_mh: float = _species_heights.get(lod1_sp, mesh_h)
+				var lod1_sy: float = desired_h / maxf(lod1_mh, 0.06)
+				var lod1_sx: float = lod1_sy * (1.50 if species == "cathedral_elm" else 1.0)
+				var lod1_basis := Basis(Vector3.UP, y_rot) * Basis().scaled(Vector3(lod1_sx, lod1_sy, lod1_sx))
+				var lod1_tf := Transform3D(lod1_basis, Vector3(tx, ty, tz))
+				var lod1_key := "%s_%d" % [lod1_sp, lod1_vi]
+				if not _lod1_xf.has(lod1_key):
+					_lod1_xf[lod1_key] = []
+					_lod1_cd[lod1_key] = []
+				_lod1_xf[lod1_key].append(lod1_tf)
+				_lod1_cd[lod1_key].append(cd)
+
 		# Canopy data for dappled shade map.
 		# LiDAR crown_a measures only the dense inner canopy (often 10-30m²
 		# for a 20m tree), producing absurdly small crown radii (1-3m).
@@ -666,6 +698,9 @@ func _build_trees(trees: Array) -> void:
 	# distance gate they stay active at all ranges, hiding distant impostor
 	# trees behind canopy boxes and making distant woodland look sparse.
 
+	# --- LOD1: decimated mesh, fills the mid-distance band (P1.3 sets ranges) ---
+	_build_lod_tier_chunks(_lod1_xf, _lod1_cd, "TreeL1", 80.0, 250.0)
+
 	_build_tree_collision(all_trunk_xf)
 	# Debug: print a few tree heights to verify scale
 	var _dbg_count := 0
@@ -686,19 +721,102 @@ func _build_trees(trees: Array) -> void:
 	# --- Impostors: octahedral billboards for distant trees (>90m) ---
 	_build_canopy_shells()
 
-	# LOD0 dither fade-out 90-150m (impostor billboards fade in over the same
-	# band — see _build_canopy_shells). Shader dithering replaces Godot's
-	# VISIBILITY_RANGE_FADE_SELF which has a known bug (#88854) with
-	# alpha_to_coverage materials.
-	const LOD0_FADE_OUT := Vector2(90.0, 150.0)
+	# Per-tier dither fade ranges. Shader dithering replaces Godot's
+	# VISIBILITY_RANGE_FADE_SELF (known bug #88854 with alpha_to_coverage).
+	# Distances are placeholders — P1.3 sets the final tight bands.
+	#   LOD0:   fade out  80-100m (handoff to LOD1)
+	#   LOD1:   fade in   80-100m, fade out 230-250m (handoff to impostor)
+	#   Impostor (set in _build_canopy_shells): fade in 230-250m.
+	const LOD0_FADE_OUT := Vector2(80.0, 100.0)
+	const LOD1_FADE_IN := Vector2(80.0, 100.0)
+	const LOD1_FADE_OUT := Vector2(230.0, 250.0)
 	const NO_FADE := Vector2(0.0, 0.0)
 	for sp_key in _species_meshes:
+		var fade_in := NO_FADE
+		var fade_out := NO_FADE
+		if "_lod1" in sp_key:
+			fade_in = LOD1_FADE_IN
+			fade_out = LOD1_FADE_OUT
+		else:
+			fade_out = LOD0_FADE_OUT
 		for mesh: Mesh in _species_meshes[sp_key]:
 			for si in mesh.get_surface_count():
 				var mat = mesh.surface_get_material(si)
 				if mat is ShaderMaterial:
-					mat.set_shader_parameter("lod_fade_out", LOD0_FADE_OUT)
-					mat.set_shader_parameter("lod_fade_in", NO_FADE)
+					mat.set_shader_parameter("lod_fade_out", fade_out)
+					mat.set_shader_parameter("lod_fade_in", fade_in)
+
+
+func _build_lod_tier_chunks(xf_data: Dictionary, cd_data: Dictionary,
+		prefix: String, vis_begin: float, vis_end: float) -> void:
+	## Spawns MultiMesh chunks for a single LOD tier from pre-collected
+	## transform/custom-data dictionaries. Visibility range limits when the
+	## tier's chunks are drawn; shader-side dither (set_shader_parameter
+	## "lod_fade_in" / "lod_fade_out") handles the crossfade with neighbors.
+	if xf_data.is_empty():
+		return
+	const CHUNK := 80.0
+	var chunks: Dictionary = {}
+	for key in xf_data:
+		var xf_arr: Array = xf_data[key]
+		var cd_arr: Array = cd_data[key]
+		for j in xf_arr.size():
+			var tf: Transform3D = xf_arr[j]
+			var cx := int(floorf(tf.origin.x / CHUNK))
+			var cz := int(floorf(tf.origin.z / CHUNK))
+			var ck := "%s|%d|%d" % [key, cx, cz]
+			if not chunks.has(ck):
+				chunks[ck] = {"mesh_key": key, "xf": [], "cd": []}
+			chunks[ck]["xf"].append(tf)
+			chunks[ck]["cd"].append(cd_arr[j])
+
+	var instance_count := 0
+	for ckey in chunks:
+		var info: Dictionary = chunks[ckey]
+		var mesh_key: String = info["mesh_key"]
+		var xf_list: Array = info["xf"]
+		var cd_list: Array = info["cd"]
+		if xf_list.is_empty():
+			continue
+		var last_us := mesh_key.rfind("_")
+		var sp_name: String = mesh_key.substr(0, last_us)
+		var vi: int = int(mesh_key.substr(last_us + 1))
+		if not _species_meshes.has(sp_name):
+			continue
+		var variants: Array = _species_meshes[sp_name]
+		if vi >= variants.size():
+			continue
+		var mesh: Mesh = variants[vi]
+		var cx_sum := 0.0; var cy_sum := 0.0; var cz_sum := 0.0
+		for tf: Transform3D in xf_list:
+			cx_sum += tf.origin.x; cy_sum += tf.origin.y; cz_sum += tf.origin.z
+		var n := float(xf_list.size())
+		var chunk_origin := Vector3(cx_sum / n, cy_sum / n, cz_sum / n)
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_custom_data = true
+		mm.mesh = mesh
+		mm.instance_count = xf_list.size()
+		for i in xf_list.size():
+			var tf: Transform3D = xf_list[i]
+			mm.set_instance_transform(i, Transform3D(tf.basis, tf.origin - chunk_origin))
+			mm.set_instance_custom_data(i, cd_list[i])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.position = chunk_origin
+		mmi.name = "%s_%s" % [prefix, ckey.replace("|", "_")]
+		mmi.visibility_range_begin = vis_begin
+		mmi.visibility_range_end = vis_end
+		mmi.visibility_range_begin_margin = 0.0
+		mmi.visibility_range_end_margin = 0.0
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+		_loader.add_child(mmi)
+		instance_count += xf_list.size()
+
+	print("%s: %d instances in %d chunks (%.0f-%.0fm)" % [
+		prefix, instance_count, chunks.size(), vis_begin, vis_end])
+	xf_data.clear()
+	cd_data.clear()
 
 
 func _build_tree_collision(trunk_xf: Array) -> void:
