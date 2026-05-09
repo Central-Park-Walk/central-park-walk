@@ -147,39 +147,31 @@ const SPECIES := [
 # Zone types: 0=SheepMeadow, 1=GreatLawn, 2=NorthMeadow, 3=FormalGarden,
 #   4=SportsTurf, 5=NorthWoods, 6=Ramble, 7=Waterside, 8=WildMeadow, 9=OpenLawn
 #
-# Primitive species (2026-05-08): generic-helper shrubs (1-6), procedural ferns
-# (7-10), procedural herbs (11-23), procedural wetland (25-28) all retired from
-# placement. Only Spicebush (0, bespoke) and unverified grasses/aster/black-eyed-
-# susan (24, 29-34) remain. Data gap over fake — see Task 14 bespoke queue.
+# Primitive species (2026-05-08): all generic-helper procedurals retired from
+# placement — shrubs (1-6), ferns (7-10), herbs (11-23), wetland (25-28),
+# grasses (24, 30-33), accent flowers (29 Aster, 34 Black-eyed Susan). All use
+# `make_crossed_planes` or simple stem+petal-ring construction below the
+# Spicebush bespoke quality bar. Only Spicebush (0) currently meets the bar.
+# Data gap over fake — see Task 14 bespoke queue.
 const ZONE_SPECIES := {
 	# Zones 0,1,3,4: no undergrowth (maintained lawn / formal / sports)
-	5: [  # North Woods — only Spicebush until bespoke understory lands
+	5: [  # North Woods
 		[0, 4.0],   # spicebush (dominant shrub — forms thickets)
-		[33, 3.0],  # PA sedge (shade ground cover)
 	],
-	6: [  # Ramble — only Spicebush until bespoke understory lands
+	6: [  # Ramble
 		[0, 5.0],   # spicebush (very common — thicket-forming)
-		[33, 4.0],  # PA sedge (shade ground cover)
 	],
-	7: [  # Waterside — bespoke wetland queued; bare until then
-		[32, 1.5],  # tussock sedge (wetland clumps)
-	],
-	8: [  # Wild Meadow — tall wildflowers + native grasses
-		[29, 2.0],  # aster
-		[34, 1.5],  # black-eyed susan (meadow signature)
-		[30, 2.0],  # little bluestem (signature native grass)
-		[31, 1.5],  # switchgrass
-		[24, 1.0],  # bottlebrush grass
-	],
+	7: [],  # Waterside — bespoke wetland queued; bare until then
+	8: [],  # Wild Meadow — bespoke meadow queued
 	9: [],  # Open Lawn
 }
 
 # Woodland chunks (no pre-baked data) get understory — but ONLY in actual
 # woodland foliage zones, not on maintained lawns that happen to lack data.
-# Primitives retired 2026-05-08 (ferns 7,8 / aster 16 / jewelweed 17 / snakeroot 19).
+# All remaining helper-based procedurals retired 2026-05-08 — only Spicebush meets
+# the bespoke quality bar.
 const WOODLAND_SPECIES: Array = [
 	[0, 3.5],   # spicebush (thicket-forming dominant)
-	[24, 1.5],  # bottlebrush grass
 ]
 # Z ranges where woodland fallback is allowed (from park_data.json foliage_zones)
 const WOODLAND_Z_RANGES: Array = [
