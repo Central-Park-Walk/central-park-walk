@@ -16,10 +16,12 @@ extends Node3D
 		_create_grid()
 
 
-## Distance between instances
-@export_range(0.125, 2.0, 0.015625) var instance_spacing: float = 0.5:
+## Distance between instances. Lower bound relaxed from 0.125 → 0.0625 (2026-05-09)
+## so Tier 0 close-up layers can render at meaningful blade density without
+## changing the 1/64m quantization grid.
+@export_range(0.0625, 2.0, 0.015625) var instance_spacing: float = 0.5:
 	set(value):
-		instance_spacing = clamp(round(value * 64.0) * 0.015625, 0.125, 2.0)
+		instance_spacing = clamp(round(value * 64.0) * 0.015625, 0.0625, 2.0)
 		rows = maxi(int(cell_width / instance_spacing), 1)
 		amount = rows * rows
 		_set_offsets()

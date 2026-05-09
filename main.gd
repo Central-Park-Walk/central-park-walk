@@ -1344,7 +1344,8 @@ const GRASS_BIOMES := [
 		# Tier 1 used to provide, before the 2026-05-09 unification to particles.
 		"name": "Lawn", "biome_id": 0,
 		"mesh_path": "res://models/vegetation/Blade_Lawn.glb",
-		"spacing": 0.03, "cell_width": 11.0, "grid_width": 11,
+		# Lawn: densest base coverage (maintained Kentucky bluegrass turf).
+		"spacing": 0.10, "cell_width": 11.0, "grid_width": 11,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.5, 0.4, 0.5),
 		"max_scale": Vector3(1.8, 1.8, 1.8),
@@ -1353,7 +1354,8 @@ const GRASS_BIOMES := [
 	{  # Blade_Shade: 3 segments, 12cm tall, 10mm wide, 6 tris
 		"name": "Shade", "biome_id": 1,
 		"mesh_path": "res://models/vegetation/Blade_Shade.glb",
-		"spacing": 0.06, "cell_width": 11.0, "grid_width": 11,
+		# Shade: sparser woodland floor (less light, fewer blades).
+		"spacing": 0.16, "cell_width": 11.0, "grid_width": 11,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.5, 0.4, 0.5),
 		"max_scale": Vector3(1.8, 1.8, 1.8),
@@ -1362,7 +1364,8 @@ const GRASS_BIOMES := [
 	{  # Blade_Wild: 4 segments, 25cm tall, 15mm wide, 8 tris
 		"name": "Wild", "biome_id": 2,
 		"mesh_path": "res://models/vegetation/Blade_Wild.glb",
-		"spacing": 0.06, "cell_width": 11.0, "grid_width": 11,
+		# Wild meadow: clumpy native grasses, gaps between bunches.
+		"spacing": 0.19, "cell_width": 11.0, "grid_width": 11,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.4, 0.4, 0.4),
 		"max_scale": Vector3(1.6, 1.6, 1.6),
@@ -1371,7 +1374,8 @@ const GRASS_BIOMES := [
 	{  # Blade_Sedge: 3 segments, 16cm tall, 9mm wide, 6 tris
 		"name": "Sedge", "biome_id": 3,
 		"mesh_path": "res://models/vegetation/Blade_Sedge.glb",
-		"spacing": 0.06, "cell_width": 11.0, "grid_width": 11,
+		# Sedge: waterside, moderate density.
+		"spacing": 0.16, "cell_width": 11.0, "grid_width": 11,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.5, 0.4, 0.5),
 		"max_scale": Vector3(1.7, 1.7, 1.7),
@@ -1386,7 +1390,7 @@ const GRASS_TIER0 := [
 	{  # Fine KBG blade — half the width of Tier 1 Blade_Lawn
 		"name": "Lawn_T0_Thin", "biome_id": 0,
 		"mesh_path": "res://models/vegetation/Blade_Lawn_Thin.glb",
-		"spacing": 0.015, "cell_width": 4.0, "grid_width": 3,
+		"spacing": 0.0625, "cell_width": 4.0, "grid_width": 3,
 		"random_spacing": 0.6,
 		"min_scale": Vector3(0.5, 0.4, 0.5),
 		"max_scale": Vector3(1.6, 1.6, 1.6),
@@ -1395,7 +1399,7 @@ const GRASS_TIER0 := [
 	{  # Ryegrass broad blade — wider, shorter than Tier 1
 		"name": "Lawn_T0_Wide", "biome_id": 0,
 		"mesh_path": "res://models/vegetation/Blade_Lawn_Wide.glb",
-		"spacing": 0.015, "cell_width": 4.0, "grid_width": 3,
+		"spacing": 0.0625, "cell_width": 4.0, "grid_width": 3,
 		"random_spacing": 0.6,
 		"min_scale": Vector3(0.6, 0.5, 0.6),
 		"max_scale": Vector3(1.5, 1.5, 1.5),
@@ -1404,7 +1408,7 @@ const GRASS_TIER0 := [
 	{  # Fine fescue — very thin, delicate shade grass
 		"name": "Shade_T0_Thin", "biome_id": 1,
 		"mesh_path": "res://models/vegetation/Blade_Shade_Thin.glb",
-		"spacing": 0.015, "cell_width": 4.0, "grid_width": 3,
+		"spacing": 0.0625, "cell_width": 4.0, "grid_width": 3,
 		"random_spacing": 0.6,
 		"min_scale": Vector3(0.5, 0.4, 0.5),
 		"max_scale": Vector3(1.8, 1.8, 1.8),
@@ -1413,7 +1417,7 @@ const GRASS_TIER0 := [
 	{  # Broad woodland floor leaf
 		"name": "Shade_T0_Wide", "biome_id": 1,
 		"mesh_path": "res://models/vegetation/Blade_Shade_Wide.glb",
-		"spacing": 0.015, "cell_width": 4.0, "grid_width": 3,
+		"spacing": 0.0625, "cell_width": 4.0, "grid_width": 3,
 		"random_spacing": 0.6,
 		"min_scale": Vector3(0.5, 0.4, 0.5),
 		"max_scale": Vector3(1.6, 1.6, 1.6),
@@ -1422,7 +1426,7 @@ const GRASS_TIER0 := [
 	{  # Switchgrass — narrow, tall
 		"name": "Wild_T0_Thin", "biome_id": 2,
 		"mesh_path": "res://models/vegetation/Blade_Wild_Thin.glb",
-		"spacing": 0.015, "cell_width": 4.0, "grid_width": 3,
+		"spacing": 0.0625, "cell_width": 4.0, "grid_width": 3,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.4, 0.4, 0.4),
 		"max_scale": Vector3(1.6, 1.6, 1.6),
@@ -1431,7 +1435,7 @@ const GRASS_TIER0 := [
 	{  # Big Bluestem — wide, shorter
 		"name": "Wild_T0_Wide", "biome_id": 2,
 		"mesh_path": "res://models/vegetation/Blade_Wild_Wide.glb",
-		"spacing": 0.015, "cell_width": 4.0, "grid_width": 3,
+		"spacing": 0.0625, "cell_width": 4.0, "grid_width": 3,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.4, 0.4, 0.4),
 		"max_scale": Vector3(1.5, 1.5, 1.5),
@@ -1440,7 +1444,7 @@ const GRASS_TIER0 := [
 	{  # Rush needle — very thin, stiff
 		"name": "Sedge_T0_Thin", "biome_id": 3,
 		"mesh_path": "res://models/vegetation/Blade_Sedge_Thin.glb",
-		"spacing": 0.015, "cell_width": 4.0, "grid_width": 3,
+		"spacing": 0.0625, "cell_width": 4.0, "grid_width": 3,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.5, 0.4, 0.5),
 		"max_scale": Vector3(1.7, 1.7, 1.7),
@@ -1449,48 +1453,16 @@ const GRASS_TIER0 := [
 	{  # Tussock broad leaf
 		"name": "Sedge_T0_Wide", "biome_id": 3,
 		"mesh_path": "res://models/vegetation/Blade_Sedge_Wide.glb",
-		"spacing": 0.015, "cell_width": 4.0, "grid_width": 3,
+		"spacing": 0.0625, "cell_width": 4.0, "grid_width": 3,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.5, 0.4, 0.5),
 		"max_scale": Vector3(1.6, 1.6, 1.6),
 		"position_offset": Vector3(0, -0.003, 0),
 	},
-	{  # Wind-bent lawn blade — more arch than Tier 1
-		"name": "Lawn_T0_Curved", "biome_id": 0,
-		"mesh_path": "res://models/vegetation/Blade_Lawn_Curved.glb",
-		"spacing": 0.015, "cell_width": 4.0, "grid_width": 3,
-		"random_spacing": 0.6,
-		"min_scale": Vector3(0.5, 0.4, 0.5),
-		"max_scale": Vector3(1.5, 1.5, 1.5),
-		"position_offset": Vector3(0, -0.002, 0),
-	},
-	{  # Arching creeping red fescue
-		"name": "Shade_T0_Curved", "biome_id": 1,
-		"mesh_path": "res://models/vegetation/Blade_Shade_Curved.glb",
-		"spacing": 0.015, "cell_width": 4.0, "grid_width": 3,
-		"random_spacing": 0.6,
-		"min_scale": Vector3(0.5, 0.4, 0.5),
-		"max_scale": Vector3(1.7, 1.7, 1.7),
-		"position_offset": Vector3(0, -0.002, 0),
-	},
-	{  # Indiangrass S-curve
-		"name": "Wild_T0_Curved", "biome_id": 2,
-		"mesh_path": "res://models/vegetation/Blade_Wild_Curved.glb",
-		"spacing": 0.015, "cell_width": 4.0, "grid_width": 3,
-		"random_spacing": 0.5,
-		"min_scale": Vector3(0.4, 0.4, 0.4),
-		"max_scale": Vector3(1.5, 1.5, 1.5),
-		"position_offset": Vector3(0, -0.004, 0),
-	},
-	{  # Bent soft rush
-		"name": "Sedge_T0_Curved", "biome_id": 3,
-		"mesh_path": "res://models/vegetation/Blade_Sedge_Curved.glb",
-		"spacing": 0.015, "cell_width": 4.0, "grid_width": 3,
-		"random_spacing": 0.5,
-		"min_scale": Vector3(0.5, 0.4, 0.5),
-		"max_scale": Vector3(1.6, 1.6, 1.6),
-		"position_offset": Vector3(0, -0.003, 0),
-	},
+	# Curved variants retired 2026-05-09 — the per-blade random_rotation,
+	# random_spacing, and tilt already provide silhouette variety; a third
+	# mesh per biome added 4 layers worth of GPUParticles3D nodes for
+	# negligible visual gain.
 ]
 
 # Tier 0 botanical accents — ground-level details that give each biome
