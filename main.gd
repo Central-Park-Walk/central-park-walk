@@ -1346,7 +1346,7 @@ const GRASS_BIOMES := [
 		"mesh_path": "res://models/vegetation/Blade_Lawn.glb",
 		# Lawn: densest base coverage (maintained Kentucky bluegrass turf).
 		"spacing": 0.10, "cell_width": 11.0, "grid_width": 11,
-		"min_distance": 4.0,
+		"min_distance": 4.0, "process_fps": 15,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.6, 0.6, 0.6),
 		"max_scale": Vector3(1.4, 1.4, 1.4),
@@ -1357,7 +1357,7 @@ const GRASS_BIOMES := [
 		"mesh_path": "res://models/vegetation/Blade_Shade.glb",
 		# Shade: sparser woodland floor (less light, fewer blades).
 		"spacing": 0.16, "cell_width": 11.0, "grid_width": 11,
-		"min_distance": 4.0,
+		"min_distance": 4.0, "process_fps": 15,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.6, 0.6, 0.6),
 		"max_scale": Vector3(1.4, 1.4, 1.4),
@@ -1368,7 +1368,7 @@ const GRASS_BIOMES := [
 		"mesh_path": "res://models/vegetation/Blade_Wild.glb",
 		# Wild meadow: clumpy native grasses, gaps between bunches.
 		"spacing": 0.19, "cell_width": 11.0, "grid_width": 11,
-		"min_distance": 4.0,
+		"min_distance": 4.0, "process_fps": 15,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.6, 0.6, 0.6),
 		"max_scale": Vector3(1.4, 1.4, 1.4),
@@ -1379,7 +1379,7 @@ const GRASS_BIOMES := [
 		"mesh_path": "res://models/vegetation/Blade_Sedge.glb",
 		# Sedge: waterside, moderate density.
 		"spacing": 0.16, "cell_width": 11.0, "grid_width": 11,
-		"min_distance": 4.0,
+		"min_distance": 4.0, "process_fps": 15,
 		"random_spacing": 0.5,
 		"min_scale": Vector3(0.6, 0.6, 0.6),
 		"max_scale": Vector3(1.4, 1.4, 1.4),
@@ -1476,6 +1476,7 @@ const GRASS_ACCENTS := [
 		"name": "Accent_Clover", "biome_id": 0,
 		"mesh_path": "res://models/vegetation/Accent_Clover.glb",
 		"spacing": 0.15, "cell_width": 4.0, "grid_width": 3,
+		"process_fps": 15,
 		"random_spacing": 0.8,
 		"min_scale": Vector3(0.7, 0.7, 0.7),
 		"max_scale": Vector3(1.5, 1.5, 1.5),
@@ -1485,6 +1486,7 @@ const GRASS_ACCENTS := [
 		"name": "Accent_Dandelion", "biome_id": 0,
 		"mesh_path": "res://models/vegetation/Accent_Dandelion.glb",
 		"spacing": 0.25, "cell_width": 4.0, "grid_width": 3,
+		"process_fps": 15,
 		"random_spacing": 0.8,
 		"min_scale": Vector3(0.6, 0.6, 0.6),
 		"max_scale": Vector3(1.3, 1.3, 1.3),
@@ -1494,6 +1496,7 @@ const GRASS_ACCENTS := [
 		"name": "Accent_DriedLeaf", "biome_id": 1,
 		"mesh_path": "res://models/vegetation/Accent_DriedLeaf.glb",
 		"spacing": 0.12, "cell_width": 4.0, "grid_width": 3,
+		"process_fps": 15,
 		"random_spacing": 0.8,
 		"min_scale": Vector3(0.5, 0.5, 0.5),
 		"max_scale": Vector3(1.6, 1.6, 1.6),
@@ -1503,6 +1506,7 @@ const GRASS_ACCENTS := [
 		"name": "Accent_SeedHead", "biome_id": 2,
 		"mesh_path": "res://models/vegetation/Accent_SeedHead.glb",
 		"spacing": 0.20, "cell_width": 4.0, "grid_width": 3,
+		"process_fps": 15,
 		"random_spacing": 0.7,
 		"min_scale": Vector3(0.5, 0.5, 0.5),
 		"max_scale": Vector3(1.4, 1.4, 1.4),
@@ -1574,6 +1578,7 @@ func _setup_grass_particles() -> void:
 		gp.cell_width = biome.cell_width
 		gp.grid_width = biome.grid_width
 		gp.near_cull_distance = biome.get("min_distance", 0.0)
+		gp.process_fixed_fps = biome.get("process_fps", 30)
 		gp.shadow_mode = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		gp.mesh = tuft_mesh
 
