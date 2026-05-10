@@ -911,13 +911,11 @@ func _build_canopy_shells() -> void:
 			meta_file.close()
 		if meta.is_empty():
 			meta = {"scale": 3.0, "aabb_max": 1.5, "position_offset": [0, 0, 0]}
-		# Override meta scale + position_offset using live LOD0 mesh AABB,
-		# using max-dimension framing (matches impostor_baker.gd's tight
-		# bake). The legacy meta JSON's `scale` field was written by the
-		# old Python baker with diagonal-based radius — too loose by
-		# ~sqrt(2). Pulling values from the in-memory mesh keeps the
-		# runtime billboard size aligned to the bake regardless of which
-		# baker last wrote the meta.
+		# Override scale + position_offset using live LOD0 mesh AABB so the
+		# runtime billboard always matches the active impostor_baker.gd
+		# framing regardless of which baker last wrote meta JSON. Use the
+		# same diagonal-based radius the baker uses — tighter framing
+		# (max_dim) clips silhouettes at oblique viewing angles.
 		var mesh_key := label
 		if not _species_meshes.has(mesh_key):
 			# Generic fallback (e.g., "oak") → use _m tier as proxy.
@@ -928,8 +926,7 @@ func _build_canopy_shells() -> void:
 			var mesh_variants: Array = _species_meshes[mesh_key]
 			if mesh_variants.size() > 0:
 				var mab: AABB = (mesh_variants[0] as Mesh).get_aabb()
-				var mmax: float = maxf(mab.size.x, maxf(mab.size.y, mab.size.z))
-				live_scale = mmax * 0.5 * 1.05  # match baker's 5% safety margin
+				live_scale = mab.size.length() * 0.5  # diagonal/2 = baker radius
 				live_offset = -mab.get_center()  # billboard pivots at AABB center
 		var mat := ShaderMaterial.new()
 		mat.shader = impostor_shader

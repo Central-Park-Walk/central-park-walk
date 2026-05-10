@@ -245,27 +245,23 @@ func _bake_one(species: String, label: String, glb_path: String, suffix: String 
 	mmi.multimesh = mm
 	tree_root.add_child(mmi)
 
-	# Tight orthographic framing: max-dimension, not aabb diagonal. Using
-	# diagonal (sqrt(x² + y² + z²)) over-frames every species — for an oak
-	# with dims 12×17×12 the diagonal is 24m, but the silhouette never
-	# exceeds 17m × 17m from any view direction. The runtime billboard
-	# inherits this size, so loose framing → impostors render larger than
-	# the meshes they replace at the LOD1↔impostor boundary. Tight framing
-	# matches sizes exactly and gives the silhouette more atlas pixels.
+	# Orthographic framing must fit the worst-case silhouette projection of
+	# the AABB across all hemisphere camera angles. The body-diagonal
+	# (sqrt(x²+y²+z²)) is the correct upper bound — naïvely tightening to
+	# max(x,y,z) clips silhouettes at oblique viewing angles. With premul-
+	# alpha the empty border around the silhouette is invisible at runtime,
+	# so loose framing has no visible cost (just slightly fewer atlas
+	# pixels on the silhouette).
 	var ab: AABB = mesh.get_aabb()
 	var center: Vector3 = ab.get_center()
-	var max_dim: float = maxf(ab.size.x, maxf(ab.size.y, ab.size.z))
-	var frame_half: float = max_dim * 0.5 * 1.05  # 5% safety margin
-	frame_half = maxf(frame_half, 0.01)
-
-	# Look-at distance: keep whole mesh in front of near plane regardless of
-	# view direction. Use aabb diagonal/2 (always >= max_dim/2 + a margin).
-	var cam_dist: float = ab.size.length() * 0.5 + 0.5
+	var radius: float = ab.size.length() * 0.5
+	radius = maxf(radius, 0.01)
 
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
-	camera.size = frame_half * 2.0
+	camera.size = radius * 2.0
 	camera.near = 0.01
-	camera.far = cam_dist * 4.0
+	camera.far = radius * 4.0
+	var cam_dist: float = radius
 
 	# Allocate the atlas as 8-bit RGBA (final PNG is 8-bit; float accumulation
 	# buys nothing without blending).
