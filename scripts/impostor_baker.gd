@@ -245,19 +245,27 @@ func _bake_one(species: String, label: String, glb_path: String, suffix: String 
 	mmi.multimesh = mm
 	tree_root.add_child(mmi)
 
-	# Bounding sphere from the mesh aabb. The Blender baker used vertex-level
-	# extents; mesh.get_aabb() is tight enough here because impostors only
-	# need a framing that catches the whole silhouette.
+	# Tight orthographic framing: max-dimension, not aabb diagonal. Using
+	# diagonal (sqrt(x² + y² + z²)) over-frames every species — for an oak
+	# with dims 12×17×12 the diagonal is 24m, but the silhouette never
+	# exceeds 17m × 17m from any view direction. The runtime billboard
+	# inherits this size, so loose framing → impostors render larger than
+	# the meshes they replace at the LOD1↔impostor boundary. Tight framing
+	# matches sizes exactly and gives the silhouette more atlas pixels.
 	var ab: AABB = mesh.get_aabb()
 	var center: Vector3 = ab.get_center()
-	var radius: float = ab.size.length() * 0.5
-	radius = maxf(radius, 0.01)
+	var max_dim: float = maxf(ab.size.x, maxf(ab.size.y, ab.size.z))
+	var frame_half: float = max_dim * 0.5 * 1.05  # 5% safety margin
+	frame_half = maxf(frame_half, 0.01)
 
-	# Orthographic framing (matches bake_impostors.py::setup_camera)
+	# Look-at distance: keep whole mesh in front of near plane regardless of
+	# view direction. Use aabb diagonal/2 (always >= max_dim/2 + a margin).
+	var cam_dist: float = ab.size.length() * 0.5 + 0.5
+
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
-	camera.size = radius * 2.0
+	camera.size = frame_half * 2.0
 	camera.near = 0.01
-	camera.far = radius * 4.0
+	camera.far = cam_dist * 4.0
 
 	# Allocate the atlas as 8-bit RGBA (final PNG is 8-bit; float accumulation
 	# buys nothing without blending).
@@ -271,7 +279,7 @@ func _bake_one(species: String, label: String, glb_path: String, suffix: String 
 			var bake_dir := _hemisphere_octa(u, v)             # Blender-space
 			# Blender → Godot: Blender (x=right, y=fwd, z=up) → Godot (x=right, y=up, z=back)
 			var godot_dir := Vector3(bake_dir.x, bake_dir.z, -bake_dir.y)
-			var cam_pos: Vector3 = center + godot_dir * radius * 2.0
+			var cam_pos: Vector3 = center + godot_dir * cam_dist * 2.0
 			camera.global_transform = _look_at_from_position(cam_pos, center)
 
 			# Two frames: one to apply the new transform, one after

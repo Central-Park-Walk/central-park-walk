@@ -911,9 +911,26 @@ func _build_canopy_shells() -> void:
 			meta_file.close()
 		if meta.is_empty():
 			meta = {"scale": 3.0, "aabb_max": 1.5, "position_offset": [0, 0, 0]}
-		# Convert position_offset: Blender(-center) → Godot(+center)
-		var po: Array = meta.get("position_offset", [0, 0, 0])
-		var godot_offset := Vector3(-po[0], -po[2], po[1])
+		# Override meta scale + position_offset using live LOD0 mesh AABB,
+		# using max-dimension framing (matches impostor_baker.gd's tight
+		# bake). The legacy meta JSON's `scale` field was written by the
+		# old Python baker with diagonal-based radius — too loose by
+		# ~sqrt(2). Pulling values from the in-memory mesh keeps the
+		# runtime billboard size aligned to the bake regardless of which
+		# baker last wrote the meta.
+		var mesh_key := label
+		if not _species_meshes.has(mesh_key):
+			# Generic fallback (e.g., "oak") → use _m tier as proxy.
+			mesh_key = label + "_m"
+		var live_scale: float = meta.get("scale", 3.0)
+		var live_offset := Vector3.ZERO
+		if _species_meshes.has(mesh_key):
+			var mesh_variants: Array = _species_meshes[mesh_key]
+			if mesh_variants.size() > 0:
+				var mab: AABB = (mesh_variants[0] as Mesh).get_aabb()
+				var mmax: float = maxf(mab.size.x, maxf(mab.size.y, mab.size.z))
+				live_scale = mmax * 0.5 * 1.05  # match baker's 5% safety margin
+				live_offset = -mab.get_center()  # billboard pivots at AABB center
 		var mat := ShaderMaterial.new()
 		mat.shader = impostor_shader
 		mat.set_shader_parameter("atlas", albedo_tex)
@@ -921,9 +938,9 @@ func _build_canopy_shells() -> void:
 		mat.set_shader_parameter("atlas_normal", normal_tex if normal_tex else albedo_tex)
 		mat.set_shader_parameter("atlas_depth", depth_tex if depth_tex else albedo_tex)
 		mat.set_shader_parameter("frames", Vector2(8.0, 8.0))
-		mat.set_shader_parameter("scale", meta.get("scale", 3.0))
-		mat.set_shader_parameter("aabb_max", meta.get("aabb_max", 1.5))
-		mat.set_shader_parameter("position_offset", godot_offset)
+		mat.set_shader_parameter("scale", live_scale)
+		mat.set_shader_parameter("aabb_max", live_scale * 0.5)
+		mat.set_shader_parameter("position_offset", live_offset)
 		mat.set_shader_parameter("depth_scale", 0.3)
 		mat.set_shader_parameter("alpha_clamp", 0.3)
 		impostor_mats[label] = mat
