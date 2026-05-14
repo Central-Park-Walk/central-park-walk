@@ -894,6 +894,8 @@ func _build_canopy_shells() -> void:
 		if impostor_mats.has(label):
 			return true
 		var albedo_path := "%s/%s_impostor_albedo.png" % [IMPOSTOR_DIR, label]
+		if not ResourceLoader.exists(albedo_path):
+			return false
 		var albedo_tex: Texture2D = load(albedo_path)
 		if not albedo_tex:
 			return false
