@@ -26,6 +26,7 @@ render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_sc
 
 #include "res://shaders/include/seasonal.gdshaderinc"
 #include "res://shaders/include/hash_noise.gdshaderinc"
+#include "res://shaders/include/grass_zone_colors.gdshaderinc"
 
 // ---- Terrain3D private uniforms (set by C++ engine) ----
 uniform vec3 _camera_pos = vec3(0.0);
@@ -382,6 +383,19 @@ void fragment() {
 			biome_terrain_tint = vec3(1.20, 1.05, 0.72);  // Wild: warm amber (hand-marked meadow)
 		}
 		ALBEDO *= biome_terrain_tint;
+
+		// Pull terrain albedo toward the spectral grass palette inside grass
+		// zones. The Terrain3D source texture is a photographic ~0.30 luma
+		// olive, while the GPU grass blades use spectral palette values
+		// closer to 0.10 luma; the brightness gap is what reads as a "dark
+		// disc following the camera" because the blades only render within
+		// the grass cull radius. Blending toward grass_base_color closes the
+		// gap while keeping enough of the source texture's micro-variation
+		// to avoid a flat look.
+		if (is_grass_zone) {
+			vec3 spectral_col = grass_base_color(zone_id, v_vertex.xz);
+			ALBEDO = mix(ALBEDO, spectral_col, 0.55);
+		}
 	}
 
 	// ---- Canopy leaf litter (under dense tree cover) ----
