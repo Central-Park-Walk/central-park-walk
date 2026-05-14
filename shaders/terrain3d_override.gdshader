@@ -394,7 +394,7 @@ void fragment() {
 		// to avoid a flat look.
 		if (is_grass_zone) {
 			vec3 spectral_col = grass_base_color(zone_id, v_vertex.xz);
-			ALBEDO = mix(ALBEDO, spectral_col, 0.55);
+			ALBEDO = mix(ALBEDO, spectral_col, 0.75);
 		}
 	}
 
