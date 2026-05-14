@@ -89,8 +89,10 @@ void fragment() {
 	vec3 thatch_col = c_lo * 0.5;
 	col = mix(col, thatch_col, (1.0 - root_t) * 0.25);
 
-	// Compensate for root darkening + thatch (matches particle shader)
-	col *= 1.05;
+	// Compensation factor dropped — see grass_particle_render.gdshader for
+	// why. With terrain3d_override blending toward grass_base_color_no_dead
+	// in grass zones, the +5% boost on blade-coverage shaders created a
+	// brighter halo where blades render vs terrain just beyond.
 
 	// Per-instance hue variation (±10%)
 	col *= mix(vec3(0.90, 1.04, 1.06), vec3(1.10, 0.96, 0.90), inst_seed);
