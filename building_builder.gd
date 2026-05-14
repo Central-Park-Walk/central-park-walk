@@ -617,13 +617,13 @@ func _facade_shader_path() -> String:
 	return "res://shaders/facade.gdshader"
 
 func _set_wall_textures(mat: ShaderMaterial, alb_path: String, nrm_path: String, rgh_path: String) -> void:
-	var alb: ImageTexture = _loader._load_tex(alb_path)
-	var nrm: ImageTexture = _loader._load_tex(nrm_path)
-	var rgh: ImageTexture = _loader._load_tex(rgh_path)
+	var alb: Texture2D = _loader._load_tex(alb_path)
+	var nrm: Texture2D = _loader._load_tex(nrm_path)
+	var rgh: Texture2D = _loader._load_tex(rgh_path)
 	if alb: mat.set_shader_parameter("wall_albedo", alb)
 	if nrm: mat.set_shader_parameter("wall_normal", nrm)
 	if rgh: mat.set_shader_parameter("wall_roughness", rgh)
-	var wg: ImageTexture = _loader._load_tex("res://textures/window_night_gradient.png")
+	var wg: Texture2D = _loader._load_tex("res://textures/window_night_gradient.png")
 	if wg: mat.set_shader_parameter("win_gradient", wg)
 
 

@@ -56,9 +56,9 @@ func _build_perimeter_wall(boundary: Array, paths: Array) -> void:
 	var GATE_R := 4.0  # gate half-width (metres)
 
 	# Stone material — Manhattan schist (weather-responsive)
-	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 	var wall_mat: ShaderMaterial = _loader._make_stone_material(
 		rw_alb, rw_nrm, rw_rgh, Color(0.48, 0.46, 0.42))
 
@@ -226,7 +226,7 @@ func _build_perimeter_wall(boundary: Array, paths: Array) -> void:
 
 func _build_gate_pillars(boundary: Array, gate_positions: Array,
 		cx: float, cz: float, gate_r: float,
-		alb: ImageTexture, nrm: ImageTexture, rgh: ImageTexture) -> void:
+		alb: Texture2D, nrm: Texture2D, rgh: Texture2D) -> void:
 	## Paired granite pillars (2.4m tall, capstone overhang) at each gate.
 	if gate_positions.is_empty():
 		return

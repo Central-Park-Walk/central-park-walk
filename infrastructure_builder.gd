@@ -17,9 +17,9 @@ func _build_barriers(barriers: Array) -> void:
 	if barriers.is_empty():
 		return
 
-	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 
 	# Load GLB fence panel for iron fences
 	var fence_panel_mesh: Mesh = null
@@ -616,9 +616,9 @@ func _build_statues(statues: Array) -> void:
 	print("Statues: %d pedestal variants loaded" % pedestal_meshes.size())
 
 	# Stone material for pedestals (gray granite)
-	var ped_rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var ped_rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var ped_rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var ped_rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var ped_rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var ped_rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 	var ped_stone_mat: Material = _loader._make_stone_material(
 		ped_rw_alb, ped_rw_nrm, ped_rw_rgh, Color(0.55, 0.53, 0.50))
 	var ped_limestone_mat: Material = _loader._make_stone_material(
@@ -951,9 +951,9 @@ func _build_gardens() -> void:
 
 	# Create single combined mesh for all garden borders
 	if not border_verts.is_empty():
-		var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-		var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-		var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+		var rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+		var rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+		var rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 		var mat: Material = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
 			Color(0.58, 0.55, 0.48))
 		var mesh: ArrayMesh = _loader._make_mesh(border_verts, border_normals)
@@ -1006,9 +1006,9 @@ func _build_facilities(facilities: Array) -> void:
 	}
 
 	# Load stone material for facility models
-	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 
 	for fac in facilities:
 		var name_: String = fac.get("name", "")
@@ -1127,9 +1127,9 @@ func _build_attractions(attractions: Array) -> void:
 	}
 
 	# Load stone material for attraction models
-	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 
 	var subtype_colors: Dictionary = {
 		"museum":  Color(0.60, 0.45, 0.30, 0.70),

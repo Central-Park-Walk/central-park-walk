@@ -720,9 +720,9 @@ func _build_bridle_posts(paths: Array) -> void:
 # Stone staircases — 250 OSM highway=steps paths built as stepped geometry
 # ---------------------------------------------------------------------------
 func _build_staircases(paths: Array) -> void:
-	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 	var mat: Material = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
 		Color(0.52, 0.50, 0.46))
 
@@ -1089,9 +1089,9 @@ func _build_balustrades() -> void:
 		return
 
 	# Apply stone material
-	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 	var stone_mat: Material = _loader._make_stone_material(
 		rw_alb, rw_nrm, rw_rgh, Color(0.62, 0.60, 0.56))
 	for si in mesh.get_surface_count():
@@ -1201,9 +1201,9 @@ func _build_drive_waste_bins(paths: Array) -> void:
 func _build_retaining_walls(paths: Array) -> void:
 	## Detect steep terrain grade changes alongside paths and build
 	## low Manhattan schist retaining walls to hold the grade.
-	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 	var mat: Material = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
 		Color(0.48, 0.46, 0.42))
 
@@ -1705,9 +1705,9 @@ func _build_stone_urns() -> void:
 		return
 
 	# Apply stone material
-	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 	var stone_mat: Material = _loader._make_stone_material(
 		rw_alb, rw_nrm, rw_rgh, Color(0.62, 0.60, 0.56))
 	for si in mesh.get_surface_count():

@@ -60,9 +60,9 @@ func _build_bethesda_terrace() -> void:
 		tx + north_d * st, tz + north_d * ct])
 
 	# Apply stone material to all mesh surfaces
-	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 
 	# Material lookup by Blender material name
 	var mat_map: Dictionary = {}
@@ -201,9 +201,9 @@ func _build_belvedere_castle() -> void:
 	root.name = "BelvedereCastle"
 
 	# Apply stone material to all surfaces
-	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 
 	var mat_map: Dictionary = {}
 	mat_map["Schist"] = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
@@ -250,9 +250,9 @@ func _build_comfort_stations(amenities: Array) -> void:
 		return
 
 	# Apply stone material
-	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 	var stone_mat: Material = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
 		Color(0.58, 0.54, 0.48))
 	for si in range(cs_mesh.get_surface_count()):
@@ -299,9 +299,9 @@ func _build_vanderbilt_gate() -> void:
 	root.rotation.y = PI * 0.5  # Faces west into garden
 	root.name = "VanderbiltGate"
 	# Apply iron material to gate parts, stone to piers
-	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 	var stone_mat: Material = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
 		Color(0.58, 0.55, 0.50))
 	var stack: Array = [root]
@@ -335,9 +335,9 @@ func _build_bandshell() -> void:
 	root.position = Vector3(bx, by, bz)
 	root.rotation.y = PI  # Shell faces south toward Mall
 	root.name = "NaumburgBandshell"
-	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 	var stone_mat: Material = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
 		Color(0.68, 0.64, 0.58))
 	var stack: Array = [root]
@@ -372,9 +372,9 @@ func _build_pergola() -> void:
 	root.position = Vector3(px, py, pz)
 	root.rotation.y = PI * 0.15  # Slightly angled to garden axis
 	root.name = "WisteriaPergola"
-	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 	var stone_mat: Material = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
 		Color(0.65, 0.60, 0.54))
 	var stack: Array = [root]
@@ -554,9 +554,9 @@ func _build_tennis_house() -> void:
 	root.position = Vector3(tx, ty, tz)
 	root.rotation.y = PI
 	root.name = "TennisHouse"
-	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 	var stone_mat: Material = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
 		Color(0.52, 0.28, 0.20))
 	var stack: Array = [root]
@@ -660,9 +660,9 @@ func _build_bethesda_arcade() -> void:
 	root.name = "BethesdaArcade"
 
 	# Apply stone materials — Minton tile vault, sandstone walls, brownstone trim
-	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 	var mat_map: Dictionary = {}
 	mat_map["Sandstone"] = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh,
 		Color(0.72, 0.65, 0.52))

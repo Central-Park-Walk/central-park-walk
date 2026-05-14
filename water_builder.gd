@@ -33,9 +33,9 @@ func _build_fountain(body: Dictionary) -> void:
 	var pool_y := base_y + 0.35
 
 	# Textures for stone basin
-	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 
 	var lname := bname.to_lower()
 	_build_fountain_pool(pts, pool_y)
@@ -150,7 +150,7 @@ func _add_fountain_spray(x: float, y: float, z: float,
 # The Angel of the Waters statue needs close-range scanning data
 # (drone photogrammetry or terrestrial LiDAR) to model accurately.
 func _build_bethesda_fountain(cx: float, cz: float, base_y: float, pool_r: float,
-							  alb: ImageTexture, nrm: ImageTexture, rgh: ImageTexture) -> void:
+							  alb: Texture2D, nrm: Texture2D, rgh: Texture2D) -> void:
 	pass  # awaiting proper scan data
 
 
@@ -463,9 +463,9 @@ func _build_water_mesh(verts: PackedVector3Array, normals: PackedVector3Array, w
 
 func _build_water_curb(pts: Array, tint: Color, body_name: String = "") -> void:
 	## Build a raised stone curb ring around a water body (e.g. Conservatory Water).
-	var rw_alb: ImageTexture = _loader._load_tex("res://textures/rock_wall_diff.jpg")
-	var rw_nrm: ImageTexture = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
-	var rw_rgh: ImageTexture = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
+	var rw_alb: Texture2D = _loader._load_tex("res://textures/rock_wall_diff.jpg")
+	var rw_nrm: Texture2D = _loader._load_tex("res://textures/rock_wall_nrm.jpg")
+	var rw_rgh: Texture2D = _loader._load_tex("res://textures/rock_wall_rgh.jpg")
 	var mat: ShaderMaterial = _loader._make_stone_material(rw_alb, rw_nrm, rw_rgh, tint)
 	var curb_h := 0.35   # curb height above water
 	var curb_w := 0.30   # curb width
