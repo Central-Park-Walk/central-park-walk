@@ -86,7 +86,7 @@ extends Node3D
 @export var mesh: Mesh
 
 @export var shadow_mode: GeometryInstance3D.ShadowCastingSetting = (
-		GeometryInstance3D.ShadowCastingSetting.SHADOW_CASTING_SETTING_ON):
+		GeometryInstance3D.ShadowCastingSetting.SHADOW_CASTING_SETTING_OFF):
 	set(value):
 		shadow_mode = value
 		for p in particle_nodes:
