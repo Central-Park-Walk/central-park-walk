@@ -7,7 +7,7 @@ const DATA_PATH := "res://park_data.json"
 const BIN_PATH  := "res://park_data.bin"
 const PATH_Y    := 0.06   # metres above ground plane
 const WATER_Y   := 0.03   # water sits above ground, below path ribbons
-var _tex_cache:    Dictionary = {}   # path → ImageTexture (null if missing)
+var _tex_cache:    Dictionary = {}   # path → Texture2D (null if missing)
 var _shader_cache: Dictionary = {}   # key  → compiled Shader (reused across materials)
 
 # Heightmap for snapping geometry to the rendered terrain surface
@@ -282,18 +282,10 @@ func _add_box_post(v: PackedVector3Array, n: PackedVector3Array,
 # ---------------------------------------------------------------------------
 # Texture helpers
 # ---------------------------------------------------------------------------
-func _load_tex(path: String) -> ImageTexture:
+func _load_tex(path: String) -> Texture2D:
 	if path in _tex_cache:
 		return _tex_cache[path]
-	if not FileAccess.file_exists(path):
-		_tex_cache[path] = null
-		return null
-	var img := Image.load_from_file(path)
-	if not img:
-		_tex_cache[path] = null
-		return null
-	img.generate_mipmaps()
-	var tex := ImageTexture.create_from_image(img)
+	var tex: Texture2D = load(path) if ResourceLoader.exists(path) else null
 	_tex_cache[path] = tex
 	return tex
 
@@ -1239,9 +1231,9 @@ func _build_bridge_models() -> void:
 			extent_minor = maxf(extent_minor, proj_minor)
 
 		# Apply stone/iron materials based on bridge type
-		var rw_alb: ImageTexture = _load_tex("res://textures/rock_wall_diff.jpg")
-		var rw_nrm: ImageTexture = _load_tex("res://textures/rock_wall_nrm.jpg")
-		var rw_rgh: ImageTexture = _load_tex("res://textures/rock_wall_rgh.jpg")
+		var rw_alb: Texture2D = _load_tex("res://textures/rock_wall_diff.jpg")
+		var rw_nrm: Texture2D = _load_tex("res://textures/rock_wall_nrm.jpg")
+		var rw_rgh: Texture2D = _load_tex("res://textures/rock_wall_rgh.jpg")
 		var bridge_mat: Material
 		if bname == "Bow Bridge" or bname == "Balcony Bridge":
 			# Cast iron bridges — dark gray metal
@@ -1470,7 +1462,7 @@ func _project_onto_polyline(px: float, pz: float, pts: Array,
 
 # Shared helper: PBR stone/concrete material — uses world-space UV so no
 # UV array is needed on the mesh (works on parapets, portals, walls, etc.)
-func _make_stone_material(alb: ImageTexture, nrm: ImageTexture, rgh: ImageTexture,
+func _make_stone_material(alb: Texture2D, nrm: Texture2D, rgh: Texture2D,
 						  tint: Color) -> Material:
 	if alb:
 		var sm  := ShaderMaterial.new()

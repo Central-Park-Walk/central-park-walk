@@ -1156,14 +1156,8 @@ func _walk_bot_capture() -> void:
 # ---------------------------------------------------------------------------
 # Sky + lighting
 # ---------------------------------------------------------------------------
-func _load_img_tex(path: String) -> ImageTexture:
-	if not FileAccess.file_exists(path):
-		return null
-	var img := Image.load_from_file(path)
-	if not img:
-		return null
-	img.generate_mipmaps()
-	return ImageTexture.create_from_image(img)
+func _load_img_tex(path: String) -> Texture2D:
+	return load(path) if ResourceLoader.exists(path) else null
 
 func _setup_environment() -> void:
 	# Volumetric cloud sky (clayjohn compute pipeline)
