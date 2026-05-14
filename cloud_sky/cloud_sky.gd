@@ -203,8 +203,25 @@ func _validate_property(property):
 
 func _notification(what):
 	if what == NOTIFICATION_PREDELETE:
-		cleanup()
-		
+		# Inline the disposal — calling self.cleanup() during a Resource's
+		# PREDELETE intermittently logs "'cleanup' on null instance" because
+		# the script-bound dispatch resolves through a torn-down vtable while
+		# the C++ object is still partly alive. Walking the RIDs directly
+		# here sidesteps the dispatch path.
+		if RenderingServer.is_connected("frame_pre_draw", update_sky):
+			RenderingServer.disconnect("frame_pre_draw", update_sky)
+		can_run = false
+		if rd:
+			for i in range(3):
+				if texture_rd[i]:
+					rd.free_rid(texture_rd[i])
+			if shader_rd:
+				rd.free_rid(shader_rd)
+			if noise_sampler:
+				rd.free_rid(noise_sampler)
+			if sky_sampler:
+				rd.free_rid(sky_sampler)
+
 func cleanup():
 	can_run = false
 	frame = 0
