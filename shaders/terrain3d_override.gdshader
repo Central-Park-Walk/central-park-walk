@@ -389,11 +389,14 @@ void fragment() {
 		// olive, while the GPU grass blades use spectral palette values
 		// closer to 0.10 luma; the brightness gap is what reads as a "dark
 		// disc following the camera" because the blades only render within
-		// the grass cull radius. Blending toward grass_base_color closes the
-		// gap while keeping enough of the source texture's micro-variation
-		// to avoid a flat look.
+		// the grass cull radius. Blending toward grass_base_color_no_dead
+		// closes the gap while keeping enough of the source texture's
+		// micro-variation to avoid a flat look. Dead-tuft accents are
+		// omitted here — their fine ~1.25m noise period reads as scattered
+		// brown flecks on solid terrain where blade coverage would normally
+		// hide it.
 		if (is_grass_zone) {
-			vec3 spectral_col = grass_base_color(zone_id, v_vertex.xz);
+			vec3 spectral_col = grass_base_color_no_dead(zone_id, v_vertex.xz);
 			ALBEDO = mix(ALBEDO, spectral_col, 0.75);
 		}
 	}
