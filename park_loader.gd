@@ -1547,16 +1547,7 @@ func _collect_named_meshes(node: Node, out: Dictionary) -> void:
 		for si in mesh.get_surface_count():
 			var surf_mat = mesh.surface_get_material(si)
 			var override_mat = node.get_surface_override_material(si)
-			# Debug: log what we find for vegetation models
-			if "Shrub" in node.name or "Fern" in node.name:
-				print("  _collect %s surf[%d]: mesh_mat=%s override=%s" % [
-					node.name, si,
-					surf_mat.get_class() if surf_mat else "null",
-					override_mat.get_class() if override_mat else "null"])
-			if override_mat and surf_mat == null:
-				mesh.surface_set_material(si, override_mat)
-			elif override_mat and surf_mat != null:
-				# Override takes priority
+			if override_mat:
 				mesh.surface_set_material(si, override_mat)
 		out[node.name] = mesh
 	for child in node.get_children():
