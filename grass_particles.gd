@@ -187,6 +187,11 @@ func _create_grid() -> void:
 		for z in range(-half_grid, half_grid + 1):
 			#var ring: int = maxi(maxi(absi(x), absi(z)), 0)
 			var particle_node = GPUParticles3D.new()
+			# Grass cells teleport with the camera every move; physics
+			# interpolation has nothing meaningful to do here, and leaving
+			# it on triggers an instance_reset_physics_interpolation()
+			# deprecation warning on every snap.
+			particle_node.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 			particle_node.lifetime = 600.0
 			particle_node.amount = amount
 			particle_node.explosiveness = 1.0
