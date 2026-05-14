@@ -187,11 +187,6 @@ func _create_grid() -> void:
 		for z in range(-half_grid, half_grid + 1):
 			#var ring: int = maxi(maxi(absi(x), absi(z)), 0)
 			var particle_node = GPUParticles3D.new()
-			# Grass cells teleport with the camera every move; physics
-			# interpolation has nothing meaningful to do here, and leaving
-			# it on triggers an instance_reset_physics_interpolation()
-			# deprecation warning on every snap.
-			particle_node.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 			particle_node.lifetime = 600.0
 			particle_node.amount = amount
 			particle_node.explosiveness = 1.0
@@ -240,6 +235,12 @@ func _position_grid(pos: Vector3) -> void:
 		var node: GPUParticles3D = particle_nodes[i]
 		var snap = Vector3(pos.x, 0, pos.z).snapped(Vector3.ONE) + offsets[i]
 		node.global_position = (snap / instance_spacing).round() * instance_spacing
+		# reset_physics_interpolation is needed so the grid teleport doesn't
+		# render as a smooth slide between old and new positions. Godot 4.6
+		# routes this through a compat shim and emits a deprecation warning;
+		# functional behavior is fine, and removing the call breaks the
+		# follow-the-camera grass visually.
+		node.reset_physics_interpolation()
 		node.restart(true) # keep the same seed.
 
 

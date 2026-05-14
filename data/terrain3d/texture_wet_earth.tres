@@ -4,6 +4,7 @@
 [ext_resource type="CompressedTexture2D" path="res://textures/terrain3d/wet_earth_normal_rough.png" id="2"]
 
 [resource]
+id = 12
 albedo_texture = ExtResource("1")
 normal_texture = ExtResource("2")
 uv_scale = 0.22
