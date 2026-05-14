@@ -111,10 +111,13 @@ void fragment() {
 	float blade_seed = data.r;
 
 	// --- Base color from shared zone palette + macro variation ---
-	// grass_base_color handles: zone palette, macro splotchiness (20m),
-	// landscape gradient (70m), warm/cool drift (8m), micro (3m),
-	// dead tuft accents, and warm cast.
-	vec3 col = grass_base_color(zone_id, v_world_pos.xz);
+	// grass_base_color_no_dead handles: zone palette, macro splotchiness
+	// (20m), landscape gradient (70m), warm/cool drift (8m), micro (3m),
+	// and golden undertone. Dead tufts are applied below with a seasonal
+	// gate so July reads green and autumn ramps the brown up.
+	vec3 col = grass_base_color_no_dead(zone_id, v_world_pos.xz);
+	float autumn_t_early = sn_veg_autumn(season_t);
+	col = apply_dead_tufts(col, v_world_pos.xz, 0.15 + 0.85 * autumn_t_early);
 
 	// Texture modulation: texture luminance adds blade-level detail
 	// without overriding the zone palette. Same approach as tuft shader
@@ -170,10 +173,15 @@ void fragment() {
 	// Per-instance hue variation (±10% for visible blade-to-blade difference)
 	col *= mix(vec3(0.90, 1.04, 1.06), vec3(1.10, 0.96, 0.90), blade_seed);
 
-	// Tip warmth: yellow highlights at blade tips from waxy cuticle
+	// Tip warmth: yellow highlights at blade tips from waxy cuticle.
+	// Scaled by season — full strength in autumn dry-down, ~25% in peak
+	// summer so July blades read green instead of constantly amber-tipped.
 	if (v_height_t > 0.5) {
 		float yellow_t = smoothstep(0.5, 1.0, v_height_t);
-		col *= vec3(1.0 + yellow_t * 0.10, 1.0 + yellow_t * 0.05, 1.0 - yellow_t * 0.06);
+		float tip_scale = 0.25 + 0.75 * autumn_t_early;
+		col *= vec3(1.0 + yellow_t * 0.10 * tip_scale,
+		            1.0 + yellow_t * 0.05 * tip_scale,
+		            1.0 - yellow_t * 0.06 * tip_scale);
 	}
 
 	// --- Seasonal color ---

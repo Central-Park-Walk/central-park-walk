@@ -68,7 +68,11 @@ void fragment() {
 	float inst_seed = v_custom.b;
 
 	// --- Base color from shared zone palette + macro variation ---
-	vec3 col = grass_base_color(zone_id, v_world_pos.xz);
+	// No-dead version; seasonal dead-tuft scale applied below so July
+	// reads green and autumn ramps the brown up.
+	vec3 col = grass_base_color_no_dead(zone_id, v_world_pos.xz);
+	float autumn_t_early = sn_veg_autumn(season_t);
+	col = apply_dead_tufts(col, v_world_pos.xz, 0.15 + 0.85 * autumn_t_early);
 
 	// Texture luminance modulates zone color (textured tufts).
 	// Untextured clusters: use grass_base_color directly — matches textured
@@ -97,10 +101,13 @@ void fragment() {
 	// Per-instance hue variation (±10%)
 	col *= mix(vec3(0.90, 1.04, 1.06), vec3(1.10, 0.96, 0.90), inst_seed);
 
-	// Tip warmth
+	// Tip warmth, gated by season — full in autumn, ~25% in peak summer
 	if (v_height_t > 0.5) {
 		float yellow_t = smoothstep(0.5, 1.0, v_height_t);
-		col *= vec3(1.0 + yellow_t * 0.10, 1.0 + yellow_t * 0.05, 1.0 - yellow_t * 0.06);
+		float tip_scale = 0.25 + 0.75 * autumn_t_early;
+		col *= vec3(1.0 + yellow_t * 0.10 * tip_scale,
+		            1.0 + yellow_t * 0.05 * tip_scale,
+		            1.0 - yellow_t * 0.06 * tip_scale);
 	}
 
 	// Seasonal color

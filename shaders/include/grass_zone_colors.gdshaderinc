@@ -122,20 +122,24 @@ vec3 grass_base_color_no_dead(int zone_id, vec2 world_xz) {
 	return col;
 }
 
-// Full grass base color (palette + variations + golden undertone +
-// dead-tuft accents). Use this for blade-coverage shaders where dense
-// geometry hides the fine-scale dead-tuft mask between visible blades.
-vec3 grass_base_color(int zone_id, vec2 world_xz) {
-	vec3 col = grass_base_color_no_dead(zone_id, world_xz);
-
-	// --- Dead tuft accents (~22% of area) ---
-	// Stressed, dormant, or recently-mowed spots with warm brown cast
+// Apply dead-tuft (dried/dormant) brown accents at fine scale (~1.25m
+// period). Strength scales the mix amount — callers gate by season so
+// summer is near-zero and autumn ramps up.
+vec3 apply_dead_tufts(vec3 col, vec2 world_xz, float strength) {
 	float dead_n = vnoise(world_xz * 0.8 + vec2(73.1, 29.7));
 	float dead_mask = smoothstep(0.55, 0.68, dead_n);
 	if (dead_mask > 0.0) {
 		vec3 dead_col = vec3(0.315, 0.243, 0.120); // spectral dried grass (R+T)
-		col = mix(col, dead_col, dead_mask * 0.50);
+		col = mix(col, dead_col, dead_mask * 0.50 * strength);
 	}
-
 	return col;
+}
+
+// Full grass base color (palette + variations + golden undertone +
+// year-round dead-tuft accents). Kept for callers that don't gate by
+// season; blade-coverage shaders should use grass_base_color_no_dead
+// and call apply_dead_tufts with a season factor.
+vec3 grass_base_color(int zone_id, vec2 world_xz) {
+	vec3 col = grass_base_color_no_dead(zone_id, world_xz);
+	return apply_dead_tufts(col, world_xz, 1.0);
 }
