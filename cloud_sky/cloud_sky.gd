@@ -201,26 +201,13 @@ func _validate_property(property):
 	if property.name == "sky_material" or property.name == "process_mode":
 		property.usage &= ~PROPERTY_USAGE_EDITOR
 
-func _notification(what):
-	if what == NOTIFICATION_PREDELETE:
-		# Inline the disposal — calling self.cleanup() during a Resource's
-		# PREDELETE intermittently logs "'cleanup' on null instance" because
-		# the script-bound dispatch resolves through a torn-down vtable while
-		# the C++ object is still partly alive. Walking the RIDs directly
-		# here sidesteps the dispatch path.
-		if RenderingServer.is_connected("frame_pre_draw", update_sky):
-			RenderingServer.disconnect("frame_pre_draw", update_sky)
-		can_run = false
-		if rd:
-			for i in range(3):
-				if texture_rd[i]:
-					rd.free_rid(texture_rd[i])
-			if shader_rd:
-				rd.free_rid(shader_rd)
-			if noise_sampler:
-				rd.free_rid(noise_sampler)
-			if sky_sampler:
-				rd.free_rid(sky_sampler)
+# NOTE: no NOTIFICATION_PREDELETE handler — during Resource PREDELETE the
+# GDScript `self` is null, so neither the original `cleanup()` dispatch nor
+# inline self-member access (rd, texture_rd, update_sky) is reachable.
+# RenderingDevice frees all owned RIDs at engine teardown, so the texture/
+# shader/sampler RIDs cloud_sky owns get reclaimed even without explicit
+# disposal. cleanup() stays because the texture_size / frames_to_update
+# setters still need to re-init while the script is live.
 
 func cleanup():
 	can_run = false
