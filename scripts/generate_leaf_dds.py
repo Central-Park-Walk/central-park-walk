@@ -165,9 +165,23 @@ def rescale_alpha_for_coverage(
 
 
 def generate_coverage_preserving_mipmaps(
-    img: Image.Image, threshold: float = 0.5
+    img: Image.Image, threshold: float = 0.15, sharpen_per_level: float = 0.25
 ) -> list[Image.Image]:
-    """Generate mipmap chain with coverage-preserving alpha."""
+    """Generate mipmap chain with coverage-preserving alpha + mip-depth sharpening.
+
+    threshold should match the shader's alpha discard threshold (currently
+    0.15 in tree_leaf.gdshader) so the rescale targets exactly the alpha
+    band that survives discard.
+
+    sharpen_per_level: at each mip level >= 3, surviving-fragment alpha
+    is lifted toward 1.0 by `(level - 2) * sharpen_per_level`, clamped
+    to 0.85. This compensates for alpha_to_coverage quantization at
+    distance: with 4x MSAA the coverage mask has 5 levels (0..4/4), so a
+    fragment at alpha 0.5 renders as 50% coverage and reads as "sparse"
+    at mid-LOD distance. Lifting mid-alpha toward 1.0 snaps deep-mip
+    fragments to 4/4 coverage. Mip 0-2 are untouched to preserve edge AA
+    at close range.
+    """
     arr = np.array(img).astype(np.float32) / 255.0
     base_alpha = arr[:, :, 3]
     base_coverage = measure_coverage(base_alpha, threshold)
@@ -185,21 +199,37 @@ def generate_coverage_preserving_mipmaps(
         # Downsample from BASE image (not cascaded) for better quality
         mip = img.resize((w, h), Image.LANCZOS)
 
-        # Rescale alpha to preserve coverage
         mip_arr = np.array(mip).astype(np.float32) / 255.0
         mip_alpha = mip_arr[:, :, 3]
         cov_before = measure_coverage(mip_alpha, threshold)
 
+        # Step 1: coverage-preserving rescale (keeps the discard-passing
+        # fraction stable as Lanczos smears alpha into background pixels).
         mip_alpha_fixed = rescale_alpha_for_coverage(
             mip_alpha, threshold, base_coverage
         )
+
+        # Step 2: mip-depth sharpening. Lift surviving alpha toward 1.0
+        # so alpha_to_coverage renders these fragments at full coverage.
+        sharp_strength = 0.0
+        if level >= 3:
+            sharp_strength = min(0.85, (level - 2) * sharpen_per_level)
+            survive_mask = mip_alpha_fixed > threshold
+            lifted = mip_alpha_fixed + (1.0 - mip_alpha_fixed) * sharp_strength
+            mip_alpha_fixed = np.where(survive_mask, lifted, mip_alpha_fixed)
+
         mip_arr[:, :, 3] = mip_alpha_fixed
         mip_fixed = Image.fromarray((mip_arr * 255).astype(np.uint8), "RGBA")
         cov_after = measure_coverage(mip_alpha_fixed, threshold)
+        mean_surviving = (
+            float(mip_alpha_fixed[mip_alpha_fixed > threshold].mean())
+            if (mip_alpha_fixed > threshold).any() else 0.0
+        )
 
-        if level <= 6:
+        if level <= 8:
             print(
-                f"  Mip {level} ({w}x{h}): {cov_before:.1%} -> {cov_after:.1%}"
+                f"  Mip {level} ({w}x{h}): cov {cov_before:.1%} -> {cov_after:.1%}  "
+                f"sharp {sharp_strength:.2f}  mean_surviving_α {mean_surviving:.2f}"
             )
 
         mipmaps.append(mip_fixed)
@@ -253,7 +283,8 @@ def write_dds_uncompressed(path: str, mipmaps: list[Image.Image]):
 
 
 def process_species(
-    species: str, src_dir: str, dst_dir: str, threshold: float
+    species: str, src_dir: str, dst_dir: str, threshold: float,
+    sharpen_per_level: float,
 ) -> bool:
     """Process one species: read PNG, bleed colors, generate mipmaps, write DDS."""
     png_path = os.path.join(src_dir, f"{species}_leaf.png")
@@ -270,7 +301,9 @@ def process_species(
     # Bleed RGB into transparent areas to prevent dark mipmap fringe
     img = bleed_colors(img)
 
-    mipmaps = generate_coverage_preserving_mipmaps(img, threshold)
+    mipmaps = generate_coverage_preserving_mipmaps(
+        img, threshold, sharpen_per_level
+    )
 
     os.makedirs(dst_dir, exist_ok=True)
     dds_path = os.path.join(dst_dir, f"{species}_leaf.dds")
@@ -283,8 +316,16 @@ def main():
         description="Generate DDS with coverage-preserving mipmaps"
     )
     parser.add_argument(
-        "--threshold", type=float, default=0.5,
-        help="Alpha threshold for coverage preservation (default 0.5)",
+        "--threshold", type=float, default=0.15,
+        help="Alpha threshold for coverage preservation. Match the shader's "
+             "discard threshold (tree_leaf.gdshader currently uses 0.15).",
+    )
+    parser.add_argument(
+        "--sharpen", type=float, default=0.25,
+        help="Per-mip-level alpha sharpening strength. At each mip level >= 3, "
+             "surviving alpha is lifted toward 1.0 by (level-2)*sharpen "
+             "(clamped to 0.85). 0 = no sharpening; 0.25 = full strength by "
+             "mip 5. Compensates for alpha_to_coverage quantization at distance.",
     )
     parser.add_argument("--species", type=str, default=None)
     parser.add_argument(
@@ -329,11 +370,14 @@ def main():
 
     print(f"\nCoverage-preserving DDS generation")
     print(f"  Threshold: {args.threshold}")
+    print(f"  Sharpen:   +{args.sharpen:.2f}/level (cap 0.85)")
     print(f"  Species:   {len(species_list)}")
 
     count = 0
     for species in species_list:
-        if process_species(species, args.src, args.dst, args.threshold):
+        if process_species(
+            species, args.src, args.dst, args.threshold, args.sharpen
+        ):
             count += 1
 
     print(f"\nDone: {count} DDS files in {args.dst}/")
