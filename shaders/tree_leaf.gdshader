@@ -54,28 +54,6 @@ const vec3 BLOSSOM_COLORS[14] = vec3[14](
 	vec3(0.90, 0.72, 0.78)        // 13 magnolia: pink-white tulip-shaped blooms
 );
 
-// Per-species canopy opacity multiplier — calibrated to USDA Silvics +
-// Nowak (1996) + ISA light-transmission data. Real CP trees vary from
-// 1–5% transmission (Linden, Sugar Maple) up to 30–50% (Honeylocust).
-// This multiplier scales leaf alpha so dense species stay opaque while
-// lacy species let real gaps through. See reference_tree_canopy_data.md.
-const float CANOPY_OPACITY[14] = float[14](
-	0.85,  // 0  oak (Pin Oak)        — LAI 4.0–5.5, 15–25% trans → moderate
-	1.00,  // 1  maple (Sugar Maple)  — LAI 5.0–7.0,  3–8%  trans → opaque
-	0.95,  // 2  elm (American)       — LAI 4.5–6.0,  5–15% trans → near-opaque
-	0.60,  // 3  birch (Gray)         — LAI 2.5–3.5, 15–30% trans → airy
-	0.85,  // 4  deciduous (generic)  — typical urban broadleaf  → moderate
-	0.85,  // 5  conifer (Aust. Pine) — LAI 1–2.5,   10–20% trans → dense needles
-	0.45,  // 6  honeylocust          — LAI 2.0–3.5, 30–50% trans → very lacy
-	0.92,  // 7  callery_pear         — LAI 4.0–6.0,  8–15% trans → dense
-	0.65,  // 8  ginkgo               — LAI 2.5–4.0, 20–35% trans → open
-	0.92,  // 9  london_plane         — LAI 4.0–6.0,  8–15% trans → dense
-	1.00,  // 10 linden (Basswood)    — LAI 5.0–7.0,  1–5%  trans → very opaque
-	0.65,  // 11 cherry (Yoshino)     — LAI 2.5–4.0, 20–35% trans → moderate-open
-	0.70,  // 12 willow (Weeping)     — LAI 3.0–5.0, 15–25% (curtain effect)
-	0.85   // 13 magnolia             — LAI 3.5–5.0, 10–20% trans → moderate
-);
-
 // Blossom timing: (start, peak, end) — before leaf-out
 // season_t 0=spring start, 1=summer, 2=autumn, 3=winter
 const vec3 BLOSSOM_TIMING[14] = vec3[14](
@@ -118,12 +96,6 @@ void vertex() {
 		leaf_density = mix(retention, 1.0, canopy);
 		leaf_density = max(leaf_density, 0.08);  // never fully invisible
 	}
-	// Apply per-species canopy opacity calibration. This thins the leaf
-	// coverage of inherently-lacy species (Honeylocust, Birch, Cherry,
-	// Ginkgo) so light gets through the canopy at realistic rates per
-	// USDA / ISA data. Conifers and dense broadleafs (Linden, Maple,
-	// Elm) stay near 1.0 — they really are near-opaque in nature.
-	leaf_density *= CANOPY_OPACITY[sp_idx];
 	v_leaf_density = leaf_density;
 
 	// Spring blossom phase (cherry, callery pear)
