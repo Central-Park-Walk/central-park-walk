@@ -520,7 +520,7 @@ func _build_trees(trees: Array) -> void:
 		# 80.0 here MUST match CHUNK used in the spawning loop below.
 		var cx_var := int(floorf(tx / 80.0))
 		var cz_var := int(floorf(tz / 80.0))
-		var variant_idx := abs(hash("%s|%d|%d" % [species_tier, cx_var, cz_var])) % n_variants
+		var variant_idx: int = int(abs(hash("%s|%d|%d" % [species_tier, cx_var, cz_var]))) % n_variants
 
 		# Scale factor: desired_height / mesh_height_in_raw_units
 		var mesh_h: float = _species_heights[species_tier]
@@ -574,7 +574,7 @@ func _build_trees(trees: Array) -> void:
 			if _species_meshes.has(lod1_sp):
 				var lod1_vars: Array = _species_meshes[lod1_sp]
 				# Same per-cell variant pick as LOD0 (cx_var/cz_var in scope)
-				var lod1_vi: int = abs(hash("%s|%d|%d" % [lod1_sp, cx_var, cz_var])) % lod1_vars.size()
+				var lod1_vi: int = int(abs(hash("%s|%d|%d" % [lod1_sp, cx_var, cz_var]))) % lod1_vars.size()
 				var lod1_mh: float = _species_heights.get(lod1_sp, mesh_h)
 				var lod1_sy: float = desired_h / maxf(lod1_mh, 0.06)
 				var lod1_sx: float = lod1_sy * (1.50 if species == "cathedral_elm" else 1.0)
