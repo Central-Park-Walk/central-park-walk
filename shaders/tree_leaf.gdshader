@@ -358,32 +358,29 @@ void fragment() {
 		SPECULAR = mix(SPECULAR, 0.50, droplet * 0.4);
 	}
 
-	// --- Enhanced subsurface scattering / transmission ---
-	// Real leaves are translucent — fresh broadleaf foliage transmits 5–15%
-	// of green light when front-lit, but when back-lit by direct sun the
-	// transmitted light dominates the pixel value, reading as a vivid
-	// green-gold glow. Without this, canopies become flat opaque silhouettes
-	// against a bright sky — which is what was happening before this boost.
-	// BACKLIGHT must still stay below ALBEDO at noon to avoid washing the
-	// canopy white; the cap below clamps it.
-	vec3 backlight_col = vec3(0.62, 0.50, 0.14);  // warmer + brighter than the prior conservative pass
+	// --- Subsurface scattering / transmission ---
+	// Real leaves transmit 5–15% of incident light; the SSS term gives that
+	// backlit glow when the sun is behind the leaf. Strength stays modest
+	// so backlit cards don't read as "the leaf is see-through" — a too-hot
+	// BACKLIGHT swing as the camera rotates makes solid foliage look fake.
+	vec3 backlight_col = vec3(0.62, 0.50, 0.14);
 	// Tint with leaf color so autumn leaves glow amber/red, blossoms pink, etc.
 	backlight_col = mix(backlight_col, v_leaf_color * 0.75, 0.5);
-	float sss_strength = v_leaf_density * 1.6;  // ~60% boost — visible at all distances
-	// Spring leaves are thinner, more translucent
-	float spring_boost = (1.0 - smoothstep(0.3, 0.8, season_t)) * 0.3;
+	float sss_strength = v_leaf_density * 0.7;
+	float spring_boost = (1.0 - smoothstep(0.3, 0.8, season_t)) * 0.15;
 	sss_strength += spring_boost;
-	// Conifer needles: thick, minimal SSS
-	if (sp == 5) sss_strength *= 0.25;
-	// Magnolia: thick waxy leaves, reduced transmission
-	if (sp == 13) sss_strength *= 0.55;
-	// Blossom petals: strong pink/white translucency (backlit cherry blossoms are iconic)
+	if (sp == 5) sss_strength *= 0.25;   // conifer needles: thick, minimal SSS
+	if (sp == 13) sss_strength *= 0.55;  // magnolia: thick waxy leaves
 	if (v_blossom > 0.01) {
-		vec3 petal_sss = BLOSSOM_COLORS[sp] * 0.7;  // petal color glows through
+		vec3 petal_sss = BLOSSOM_COLORS[sp] * 0.7;
 		backlight_col = mix(backlight_col, petal_sss, v_blossom);
-		sss_strength = mix(sss_strength, 1.2, v_blossom);  // petals are very translucent
+		sss_strength = mix(sss_strength, 0.9, v_blossom);  // petals translucent but still capped
 	}
-	BACKLIGHT = backlight_col * sss_strength;
+	// Cap BACKLIGHT at 70% of ALBEDO so SSS reads as a glow, never exceeds
+	// the diffuse term. Prevents the backlit-card pixel from out-shouting
+	// the front-lit one (which is what made rotation visibly toggle leaves
+	// between "lit" and "see-through").
+	BACKLIGHT = min(backlight_col * sss_strength, ALBEDO * 0.7);
 
 	// Aerial perspective: desaturate + cool shift + haze blend at distance.
 	// Matches terrain, grass, and facade distance fog for visual coherence.
