@@ -241,6 +241,14 @@ void fragment() {
 	// player_world_pos (not INV_VIEW_MATRIX[3]) so the dither discards
 	// correctly in shadow/reflection passes.
 	float frag_cam_dist = length(frag_tree_pos - player_world_pos);
+
+	// Distance-to-opaque ramp: lift alpha toward 1.0 past 100m so distant
+	// canopy reads as a solid mass. Sub-pixel leaf cards otherwise alpha-
+	// average toward zero through the mip chain even with coverage-preserving
+	// generation, leaving LOD1 trees as thin twig silhouettes by 150m.
+	float opaque_ramp = smoothstep(100.0, 180.0, frag_cam_dist);
+	alpha = mix(alpha, 1.0, opaque_ramp);
+
 	if (alpha < 0.15) discard;
 
 	// LOD crossfade: complementary dithering at tier boundaries.
@@ -255,9 +263,6 @@ void fragment() {
 		if (lod_dither_discard(frag_cam_dist, lod_fade_in.x, lod_fade_in.y,
 		                       FRAGCOORD.xy, true)) discard;
 	}
-
-	// [DIAG-DISABLED 2026-05-18] Distance-to-opaque ramp disabled for A/B comparison.
-	// Was: smoothstep(100, 180, dist) blended alpha → 1.0 to make distant canopy solid.
 
 	vec3 col = v_leaf_color * (0.50 + lum * 0.50);  // texture luminance modulation (raised floor for denser canopy read)
 
