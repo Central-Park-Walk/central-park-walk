@@ -1376,9 +1376,15 @@ func _setup_environment() -> void:
 	_sun.directional_shadow_split_1      = 0.05   # tighter first cascade for near-field detail
 	_sun.directional_shadow_split_2      = 0.15
 	_sun.directional_shadow_split_3      = 0.4
-	_sun.directional_shadow_max_distance = 300.0
+	# 150m max (was 300): LOD0 fade ends at 100m, so 150m keeps full
+	# shadow coverage through LOD0 with a small buffer. Halving the
+	# distance halves the cascade area → ~half as many LOD0 trees draw
+	# into each cascade per frame. With 6808 LOD0 shadow casters in the
+	# Ramble × 4 cascades, this is the biggest per-frame win available
+	# without dropping a quality knob.
+	_sun.directional_shadow_max_distance = 150.0
 	_sun.directional_shadow_pancake_size = 20.0
-	_sun.directional_shadow_blend_splits = true  # smooth the 15m/45m/120m cascade boundaries — avoid visible dark band at 35-55m where C2↔C3 boundary lands
+	_sun.directional_shadow_blend_splits = true  # smooth the 7.5m/22.5m/60m cascade boundaries
 	add_child(_sun)
 
 	# Wire sun to volumetric cloud sky (deferred because _sun created after sky)
