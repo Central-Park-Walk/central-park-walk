@@ -63,6 +63,8 @@ var _prof_undergrowth_us: float = 0.0
 var _prof_ground_cover_us: float = 0.0
 var _prof_daynight_us: float = 0.0
 var _prof_hud_us: float = 0.0
+var _prof_misc_us: float = 0.0       # un-bucketed bits of main._process (lightning, time advance, dist overlay)
+var _prof_player_phy_us: float = 0.0  # mirrored from player._physics_process
 const PROF_SMOOTH := 0.9  # EMA smoothing factor (higher = more stable)
 
 var _audio_manager = null  # ambient sound (wind, city, water, footsteps)
@@ -691,6 +693,8 @@ func _process(delta: float) -> void:
 	# Grass tour auto-teleport + screenshot
 	_grass_tour_process(delta)
 
+	# Misc un-bucketed: lightning, time-of-day advance, dist overlay
+	var _t_misc := Time.get_ticks_usec()
 	# Lightning flashes during thunderstorm
 	if _weather_mode == Weather.THUNDERSTORM:
 		_lightning_flash = maxf(_lightning_flash - delta * 4.0, 0.0)  # rapid decay (~0.25s)
@@ -705,6 +709,7 @@ func _process(delta: float) -> void:
 	elif _lightning_flash > 0.01:
 		_lightning_flash = maxf(_lightning_flash - delta * 4.0, 0.0)
 	RenderingServer.global_shader_parameter_set("lightning_flash", _lightning_flash)
+	_prof_misc_us = lerpf(float(Time.get_ticks_usec() - _t_misc), _prof_misc_us, PROF_SMOOTH)
 
 	# Advance clock + day/night cycle
 	_t0 = Time.get_ticks_usec()
@@ -744,6 +749,9 @@ func _process(delta: float) -> void:
 
 
 func _get_prof_data() -> Dictionary:
+	# Mirror player physics time (player writes its own accumulator on _physics_process)
+	if _player and "prof_phy_us" in _player:
+		_prof_player_phy_us = lerpf(_player.prof_phy_us, _prof_player_phy_us, PROF_SMOOTH)
 	var data := {
 		"lamps": _prof_lamps_us,
 		"wind": _prof_wind_us,
@@ -752,7 +760,18 @@ func _get_prof_data() -> Dictionary:
 		"ground_cover": _prof_ground_cover_us,
 		"daynight": _prof_daynight_us,
 		"hud": _prof_hud_us,
+		"misc": _prof_misc_us,
+		"player_phy": _prof_player_phy_us,
 	}
+	# Tree LOD instance counts (populated at build time by tree_builder)
+	if _park_loader and _park_loader._tree_builder:
+		var tb = _park_loader._tree_builder
+		data["tree_lod0"] = tb.lod0_instances
+		data["tree_lod0_chunks"] = tb.lod0_chunks
+		data["tree_lod1"] = tb.lod1_instances
+		data["tree_lod1_chunks"] = tb.lod1_chunks
+		data["tree_imp"] = tb.imp_instances
+		data["tree_imp_chunks"] = tb.imp_chunks
 	# Chunk counts for context
 	if _park_loader and _park_loader._undergrowth_builder:
 		var ub = _park_loader._undergrowth_builder

@@ -37,6 +37,14 @@ var _lod1_cd: Dictionary = {}  # LOD1 custom data per key
 var _species_meshes: Dictionary = {}  # archetype_name -> Array[Mesh]
 var _species_heights: Dictionary = {} # archetype_name -> float (mesh height)
 
+# MMI / instance counts per LOD tier — read by HUD perf overlay
+var lod0_instances: int = 0
+var lod0_chunks: int = 0
+var lod1_instances: int = 0
+var lod1_chunks: int = 0
+var imp_instances: int = 0
+var imp_chunks: int = 0
+
 func _init(loader) -> void:
 	_loader = loader
 
@@ -694,6 +702,8 @@ func _build_trees(trees: Array) -> void:
 		mmi.visibility_range_end_margin = 0.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 		_loader.add_child(mmi)
+		lod0_instances += xf_list.size()
+		lod0_chunks += 1
 
 	# Canopy occluders disabled: OccluderInstance3D inherits Node3D (not
 	# GeometryInstance3D) so visibility_range cannot limit them. Without a
@@ -826,6 +836,9 @@ func _build_lod_tier_chunks(xf_data: Dictionary, cd_data: Dictionary,
 			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_loader.add_child(mmi)
 		instance_count += xf_list.size()
+		if prefix == "TreeL1":
+			lod1_instances += xf_list.size()
+			lod1_chunks += 1
 
 	print("%s: %d instances in %d chunks (%.0f-%.0fm)" % [
 		prefix, instance_count, chunks.size(), vis_begin, vis_end])
@@ -1074,6 +1087,8 @@ func _build_canopy_shells() -> void:
 		mmi.extra_cull_margin = 40.0
 		_loader.add_child(mmi)
 		impostor_count += xf_list.size()
+		imp_instances += xf_list.size()
+		imp_chunks += 1
 
 	print("Trees Impostor: %d billboard impostors (190-2500m) in %d chunks (%d species)" % [
 		impostor_count, chunks.size(), impostor_mats.size()])

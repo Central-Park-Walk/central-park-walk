@@ -14,6 +14,7 @@ var _stair_offset: float = 0.0  # camera smoothing for stair steps
 var boundary_polygon: PackedVector2Array  # XZ park boundary (set by main.gd)
 var tour_freeze := false  # when true, physics runs but player doesn't move/look
 var terrain_height_fn: Callable  # set by main.gd → _terrain_height(x, z) -> float
+var prof_phy_us: float = 0.0  # last frame's _physics_process duration in microseconds (read by main.gd HUD)
 
 
 func _ready() -> void:
@@ -49,9 +50,11 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	var _t0 := Time.get_ticks_usec()
 	if tour_freeze:
 		velocity = Vector3.ZERO
 		move_and_slide()  # keep physics body synced with scene transform
+		prof_phy_us = float(Time.get_ticks_usec() - _t0)
 		return
 	_handle_look(delta)
 	var pre_pos := position
@@ -63,6 +66,7 @@ func _physics_process(delta: float) -> void:
 		_stair_offset += dy
 	_stair_offset = lerpf(_stair_offset, 0.0, clampf(10.0 * delta, 0.0, 1.0))
 	head.position.y = 1.58 - _stair_offset
+	prof_phy_us = float(Time.get_ticks_usec() - _t0)
 
 
 func _unhandled_input(event: InputEvent) -> void:
