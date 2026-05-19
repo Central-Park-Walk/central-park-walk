@@ -1061,6 +1061,13 @@ func _build_canopy_shells() -> void:
 		mmi.visibility_range_end_margin = 0.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# Billboard quad mesh is unit-sized so the MultiMesh AABB is only ~2-5m
+		# tall, but the shader shifts each rendered billboard to canopy height
+		# (10-25m above ground via position_offset + pivot_to_cam_dir * aabb_max).
+		# Without margin, distant chunks frustum-cull when the camera looks at
+		# the horizon — AABB is below the view, even though the fragments above
+		# it. 40m covers the tallest canopy lift + atmospheric headroom.
+		mmi.extra_cull_margin = 40.0
 		_loader.add_child(mmi)
 		impostor_count += xf_list.size()
 
