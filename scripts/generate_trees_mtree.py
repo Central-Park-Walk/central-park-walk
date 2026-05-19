@@ -56,7 +56,7 @@ FOLIAGE_DEFAULTS = {
     "foliage_extent_range": (0.20, 0.95),
     "placement_interval_factor": 0.04,
     "sparse_branch_boost": 1.0,
-    "cards_per_cluster": 35,
+    "cards_per_cluster": 10,
     "droop_factor": 0.0,
 }
 
@@ -834,7 +834,7 @@ SPECIES = {
         "leaf_flatten_range": (0.55, 0.75),
         "leaf_density": 0.45,  # Willow LAI 2.5-3.5 → curtain, not solid mass
         "target_cluster_count_l": 720,
-        "cards_per_cluster": 45,
+        "cards_per_cluster": 13,
         "droop_factor": 0.3,
         "sub_min_height": 14,          # Sub-branches only on mature willows
         "base_seed": 50,
@@ -1491,7 +1491,7 @@ def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=
     all_objects = []
     for pos, size, flatten in placements:
         cluster_radius = size * 1.0  # scatter radius
-        card_size = size * 0.55      # individual card ~55% of cluster size
+        card_size = size * 1.2       # bigger cards (LOD silhouette mass over per-card detail)
 
         bm = bmesh.new()
         uv_layer = bm.loops.layers.uv.new("UVMap")
