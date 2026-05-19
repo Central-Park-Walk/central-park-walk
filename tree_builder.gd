@@ -623,7 +623,7 @@ func _build_trees(trees: Array) -> void:
 	var chunk_bounds: Dictionary = {}
 
 	# Bucket transforms by spatial chunk per-species-variant
-	var lod0_chunks: Dictionary = {}
+	var lod0_buckets: Dictionary = {}
 
 	for key in xf_by_key:
 		var xf_arr: Array = xf_by_key[key]
@@ -633,10 +633,10 @@ func _build_trees(trees: Array) -> void:
 			var cx := int(floorf(tf.origin.x / CHUNK))
 			var cz := int(floorf(tf.origin.z / CHUNK))
 			var ck0 := "%s|%d|%d" % [key, cx, cz]
-			if not lod0_chunks.has(ck0):
-				lod0_chunks[ck0] = {"mesh_key": key, "cx": cx, "cz": cz, "xf": [], "cd": []}
-			lod0_chunks[ck0]["xf"].append(tf)
-			lod0_chunks[ck0]["cd"].append(cd_arr[j])
+			if not lod0_buckets.has(ck0):
+				lod0_buckets[ck0] = {"mesh_key": key, "cx": cx, "cz": cz, "xf": [], "cd": []}
+			lod0_buckets[ck0]["xf"].append(tf)
+			lod0_buckets[ck0]["cd"].append(cd_arr[j])
 			# Accumulate per-spatial-chunk canopy bounds for occluders
 			var bk := "%d|%d" % [cx, cz]
 			var px := tf.origin.x
@@ -659,8 +659,8 @@ func _build_trees(trees: Array) -> void:
 				b["n"] += 1
 
 	# Spawn LOD0 chunks — position MMI at instance centroid for accurate culling
-	for ckey in lod0_chunks:
-		var info: Dictionary = lod0_chunks[ckey]
+	for ckey in lod0_buckets:
+		var info: Dictionary = lod0_buckets[ckey]
 		var mesh_key: String = info["mesh_key"]
 		var xf_list: Array = info["xf"]
 		var cd_list: Array = info["cd"]
@@ -734,7 +734,7 @@ func _build_trees(trees: Array) -> void:
 				key, mesh_h_val, sy, actual_h, tf.origin.y])
 			_dbg_count += 1
 	print("Trees: %d placed, %d LOD0 chunks (skipped %d non-grass, nudged %d from paths)" % [
-		all_trunk_xf.size(), lod0_chunks.size(), _skip_surface, _nudged])
+		all_trunk_xf.size(), lod0_buckets.size(), _skip_surface, _nudged])
 
 	# --- Impostors: octahedral billboards for distant trees (>90m) ---
 	_build_canopy_shells()
