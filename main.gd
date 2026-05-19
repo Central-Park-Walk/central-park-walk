@@ -272,7 +272,7 @@ func _ready() -> void:
 	# Terrain3D needs the camera for clipmap LOD and dynamic collision
 	if _player:
 		_player_head = _player.get_node_or_null("Head")
-		_player_camera = _player.get_node_or_null("CameraMount/Camera3D")
+		_player_camera = _player.get_node_or_null("Head/Camera")
 	if _terrain3d and _player_camera:
 		_terrain3d.set_camera(_player_camera)
 	_hud = preload("res://hud_manager.gd").new()
