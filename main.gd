@@ -504,6 +504,12 @@ func _carve_terrain_rect(x_min: float, x_max: float, z_min: float, z_max: float,
 # Per-frame update: time + HUD
 # ---------------------------------------------------------------------------
 func _process(delta: float) -> void:
+	# Player camera world position — must be pushed every frame, *before*
+	# any early-return paths (tour mode, walk bot), so distance-based
+	# shaders (tree LOD dither) compute against the actual view.
+	if _player_camera:
+		RenderingServer.global_shader_parameter_set("player_world_pos", _player_camera.global_position)
+
 	# --- Tour mode state machine ---
 	if _tour_mode:
 		if _hud.canvas and _hud.canvas.visible:
@@ -699,8 +705,6 @@ func _process(delta: float) -> void:
 	elif _lightning_flash > 0.01:
 		_lightning_flash = maxf(_lightning_flash - delta * 4.0, 0.0)
 	RenderingServer.global_shader_parameter_set("lightning_flash", _lightning_flash)
-	if _player_camera:
-		RenderingServer.global_shader_parameter_set("player_world_pos", _player_camera.global_position)
 
 	# Advance clock + day/night cycle
 	_t0 = Time.get_ticks_usec()
