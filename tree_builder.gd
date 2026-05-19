@@ -512,8 +512,15 @@ func _build_trees(trees: Array) -> void:
 		if n_variants == 0:
 			continue
 
-		# Pick variant based on tree index
-		var variant_idx := i % n_variants
+		# Pick variant deterministically per (species_tier, 80m-cell) so all
+		# same-species trees in one MMI chunk share a mesh. Without this, the
+		# per-tree `i % n_variants` fragments every 80m cell into one MMI per
+		# variant — turning 6808 LOD0 instances into 4315 tiny MMIs (avg 1.6
+		# instances each). Per-cell variants collapse that to ~1500 chunks.
+		# 80.0 here MUST match CHUNK used in the spawning loop below.
+		var cx_var := int(floorf(tx / 80.0))
+		var cz_var := int(floorf(tz / 80.0))
+		var variant_idx := abs(hash("%s|%d|%d" % [species_tier, cx_var, cz_var])) % n_variants
 
 		# Scale factor: desired_height / mesh_height_in_raw_units
 		var mesh_h: float = _species_heights[species_tier]
@@ -566,7 +573,8 @@ func _build_trees(trees: Array) -> void:
 				lod1_sp = species_tier
 			if _species_meshes.has(lod1_sp):
 				var lod1_vars: Array = _species_meshes[lod1_sp]
-				var lod1_vi: int = i % lod1_vars.size()
+				# Same per-cell variant pick as LOD0 (cx_var/cz_var in scope)
+				var lod1_vi: int = abs(hash("%s|%d|%d" % [lod1_sp, cx_var, cz_var])) % lod1_vars.size()
 				var lod1_mh: float = _species_heights.get(lod1_sp, mesh_h)
 				var lod1_sy: float = desired_h / maxf(lod1_mh, 0.06)
 				var lod1_sx: float = lod1_sy * (1.50 if species == "cathedral_elm" else 1.0)
