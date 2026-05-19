@@ -822,6 +822,8 @@ func _build_lod_tier_chunks(xf_data: Dictionary, cd_data: Dictionary,
 		mmi.visibility_range_begin_margin = 0.0
 		mmi.visibility_range_end_margin = 0.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+		if not cast_shadow:
+			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_loader.add_child(mmi)
 		instance_count += xf_list.size()
 
