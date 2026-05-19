@@ -9,6 +9,8 @@ global uniform float snow_cover;
 global uniform float season_t;
 global uniform vec2 wind_vec;
 global uniform vec3 sky_reflect_color;
+// Player camera world position. See tree_leaf.gdshader for rationale.
+global uniform vec3 player_world_pos;
 
 // PBR bark textures — photogrammetry-scanned real bark surfaces (CC0)
 // One set per bark style, blended with procedural FBM for per-tree variation
@@ -73,7 +75,7 @@ void fragment() {
 	// LOD crossfade dithering (must be early to avoid wasted shading)
 	vec3 tree_base = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	if (lod_fade_out.y > 0.0 || lod_fade_in.y > 0.0) {
-		float bark_cam_dist = length(tree_base - INV_VIEW_MATRIX[3].xyz);
+		float bark_cam_dist = length(tree_base - player_world_pos);
 		if (lod_fade_out.y > 0.0 && bark_cam_dist > lod_fade_out.x) {
 			if (lod_dither_discard(bark_cam_dist, lod_fade_out.x, lod_fade_out.y,
 			                       FRAGCOORD.xy, false)) discard;

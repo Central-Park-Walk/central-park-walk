@@ -231,6 +231,10 @@ func _ready() -> void:
 	RenderingServer.global_shader_parameter_add("cloud_coverage_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.5)
 	RenderingServer.global_shader_parameter_add("cloud_speed_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.00004)
 	RenderingServer.global_shader_parameter_add("impostor_brightness", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 1.0)
+	# Player camera world position — pushed each frame so distance-based
+	# effects (LOD dither) compute against the player view, not whatever
+	# camera is active in the current render pass (shadow / reflection).
+	RenderingServer.global_shader_parameter_add("player_world_pos", RenderingServer.GLOBAL_VAR_TYPE_VEC3, Vector3.ZERO)
 	_wind_system = preload("res://wind_system.gd").new()
 	_wind_system.name = "WindSystem"
 	add_child(_wind_system)
@@ -319,6 +323,14 @@ var _labels_hidden_for_screenshot := false
 var _screenshot_counter := 0  # incrementing counter for F12 screenshots
 var _auto_screenshot := false  # only auto-capture when --quit-after is used
 var _lt_screenshot_pending := false  # debounce for gamepad left trigger screenshots
+
+# Distance overlay (F1) — floating Label3Ds on nearest trees, color-coded by LOD band.
+# LOD bands match mission_vegetation_toolkit Phase 1: LOD0 0–100m, LOD1 100–230m, impostor 230m+.
+var _dist_overlay_visible := false
+var _dist_labels: Array = []  # Array[Label3D] — pool, reused each frame
+const _DIST_POOL_SIZE := 40
+const _DIST_MAX_RANGE := 350.0
+var _dist_tree_positions: PackedVector3Array = PackedVector3Array()  # cached once
 
 # ---------------------------------------------------------------------------
 # Tour mode — automated screenshot capture across 10 locations × 3 angles × 3 times
@@ -687,6 +699,8 @@ func _process(delta: float) -> void:
 	elif _lightning_flash > 0.01:
 		_lightning_flash = maxf(_lightning_flash - delta * 4.0, 0.0)
 	RenderingServer.global_shader_parameter_set("lightning_flash", _lightning_flash)
+	if _player_camera:
+		RenderingServer.global_shader_parameter_set("player_world_pos", _player_camera.global_position)
 
 	# Advance clock + day/night cycle
 	_t0 = Time.get_ticks_usec()
@@ -705,6 +719,9 @@ func _process(delta: float) -> void:
 	_hud.update(_player, _time_of_day, TIME_SPEED_NAMES[_time_speed_idx], _season_t)
 	_hud.update_perf(delta, _get_prof_data())
 	_prof_hud_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_hud_us, PROF_SMOOTH)
+
+	if _dist_overlay_visible:
+		_dist_overlay_update()
 
 	# Periodic perf log — runs regardless of overlay state, so we can
 	# A/B test the overlay's own cost by toggling F9 off.
@@ -818,6 +835,90 @@ func _diag_toggle_grass() -> void:
 
 var _diag_grass_force: bool = false
 var _diag_grass_orig_biomes: Array = []
+func _toggle_dist_overlay() -> void:
+	_dist_overlay_visible = not _dist_overlay_visible
+	if _dist_overlay_visible and _dist_tree_positions.is_empty():
+		_dist_cache_tree_positions()
+	if _dist_overlay_visible and _dist_labels.is_empty():
+		_dist_build_label_pool()
+	for lbl in _dist_labels:
+		lbl.visible = _dist_overlay_visible
+	print("[DIAG] Distance overlay %s (%d trees cached)" % [
+		"ON" if _dist_overlay_visible else "OFF", _dist_tree_positions.size()])
+
+
+func _dist_cache_tree_positions() -> void:
+	_dist_tree_positions.clear()
+	var body: Node = null
+	if _park_loader:
+		body = _park_loader.get_node_or_null("TreeTrunkCollision")
+	if body == null:
+		print("[DIAG] Distance overlay: TreeTrunkCollision not found")
+		return
+	for child in body.get_children():
+		if child is CollisionShape3D:
+			_dist_tree_positions.append(child.global_position)
+
+
+func _dist_build_label_pool() -> void:
+	for i in _DIST_POOL_SIZE:
+		var lbl := Label3D.new()
+		lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		lbl.fixed_size = true
+		lbl.pixel_size = 0.0008  # constant on-screen size regardless of distance
+		lbl.no_depth_test = true
+		lbl.alpha_cut = Label3D.ALPHA_CUT_DISCARD  # render with opaque-pass discard so depth-test-off actually wins over leaf transparency
+		lbl.render_priority = 127  # draw last
+		lbl.outline_size = 8
+		lbl.outline_modulate = Color(0, 0, 0, 0.9)
+		lbl.font_size = 32
+		lbl.visible = false
+		add_child(lbl)
+		_dist_labels.append(lbl)
+
+
+func _dist_overlay_update() -> void:
+	if _player == null or _dist_tree_positions.is_empty():
+		return
+	var cam := _player.get_node_or_null("Head/Camera") as Camera3D
+	if cam == null:
+		return
+	var cam_pos := cam.global_position
+	var cam_fwd := -cam.global_transform.basis.z
+	# Score = squared distance; reject behind-camera trees via dot product.
+	var max_d2: float = _DIST_MAX_RANGE * _DIST_MAX_RANGE
+	# Reuse two parallel arrays — squared distance and tree index.
+	var picks: Array = []  # Array of [d2, idx]
+	for i in _dist_tree_positions.size():
+		var p: Vector3 = _dist_tree_positions[i]
+		var d: Vector3 = p - cam_pos
+		var d2: float = d.x * d.x + d.y * d.y + d.z * d.z
+		if d2 > max_d2:
+			continue
+		if d.dot(cam_fwd) <= 0.0:
+			continue  # behind camera
+		picks.append([d2, i])
+	picks.sort_custom(func(a, b): return a[0] < b[0])
+	var n: int = mini(picks.size(), _DIST_POOL_SIZE)
+	for k in n:
+		var idx: int = picks[k][1]
+		var p: Vector3 = _dist_tree_positions[idx]
+		var dist: float = sqrt(picks[k][0])
+		var lbl: Label3D = _dist_labels[k]
+		lbl.global_position = p + Vector3(0.0, 4.0, 0.0)  # float above trunk
+		lbl.text = "%.0fm" % dist
+		# Color-code by LOD band (Phase 1 boundaries: 0-100, 100-230, 230+)
+		if dist < 100.0:
+			lbl.modulate = Color(0.5, 1.0, 0.5)  # LOD0 — green
+		elif dist < 230.0:
+			lbl.modulate = Color(1.0, 1.0, 0.4)  # LOD1 — yellow
+		else:
+			lbl.modulate = Color(1.0, 0.5, 0.5)  # impostor — red
+		lbl.visible = true
+	for k in range(n, _DIST_POOL_SIZE):
+		_dist_labels[k].visible = false
+
+
 func _diag_toggle_grass_force() -> void:
 	# Set every grass node's target_biome to -2, which triggers a debug
 	# bypass in grass_compute.glsl that places a blade at every grid
@@ -976,6 +1077,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.keycode == KEY_F9:
 		_hud.toggle_perf()
 		print("Perf overlay: %s" % ("ON" if _hud.perf_visible else "OFF"))
+	elif event.keycode == KEY_F1:
+		_toggle_dist_overlay()
 	elif event.keycode == KEY_F3:
 		_diag_toggle_grass_force()
 	elif event.keycode == KEY_F4:
@@ -1252,6 +1355,7 @@ func _setup_environment() -> void:
 	_sun.directional_shadow_split_3      = 0.4
 	_sun.directional_shadow_max_distance = 300.0
 	_sun.directional_shadow_pancake_size = 20.0
+	_sun.directional_shadow_blend_splits = true  # smooth the 15m/45m/120m cascade boundaries — avoid visible dark band at 35-55m where C2↔C3 boundary lands
 	add_child(_sun)
 
 	# Wire sun to volumetric cloud sky (deferred because _sun created after sky)

@@ -9,11 +9,21 @@ global uniform float snow_cover;
 global uniform float season_t;
 global uniform float rain_wetness;
 global uniform vec3 sky_reflect_color;
+// Player camera world position. Pushed each frame from main.gd. Use this
+// (not INV_VIEW_MATRIX[3]) for distance-based effects (LOD dither, aerial
+// perspective) so the calculation stays consistent across shadow and
+// reflection passes whose INV_VIEW_MATRIX reflects the light/probe view.
+global uniform vec3 player_world_pos;
 
 // LOD crossfade dither ranges (begin, end). Set per LOD tier.
 // vec2(0,0) = no dithering (default).
 uniform vec2 lod_fade_out = vec2(0.0, 0.0);
 uniform vec2 lod_fade_in = vec2(0.0, 0.0);
+
+// Per-tier brightness compensation. LOD1 decimated mesh has less self-shadowing
+// than LOD0 full mesh, so it reads brighter at the same camera distance.
+// Set to ~0.82 on LOD1 materials to match LOD0 perceived brightness.
+uniform float tier_brightness : hint_range(0.4, 1.5) = 1.0;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/aerial_perspective.gdshaderinc"
@@ -217,23 +227,21 @@ void fragment() {
 	float lum = dot(tex.rgb, vec3(0.3, 0.6, 0.1));
 	float alpha = tex.a * v_leaf_density;
 
-	// Mip-level alpha compensation (Ben Golus technique).
-	// Standard mipmapping averages alpha, destroying coverage at distance:
-	// a 70% coverage texture can drop to 40% at mip 2+, making trees vanish.
-	// Boost alpha proportional to estimated mip level to counteract this.
-	float delta_max = max(length(dFdx(UV)), length(dFdy(UV)));
-	float mip_level = max(log2(max(delta_max * 1024.0, 1.0)), 0.0);
-	alpha *= 1.0 + mip_level * 0.3;
-	alpha = min(alpha, 1.0);
+	// [DIAG-DISABLED 2026-05-18] Mip-level alpha compensation disabled — was
+	// causing visible color steps as mips shifted with distance. Left commented
+	// in case impostor handoff degrades and we need to bring this back targeted.
+	// float delta_max = max(length(dFdx(UV)), length(dFdy(UV)));
+	// float mip_level = max(log2(max(delta_max * 1024.0, 1.0)), 0.0);
+	// alpha *= 1.0 + mip_level * 0.3;
+	// alpha = min(alpha, 1.0);
 
-	// Distance-adaptive alpha threshold (TreeIt technique).
-	// At distance, ramp the discard threshold toward zero so crown-fill
-	// and billboard cards read as solid canopy mass.
+	// [DIAG-DISABLED 2026-05-18] Second LOD system disabled for A/B comparison.
+	// Was: distance-adaptive alpha threshold ramping discard 0.15→0.02 over 60-180m.
 	vec3 frag_tree_pos = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-	float frag_cam_dist = length(frag_tree_pos - INV_VIEW_MATRIX[3].xyz);
-	float dist_fade = smoothstep(60.0, 180.0, frag_cam_dist);
-	float discard_thresh = mix(0.15, 0.02, dist_fade);
-	if (alpha < discard_thresh) discard;
+	// player_world_pos (not INV_VIEW_MATRIX[3]) so the dither discards
+	// correctly in shadow/reflection passes.
+	float frag_cam_dist = length(frag_tree_pos - player_world_pos);
+	if (alpha < 0.15) discard;
 
 	// LOD crossfade: complementary dithering at tier boundaries.
 	// Outgoing: this tier dissolves away as camera moves beyond its range.
@@ -248,14 +256,8 @@ void fragment() {
 		                       FRAGCOORD.xy, true)) discard;
 	}
 
-	// Beyond ~120m, force surviving fragments toward full opacity.
-	// Alpha_to_coverage quantizes alpha to MSAA coverage mask (5 levels
-	// with 4x MSAA). Low alpha fragments (0.05-0.15) that survive the
-	// discard test get mapped to coverage 0/4 = fully transparent.
-	// At 120m+ you can't see individual leaf shapes, so clamping to 1.0
-	// is visually correct (solid canopy mass).
-	float opaque_blend = smoothstep(100.0, 180.0, frag_cam_dist);
-	alpha = mix(alpha, 1.0, opaque_blend);
+	// [DIAG-DISABLED 2026-05-18] Distance-to-opaque ramp disabled for A/B comparison.
+	// Was: smoothstep(100, 180, dist) blended alpha → 1.0 to make distant canopy solid.
 
 	vec3 col = v_leaf_color * (0.50 + lum * 0.50);  // texture luminance modulation (raised floor for denser canopy read)
 
@@ -362,7 +364,7 @@ void fragment() {
 		col = mix(col, vec3(0.92, 0.93, 0.96), snow_amt * 0.65);
 	}
 
-	ALBEDO = col;
+	ALBEDO = col * tier_brightness;
 	ROUGHNESS = rough;
 	SPECULAR = spec;
 	METALLIC = 0.0;
