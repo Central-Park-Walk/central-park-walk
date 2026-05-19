@@ -146,19 +146,19 @@ void fragment() {
 	}
 
 	// Root-to-tip gradient: very subtle darkening at base only.
-	// 0.92 base — was 0.80 but created a "chasing shadow" effect where
-	// dense blade bases near camera collectively read as a dark carpet
-	// extending to the grass cull radius (~80m), then transitioning to
-	// brighter terrain texture beyond.
+	// 0.96 base — relaxed from 0.92 (and originally 0.80). Closer to 1.0
+	// because looking down at the close-up grid means most pixels are
+	// blade bases; any noticeable root darkening reads as a "dark disc
+	// following the camera" against the terrain just beyond.
 	float root_t = smoothstep(0.0, 0.30, v_height_t);
-	col *= mix(0.92, 1.0, root_t);
+	col *= mix(0.96, 1.0, root_t);
 
-	// Thatch tint at base — much subtler now, just enough to tie roots
-	// to terrain character without creating a visible dark zone.
+	// Thatch tint at base — barely-there now. The previous values created
+	// a visible darker zone where blades render vs terrain just beyond.
 	vec3 c_lo, c_hi;
 	grass_zone_palette(zone_id, c_lo, c_hi);
 	vec3 thatch_col = c_lo * 0.5;
-	col = mix(col, thatch_col, (1.0 - root_t) * 0.10);
+	col = mix(col, thatch_col, (1.0 - root_t) * 0.04);
 
 	// terrain_tint removed — dithered crossfade means terrain between blades
 	// is now filled by the next LOD tier, not visible through blade gaps.

@@ -158,8 +158,15 @@ func _physics_process(delta: float) -> void:
 	if terrain:
 		var camera: Camera3D = terrain.get_camera()
 		if camera:
-			if last_pos.distance_squared_to(camera.global_position) > 1.0:
-				var pos: Vector3 = camera.global_position.snapped(Vector3.ONE)
+			# Update threshold lowered from 1.0 → 0.0625 (sq → 0.25m linear) so
+			# the grid follows the camera at fine granularity instead of jumping
+			# every full meter. Combined with the finer snap below, this hides
+			# the "dark circle that lags then catches up" the player saw.
+			if last_pos.distance_squared_to(camera.global_position) > 0.0625:
+				# Snap to 0.5m increments rather than 1m so blade-cell repositioning
+				# stays close to the camera at all times. Restart cost is bounded
+				# by grid_width² (81 nodes) and only fires when threshold exceeded.
+				var pos: Vector3 = camera.global_position.snapped(Vector3(0.5, 1.0, 0.5))
 				_position_grid(pos)
 				RenderingServer.material_set_param(process_material.get_rid(), "camera_position", pos )
 				last_pos = camera.global_position

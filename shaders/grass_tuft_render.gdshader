@@ -83,15 +83,15 @@ void fragment() {
 		col *= mix(0.85, 1.15, tex_lum);
 	}
 
-	// Root-to-tip gradient — matches particle shader (0.80)
+	// Root-to-tip gradient — matches particle shader (0.96)
 	float root_t = smoothstep(0.0, 0.30, v_height_t);
-	col *= mix(0.80, 1.0, root_t);
+	col *= mix(0.96, 1.0, root_t);
 
-	// Thatch tint at base
+	// Thatch tint at base — matches particle shader (0.04)
 	vec3 c_lo, c_hi;
 	grass_zone_palette(zone_id, c_lo, c_hi);
 	vec3 thatch_col = c_lo * 0.5;
-	col = mix(col, thatch_col, (1.0 - root_t) * 0.25);
+	col = mix(col, thatch_col, (1.0 - root_t) * 0.04);
 
 	// Compensation factor dropped — see grass_particle_render.gdshader for
 	// why. With terrain3d_override blending toward grass_base_color_no_dead
