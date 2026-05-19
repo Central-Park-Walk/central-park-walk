@@ -703,7 +703,11 @@ func _build_trees(trees: Array) -> void:
 	# --- LOD1: decimated mesh fills mid-distance, fades 80-100m and 230-250m ---
 	# Chunk visibility 40-290m (= fade extents ± half CHUNK) to catch
 	# instances mid-fade when chunk origin is just outside the fade band.
-	_build_lod_tier_chunks(_lod1_xf, _lod1_cd, "TreeL1", 40.0, 290.0)
+	# Shadows disabled: LOD0 handles close-range shadow casting, and
+	# LOD1's leaf cards subtend <5px at typical viewing range, so their
+	# shadow contribution is high-frequency noise that just darkens the
+	# scene without adding readable detail.
+	_build_lod_tier_chunks(_lod1_xf, _lod1_cd, "TreeL1", 40.0, 290.0, false)
 
 	_build_tree_collision(all_trunk_xf)
 	# Debug: print a few tree heights to verify scale
@@ -738,9 +742,11 @@ func _build_trees(trees: Array) -> void:
 	for sp_key in _species_meshes:
 		var fade_in := NO_FADE
 		var fade_out := NO_FADE
+		var tier_brightness: float = 1.0
 		if "_lod1" in sp_key:
 			fade_in = LOD1_FADE_IN
 			fade_out = LOD1_FADE_OUT
+			tier_brightness = 0.82  # compensate for LOD1 reading brighter than LOD0 due to lower self-shadowing
 		else:
 			fade_out = LOD0_FADE_OUT
 		for mesh: Mesh in _species_meshes[sp_key]:
@@ -749,10 +755,12 @@ func _build_trees(trees: Array) -> void:
 				if mat is ShaderMaterial:
 					mat.set_shader_parameter("lod_fade_out", fade_out)
 					mat.set_shader_parameter("lod_fade_in", fade_in)
+					mat.set_shader_parameter("tier_brightness", tier_brightness)
 
 
 func _build_lod_tier_chunks(xf_data: Dictionary, cd_data: Dictionary,
-		prefix: String, vis_begin: float, vis_end: float) -> void:
+		prefix: String, vis_begin: float, vis_end: float,
+		cast_shadow: bool = true) -> void:
 	## Spawns MultiMesh chunks for a single LOD tier from pre-collected
 	## transform/custom-data dictionaries. Visibility range limits when the
 	## tier's chunks are drawn; shader-side dither (set_shader_parameter
