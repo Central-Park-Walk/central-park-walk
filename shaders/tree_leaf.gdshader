@@ -290,6 +290,19 @@ void fragment() {
 	// Per-leaf brightness variation (some leaves catch more light)
 	col *= (0.92 + detail_n * 0.16);
 
+	// --- Dappled canopy light/shadow patches (world-space) ---
+	// Real tree canopies show large-scale dappling as sunlight filters
+	// through upper foliage. Two octaves in world coords — survives mip
+	// averaging, so the pattern stays vivid at LOD1+ distance where the
+	// UV-space per-leaf detail above goes sub-pixel and washes flat.
+	// Bias toward sun-exposed (most pixels stay near 1.0×); a minority
+	// sit in deeper shade pockets, a few catch sun-spots.
+	float dapple_main = vnoise(frag_world.xz * 0.35 + frag_world.y * 0.08);
+	float dapple_sub  = vnoise(frag_world.xz * 1.10);
+	float dapple = dapple_main * 0.72 + dapple_sub * 0.28;
+	dapple = smoothstep(0.22, 0.88, dapple);
+	col *= mix(0.72, 1.12, dapple);
+
 	// Per-pixel micro-variation: chlorophyll patches, dust, cell structure
 	// Real leaves have millions of unique shades across their surface
 	vec2 px_uv = UV * 97.3 + tree_pos.xz * 5.1;
