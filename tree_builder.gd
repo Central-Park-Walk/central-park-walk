@@ -951,7 +951,11 @@ func _build_canopy_shells() -> void:
 		mat.set_shader_parameter("aabb_max", live_scale * 0.5)
 		mat.set_shader_parameter("position_offset", live_offset)
 		mat.set_shader_parameter("depth_scale", 0.3)
-		mat.set_shader_parameter("alpha_clamp", 0.3)
+		# Low clamp (was 0.3): with mipmaps enabled on the atlas, deep mip levels
+		# average ~0.18 alpha across the frame (silhouette covers ~16% of frame).
+		# A 0.3 clamp would discard distant impostors entirely. 0.1 still rejects
+		# pure-sky pixels while keeping silhouette coverage intact.
+		mat.set_shader_parameter("alpha_clamp", 0.1)
 		impostor_mats[label] = mat
 		impostor_meta[label] = meta
 		return true
