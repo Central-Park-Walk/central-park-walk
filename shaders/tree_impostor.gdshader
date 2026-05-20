@@ -359,6 +359,11 @@ void fragment() {
 	tex_summer *= leaf_density;
 	vec4 tex = mix(tex_summer, tex_winter, winter_mix_t);
 
+	// Cull truly-empty pixels BEFORE boosting so we don't lift dust-level
+	// alpha (background sky pixels) into visible impostor speckle.
+	if (snow_cover > 0.6 && leaf_density < 0.3) discard;
+	if (tex.a < alpha_clamp) discard;
+
 	// Distance-based coverage compensation: counteract silhouette-thinning
 	// at distance. At deep mips the atlas frame (silhouette ~16% of frame)
 	// averages to ~0.15-0.2 alpha AND ~15% colour energy — the atlas is
@@ -367,18 +372,15 @@ void fragment() {
 	// the bottom (ALBEDO = color * alpha) cancels back to the un-boosted
 	// premultiplied value and the boost is visible only as reduced sky-
 	// bleed, not as a brighter silhouette. Cap so alpha tops out at 1.0.
-	// We use straight camera distance rather than dFdx-derived mip because
-	// the parallax-corrected uv1 makes dFdx unreliable here.
+	// Aggressive curve: ramp 100-300m, max 12× — enough to saturate alpha
+	// of a 0.15 atlas pixel to 1.0 by 300m so distant trees read solid.
 	vec3 _imp_world_pre = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	float _imp_cam_dist_pre = length(_imp_world_pre - INV_VIEW_MATRIX[3].xyz);
-	float dist_boost = 1.0 + smoothstep(150.0, 600.0, _imp_cam_dist_pre) * 5.0;
+	float dist_boost = 1.0 + smoothstep(100.0, 300.0, _imp_cam_dist_pre) * 12.0;
 	float boost = min(dist_boost, 1.0 / max(tex.a, 0.001));
 	tex.rgb *= boost;
 	tex.a   *= boost;
 	float alpha = tex.a;
-
-	if (snow_cover > 0.6 && leaf_density < 0.3) discard;
-	if (alpha < alpha_clamp) discard;
 
 	// LOD incoming dither: fade in as camera approaches from beyond LOD2's fade-out.
 	// Complementary to LOD2's outgoing dither — each pixel shows exactly one tier.
