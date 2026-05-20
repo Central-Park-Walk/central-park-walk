@@ -563,29 +563,9 @@ func _build_trees(trees: Array) -> void:
 		var cd := Color(float(pheno_idx) / 13.0, timing_off + 0.5, is_evergreen, color_jitter)
 		cd_by_key[key].append(cd)
 
-		# LOD1: decimated mesh of the SAME tree (same trunk, branches, leaf
-		# positions — fewer triangles). Falls back to the LOD0 mesh if no
-		# _lod1 variant exists. Dead snags skip LOD1 (they cull at LOD1's
-		# fade-out distance and have no impostor anyway).
-		if species != "dead":
-			var lod1_sp: String = species_tier + "_lod1"
-			if not _species_meshes.has(lod1_sp):
-				lod1_sp = species_tier
-			if _species_meshes.has(lod1_sp):
-				var lod1_vars: Array = _species_meshes[lod1_sp]
-				# Same per-cell variant pick as LOD0 (cx_var/cz_var in scope)
-				var lod1_vi: int = int(abs(hash("%s|%d|%d" % [lod1_sp, cx_var, cz_var]))) % lod1_vars.size()
-				var lod1_mh: float = _species_heights.get(lod1_sp, mesh_h)
-				var lod1_sy: float = desired_h / maxf(lod1_mh, 0.06)
-				var lod1_sx: float = lod1_sy * (1.50 if species == "cathedral_elm" else 1.0)
-				var lod1_basis := Basis(Vector3.UP, y_rot) * Basis().scaled(Vector3(lod1_sx, lod1_sy, lod1_sx))
-				var lod1_tf := Transform3D(lod1_basis, Vector3(tx, ty, tz))
-				var lod1_key := "%s_%d" % [lod1_sp, lod1_vi]
-				if not _lod1_xf.has(lod1_key):
-					_lod1_xf[lod1_key] = []
-					_lod1_cd[lod1_key] = []
-				_lod1_xf[lod1_key].append(lod1_tf)
-				_lod1_cd[lod1_key].append(cd)
+		# Two-tier LOD: _lod1 mesh is used directly in the main chunk pathway
+		# below (mesh lookup swap at chunk-build time), so there's no longer
+		# a separate LOD1 accumulation. Impostors take over past 250m.
 
 		# Canopy data for dappled shade map.
 		# LiDAR crown_a measures only the dense inner canopy (often 10-30m²
@@ -677,7 +657,13 @@ func _build_trees(trees: Array) -> void:
 		var last_us := mesh_key.rfind("_")
 		var sp_name: String = mesh_key.substr(0, last_us)
 		var vi: int = int(mesh_key.substr(last_us + 1))
-		var mesh: Mesh = _species_meshes[sp_name][vi]
+		# Two-tier LOD: render the _lod1 decimated mesh in the main chunk
+		# pathway so close and mid-distance share one tier. Falls back to the
+		# base mesh only if no _lod1 variant exists (e.g., dead snags).
+		var lod1_key: String = sp_name + "_lod1"
+		var mesh_source: String = lod1_key if _species_meshes.has(lod1_key) else sp_name
+		var lod1_vars: Array = _species_meshes[mesh_source]
+		var mesh: Mesh = lod1_vars[vi % lod1_vars.size()]
 		var cx_sum := 0.0
 		var cy_sum := 0.0
 		var cz_sum := 0.0
@@ -701,11 +687,12 @@ func _build_trees(trees: Array) -> void:
 		mmi.multimesh = mm
 		mmi.position = chunk_origin
 		mmi.name = "Tree_%s" % ckey.replace("|", "_")
-		# LOD0: full geometry, dithers out 80-100m. Chunk visibility extends
-		# 40m past fade_end (= half CHUNK) so chunks whose origin is past
-		# 100m but contain near-side instances at 60-100m still render.
+		# Two-tier LOD: single mesh tier (_lod1) covers 0-290m, dithers out
+		# 230-250m to the impostor. Chunk visibility extends 40m past the
+		# fade end (= half CHUNK) so chunks whose origin is past 250m but
+		# contain near-side instances at 210-250m still render.
 		mmi.visibility_range_begin = 0.0
-		mmi.visibility_range_end = 140.0
+		mmi.visibility_range_end = 290.0
 		mmi.visibility_range_begin_margin = 0.0
 		mmi.visibility_range_end_margin = 0.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
@@ -718,14 +705,9 @@ func _build_trees(trees: Array) -> void:
 	# distance gate they stay active at all ranges, hiding distant impostor
 	# trees behind canopy boxes and making distant woodland look sparse.
 
-	# --- LOD1: decimated mesh fills mid-distance, fades 80-100m and 230-250m ---
-	# Chunk visibility 40-290m (= fade extents ± half CHUNK) to catch
-	# instances mid-fade when chunk origin is just outside the fade band.
-	# Shadows disabled: LOD0 handles close-range shadow casting, and
-	# LOD1's leaf cards subtend <5px at typical viewing range, so their
-	# shadow contribution is high-frequency noise that just darkens the
-	# scene without adding readable detail.
-	_build_lod_tier_chunks(_lod1_xf, _lod1_cd, "TreeL1", 40.0, 290.0, false)
+	# Two-tier LOD: separate LOD1 chunk pass removed — the _lod1 mesh is now
+	# rendered directly by the main chunk pathway above (mesh lookup swap),
+	# so there's a single mesh tier from 0-290m that hands off to impostors.
 
 	_build_tree_collision(all_trunk_xf)
 	# Debug: print a few tree heights to verify scale
@@ -749,24 +731,21 @@ func _build_trees(trees: Array) -> void:
 
 	# Per-tier dither fade ranges. Shader dithering replaces Godot's
 	# VISIBILITY_RANGE_FADE_SELF (known bug #88854 with alpha_to_coverage).
-	# Distances are placeholders — P1.3 sets the final tight bands.
-	#   LOD0:   fade out  80-100m (handoff to LOD1)
-	#   LOD1:   fade in   80-100m, fade out 230-250m (handoff to impostor)
-	#   Impostor (set in _build_canopy_shells): fade in 230-250m.
-	const LOD0_FADE_OUT := Vector2(80.0, 100.0)
-	const LOD1_FADE_IN := Vector2(80.0, 100.0)
-	const LOD1_FADE_OUT := Vector2(230.0, 250.0)
+	# Two-tier system:
+	#   _lod1 mesh:  visible 0-290m, fades out 230-250m → impostor.
+	#   Base mesh:   unused (kept for impostor data); no fade needed.
+	#   Impostor:    fades in 230-250m (set in _build_canopy_shells).
+	const MESH_FADE_OUT := Vector2(230.0, 250.0)
 	const NO_FADE := Vector2(0.0, 0.0)
 	for sp_key in _species_meshes:
 		var fade_in := NO_FADE
 		var fade_out := NO_FADE
-		var tier_brightness: float = 1.0
+		# tier_brightness 0.82 was originally compensation for LOD1 reading
+		# brighter than LOD0; with only the _lod1 mesh rendered now, the user
+		# preference is the darker reading at all distances.
+		var tier_brightness: float = 0.82 if "_lod1" in sp_key else 1.0
 		if "_lod1" in sp_key:
-			fade_in = LOD1_FADE_IN
-			fade_out = LOD1_FADE_OUT
-			tier_brightness = 0.82  # compensate for LOD1 reading brighter than LOD0 due to lower self-shadowing
-		else:
-			fade_out = LOD0_FADE_OUT
+			fade_out = MESH_FADE_OUT
 		for mesh: Mesh in _species_meshes[sp_key]:
 			for si in mesh.get_surface_count():
 				var mat = mesh.surface_get_material(si)
