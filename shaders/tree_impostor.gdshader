@@ -365,12 +365,11 @@ void fragment() {
 	// straight mipmap averaging produces. At deep mips the impostor frame
 	// (silhouette ~16% of frame) averages down to ~0.15-0.2 alpha and
 	// renders as a sparse ghost. Boost alpha by the mip level so distant
-	// impostors stay solid. Matches the same compensation the orphan
-	// tree_canopy_shell shader carried.
-	vec2 atlas_uv = uv1 * frame_size;
-	float delta_max = max(length(dFdx(atlas_uv)), length(dFdy(atlas_uv)));
+	// impostors stay solid. uv1 is already atlas-space UV (0-1 across the
+	// whole atlas) after recalc_uv — don't rescale.
+	float delta_max = max(length(dFdx(uv1)), length(dFdy(uv1)));
 	float mip_level = max(log2(max(delta_max * 1024.0, 1.0)), 0.0);
-	alpha = min(alpha * (1.0 + mip_level * 0.3), 1.0);
+	alpha = min(alpha * (1.0 + mip_level * 0.45), 1.0);
 
 	if (snow_cover > 0.6 && leaf_density < 0.3) discard;
 	if (alpha < alpha_clamp) discard;
