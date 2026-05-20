@@ -49,13 +49,13 @@ A small number of animals — birds, squirrels, ducks on water, the occasional t
 ## Anti-scope (what this project will not be)
 - No pedestrians, NPCs, dialogue, or quests.
 - No combat.
-- **No procedural generation of nature itself.** Only ephemera — weather, lighting, audio, ambient animal life — are procedural. Data gaps in the natural layer stay visible rather than being filled with invented content.
+- **No fabricated natural content to hide documented data gaps.** If a category of data is missing, the gap stays visible rather than being papered over with invented detail. False data is worse than honest absence.
 - No multiplayer.
 - No VR (for now).
 
 ## Operating principles that flow from this vision
 - **Keep the design simple.** A walk simulator is a small idea. Resist the urge to bolt on complexity. Every subsystem should be the simplest thing that meets the bar, not the most ambitious.
-- **Data-first.** Render from data or don't render.
-- **Nature-first.** Every decision serves the natural environment first, the framing-context second, everything else not yet.
+- **Data-first, procedural where honest.** Real data drives placement wherever real data exists — every census tree, every OSM path, the LiDAR ground. Ecology-grounded procedural fill is the right tool where the natural layer needs content no dataset itemizes (undergrowth, ground cover, vines, intra-canopy scatter, woodland tree fill inside OSM `natural=wood` polygons, and ephemera — weather, lighting, audio, ambient animal life). The line we don't cross is **false data** — invented content that hides documented gaps.
+- **Nature-first.** Every decision serves the natural environment first, the framing-context (perimeter skyline) second, everything else not yet.
 - **Faithful before flashy.** A correct understated rendering beats an impressive embellishment.
 - **The 3060 Ti budget is non-negotiable.** Any subsystem that exceeds its perf budget is broken until it doesn't.
