@@ -359,19 +359,20 @@ void fragment() {
 	tex_summer *= leaf_density;
 	vec4 tex = mix(tex_summer, tex_winter, winter_mix_t);
 
-	// Mip-level coverage compensation: counteract the silhouette-thinning
-	// that straight mipmap averaging produces. At deep mips the impostor
-	// frame (silhouette ~16% of frame) averages down to ~0.15-0.2 alpha
-	// AND ~15% colour energy — the atlas is premultiplied. We must lift
-	// rgb and alpha by the SAME factor so the un-premul below recovers the
-	// original colour; otherwise the math at the bottom (ALBEDO = color *
-	// alpha) cancels back to the un-boosted premultiplied value and the
-	// boost is visible only as reduced sky-bleed, not as a brighter
-	// silhouette. Cap the boost so alpha tops out at 1.0.
-	float delta_max = max(length(dFdx(uv1)), length(dFdy(uv1)));
-	float mip_level = max(log2(max(delta_max * 1024.0, 1.0)), 0.0);
-	float raw_boost = 1.0 + mip_level * 0.45;
-	float boost = min(raw_boost, 1.0 / max(tex.a, 0.001));
+	// Distance-based coverage compensation: counteract silhouette-thinning
+	// at distance. At deep mips the atlas frame (silhouette ~16% of frame)
+	// averages to ~0.15-0.2 alpha AND ~15% colour energy — the atlas is
+	// premultiplied. We must lift rgb and alpha by the SAME factor so the
+	// un-premul below recovers the original colour; otherwise the math at
+	// the bottom (ALBEDO = color * alpha) cancels back to the un-boosted
+	// premultiplied value and the boost is visible only as reduced sky-
+	// bleed, not as a brighter silhouette. Cap so alpha tops out at 1.0.
+	// We use straight camera distance rather than dFdx-derived mip because
+	// the parallax-corrected uv1 makes dFdx unreliable here.
+	vec3 _imp_world_pre = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	float _imp_cam_dist_pre = length(_imp_world_pre - INV_VIEW_MATRIX[3].xyz);
+	float dist_boost = 1.0 + smoothstep(150.0, 600.0, _imp_cam_dist_pre) * 5.0;
+	float boost = min(dist_boost, 1.0 / max(tex.a, 0.001));
 	tex.rgb *= boost;
 	tex.a   *= boost;
 	float alpha = tex.a;
