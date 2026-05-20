@@ -396,11 +396,14 @@ void fragment() {
 	BACKLIGHT = min(backlight_col * sss_strength, ALBEDO * 0.7);
 
 	// Aerial perspective: desaturate + cool shift + haze blend at distance.
-	// Matches terrain, grass, and facade distance fog for visual coherence.
+	// Tuned lighter (0.18/0.20, start 120m) than other surfaces because
+	// real summer canopy stays vivid green at distance — reference drone
+	// shots of Central Park show perimeter trees still saturated even from
+	// ~1km. Heavier defaults made our distant trees wash to fog color.
 	vec3 leaf_world = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	float leaf_dist = length(leaf_world - INV_VIEW_MATRIX[3].xyz);
-	float leaf_aerial = smoothstep(60.0, 300.0, leaf_dist);
-	ALBEDO = apply_aerial(ALBEDO, leaf_aerial, 0.30, 0.30, sky_reflect_color);
+	float leaf_aerial = smoothstep(120.0, 400.0, leaf_dist);
+	ALBEDO = apply_aerial(ALBEDO, leaf_aerial, 0.18, 0.20, sky_reflect_color);
 
 	// Feed alpha to alpha_to_coverage (4x MSAA).
 	// Distance opacity clamping already handled after discard test above.

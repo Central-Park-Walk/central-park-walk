@@ -360,6 +360,18 @@ void fragment() {
 	vec4 tex = mix(tex_summer, tex_winter, winter_mix_t);
 
 	float alpha = tex.a;
+
+	// Mip-level alpha compensation: counteract the silhouette-thinning that
+	// straight mipmap averaging produces. At deep mips the impostor frame
+	// (silhouette ~16% of frame) averages down to ~0.15-0.2 alpha and
+	// renders as a sparse ghost. Boost alpha by the mip level so distant
+	// impostors stay solid. Matches the same compensation the orphan
+	// tree_canopy_shell shader carried.
+	vec2 atlas_uv = uv1 * frame_size;
+	float delta_max = max(length(dFdx(atlas_uv)), length(dFdy(atlas_uv)));
+	float mip_level = max(log2(max(delta_max * 1024.0, 1.0)), 0.0);
+	alpha = min(alpha * (1.0 + mip_level * 0.3), 1.0);
+
 	if (snow_cover > 0.6 && leaf_density < 0.3) discard;
 	if (alpha < alpha_clamp) discard;
 
@@ -436,10 +448,12 @@ void fragment() {
 	hsv.z *= 1.0 + (n_combined - 0.5) * 0.12;        // value ±6%
 	color = hsv_to_rgb(hsv);
 
-	// Aerial perspective — match tree_leaf.gdshader's distance fog
+	// Aerial perspective — match tree_leaf.gdshader's eased settings.
+	// Reference drone shots show distant Central Park canopy stays vivid
+	// summer green even from ~1km, so 0.18/0.20 strength starting at 120m.
 	float imp_dist = length(imp_world - (INV_VIEW_MATRIX * vec4(vec3(0.0), 1.0)).xyz);
-	float imp_aerial = smoothstep(60.0, 300.0, imp_dist);
-	color = apply_aerial(color, imp_aerial, 0.30, 0.30, sky_reflect_color);
+	float imp_aerial = smoothstep(120.0, 400.0, imp_dist);
+	color = apply_aerial(color, imp_aerial, 0.18, 0.20, sky_reflect_color);
 
 	// Re-premultiply for blend_premul_alpha output. ALPHA controls the
 	// destination factor (1 - alpha); ALBEDO is added directly without a

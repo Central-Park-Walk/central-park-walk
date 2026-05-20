@@ -740,10 +740,11 @@ func _build_trees(trees: Array) -> void:
 	for sp_key in _species_meshes:
 		var fade_in := NO_FADE
 		var fade_out := NO_FADE
-		# tier_brightness 0.82 was originally compensation for LOD1 reading
-		# brighter than LOD0; with only the _lod1 mesh rendered now, the user
-		# preference is the darker reading at all distances.
-		var tier_brightness: float = 0.82 if "_lod1" in sp_key else 1.0
+		# tier_brightness was originally LOD1 compensation for reading brighter
+		# than LOD0 at distance. With one mesh tier covering 0-290m, that
+		# rationale is gone — 0.95 keeps a slight knock-down so close trees
+		# don't blast bright, without the heavy darkening the 0.82 produced.
+		var tier_brightness: float = 0.95 if "_lod1" in sp_key else 1.0
 		if "_lod1" in sp_key:
 			fade_out = MESH_FADE_OUT
 		for mesh: Mesh in _species_meshes[sp_key]:
