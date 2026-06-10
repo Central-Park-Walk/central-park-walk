@@ -1076,7 +1076,11 @@ func _build_canopy_shells() -> void:
 			if mesh_variants.size() > 0:
 				var mab: AABB = (mesh_variants[0] as Mesh).get_aabb()
 				live_scale = mab.size.length() * 0.5  # diagonal/2 = baker radius
-				live_offset = -mab.get_center()  # billboard pivots at AABB center
+				# +center lifts the billboard from the trunk-base pivot up to
+				# the AABB center the baker orbits. P1.7 (2c2334d) wrote
+				# -center here — Blender's sign convention in Godot space —
+				# which buried every impostor below the terrain for a month.
+				live_offset = mab.get_center()
 		var mat := ShaderMaterial.new()
 		mat.shader = impostor_shader
 		mat.set_shader_parameter("atlas", albedo_tex)
