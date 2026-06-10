@@ -49,6 +49,7 @@ var imp_chunks: int = 0
 # trunk cylinder + leaf-vertex-fit crown lathe per species-size-variant casts
 # instead (SHADOWS_ONLY, GI off), with phenology-driven dapple coverage.
 var _shadow_proxy: bool = false
+var _proxy_solid: bool = false
 var _proxy_mesh_cache: Dictionary = {}  # mesh_key -> ArrayMesh
 var proxy_instances: int = 0
 # --tier-isolate=mesh|impostor (diagnostic): render ONLY that tree tier with
@@ -63,6 +64,11 @@ func _init(loader) -> void:
 	_shadow_proxy = not ("--no-tree-shadow-proxy" in OS.get_cmdline_user_args())
 	if not _shadow_proxy:
 		print("TreeBuilder: shadow proxies OFF (diagnostic) — visible trees cast per-leaf")
+	# Diagnostic: solid crowns (no dapple discard material) to isolate the
+	# alpha-tested shadow-pass cost from the proxy geometry cost.
+	_proxy_solid = "--proxy-solid" in OS.get_cmdline_user_args()
+	if _proxy_solid:
+		print("TreeBuilder: proxy crowns SOLID (diagnostic) — no dapple discard")
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--tier-isolate="):
 			_tier_isolate = arg.substr("--tier-isolate=".length())
@@ -932,12 +938,13 @@ func _get_shadow_proxy_mesh(mesh_key: String, sp_name: String, src: Mesh) -> Arr
 		# gets holes PCF blurs into mottled canopy light, modulated by the
 		# same per-instance phenology as the visible leaves (winter = bare).
 		# Conifers keep a denser crown (real conifer shade is near-solid).
-		var crown_mat := ShaderMaterial.new()
-		crown_mat.shader = _loader._get_shader("tree_shadow_proxy",
-			"res://shaders/tree_shadow_proxy.gdshader")
-		crown_mat.set_shader_parameter("coverage",
-			0.80 if sp_name.begins_with("conifer") else 0.62)
-		am.surface_set_material(1, crown_mat)
+		if not _proxy_solid:
+			var crown_mat := ShaderMaterial.new()
+			crown_mat.shader = _loader._get_shader("tree_shadow_proxy",
+				"res://shaders/tree_shadow_proxy.gdshader")
+			crown_mat.set_shader_parameter("coverage",
+				0.80 if sp_name.begins_with("conifer") else 0.62)
+			am.surface_set_material(1, crown_mat)
 	_proxy_mesh_cache[mesh_key] = am
 	return am
 
