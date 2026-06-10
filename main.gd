@@ -910,7 +910,7 @@ func _diag_apply_hides() -> void:
 						n.visible = false
 			"terrainshadows":
 				if _terrain3d:
-					_terrain3d.set_cast_shadows(GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+					_terrain3d.set_cast_shadows(RenderingServer.SHADOW_CASTING_SETTING_OFF)
 			"treeshadows":
 				if _diag_tree_mmis.is_empty() and _park_loader:
 					for pat: String in ["Tree_*", "TreeL1_*", "TreeL2_*", "TreeImp_*"]:
@@ -1490,7 +1490,7 @@ func _setup_environment() -> void:
 		print("[DIAG] directional shadow atlas = %d px" % _cli_shadow_size)
 	if _cli_shadow_filter >= 0:
 		RenderingServer.directional_soft_shadow_filter_set_quality(
-			clampi(_cli_shadow_filter, 0, 5) as RenderingServer.ShadowQuality)
+			clampi(_cli_shadow_filter, 0, 5))
 		print("[DIAG] directional soft shadow filter quality = %d" % _cli_shadow_filter)
 
 	# Wire sun to volumetric cloud sky (deferred because _sun created after sky)
