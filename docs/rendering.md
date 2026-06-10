@@ -103,17 +103,28 @@ shadow-PCF with no early-Z. Leaves now render opaque, coverage by discard
 | north_woods | 50.3 | **32.4** |
 
 Consequences for the plan:
-- **`grass_particle_render.gdshader` (9.4 M tris at lawns) and
-  `undergrowth.gdshader` write ALPHA the same way** (grep-confirmed; vine
-  too, but vines are disabled; water/rain/snow/lamp are legitimately
-  transparent). Grass is now the top lever — same fix class. Check
-  whether grass coverage can be discard-only before touching tier
-  ranges/density (§6 item 5).
+- Grass/undergrowth transparency ruled out by measurement (§6 item 5) —
+  ALPHA_HASH_SCALE is already the opaque hashed pipeline; tree_leaf's
+  plain-ALPHA+A2C was the lone defect.
 - Tier pull-in and occlusion culling are DEAD levers (measured ~3 ms for
   impostors-at-120 m — distant mesh trees were never the cost).
-- Fresh per-subsystem attribution at ramble/north_woods needed before
-  acting on the remaining ~15 ms of tree cost (shadow receiver PCF share
-  vs camera raster share unknown post-fix).
+
+### 3d. Post-opaque attribution at Ramble (2026-06-10 evening, report 20260610_175940)
+
+| config | ms (fps) | reading |
+|---|---|---|
+| baseline | 29.4 (36) | vpgpu 28.7, vistri 13.42 M |
+| shadows off | 25.3 | shadow system now ≈ **7** (was ~24 gross — opaque leaves slashed PCF receiver work) |
+| SDFGI off | 28.0 → vpgpu −4.7 | SDFGI ≈ 5 |
+| grass off | 24.7 | grass ≈ **6.6** (5.5 M of the 13.4 M vistri) |
+| trees off | 18.8 | trees total ≈ **14.1** — still the biggest line; with shading now ~once per pixel this is mostly **vertex/LOD load** (the un-decimated 153–203 k bark meshes, trees.md §4b) |
+| floor (all off) | 10.0 mean (vpgpu 4.5) | §5 spikes still open |
+
+**D5–9 next levers, in measured order: (1) LOD regeneration (trees.md §4c
+lever 3 — true mid-LOD via bark decimation + card prune, Blender-mechanical,
+spec'd); (2) shadow receiver ~7 + SDFGI ~5 sweeps; (3) grass tier/density
+~6.6; (4) floor spikes/cloud compute (§5). Gap to 16.6 ms at ramble:
+~13 ms.**
 
 **Stacked candidate state** (2026-06-10, commit d8f1784, solid-hull proxies):
 
