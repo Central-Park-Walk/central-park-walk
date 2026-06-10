@@ -14,10 +14,10 @@
 set -u
 GODOT="${GODOT:-/home/chris/godot 4/Godot_v4.6.1-stable_linux.x86_64}"
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-# Frame rate converges for ~2 min after load (pipeline compilation / GI / chunk
-# queue draining — measured 2026-06-09: Ramble 10fps on arrival, 35fps at +110s).
-# So: run long, measure only the LAST $MEASURE_SAMPLES samples (2s cadence).
-RUN_SECONDS="${PERF_GATE_SECONDS:-150}"
+# Frame rate is steady within seconds of load (verified 2026-06-09: clean 5-min
+# Ramble run held 12-13fps throughout; an earlier "convergence to 35fps" was
+# user camera interaction). Measure the LAST $MEASURE_SAMPLES samples (2s cadence).
+RUN_SECONDS="${PERF_GATE_SECONDS:-60}"
 MEASURE_SAMPLES=10
 TARGET_FPS=60
 # NOTE: a game window opens per location. Do NOT interact with it (F9,
