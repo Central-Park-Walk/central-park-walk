@@ -140,12 +140,80 @@ away to appreciate; under a canopy it's just dark all around." Policy in
 Capture/compare tooling: `scripts/proxy_ab_captures.sh` (uses the
 `--screenshot` flag — the old --quit-after sniff silently broke on 4.6.1).
 
-## 4. Camera raster (follow-up, D5–9, spec'd separately)
+## 4. Camera raster (D5–9 spec, written 2026-06-10 from measurement)
 
-~25 ms at Ramble. Levers, in test order: re-enable occlusion culling (canopy
-occluder vs `visibility_range` conflict, `tree_builder.gd:703-706`), tier boundary
-(290 m mesh range is generous), LOD1 triangle audit per species. Not part of D3–5
-implementation; listed so the tier table above is read as the full picture.
+~30 ms at Ramble (trees-hidden A/B). Diagnosed before coding, per
+[`workflow.md`](workflow.md) §2. All runs back-to-back at ramble noon,
+reports `perf_reports/20260610_144605` and `20260610_145516`.
+
+### 4a. Measured composition
+
+| A/B (vs 55.6 ms baseline, vpgpu) | Δ | reading |
+|---|---|---|
+| `--render-scale=0.5` | −25 | frame is **fragment-rate-bound** |
+| `--tree-mesh-range=180/150/120` | −5/−3/−4 | distant mesh trees ≈ free — **tier pull-in is DEAD as a perf lever** (and the old "occlusion culling re-enable" idea targets the same already-cheap load) |
+| `--simple-leaf` (minimal shader, same render modes) | −12 | leaf fragment-shader complexity |
+| `--simple-bark` | −5 | bark shader complexity (9-sample triplanar + procedural lenticels/plates) |
+| `--simple-leaf --simple-bark` | −11.5 | ≈ leaf-only — bark share partly hides under drift/noise |
+
+vistri identical (13.42 M) across all shader swaps — pure shader-cost
+isolation. So the ~30 ms tree raster ≈ **12 ms leaf shader + ~5 ms bark
+shader + ~13–16 ms raster structure** (alpha-card overdraw layers,
+sub-pixel bark quads, `depth_prepass_alpha` double pass), all of it
+within ~120 m of the camera.
+
+### 4b. Disk audit (the structural debt behind "raster structure")
+
+Placement-data model (full circle, mesh range): ramble 57.7 M lod1 tris /
+1,818 trees; north_woods 53.1 M; light locations ~10 M — matches the fps
+split. Per-variant lod1 cost: cathedral_elm_l 203 k (84 % bark), elm_l
+158 k (84 % bark), london_plane_l 151 k (79 %), willow_l 90 k, oak_l 55 k,
+maple_l 68 k. AAA forest budgets are 5–20 k/tree at these screen sizes.
+
+- `generate_tree_lods.py` prunes **leaf cards only — bark is never
+  decimated** and dominates the heavy species.
+- The runtime `_lod1` files are **stale April 11 geometry**: base models
+  were regenerated May 19 (per-species LAI card-density tune — lod0 leaf
+  counts roughly halved) and the LOD derivation was never re-run. The
+  in-game tier has ~2× the leaf cards of the current approved models
+  (oak_l: 23.8 k leaf tris vs lod0's 13.6 k).
+- On-disk `_lod2` files are junk as a mid tier: full bark + ¼ cards ⇒
+  only ~8 % lighter than lod0.
+
+### 4c. Levers (in implementation order)
+
+1. **Leaf shader distance-gating** (~12 ms pot). The vein/cuticle/pocket
+   vnoise stack (4–5 evaluations/fragment) is sub-pixel beyond a few tens
+   of metres but runs on every canopy fragment at every distance. Gate
+   micro-detail by `frag_cam_dist` with smooth amplitude fades (no hard
+   shading step). Near field must stay pixel-identical.
+2. **Bark shader distance-gating** (~5 ms pot). Full triplanar + procedural
+   detail near; beyond the detail range collapse to dominant-plane sampling
+   and drop lenticel/plate procedural work, fading amplitude.
+3. **LOD regeneration** (~13–16 ms pot, shared with overdraw): re-derive
+   `_lod1` from the May 19 models (halves card count — direct overdraw cut +
+   staleness fix), and regenerate `_lod2` as a TRUE mid tier (bark decimated
+   to ≤ ~8 k tris via collapse — bark is opaque tube geometry, it decimates
+   cleanly; cards pruned to ~40 % and rescaled 1.6×), runtime three-tier:
+   lod1 0–60 m, lod2 60–250 m, impostor beyond. Blender-mechanical once
+   spec'd; can run on cheaper sessions.
+
+Tier boundary stays at 250 m (pull-in measured ≈ free, and distant mesh
+canopy is part of the look). Occlusion culling: dropped — it attacks load
+that measurement says is already negligible.
+
+### 4d. Definition of Done (per lever)
+
+- **Shader gating (1, 2):** before/after captures at a near tree (≤ 10 m),
+  mid (40 m), far (100 m) at noon + 17:00 — near capture pixel-identical
+  (mean |ΔRGB| < 0.005), no visible detail-fade line in a walk-toward
+  capture sequence; perf_bisect ramble + north_woods back-to-back A/B;
+  perf gate ×5 no regression.
+- **LOD regen (3):** per-species tri budget table met (lod2 ≤ ~12 k incl.
+  cards); tier-handoff pixel comparison at 60 m (lod1 vs lod2) mean
+  |ΔRGB| < 0.05 like the §2 impostor DoD; crossfade walk smooth; perf
+  gate ×5; user look-approval on Ramble + Literary Walk captures (the
+  current in-game look is the approved baseline, and card count changes it).
 
 ## 5. Open questions
 
