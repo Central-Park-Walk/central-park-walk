@@ -44,6 +44,14 @@ Mean ms over last 10 samples; Δ vs. that location's baseline. Reports in `perf_
 
 The shadow system thus splits (Ramble, non-additive): tree casters ~18, terrain caster ~9, PCF sampling ~16.
 
+**Water-caster correction (2026-06-10, commit 5524126):** every shadow
+measurement above was taken while `WaterBodies` — one park-wide 3.1 M-tri
+surface mesh — cast into every cascade (~12.4 M shtri at every location;
+found via `--shadow-census` at Great Lawn). Water now casts nothing. The
+per-line *deltas* above remain valid A/Bs, but absolute shtri figures
+(e.g. "17.4 M at Great Lawn") were mostly water: post-fix Great Lawn is
+5.97 M without proxies, **1.91 M with proxies** (trees.md §3 DoD item 1).
+
 **Stacked candidate state** (2026-06-10, commit d8f1784, solid-hull proxies):
 
 | stack | ramble ms (fps) | north_woods ms (fps) |
