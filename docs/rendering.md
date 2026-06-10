@@ -38,8 +38,11 @@ Mean ms over last 10 samples; Δ vs. that location's baseline. Reports in `perf_
 | shadow atlas 8192→4096 | — | −32 | fragment-bound share |
 | atlas 4096→2048 | — | ~0 | remainder is vertex/primitive-bound |
 | shadow distance 150→75 m | — | ~0 | caster load is already near-field |
+| terrain casting off | −8.7 | — | fragment-bound (only ~0.4 M of 18.5 M shadow tris, but full-cascade coverage) |
+| PCF filter quality 2→1 (or →0) | −16 | — | penumbra blocker-search cost (1.5° angular distance); q1 ≈ q0 cost |
+| tree+terrain casting off | −26.2 | — | filter sampling cost remains |
 
-Shadow system beyond tree casters ≈ 19–21 ms at both locations: other casters (terrain the prime suspect) + per-pixel PCF sampling (filter quality 2, 1.5° penumbra) + cascade overhead. Not yet split — do so before tuning (§6).
+The shadow system thus splits (Ramble, non-additive): tree casters ~18, terrain caster ~9, PCF sampling ~16.
 
 ## 4. The frame budget (binding)
 
@@ -70,7 +73,7 @@ With everything hidden, median fps ≈ 300 (≈3.3 ms typical frame) but *mean* 
 
 1. **Tree shadow proxies** (−18..28): visible trees `cast_shadow=OFF`; per-species low-poly crown hull + trunk cylinder MultiMesh `SHADOWS_ONLY`, crown alpha-tested with a leaf-density noise mask so PCF blurs it into dapple. Generated from source meshes alongside the impostor bake. Goes in the D3–5 tree spec. Optional near-field real-foliage caster (≤20 m visibility range) only if reference comparison demands it.
 2. **Tree camera raster** (−21 at ramble): re-enable occlusion culling (canopy occluders vs `visibility_range` conflict, `tree_builder.gd:703-706`), tier boundary review (mesh tier to 290 m is far), LOD0/1 triangle audit. Spec first.
-3. **Other shadows** (−17): split casters vs sampling first (terrain `cast_shadow` off A/B, filter quality A/B). Then: atlas 4096 default (8192's ~550 px/m near-cascade buys nothing visible), revisit filter quality/penumbra width.
+3. **Other shadows** (−17, split 2026-06-10): PCF sampling −16 (quality 1 ≈ hard-shadow cost; A/B the dapple softness vs reference before committing — penumbra look matters under canopy), terrain caster −9 (visual check at golden hour: does SSAO+SDFGI carry terrain form without cast shadows?), atlas 4096 default (8192's ~550 px/m near-cascade buys nothing visible).
 4. **SDFGI** (−5.5): cascade count and cell size sweep — 6 cascades @ 0.5 m is generous for a park walk.
 5. **Grass** (−5.5): tier ranges/density sweep; it casts nothing already, so this is camera raster + overdraw.
 6. **Floor spikes** (§5).
