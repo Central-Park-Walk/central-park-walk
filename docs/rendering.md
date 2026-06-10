@@ -52,6 +52,39 @@ per-line *deltas* above remain valid A/Bs, but absolute shtri figures
 (e.g. "17.4 M at Great Lawn") were mostly water: post-fix Great Lawn is
 5.97 M without proxies, **1.91 M with proxies** (trees.md §3 DoD item 1).
 
+### 3b. Re-measured anatomy at Ramble (2026-06-10 PM, shipped defaults: proxies + atlas 4096, commit 003ee04)
+
+All four June-9 structural assumptions changed in one day (impostor tier
+unburied, water caster removed, proxies shipped, atlas 4096), so the table
+above is historical. Fresh back-to-back runs at ramble noon, 52 ms frame:
+
+| config | ms | reading |
+|---|---|---|
+| baseline (shipped defaults) | 52.0 | vpgpu 51.9, shtri 2.35 M |
+| `--tier-isolate=mesh` (impostors off) | 51.7 | **impostor raster ≈ 0** (only 650 visible tris at Ramble — canopy occludes the distance) |
+| `--diag-hide=proxyshadows` (no tree shadows) | 28.3 | tree-shadow system total ≈ **24 ms** |
+| `--proxy-solid` (no dapple discard) | 49.8 | dapple shader ≈ 2 ms — innocent |
+| `--no-tree-shadow-proxy` (per-leaf casting) | 62.0 | proxies save **−10 ms** vs the old world (shtri 12.9 M vs 0.42 M) |
+| `--shadow-filter=1` | 44.7 | q2 penumbra search ≈ 7 ms at noon |
+| `--diag-hide=trees` (visible trees hidden) | 15.9 | mesh-tier camera raster ≈ **30 ms** — the biggest single line |
+
+Reading: the ~24 ms tree-shadow cost is NOT caster triangle load (0.42 M
+tris) — it is dominated by receiver-side PCF over canopy-filled shadow maps
+(sampling + q2 blocker search; empty maps early-out and sample coherently).
+Levers must attack receiver cost (filter quality, shadow distance, cascade
+content), not caster geometry — proxies already took the caster win.
+
+**D5–9 priority order at Ramble: (1) mesh-tier camera raster ~30 ms
+(occlusion culling, tier boundary, tri audit), (2) shadow receiver cost
+~24 ms gross. Everything else combined is ~13 ms and within run noise.**
+
+**Bisect protocol warning (measured 2026-06-10):** `perf_bisect.sh` runs its
+baseline first on a cold GPU; configs 10+ minutes later read 4–8 ms slower
+from thermal drift alone (fog/undergrowth/terrain "regressions" in run
+20260610_140325 are artifacts). Single-run deltas under ~8 ms are not
+actionable — confirm with back-to-back A/B runs. North Woods re-measure
+still pending (expected to mirror Ramble).
+
 **Stacked candidate state** (2026-06-10, commit d8f1784, solid-hull proxies):
 
 | stack | ramble ms (fps) | north_woods ms (fps) |
