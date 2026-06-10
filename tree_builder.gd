@@ -51,12 +51,20 @@ var imp_chunks: int = 0
 var _shadow_proxy: bool = false
 var _proxy_mesh_cache: Dictionary = {}  # mesh_key -> ArrayMesh
 var proxy_instances: int = 0
+# --tier-isolate=mesh|impostor (diagnostic): render ONLY that tree tier with
+# crossfade dither disabled, so DoD captures can compare pure tiers at the
+# same distance (docs/trees.md §2 validation).
+var _tier_isolate: String = ""
 
 func _init(loader) -> void:
 	_loader = loader
 	_shadow_proxy = "--tree-shadow-proxy" in OS.get_cmdline_user_args()
 	if _shadow_proxy:
 		print("TreeBuilder: shadow proxies ON (visible trees cast nothing)")
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--tier-isolate="):
+			_tier_isolate = arg.substr("--tier-isolate=".length())
+			print("TreeBuilder: TIER ISOLATE '%s' — single tier, no crossfade (diagnostic)" % _tier_isolate)
 
 # Size tier boundaries per species: [small_max, medium_max]
 # Trees below small_max use _s model, below medium_max use _m, else _l.
@@ -726,7 +734,8 @@ func _build_trees(trees: Array) -> void:
 			pmmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 			_loader.add_child(pmmi)
 			proxy_instances += xf_list.size()
-		_loader.add_child(mmi)
+		if _tier_isolate != "impostor":
+			_loader.add_child(mmi)
 		lod0_instances += xf_list.size()
 		lod0_chunks += 1
 
@@ -775,7 +784,7 @@ func _build_trees(trees: Array) -> void:
 		# rationale is gone — 0.95 keeps a slight knock-down so close trees
 		# don't blast bright, without the heavy darkening the 0.82 produced.
 		var tier_brightness: float = 0.95 if "_lod1" in sp_key else 1.0
-		if "_lod1" in sp_key:
+		if "_lod1" in sp_key and _tier_isolate != "mesh":
 			fade_out = MESH_FADE_OUT
 		for mesh: Mesh in _species_meshes[sp_key]:
 			for si in mesh.get_surface_count():
@@ -1010,6 +1019,9 @@ func _create_billboard_quad_mesh() -> ArrayMesh:
 func _build_canopy_shells() -> void:
 	if _shell_data.is_empty():
 		return
+	if _tier_isolate == "mesh":
+		print("Trees Impostor: skipped (--tier-isolate=mesh)")
+		return
 
 	# Load octahedral billboard impostor shader — view-dependent 3-frame
 	# blending with depth parallax for photorealistic distant trees.
@@ -1094,8 +1106,11 @@ func _build_canopy_shells() -> void:
 		_load_impostor_mat.call(model_name)  # generic fallback
 
 	# Impostors fade in 230-250m, complementing LOD1's fade-out band.
+	var imp_fade_in := Vector2(230.0, 250.0)
+	if _tier_isolate == "impostor":
+		imp_fade_in = Vector2(0.0, 0.0)   # pure tier at any distance
 	for mat_key in impostor_mats:
-		impostor_mats[mat_key].set_shader_parameter("lod_fade_in", Vector2(230.0, 250.0))
+		impostor_mats[mat_key].set_shader_parameter("lod_fade_in", imp_fade_in)
 
 	if impostor_mats.is_empty():
 		print("Trees Impostor: no impostor atlases found — skipping")
@@ -1184,7 +1199,7 @@ func _build_canopy_shells() -> void:
 		# visibility begins at 190m (= 230 - half CHUNK) so chunks whose
 		# origin is just inside fade-in band still render. Shader-side
 		# dither (lod_fade_in) handles the 230-250m crossfade.
-		mmi.visibility_range_begin = 190.0
+		mmi.visibility_range_begin = 0.0 if _tier_isolate == "impostor" else 190.0
 		mmi.visibility_range_end = 2500.0
 		mmi.visibility_range_begin_margin = 0.0
 		mmi.visibility_range_end_margin = 0.0
