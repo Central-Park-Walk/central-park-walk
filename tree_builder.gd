@@ -45,9 +45,9 @@ var lod1_chunks: int = 0
 var imp_instances: int = 0
 var imp_chunks: int = 0
 
-# Shadow proxies (docs/trees.md §3, prototype): visible trees stop casting;
-# a ~90-tri trunk+crown hull per species-variant casts instead (SHADOWS_ONLY).
-# Flag-gated for A/B measurement until the perf gate + visual DoD pass.
+# Shadow proxies (docs/trees.md §3): visible trees cast nothing; a ~220-tri
+# trunk cylinder + leaf-vertex-fit crown lathe per species-size-variant casts
+# instead (SHADOWS_ONLY, GI off), with phenology-driven dapple coverage.
 var _shadow_proxy: bool = false
 var _proxy_mesh_cache: Dictionary = {}  # mesh_key -> ArrayMesh
 var proxy_instances: int = 0
@@ -58,9 +58,11 @@ var _tier_isolate: String = ""
 
 func _init(loader) -> void:
 	_loader = loader
-	_shadow_proxy = "--tree-shadow-proxy" in OS.get_cmdline_user_args()
-	if _shadow_proxy:
-		print("TreeBuilder: shadow proxies ON (visible trees cast nothing)")
+	# Default ON since 2026-06-10 (docs/trees.md §3 DoD passed: shtri, SDFGI
+	# A/B, crown fit, winter shed, perf gate). Opt-out is a diagnostic.
+	_shadow_proxy = not ("--no-tree-shadow-proxy" in OS.get_cmdline_user_args())
+	if not _shadow_proxy:
+		print("TreeBuilder: shadow proxies OFF (diagnostic) — visible trees cast per-leaf")
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--tier-isolate="):
 			_tier_isolate = arg.substr("--tier-isolate=".length())
