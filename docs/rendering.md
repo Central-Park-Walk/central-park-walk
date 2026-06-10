@@ -85,6 +85,36 @@ from thermal drift alone (fog/undergrowth/terrain "regressions" in run
 actionable — confirm with back-to-back A/B runs. North Woods re-measure
 still pending (expected to mirror Ramble).
 
+### 3c. Opaque-pass leaf fix (2026-06-10 evening) — §3b's "mesh-tier raster" mostly dissolved
+
+The ~30 ms "mesh-tier camera raster" line in §3b was mostly **transparent-
+pass overdraw**: tree_leaf.gdshader wrote `ALPHA` (+ `alpha_to_coverage`,
+inert with MSAA off), so every canopy layer shaded full PBR + SSS + noise +
+shadow-PCF with no early-Z. Leaves now render opaque, coverage by discard
+(commit f12f334, full record trees.md §4e). Gate 20260610_171918 vs the
+§3b-era 20260610_135252 baseline:
+
+| location | was | now |
+|---|---|---|
+| literary_walk | 30.8 | 26.3 |
+| bethesda | 21.3 | 24.1 → back-to-back sandwich says **no regression** (new 23.8 / old 25.6 / new 23.7; the 21.3 was a favorable run) |
+| ramble | 52.1 | **31.1** |
+| great_lawn | 20.4 | 20.9 |
+| north_woods | 50.3 | **32.4** |
+
+Consequences for the plan:
+- **`grass_particle_render.gdshader` (9.4 M tris at lawns) and
+  `undergrowth.gdshader` write ALPHA the same way** (grep-confirmed; vine
+  too, but vines are disabled; water/rain/snow/lamp are legitimately
+  transparent). Grass is now the top lever — same fix class. Check
+  whether grass coverage can be discard-only before touching tier
+  ranges/density (§6 item 5).
+- Tier pull-in and occlusion culling are DEAD levers (measured ~3 ms for
+  impostors-at-120 m — distant mesh trees were never the cost).
+- Fresh per-subsystem attribution at ramble/north_woods needed before
+  acting on the remaining ~15 ms of tree cost (shadow receiver PCF share
+  vs camera raster share unknown post-fix).
+
 **Stacked candidate state** (2026-06-10, commit d8f1784, solid-hull proxies):
 
 | stack | ramble ms (fps) | north_woods ms (fps) |
@@ -124,10 +154,10 @@ With everything hidden, median fps ≈ 300 (≈3.3 ms typical frame) but *mean* 
 ## 6. Reduction plan (D5–9, in order of measured size)
 
 1. **Tree shadow proxies** (−13..16 vs post-impostor-fix world) — **SHIPPED, default ON 2026-06-10** (tree_builder.gd, opt-out `--no-tree-shadow-proxy`): trunk cylinder + crown lathe fit to each variant's leaf vertices (12 slices, p96 elliptical radii), `SHADOWS_ONLY`, GI off, phenology-driven dapple discard (shaders/tree_shadow_proxy.gdshader — thins in autumn, bare in winter, blossoms cast). Full DoD record in trees.md §3.
-2. **Tree camera raster** (−21 at ramble): re-enable occlusion culling (canopy occluders vs `visibility_range` conflict, `tree_builder.gd:703-706`), tier boundary review (mesh tier to 290 m is far), LOD0/1 triangle audit. Spec first.
+2. **Tree camera raster — RESOLVED 2026-06-10** (−21 at ramble, −18 at north_woods): the cost was transparent-pass leaf overdraw, not geometry (§3c, trees.md §4e). The spec'd follow-ups occlusion-culling/tier-boundary were measured dead (~3 ms); LOD regeneration (true mid-LOD: bark decimate + card prune, trees.md §4c lever 3) remains queued for the residual vertex load.
 3. **Other shadows — DECIDED 2026-06-10** (re-measured post-proxy/post-water; the old −16/−32 deltas no longer exist because the shadow load they amplified is gone): **atlas 4096 is the default** (−3.4 ms at Ramble 17:00, visually neutral at Ramble + Literary Walk golden hour — if anything slightly softer, which suits the tone). **PCF filter stays quality 2**: filter 1 now saves only ~5 ms and visibly hardens the long-shadow penumbra at low sun — and the proxy dapple *depends* on PCF blur to read as mottle (its holes sharpen into cut-outs at quality 1). Terrain caster (−9 pre-fix) not retested — candidate for D5–9 with a golden-hour visual check.
 4. **SDFGI** (−5.5): cascade count and cell size sweep — 6 cascades @ 0.5 m is generous for a park walk.
-5. **Grass** (−5.5): tier ranges/density sweep; it casts nothing already, so this is camera raster + overdraw.
+5. **Grass** (−5.5, likely more): `grass_particle_render.gdshader` writes ALPHA → transparent pass, the same defect the trees had (§3c). Try discard-only coverage FIRST; tier ranges/density sweep only for whatever remains. `undergrowth.gdshader` same.
 6. **Floor spikes** (§5).
 
 Every step: perf_gate before/after at all 5 locations, committed with the numbers in the message.

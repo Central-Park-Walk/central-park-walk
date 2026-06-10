@@ -215,6 +215,40 @@ that measurement says is already negligible.
   gate ×5; user look-approval on Ramble + Literary Walk captures (the
   current in-game look is the approved baseline, and card count changes it).
 
+### 4e. Outcome (2026-06-10 evening) — the real lever was the render pass
+
+Lever 1 (leaf detail gating) shipped but measured only **~1 ms** (commit
+4780cc9): the simple-leaf delta was never about *which* math runs per
+fragment — it was about *how many fragments* run it. Chasing that led to
+the actual root cause: **the leaf shader wrote `ALPHA` (plus
+`alpha_to_coverage`, inert with MSAA off), which put the entire canopy in
+the transparent pass** — every overlapping leaf layer shaded full
+PBR + SSS + noise + shadow-PCF with no early-Z rejection.
+
+**Fix (commit f12f334): leaves render in the opaque pass**, coverage by
+discard only. Ramble noon back-to-back: **48.8 → 31.7 ms**. Design points:
+- Discard threshold 0.5 near → 0.10 by 180 m (replaces the alpha-lift ramp).
+- Seasonal thinning = stochastic per-cluster card drop (`flat` varying,
+  ~0.8 m cells, upper crown first); WINTER_RETENTION recalibrated to
+  literal card fractions (oak 0.18 etc.); no density floor — clean
+  abscission species are truly bare; winter shrink softened 0.4 → 0.7.
+- Hashed-alpha variants (static + animated) measured equal (−18 ms) but
+  rejected on visuals: static stipples, animated leaves TAA smears.
+- Look: leaves read denser/crisper — resolves the standing "leaves too
+  transparent" complaint; verified across summer/autumn/winter captures
+  and a live user walk.
+- Re-derived per-card seed (`v_card_seed`, flat) because the existing 5 cm
+  color seed interpolates across cards and would smear a discard test.
+- Handoff DoD re-check tooling now scripted: `scripts/tier_handoff_check.sh`.
+
+Remaining from this spec: bark shader gating (lever 2, ~5 ms pot, measured
+texture means for the far-field collapse: furrowed (0.636,0.624,0.524)/r0.53,
+oak (0.540,0.476,0.317)/r0.67, exfoliating (0.545,0.476,0.311)/r0.62, pine
+(0.402,0.326,0.253)/r0.71, smooth (0.547,0.474,0.361)/r0.53), LOD
+regeneration (lever 3). **Grass and undergrowth shaders likely have the
+same ALPHA-write defect — check their render modes before touching content**
+(rendering.md §6 items 4–5).
+
 ## 5. Open questions
 
 - Existing normal atlases: baked with which convention/quality? Verify before
