@@ -25,6 +25,14 @@ uniform vec2 lod_fade_in = vec2(0.0, 0.0);
 // Set to ~0.82 on LOD1 materials to match LOD0 perceived brightness.
 uniform float tier_brightness : hint_range(0.4, 1.5) = 1.0;
 
+// Impostor bake modes (set by scripts/impostor_baker.gd only; 0 at runtime).
+// 1 = albedo: EMISSION carries the final ALBEDO so the atlas stores true
+//     unlit albedo — the impostor shader lights it at runtime with the same
+//     sun/ambient as the mesh tiers (docs/trees.md §2).
+// 2 = camera-space normal encoded *0.5+0.5.  3 = normalized ortho depth.
+uniform int bake_mode = 0;
+uniform vec2 bake_depth_range = vec2(0.0, 50.0);
+
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/aerial_perspective.gdshaderinc"
 #include "res://shaders/include/tree_species.gdshaderinc"
@@ -408,4 +416,27 @@ void fragment() {
 	// Feed alpha to alpha_to_coverage (4x MSAA).
 	// Distance opacity clamping already handled after discard test above.
 	ALPHA = alpha;
+
+	// Impostor bake output: EMISSION carries the data channel; ALBEDO zeroed
+	// so the black/unlit bake environment contributes nothing. The alpha and
+	// discard logic above ran unchanged, so all three atlas channels share
+	// identical coverage by construction.
+	if (bake_mode != 0) {
+		if (bake_mode == 1) {
+			EMISSION = ALBEDO;
+		} else if (bake_mode == 2) {
+			// Flip toward camera: leaves are double-sided and the runtime
+			// decode reconstructs z toward the viewer from xy alone.
+			vec3 bn = NORMAL.z < 0.0 ? -NORMAL : NORMAL;
+			EMISSION = bn * 0.5 + 0.5;
+		} else {
+			float bd = (-VERTEX.z - bake_depth_range.x)
+				/ max(bake_depth_range.y - bake_depth_range.x, 0.001);
+			EMISSION = vec3(clamp(bd, 0.0, 1.0));
+		}
+		ALBEDO = vec3(0.0);
+		BACKLIGHT = vec3(0.0);
+		SPECULAR = 0.0;
+		ROUGHNESS = 1.0;
+	}
 }
