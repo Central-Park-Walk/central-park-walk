@@ -300,7 +300,7 @@ func _bake_one(species: String, label: String, glb_path: String, suffix: String 
 		# Edge dilation is handled by the post chain
 		# (scripts/premultiply_impostors.py — premultiplied alpha makes
 		# albedo dilation unnecessary; normal/depth get neutral bg fill).
-		var out_path := OUT_DIR + label + pass_info.out + ".png"
+		var out_path: String = OUT_DIR + label + pass_info.out + ".png"
 		var abs_path := ProjectSettings.globalize_path(out_path)
 		atlas.save_png(abs_path)
 		print("impostor_baker:   saved %s" % abs_path)

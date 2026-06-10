@@ -82,7 +82,7 @@ def main():
     for p in dep_paths:
         finalize_data_atlas(p, (128, 128, 128))
     print(f"premultiply_impostors: finalized {len(nrm_paths)} normal + "
-          f"{len(dep_paths)} depth atlases (unpremultiply + frame-local dilate)")
+          f"{len(dep_paths)} depth atlases (frame-local dilate from solid texels)")
 
 
 if __name__ == "__main__":
