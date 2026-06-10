@@ -101,19 +101,16 @@ Set via `RenderingServer.global_shader_parameter_set`, mostly from `main.gd::_pr
 `wind_vec, season_t (0-4), snow_cover, rain_wetness, lightning_flash, dew_amount, lamp_glow, player_world_pos, sky_reflect_color, cloud_coverage_g, cloud_speed_g, impostor_brightness`.
 Parameter names are string literals repeated across 3+ files (debt #D3).
 
-## 7. Performance — what we know vs. suspect
+## 7. Performance — measured 2026-06-09 (D1-2 bisection)
 
-**Known (measured before, re-verify):** Ramble ≈10 fps, ~80M triangles reported, bottleneck reported as ~67 ms CPU "process" not GPU render. Profiled GDScript subsystems (F9 overlay buckets) account for only ~5-10 ms.
+See [`rendering.md`](rendering.md) for the full attribution tables, the binding 16.6 ms budget, and the reduction plan. Headlines:
 
-**Unprofiled suspects (hypotheses to TEST in the D1-2 profiling pass, not act on):**
-1. Shadow rendering: 4 cascades × all LOD0 tree shadow casters.
-2. SDFGI: 6 cascades over tree-dense geometry.
-3. Terrain3D clipmap updates.
-4. Volumetric fog compute (density 0.003, long range).
-5. Draw-call / MMI count (tree MMIs ≈ 1.2-2k (est.) + undergrowth chunks + grass nodes).
-6. Vertex load: 80M tris at the Ramble suggests mesh-tier density × no occlusion culling (canopy occluders disabled — `tree_builder.gd:703-706`).
+- **GPU-bound.** `vpgpu` ≈ `process` at heavy locations; render-thread CPU ~9 ms, our GDScript <1 ms. The earlier "~67 ms CPU process" read was the main thread *blocked on the GPU* inside `TIME_PROCESS`. Hypotheses 3 (clipmap) and 5 (MMI/draw-call count) are thereby ruled out as primary levers.
+- Trees own ~54-57 ms of the ~83-88 ms frame: 18-28 ms shadow-cascade raster + 10-25 ms camera raster (hypotheses 1 and 6 confirmed).
+- Shadow system beyond tree casters ~19-21 ms; SDFGI ~7 ms (hypothesis 2, minor); volumetric fog ~0 (hypothesis 4 rejected).
+- Tools: `scripts/perf_bisect.sh`, `--diag-hide=`, `--shadow-dist/-size`, `vpcpu/vpgpu` in `[PERF]`.
 
-The F9 overlay's "unaccounted" bucket is where most of the 67 ms hides. **Rule: no perf change ships without a before/after measurement at the 5 test locations** (Literary Walk −600,1420 · Bethesda −480,1020 · Ramble −400,600 · Great Lawn −99,173 · North Woods 600,−1315).
+**Rule: no perf change ships without a before/after measurement at the 5 test locations** (Literary Walk −600,1420 · Bethesda −480,1020 · Ramble −400,600 · Great Lawn −99,173 · North Woods 600,−1315).
 
 ## 8. Debt register (prioritized)
 

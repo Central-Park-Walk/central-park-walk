@@ -19,7 +19,7 @@ Then state the session's target in one sentence before writing any code.
 - [`docs/vision.md`](docs/vision.md) — what this is, who it's for, what success means, what's NOT in scope.
 - [`docs/architecture.md`](docs/architecture.md) — code layout, subsystem ownership, data flow end to end, debt register.
 - `docs/data_pipeline.md` — OSM + LiDAR + NYC tree census → world. *(to be written; architecture.md §2 covers the summary)*
-- `docs/rendering.md` — terrain, vegetation, sky, weather, post. Performance budgets per subsystem. *(to be written from the profiling pass)*
+- [`docs/rendering.md`](docs/rendering.md) — measured frame anatomy, binding 16.6ms per-subsystem budgets, shadow policy, reduction plan.
 - `docs/visual_style.md` — reference images, palette, lighting principles, tone, art bible. *(to be written)*
 - `docs/conventions.md` — naming, file organization, shader patterns, comment policy. *(to be written)*
 - [`docs/workflow.md`](docs/workflow.md) — session protocol, definition of done, iteration rules, enforcement.
