@@ -124,7 +124,12 @@ away to appreciate; under a canopy it's just dark all around." Policy in
    −28.8 → ≥15/≥25 PASS. Honest caveat: vs the post-impostor-fix Jun 10
    baseline (69.6/75.3 ms, the comparable world) the proxy+water gain is
    −13.2/−16.1 ms — perf gate 20260610_132307: all 5 locations improved,
-   none regressed.
+   none regressed. **Canonical shipped-defaults gate (proxies + atlas 4096,
+   20260610_135252): 30.8 / 21.3 / 52.1 / 20.4 / 50.3 ms** (lit_walk /
+   bethesda / ramble / great_lawn / north_woods) — the D5–9 baseline.
+   Gate-variance note: one intermediate gate showed ramble 69.6 (a +13 ms
+   outlier); direct A/B re-measure read 56.0. Confirm gate anomalies with
+   a direct run before acting on them.
 3. Dapple visual: Ramble noon + Literary Walk noon captures — mottled,
    crown-shaped, no light leak at crown edges (lathe fit), no artifacts.
    Winter: no crown blobs under bare deciduous trees; trunk lines + cloud
