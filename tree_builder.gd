@@ -908,8 +908,45 @@ func _get_shadow_proxy_mesh(mesh_key: String, sp_name: String, src: Mesh) -> Arr
 		crown.radius = crown_w * 0.5
 		crown.height = crown_h
 		_append_offset_surface(am, crown, Vector3(cx, crown_base + crown_h * 0.5, cz))
+	# Dapple: world-space noise discard on the crown so the shadow map gets
+	# holes PCF blurs into mottled canopy light (docs/trees.md §3). Conifers
+	# keep a denser crown (real conifer shade is near-solid).
+	var crown_mat := ShaderMaterial.new()
+	crown_mat.shader = _proxy_dapple_shader()
+	crown_mat.set_shader_parameter("coverage", 0.80 if is_conifer else 0.62)
+	am.surface_set_material(1, crown_mat)
 	_proxy_mesh_cache[mesh_key] = am
 	return am
+
+
+var _dapple_shader: Shader = null
+func _proxy_dapple_shader() -> Shader:
+	if _dapple_shader:
+		return _dapple_shader
+	_dapple_shader = Shader.new()
+	# Runs in the shadow (depth) pass — discard punches leaf-density holes.
+	# World-space hash so holes are stable per tree and don't swim.
+	_dapple_shader.code = """
+shader_type spatial;
+render_mode unshaded, cull_disabled;
+
+uniform float coverage : hint_range(0.0, 1.0) = 0.62;
+uniform float hole_scale = 1.1;
+
+float hash3(vec3 p) {
+	p = fract(p * 0.3183099 + 0.1);
+	p *= 17.0;
+	return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+
+void fragment() {
+	vec3 wp = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	if (hash3(floor(wp / hole_scale)) > coverage) {
+		discard;
+	}
+}
+"""
+	return _dapple_shader
 
 
 func _append_offset_surface(am: ArrayMesh, prim: PrimitiveMesh, offset: Vector3) -> void:
