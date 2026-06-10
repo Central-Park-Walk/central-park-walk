@@ -87,7 +87,7 @@ Incremental rebuild via `.pipeline_cache.json` (mtime/sha256 signatures); `--for
 
 ## 5. Tree system (the project's hardest subsystem)
 
-Current state (post two-tier collapse, commit 20486e4):
+Target-state spec: [`trees.md`](trees.md). Current state (post two-tier collapse, commit 20486e4):
 
 - **Mesh tier 0-290m**: `{species}_{s|m|l}_lod1` decimated meshes; one MMI per species-tier × 80m chunk, positioned at instance centroid; per-chunk deterministic variant pick (`tree_builder.gd:523`) to limit MMI fragmentation; dither crossfade out 230-250m. ~9,852 census + woodland-fill trees, 17 archetypes.
 - **Impostor tier 190-2500m**: octahedral billboards, 8×8 hemisphere frames, 2048² atlas per species-tier (56 atlases), premultiplied alpha, crossfade in 230-250m, shadows off.
