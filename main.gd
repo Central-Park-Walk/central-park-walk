@@ -193,7 +193,11 @@ func _parse_cli_args() -> void:
 			_cli_shadow_filter = int(val)
 		elif arg == "--shadow-census":
 			_diag_shadow_census = true
-	# Auto-screenshot only in headless capture mode (--quit-after)
+		elif arg == "--screenshot":
+			_auto_screenshot = true
+	# Legacy trigger: sniffing --quit-after stopped working when the engine
+	# began stripping recognized flags from OS.get_cmdline_args() (found
+	# 2026-06-10 on 4.6.1 — loop never matches). Use `-- --screenshot`.
 	for earg in OS.get_cmdline_args():
 		if earg.begins_with("--quit-after"):
 			_auto_screenshot = true

@@ -13,8 +13,8 @@ mkdir -p "$OUT"
 cap() { # name, then all remaining args passed through
   local name="$1"; shift
   rm -f /tmp/godot_screenshot.png
-  timeout 120s "$G" --path "$PROJECT_DIR" --resolution 1920x1080 --disable-vsync \
-    --quit-after 12000 -- --time=noon --weather=clear "$@" \
+  timeout 80s "$G" --path "$PROJECT_DIR" --resolution 1920x1080 --disable-vsync \
+    -- --screenshot --time=noon --weather=clear "$@" \
     > "$OUT/$name.log" 2>&1
   if [ -f /tmp/godot_screenshot.png ]; then
     mv /tmp/godot_screenshot.png "$OUT/$name.png"
