@@ -103,3 +103,4 @@ walk_debug_trees/
 
 # Third-party Blender libraries (not redistributable)
 assets/plant_library/
+perf_reports/
