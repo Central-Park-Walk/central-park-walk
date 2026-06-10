@@ -59,21 +59,25 @@ const vec4 PHENOLOGY[14] = vec4[14](
 // Winter leaf retention: fraction of leaves kept through winter (0.0 = fully bare)
 // Marcescent species hold dead brown leaves; semi-evergreen hold some green.
 // Sources: USDA Plants DB, NYC urban forestry, Arnold Arboretum phenology records
+// Since 2026-06-10 these are LITERAL retained-card fractions (the leaf shader
+// drops whole clusters stochastically in the opaque pass — no alpha ghosting),
+// recalibrated down: a mature oak's marcescence reads right at ~15-20% of
+// clusters, held low/inner crown (upper-crown-first bias in tree_leaf vertex).
 const float WINTER_RETENTION[14] = float[14](
-	0.35,  // 0 oak: marcescent — holds dead brown leaves into Feb, spring push drops them
+	0.18,  // 0 oak: marcescent — patchy dead brown leaves into Feb, spring push drops them
 	0.0,   // 1 maple: clean abscission by late Nov
 	0.0,   // 2 elm: clean drop by mid-Nov
 	0.0,   // 3 birch: among first to shed, bare by late Oct
 	0.0,   // 4 deciduous: generic clean abscission
 	1.0,   // 5 conifer: evergreen (handled by is_evergreen flag, not this)
 	0.0,   // 6 honeylocust: tiny leaflets drop early/fast, bare by late Oct
-	0.30,  // 7 callery_pear: holds dark red-purple leaves into Dec
+	0.18,  // 7 callery_pear: holds dark red-purple leaves into Dec
 	0.0,   // 8 ginkgo: drops ALL leaves in 1-3 days after first hard frost
-	0.25,  // 9 london_plane: partially marcescent, some brown leaves into Jan
+	0.12,  // 9 london_plane: partially marcescent, some brown leaves into Jan
 	0.0,   // 10 linden: clean drop mid-Nov
 	0.0,   // 11 cherry: clean drop by early Nov
 	0.0,   // 12 willow: early dropper, bare by late Oct
-	0.55   // 13 magnolia: semi-evergreen in mild winters, holds green leaves late
+	0.45   // 13 magnolia: semi-evergreen in mild winters, holds green leaves late
 );
 
 // Blossom timing: (start, peak, end) on the season_t axis — before leaf-out.

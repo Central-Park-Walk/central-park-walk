@@ -1,5 +1,9 @@
 shader_type spatial;
-render_mode cull_disabled, depth_prepass_alpha, alpha_to_coverage;
+// OPAQUE pass (2026-06-10, docs/trees.md §4): no ALPHA write, no A2C —
+// coverage is discard-only, so leaves get early-Z and shade once per pixel
+// instead of once per canopy layer (was −18 ms at Ramble). Seasonal thinning
+// is per-CARD stochastic drop (v_leaf_seed vs density), not alpha ghosting.
+render_mode cull_disabled, depth_prepass_alpha;
 
 uniform vec3 albedo_tint = vec3(0.28, 0.48, 0.18);
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic;
@@ -43,6 +47,10 @@ varying float v_leaf_density;
 varying vec3 v_leaf_color;
 varying float v_blossom;     // 0-1 blossom intensity (cherry/callery pear spring bloom)
 varying float v_species_idx; // species index for fragment shader
+// Per-cluster hash for stochastic seasonal card drop. flat = no interpolation
+// (the provoking vertex's value covers the triangle); ~0.8m world quantization
+// makes leaves on the same twig drop together, like real abscission.
+varying flat float v_card_seed;
 
 // Spring blossom colors: cherry = pink, callery_pear = white, magnolia = pink-white
 const vec3 BLOSSOM_COLORS[14] = vec3[14](
@@ -86,7 +94,8 @@ void vertex() {
 		float shed = 1.0 - smoothstep(ph.z - 0.2, ph.z + 0.3, s); // fall ramp-down
 		float canopy = min(grow, shed);  // full only when both say yes
 		leaf_density = mix(retention, 1.0, canopy);
-		leaf_density = max(leaf_density, 0.08);  // never fully invisible
+		// No floor: with per-card drop, density 0 = truly bare (clean
+		// abscission). The old 0.08 floor was for the alpha-ghost regime.
 	}
 	v_leaf_density = leaf_density;
 
@@ -138,6 +147,12 @@ void vertex() {
 	// Sits between per-tree (±12%) and per-pixel (±4%) variation in scale.
 	vec3 leaf_world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	float leaf_seed = hash2(floor(leaf_world_pos.xz * 20.0));
+	// Upper-crown cards drop first (marcescence holds low/inner leaves):
+	// lower-crown seeds compress into [0, 0.7] so they survive to deeper
+	// retention. Model space is 0..5 units tall (MODEL_H normalization).
+	float upper01 = smoothstep(2.0, 4.2, VERTEX.y);
+	v_card_seed = hash2(floor(leaf_world_pos.xz * 1.3) + floor(leaf_world_pos.y * 1.3))
+		* mix(0.7, 1.0, upper01);
 	float leaf_bright = (leaf_seed - 0.5) * 0.12;                // ±6%
 	float leaf_warm   = (fract(leaf_seed * 13.7) - 0.5) * 0.04;
 	leaf_color *= 1.0 + leaf_bright;
@@ -179,17 +194,27 @@ void vertex() {
 	flutter += sin(TIME * 5.7 + VERTEX.z * 17.0) * 0.006 * gust_strength;
 	VERTEX.y += flutter * h;
 
-	// Winter: shrink canopy toward trunk
+	// Winter: retained (marcescent) leaves sit closer to the branches.
+	// Softened from 0.4 since cards are now opaque — a hard shrink pancaked
+	// the surviving cards into a dense blob at the trunk.
 	if (is_evergreen < 0.5 && leaf_density < 0.5) {
-		float shrink = mix(0.4, 1.0, leaf_density * 2.0);
+		float shrink = mix(0.7, 1.0, leaf_density * 2.0);
 		VERTEX.xz *= shrink;
 	}
 }
 
 void fragment() {
+	// Seasonal card drop: a cluster whose seed exceeds current leaf density
+	// is gone — whole leaves detach (real abscission), replacing the old
+	// alpha *= density ghosting that an opaque threshold would cliff on.
+	// First statement so the depth prepass rejects dropped cards cheaply.
+	// 0.96 keeps the winter retention floor (density 0.08 → ~8% of cards).
+	if (v_card_seed * 0.96 > v_leaf_density) {
+		discard;
+	}
 	vec4 tex = texture(albedo_tex, UV);
 	float lum = dot(tex.rgb, vec3(0.3, 0.6, 0.1));
-	float alpha = tex.a * v_leaf_density;
+	float alpha = tex.a;
 
 	// [DIAG-DISABLED 2026-05-18] Mip-level alpha compensation disabled — was
 	// causing visible color steps as mips shifted with distance. Left commented
@@ -206,14 +231,13 @@ void fragment() {
 	// correctly in shadow/reflection passes.
 	float frag_cam_dist = length(frag_tree_pos - player_world_pos);
 
-	// Distance-to-opaque ramp: lift alpha toward 1.0 past 100m so distant
-	// canopy reads as a solid mass. Sub-pixel leaf cards otherwise alpha-
-	// average toward zero through the mip chain even with coverage-preserving
-	// generation, leaving LOD1 trees as thin twig silhouettes by 150m.
+	// Distance-adaptive discard threshold. Near: 0.5 keeps leaf shapes crisp
+	// (mip-averaged halo pixels cut). Far: threshold drops toward 0.10 so
+	// mip-averaged alpha still passes and distant canopy reads as a solid
+	// mass instead of thin twig silhouettes (replaces the old alpha-lift
+	// ramp, which is meaningless without an ALPHA write).
 	float opaque_ramp = smoothstep(100.0, 180.0, frag_cam_dist);
-	alpha = mix(alpha, 1.0, opaque_ramp);
-
-	if (alpha < 0.15) discard;
+	if (alpha < mix(0.5, 0.10, opaque_ramp)) discard;
 
 	// LOD crossfade: complementary dithering at tier boundaries.
 	// Outgoing: this tier dissolves away as camera moves beyond its range.
@@ -413,9 +437,9 @@ void fragment() {
 	float leaf_aerial = smoothstep(120.0, 400.0, leaf_dist);
 	ALBEDO = apply_aerial(ALBEDO, leaf_aerial, 0.18, 0.20, sky_reflect_color);
 
-	// Feed alpha to alpha_to_coverage (4x MSAA).
-	// Distance opacity clamping already handled after discard test above.
-	ALPHA = alpha;
+	// No ALPHA write: opaque pass, coverage is discard-only (see render_mode
+	// note at top). Atlas bakes get alpha from the MSAA viewport's coverage
+	// of the discard silhouette.
 
 	// Impostor bake output: EMISSION carries the data channel; ALBEDO zeroed
 	// so the black/unlit bake environment contributes nothing. The alpha and
