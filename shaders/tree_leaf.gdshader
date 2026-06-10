@@ -201,7 +201,7 @@ void fragment() {
 
 	// [DIAG-DISABLED 2026-05-18] Second LOD system disabled for A/B comparison.
 	// Was: distance-adaptive alpha threshold ramping discard 0.15→0.02 over 60-180m.
-	vec3 frag_tree_pos = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	vec3 frag_tree_pos = MODEL_MATRIX[3].xyz;
 	// player_world_pos (not INV_VIEW_MATRIX[3]) so the dither discards
 	// correctly in shadow/reflection passes.
 	float frag_cam_dist = length(frag_tree_pos - player_world_pos);
@@ -262,25 +262,41 @@ void fragment() {
 	float fresnel = pow(1.0 - abs(dot(NORMAL, VIEW)), 3.0);
 	col += col * fresnel * 0.18;
 
+	// --- Distance gates for procedural detail (docs/trees.md §4c lever 1) ---
+	// Each detail layer fades its AMPLITUDE to zero over the range where its
+	// features go sub-pixel at 1080p, and the noise evaluations are skipped
+	// beyond it. frag_cam_dist is per-tree, so the branches are coherent
+	// across each tree's fragments. Near field (< the fade start) runs the
+	// exact pre-gate code path — pixel-identical by construction.
+	float gate_micro = 1.0 - smoothstep(25.0, 40.0, frag_cam_dist);  // cuticle/vein bumps
+	float gate_leaf  = 1.0 - smoothstep(50.0, 80.0, frag_cam_dist);  // per-leaf pockets/detail
+	float gate_px    = 1.0 - smoothstep(15.0, 25.0, frag_cam_dist);  // per-pixel hash variation
+
 	// --- Procedural leaf micro-texture: veins, cell structure, surface bumps ---
 	// Real leaves have complex surface topology that catches light at micro-scale.
 	// Two noise octaves: coarse (vein ridges) + fine (cell/cuticle texture).
 	vec3 frag_world = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	float bump_coarse = vnoise(frag_world.xz * 45.0);
-	float bump_fine = vnoise(frag_world.xz * 110.0);
-	float bump_h = bump_coarse * 0.6 + bump_fine * 0.4;
-	// Perturb normal via screen-space height derivatives (subtle — just enough
-	// to break up uniform lighting, not enough to flip normals or wash out)
-	NORMAL = normalize(NORMAL + vec3(dFdx(bump_h), dFdy(bump_h), 0.0) * 1.2);
+	float bump_coarse = 0.5;  // neutral when gated (rough_var → 0)
+	if (gate_micro > 0.001) {
+		bump_coarse = vnoise(frag_world.xz * 45.0);
+		float bump_fine = vnoise(frag_world.xz * 110.0);
+		float bump_h = bump_coarse * 0.6 + bump_fine * 0.4;
+		// Perturb normal via screen-space height derivatives (subtle — just enough
+		// to break up uniform lighting, not enough to flip normals or wash out)
+		NORMAL = normalize(NORMAL + vec3(dFdx(bump_h), dFdy(bump_h), 0.0) * (1.2 * gate_micro));
+		bump_coarse = mix(0.5, bump_coarse, gate_micro);
+	}
 
 	// Within-canopy detail: simulate individual leaf shadows, overlap, light pockets
-	vec3 tree_pos = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-	float detail_n = vnoise(UV * 12.0 + tree_pos.xz * 0.5);  // per-leaf-scale noise
-	float pocket_n = vnoise(UV * 4.0 + tree_pos.xz * 0.3);   // shadow pocket scale
-	// Dark shadow pockets in canopy interior
-	col *= mix(1.0, 0.78, smoothstep(0.3, 0.6, pocket_n) * 0.15);
-	// Per-leaf brightness variation (some leaves catch more light)
-	col *= (0.92 + detail_n * 0.16);
+	vec3 tree_pos = MODEL_MATRIX[3].xyz;
+	if (gate_leaf > 0.001) {
+		float detail_n = vnoise(UV * 12.0 + tree_pos.xz * 0.5);  // per-leaf-scale noise
+		float pocket_n = vnoise(UV * 4.0 + tree_pos.xz * 0.3);   // shadow pocket scale
+		// Dark shadow pockets in canopy interior
+		col *= mix(1.0, 0.78, smoothstep(0.3, 0.6, pocket_n) * 0.15 * gate_leaf);
+		// Per-leaf brightness variation (some leaves catch more light)
+		col *= mix(1.0, 0.92 + detail_n * 0.16, gate_leaf);
+	}
 
 	// --- Dappled canopy light/shadow patches (world-space) ---
 	// Real tree canopies show large-scale dappling as sunlight filters
@@ -297,11 +313,13 @@ void fragment() {
 
 	// Per-pixel micro-variation: chlorophyll patches, dust, cell structure
 	// Real leaves have millions of unique shades across their surface
-	vec2 px_uv = UV * 97.3 + tree_pos.xz * 5.1;
-	float px_n = hash2(px_uv) * 0.08 - 0.04;             // ±4% brightness
-	float px_hr = hash2(px_uv + vec2(71.9, 0.0)) * 0.03;  // warm shift
-	float px_hb = hash2(px_uv + vec2(0.0, 53.1)) * 0.03;  // cool shift
-	col += vec3(px_n + px_hr, px_n, px_n + px_hb);
+	if (gate_px > 0.001) {
+		vec2 px_uv = UV * 97.3 + tree_pos.xz * 5.1;
+		float px_n = hash2(px_uv) * 0.08 - 0.04;             // ±4% brightness
+		float px_hr = hash2(px_uv + vec2(71.9, 0.0)) * 0.03;  // warm shift
+		float px_hb = hash2(px_uv + vec2(0.0, 53.1)) * 0.03;  // cool shift
+		col += vec3(px_n + px_hr, px_n, px_n + px_hb) * gate_px;
+	}
 
 	// --- Species-specific material properties ---
 	// Broad-leaved trees (maple, london plane) have smoother, more reflective leaves
@@ -340,7 +358,6 @@ void fragment() {
 	if (snow_cover > 0.01) {
 		vec3 world_n = mat3(INV_VIEW_MATRIX) * NORMAL;
 		float upward = max(world_n.y, 0.0);
-		vec3 tree_pos = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 		float noise = sin(tree_pos.x * 0.3 + tree_pos.z * 0.4) * 0.15;
 		float snow_amt = clamp((0.3 + upward * 0.7 + noise) * snow_cover, 0.0, 1.0);
 		col = mix(col, vec3(0.92, 0.93, 0.96), snow_amt * 0.65);
@@ -392,8 +409,7 @@ void fragment() {
 	// real summer canopy stays vivid green at distance — reference drone
 	// shots of Central Park show perimeter trees still saturated even from
 	// ~1km. Heavier defaults made our distant trees wash to fog color.
-	vec3 leaf_world = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-	float leaf_dist = length(leaf_world - INV_VIEW_MATRIX[3].xyz);
+	float leaf_dist = length(tree_pos - INV_VIEW_MATRIX[3].xyz);
 	float leaf_aerial = smoothstep(120.0, 400.0, leaf_dist);
 	ALBEDO = apply_aerial(ALBEDO, leaf_aerial, 0.18, 0.20, sky_reflect_color);
 
