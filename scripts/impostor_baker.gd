@@ -1,17 +1,22 @@
 extends Node
 
-# Godot-side impostor albedo baker.
+# Godot-side impostor baker: albedo + normal + depth (docs/trees.md §2).
 #
 # Renders each tree GLB through the runtime leaf + bark shaders at 8×8
-# hemisphere angles and saves the result as the albedo atlas PNG. This is
-# approach #1 from the plan: bake from the runtime shader itself so there
-# is zero color drift between LOD0 and the impostor.
+# hemisphere angles. All three atlas channels come from the same scene,
+# framing, and alpha/discard logic, so they align by construction.
 #
-# The Blender bake (scripts/bake_impostors.py) is still the source of truth
-# for the normal and depth atlases — this tool overwrites only the `_albedo`
-# images. Frame layout (8×8 octahedral hemisphere, orthographic, radius×2
-# camera distance) matches bake_impostors.py exactly so the three atlas
-# channels stay aligned.
+# The albedo pass is UNLIT (shader bake_mode=1 routes final ALBEDO through
+# EMISSION; environment is black with ambient disabled) — the atlas stores
+# true albedo and tree_impostor.gdshader lights it at runtime with the same
+# sun/ambient as the mesh tiers. Normal pass (bake_mode=2) stores camera-
+# space normals, depth pass (bake_mode=3) normalized ortho depth; both are
+# read back via an HDR viewport (linear bytes — verified: LDR readback is
+# sRGB-encoded, HDR is exact linear) to match their linear sampler hints.
+#
+# This supersedes the Blender bake (scripts/bake_impostors.py), whose
+# normal/depth atlases were both gamma-distorted by Blender's default view
+# transform and framed to a different radius than the Godot albedo bake.
 #
 # Launch:
 #   Godot_v4.6.1-stable_linux.x86_64 --path . res://scenes/impostor_bake.tscn \
@@ -106,7 +111,6 @@ func _ready() -> void:
 	_register_global("lightning_flash",     RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	_register_global("dew_amount",          RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	_register_global("lamp_glow",           RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
-	_register_global("impostor_brightness", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 1.0)
 
 	await get_tree().process_frame
 	await _bake_all()
@@ -124,32 +128,14 @@ func _register_global(name: String, type: int, value) -> void:
 
 
 func _set_environment_for_bake() -> void:
-	# Sky-dome ambient + SSAO: replaces the old flat (1,1,1) ambient. The sky
-	# gives natural cool-top/warm-horizon modulation, and SSAO bakes canopy
-	# self-occlusion into the atlas so branches read 3D from distance.
+	# UNLIT bake: black background, no sky, no ambient, no lights. The bake
+	# shaders output their data through EMISSION (bake_mode != 0), so any
+	# environment light would be contamination — true albedo must contain
+	# zero lighting (the runtime lights the impostor; docs/trees.md §2).
 	var env := Environment.new()
-	var sky := Sky.new()
-	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.55, 0.70, 0.92)
-	sky_mat.sky_horizon_color = Color(0.82, 0.85, 0.90)
-	sky_mat.sky_curve = 0.15
-	sky_mat.sky_energy_multiplier = 1.0
-	sky_mat.ground_bottom_color = Color(0.22, 0.20, 0.17)
-	sky_mat.ground_horizon_color = Color(0.55, 0.50, 0.42)
-	sky_mat.ground_curve = 0.02
-	sky_mat.ground_energy_multiplier = 0.55  # dim the ground so canopy doesn't light from below too strongly
-	sky.sky_material = sky_mat
-	env.sky = sky
-	env.background_mode = Environment.BG_CLEAR_COLOR    # Keep alpha-transparent bg for atlas
+	env.background_mode = Environment.BG_CLEAR_COLOR    # alpha-transparent bg for atlas
 	env.background_color = Color(0, 0, 0, 0)
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_sky_contribution = 1.0
-	# Ambient lowered 1.0 → 0.7 (was washing out canopy tops at distance).
-	# SSAO disabled — at impostor distance the AO detail is invisible, and
-	# ssao_intensity=1.8 was producing dark-hat rim artifacts that defined
-	# the silhouette against bright sky. If canopies read flat after this
-	# rebake, reintroduce SSAO at 0.3.
-	env.ambient_light_energy = 0.7
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_DISABLED
 	env.ssao_enabled = false
 	env.glow_enabled = false
 	env.adjustment_enabled = false
@@ -227,7 +213,7 @@ func _bake_one(species: String, label: String, glb_path: String, suffix: String 
 	if variant_idx >= meshes.size():
 		variant_idx = 0
 	var mesh: Mesh = meshes[variant_idx].duplicate(true)
-	_assign_bake_materials(mesh, info, species)
+	var bake_mats: Array = _assign_bake_materials(mesh, info, species)
 
 	# One instance, driven by MultiMesh so INSTANCE_CUSTOM feeds correctly.
 	var mm := MultiMesh.new()
@@ -263,46 +249,71 @@ func _bake_one(species: String, label: String, glb_path: String, suffix: String 
 	camera.far = radius * 4.0
 	var cam_dist: float = radius
 
-	# Allocate the atlas as 8-bit RGBA (final PNG is 8-bit; float accumulation
-	# buys nothing without blending).
-	var atlas := Image.create(ATLAS_RES, ATLAS_RES, false, Image.FORMAT_RGBA8)
-	atlas.fill(Color(0, 0, 0, 0))
+	# Pass list. Winter re-bakes only albedo — the normal/depth channels are
+	# season-independent (the shader blends winter via the albedo atlas).
+	# Albedo reads back from the LDR viewport (sRGB PNG, sampled with
+	# source_color); normal/depth flip the viewport to HDR for exact linear
+	# bytes matching their linear sampler hints (hint_normal/default_white).
+	var passes := [{"mode": 1, "hdr": false, "out": "_impostor_albedo" + suffix}]
+	if suffix == "":
+		passes.append({"mode": 2, "hdr": true, "out": "_impostor_normal"})
+		passes.append({"mode": 3, "hdr": true, "out": "_impostor_depth"})
 
-	for iy in range(FRAME_SIZE):
-		for ix in range(FRAME_SIZE):
-			var u := float(ix) / float(FRAME_SIZE - 1)
-			var v := float(iy) / float(FRAME_SIZE - 1)
-			var bake_dir := _hemisphere_octa(u, v)             # Blender-space
-			# Blender → Godot: Blender (x=right, y=fwd, z=up) → Godot (x=right, y=up, z=back)
-			var godot_dir := Vector3(bake_dir.x, bake_dir.z, -bake_dir.y)
-			var cam_pos: Vector3 = center + godot_dir * cam_dist * 2.0
-			camera.global_transform = _look_at_from_position(cam_pos, center)
+	for pass_info in passes:
+		for m in bake_mats:
+			m.set_shader_parameter("bake_mode", pass_info.mode)
+			# Depth normalized over the full ortho clip range (0..4R) so the
+			# tree center (camera distance 2R) sits at the shader's 0.5
+			# parallax reference.
+			m.set_shader_parameter("bake_depth_range", Vector2(0.0, radius * 4.0))
+		sub_viewport.use_hdr_2d = pass_info.hdr
 
-			# Two frames: one to apply the new transform, one after
-			# frame_post_draw so the texture contains the new render.
-			await RenderingServer.frame_post_draw
-			await RenderingServer.frame_post_draw
-			var frame_img: Image = sub_viewport.get_texture().get_image()
-			if frame_img.get_format() != Image.FORMAT_RGBA8:
-				frame_img.convert(Image.FORMAT_RGBA8)
-			# Super-sample downsample: render at 2× target res, downsample
-			# to FRAME_RES for cleaner edges + better alpha coverage.
-			if SUPERSAMPLE > 1:
-				frame_img.resize(FRAME_RES, FRAME_RES, Image.INTERPOLATE_LANCZOS)
-			atlas.blit_rect(frame_img, Rect2i(0, 0, FRAME_RES, FRAME_RES),
-				Vector2i(ix * FRAME_RES, iy * FRAME_RES))
+		# Allocate the atlas as 8-bit RGBA (final PNG is 8-bit; float
+		# accumulation buys nothing without blending).
+		var atlas := Image.create(ATLAS_RES, ATLAS_RES, false, Image.FORMAT_RGBA8)
+		atlas.fill(Color(0, 0, 0, 0))
 
-	# Dilation (edge bleed for mipmap safety) is skipped — the GDScript loop
-	# was costing ~55s per atlas. If distant impostors show darkened edges,
-	# we can add a post-bake Python pass that runs in 1-2s per atlas.
+		for iy in range(FRAME_SIZE):
+			for ix in range(FRAME_SIZE):
+				var u := float(ix) / float(FRAME_SIZE - 1)
+				var v := float(iy) / float(FRAME_SIZE - 1)
+				var bake_dir := _hemisphere_octa(u, v)             # Blender-space
+				# Blender → Godot: Blender (x=right, y=fwd, z=up) → Godot (x=right, y=up, z=back)
+				var godot_dir := Vector3(bake_dir.x, bake_dir.z, -bake_dir.y)
+				var cam_pos: Vector3 = center + godot_dir * cam_dist * 2.0
+				camera.global_transform = _look_at_from_position(cam_pos, center)
 
-	var albedo_path := OUT_DIR + label + "_impostor_albedo" + suffix + ".png"
-	var abs_path := ProjectSettings.globalize_path(albedo_path)
-	atlas.save_png(abs_path)
-	print("impostor_baker:   saved %s" % abs_path)
+				# Two frames: one to apply the new transform, one after
+				# frame_post_draw so the texture contains the new render.
+				await RenderingServer.frame_post_draw
+				await RenderingServer.frame_post_draw
+				var frame_img: Image = sub_viewport.get_texture().get_image()
+				if frame_img.get_format() != Image.FORMAT_RGBA8:
+					frame_img.convert(Image.FORMAT_RGBA8)
+				# Super-sample downsample: render at 2× target res, downsample
+				# to FRAME_RES for cleaner edges + better alpha coverage.
+				if SUPERSAMPLE > 1:
+					frame_img.resize(FRAME_RES, FRAME_RES, Image.INTERPOLATE_LANCZOS)
+				atlas.blit_rect(frame_img, Rect2i(0, 0, FRAME_RES, FRAME_RES),
+					Vector2i(ix * FRAME_RES, iy * FRAME_RES))
+
+		# Edge dilation is handled by the post chain
+		# (scripts/premultiply_impostors.py — premultiplied alpha makes
+		# albedo dilation unnecessary; normal/depth get neutral bg fill).
+		var out_path := OUT_DIR + label + pass_info.out + ".png"
+		var abs_path := ProjectSettings.globalize_path(out_path)
+		atlas.save_png(abs_path)
+		print("impostor_baker:   saved %s" % abs_path)
+
+	sub_viewport.use_hdr_2d = false
+	for m in bake_mats:
+		m.set_shader_parameter("bake_mode", 0)
 
 
-func _assign_bake_materials(mesh: Mesh, info: Dictionary, species: String) -> void:
+# Returns the ShaderMaterials assigned to the mesh so the bake loop can
+# switch bake_mode (albedo / normal / depth) between passes.
+func _assign_bake_materials(mesh: Mesh, info: Dictionary, species: String) -> Array:
+	var mats: Array = []
 	var leaf_tint: Vector3 = info.tint
 	var bark_col: Color = info.bark
 	var bstyle: int = info.bstyle
@@ -324,6 +335,7 @@ func _assign_bake_materials(mesh: Mesh, info: Dictionary, species: String) -> vo
 			elif smat is StandardMaterial3D and (smat as StandardMaterial3D).albedo_texture:
 				leaf_mat.set_shader_parameter("albedo_tex", (smat as StandardMaterial3D).albedo_texture)
 			mesh.surface_set_material(si, leaf_mat)
+			mats.append(leaf_mat)
 		else:
 			# Bark: restored for silhouette parity with LOD2 mesh. The previous
 			# canopy-only approach made distant birch less washed-out but
@@ -341,6 +353,8 @@ func _assign_bake_materials(mesh: Mesh, info: Dictionary, species: String) -> vo
 				bark_mat.set_shader_parameter("bark_normal_tex", btex["normal"])
 				bark_mat.set_shader_parameter("bark_roughness_tex", btex["roughness"])
 			mesh.surface_set_material(si, bark_mat)
+			mats.append(bark_mat)
+	return mats
 
 
 func _look_at_from_position(pos: Vector3, target: Vector3) -> Transform3D:

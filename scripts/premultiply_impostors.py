@@ -14,6 +14,13 @@ correctly as a clean alpha-50% pixel. No halo.
 Requires the impostor shader to use `render_mode blend_premul_alpha`
 (equivalent: BLEND_PREMUL_ALPHA in Godot StandardMaterial3D).
 
+Also neutral-fills the transparent background of the normal and depth
+atlases (normal -> (128,128,255) = facing camera, depth -> 128 = the
+shader's 0.5 parallax reference). The impostor shader's parallax pass
+samples depth BEFORE the alpha discard, so background texels bleed into
+silhouette edges through bilinear/mip filtering — neutral values make
+that bleed a no-op instead of a UV warp.
+
 Usage:
     python3 scripts/premultiply_impostors.py
 
@@ -41,6 +48,16 @@ def premultiply(path):
     Image.fromarray(out).save(path)
 
 
+def neutral_fill(path, fill_rgb):
+    """Replace the RGB of fully transparent texels with a neutral value."""
+    im = np.array(Image.open(path).convert("RGBA"), dtype=np.uint8)
+    bg = im[..., 3] < 8
+    im[bg, 0] = fill_rgb[0]
+    im[bg, 1] = fill_rgb[1]
+    im[bg, 2] = fill_rgb[2]
+    Image.fromarray(im).save(path)
+
+
 def main():
     paths = sorted(glob.glob(os.path.join(IMPOSTOR_DIR, "*_impostor_albedo*.png")))
     if not paths:
@@ -51,6 +68,15 @@ def main():
         if (i + 1) % 10 == 0 or i == len(paths) - 1:
             print(f"  {i+1}/{len(paths)} {os.path.basename(p)}")
     print(f"premultiply_impostors: done — {len(paths)} atlases premultiplied")
+
+    nrm_paths = sorted(glob.glob(os.path.join(IMPOSTOR_DIR, "*_impostor_normal.png")))
+    for p in nrm_paths:
+        neutral_fill(p, (128, 128, 255))   # encoded (0,0,1): facing camera
+    dep_paths = sorted(glob.glob(os.path.join(IMPOSTOR_DIR, "*_impostor_depth.png")))
+    for p in dep_paths:
+        neutral_fill(p, (128, 128, 128))   # 0.5: zero parallax shift
+    print(f"premultiply_impostors: neutral-filled {len(nrm_paths)} normal + "
+          f"{len(dep_paths)} depth atlases")
 
 
 if __name__ == "__main__":
