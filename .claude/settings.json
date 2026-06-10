@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c 'import json,sys,re; d=json.load(sys.stdin); ti=d.get(\"tool_input\",{}); c=ti.get(\"command\",\"\"); bad=bool(re.search(r\"git\\s+push\",c)) and (ti.get(\"run_in_background\") is True or bool(re.search(r\"&\\s*$\",c))); print(json.dumps({\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Background git push is forbidden: ONE FOREGROUND push per session, at session end (docs/workflow.md section 4). Re-run in the foreground.\"}})) if bad else None'",
+            "timeout": 10,
+            "statusMessage": "Checking push discipline"
+          }
+        ]
+      }
+    ]
+  }
+}
