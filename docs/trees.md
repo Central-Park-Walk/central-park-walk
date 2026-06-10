@@ -104,6 +104,12 @@ away to appreciate; under a canopy it's just dark all around." Policy in
 
 **Validation (DoD):**
 1. `shtri` counter at Great Lawn drops from ~17.4 M to < 2 M.
+   **PASS 2026-06-10: 1.91 M** (no-proxy same day: 5.97 M). Required a
+   census find: `WaterBodies` — one park-wide 3.1 M-tri surface mesh —
+   was casting into every cascade (~12.4 M shtri at EVERY location, in
+   every measurement since the mesh existed). Water now casts nothing
+   (water_builder.gd). The old "~17.4 M" baseline was mostly water, not
+   trees; tree casting at Great Lawn was ~4 M of it.
 2. perf_bisect at ramble + north_woods: ≥ 15 ms / ≥ 25 ms reduction vs today's
    baseline, no other line regresses.
 3. Dapple visual: noon + 8:00 captures under Literary Walk elms and Ramble canopy
@@ -130,7 +136,17 @@ implementation; listed so the tier table above is read as the full picture.
 - Existing normal atlases: baked with which convention/quality? Verify before
   reusing (one species A/B vs fresh bake).
 - Specular response on impostors at low sun (grazing) — may need a fresnel clamp.
-- Proxy crown for columnar/vase species (Lombardy poplar, elm): single ellipsoid
-  may be too round — fit per archetype, not one shape for all.
-- Winter: bare-trunk proxies should swap to trunk-only (no crown shadow) for
-  clean-abscission species; tie to the winter atlas season threshold.
+- ~~Proxy crown for columnar/vase species: single ellipsoid too round~~ —
+  resolved 2026-06-10: crown is now a lathe fit to the variant mesh's leaf
+  vertices (12 height slices, per-slice elliptical radii at p96, 5% pad),
+  per species-size-variant. Vase/columnar/weeping fit by data; dead snags
+  get trunk-only automatically (no leaf surfaces).
+- ~~Winter: bare-trunk proxies for clean-abscission species~~ — resolved
+  2026-06-10: the dapple shader (shaders/tree_shadow_proxy.gdshader) reads
+  the same INSTANCE_CUSTOM phenology as tree_leaf.gdshader and scales hole
+  coverage by leaf density — crown shadow thins through autumn, drops to the
+  retention floor in winter, and blossoms cast during bloom. Continuous and
+  synced with the visible canopy by construction.
+- Proxy lathe fit adds ~4 s to scene load (surface_get_arrays + percentile
+  sort per variant, GDScript). Once default-on, fold the proxy mesh into the
+  tree .res cache so it's fit once, not per launch.
