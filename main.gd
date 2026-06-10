@@ -191,6 +191,8 @@ func _parse_cli_args() -> void:
 			_cli_shadow_size = int(val)
 		elif key == "--shadow-filter" and val != "":
 			_cli_shadow_filter = int(val)
+		elif key == "--render-scale" and val != "":
+			_cli_render_scale = float(val)
 		elif arg == "--shadow-census":
 			_diag_shadow_census = true
 		elif arg == "--screenshot":
@@ -847,6 +849,10 @@ var _diag_hide: Array = []
 var _cli_shadow_dist: float = -1.0
 var _cli_shadow_size: int = -1
 var _cli_shadow_filter: int = -1
+# --render-scale=0.5: 3D resolution scale (bilinear). Halving the scale
+# quarters fragment work but leaves vertex work untouched — splits a GPU
+# cost into fragment-bound vs vertex/primitive-bound.
+var _cli_render_scale: float = -1.0
 # --shadow-census: one-shot dump of every shadow-casting GeometryInstance3D
 # (top 25 by mesh tris × instances) on the 3rd perf tick, after diag hides apply.
 var _diag_shadow_census: bool = false
@@ -1562,6 +1568,10 @@ func _setup_environment() -> void:
 		RenderingServer.directional_soft_shadow_filter_set_quality(
 			clampi(_cli_shadow_filter, 0, 5))
 		print("[DIAG] directional soft shadow filter quality = %d" % _cli_shadow_filter)
+	if _cli_render_scale > 0.0:
+		get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+		get_viewport().scaling_3d_scale = clampf(_cli_render_scale, 0.1, 2.0)
+		print("[DIAG] 3D render scale = %.2f" % _cli_render_scale)
 
 	# Wire sun to volumetric cloud sky (deferred because _sun created after sky)
 	if vol_sky:

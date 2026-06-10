@@ -56,6 +56,17 @@ var proxy_instances: int = 0
 # crossfade dither disabled, so DoD captures can compare pure tiers at the
 # same distance (docs/trees.md §2 validation).
 var _tier_isolate: String = ""
+# --tree-mesh-range=N: mesh→impostor handoff distance (fade END, metres).
+# The 20m dither band, mesh chunk visibility (+40m = half chunk), impostor
+# fade-in and impostor chunk visibility (-60m) all derive from this. Shadow
+# proxies are NOT tied to it — they keep casting to 290m regardless, so the
+# camera-tier A/B does not perturb shadows.
+var _mesh_fade_end: float = 250.0
+# --simple-leaf / --simple-bark (diagnostic): swap tree surface shaders for
+# minimal ones with identical render modes, splitting the camera-raster cost
+# into shader complexity vs raster structure (overdraw, quad efficiency).
+var _simple_leaf: bool = false
+var _simple_bark: bool = false
 
 func _init(loader) -> void:
 	_loader = loader
@@ -73,6 +84,15 @@ func _init(loader) -> void:
 		if arg.begins_with("--tier-isolate="):
 			_tier_isolate = arg.substr("--tier-isolate=".length())
 			print("TreeBuilder: TIER ISOLATE '%s' — single tier, no crossfade (diagnostic)" % _tier_isolate)
+		elif arg.begins_with("--tree-mesh-range="):
+			_mesh_fade_end = clampf(float(arg.substr("--tree-mesh-range=".length())), 60.0, 1000.0)
+			print("TreeBuilder: mesh tier fade end = %.0fm (default 250) — impostors take over there" % _mesh_fade_end)
+		elif arg == "--simple-leaf":
+			_simple_leaf = true
+			print("TreeBuilder: SIMPLE LEAF shader (diagnostic) — isolates leaf shader complexity cost")
+		elif arg == "--simple-bark":
+			_simple_bark = true
+			print("TreeBuilder: SIMPLE BARK shader (diagnostic) — isolates bark shader complexity cost")
 
 # Size tier boundaries per species: [small_max, medium_max]
 # Trees below small_max use _s model, below medium_max use _m, else _l.
@@ -713,12 +733,13 @@ func _build_trees(trees: Array) -> void:
 		mmi.multimesh = mm
 		mmi.position = chunk_origin
 		mmi.name = "Tree_%s" % ckey.replace("|", "_")
-		# Two-tier LOD: single mesh tier (_lod1) covers 0-290m, dithers out
-		# 230-250m to the impostor. Chunk visibility extends 40m past the
-		# fade end (= half CHUNK) so chunks whose origin is past 250m but
-		# contain near-side instances at 210-250m still render.
+		# Two-tier LOD: single mesh tier (_lod1) covers 0 to fade-end (250m
+		# default), dithering out over the last 20m to the impostor. Chunk
+		# visibility extends 40m past the fade end (= half CHUNK) so chunks
+		# whose origin is past the fade end but contain near-side instances
+		# inside the band still render.
 		mmi.visibility_range_begin = 0.0
-		mmi.visibility_range_end = 290.0
+		mmi.visibility_range_end = _mesh_fade_end + 40.0
 		mmi.visibility_range_begin_margin = 0.0
 		mmi.visibility_range_end_margin = 0.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
@@ -781,11 +802,11 @@ func _build_trees(trees: Array) -> void:
 
 	# Per-tier dither fade ranges. Shader dithering replaces Godot's
 	# VISIBILITY_RANGE_FADE_SELF (known bug #88854 with alpha_to_coverage).
-	# Two-tier system:
-	#   _lod1 mesh:  visible 0-290m, fades out 230-250m → impostor.
+	# Two-tier system (band derives from _mesh_fade_end, default 250):
+	#   _lod1 mesh:  visible 0 to fade-end+40, fades out over the last 20m → impostor.
 	#   Base mesh:   unused (kept for impostor data); no fade needed.
-	#   Impostor:    fades in 230-250m (set in _build_canopy_shells).
-	const MESH_FADE_OUT := Vector2(230.0, 250.0)
+	#   Impostor:    fades in over the same band (set in _build_canopy_shells).
+	var mesh_fade_out := Vector2(_mesh_fade_end - 20.0, _mesh_fade_end)
 	const NO_FADE := Vector2(0.0, 0.0)
 	for sp_key in _species_meshes:
 		var fade_in := NO_FADE
@@ -796,11 +817,28 @@ func _build_trees(trees: Array) -> void:
 		# don't blast bright, without the heavy darkening the 0.82 produced.
 		var tier_brightness: float = 0.95 if "_lod1" in sp_key else 1.0
 		if "_lod1" in sp_key and _tier_isolate != "mesh":
-			fade_out = MESH_FADE_OUT
+			fade_out = mesh_fade_out
 		for mesh: Mesh in _species_meshes[sp_key]:
 			for si in mesh.get_surface_count():
 				var mat = mesh.surface_get_material(si)
 				if mat is ShaderMaterial:
+					# Diagnostic shader swap (--simple-leaf / --simple-bark):
+					# same render modes, none of the per-fragment work.
+					if (_simple_leaf or _simple_bark) and mat.shader != null:
+						var spath: String = mat.shader.resource_path
+						if _simple_leaf and "tree_leaf" in spath:
+							var simple := ShaderMaterial.new()
+							simple.shader = load("res://shaders/diag_leaf_minimal.gdshader")
+							simple.set_shader_parameter("albedo_tint", mat.get_shader_parameter("albedo_tint"))
+							simple.set_shader_parameter("albedo_tex", mat.get_shader_parameter("albedo_tex"))
+							mesh.surface_set_material(si, simple)
+							mat = simple
+						elif _simple_bark and "tree_bark" in spath:
+							var simple := ShaderMaterial.new()
+							simple.shader = load("res://shaders/diag_bark_minimal.gdshader")
+							simple.set_shader_parameter("bark_color", mat.get_shader_parameter("bark_color"))
+							mesh.surface_set_material(si, simple)
+							mat = simple
 					mat.set_shader_parameter("lod_fade_out", fade_out)
 					mat.set_shader_parameter("lod_fade_in", fade_in)
 					mat.set_shader_parameter("tier_brightness", tier_brightness)
@@ -1211,8 +1249,8 @@ func _build_canopy_shells() -> void:
 			_load_impostor_mat.call("%s_%s" % [model_name, tier])
 		_load_impostor_mat.call(model_name)  # generic fallback
 
-	# Impostors fade in 230-250m, complementing LOD1's fade-out band.
-	var imp_fade_in := Vector2(230.0, 250.0)
+	# Impostors fade in over the mesh tier's fade-out band (default 230-250m).
+	var imp_fade_in := Vector2(_mesh_fade_end - 20.0, _mesh_fade_end)
 	if _tier_isolate == "impostor":
 		imp_fade_in = Vector2(0.0, 0.0)   # pure tier at any distance
 	for mat_key in impostor_mats:
@@ -1301,11 +1339,11 @@ func _build_canopy_shells() -> void:
 		mmi.material_override = impostor_mats[model_name]
 		mmi.position = origin
 		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
-		# Impostors take over where LOD1 mesh fades out (~230m). Chunk
-		# visibility begins at 190m (= 230 - half CHUNK) so chunks whose
-		# origin is just inside fade-in band still render. Shader-side
-		# dither (lod_fade_in) handles the 230-250m crossfade.
-		mmi.visibility_range_begin = 0.0 if _tier_isolate == "impostor" else 190.0
+		# Impostors take over where the mesh fades out (fade-end − 20m).
+		# Chunk visibility begins 40m (half CHUNK) before the fade band so
+		# chunks whose origin is just inside it still render. Shader-side
+		# dither (lod_fade_in) handles the crossfade.
+		mmi.visibility_range_begin = 0.0 if _tier_isolate == "impostor" else maxf(_mesh_fade_end - 60.0, 0.0)
 		mmi.visibility_range_end = 2500.0
 		mmi.visibility_range_begin_margin = 0.0
 		mmi.visibility_range_end_margin = 0.0
@@ -1323,5 +1361,5 @@ func _build_canopy_shells() -> void:
 		imp_instances += xf_list.size()
 		imp_chunks += 1
 
-	print("Trees Impostor: %d billboard impostors (190-2500m) in %d chunks (%d species)" % [
-		impostor_count, chunks.size(), impostor_mats.size()])
+	print("Trees Impostor: %d billboard impostors (%.0f-2500m) in %d chunks (%d species)" % [
+		impostor_count, maxf(_mesh_fade_end - 60.0, 0.0), chunks.size(), impostor_mats.size()])

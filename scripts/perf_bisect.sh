@@ -59,7 +59,7 @@ REPORT="$OUT_DIR/${STAMP}_bisect_${NAME}_${LABEL}.txt"
 
 echo "perf_bisect: $NAME ($POS)  commit=$LABEL  $(date -Iseconds)" | tee "$REPORT"
 echo "settings: 1920x1080, vsync off, noon/clear/summer, stationary, ${RUN_SECONDS}s/config" | tee -a "$REPORT"
-printf "%-15s %8s %10s %8s %8s %8s\n" "config" "med_fps" "process_ms" "vpcpu" "vpgpu" "samples" | tee -a "$REPORT"
+printf "%-15s %8s %10s %8s %8s %9s %9s %8s\n" "config" "med_fps" "process_ms" "vpcpu" "vpgpu" "vistri_M" "shtri_M" "samples" | tee -a "$REPORT"
 
 for cfg in "${CONFIGS[@]}"; do
   label="${cfg%%=*}"
@@ -90,22 +90,24 @@ for cfg in "${CONFIGS[@]}"; do
         if ($i ~ /^process=/) { sub(/process=/, "", $i); psum += $i + 0 }
         if ($i ~ /^vpcpu=/)   { sub(/vpcpu=/, "", $i);   csum += $i + 0 }
         if ($i ~ /^vpgpu=/)   { sub(/vpgpu=/, "", $i);   gsum += $i + 0 }
+        if ($i ~ /^vistri=/)  { sub(/vistri=/, "", $i);  vtsum += $i + 0 }
+        if ($i ~ /^shtri=/)   { sub(/shtri=/, "", $i);   stsum += $i + 0 }
       }
       n++
     }
     END {
-      if (n == 0) { print "0 0 0 0 0"; exit }
+      if (n == 0) { print "0 0 0 0 0 0 0"; exit }
       for (i = 1; i < n; i++) { v = fps[i]; j = i - 1
         while (j >= 0 && fps[j] > v) { fps[j+1] = fps[j]; j-- } fps[j+1] = v }
       med = (n % 2) ? fps[int(n/2)] : (fps[n/2 - 1] + fps[n/2]) / 2
-      printf "%.0f %.1f %.1f %.1f %d", med, psum / n, csum / n, gsum / n, n
+      printf "%.0f %.1f %.1f %.1f %.2f %.2f %d", med, psum / n, csum / n, gsum / n, vtsum / n / 1e6, stsum / n / 1e6, n
     }')"
-  read -r med pms cms gms nsamp <<<"$stats"
+  read -r med pms cms gms vtm stm nsamp <<<"$stats"
   if [ "$nsamp" -eq 0 ]; then
     echo "WARN: no [PERF] samples for $label — log tail:" | tee -a "$REPORT"
     tail -5 "$log" | tee -a "$REPORT"
   else
-    printf "%-15s %8s %10s %8s %8s %8s\n" "$label" "$med" "$pms" "$cms" "$gms" "$nsamp" | tee -a "$REPORT"
+    printf "%-15s %8s %10s %8s %8s %9s %9s %8s\n" "$label" "$med" "$pms" "$cms" "$gms" "$vtm" "$stm" "$nsamp" | tee -a "$REPORT"
   fi
   rm -f "$log"
 done
