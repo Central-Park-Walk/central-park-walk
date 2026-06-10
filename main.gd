@@ -189,6 +189,8 @@ func _parse_cli_args() -> void:
 			_cli_shadow_dist = float(val)
 		elif key == "--shadow-size" and val != "":
 			_cli_shadow_size = int(val)
+		elif key == "--shadow-filter" and val != "":
+			_cli_shadow_filter = int(val)
 	# Auto-screenshot only in headless capture mode (--quit-after)
 	for earg in OS.get_cmdline_args():
 		if earg.begins_with("--quit-after"):
@@ -829,11 +831,13 @@ func _set_labels_visible(vis: bool) -> void:
 # Re-applied every perf tick (idempotent) so chunk systems that stream in
 # after the first application stay hidden.
 # Options: terrain trees undergrowth grass shadows sdfgi fog ssao ssil glow
-#          treeshadows (trees stay visible, stop casting)
+#          treeshadows/terrainshadows (stay visible, stop casting)
 var _diag_hide: Array = []
-# Perf-experiment knobs: --shadow-dist=meters, --shadow-size=pixels (-1 = keep defaults)
+# Perf-experiment knobs: --shadow-dist=meters, --shadow-size=pixels,
+# --shadow-filter=0..5 (PCF quality; project default 2). -1 = keep defaults.
 var _cli_shadow_dist: float = -1.0
 var _cli_shadow_size: int = -1
+var _cli_shadow_filter: int = -1
 var _diag_trees_hidden: bool = false
 var _diag_ug_hidden: bool = false
 var _diag_grass_hidden: bool = false
@@ -904,6 +908,9 @@ func _diag_apply_hides() -> void:
 				for n: Node in _diag_tree_mmis:
 					if is_instance_valid(n):
 						n.visible = false
+			"terrainshadows":
+				if _terrain3d:
+					_terrain3d.set_cast_shadows(GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
 			"treeshadows":
 				if _diag_tree_mmis.is_empty() and _park_loader:
 					for pat: String in ["Tree_*", "TreeL1_*", "TreeL2_*", "TreeImp_*"]:
@@ -1481,6 +1488,10 @@ func _setup_environment() -> void:
 	if _cli_shadow_size > 0:
 		RenderingServer.directional_shadow_atlas_set_size(_cli_shadow_size, true)
 		print("[DIAG] directional shadow atlas = %d px" % _cli_shadow_size)
+	if _cli_shadow_filter >= 0:
+		RenderingServer.directional_soft_shadow_filter_set_quality(
+			clampi(_cli_shadow_filter, 0, 5) as RenderingServer.ShadowQuality)
+		print("[DIAG] directional soft shadow filter quality = %d" % _cli_shadow_filter)
 
 	# Wire sun to volumetric cloud sky (deferred because _sun created after sky)
 	if vol_sky:
