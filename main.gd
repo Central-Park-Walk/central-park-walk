@@ -757,9 +757,19 @@ func _process(delta: float) -> void:
 		var vp_rid := get_viewport().get_viewport_rid()
 		var vpcpu_ms := RenderingServer.viewport_get_measured_render_time_cpu(vp_rid)
 		var vpgpu_ms := RenderingServer.viewport_get_measured_render_time_gpu(vp_rid)
-		print("[PERF] fps=%d process=%.1f physics=%.1f sub=%.2f unacc=%.1f vpcpu=%.1f vpgpu=%.1f overlay=%s" % [
+		# Visible vs shadow pass raster load (objects / primitives / draw calls)
+		var vis_p := RenderingServer.viewport_get_render_info(vp_rid,
+			RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE,
+			RenderingServer.VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME)
+		var sh_o := RenderingServer.viewport_get_render_info(vp_rid,
+			RenderingServer.VIEWPORT_RENDER_INFO_TYPE_SHADOW,
+			RenderingServer.VIEWPORT_RENDER_INFO_OBJECTS_IN_FRAME)
+		var sh_p := RenderingServer.viewport_get_render_info(vp_rid,
+			RenderingServer.VIEWPORT_RENDER_INFO_TYPE_SHADOW,
+			RenderingServer.VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME)
+		print("[PERF] fps=%d process=%.1f physics=%.1f sub=%.2f unacc=%.1f vpcpu=%.1f vpgpu=%.1f vistri=%d shobj=%d shtri=%d overlay=%s" % [
 			int(fps), p_ms, phy_ms, sub_us / 1000.0, p_ms - sub_us / 1000.0,
-			vpcpu_ms, vpgpu_ms,
+			vpcpu_ms, vpgpu_ms, vis_p, sh_o, sh_p,
 			"ON" if _hud.perf_visible else "OFF"])
 
 
