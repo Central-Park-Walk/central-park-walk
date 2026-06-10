@@ -819,6 +819,7 @@ func _set_labels_visible(vis: bool) -> void:
 # Re-applied every perf tick (idempotent) so chunk systems that stream in
 # after the first application stay hidden.
 # Options: terrain trees undergrowth grass shadows sdfgi fog ssao ssil glow
+#          treeshadows (trees stay visible, stop casting)
 var _diag_hide: Array = []
 # Perf-experiment knobs: --shadow-dist=meters, --shadow-size=pixels (-1 = keep defaults)
 var _cli_shadow_dist: float = -1.0
@@ -893,6 +894,14 @@ func _diag_apply_hides() -> void:
 				for n: Node in _diag_tree_mmis:
 					if is_instance_valid(n):
 						n.visible = false
+			"treeshadows":
+				if _diag_tree_mmis.is_empty() and _park_loader:
+					for pat: String in ["Tree_*", "TreeL1_*", "TreeL2_*", "TreeImp_*"]:
+						for n: Node in _park_loader.find_children(pat, "MultiMeshInstance3D", true, false):
+							_diag_tree_mmis.append(n)
+				for n: Node in _diag_tree_mmis:
+					if is_instance_valid(n):
+						n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			"undergrowth":
 				if _park_loader and _park_loader._undergrowth_builder:
 					var ub = _park_loader._undergrowth_builder
