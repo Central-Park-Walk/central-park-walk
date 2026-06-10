@@ -116,13 +116,24 @@ away to appreciate; under a canopy it's just dark all around." Policy in
    vs reference photos — mottled, not blob-dark, not stripe-artifacted.
 4. No GI change: SDFGI on/off A/B identical before/after proxies (within noise).
 
-**Prototype status (2026-06-10, flag `--tree-shadow-proxy`):** implemented incl.
-dapple discard (coverage 0.62 broadleaf / 0.80 conifer, 1.1 m holes). Measured:
-ramble 83→67 ms, north_woods 88→65 ms proxy-alone; 49/46 ms with filter-1 +
-atlas-4096 stack (see rendering.md §3). Visual A/B pass at Mall + Ramble.
-Outstanding before default-on: DoD items 1 & 4, crown fit for irregular/vase
-archetypes (light leak where ellipsoid under-fills), winter trunk-only swap,
-perf gate at all 5 locations.
+**SHIPPED — default ON since 2026-06-10 (commit 5af7abc).** Opt-out
+`--no-tree-shadow-proxy` (diagnostic). Full DoD record:
+1. shtri @ Great Lawn **1.91 M < 2 M** (see item 1 note above — water-caster
+   discovery included).
+2. Reduction vs the Jun 9 baseline (83/88 ms): ramble −26.6, north_woods
+   −28.8 → ≥15/≥25 PASS. Honest caveat: vs the post-impostor-fix Jun 10
+   baseline (69.6/75.3 ms, the comparable world) the proxy+water gain is
+   −13.2/−16.1 ms — perf gate 20260610_132307: all 5 locations improved,
+   none regressed.
+3. Dapple visual: Ramble noon + Literary Walk noon captures — mottled,
+   crown-shaped, no light leak at crown edges (lathe fit), no artifacts.
+   Winter: no crown blobs under bare deciduous trees; trunk lines + cloud
+   shadows match no-proxy within noise.
+4. SDFGI A/B: GI-effect mean 0.0484 (no proxy) vs 0.0460 (proxy), p95
+   0.0993 vs 0.0980, histogram overlap 0.877; delta map shows only
+   foliage-motion edge noise, no proxy-hull structures. PASS.
+Capture/compare tooling: `scripts/proxy_ab_captures.sh` (uses the
+`--screenshot` flag — the old --quit-after sniff silently broke on 4.6.1).
 
 ## 4. Camera raster (follow-up, D5–9, spec'd separately)
 
