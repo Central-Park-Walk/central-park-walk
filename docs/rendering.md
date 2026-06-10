@@ -44,6 +44,17 @@ Mean ms over last 10 samples; Δ vs. that location's baseline. Reports in `perf_
 
 The shadow system thus splits (Ramble, non-additive): tree casters ~18, terrain caster ~9, PCF sampling ~16.
 
+**Stacked candidate state** (2026-06-10, commit d8f1784, solid-hull proxies):
+
+| stack | ramble ms (fps) | north_woods ms (fps) |
+|---|---|---|
+| + tree shadow proxies | 67.0 (16) | 64.7 (16) |
+| + furniture casting off | 66.4 (15) | — |
+| + PCF filter 1 | 52.7 (20) | — |
+| + atlas 4096 (full stack) | **49.2 (22)** | **45.5 (23)** |
+
+Furniture casting off bought ~0 despite the census's 8.4 M caster tris — the 150 m shadow distance already culls most of it from the cascades. **Furniture keeps its shadows.** (Census tool: `--shadow-census`, dumps top node-level casters.)
+
 ## 4. The frame budget (binding)
 
 GPU ms at 1080p, measured at the worst of the 5 locations. A subsystem over its line is a regression even if total fps passes (headroom is for weather/seasons, not for spending). Per `architecture.md` §9, new subsystems must name their budget line.
@@ -71,7 +82,7 @@ With everything hidden, median fps ≈ 300 (≈3.3 ms typical frame) but *mean* 
 
 ## 6. Reduction plan (D5–9, in order of measured size)
 
-1. **Tree shadow proxies** (−18..28): visible trees `cast_shadow=OFF`; per-species low-poly crown hull + trunk cylinder MultiMesh `SHADOWS_ONLY`, crown alpha-tested with a leaf-density noise mask so PCF blurs it into dapple. Generated from source meshes alongside the impostor bake. Goes in the D3–5 tree spec. Optional near-field real-foliage caster (≤20 m visibility range) only if reference comparison demands it.
+1. **Tree shadow proxies** (−18..28) — **PROTOTYPED 2026-06-10** (`--tree-shadow-proxy`, tree_builder.gd): trunk cylinder + crown ellipsoid/cone per species-variant fit to mesh AABB, `SHADOWS_ONLY`, GI off, world-space noise dapple discard on the crown (coverage 0.62/0.80, ~1.1 m holes). Visual A/B at Mall evening + Ramble noon: under-canopy shade preserved, no artifacts. Remaining to ship: crown fit per archetype (ellipsoid under-fills irregular crowns — slight light leak), winter trunk-only swap, default-on + remove flag after perf gate at all 5 locations.
 2. **Tree camera raster** (−21 at ramble): re-enable occlusion culling (canopy occluders vs `visibility_range` conflict, `tree_builder.gd:703-706`), tier boundary review (mesh tier to 290 m is far), LOD0/1 triangle audit. Spec first.
 3. **Other shadows** (−17, split 2026-06-10): PCF sampling −16 (quality 1 ≈ hard-shadow cost; A/B the dapple softness vs reference before committing — penumbra look matters under canopy), terrain caster −9 (visual check at golden hour: does SSAO+SDFGI carry terrain form without cast shadows?), atlas 4096 default (8192's ~550 px/m near-cascade buys nothing visible).
 4. **SDFGI** (−5.5): cascade count and cell size sweep — 6 cascades @ 0.5 m is generous for a park walk.

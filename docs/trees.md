@@ -83,6 +83,14 @@ away to appreciate; under a canopy it's just dark all around." Policy in
    vs reference photos — mottled, not blob-dark, not stripe-artifacted.
 4. No GI change: SDFGI on/off A/B identical before/after proxies (within noise).
 
+**Prototype status (2026-06-10, flag `--tree-shadow-proxy`):** implemented incl.
+dapple discard (coverage 0.62 broadleaf / 0.80 conifer, 1.1 m holes). Measured:
+ramble 83→67 ms, north_woods 88→65 ms proxy-alone; 49/46 ms with filter-1 +
+atlas-4096 stack (see rendering.md §3). Visual A/B pass at Mall + Ramble.
+Outstanding before default-on: DoD items 1 & 4, crown fit for irregular/vase
+archetypes (light leak where ellipsoid under-fills), winter trunk-only swap,
+perf gate at all 5 locations.
+
 ## 4. Camera raster (follow-up, D5–9, spec'd separately)
 
 ~25 ms at Ramble. Levers, in test order: re-enable occlusion culling (canopy
