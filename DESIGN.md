@@ -17,12 +17,12 @@ Then state the session's target in one sentence before writing any code.
 *(Some of these are not yet written; they will be filled in as the manual is built out. The list is the table of contents for the full set.)*
 
 - [`docs/vision.md`](docs/vision.md) — what this is, who it's for, what success means, what's NOT in scope.
-- `docs/architecture.md` — code layout, subsystem ownership, data flow end to end. *(to be written)*
-- `docs/data_pipeline.md` — OSM + LiDAR + NYC tree census → world. *(to be written)*
-- `docs/rendering.md` — terrain, vegetation, sky, weather, post. Performance budgets per subsystem. *(to be written)*
+- [`docs/architecture.md`](docs/architecture.md) — code layout, subsystem ownership, data flow end to end, debt register.
+- `docs/data_pipeline.md` — OSM + LiDAR + NYC tree census → world. *(to be written; architecture.md §2 covers the summary)*
+- `docs/rendering.md` — terrain, vegetation, sky, weather, post. Performance budgets per subsystem. *(to be written from the profiling pass)*
 - `docs/visual_style.md` — reference images, palette, lighting principles, tone, art bible. *(to be written)*
 - `docs/conventions.md` — naming, file organization, shader patterns, comment policy. *(to be written)*
-- `docs/workflow.md` — session protocol, definition of done, commit/push discipline. *(to be written)*
+- [`docs/workflow.md`](docs/workflow.md) — session protocol, definition of done, iteration rules, enforcement.
 - `docs/adrs/` — architectural decision records, dated and numbered. *(to be written)*
 - `docs/glossary.md` — terms used across the codebase and docs (LOD0, MMI, atlas, zone, etc.). *(to be written)*
 
