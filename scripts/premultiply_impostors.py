@@ -1,82 +1,88 @@
 """
-Post-bake alpha premultiplication for impostor atlases.
+Post-bake finalization for impostor atlases (scripts/impostor_baker.gd).
 
-Replaces the older dilation pass. Premultiplied alpha solves the mipmap
-halo problem by construction: when the GPU averages an opaque tree pixel
-(0.4, 0.6, 0.2, 1.0) with a transparent pixel (0.4, 0.6, 0.2, 0.0) under
-straight alpha, the averaged color is full-strength (0.4, 0.6, 0.2) at
-alpha 0.5 — a bright halo extending the silhouette.
+ALBEDO atlases are left untouched: the baker renders with MSAA
+alpha-to-coverage over a transparent black background, so the resolved
+RGB is already scaled by coverage — the atlas is *born premultiplied*,
+exactly what `render_mode blend_premul_alpha` expects. (The old chain
+multiplied by alpha again here, which double-darkened edge texels.)
 
-Premultiplied alpha stores (color * alpha, alpha). The same averaging
-yields (0.2, 0.3, 0.1, 0.5) — half-bright at half-alpha, which renders
-correctly as a clean alpha-50% pixel. No halo.
-
-Requires the impostor shader to use `render_mode blend_premul_alpha`
-(equivalent: BLEND_PREMUL_ALPHA in Godot StandardMaterial3D).
-
-Also neutral-fills the transparent background of the normal and depth
-atlases (normal -> (128,128,255) = facing camera, depth -> 128 = the
-shader's 0.5 parallax reference). The impostor shader's parallax pass
-samples depth BEFORE the alpha discard, so background texels bleed into
-silhouette edges through bilinear/mip filtering — neutral values make
-that bleed a no-op instead of a UV warp.
+NORMAL and DEPTH atlases store data, not color, so the coverage scaling
+is contamination: edge texels are dragged toward encoded black, which
+decodes to garbage normals / near-plane depth. Fix per 256x256 frame:
+  1. trust texels with alpha >= 0.9 as-is (attenuation <= 10%, below
+     visual relevance for fringe data; dividing by stored alpha instead
+     over-corrects — under alpha-to-coverage the stored alpha is not the
+     rgb attenuation factor — and breaks idempotency),
+  2. dilate those texels' values into every weaker/empty texel
+     (nearest-solid via distance transform, frame-local so values
+     never bleed across atlas frame boundaries),
+  3. frames with no solid texels get a neutral fill
+     (normal -> (128,128,255) facing camera, depth -> 128 = the
+     impostor shader's 0.5 parallax reference).
+The impostor shader's parallax pass samples depth BEFORE the alpha
+discard, so edge/background texels do get sampled — dilated values make
+bilinear/mip bleed a no-op instead of a UV warp or lighting artifact.
 
 Usage:
     python3 scripts/premultiply_impostors.py
 
-Runs in <1 second per atlas. Idempotent (re-running on an already-
-premultiplied atlas produces the same output: color * alpha is a no-op
-once the dilated/non-dilated transparent regions have been zeroed).
+Runs in a few seconds for all atlases. Idempotent.
 """
 import os
 import sys
 import glob
 import numpy as np
 from PIL import Image
+from scipy.ndimage import distance_transform_edt
 
 PROJ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IMPOSTOR_DIR = os.path.join(PROJ, "textures", "impostors")
 
-
-def premultiply(path):
-    im = np.array(Image.open(path).convert("RGBA"), dtype=np.float32)
-    rgb = im[..., :3]
-    alpha = im[..., 3:4] / 255.0
-    out_rgb = np.clip(rgb * alpha, 0.0, 255.0).astype(np.uint8)
-    out_alpha = im[..., 3:4].astype(np.uint8)
-    out = np.concatenate([out_rgb, out_alpha], axis=-1)
-    Image.fromarray(out).save(path)
+FRAME_GRID = 8          # 8x8 octahedral frames per atlas
+SOLID_ALPHA = 230       # >= this (~0.9): trust rgb as-is; below: dilate over
 
 
-def neutral_fill(path, fill_rgb):
-    """Replace the RGB of fully transparent texels with a neutral value."""
+def finalize_data_atlas(path, neutral_rgb):
+    """Dilate high-confidence texels' values into weak/empty ones."""
     im = np.array(Image.open(path).convert("RGBA"), dtype=np.uint8)
-    bg = im[..., 3] < 8
-    im[bg, 0] = fill_rgb[0]
-    im[bg, 1] = fill_rgb[1]
-    im[bg, 2] = fill_rgb[2]
+    h, w = im.shape[:2]
+    fh, fw = h // FRAME_GRID, w // FRAME_GRID
+    rgb = im[..., :3]
+    solid = im[..., 3] >= SOLID_ALPHA
+
+    out_rgb = np.empty_like(rgb)
+    for fy in range(FRAME_GRID):
+        for fx in range(FRAME_GRID):
+            ys, xs = slice(fy * fh, (fy + 1) * fh), slice(fx * fw, (fx + 1) * fw)
+            s = solid[ys, xs]
+            if not s.any():
+                out_rgb[ys, xs] = np.array(neutral_rgb, dtype=np.uint8)
+                continue
+            # Nearest-solid index map (frame-local), then copy values.
+            _, (iy, ix) = distance_transform_edt(~s, return_indices=True)
+            out_rgb[ys, xs] = rgb[ys, xs][iy, ix]
+
+    im[..., :3] = out_rgb
     Image.fromarray(im).save(path)
 
 
 def main():
-    paths = sorted(glob.glob(os.path.join(IMPOSTOR_DIR, "*_impostor_albedo*.png")))
-    if not paths:
+    albedo = sorted(glob.glob(os.path.join(IMPOSTOR_DIR, "*_impostor_albedo*.png")))
+    if not albedo:
         print(f"premultiply_impostors: no atlases found in {IMPOSTOR_DIR}", file=sys.stderr)
         sys.exit(1)
-    for i, p in enumerate(paths):
-        premultiply(p)
-        if (i + 1) % 10 == 0 or i == len(paths) - 1:
-            print(f"  {i+1}/{len(paths)} {os.path.basename(p)}")
-    print(f"premultiply_impostors: done — {len(paths)} atlases premultiplied")
+    print(f"premultiply_impostors: {len(albedo)} albedo atlases left as baked "
+          f"(born premultiplied by coverage resolve)")
 
     nrm_paths = sorted(glob.glob(os.path.join(IMPOSTOR_DIR, "*_impostor_normal.png")))
     for p in nrm_paths:
-        neutral_fill(p, (128, 128, 255))   # encoded (0,0,1): facing camera
+        finalize_data_atlas(p, (128, 128, 255))
     dep_paths = sorted(glob.glob(os.path.join(IMPOSTOR_DIR, "*_impostor_depth.png")))
     for p in dep_paths:
-        neutral_fill(p, (128, 128, 128))   # 0.5: zero parallax shift
-    print(f"premultiply_impostors: neutral-filled {len(nrm_paths)} normal + "
-          f"{len(dep_paths)} depth atlases")
+        finalize_data_atlas(p, (128, 128, 128))
+    print(f"premultiply_impostors: finalized {len(nrm_paths)} normal + "
+          f"{len(dep_paths)} depth atlases (unpremultiply + frame-local dilate)")
 
 
 if __name__ == "__main__":

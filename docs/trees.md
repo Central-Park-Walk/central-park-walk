@@ -25,15 +25,28 @@ patched by the `impostor_brightness` global (day_night_cycle.gd:93) and a ×3.0
 luminance compensation in the fall recolor. Root cause of the May 19 dark-olive
 atlas failure and all time-of-day mismatch bugs.
 
-**Bake changes** (`impostor_baker.gd`, leaf shader bake branch `tree_leaf.gdshader:115-154`):
-- Albedo pass renders **unlit**: leaf/bark bake materials output raw albedo
-  (texture × tint), no sky, no ambient, no AO-from-lighting. Black background,
-  alpha from coverage as today.
-- Normal + depth passes unchanged (already baked; quality-check per species before
-  trusting — render one frame vs. mesh normals).
-- Winter pass: same unlit rule.
-- Post chain unchanged: dilate (`dilate_impostors.py`) → premultiply
-  (`premultiply_impostors.py`). Premultiplied-alpha convention stays.
+**Bake changes** (`impostor_baker.gd` + `bake_mode` uniform in
+`tree_leaf.gdshader` / `tree_bark.gdshader` — implemented 2026-06-10):
+- Albedo pass renders **unlit**: bake materials route the shader's final
+  ALBEDO through EMISSION (`bake_mode=1`) under a black, ambient-disabled
+  environment. The atlas stores the mesh tier's exact albedo output — all
+  albedo-level character (top-light gradient fakes excluded only where
+  view/light-dependent) — with zero lighting. Alpha from coverage as today.
+- Normal + depth now bake in the **same Godot pass set** (`bake_mode=2/3`):
+  the 2026-06-10 quality check found the Blender-baked atlases unusable —
+  AgX view-transform distortion (constant +0.3 xy bias) AND framing baked at
+  bounding-sphere radius while albedo uses AABB-diagonal radius (coverage
+  IoU 0.32 on birch). Godot bakes all three channels from one scene/framing/
+  alpha pipeline, aligned by construction. Normal = camera-space, flipped
+  toward viewer (leaves are double-sided); depth normalized over 0..4R so
+  tree center sits at the shader's 0.5 parallax reference. Normal/depth read
+  back via HDR viewport (linear; LDR readback is sRGB-encoded — probed) to
+  match their linear sampler hints. `scripts/bake_impostors.py` (Blender) is
+  superseded entirely.
+- Winter pass: same unlit rule; albedo only (normal/depth are season-independent).
+- Post chain: `premultiply_impostors.py` (albedo premultiply — replaced the
+  old dilate pass — plus neutral background fill for normal/depth so edge
+  bleed through bilinear/mip filtering is a no-op).
 
 **Shader changes** (`tree_impostor.gdshader`):
 - Delete `impostor_brightness` fudge (line ~430) and its global registration +
