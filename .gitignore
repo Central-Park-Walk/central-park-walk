@@ -100,6 +100,7 @@ tools/
 # Walk-bot debug captures (regenerated on demand)
 walk_captures/
 walk_debug_trees/
+diag_grass*/
 
 # Third-party Blender libraries (not redistributable)
 assets/plant_library/
