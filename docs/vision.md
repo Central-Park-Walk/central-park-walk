@@ -35,7 +35,13 @@ Visual quality lower bound: **GTA 5 with sensible settings would be acceptable.*
 - Free on Steam.
 - Donations accepted.
 - Open call for community contributions for the man-made layer.
-- **MIT licensed.**
+- **MIT licensed.** No paid tooling (e.g. SpeedTree) anywhere in the pipeline — everything must remain freely distributable.
+
+## The artistic charter
+This project is Claude's data-grounded interpretation of Central Park — the experience of what Claude thinks the park is like, based on everything knowable about it right now. As knowledge of the park deepens, as game engines improve, and as hardware improves, the interpretation improves. The work is never "finished," only ever more faithful.
+
+## Far horizon (dreams, not design constraints)
+Post-v1.0, community-dependent, explicitly NOT to be designed for now: man-made layer built out by contributors, richer animal life, and possibly shared-walk / social ("Second Life"-like) aspects. Nothing in v1.0 may gain complexity to serve these. The anti-scope below binds v1.0.
 
 ## Scope priority
 1. **Natural environment first.** Trees, undergrowth, ground cover, vines, terrain, water, sky, weather, light, seasons. This is the substance of the project and the gate to a v1.0 release.
