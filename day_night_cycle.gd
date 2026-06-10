@@ -88,10 +88,6 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 	env.ambient_light_color  = _lerp_kf("ambient_color", a, b, t)
 	env.ambient_light_energy = _lerp_kf("ambient_energy", a, b, t)
 
-	# Impostor brightness tracks ambient
-	var imp_bright: float = clamp(env.ambient_light_energy / 0.95, 0.3, 1.5)
-	RenderingServer.global_shader_parameter_set("impostor_brightness", imp_bright)
-
 	# Tonemapping
 	env.tonemap_exposure = _lerp_kf("exposure", a, b, t)
 	env.tonemap_white    = _lerp_kf("white", a, b, t)

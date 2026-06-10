@@ -23,7 +23,6 @@ uniform float aabb_max = 1.0;
 uniform vec3 position_offset = vec3(0.0);
 
 // --- Global uniforms ---
-global uniform float impostor_brightness;
 global uniform vec2 wind_vec;
 global uniform float snow_cover;
 global uniform float season_t;
@@ -204,7 +203,14 @@ void vertex() {
 	season_color *= 1.0 + bright_off;
 	float warm_off = fract(jitter * 7.37) - 0.5;
 	season_color += warm_off * vec3(0.025, -0.008, -0.03);
-	v_season_color = season_color;
+	// Pre-divide by the species' summer-albedo luminance: fragment re-lights
+	// the true-albedo atlas toward the seasonal hue as v_season_color ×
+	// atlas_lum, where atlas_lum ≈ summer_lum × per-texel detail — the
+	// division transfers the atlas's texture detail onto the seasonal color
+	// at the correct albedo brightness. (Replaces the old ×3.0 fudge that
+	// compensated lit-baked atlas luminance.)
+	float summer_lum = dot(SUMMER_COLORS[sp_idx], vec3(0.299, 0.587, 0.114));
+	v_season_color = season_color / max(summer_lum, 0.05);
 	v_scalars = vec4(leaf_density, jitter, fall_mix, winter_mix);
 
 	// --- Billboard projection ---
@@ -417,17 +423,14 @@ void fragment() {
 
 	// Seasonal shift: atlas is summer-only, so pull hue toward season_color
 	// during fall using the atlas's own luminance to preserve texture detail.
-	// Factor 3.0 compensates for baked summer luminance (~0.33) scaling down
-	// the re-tinted output to roughly match summer brightness.
+	// v_season_color is pre-divided by the species' summer-albedo luminance
+	// in vertex(), so this lands at true-albedo brightness.
 	float fall_mix_t = v_scalars.z;
 	if (fall_mix_t > 0.0) {
 		float atlas_lum = dot(color, vec3(0.299, 0.587, 0.114));
-		vec3 fall_recolor = v_season_color * atlas_lum * 3.0;
+		vec3 fall_recolor = v_season_color * atlas_lum;
 		color = mix(color, fall_recolor, fall_mix_t);
 	}
-
-	// Time-of-day brightness (night dim) — applied uniformly.
-	color *= max(impostor_brightness, 0.5);
 
 	vec3 world_n = mat3(INV_VIEW_MATRIX) * NORMAL;
 	float top_lit = world_n.y * 0.5 + 0.5;
@@ -467,7 +470,9 @@ void fragment() {
 	// second alpha multiply.
 	ALBEDO = color * alpha;
 	ALPHA = alpha;
-	ROUGHNESS = 0.82;
-	SPECULAR = 0.12;
+	// Foliage response: roughness 1 so burley diffuse dominates and the
+	// runtime sun/ambient does the lighting over the true-albedo atlas.
+	ROUGHNESS = 1.0;
+	SPECULAR = 0.1;
 	METALLIC = 0.0;
 }

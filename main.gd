@@ -245,7 +245,6 @@ func _ready() -> void:
 	RenderingServer.global_shader_parameter_add("lamp_glow", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	RenderingServer.global_shader_parameter_add("cloud_coverage_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.5)
 	RenderingServer.global_shader_parameter_add("cloud_speed_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.00004)
-	RenderingServer.global_shader_parameter_add("impostor_brightness", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 1.0)
 	# Player camera world position — pushed each frame so distance-based
 	# effects (LOD dither) compute against the player view, not whatever
 	# camera is active in the current render pass (shadow / reflection).
