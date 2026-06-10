@@ -65,7 +65,15 @@ for cfg in "${CONFIGS[@]}"; do
   label="${cfg%%=*}"
   hides="${cfg#*=}"
   extra=()
-  [ -n "$hides" ] && extra=("--diag-hide=$hides")
+  if [ -n "$hides" ]; then
+    # Value starting with -- is passed through as raw CLI args (space-separated);
+    # otherwise it's a --diag-hide list. e.g. dist75=--shadow-dist=75
+    if [[ "$hides" == --* ]]; then
+      read -r -a extra <<<"$hides"
+    else
+      extra=("--diag-hide=$hides")
+    fi
+  fi
   log="$(mktemp)"
   timeout "${RUN_SECONDS}s" "$GODOT" --path "$PROJECT_DIR" \
     --resolution 1920x1080 --disable-vsync \

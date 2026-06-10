@@ -185,6 +185,10 @@ func _parse_cli_args() -> void:
 		elif key == "--diag-hide" and val != "":
 			_diag_hide = Array(val.split(","))
 			print("[DIAG] CLI hide list: %s" % str(_diag_hide))
+		elif key == "--shadow-dist" and val != "":
+			_cli_shadow_dist = float(val)
+		elif key == "--shadow-size" and val != "":
+			_cli_shadow_size = int(val)
 	# Auto-screenshot only in headless capture mode (--quit-after)
 	for earg in OS.get_cmdline_args():
 		if earg.begins_with("--quit-after"):
@@ -816,6 +820,9 @@ func _set_labels_visible(vis: bool) -> void:
 # after the first application stay hidden.
 # Options: terrain trees undergrowth grass shadows sdfgi fog ssao ssil glow
 var _diag_hide: Array = []
+# Perf-experiment knobs: --shadow-dist=meters, --shadow-size=pixels (-1 = keep defaults)
+var _cli_shadow_dist: float = -1.0
+var _cli_shadow_size: int = -1
 var _diag_trees_hidden: bool = false
 var _diag_ug_hidden: bool = false
 var _diag_grass_hidden: bool = false
@@ -1447,6 +1454,14 @@ func _setup_environment() -> void:
 	_sun.directional_shadow_pancake_size = 20.0
 	_sun.directional_shadow_blend_splits = true  # smooth the 7.5m/22.5m/60m cascade boundaries
 	add_child(_sun)
+
+	# Perf-experiment overrides (scripts/perf_bisect.sh)
+	if _cli_shadow_dist > 0.0:
+		_sun.directional_shadow_max_distance = _cli_shadow_dist
+		print("[DIAG] shadow max distance = %.0f" % _cli_shadow_dist)
+	if _cli_shadow_size > 0:
+		RenderingServer.directional_shadow_atlas_set_size(_cli_shadow_size, true)
+		print("[DIAG] directional shadow atlas = %d px" % _cli_shadow_size)
 
 	# Wire sun to volumetric cloud sky (deferred because _sun created after sky)
 	if vol_sky:
