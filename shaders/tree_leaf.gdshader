@@ -62,24 +62,8 @@ const vec3 BLOSSOM_COLORS[14] = vec3[14](
 	vec3(0.90, 0.72, 0.78)        // 13 magnolia: pink-white tulip-shaped blooms
 );
 
-// Blossom timing: (start, peak, end) — before leaf-out
-// season_t 0=spring start, 1=summer, 2=autumn, 3=winter
-const vec3 BLOSSOM_TIMING[14] = vec3[14](
-	vec3(0.0),                     // 0 oak
-	vec3(0.0),                     // 1 maple
-	vec3(0.0),                     // 2 elm
-	vec3(0.0),                     // 3 birch
-	vec3(0.0),                     // 4 deciduous
-	vec3(0.0),                     // 5 conifer
-	vec3(0.0),                     // 6 honeylocust
-	vec3(0.15, 0.30, 0.50),       // 7 callery_pear: early spring, short bloom
-	vec3(0.0),                     // 8 ginkgo
-	vec3(0.0),                     // 9 london_plane
-	vec3(0.0),                     // 10 linden
-	vec3(0.05, 0.20, 0.42),       // 11 cherry: very early, 2-week bloom peak
-	vec3(0.0),                     // 12 willow: no showy blossoms
-	vec3(0.02, 0.15, 0.35)        // 13 magnolia: very early spring, before leaf-out
-);
+// BLOSSOM_TIMING moved to include/tree_species.gdshaderinc (shared with the
+// shadow-proxy shader so blossoming crowns cast like foliage).
 
 void vertex() {
 	// Decode per-instance season data (all INSTANCE_CUSTOM reads in vertex only)

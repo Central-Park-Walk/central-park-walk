@@ -415,6 +415,10 @@ func _build_water_mesh(verts: PackedVector3Array, normals: PackedVector3Array, w
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
 	mi.name = "WaterBodies"
+	# Water must not cast shadows: light passes through the surface, and this
+	# is ONE park-wide 3.1M-tri mesh whose AABB hits every shadow cascade —
+	# measured 2026-06-10 as ~12.4M shadow tris/frame at every location.
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_loader.add_child(mi)
 
 	# --- Water body mist: localized FogVolume for atmospheric dawn/dusk mist ---

@@ -718,11 +718,14 @@ func _build_trees(trees: Array) -> void:
 			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			var pmm := MultiMesh.new()
 			pmm.transform_format = MultiMesh.TRANSFORM_3D
-			pmm.mesh = _get_shadow_proxy_mesh(mesh_source, sp_name, mesh)
+			pmm.use_custom_data = true  # phenology packing — proxy shader sheds crown shadow in winter
+			var proxy_key := "%s_%d" % [mesh_source, vi % lod1_vars.size()]
+			pmm.mesh = _get_shadow_proxy_mesh(proxy_key, sp_name, mesh)
 			pmm.instance_count = xf_list.size()
 			for i in xf_list.size():
 				var tf: Transform3D = xf_list[i]
 				pmm.set_instance_transform(i, Transform3D(tf.basis, tf.origin - chunk_origin))
+				pmm.set_instance_custom_data(i, cd_list[i])
 			var pmmi := MultiMeshInstance3D.new()
 			pmmi.multimesh = pmm
 			pmmi.position = chunk_origin
@@ -873,10 +876,22 @@ func _build_lod_tier_chunks(xf_data: Dictionary, cd_data: Dictionary,
 	cd_data.clear()
 
 
+# Crown lathe fit (docs/trees.md §3/§5): rings × segments of the silhouette
+# profile measured from the variant's leaf vertices. Per-ring elliptical radii
+# at a high percentile so one stray branch doesn't inflate the shadow, with a
+# small pad because shadow over-coverage is benign (dapple punches holes) but
+# under-coverage leaks light through the canopy.
+const PROXY_RINGS := 12
+const PROXY_SEGS := 8
+const PROXY_QUANTILE := 0.96
+const PROXY_PAD := 1.05
+
 func _get_shadow_proxy_mesh(mesh_key: String, sp_name: String, src: Mesh) -> ArrayMesh:
-	## Whole-tree shadow caster (docs/trees.md §3): trunk cylinder + crown hull
-	## fit to the variant mesh AABB, in the same model space so instance
-	## transforms are shared with the visible MMI. ~90 tris vs 10k+ foliage.
+	## Whole-tree shadow caster (docs/trees.md §3): trunk cylinder + crown
+	## lathe fit per height-slice to the variant's leaf geometry, in the same
+	## model space so instance transforms are shared with the visible MMI.
+	## ~220 tris vs 10k+ foliage. Vase/columnar/weeping crowns fit by data,
+	## not by archetype guess; leafless meshes (dead snags) get trunk only.
 	if _proxy_mesh_cache.has(mesh_key):
 		return _proxy_mesh_cache[mesh_key]
 	var ab: AABB = src.get_aabb()
@@ -884,10 +899,21 @@ func _get_shadow_proxy_mesh(mesh_key: String, sp_name: String, src: Mesh) -> Arr
 	var base_y: float = ab.position.y
 	var cx: float = ab.position.x + ab.size.x * 0.5
 	var cz: float = ab.position.z + ab.size.z * 0.5
-	var crown_w: float = maxf(ab.size.x, ab.size.z)
-	var is_conifer := sp_name.begins_with("conifer")
-	var crown_base: float = base_y + h * (0.12 if is_conifer else 0.35)
-	var crown_h: float = base_y + h - crown_base
+	# Leaf-surface vertices drive the crown fit (bark shader surfaces are
+	# trunk/branches). Dead snags have no leaf surfaces → trunk-only proxy.
+	var leaf_pts := PackedVector3Array()
+	for si in src.get_surface_count():
+		var smat: Material = src.surface_get_material(si)
+		if smat is ShaderMaterial and (smat as ShaderMaterial).shader \
+				and "tree_bark" in (smat as ShaderMaterial).shader.resource_path:
+			continue
+		leaf_pts.append_array(src.surface_get_arrays(si)[Mesh.ARRAY_VERTEX])
+	var crown_base: float = base_y + h * 0.35
+	if leaf_pts.size() >= 48:
+		var lo := INF
+		for p in leaf_pts:
+			lo = minf(lo, p.y)
+		crown_base = lo
 	var am := ArrayMesh.new()
 	# Trunk
 	var trunk := CylinderMesh.new()
@@ -897,65 +923,132 @@ func _get_shadow_proxy_mesh(mesh_key: String, sp_name: String, src: Mesh) -> Arr
 	trunk.cap_bottom = false
 	trunk.top_radius = maxf(h * 0.012, 0.10)
 	trunk.bottom_radius = maxf(h * 0.018, 0.14)
-	trunk.height = crown_base - base_y + crown_h * 0.2  # reach into the crown
+	trunk.height = maxf(crown_base - base_y, h * 0.1) + (base_y + h - crown_base) * 0.2
 	_append_offset_surface(am, trunk, Vector3(cx, base_y + trunk.height * 0.5, cz))
-	# Crown: squashed sphere for broadleaf, cone for conifers
-	if is_conifer:
-		var cone := CylinderMesh.new()
-		cone.radial_segments = 8
-		cone.rings = 1
-		cone.cap_bottom = true
-		cone.cap_top = false
-		cone.top_radius = 0.0
-		cone.bottom_radius = crown_w * 0.5
-		cone.height = crown_h
-		_append_offset_surface(am, cone, Vector3(cx, crown_base + crown_h * 0.5, cz))
-	else:
-		var crown := SphereMesh.new()
-		crown.radial_segments = 8
-		crown.rings = 4
-		crown.radius = crown_w * 0.5
-		crown.height = crown_h
-		_append_offset_surface(am, crown, Vector3(cx, crown_base + crown_h * 0.5, cz))
-	# Dapple: world-space noise discard on the crown so the shadow map gets
-	# holes PCF blurs into mottled canopy light (docs/trees.md §3). Conifers
-	# keep a denser crown (real conifer shade is near-solid).
-	var crown_mat := ShaderMaterial.new()
-	crown_mat.shader = _proxy_dapple_shader()
-	crown_mat.set_shader_parameter("coverage", 0.80 if is_conifer else 0.62)
-	am.surface_set_material(1, crown_mat)
+	if leaf_pts.size() >= 48 and _append_crown_lathe(am, leaf_pts):
+		# Dapple: world-space noise discard on the crown so the shadow map
+		# gets holes PCF blurs into mottled canopy light, modulated by the
+		# same per-instance phenology as the visible leaves (winter = bare).
+		# Conifers keep a denser crown (real conifer shade is near-solid).
+		var crown_mat := ShaderMaterial.new()
+		crown_mat.shader = _loader._get_shader("tree_shadow_proxy",
+			"res://shaders/tree_shadow_proxy.gdshader")
+		crown_mat.set_shader_parameter("coverage",
+			0.80 if sp_name.begins_with("conifer") else 0.62)
+		am.surface_set_material(1, crown_mat)
 	_proxy_mesh_cache[mesh_key] = am
 	return am
 
 
-var _dapple_shader: Shader = null
-func _proxy_dapple_shader() -> Shader:
-	if _dapple_shader:
-		return _dapple_shader
-	_dapple_shader = Shader.new()
-	# Runs in the shadow (depth) pass — discard punches leaf-density holes.
-	# World-space hash so holes are stable per tree and don't swim.
-	_dapple_shader.code = """
-shader_type spatial;
-render_mode unshaded, cull_disabled;
-
-uniform float coverage : hint_range(0.0, 1.0) = 0.62;
-uniform float hole_scale = 1.1;
-
-float hash3(vec3 p) {
-	p = fract(p * 0.3183099 + 0.1);
-	p *= 17.0;
-	return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
-}
-
-void fragment() {
-	vec3 wp = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	if (hash3(floor(wp / hole_scale)) > coverage) {
-		discard;
-	}
-}
-"""
-	return _dapple_shader
+func _append_crown_lathe(am: ArrayMesh, pts: PackedVector3Array) -> bool:
+	## Closed lathe of the crown silhouette: PROXY_RINGS height slices, each an
+	## ellipse at the slice's vertex centroid with |dx| / |dz| radii at
+	## PROXY_QUANTILE, capped by apex fans at the crown's Y extents.
+	## Returns false (no surface added) if every slice is too sparse to fit.
+	var y_min := INF
+	var y_max := -INF
+	for p in pts:
+		y_min = minf(y_min, p.y)
+		y_max = maxf(y_max, p.y)
+	var span := maxf(y_max - y_min, 0.01)
+	# Bucket vertices into height slices
+	var bins: Array = []
+	for i in PROXY_RINGS:
+		bins.append({"x": PackedFloat32Array(), "z": PackedFloat32Array()})
+	for p in pts:
+		var bi := clampi(int((p.y - y_min) / span * PROXY_RINGS), 0, PROXY_RINGS - 1)
+		bins[bi]["x"].append(p.x)
+		bins[bi]["z"].append(p.z)
+	# Per-ring center + percentile radii; sparse rings inherit from neighbors
+	var ring_c: Array = []   # Vector2(cx, cz) or null
+	var ring_r: Array = []   # Vector2(rx, rz) or null
+	for i in PROXY_RINGS:
+		var xs: PackedFloat32Array = bins[i]["x"]
+		var zs: PackedFloat32Array = bins[i]["z"]
+		if xs.size() < 16:
+			ring_c.append(null)
+			ring_r.append(null)
+			continue
+		var mx := 0.0
+		var mz := 0.0
+		for j in xs.size():
+			mx += xs[j]
+			mz += zs[j]
+		mx /= xs.size()
+		mz /= zs.size()
+		var dx := PackedFloat32Array()
+		var dz := PackedFloat32Array()
+		dx.resize(xs.size())
+		dz.resize(zs.size())
+		for j in xs.size():
+			dx[j] = absf(xs[j] - mx)
+			dz[j] = absf(zs[j] - mz)
+		dx.sort()
+		dz.sort()
+		var qi := clampi(int(dx.size() * PROXY_QUANTILE), 0, dx.size() - 1)
+		ring_c.append(Vector2(mx, mz))
+		ring_r.append(Vector2(maxf(dx[qi], 0.15), maxf(dz[qi], 0.15)) * PROXY_PAD)
+	var any_valid := false
+	for i in PROXY_RINGS:
+		if ring_c[i] != null:
+			any_valid = true
+			break
+	if not any_valid:
+		return false
+	# Fill sparse rings from nearest valid neighbor (crown tips often have
+	# few verts in their slice but still need silhouette).
+	for i in PROXY_RINGS:
+		if ring_c[i] != null:
+			continue
+		for off in PROXY_RINGS:
+			var lo := i - off
+			var hi := i + off
+			if lo >= 0 and ring_c[lo] != null:
+				ring_c[i] = ring_c[lo]
+				ring_r[i] = ring_r[lo] * 0.7
+				break
+			if hi < PROXY_RINGS and ring_c[hi] != null:
+				ring_c[i] = ring_c[hi]
+				ring_r[i] = ring_r[hi] * 0.7
+				break
+	# Build the lathe: ring vertices + bottom/top apex points
+	var verts := PackedVector3Array()
+	var norms := PackedVector3Array()
+	for i in PROXY_RINGS:
+		var ry: float = y_min + span * (float(i) + 0.5) / PROXY_RINGS
+		var c: Vector2 = ring_c[i]
+		var r: Vector2 = ring_r[i]
+		for s in PROXY_SEGS:
+			var a := TAU * float(s) / PROXY_SEGS
+			verts.append(Vector3(c.x + cos(a) * r.x, ry, c.y + sin(a) * r.y))
+			norms.append(Vector3(cos(a), 0.0, sin(a)))
+	var bot_i := verts.size()
+	verts.append(Vector3(ring_c[0].x, y_min, ring_c[0].y))
+	norms.append(Vector3.DOWN)
+	var top_i := verts.size()
+	verts.append(Vector3(ring_c[PROXY_RINGS - 1].x, y_max, ring_c[PROXY_RINGS - 1].y))
+	norms.append(Vector3.UP)
+	var idx := PackedInt32Array()
+	for i in PROXY_RINGS - 1:
+		for s in PROXY_SEGS:
+			var s1 := (s + 1) % PROXY_SEGS
+			var a0 := i * PROXY_SEGS + s
+			var a1 := i * PROXY_SEGS + s1
+			var b0 := (i + 1) * PROXY_SEGS + s
+			var b1 := (i + 1) * PROXY_SEGS + s1
+			idx.append_array(PackedInt32Array([a0, b0, a1, a1, b0, b1]))
+	for s in PROXY_SEGS:
+		var s1 := (s + 1) % PROXY_SEGS
+		idx.append_array(PackedInt32Array([bot_i, s, s1]))
+		var base := (PROXY_RINGS - 1) * PROXY_SEGS
+		idx.append_array(PackedInt32Array([top_i, base + s1, base + s]))
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = norms
+	arrays[Mesh.ARRAY_INDEX] = idx
+	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return true
 
 
 func _append_offset_surface(am: ArrayMesh, prim: PrimitiveMesh, offset: Vector3) -> void:

@@ -76,6 +76,25 @@ const float WINTER_RETENTION[14] = float[14](
 	0.55   // 13 magnolia: semi-evergreen in mild winters, holds green leaves late
 );
 
+// Blossom timing: (start, peak, end) on the season_t axis — before leaf-out.
+// season_t 0=spring start, 1=summer, 2=autumn, 3=winter. vec3(0.0) = none.
+const vec3 BLOSSOM_TIMING[14] = vec3[14](
+	vec3(0.0),                     // 0 oak
+	vec3(0.0),                     // 1 maple
+	vec3(0.0),                     // 2 elm
+	vec3(0.0),                     // 3 birch
+	vec3(0.0),                     // 4 deciduous
+	vec3(0.0),                     // 5 conifer
+	vec3(0.0),                     // 6 honeylocust
+	vec3(0.15, 0.30, 0.50),       // 7 callery_pear: early spring, short bloom
+	vec3(0.0),                     // 8 ginkgo
+	vec3(0.0),                     // 9 london_plane
+	vec3(0.0),                     // 10 linden
+	vec3(0.05, 0.20, 0.42),       // 11 cherry: very early, 2-week bloom peak
+	vec3(0.0),                     // 12 willow: no showy blossoms
+	vec3(0.02, 0.15, 0.35)        // 13 magnolia: very early spring, before leaf-out
+);
+
 // Wind biomechanics: (trunk_flex, branch_flex, sway_freq, gust_response)
 // Sources: forestry drag coefficients, Gardiner 1995, James et al 2006
 const vec4 WIND_PARAMS[14] = vec4[14](
