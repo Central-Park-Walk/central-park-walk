@@ -182,6 +182,9 @@ func _parse_cli_args() -> void:
 				print("Season: %.1f" % _season_t)
 			else:
 				print("Unknown --season '%s'. Options: spring summer autumn fall winter (or 0.0-4.0)" % s_val)
+		elif key == "--diag-hide" and val != "":
+			_diag_hide = Array(val.split(","))
+			print("[DIAG] CLI hide list: %s" % str(_diag_hide))
 	# Auto-screenshot only in headless capture mode (--quit-after)
 	for earg in OS.get_cmdline_args():
 		if earg.begins_with("--quit-after"):
@@ -208,6 +211,8 @@ func _ready() -> void:
 	_parse_cli_args()
 	# Enable GPU-based occlusion culling (used by canopy occluders in woodland)
 	get_viewport().use_occlusion_culling = true
+	# Measure renderer main-thread + GPU frame time (reported in [PERF] log)
+	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
 	var _mt := Time.get_ticks_msec()
 	_day_night = preload("res://day_night_cycle.gd").new()
 	_day_night.name = "DayNightCycle"
@@ -737,14 +742,20 @@ func _process(delta: float) -> void:
 	_diag_log_timer += delta
 	if _diag_log_timer >= 2.0:
 		_diag_log_timer = 0.0
+		if not _diag_hide.is_empty():
+			_diag_apply_hides()
 		var fps := Performance.get_monitor(Performance.TIME_FPS)
 		var p_ms: float = Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
 		var phy_ms: float = Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
 		var sub_us: float = (_prof_lamps_us + _prof_wind_us + _prof_weather_us
 			+ _prof_undergrowth_us + _prof_ground_cover_us + _prof_daynight_us
 			+ _prof_hud_us)
-		print("[PERF] fps=%d process=%.1f physics=%.1f sub=%.2f unacc=%.1f overlay=%s" % [
+		var vp_rid := get_viewport().get_viewport_rid()
+		var vpcpu_ms := RenderingServer.viewport_get_measured_render_time_cpu(vp_rid)
+		var vpgpu_ms := RenderingServer.viewport_get_measured_render_time_gpu(vp_rid)
+		print("[PERF] fps=%d process=%.1f physics=%.1f sub=%.2f unacc=%.1f vpcpu=%.1f vpgpu=%.1f overlay=%s" % [
 			int(fps), p_ms, phy_ms, sub_us / 1000.0, p_ms - sub_us / 1000.0,
+			vpcpu_ms, vpgpu_ms,
 			"ON" if _hud.perf_visible else "OFF"])
 
 
@@ -800,6 +811,11 @@ func _set_labels_visible(vis: bool) -> void:
 # ── Diagnostic A/B toggles (F6/F7/F8) ───────────────────────────────────
 # Hide major subsystems to isolate which one owns the unaccounted
 # engine-internal main-thread cost in TIME_PROCESS.
+# --diag-hide=a,b,c drives the same paths headlessly for scripted bisection.
+# Re-applied every perf tick (idempotent) so chunk systems that stream in
+# after the first application stay hidden.
+# Options: terrain trees undergrowth grass shadows sdfgi fog ssao ssil glow
+var _diag_hide: Array = []
 var _diag_trees_hidden: bool = false
 var _diag_ug_hidden: bool = false
 var _diag_grass_hidden: bool = false
@@ -855,6 +871,51 @@ func _diag_toggle_grass() -> void:
 			states.append("%s=%s" % [gn.name, gn.is_processing()])
 	print("[DIAG] GPU grass dispatch %s — %s" % [
 		"OFF" if _diag_grass_hidden else "ON", ", ".join(states)])
+
+func _diag_apply_hides() -> void:
+	for what: String in _diag_hide:
+		match what:
+			"terrain":
+				if _terrain3d:
+					_terrain3d.visible = false
+			"trees":
+				if _diag_tree_mmis.is_empty() and _park_loader:
+					for pat: String in ["Tree_*", "TreeL1_*", "TreeL2_*", "TreeImp_*"]:
+						for n: Node in _park_loader.find_children(pat, "MultiMeshInstance3D", true, false):
+							_diag_tree_mmis.append(n)
+				for n: Node in _diag_tree_mmis:
+					if is_instance_valid(n):
+						n.visible = false
+			"undergrowth":
+				if _park_loader and _park_loader._undergrowth_builder:
+					var ub = _park_loader._undergrowth_builder
+					for key in ub._active_chunks:
+						RenderingServer.instance_set_visible(ub._active_chunks[key][1], false)
+			"grass":
+				for gp in _grass_particle_nodes:
+					if is_instance_valid(gp):
+						gp.visible = false
+			"shadows":
+				if _sun:
+					_sun.shadow_enabled = false
+			"sdfgi":
+				if _env:
+					_env.sdfgi_enabled = false
+			"fog":
+				if _env:
+					_env.volumetric_fog_enabled = false
+			"ssao":
+				if _env:
+					_env.ssao_enabled = false
+			"ssil":
+				if _env:
+					_env.ssil_enabled = false
+			"glow":
+				if _env:
+					_env.glow_enabled = false
+			_:
+				push_warning("--diag-hide: unknown option '%s'" % what)
+
 
 var _diag_grass_force: bool = false
 var _diag_grass_orig_biomes: Array = []
