@@ -45,8 +45,18 @@ var lod1_chunks: int = 0
 var imp_instances: int = 0
 var imp_chunks: int = 0
 
+# Shadow proxies (docs/trees.md §3, prototype): visible trees stop casting;
+# a ~90-tri trunk+crown hull per species-variant casts instead (SHADOWS_ONLY).
+# Flag-gated for A/B measurement until the perf gate + visual DoD pass.
+var _shadow_proxy: bool = false
+var _proxy_mesh_cache: Dictionary = {}  # mesh_key -> ArrayMesh
+var proxy_instances: int = 0
+
 func _init(loader) -> void:
 	_loader = loader
+	_shadow_proxy = "--tree-shadow-proxy" in OS.get_cmdline_user_args()
+	if _shadow_proxy:
+		print("TreeBuilder: shadow proxies ON (visible trees cast nothing)")
 
 # Size tier boundaries per species: [small_max, medium_max]
 # Trees below small_max use _s model, below medium_max use _m, else _l.
@@ -696,6 +706,26 @@ func _build_trees(trees: Array) -> void:
 		mmi.visibility_range_begin_margin = 0.0
 		mmi.visibility_range_end_margin = 0.0
 		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+		if _shadow_proxy:
+			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var pmm := MultiMesh.new()
+			pmm.transform_format = MultiMesh.TRANSFORM_3D
+			pmm.mesh = _get_shadow_proxy_mesh(mesh_source, sp_name, mesh)
+			pmm.instance_count = xf_list.size()
+			for i in xf_list.size():
+				var tf: Transform3D = xf_list[i]
+				pmm.set_instance_transform(i, Transform3D(tf.basis, tf.origin - chunk_origin))
+			var pmmi := MultiMeshInstance3D.new()
+			pmmi.multimesh = pmm
+			pmmi.position = chunk_origin
+			pmmi.name = "ShdwProxy_%s" % ckey.replace("|", "_")
+			pmmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+			pmmi.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+			pmmi.visibility_range_begin = 0.0
+			pmmi.visibility_range_end = 290.0
+			pmmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+			_loader.add_child(pmmi)
+			proxy_instances += xf_list.size()
 		_loader.add_child(mmi)
 		lod0_instances += xf_list.size()
 		lod0_chunks += 1
@@ -832,6 +862,63 @@ func _build_lod_tier_chunks(xf_data: Dictionary, cd_data: Dictionary,
 		prefix, instance_count, chunks.size(), vis_begin, vis_end])
 	xf_data.clear()
 	cd_data.clear()
+
+
+func _get_shadow_proxy_mesh(mesh_key: String, sp_name: String, src: Mesh) -> ArrayMesh:
+	## Whole-tree shadow caster (docs/trees.md §3): trunk cylinder + crown hull
+	## fit to the variant mesh AABB, in the same model space so instance
+	## transforms are shared with the visible MMI. ~90 tris vs 10k+ foliage.
+	if _proxy_mesh_cache.has(mesh_key):
+		return _proxy_mesh_cache[mesh_key]
+	var ab: AABB = src.get_aabb()
+	var h: float = ab.size.y
+	var base_y: float = ab.position.y
+	var cx: float = ab.position.x + ab.size.x * 0.5
+	var cz: float = ab.position.z + ab.size.z * 0.5
+	var crown_w: float = maxf(ab.size.x, ab.size.z)
+	var is_conifer := sp_name.begins_with("conifer")
+	var crown_base: float = base_y + h * (0.12 if is_conifer else 0.35)
+	var crown_h: float = base_y + h - crown_base
+	var am := ArrayMesh.new()
+	# Trunk
+	var trunk := CylinderMesh.new()
+	trunk.radial_segments = 6
+	trunk.rings = 1
+	trunk.cap_top = false
+	trunk.cap_bottom = false
+	trunk.top_radius = maxf(h * 0.012, 0.10)
+	trunk.bottom_radius = maxf(h * 0.018, 0.14)
+	trunk.height = crown_base - base_y + crown_h * 0.2  # reach into the crown
+	_append_offset_surface(am, trunk, Vector3(cx, base_y + trunk.height * 0.5, cz))
+	# Crown: squashed sphere for broadleaf, cone for conifers
+	if is_conifer:
+		var cone := CylinderMesh.new()
+		cone.radial_segments = 8
+		cone.rings = 1
+		cone.cap_bottom = true
+		cone.cap_top = false
+		cone.top_radius = 0.0
+		cone.bottom_radius = crown_w * 0.5
+		cone.height = crown_h
+		_append_offset_surface(am, cone, Vector3(cx, crown_base + crown_h * 0.5, cz))
+	else:
+		var crown := SphereMesh.new()
+		crown.radial_segments = 8
+		crown.rings = 4
+		crown.radius = crown_w * 0.5
+		crown.height = crown_h
+		_append_offset_surface(am, crown, Vector3(cx, crown_base + crown_h * 0.5, cz))
+	_proxy_mesh_cache[mesh_key] = am
+	return am
+
+
+func _append_offset_surface(am: ArrayMesh, prim: PrimitiveMesh, offset: Vector3) -> void:
+	var arrays: Array = prim.get_mesh_arrays()
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	for i in verts.size():
+		verts[i] += offset
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 
 
 func _build_tree_collision(trunk_xf: Array) -> void:

@@ -191,6 +191,8 @@ func _parse_cli_args() -> void:
 			_cli_shadow_size = int(val)
 		elif key == "--shadow-filter" and val != "":
 			_cli_shadow_filter = int(val)
+		elif arg == "--shadow-census":
+			_diag_shadow_census = true
 	# Auto-screenshot only in headless capture mode (--quit-after)
 	for earg in OS.get_cmdline_args():
 		if earg.begins_with("--quit-after"):
@@ -750,6 +752,9 @@ func _process(delta: float) -> void:
 		_diag_log_timer = 0.0
 		if not _diag_hide.is_empty():
 			_diag_apply_hides()
+		_diag_tick_count += 1
+		if _diag_shadow_census and _diag_tick_count == 3:
+			_shadow_census()
 		var fps := Performance.get_monitor(Performance.TIME_FPS)
 		var p_ms: float = Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
 		var phy_ms: float = Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
@@ -831,13 +836,17 @@ func _set_labels_visible(vis: bool) -> void:
 # Re-applied every perf tick (idempotent) so chunk systems that stream in
 # after the first application stay hidden.
 # Options: terrain trees undergrowth grass shadows sdfgi fog ssao ssil glow
-#          treeshadows/terrainshadows (stay visible, stop casting)
+#          treeshadows/terrainshadows/furnitureshadows (stay visible, stop casting)
 var _diag_hide: Array = []
 # Perf-experiment knobs: --shadow-dist=meters, --shadow-size=pixels,
 # --shadow-filter=0..5 (PCF quality; project default 2). -1 = keep defaults.
 var _cli_shadow_dist: float = -1.0
 var _cli_shadow_size: int = -1
 var _cli_shadow_filter: int = -1
+# --shadow-census: one-shot dump of every shadow-casting GeometryInstance3D
+# (top 25 by mesh tris × instances) on the 3rd perf tick, after diag hides apply.
+var _diag_shadow_census: bool = false
+var _diag_tick_count: int = 0
 var _diag_trees_hidden: bool = false
 var _diag_ug_hidden: bool = false
 var _diag_grass_hidden: bool = false
@@ -894,6 +903,50 @@ func _diag_toggle_grass() -> void:
 	print("[DIAG] GPU grass dispatch %s — %s" % [
 		"OFF" if _diag_grass_hidden else "ON", ", ".join(states)])
 
+func _shadow_census() -> void:
+	## Dump every node-level shadow caster, largest raster load first.
+	## (RenderingServer-direct instances and Terrain3D internals don't appear.)
+	var rows: Array = []
+	for n: Node in find_children("*", "GeometryInstance3D", true, false):
+		var gi := n as GeometryInstance3D
+		if gi.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			continue
+		var tris := 0
+		var inst := 1
+		if gi is MultiMeshInstance3D:
+			var mm: MultiMesh = (gi as MultiMeshInstance3D).multimesh
+			if mm and mm.mesh:
+				tris = _mesh_tri_count(mm.mesh)
+				inst = mm.instance_count
+		elif gi is MeshInstance3D:
+			var m: Mesh = (gi as MeshInstance3D).mesh
+			if m:
+				tris = _mesh_tri_count(m)
+		rows.append([tris * inst, gi.name, inst, tris, gi.get_class()])
+	rows.sort_custom(func(a: Array, b: Array) -> bool: return a[0] > b[0])
+	var total := 0
+	for r: Array in rows:
+		total += r[0]
+	print("[CENSUS] %d casters, %d total mesh tris (×cascades for shadow cost)" % [
+		rows.size(), total])
+	for i in mini(rows.size(), 25):
+		var r: Array = rows[i]
+		print("[CENSUS] %10d = %6d inst × %7d tris  %-24s %s" % [r[0], r[2], r[3], r[4], r[1]])
+
+
+func _mesh_tri_count(m: Mesh) -> int:
+	var tris := 0
+	for si in m.get_surface_count():
+		var arrays: Array = m.surface_get_arrays(si)
+		var idx = arrays[Mesh.ARRAY_INDEX]  # Nil when surface is non-indexed
+		if idx != null and idx.size() > 0:
+			tris += idx.size() / 3
+		else:
+			var v: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			tris += v.size() / 3
+	return tris
+
+
 func _diag_apply_hides() -> void:
 	for what: String in _diag_hide:
 		match what:
@@ -911,6 +964,13 @@ func _diag_apply_hides() -> void:
 			"terrainshadows":
 				if _terrain3d:
 					_terrain3d.set_cast_shadows(RenderingServer.SHADOW_CASTING_SETTING_OFF)
+			"furnitureshadows":
+				# Repeated small furniture/details are MMIs; landmarks and
+				# bridges are MeshInstance3Ds and keep casting.
+				if _park_loader:
+					for n: Node in _park_loader.find_children("*", "MultiMeshInstance3D", true, false):
+						if not (n.name.begins_with("Tree") or n.name.begins_with("ShdwProxy")):
+							(n as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			"treeshadows":
 				if _diag_tree_mmis.is_empty() and _park_loader:
 					for pat: String in ["Tree_*", "TreeL1_*", "TreeL2_*", "TreeImp_*"]:
