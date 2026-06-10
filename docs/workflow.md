@@ -48,9 +48,9 @@ A change is done when its class's checklist passes. "It feels right" and "the ge
 
 | Rule | Mechanism | Status |
 |---|---|---|
-| Perf benchmark at 5 test locations, single-command | `scripts/perf_gate.sh` (walk-bot capture → frame-time report) | to build (sprint D0-1) |
-| Perf gate on perf-relevant commits | hook reminder + benchmark report committed alongside | to build (sprint D0-1) |
-| No background push / single push | settings hook on `git push` | to build (sprint D0) |
+| Perf benchmark at 5 test locations, single-command | `scripts/perf_gate.sh` (stationary capture, last-10-sample stats, contamination detection) | **live** |
+| Perf gate on perf-relevant commits | run `scripts/perf_gate.sh`, quote numbers in the commit message | manual (rule binds) |
+| No background push / single push | PreToolUse hook in `.claude/settings.json` denies backgrounded `git push` | **live** |
 | Screenshot count = 4 | gitignore + pre-commit check | gitignore done; check to build |
 
 Until a mechanism row says "live," the rule binds manually. When a mechanism exists, bypassing it is itself a violation.
