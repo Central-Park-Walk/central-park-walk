@@ -58,14 +58,28 @@ atlas failure and all time-of-day mismatch bugs.
 - Per-tree jitter, world tonal fBm, snow, aerial perspective stay (they operate on
   albedo, which is now actually albedo).
 
-**Validation (Definition of Done):**
-1. Pixel-sample comparison mesh tier vs impostor at the 240 m handoff, same tree,
-   at 8:00 / 12:00 / 17:00: mean |ΔRGB| over canopy pixels < 0.05, no hue flip.
-   (Capture via walk-bot at fixed positions; compare crops programmatically.)
+**Validation (Definition of Done) — run 2026-06-10:**
+1. Pixel-sample comparison mesh tier vs impostor at the 240 m handoff
+   (`--tier-isolate=mesh|impostor` renders one pure tier, no crossfade) at
+   8:00 / 12:00 / 17:00: mean |ΔRGB| over canopy pixels < 0.05, no hue flip.
+   **PASS: 0.038 / 0.047 / 0.018, G−R sign preserved, silhouette IoU 0.73-0.81.**
 2. Crossfade band shows no brightness step in a slow walk-through capture.
-3. perf_gate at all 5 locations: no regression.
+   **PASS: 36-frame walk 280→196 m, median frame delta 0.002, max 0.011
+   (cloud drift, outside the band).**
+3. perf_gate at all 5 locations: no regression. (Caveat below — the tier was
+   not drawing at all before this date, so the honest baseline changed.)
 4. Re-bake all species via the per-species wrapper (~12 s each, one Godot process
-   per species — all-at-once hangs, see memory `lessons_impostor_bake.md`).
+   per species — all-at-once hangs, see memory `lessons_impostor_bake.md`). **DONE.**
+
+**Discovery (2026-06-10): the impostor tier had been invisible since P1.7.**
+Commit `2c2334d` set the billboard `position_offset` to `-aabb.center` —
+Blender's sign convention in Godot space — which shifted every billboard its
+canopy-center height DOWN and buried the whole 190-2500 m tier under the
+terrain. Confirmed pre-existing at c95ef42 via checkout + capture; fixed by
+`+aabb.center` in tree_builder.gd. Consequences: every distant-canopy
+observation made between P1.7 and this fix (including the 2026-06-09 perf
+baseline) describes a world with NO impostor raster cost; perf numbers gain
+a tier of transparent-pass quads from here on.
 
 ## 3. Shadow proxies (user decision 2026-06-09)
 
