@@ -245,9 +245,10 @@ Remaining from this spec: bark shader gating (lever 2, ~5 ms pot, measured
 texture means for the far-field collapse: furrowed (0.636,0.624,0.524)/r0.53,
 oak (0.540,0.476,0.317)/r0.67, exfoliating (0.545,0.476,0.311)/r0.62, pine
 (0.402,0.326,0.253)/r0.71, smooth (0.547,0.474,0.361)/r0.53), LOD
-regeneration (lever 3). **Grass and undergrowth shaders likely have the
-same ALPHA-write defect — check their render modes before touching content**
-(rendering.md §6 items 4–5).
+regeneration (lever 3). Grass/undergrowth checked for the same defect:
+**negative** — they write `ALPHA_HASH_SCALE` (opaque hashed pipeline);
+discard-variant A/B measured within noise (rendering.md §6 item 5).
+Trees were the lone transparent-pass case (plain ALPHA + inert A2C).
 
 ## 5. Open questions
 
