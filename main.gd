@@ -756,6 +756,15 @@ func _process(delta: float) -> void:
 	_pf_window_max_ms = maxf(_pf_window_max_ms, pf_ms)
 	if pf_ms > 8.0:
 		_pf_window_spikes += 1
+	_run_time += delta
+	var d_ms: float = delta * 1000.0
+	_df_window_max_ms = maxf(_df_window_max_ms, d_ms)
+	if d_ms > 8.0:
+		_df_window_spikes += 1
+	if d_ms > 50.0 and _spike_prints_left > 0:
+		_spike_prints_left -= 1
+		print("[SPIKE] t=%.1fs delta=%.1fms time_process=%.1fms" % [
+			_run_time, d_ms, pf_ms])
 	_diag_log_timer += delta
 	if _diag_log_timer >= 2.0:
 		_diag_log_timer = 0.0
@@ -783,13 +792,16 @@ func _process(delta: float) -> void:
 		var sh_p := RenderingServer.viewport_get_render_info(vp_rid,
 			RenderingServer.VIEWPORT_RENDER_INFO_TYPE_SHADOW,
 			RenderingServer.VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME)
-		print("[PERF] fps=%d process=%.1f pmax=%.1f pspk=%d physics=%.1f sub=%.2f unacc=%.1f vpcpu=%.1f vpgpu=%.1f vistri=%d shobj=%d shtri=%d overlay=%s" % [
-			int(fps), p_ms, _pf_window_max_ms, _pf_window_spikes, phy_ms,
+		print("[PERF] fps=%d process=%.1f pmax=%.1f pspk=%d dmax=%.1f dspk=%d physics=%.1f sub=%.2f unacc=%.1f vpcpu=%.1f vpgpu=%.1f vistri=%d shobj=%d shtri=%d overlay=%s" % [
+			int(fps), p_ms, _pf_window_max_ms, _pf_window_spikes,
+			_df_window_max_ms, _df_window_spikes, phy_ms,
 			sub_us / 1000.0, p_ms - sub_us / 1000.0,
 			vpcpu_ms, vpgpu_ms, vis_p, sh_o, sh_p,
 			"ON" if _hud.perf_visible else "OFF"])
 		_pf_window_max_ms = 0.0
 		_pf_window_spikes = 0
+		_df_window_max_ms = 0.0
+		_df_window_spikes = 0
 
 
 func _get_prof_data() -> Dictionary:
@@ -874,9 +886,16 @@ var _diag_tree_mmis: Array = []
 var _diag_log_timer: float = 0.0
 # Per-window frame-time tail tracking (§5 floor anomaly). TIME_PROCESS is a
 # point sample of the previous frame, so the [PERF] means hide which frames
-# are slow; pmax/pspk expose the tail inside each 2s window.
+# are slow; pmax/pspk expose the tail inside each 2s window. dmax/dspk track
+# the same from _process delta (unsmoothed wall dt) — first floor run showed
+# pmax 2210ms alongside 311 median fps, so the two are compared to pin down
+# TIME_PROCESS semantics. [SPIKE] lines locate stalls >50ms in run time.
 var _pf_window_max_ms: float = 0.0
 var _pf_window_spikes: int = 0
+var _df_window_max_ms: float = 0.0
+var _df_window_spikes: int = 0
+var _spike_prints_left: int = 20
+var _run_time: float = 0.0
 
 func _diag_toggle_terrain() -> void:
 	if not _terrain3d:
