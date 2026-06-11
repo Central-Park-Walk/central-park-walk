@@ -49,6 +49,13 @@ LOD2_KEEP_MIN = 0.15        # below this, card scale (2.6×+) turns crowns to bl
 LOD2_KEEP_MAX = 0.40
 LOD2_BARK_MIN = 3000        # trunk silhouette floor
 LOD2_BARK_MAX = 8000
+# Collapse decimation has a per-island floor: Mtree bark is tens of
+# thousands of separate micro-islands (measured cathedral_elm_l: 31,069
+# islands, ~3 tris each — terminal twig stubs, sub-pixel beyond 60m).
+# Islands smaller than this bbox diagonal may be deleted outright at lod2,
+# smallest first, until the remainder is within collapse range of target.
+BARK_TWIG_PRUNE_DIAG = 0.5  # metres
+BARK_PRUNE_HEADROOM = 3.0   # prune until remaining <= target × headroom
 
 
 def lod2_recipe(leaf_tris, bark_tris):
@@ -276,13 +283,67 @@ def count_tris(mesh, leaf_mat_idx):
     return leaf, bark
 
 
+def prune_small_islands(obj, max_keep_tris):
+    """Delete the smallest mesh islands (by bbox diagonal, ascending) until
+    the object is within collapse range of the target — never touching
+    islands ≥ BARK_TWIG_PRUNE_DIAG. Light-bark species skip this entirely
+    (already under max_keep_tris); only the micro-island heavies get pruned.
+    """
+    mesh = obj.data
+    mesh.calc_loop_triangles()
+    total = len(mesh.loop_triangles)
+    if total <= max_keep_tris:
+        return
+
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bm.faces.ensure_lookup_table()
+    # All faces in a separated bark part share one material — reuse the
+    # island finder with that index.
+    mat_idx = bm.faces[0].material_index if len(bm.faces) else 0
+    islands = find_leaf_islands(bm, mat_idx)
+
+    sized = []
+    for faces in islands:
+        xs, ys, zs = [], [], []
+        for fi in faces:
+            for v in bm.faces[fi].verts:
+                xs.append(v.co.x)
+                ys.append(v.co.y)
+                zs.append(v.co.z)
+        diag = math.sqrt((max(xs) - min(xs)) ** 2 + (max(ys) - min(ys)) ** 2
+                         + (max(zs) - min(zs)) ** 2)
+        sized.append((diag, faces))
+    sized.sort(key=lambda s: s[0])
+
+    doomed = []
+    remaining = total
+    for diag, faces in sized:
+        if remaining <= max_keep_tris or diag >= BARK_TWIG_PRUNE_DIAG:
+            break
+        doomed.extend(bm.faces[fi] for fi in faces)
+        remaining -= len(faces)
+    if doomed:
+        n_doomed = len(doomed)
+        bmesh.ops.delete(bm, geom=doomed, context='FACES')
+        loose = [v for v in bm.verts if not v.link_faces]
+        if loose:
+            bmesh.ops.delete(bm, geom=loose, context='VERTS')
+        bm.to_mesh(mesh)
+        mesh.update()
+        print(f"    {obj.name}: pruned {n_doomed} twig-island faces "
+              f"(<{BARK_TWIG_PRUNE_DIAG}m), {total} -> {remaining}")
+    bm.free()
+
+
 def decimate_bark_to_target(obj, target_tris):
-    """Collapse-decimate the bark portion of a mixed leaf+bark mesh.
+    """Reduce the bark portion of a mixed leaf+bark mesh to a tri budget.
 
     Leaf cards must not pass through Decimate (it destroys card UVs), so:
-    separate by material, decimate the non-leaf parts, rejoin. The original
-    object stays the join target so its name and material-slot order — which
-    the runtime's variant-index pairing across tiers depends on — survive.
+    separate by material, prune sub-pixel twig islands, collapse-decimate
+    the non-leaf parts, rejoin. The original object stays the join target so
+    its name and material-slot order — which the runtime's variant-index
+    pairing across tiers depends on — survive.
 
     Returns the joined object.
     """
@@ -302,7 +363,7 @@ def decimate_bark_to_target(obj, target_tris):
     bpy.ops.object.mode_set(mode='OBJECT')
 
     parts = list(bpy.context.selected_objects)
-    ratio = target_tris / bark_tris
+    bark_parts = []
     for p in parts:
         pm = p.data
         if len(pm.polygons) == 0:
@@ -311,7 +372,18 @@ def decimate_bark_to_target(obj, target_tris):
         mat = pm.materials[midx] if midx < len(pm.materials) else None
         if mat and "leaf" in mat.name.lower():
             continue
-        decimate_bark_only(p, ratio)
+        bark_parts.append(p)
+
+    for p in bark_parts:
+        prune_small_islands(p, target_tris * BARK_PRUNE_HEADROOM)
+    remaining = 0
+    for p in bark_parts:
+        p.data.calc_loop_triangles()
+        remaining += len(p.data.loop_triangles)
+    if remaining > target_tris:
+        ratio = target_tris / remaining
+        for p in bark_parts:
+            decimate_bark_only(p, ratio)
 
     bpy.ops.object.select_all(action='DESELECT')
     join_target = obj if obj.name in {p.name for p in parts} else parts[0]
