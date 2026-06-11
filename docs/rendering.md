@@ -223,6 +223,36 @@ shadow-distance cut) — surface to the user before taking any of them.
 
 Every step: perf_gate before/after at all 5 locations, committed with the numbers in the message.
 
+## 6b. Sky calibration (2026-06-10/11 — D9–12 item 1, "dark storm noon" fixed)
+
+The Sheep Meadow comparison's #1 finding (clear noon renders as dark storm
+overcast, sky 48–78/255 vs real ~200) had two roots, both fixed:
+
+1. **Weather map had no clear sky in it.** The stock demo `weather.bmp`
+   coverage channel (B) was mid-gray noise — 94% of texels >0.3, zero
+   texels at 0 — so `cloud_coverage × weather.b` was non-zero across the
+   whole dome and the Schneider threshold remap produced one giant
+   connected slab at ANY coverage setting. Replaced by
+   `scripts/gen_weather_map.py`: discrete fair-weather cumulus cells
+   (lognormal 0.35–1.8 km radii, 2.1 km jittered grid, cloud-street
+   anisotropy, 5–10 km patchiness, 67% true zeros, 0.32 areal coverage).
+   NOAA monthly coverage (day_night_cycle) remains the global scale.
+2. **Both sky and clouds sat 1.2–1.5 stops under reference** beneath our
+   AgX pipeline (the upstream `/50` LUT convention assumed a different
+   exposure). Calibrated by measured sweep at noon-clear (`--cloud-seed`
+   fixes the field; `--sky-cal=bg:sun:amb` overrides): **background ×5,
+   cloud direct-sun ×20, cloud ambient ×6** → blue zenith 127 / mid-dome
+   144 sRGB (real 120–160), cumulus bodies p50 ~192 with shaded bases
+   intact (×40/×8 went flat-white, rejected).
+3. **The multipliers are day-blended on `sun_energy`** (NOT sun pitch — the
+   keyframes repurpose the light as a high moon at night): full by day,
+   1.0 at night. Verified endpoints: 22:00 sky median 51 (matches the ×1
+   baseline), noon 144. 8:00/17:00/19:30 visually verified.
+
+Gotchas embedded: editing `clouds.glsl` requires a reimport or the game
+runs the stale SPIR-V (a push-constant size mismatch silently kills the
+dispatch — cloudless sky + spurious flat tint from the cleared textures).
+
 ## 7. Shadow-casting policy (design rule)
 
 Only things whose shadow you can *name from a walk* cast: trees (via proxies), large structures, lamps at night. Grass, undergrowth, ground cover, leaves-as-geometry never cast (enforced in every builder; verified 2026-06-09 — shadow-pass primitives identical at 17.44M with grass shown vs hidden at Great Lawn). Perceived grass shadows are in-shader blade shading + SSAO/SSIL contact darkening. Shadow detail is a near-field privilege; beyond the first cascade, shape fidelity is invisible and dapple is texture, not geometry.
