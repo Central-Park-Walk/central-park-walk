@@ -134,13 +134,55 @@ Geometry response (coherence rule — **no green blades on dirt**):
       latency-bound shaders). 3-of-5 pass status unchanged; ramble/NW remain the open
       policy decision from the perf sprint, not a turf regression.
 
-## 6. Open / deferred
+## 6. Lawn brightness calibration — RESOLVED 2026-06-11
 
-- **Lawn absolute brightness**: clean-turf luminance ratio lawn/sky measured 0.37 in game
-  vs 0.63 in reference footage (2026-06-11, hero pose vs hq_02-08) — our sunlit turf is
-  ~1 stop dark relative to sky. Candidate causes: no turf sheen/specular, blade
-  self-shadowing at grazing angles, AgX shoulder. Needs its own measured calibration pass
-  (like the sky ×5/×20/×6 session); don't band-aid with an albedo multiplier.
+Saved protocol: `scripts/turf_luminance_check.py` (green-masked median display
+luminance, fixed fractional boxes per image — replaces the ad-hoc 0.37/0.63
+measurement, whose boxes weren't comparable). Re-measured targets: reference
+clean turf luma **142–149/255, R/G 0.87–0.88 display** (hq_02-08 / hq_08-08);
+game was **89/255, R/G 0.57**. Blade tier and terrain albedo agreed (86–110
+across distance bands) — the whole chain was dark, not one tier.
+
+Three measured components, all shipped (hero pose, `--cloud-seed=7` sweeps):
+
+1. **`SUN_CAL = 3.0`** (day_night_cycle.gd): the sky calibration (rendering.md
+   §6b) brightened the rendered sky ~1.2–1.5 stops but the DirectionalLight
+   kept its keyframe energy — the missing stop was ground lighting, not
+   albedo. Day-blended on sun_energy (night/dusk untouched, verified 21:00);
+   cloud direct-sun term compensated (`sun_scale / sun_mult` — clouds.glsl
+   multiplies LIGHT_ENERGY). Verified no sky shift: dark-cloud fraction flat
+   across the sweep (16.8%→15.6%); sky median +10 = background mie term
+   (physical sun-side haze). Direct:diffuse now ~4.9:1 (physical clear noon —
+   reference's "very dark shadow pools" preserved; ambient untouched).
+   Sweep knob: `--sun-cal=mult`.
+2. **Thatch mix 0.22** (grass_zone_colors.gdshaderinc, mown zones only): a
+   mown canopy is ~20–25% dead thatch + dried cut tips by optical cross-
+   section — lifts red the way turf-canopy field spectra show vs single-leaf.
+   This closed most of the chroma gap (R/G 0.68→0.81 at fixed sun). The
+   spectral palettes stay pure live-leaf values.
+3. **`turf_sheen = 0.6`** (main.gd global, `--turf-sheen` overrides): broad
+   white cuticle specular (terrain SPECULAR 0.04→0.30, rough 0.65; blades
+   matched via the same global so the 36–60 m fade ring stays invisible).
+   The old terrain comment "grass has no specular sheen" was wrong.
+
+Result (shipped defaults): **lawn luma 129/255 (reference band 126–149),
+R/G 0.82 (reference 0.87), lawn/sky 0.49→0.67.** Times-of-day 8/13/17/19:30/21
+visually verified; Literary Walk / Ramble / Bethesda collateral-checked (no
+stone blow-out, shade readable). Perf gate 20260611_020824: 69/76/55/84/45 fps
+vs prior 68/74/52/82/44 — all equal-or-better (sheen/thatch are ALU in
+latency-bound shaders, per rendering.md §6.7).
+
+Calibration anchor sanity (kept honest): game *trees* measure R/G 0.90 vs
+reference 0.85 — no global camera-desaturation excuse; the turf chroma gap
+was real. Side finding from the same measurement: **distant tree line is
+~2.5× too bright** (luma ~130 vs reference 36–62 "dark mass") — the real
+lawn≫treeline value relationship is inverted in game. Logged in
+COMPARISON.md #5; belongs to the aerial-perspective/fog work, NOT turf.
+Remaining minor gap: lawn B channel 74 vs reference 88 — likely the warm
+noon `ambient_color` keyframe suppressing blue skylight; scene-wide
+question, queued with the tree-line item.
+
+## 7. Open / deferred
 
 - True species mixes per CPC class ([grass conservancy data] memory) — palettes currently
   KBG/rye/fescue approximations; fine for now.
