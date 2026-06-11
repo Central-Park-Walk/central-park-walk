@@ -352,6 +352,12 @@ keeping: **ALU-side visual richness in these shaders is effectively free**
 — more noise octaves, richer dapple, per-pixel color work cost nothing
 measurable (D9–12 can spend there without gate anxiety).
 
+**Also measured dead (2026-06-10): `--leaf-no-prepass`** — stripping
+`depth_prepass_alpha` from tree_leaf reads identical at ramble (54/54 fps,
+vpgpu 19.0/18.6; report 20260610_224019). The prepass double-raster cost
+and its early-Z shading savings cancel; keep the prepass (safer when depth
+complexity rises). The diag stays for re-checks on future content.
+
 **Lever B — bark detail distance-gate (tree_bark.gdshader §styles).**
 Style 0 (oak/elm/maple/ginkgo — most of the forest) runs ~24 noise
 evaluations/fragment (fbm4×3 + fbm3×3 + vnoise×3, all triplanar). Beyond
