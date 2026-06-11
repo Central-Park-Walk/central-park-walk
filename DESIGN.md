@@ -31,7 +31,7 @@ Then state the session's target in one sentence before writing any code.
 - `docs/glossary.md` — terms used across the codebase and docs (LOD0, MMI, atlas, zone, etc.). *(to be written)*
 
 ## Quality bar (non-negotiable)
-- **1080p / 60fps on RTX 3060 Ti.** Per-subsystem performance budgets defined in `docs/rendering.md` are binding.
+- **1080p / 60fps on RTX 3060 Ti** in open areas; **≥45fps acceptable in deep woodland** (Ramble, North Woods — user decision 2026-06-11, `docs/vision.md`). Per-subsystem performance budgets defined in `docs/rendering.md` are binding.
 - **Faithful to source data.** Data-first, nature-first.
 - **Natural environment is the priority** until v1.0; man-made is deferred to community contribution.
 - **Visual changes are tested against reference images**, not against feeling. "Looks better" without a reference comparison does not count as done.

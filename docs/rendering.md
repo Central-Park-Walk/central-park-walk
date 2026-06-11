@@ -3,7 +3,7 @@
 Written 2026-06-09 from the D1–2 bisection (commits `06d3991`–`3ee9777`).
 Companion docs: [`architecture.md`](architecture.md) (system map; its §7 hypotheses are now measured here), [`workflow.md`](workflow.md) (Definition of Done).
 
-**Hard target ([`vision.md`](vision.md)): 16.6 ms/frame (60 fps) at 1920×1080 on RTX 3060 Ti, at all 5 canonical test locations.**
+**Hard target ([`vision.md`](vision.md)): 16.6 ms/frame (60 fps) at 1920×1080 on RTX 3060 Ti** at the open locations (literary_walk, bethesda, great_lawn); **deep woodland (ramble, north_woods) floor is 22.2 ms (45 fps)** — user decision 2026-06-11, recorded in vision.md. 60 stays the aspiration everywhere.
 
 ## 1. How we measure
 

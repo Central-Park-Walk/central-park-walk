@@ -9,7 +9,9 @@
 # 2s, discards the settle period, and reports median/min FPS and process ms.
 # Report saved to perf_reports/<stamp>_<label>.txt (gitignored); summary on stdout.
 #
-# Target (docs/vision.md): 60 fps at 1080p on RTX 3060 Ti at ALL locations.
+# Target (docs/vision.md): 60 fps at 1080p on RTX 3060 Ti at the open locations
+# (literary_walk, bethesda, great_lawn); 45 fps floor in deep woodland
+# (ramble, north_woods) — user decision 2026-06-11.
 
 set -u
 GODOT="${GODOT:-/home/chris/godot 4/Godot_v4.6.1-stable_linux.x86_64}"
@@ -20,6 +22,9 @@ PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 RUN_SECONDS="${PERF_GATE_SECONDS:-60}"
 MEASURE_SAMPLES=10
 TARGET_FPS=60
+# Deep woodland (ramble, north_woods) floor — user decision 2026-06-11 (vision.md).
+WOODLAND_TARGET_FPS=45
+target_for() { case "$1" in ramble|north_woods) echo "$WOODLAND_TARGET_FPS" ;; *) echo "$TARGET_FPS" ;; esac }
 # NOTE: a game window opens per location. Do NOT interact with it (F9,
 # screenshots, movement contaminate the measurement).
 
@@ -83,14 +88,14 @@ for loc in "${LOCATIONS[@]}"; do
     overall_pass=0
   else
     printf "%-15s %8s %8s %8s %10s %8s\n" "$name" "$med" "$minf" "$avg" "$pms" "$nsamp" | tee -a "$REPORT"
-    awk -v m="$med" -v t="$TARGET_FPS" 'BEGIN { exit !(m < t) }' && overall_pass=0
+    awk -v m="$med" -v t="$(target_for "$name")" 'BEGIN { exit !(m < t) }' && overall_pass=0
   fi
   rm -f "$log"
 done
 
 if [ "$overall_pass" -eq 1 ]; then
-  echo "RESULT: PASS (median >= ${TARGET_FPS} fps at all locations)" | tee -a "$REPORT"
+  echo "RESULT: PASS (median >= ${TARGET_FPS} fps open / >= ${WOODLAND_TARGET_FPS} fps woodland)" | tee -a "$REPORT"
 else
-  echo "RESULT: FAIL (target ${TARGET_FPS} fps median at all locations)" | tee -a "$REPORT"
+  echo "RESULT: FAIL (target ${TARGET_FPS} fps open / ${WOODLAND_TARGET_FPS} fps woodland, median)" | tee -a "$REPORT"
 fi
 echo "report: $REPORT"

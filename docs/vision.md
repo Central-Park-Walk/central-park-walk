@@ -27,6 +27,8 @@ We are NOT trying to be:
 ## Performance target
 **1080p / 60fps on RTX 3060 Ti.** This is the binding constraint for every architectural decision, the budget for every subsystem, and the test for whether a change ships.
 
+**Deep-woodland exception (user decision, 2026-06-11):** in the heavily wooded locations (Ramble, North Woods) **≥45fps is acceptable** — the user walked the park at 30–45fps under canopy and judged it fine. 60 remains the goal everywhere and the standard in open areas (Literary Walk, Bethesda, Great Lawn); the woodland floor is 45. This unblocks the forest-coherence work, which necessarily adds canopy overdraw exactly where the frame is most expensive.
+
 Reference point: GTA 5 hits ~100fps on the same 3060 Ti with raytracing off and shadows/reflections at reasonable settings. GTA 5 is a far larger and busier world than a walk-only Central Park. 60fps for our project is achievable without exotic techniques — if we're missing it, the architecture is wrong, not the hardware.
 
 Visual quality lower bound: **GTA 5 with sensible settings would be acceptable.** We hope for better, especially in the natural layer where we have a much narrower subject and can spend our budget densely.
