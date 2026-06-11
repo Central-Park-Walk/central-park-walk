@@ -225,6 +225,9 @@ func _parse_cli_args() -> void:
 			if sc.size() >= 2: _cli_sky_sun = float(sc[1])
 			if sc.size() >= 3: _cli_sky_amb = float(sc[2])
 			print("[DIAG] sky-cal bg=%.2f sun=%.2f amb=%.2f" % [_cli_sky_bg, _cli_sky_sun, _cli_sky_amb])
+		elif key == "--sun-cal" and val != "":
+			_cli_sun_cal = float(val)
+			print("[DIAG] sun-cal ×%.2f" % _cli_sun_cal)
 		elif arg == "--shadow-census":
 			_diag_shadow_census = true
 		elif arg == "--screenshot":
@@ -273,6 +276,7 @@ func _ready() -> void:
 	_day_night.vol_sky = _vol_sky
 	_day_night.sun = _sun
 	_day_night.sky_cal_override = Vector3(_cli_sky_bg, _cli_sky_sun, _cli_sky_amb)
+	_day_night.sun_cal_override = _cli_sun_cal
 	# Register global shader parameters BEFORE park_loader creates materials
 	RenderingServer.global_shader_parameter_add("wind_vec", RenderingServer.GLOBAL_VAR_TYPE_VEC2, Vector2.ZERO)
 	RenderingServer.global_shader_parameter_add("snow_cover", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
@@ -928,6 +932,9 @@ var _cli_cloud_seed: int = -1
 var _cli_sky_bg: float = -1.0
 var _cli_sky_sun: float = -1.0
 var _cli_sky_amb: float = -1.0
+# --sun-cal=mult: ground-light (DirectionalLight) calibration override
+# (-1 = shipped SUN_CAL; sky compensated — see day_night_cycle.gd)
+var _cli_sun_cal: float = -1.0
 # --shadow-census: one-shot dump of every shadow-casting GeometryInstance3D
 # (top 25 by mesh tris × instances) on the 3rd perf tick, after diag hides apply.
 var _diag_shadow_census: bool = false

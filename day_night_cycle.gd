@@ -62,6 +62,20 @@ const SKY_CAL_AMB := 6.0    # cloud-march ambient multiplier
 # --sky-cal=bg:sun:amb sets exact values for calibration sweeps (bypasses
 # the sun-elevation blend). -1 components = unset.
 var sky_cal_override := Vector3(-1.0, -1.0, -1.0)
+# Ground-light calibration (2026-06-11, docs/grass.md §6): the sky
+# calibration above brightened the rendered sky ~1.2-1.5 stops, but the
+# DirectionalLight that lights the ground was never recalibrated against
+# it — sunlit turf measured lawn/sky 0.49 vs ~1.0 in reference footage
+# (scripts/turf_luminance_check.py). SUN_CAL multiplies sun.light_energy,
+# day-blended like the sky cal so night/dusk are untouched. The
+# cloud-march direct-sun term multiplies LIGHT_ENERGY (clouds.glsl:171),
+# so cal_sun is divided by the same factor — the calibrated sky stays
+# fixed by construction. Ambient is NOT scaled: raising direct only moves
+# the direct:diffuse ratio from the keyframes' ~2:1 toward the physical
+# ~5:1 of a clear noon (reference: "shadow pools are very dark").
+const SUN_CAL := 1.0  # set by measured sweep — see grass.md §6
+# --sun-cal=mult sets the exact multiplier (bypasses the day blend).
+var sun_cal_override := -1.0
 # --diag-hide=cloudshadows: zero the procedural ground cloud-shadow term
 # for attribution A/Bs (visible volumetric clouds unaffected).
 var cloud_shadow_disabled := false
@@ -77,21 +91,27 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 	# Cloud properties
 	var cc_val: float = _lerp_kf("cloud_coverage", a, b, t)
 	var cs_val: float = _lerp_kf("cloud_speed", a, b, t)
+	# Day factor for the sky + ground-light calibrations. sun_pitch can NOT
+	# be the day signal — the keyframes repurpose the light as a high moon
+	# at night (21:00 pitch −65). sun_energy is the honest one: 0.9–0.95 in
+	# daylight, 0.05 at night.
+	var day_f: float = smoothstep(0.15, 0.65, _lerp_kf("sun_energy", a, b, t))
+	var sun_mult: float = lerpf(1.0, SUN_CAL, day_f)
+	if sun_cal_override > 0.0:
+		sun_mult = sun_cal_override
 	if vol_sky:
 		vol_sky.cloud_coverage = clampf(cc_val, 0.20, 0.50)
 		vol_sky.density = clampf(_lerp_kf("cloud_density", a, b, t) * 0.08, 0.02, 0.10)
-		# Day-blended sky calibration (constants above). sun_pitch can NOT be
-		# the day signal — the keyframes repurpose the light as a high moon at
-		# night (21:00 pitch −65). sun_energy is the honest one: 0.9–0.95 in
-		# daylight, 0.05 at night.
-		var day_f: float = smoothstep(0.15, 0.65, _lerp_kf("sun_energy", a, b, t))
+		# Day-blended sky calibration (constants above).
 		var cal_bg: float = lerpf(1.0, SKY_CAL_BG, day_f)
 		var cal_sun: float = lerpf(1.0, SKY_CAL_SUN, day_f)
 		var cal_amb: float = lerpf(1.0, SKY_CAL_AMB, day_f)
 		if sky_cal_override.x > 0.0: cal_bg = sky_cal_override.x
 		if sky_cal_override.y > 0.0: cal_sun = sky_cal_override.y
 		if sky_cal_override.z > 0.0: cal_amb = sky_cal_override.z
-		vol_sky.sun_scale = cal_sun
+		# Compensate the SUN_CAL ground-light raise: the cloud direct-sun
+		# term multiplies LIGHT_ENERGY, so divide it back out here.
+		vol_sky.sun_scale = cal_sun / sun_mult
 		vol_sky.ambient_scale = cal_amb
 		sky_mat.set_shader_parameter("sky_brightness", cal_bg)
 	else:
@@ -249,8 +269,8 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 			if s_winter > 0.3:
 				sky_mat.set_shader_parameter("cloud_type", lerpf(0.0, 1.0, s_winter))
 
-	# Sun / moon directional light
-	sun.light_energy    = _lerp_kf("sun_energy", a, b, t)
+	# Sun / moon directional light (SUN_CAL: ground-light calibration above)
+	sun.light_energy    = _lerp_kf("sun_energy", a, b, t) * sun_mult
 	sun.light_color     = _lerp_kf("sun_color", a, b, t)
 	var pitch: float    = _lerp_kf("sun_pitch", a, b, t)
 	var yaw: float      = _lerp_kf("sun_yaw", a, b, t)
