@@ -182,6 +182,42 @@ Remaining minor gap: lawn B channel 74 vs reference 88 — likely the warm
 noon `ambient_color` keyframe suppressing blue skylight; scene-wide
 question, queued with the tree-line item.
 
+## 6b. Dark blade-circle — RESOLVED 2026-06-11 (walk-around defect #2)
+
+User walk-around (screenshots/cpw_005/007/009): near-field grass read as a
+dark saturated circle following the player, soft arc boundary at tens of
+meters. Measured at the cpw_005 pose (`--pos=-339.5,957.5,309.6 --pitch=-20`,
+`--cloud-seed=7`, same-pixel A/B vs `--diag-hide=grass`): game near→far lawn
+ramp **+18–22% luma** vs **+4%** in reference footage (hq_08-08 bands, R/G
+flat 0.87–0.89). Two roots, both view-geometry dependent (hence "follows the
+player"):
+
+1. **Terrain Burley grazing retro-reflection** (~half the ramp): diffuse_burley
+   brightens high-roughness ground toward grazing view angles; real turf
+   self-shadows at grazing and stays flat. → `diffuse_lambert` on
+   terrain3d_override + both grass shaders (commit 651af6a). Far grazing band
+   −6.7%; specular measured innocent (≤0.9%/band, sheen unaffected).
+2. **Engine backface-normal negation on the blade carpet** (the blade half):
+   with `cull_disabled`, the renderer negates the geometric normal for
+   backfacing fragments — half of all blade quads lit from BELOW
+   (ground-hemisphere ambient, zero sun). Blade pixels −25..−40% vs the
+   terrain they cover under ambient-only light (`--sun-cal=0.01` isolation).
+   → `FRONT_FACING` pre-flip + card normals up-blended 0.7 toward world up +
+   0.905 equalization trim (the blade chain's extras overshot once lighting
+   was correct) (commit 12e7b7d).
+
+Ruled out by measurement: volumetric fog ≤0.9%/band at <100m, turf_sheen
+≤0.9%, SSAO/SSIL ~1.5% differential, native-texture leak in the spectral
+blend ~2%, "SDFGI under-lights particles" (symptom of flipped normals).
+
+**DoD (all pass):** blade-band vs terrain-only delta +0.4..+1.5% across all
+distance bands at noon and 17:00 (target ≤5%); turf_luminance_check lawn
+131.7/255 (band 126–149) — Lambert didn't break the §6 calibration; perf
+gate 20260611_041200: 71/77/55/86/47 fps, all equal-or-better. Protocol
+note: when measuring blade-vs-terrain, use whole-band means — a changed-pixel
+classifier self-biases toward outliers as the tiers converge. User re-walk
+pending.
+
 ## 7. Open / deferred
 
 - True species mixes per CPC class ([grass conservancy data] memory) — palettes currently
