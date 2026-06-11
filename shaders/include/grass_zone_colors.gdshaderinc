@@ -82,25 +82,31 @@ vec3 grass_base_color_no_dead(int zone_id, vec2 world_xz) {
 	float micro = vnoise(world_xz / 3.0);
 	vec3 col = mix(c_lo, c_hi, micro);
 
-	// --- Macro variation (20-25m patches) ---
-	// The dominant visual signal at field scale. Real grass fields have
-	// large splotches of different tone from soil moisture, drainage,
-	// mowing timing, species mix, and foot traffic.
-	// Single 22m octave with contrast boost — vnoise concentrates around 0.5,
-	// so smoothstep(0.25, 0.75) remaps the middle 50% to the full 0-1 range,
-	// doubling contrast and making patches actually visible.
-	float macro_raw = vnoise(world_xz / 22.0 + vec2(13.7, 41.2));
-	float macro = smoothstep(0.25, 0.75, macro_raw);
-	// Range 0.72–1.50: stressed patches go darker/yellower,
-	// vigorous patches go brighter/greener. Average ~1.11 (+11% boost).
-	float macro_scale = mix(0.72, 1.50, macro);
+	// --- Macro variation (20-30m patches) ---
+	// Soft field-scale tone drift from soil moisture, drainage, mowing
+	// timing, species mix. CALIBRATED 2026-06-11 against Sheep Meadow
+	// reference footage (notes/refs, hq_08-08): real mid-scale variation
+	// is SOFT-edged and ±15-20% at most; the previous single-lattice
+	// octave with smoothstep contrast boost and 0.72-1.50 range rendered
+	// as a checkerboard of 2:1 axis-aligned blocks — that was the
+	// comparison's "giant hard-edged diagonal line on the lawn" (finding
+	// #2; cloud shadows were measured innocent via --diag-hide=cloudshadows).
+	// Two ROTATED octaves break the lattice axis-alignment; no contrast
+	// boost — raw vnoise is already the right softness.
+	vec2 mrot1 = mat2(vec2(0.80, -0.60), vec2(0.60, 0.80)) * world_xz;  // ~37°
+	vec2 mrot2 = mat2(vec2(0.51, 0.86), vec2(-0.86, 0.51)) * world_xz;  // ~-59°
+	float macro = vnoise(mrot1 / 22.0 + vec2(13.7, 41.2)) * 0.6
+	            + vnoise(mrot2 / 31.0 + vec2(7.1, 23.9)) * 0.4;
+	// Range 0.85–1.18: stressed patches slightly darker/yellower,
+	// vigorous slightly brighter/greener.
+	float macro_scale = mix(0.85, 1.18, macro);
 	col *= macro_scale;
 
 	// Stressed patches lean warm (yellow-brown); vigorous lean cool (blue-green)
 	// This hue shift correlates with the brightness — dry = yellow, lush = green
-	float stress_hue = smoothstep(0.72, 1.10, macro_scale);
-	col *= mix(vec3(1.10, 1.0, 0.82),   // stressed: warm/yellow
-	           vec3(0.94, 1.0, 1.06),    // vigorous: cool/green
+	float stress_hue = smoothstep(0.85, 1.12, macro_scale);
+	col *= mix(vec3(1.07, 1.0, 0.88),   // stressed: warm/yellow
+	           vec3(0.95, 1.0, 1.05),    // vigorous: cool/green
 	           stress_hue);
 
 	// --- Landscape gradient (70m) ---
