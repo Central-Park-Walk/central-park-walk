@@ -18,6 +18,7 @@ global uniform vec3 sky_reflect_color;
 // perspective) so the calculation stays consistent across shadow and
 // reflection passes whose INV_VIEW_MATRIX reflects the light/probe view.
 global uniform vec3 player_world_pos;
+global uniform float detail_gates;  // 1=distance-gate procedural detail (§4g), 0=legacy always-on
 
 // LOD crossfade dither ranges (begin, end). Set per LOD tier.
 // vec2(0,0) = no dithering (default).
@@ -329,11 +330,22 @@ void fragment() {
 	// UV-space per-leaf detail above goes sub-pixel and washes flat.
 	// Bias toward sun-exposed (most pixels stay near 1.0×); a minority
 	// sit in deeper shade pockets, a few catch sun-spots.
-	float dapple_main = vnoise(frag_world.xz * 0.35 + frag_world.y * 0.08);
-	float dapple_sub  = vnoise(frag_world.xz * 1.10);
-	float dapple = dapple_main * 0.72 + dapple_sub * 0.28;
-	dapple = smoothstep(0.22, 0.88, dapple);
-	col *= mix(0.72, 1.12, dapple);
+	// §4g lever A: a mid/far cue — near canopy gets real proxy-shadow dapple,
+	// SDFGI, and the gated per-leaf layers, so fade in over 30–60 m and skip
+	// both noise evaluations up close. Bakes force the far path: the baker
+	// never registers player_world_pos (dist≈0 there), and impostors render
+	// beyond 250 m where dapple is fully on — atlas output is unchanged.
+	// detail_gates=0 (CLI --detail-gates=0) forces the old always-on path for A/Bs.
+	float gate_dapple = (bake_mode != 0) ? 1.0
+		: mix(1.0, smoothstep(30.0, 60.0, frag_cam_dist), detail_gates);
+	float dapple_w = 0.92;  // distribution mean — near brightness unchanged
+	if (gate_dapple > 0.001) {
+		float dapple_main = vnoise(frag_world.xz * 0.35 + frag_world.y * 0.08);
+		float dapple_sub  = vnoise(frag_world.xz * 1.10);
+		float dapple = smoothstep(0.22, 0.88, dapple_main * 0.72 + dapple_sub * 0.28);
+		dapple_w = mix(0.92, mix(0.72, 1.12, dapple), gate_dapple);
+	}
+	col *= dapple_w;
 
 	// Per-pixel micro-variation: chlorophyll patches, dust, cell structure
 	// Real leaves have millions of unique shades across their surface
