@@ -16,11 +16,18 @@
   the hybrid; the genus count + census ~1.7 k confirm abundance). Population is real and large.
 - [x] **Habit / bark / fall / winter (authoritative)** — Cornell UHI tree tour, Stanford
   Trees, Woodland Trust, NCSU Extension, [[reference-tree-canopy-data]] §11.
-- [ ] **Walk-through / in-stand video** — NOT yet gathered (the Mall video is elms; North
-  Woods is native woodland). **Non-blocking:** the bark is iconic and exhaustively documented;
-  habit is well-established. A formal-allée / Fifth-Ave-perimeter walk would refine the
-  pollarded-row look — *take the user up on the offer only if convenient* (their offer
-  2026-06-11). Mark any AI art target explicitly if used (none so far).
+- [x] **Species ID video (ESF TV, not CP)** — `O1W53MX715k`, ~2:00, summer. Local + ffmpeg
+  frames 8/22/36/50/64/78/92 %. Confirms, visually: broad dense rounded crown on **stout,
+  crooked, horizontal-to-ascending limbs** (g_8/50); **large palmately 3–5-lobed maple-like
+  leaves** (g_36); and the **camouflage bark — olive-grey trunk with cream flake-patches that
+  extends HIGH up the trunk and onto the main limbs, the upper scaffold going smooth pale
+  cream** (g_78/g_92). The pale-bark-goes-high detail is build-relevant (§4/§8).
+- [~] **CP video the user found** (`ULOSd6eRuY4`) turned out to be an NBC **Conservatory Garden**
+  spring segment (Vanderbilt Gate, Untermyer Fountain, wisteria pergola, **saucer magnolias in
+  bloom**) — *not* a London plane reference. Useful magnolia-bloom corroboration; logged there.
+- [ ] **CP in-stand / formal-row video** — still not gathered (no CP-specific footage). **Non-blocking:**
+  bark + leaf + habit now visually confirmed (above) and exhaustively documented. A Fifth-Ave-
+  perimeter / formal-allée walk would still best show the pollarded-row look — welcome if convenient.
 
 ## 1. Habit — how it flows over itself
 - **One-liner:** *a massive broad-spreading tree on a high clear bole; stout, somewhat
@@ -53,7 +60,10 @@
 ## 4. Detail
 - **Bark — THE feature:** **mottled, exfoliating "camouflage / jigsaw" bark** — olive-green
   to grey scaly plates flake off in large patches to reveal **creamy-tan** inner bark;
-  trunk reads as cream + tan + olive-green + brown-fleck patchwork. Pale, smooth higher up.
+  trunk reads as cream + tan + olive-green + brown-fleck patchwork. **The mottling extends
+  HIGH — up the full trunk and onto the main limbs — and the upper scaffold/branches go
+  smooth pale cream** (confirmed video `O1W53MX715k` g_78/g_92). So the bark style must apply
+  the camouflage to the whole woody skeleton, not just the lower bole, and pale the upper limbs.
   This is the species' identity and the §6 bark-workflow hero target. `bark_color`
   `(0.48,0.45,0.36)` is the pale base; the **plane/mottled bark style** must paint the patches.
 - **Leaf:** alternate, simple, **palmately 3–5 lobed (maple-like but larger)**, 10–25 cm,
@@ -84,8 +94,9 @@ broadleaf. (Secondary tell: dangling seed balls in winter.)
   `branch_start` 0.30 + horizontal `branch_angle` 60; stout crooked limbs; outer-shell foliage.
 - **Textures — the hero deliverable:** the **mottled plane-bark style** in `tree_bark.gdshader`
   + bark texture — cream/tan/olive camouflage patches with a per-instance seed so trunks don't
-  repeat. This is the §6 bark-workflow proof the cheaper model copies for other bark styles.
-  Palmate 3–5-lobe leaf texture.
+  repeat. **Apply the camouflage up the whole woody skeleton (trunk + main limbs), paling the
+  upper branches to smooth cream** (video g_78/g_92) — not just the lower bole. This is the §6
+  bark-workflow proof the cheaper model copies for other bark styles. Palmate 3–5-lobe leaf texture.
 - **Builder/placement** (`tree_builder.gd`): formal-row overlap so allée crowns merge (§2);
   per-instance bark seed.
 - **Perf budget:** fragment-bound; bark detail is texture-latency-cheap

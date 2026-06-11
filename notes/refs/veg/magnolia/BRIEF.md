@@ -9,7 +9,9 @@
 ## Reference set
 - [x] **iNat CP:** **657** research-grade _Magnolia_ in bbox — abundant ornamental.
 - [x] **Authoritative + canopy numbers:** [[reference-tree-canopy-data]] §13; Morton/NCSU.
-- [ ] **In-stand video:** none — non-blocking; the spring-bloom spectacle is the iconic, well-documented reference.
+- [~] **Incidental video:** NBC Conservatory Garden spring segment (`ULOSd6eRuY4`, frame 40 %)
+  shows **CP saucer magnolias in pink-white bloom** — corroborates the pre-leaf bloom + low
+  spreading habit. Not a dedicated magnolia walk; non-blocking. The spring-bloom spectacle is iconic and well-documented.
 
 ## 1. Habit
 - **One-liner:** *a small, **often multi-stemmed**, broad spreading tree — wider than tall —
