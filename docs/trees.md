@@ -298,7 +298,7 @@ per-model loop; remember the reimport — game runs never reimport).
    post-opaque tree cost is dominated by canopy *fragment shading*
    (shading tree-covered pixels once is irreducible by geometry LOD).
    Vertex load was never binding at 1080p on this GPU.
-5. Look captures (`/tmp/lod_look/`): Ramble + Literary Walk noon summer +
+5. Look captures (`notes/lod_regen_captures/`, gitignored): Ramble + Literary Walk noon summer +
    Literary Walk winter — no card blobs, no tier seams, dapple intact.
    Pending user walk-around approval (canopy card count halved vs the
    stale April tier; §4d names the current look as the approved baseline).
