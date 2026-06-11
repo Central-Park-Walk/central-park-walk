@@ -70,6 +70,11 @@ var _lod1_end: float = 60.0
 # into shader complexity vs raster structure (overdraw, quad efficiency).
 var _simple_leaf: bool = false
 var _simple_bark: bool = false
+# --leaf-no-prepass (diagnostic): clone tree_leaf without depth_prepass_alpha.
+# The prepass rasterizes all canopy geometry twice (alpha-tested depth, then
+# shade); whether it pays for itself depends on depth complexity — measure.
+var _leaf_no_prepass: bool = false
+var _noprepass_shader: Shader = null
 
 func _init(loader) -> void:
 	_loader = loader
@@ -99,6 +104,9 @@ func _init(loader) -> void:
 		elif arg == "--simple-bark":
 			_simple_bark = true
 			print("TreeBuilder: SIMPLE BARK shader (diagnostic) — isolates bark shader complexity cost")
+		elif arg == "--leaf-no-prepass":
+			_leaf_no_prepass = true
+			print("TreeBuilder: LEAF NO-PREPASS (diagnostic) — depth_prepass_alpha stripped from tree_leaf")
 
 # Size tier boundaries per species: [small_max, medium_max]
 # Trees below small_max use _s model, below medium_max use _m, else _l.
@@ -902,6 +910,19 @@ func _build_trees(trees: Array) -> void:
 							simple.set_shader_parameter("bark_color", mat.get_shader_parameter("bark_color"))
 							mesh.surface_set_material(si, simple)
 							mat = simple
+					if _leaf_no_prepass and mat.shader != null \
+							and mat.shader != _noprepass_shader \
+							and "tree_leaf" in mat.shader.resource_path:
+						if _noprepass_shader == null:
+							_noprepass_shader = Shader.new()
+							_noprepass_shader.code = (mat.shader as Shader).code.replace(
+								"render_mode cull_disabled, depth_prepass_alpha;",
+								"render_mode cull_disabled;")
+						# duplicate keeps all set parameters; only the shader swaps
+						var np: ShaderMaterial = mat.duplicate()
+						np.shader = _noprepass_shader
+						mesh.surface_set_material(si, np)
+						mat = np
 					mat.set_shader_parameter("lod_fade_out", fade_out)
 					mat.set_shader_parameter("lod_fade_in", fade_in)
 					mat.set_shader_parameter("tier_brightness", tier_brightness)
