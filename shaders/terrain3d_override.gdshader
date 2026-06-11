@@ -2,7 +2,13 @@
 // Base: Terrain3D lightweight.gdshader (autoshader, height blending, macro variation)
 // Overlays: seasons, weather, canopy shade, cloud shadows, atmosphere
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx, skip_vertex_transform;
+// diffuse_lambert, NOT diffuse_burley: Burley's grazing retro-reflection
+// brightens high-roughness ground toward the horizon (+18% luma near→far
+// at eye level, measured 2026-06-11 vs +4% in the Sheep Meadow reference
+// footage — real turf self-shadows at grazing, cancelling the boost). The
+// view-dependent ramp reads as a dark circle of ground following the
+// player. Specular measured innocent (≤0.9%/band) and stays for turf_sheen.
+render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_lambert, specular_schlick_ggx, skip_vertex_transform;
 
 // ---- Constants ----
 #define SKIP_PASS 0
