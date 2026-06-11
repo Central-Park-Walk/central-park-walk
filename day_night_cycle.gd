@@ -73,7 +73,12 @@ var sky_cal_override := Vector3(-1.0, -1.0, -1.0)
 # fixed by construction. Ambient is NOT scaled: raising direct only moves
 # the direct:diffuse ratio from the keyframes' ~2:1 toward the physical
 # ~5:1 of a clear noon (reference: "shadow pools are very dark").
-const SUN_CAL := 1.0  # set by measured sweep — see grass.md §6
+# Measured sweep 2026-06-11 (hero pose, fixed cloud seed): lawn luma
+# 92→128/255 (reference band 126–149); direct:diffuse lands ~4.9:1
+# (physical clear-noon). Sky compensation verified: dark-cloud fraction
+# flat across the sweep (16.8%→15.6%); +10 sky median = background mie
+# term (physical sun-side haze). Full record: docs/grass.md §6.
+const SUN_CAL := 3.0
 # --sun-cal=mult sets the exact multiplier (bypasses the day blend).
 var sun_cal_override := -1.0
 # --diag-hide=cloudshadows: zero the procedural ground cloud-shadow term

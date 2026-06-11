@@ -943,7 +943,10 @@ var _cli_sky_amb: float = -1.0
 var _cli_sun_cal: float = -1.0
 # Turf sheen: broad white blade-cuticle specular on lawn terrain + blades
 # (grass.md §6 calibration). --turf-sheen=0..1 overrides for sweeps.
-const TURF_SHEEN := 0.0  # set by measured sweep — see grass.md §6
+# Measured 2026-06-11 with SUN_CAL=3 + thatch mix: lawn R/G 0.57→0.82
+# display (reference 0.87); stills nearly identical 0.3–0.9, kept mid
+# for view-dependent life. Full record: docs/grass.md §6.
+const TURF_SHEEN := 0.6
 var _cli_turf_sheen: float = -1.0
 # --shadow-census: one-shot dump of every shadow-casting GeometryInstance3D
 # (top 25 by mesh tris × instances) on the 3rd perf tick, after diag hides apply.

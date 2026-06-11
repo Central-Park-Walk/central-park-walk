@@ -76,6 +76,23 @@ vec3 grass_base_color_no_dead(int zone_id, vec2 world_xz) {
 	float micro = vnoise(world_xz / 3.0);
 	vec3 col = mix(c_lo, c_hi, micro);
 
+	// --- Thatch mix (mown turf only) ---
+	// A mown canopy is never pure live-blade green: dead thatch under the
+	// blades and dried cut tips contribute ~20-25% of the optical cross-
+	// section year-round, lifting red reflectance (turf-canopy field
+	// spectra vs single-leaf). Calibrated 2026-06-11 vs Sheep Meadow
+	// reference: clean turf reads R/G ~0.87 display; pure palette green
+	// reads ~0.57 — the gap is this component plus cuticle sheen
+	// (turf_sheen). Fine noise so it reads as texture, not a tint.
+	bool thatch_mown = (zone_id == 0 || zone_id == 1 || zone_id == 2
+	                 || zone_id == 3 || zone_id == 4 || zone_id == 6
+	                 || zone_id == 7 || zone_id == 9);
+	if (thatch_mown) {
+		vec3 thatch_col = vec3(0.315, 0.243, 0.120);  // spectral dried grass
+		float thatch = 0.22 * mix(0.7, 1.3, vnoise(world_xz / 1.7 + vec2(5.9, 67.3)));
+		col = mix(col, thatch_col, thatch);
+	}
+
 	// --- Macro variation (20-30m patches) ---
 	// Soft field-scale tone drift from soil moisture, drainage, mowing
 	// timing, species mix. CALIBRATED 2026-06-11 against Sheep Meadow
