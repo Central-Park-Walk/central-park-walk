@@ -228,6 +228,9 @@ func _parse_cli_args() -> void:
 		elif key == "--sun-cal" and val != "":
 			_cli_sun_cal = float(val)
 			print("[DIAG] sun-cal ×%.2f" % _cli_sun_cal)
+		elif key == "--turf-sheen" and val != "":
+			_cli_turf_sheen = float(val)
+			print("[DIAG] turf-sheen %.2f" % _cli_turf_sheen)
 		elif arg == "--shadow-census":
 			_diag_shadow_census = true
 		elif arg == "--screenshot":
@@ -288,6 +291,9 @@ func _ready() -> void:
 	RenderingServer.global_shader_parameter_add("lamp_glow", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	RenderingServer.global_shader_parameter_add("cloud_coverage_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.5)
 	RenderingServer.global_shader_parameter_add("cloud_speed_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.00004)
+	# Turf sheen blend (grass.md §6 calibration; --turf-sheen overrides)
+	RenderingServer.global_shader_parameter_add("turf_sheen", RenderingServer.GLOBAL_VAR_TYPE_FLOAT,
+		TURF_SHEEN if _cli_turf_sheen < 0.0 else _cli_turf_sheen)
 	# Player camera world position — pushed each frame so distance-based
 	# effects (LOD dither) compute against the player view, not whatever
 	# camera is active in the current render pass (shadow / reflection).
@@ -935,6 +941,10 @@ var _cli_sky_amb: float = -1.0
 # --sun-cal=mult: ground-light (DirectionalLight) calibration override
 # (-1 = shipped SUN_CAL; sky compensated — see day_night_cycle.gd)
 var _cli_sun_cal: float = -1.0
+# Turf sheen: broad white blade-cuticle specular on lawn terrain + blades
+# (grass.md §6 calibration). --turf-sheen=0..1 overrides for sweeps.
+const TURF_SHEEN := 0.0  # set by measured sweep — see grass.md §6
+var _cli_turf_sheen: float = -1.0
 # --shadow-census: one-shot dump of every shadow-casting GeometryInstance3D
 # (top 25 by mesh tris × instances) on the 3rd perf tick, after diag hides apply.
 var _diag_shadow_census: bool = false

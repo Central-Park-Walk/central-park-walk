@@ -85,6 +85,7 @@ global uniform vec2 wind_vec;
 global uniform float dew_amount;
 global uniform float cloud_coverage_g;
 global uniform float cloud_speed_g;
+global uniform float turf_sheen;
 
 // ---- Varyings ----
 varying vec3 v_normal;
@@ -409,6 +410,17 @@ void fragment() {
 			float wear_canopy = texture(canopy_map, splat_uv).r;
 			float wear = turf_wear_total(baked_wear, wear_canopy, zone_id, v_vertex.xz);
 			ALBEDO = apply_turf_wear(ALBEDO, wear, v_vertex.xz);
+
+			// Turf sheen (grass.md §6): broad white specular off waxy blade
+			// cuticles. The spectral palette is diffuse-only reflectance —
+			// reference turf reads R/G ~0.87 vs the palette's ~0.57 because
+			// of this white component, not a palette error. Broad roughness
+			// so it reads as sheen, not highlight; dies on worn dirt. The
+			// blade shader applies the same turf_sheen so the 36-60m blade
+			// fade ring stays invisible.
+			float sheen = turf_sheen * (1.0 - smoothstep(0.3, 0.8, wear));
+			ROUGHNESS = mix(ROUGHNESS, 0.65, sheen);
+			SPECULAR = mix(SPECULAR, 0.30, sheen);
 		}
 	}
 

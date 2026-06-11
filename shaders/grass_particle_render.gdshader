@@ -22,6 +22,7 @@ global uniform float dew_amount;
 global uniform vec3 sky_reflect_color;
 global uniform float cloud_coverage_g;
 global uniform float cloud_speed_g;
+global uniform float turf_sheen;
 
 #include "res://shaders/include/seasonal.gdshaderinc"
 #include "res://shaders/include/hash_noise.gdshaderinc"
@@ -251,6 +252,10 @@ void fragment() {
 	ROUGHNESS = mix(0.72, 0.58, v_height_t);
 	ROUGHNESS += (blade_seed - 0.5) * 0.10;
 	SPECULAR = mix(0.06, 0.10, v_height_t);
+	// Turf sheen (grass.md §6) — same global as the terrain shader so the
+	// 36-60m blade fade ring stays invisible. Tips sheen more than bases.
+	ROUGHNESS = mix(ROUGHNESS, 0.60, turf_sheen);
+	SPECULAR = mix(SPECULAR, 0.30, turf_sheen * mix(0.7, 1.0, v_height_t));
 	METALLIC = 0.0;
 	BACKLIGHT = vec3(0.30, 0.36, 0.10) * mix(0.5, 1.0, v_height_t);
 
