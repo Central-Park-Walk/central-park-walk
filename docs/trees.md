@@ -274,8 +274,54 @@ regeneration (lever 3). Grass/undergrowth checked for the same defect:
 discard-variant A/B measured within noise (rendering.md §6 item 5).
 Trees were the lone transparent-pass case (plain ALPHA + inert A2C).
 
+### 4f. LOD regeneration outcome (2026-06-10 late session)
+
+Shipped: commits 0eccb07 (generator), 0cc6d1a (three-tier runtime),
+c5d7c99 (isolate-capture envelope). All `_lod1`/`_lod2` regenerated from
+the May 19 bases and reimported (42 models × 2 tiers, ~10 s each via the
+per-model loop; remember the reimport — game runs never reimport).
+
+**DoD record (§4d):**
+1. Tri budget: every lod2 variant ≤ 12 k + 1 k slack (adaptive recipe +
+   twig-island prune, §4c implementation record). Heavy barks now 4.4–6.6 k
+   (were 145–181 k on cathedral elm).
+2. 60 m handoff, `TIER_A=lod1 TIER_B=lod2` at ramble noon over 1.03 M
+   canopy px at ALL distances (stricter than the 60 m spec):
+   **mean |ΔRGB| 0.0314 < 0.05 PASS**, silhouette IoU 0.93, no hue flip.
+3. Crossfade walk (151 frames, 225 m at Bethesda crossing both bands):
+   median canopy-delta 0.0010, max 0.0185 — the max is a hill-crest
+   terrain reveal at ~78 m walked, not a tier step. **PASS.**
+4. Perf gate ×5 (report 20260610_203758): 25.3 / 22.1 / 27.8 / 18.9 / 32.3
+   ms vs 26.3 / 24.1 / 31.1 / 20.9 / 32.4 baseline — **all locations
+   equal-or-better, no regression.** Honest reading: only −1 to −3.3 ms.
+   The §3d "trees ≈ 14.1 ms ≈ vertex/LOD load" attribution was WRONG —
+   post-opaque tree cost is dominated by canopy *fragment shading*
+   (shading tree-covered pixels once is irreducible by geometry LOD).
+   Vertex load was never binding at 1080p on this GPU.
+5. Look captures (`/tmp/lod_look/`): Ramble + Literary Walk noon summer +
+   Literary Walk winter — no card blobs, no tier seams, dapple intact.
+   Pending user walk-around approval (canopy card count halved vs the
+   stale April tier; §4d names the current look as the approved baseline).
+
+**240 m mesh↔impostor re-check — protocol findings, not a regression:**
+the §2 check compares whole frames, and the impostor capture contains
+290–2500 m backdrop canopy the mesh capture can't have; with lod2 forced
+to 2500 m (`--tree-mesh-range=2500`) for a symmetric comparison the
+metric still reads 0.063 / IoU 0.52 because **distant lod2 canopy thins
+out relative to impostors** (the opaque discard ramp 0.5→0.10 was tuned
+for the old card density; fewer, larger cards mip differently). In-game
+this matters only inside the 230–250 m band, where the walk capture
+shows no step — but see open question below.
+
 ## 5. Open questions
 
+- **lod2 distant thinning (2026-06-10, from §4f):** lod2 canopy coverage
+  falls off vs impostors at long range — the leaf discard ramp
+  (0.5 → 0.10 over 100–180 m, tuned pre-regen) interacts with the new
+  fewer/larger cards' mip-averaged alpha. Only the 230–250 m band shows
+  lod2 in-game and the walk capture shows no step there, but if the band
+  ever reads thin vs the impostor behind it, retune the far threshold
+  (or the ramp distances) against a band A/B, not whole-frame metrics.
 - Existing normal atlases: baked with which convention/quality? Verify before
   reusing (one species A/B vs fresh bake).
 - Specular response on impostors at low sun (grazing) — may need a fresnel clamp.
