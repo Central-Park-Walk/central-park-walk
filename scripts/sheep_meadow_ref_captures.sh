@@ -42,7 +42,9 @@ cap perimeter_path     --pos=-1010,1250,250 --pitch=-2  # 9:28 — perimeter loo
 # 60 s forward walk, south end heading north, sampled every 0.3 s (~200 frames)
 WALK_DIR="notes/refs/sheep_meadow_game/walk"
 mkdir -p "$PROJECT_DIR/$WALK_DIR"
-timeout 200s "$G" --path "$PROJECT_DIR" --resolution 1920x1080 --disable-vsync \
+# 400s: scene load ~40s + 12s settle + 60s walk, and each 1080p PNG save
+# stalls ~1s of wall clock (~200 frames)
+timeout 400s "$G" --path "$PROJECT_DIR" --resolution 1920x1080 --disable-vsync \
   -- --walk --pos=-820,1380,0 "${COND[@]}" \
   --walk-duration=60 --walk-interval=0.3 --walk-speed=1.4 --walk-settle=12 \
   --walk-dir="$WALK_DIR" \
