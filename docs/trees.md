@@ -1,5 +1,10 @@
 # Trees — tier spec, runtime-lit impostors, shadow proxies
 
+> **Model/geometry redesign** (art direction, per-species silhouette tuning,
+> per-instance variation, cathedral-elm convergence) is specified separately in
+> [`tree_model_redesign.md`](tree_model_redesign.md). This file owns the *rendering
+> tiers and their budgets*; that file owns the *source meshes* that feed them.
+
 Spec for the D3–5 sprint work (written 2026-06-10, before implementation, per
 [`workflow.md`](workflow.md)). Budget lines this subsystem spends
 ([`rendering.md`](rendering.md) §4): **camera raster 4.0 ms, shadow casting 1.0 ms**
