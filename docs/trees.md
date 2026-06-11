@@ -9,7 +9,7 @@ at the worst test location. Measured today: ~25 ms camera (Ramble), 18–28 ms s
 
 | tier | range | fade | representation | casts shadow | lit |
 |---|---|---|---|---|---|
-| near mesh | 0–60 m | dither out 50–60 m | `{species}_{s,m,l}_lod1` (50 % cards × 1.41, full bark), MMI per species-size × 80 m chunk | **never** (proxy does) | runtime sun + ambient |
+| near mesh | 0–60 m | dither out 50–60 m | `{species}_{s,m,l}` — the **full base model** (revised Jun 11, §7: the 50 %-card `_lod1` tier visibly thinned close crowns), MMI per species-size × 80 m chunk | **never** (proxy does) | runtime sun + ambient |
 | mid mesh | 50–250 m | dither in 50–60 m, out 230–250 m | `{species}_{s,m,l}_lod2` (≤ ~12 k tris: adaptive card prune + bark decimation, §4c) | never | runtime sun + ambient |
 | shadow proxy | 0–290 m | none (pops with cascade distance, invisible) | trunk cylinder + crown hull ≤ ~300 tris, alpha-test dapple mask, MMI `SHADOWS_ONLY` | is the shadow | n/a |
 | impostor | 190–2500 m | dither in 230–250 m | 8×8 hemisphere octahedral, 2048² atlas per species-size (56 atlases) | never | **runtime sun + ambient (NEW)** |
@@ -479,3 +479,73 @@ accessor to the BIN chunk and repoints the attribute. Models are
 untracked binaries — backup at `~/cpw_backups/trees_preAO_20260611/`.
 Run once per model generation; after running: Godot `--headless --import`
 + impostor re-bake (per-species wrapper).
+
+## 7. Near-tree leaf sparsity (2026-06-11 walk-around #1) — RESOLVED
+
+**User report:** "tree looks full from far to near, but gets sparser as near
+becomes close" — inner crown near-bare in July, leaf tufts only at branch
+tips (defect tree: `deciduous` at world −591.7, 1465.6 by Literary Walk;
+user screenshots cpw_005/cpw_008, reproduced at the same poses).
+
+### Diagnosis chain (suspects in the original order, with verdicts)
+
+1. ~~"`_lod1` is stale April geometry"~~ — **DEAD.** On-disk counts:
+   `oak_l_lod1` leaf tris = exactly 50 % of the *current* base. The Jun 10
+   regen did cover lod1 (§4f was right; the walk-around suspect list was
+   written from the §4b flag without re-checking disk).
+2. ~~Close-range discard ramp eating card texels at mip 0~~ — **DEAD.**
+   Leaf DDS alpha is essentially binary at mip 0 (69.5 % ≥ 0.5, only 0.1 %
+   in the 0.10–0.5 band) — the 0.5 near threshold removes nothing *face-on*.
+3. **Card count, tier layer — REAL (half the effect).** The near tier showed
+   50 % of base cards while impostors bake from the 100 % base; AND the
+   May 19 LAI tune had already halved base cards, so the nearest view held
+   ~¼ of the last user-approved density (April-lod1 ≈ current base in count).
+4. **Discard threshold vs sampled mip — REAL (the dramatic half).** The
+   on-disk model is NOT sparse: measured card clusters sit within 1.5 m of
+   ~100 % of crown bark verts (all 5 variants, all height bands ≥ 0.30 h).
+   The "naked laterals" were fully-carded branches whose fragments sample
+   high mips (small screen footprint, or *edge-on* — an under-crown look-up
+   is all edge-on cards). Box-filtered mips dilute binary alpha into the
+   0.1–0.5 range, and the old threshold ramp `mix(0.5, 0.10,
+   smoothstep(100, 180, cam_dist))` RAISED the cut to 0.5 exactly as you
+   approached. Leaves literally vanished on approach, by construction.
+   Confirmed by flat-0.10 A/B: the "bare" branches are fully leafed.
+
+### Fix (commits 52abbca, 315574f + cleanup)
+
+- **Near tier renders the full base model**; the `_lod1` derivation is
+  retired (generator spec, loader, files archived to
+  `~/cpw_backups/lod1_retired_20260611`). Base meshes were already in
+  memory — VRAM and load go *down*. `tier_brightness` for the near tier is
+  1.0 by construction (it IS the reference model). `--tier-isolate=lod1`
+  now isolates the near (base) tier; `--tree-lod1-range` unchanged.
+- **Leaf discard threshold follows `textureQueryLod`, not camera
+  distance:** 0.5 at mip 0 (crisp shapes, halo texels cut) easing to 0.10
+  by mip 4 (the dilated silhouette IS the leaf mass). Unlike the May 18
+  alpha-boost attempt (disabled for color steps under ALPHA blending), a
+  threshold change cannot shift shading in the discard-only opaque pass.
+
+### DoD record
+
+1. Defect poses: both cpw_005/cpw_008 reproductions read as full July
+   crowns; formerly naked laterals carry their foliage
+   (`notes/sparsity_fix_captures/`).
+2. 60 m handoff `TIER_A=lod1 TIER_B=lod2` at ramble noon: mean |ΔRGB|
+   0.0635 vs 0.05 target — *marginal, expected*: the near tier now really
+   is denser than lod2, plus the §4f backdrop caveat. Visual side-by-side
+   shows no gross step; the binding check is:
+3. Crossfade walk (151 frames, 225 m, Bethesda): mean-canopy-color delta
+   median 0.0016 / max 0.0148 — max is a hill-crest terrain reveal (frames
+   52→53 inspected), same class as the §4f record. **PASS.**
+   (Protocol note: compare per-frame canopy *statistics*; raw pixel deltas
+   on a walking camera measure parallax, ~0.075 median.)
+4. Perf gate ×5 (20260611_150209, warm afternoon run): 68/73/52/88/45 fps
+   vs canonical 68/75/53/84/45 — within variance, no regression. The
+   ramble/NW sub-60 is the pre-existing §rendering policy question.
+5. Winter Lit Walk capture: marcescent retention unchanged (card-seed drop
+   is independent of the threshold change).
+
+**Watch item:** mid-distance (60–180 m) canopy now reads denser than
+before (the old ramp was thinning it too) — likely *helps* COMPARISON.md
+#4 (perimeter canopy too low/gappy); re-check that finding before working
+it. User re-walk pending.
