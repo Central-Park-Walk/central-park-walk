@@ -212,6 +212,9 @@ func _parse_cli_args() -> void:
 		elif key == "--grass-grid-mult" and val != "":
 			_cli_grass_grid_mult = float(val)
 			print("[DIAG] grass grid ×%.2f" % _cli_grass_grid_mult)
+		elif key == "--grass-highlight":
+			_cli_grass_highlight = true
+			print("[DIAG] grass biome highlight requested")
 		elif key == "--cloud-seed" and val != "":
 			_cli_cloud_seed = int(val)
 		elif key == "--sky-cal" and val != "":
@@ -315,6 +318,8 @@ func _ready() -> void:
 		# filtering, density tables, and coordinate transforms.
 		if _terrain3d:
 			_setup_grass_particles()
+			if _cli_grass_highlight:
+				_diag_toggle_grass_highlight()
 			print("main: grass particles: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_player = _setup_player()
 	if _park_loader and _park_loader.boundary_polygon.size() > 2:
@@ -915,6 +920,8 @@ var _cli_upscale_scale: float = 0.77
 # the covered radius (grid_width snapped odd).
 var _cli_grass_spacing_mult: float = 1.0
 var _cli_grass_grid_mult: float = 1.0
+# --grass-highlight: flat per-biome colors at startup (zone-routing checks)
+var _cli_grass_highlight: bool = false
 # --cloud-seed=N: reproducible cloud field for calibration captures (-1 = random)
 var _cli_cloud_seed: int = -1
 # --sky-cal=bg:sun:amb overrides (-1 = shipped defaults)
@@ -1227,29 +1234,31 @@ func _diag_toggle_grass_force() -> void:
 		"-2" if _diag_grass_force else "original"])
 
 var _diag_grass_highlight: bool = false
-const _DIAG_BIOME_COLORS := {
-	"Lawn":  Color(1.0, 0.0, 0.0),  # red
-	"Shade": Color(0.0, 1.0, 0.0),  # green
-	"Wild":  Color(0.0, 0.4, 1.0),  # blue
-	"Sedge": Color(1.0, 1.0, 0.0),  # yellow
-}
+# Indexed by biome_id: 0=Lawn 1=Shade 2=Wild 3=Sedge
+const _DIAG_BIOME_COLORS := [
+	Color(1.0, 0.0, 0.0),  # Lawn: red
+	Color(0.0, 1.0, 0.0),  # Shade: green
+	Color(0.0, 0.4, 1.0),  # Wild: blue
+	Color(1.0, 1.0, 0.0),  # Sedge: yellow
+]
 func _diag_toggle_grass_highlight() -> void:
 	# Color each biome distinctly so a single screenshot at altitude shows
 	# (a) which biomes are placing blades, (b) where they're placing them
 	# spatially, and (c) the height differences between blade meshes
 	# (Blade_Lawn=7.6cm, Shade=12cm, Wild=25cm, Sedge=16cm).
+	# (Used to iterate _gpu_grass_nodes — the retired GDExtension path — so
+	# it silently did nothing; now drives the live particle layers.)
 	_diag_grass_highlight = not _diag_grass_highlight
 	var n := 0
-	for gn in _gpu_grass_nodes:
-		if not is_instance_valid(gn):
+	for gp in _grass_particle_nodes:
+		if not is_instance_valid(gp):
 			continue
-		var mat = gn.get("grass_material")
+		var mat = gp.get("mesh_material_override")
 		if not (mat is ShaderMaterial):
 			continue
 		mat.set_shader_parameter("debug_highlight", _diag_grass_highlight)
-		# Node name is "GPUGrass_<biome>" — extract suffix to pick color
-		var biome: String = String(gn.name).trim_prefix("GPUGrass_")
-		var c: Color = _DIAG_BIOME_COLORS.get(biome, Color(1.0, 0.0, 1.0))
+		var biome_id: int = mat.get_shader_parameter("biome_id")
+		var c: Color = _DIAG_BIOME_COLORS[biome_id] if biome_id >= 0 and biome_id < 4 else Color(1, 0, 1)
 		mat.set_shader_parameter("debug_color", Vector3(c.r, c.g, c.b))
 		n += 1
 	print("[DIAG] Grass highlight %s — %d materials. Lawn=red Shade=green Wild=blue Sedge=yellow" % [
