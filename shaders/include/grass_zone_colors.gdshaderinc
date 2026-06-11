@@ -12,27 +12,25 @@
 //
 // Requires: hash_noise.gdshaderinc (vnoise, fbm3)
 
-// Zone spectral palettes.
+// Zone spectral palettes. Zone IDs are the pipeline encoding (docs/grass.md §2):
+// 0=unzoned 1=garden 2=grass(named lawns) 3=pitch 4=playground 5=nature_reserve
+// 6=dog_park 7=sports 8=pool 9=track 10=wood 11=forest 12=water 13=shore 14=wild_meadow
 // Returns the low/high range for blade-group variation within each zone.
 void grass_zone_palette(int zone_id, out vec3 c_lo, out vec3 c_hi) {
-	if (zone_id == 0) {
-		// SheepMeadow: Kentucky Bluegrass (Poa pratensis) — A-lawn
-		c_lo = vec3(0.056, 0.171, 0.037);
-		c_hi = vec3(0.078, 0.236, 0.051);
-	} else if (zone_id == 1) {
-		// GreatLawn: Kentucky Bluegrass — deeper soil
-		c_lo = vec3(0.056, 0.171, 0.037);
-		c_hi = vec3(0.078, 0.236, 0.051);
-	} else if (zone_id == 2) {
-		// NorthMeadow: Kentucky Bluegrass — open exposure, drier
+	if (zone_id == 0 || zone_id == 6) {
+		// Unzoned fringes / dog park: Kentucky Bluegrass — less irrigated, drier
 		c_lo = vec3(0.064, 0.172, 0.039);
 		c_hi = vec3(0.088, 0.238, 0.054);
-	} else if (zone_id == 3) {
-		// FormalGarden: Perennial Ryegrass (Lolium perenne) — manicured
+	} else if (zone_id == 1) {
+		// Formal garden panels: Perennial Ryegrass (Lolium perenne) — manicured
 		c_lo = vec3(0.051, 0.165, 0.032);
 		c_hi = vec3(0.070, 0.228, 0.044);
-	} else if (zone_id == 4) {
-		// SportsTurf: Kentucky Bluegrass — heavy foot traffic
+	} else if (zone_id == 2) {
+		// Named lawns (Sheep Meadow, Great Lawn, ...): Kentucky Bluegrass A/B-class
+		c_lo = vec3(0.056, 0.171, 0.037);
+		c_hi = vec3(0.078, 0.236, 0.051);
+	} else if (zone_id == 3 || zone_id == 4 || zone_id == 7 || zone_id == 9) {
+		// Pitch / playground / sports / track: KBG, heavy foot traffic
 		c_lo = vec3(0.059, 0.171, 0.038);
 		c_hi = vec3(0.082, 0.237, 0.052);
 	} else if (zone_id == 5) {
@@ -40,10 +38,6 @@ void grass_zone_palette(int zone_id, out vec3 c_lo, out vec3 c_hi) {
 		// Pushed darker + cooler so woodland reads distinctly vs lawn.
 		c_lo = vec3(0.045, 0.110, 0.055);
 		c_hi = vec3(0.062, 0.155, 0.078);
-	} else if (zone_id == 9) {
-		// OpenLawn: Kentucky Bluegrass — standard maintained
-		c_lo = vec3(0.056, 0.171, 0.037);
-		c_hi = vec3(0.078, 0.236, 0.051);
 	} else if (zone_id == 10 || zone_id == 11) {
 		// wood / forest: Fine Fescue — leaf-litter influence.
 		// Same cool-dark palette as zone 5.
@@ -61,7 +55,7 @@ void grass_zone_palette(int zone_id, out vec3 c_lo, out vec3 c_hi) {
 		c_lo = vec3(0.130, 0.185, 0.025);
 		c_hi = vec3(0.180, 0.245, 0.035);
 	} else {
-		// Default (covers zone 6=dog_park, 7=sports, and any unhandled):
+		// Default (unhandled zones; grass shouldn't spawn on pool/water):
 		// Kentucky Bluegrass.
 		c_lo = vec3(0.056, 0.171, 0.037);
 		c_hi = vec3(0.078, 0.236, 0.051);

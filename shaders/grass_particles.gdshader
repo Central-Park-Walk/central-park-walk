@@ -203,34 +203,36 @@ void start() {
 	float canopy_cover = textureLod(canopy_map, splat_uv, 0.0).r;
 
 	// Biome-based zone filtering
-	// Zone IDs: 0=SheepMeadow 1=GreatLawn 2=NorthMeadow 3=FormalGarden
-	//   4=SportsTurf 5=NorthWoods 6=Ramble 7=Waterside 8=WildMeadow 9=OpenLawn
-	//   10,11=Woodland  12=water 13=shore
+	// Zone IDs (pipeline truth, see docs/grass.md §2): 0=unzoned 1=garden
+	//   2=grass(named lawns) 3=pitch 4=playground 5=nature_reserve 6=dog_park
+	//   7=sports 8=pool 9=track 10=wood 11=forest 12=water 13=shore 14=wild_meadow
 	bool is_grass_zone;
 	bool is_woodland;
 	if (biome_id == 0 || biome_id == 10) {
-		// Lawn (Turf_Lawn / Tuft accent): maintained lawns + sports + open
+		// Lawn (Turf_Lawn / Tuft accent): all maintained/mown turf
 		is_grass_zone = (zone_id == 0 || zone_id == 1 || zone_id == 2
-		              || zone_id == 3 || zone_id == 4 || zone_id == 9);
+		              || zone_id == 3 || zone_id == 4 || zone_id == 6
+		              || zone_id == 7 || zone_id == 9);
 		is_woodland = false;
 	} else if (biome_id == 1 || biome_id == 11) {
-		// Shade (Turf_Shade / Tuft accent): woodland + ramble forest floor
+		// Shade (Turf_Shade / Tuft accent): woodland floor + nature reserve
 		is_grass_zone = false;
-		is_woodland = (zone_id == 5 || zone_id == 6 || zone_id == 10 || zone_id == 11);
+		is_woodland = (zone_id == 5 || zone_id == 10 || zone_id == 11);
 	} else if (biome_id == 2) {
-		// Wild (Turf_Wild): unmowed wild meadow
-		is_grass_zone = (zone_id == 8);
+		// Wild (Turf_Wild): the two true wildflower meadows (hand-drawn)
+		is_grass_zone = (zone_id == 14);
 		is_woodland = false;
 	} else if (biome_id == 3) {
-		// Sedge (Turf_Sedge): waterside edges
-		is_grass_zone = (zone_id == 7);
+		// Sedge (Turf_Sedge): shore ring around naturalistic water bodies
+		is_grass_zone = (zone_id == 13);
 		is_woodland = false;
 	} else {
 		// Legacy: all grass zones
 		is_grass_zone = (zone_id == 0 || zone_id == 1 || zone_id == 2
-		              || zone_id == 3 || zone_id == 4 || zone_id == 7
-		              || zone_id == 8 || zone_id == 9);
-		is_woodland = (zone_id == 5 || zone_id == 6 || zone_id == 10 || zone_id == 11);
+		              || zone_id == 3 || zone_id == 4 || zone_id == 6
+		              || zone_id == 7 || zone_id == 9 || zone_id == 13
+		              || zone_id == 14);
+		is_woodland = (zone_id == 5 || zone_id == 10 || zone_id == 11);
 	}
 
 	vec2 uv = (pos.xz) * main_noise_scale;
@@ -239,44 +241,38 @@ void start() {
 	float patch = smoothstep(patch_min_threshold, patch_max_threshold, noise);
 	float width_modifier = 1.0 + 0.5 * smoothstep(0.3 * max_dist, max_dist, length(camera_position - pos));
 
-	// --- Data-driven grass height from CPC lawn classification ---
-	// 5 distinct tiers for visual variety. Heights tuned to look right at
-	// eye-level, not metric accuracy. Patch noise adds ±30% variation.
-	//
-	// Tuft meshes: Tiny 5.8cm, Woodland 8cm, Wild 26cm, Meadow 17cm
-	// Tier 1 (ultra-short): formal/sports 5-6cm — bowling green / athletic
-	// Tier 2 (short):       A-lawns 8-9cm — maintained park lawn
-	// Tier 3 (medium):      open/general 10-12cm — less-maintained areas
-	// Tier 4 (tall):        woodland floor 11-14cm — shade-tolerant
-	// Tier 5 (wild):        meadow/sedge 17-26cm — unmowed
+	// --- Data-driven grass height (CPC Turf Care Handbook; docs/grass.md §3) ---
+	// ALL named lawns are maintained turf mowed at 2.5-3in; standing height
+	// between mows ≈ 7-10cm. Only nature reserve, woodland floor, shore sedge,
+	// and the two wildflower meadows are unmown. Blade meshes at scale 1.0:
+	// Lawn 7.6cm, Shade 12cm, Wild 25cm, Sedge 16cm.
 	float zone_height = 1.0;
 	float zone_spread = 1.0;
-	if (zone_id == 0 || zone_id == 1) {
-		zone_height = 1.5; zone_spread = 1.05;  // A-lawn: maintained 8.7cm
+	bool is_mown = true;
+	if (zone_id == 0) {
+		zone_height = 1.3; zone_spread = 1.05;  // unzoned fringes ~10cm, informal
+	} else if (zone_id == 1) {
+		zone_height = 0.9; zone_spread = 0.9;   // formal garden panels ~7cm
 	} else if (zone_id == 2) {
-		zone_height = 2.0; zone_spread = 1.1;   // NorthMeadow: open meadow 11.6cm
-	} else if (zone_id == 3) {
-		zone_height = 0.9; zone_spread = 0.85;  // Formal garden: tight 5.2cm
-	} else if (zone_id == 4) {
-		zone_height = 1.1; zone_spread = 0.9;   // Sports turf: cropped 6.4cm
-	} else if (zone_id == 7) {
-		zone_height = 1.2; zone_spread = 1.05;  // Waterside sedge 20cm
+		zone_height = 1.1; zone_spread = 1.05;  // named lawns (A/B class) ~8.5cm
+	} else if (zone_id == 3 || zone_id == 7 || zone_id == 9) {
+		zone_height = 0.95; zone_spread = 0.95; // pitch/sports/track ~7cm
+	} else if (zone_id == 4 || zone_id == 6) {
+		zone_height = 1.0; zone_spread = 1.0;   // playground / dog park ~7.6cm
 	} else if (zone_id == 5) {
-		zone_height = 1.8; zone_spread = 1.15;  // NorthWoods: shade floor 14.4cm
-	} else if (zone_id == 6) {
-		zone_height = 1.5; zone_spread = 1.1;   // Ramble: woodland 12cm
-	} else if (zone_id == 8) {
-		zone_height = 1.0; zone_spread = 1.1;   // WildMeadow: unmowed 26cm
-	} else if (zone_id == 9) {
-		zone_height = 1.7; zone_spread = 1.05;  // OpenLawn: moderate 9.9cm
+		zone_height = 1.8; zone_spread = 1.15; is_mown = false; // Hallett: unmown ~22cm
 	} else if (zone_id == 10 || zone_id == 11) {
-		zone_height = 1.4; zone_spread = 1.0;   // Woodland: understory 11.2cm
+		zone_height = 1.4; zone_spread = 1.0; is_mown = false;  // woodland floor ~17cm
+	} else if (zone_id == 13) {
+		zone_height = 1.3; zone_spread = 1.05; is_mown = false; // shore sedge ~21cm
+	} else if (zone_id == 14) {
+		zone_height = 1.2; zone_spread = 1.1; is_mown = false;  // wild meadow ~30cm
 	}
 
-	// Patch-scale height variation (5-8m patches): breaks up uniform mowing look.
-	// Creates natural clumps of taller/shorter grass within each zone.
+	// Patch-scale height variation (5-8m patches). Mowing homogenizes height:
+	// maintained turf gets ±10%, unmown areas keep natural ±30% clumping.
 	float height_var = textureLod(main_noise, pos.xz * 0.025, 0.0).r;
-	zone_height *= mix(0.7, 1.3, height_var);
+	zone_height *= is_mown ? mix(0.9, 1.1, height_var) : mix(0.7, 1.3, height_var);
 
 	vec3 scale = vec3(
 		mix(min_scale.x, max_scale.x, r.x) * width_modifier * zone_spread,
@@ -351,19 +347,21 @@ void start() {
 		}
 	}
 
-	// Data-driven density from CPC lawn classification
-	// A-lawns: 95% coverage (dense turf). D-lawns/woodland: 25-40% (patchy, mulch zones)
+	// Data-driven density from CPC lawn classification (zone truth, grass.md §2)
+	// A-lawns: ~95% coverage (dense turf). Woodland: 25-45% (patchy, mulch zones)
 	float zone_density = 0.5;
-	if (zone_id == 0 || zone_id == 1) zone_density = 0.97;       // A-lawn: dense turf
-	else if (zone_id == 2) zone_density = 0.93;                   // A-lawn (NorthMeadow)
-	else if (zone_id == 3) zone_density = 0.99;                   // Formal garden: carpet
-	else if (zone_id == 4) zone_density = 0.90;                   // Sports turf
-	else if (zone_id == 7) zone_density = 0.85;                   // C-lawn (waterside)
-	else if (zone_id == 8) zone_density = 0.65;                   // Wild meadow: thick but gaps
-	else if (zone_id == 9) zone_density = 0.80;                   // B/C open lawn
-	else if (zone_id == 5) zone_density = 0.60;                   // NorthWoods: shade grass
-	else if (zone_id == 6) zone_density = 0.55;                   // Ramble: woodland ground cover
-	else if (zone_id == 10 || zone_id == 11) zone_density = 0.45; // Woodland: sparse shade grass
+	if (zone_id == 0) zone_density = 0.85;                        // unzoned fringes
+	else if (zone_id == 1) zone_density = 0.99;                   // formal garden: carpet
+	else if (zone_id == 2) zone_density = 0.95;                   // named lawns: dense turf
+	else if (zone_id == 3) zone_density = 0.93;                   // ballfield turf
+	else if (zone_id == 4) zone_density = 0.88;                   // playground lawn
+	else if (zone_id == 6) zone_density = 0.55;                   // dog park: trampled
+	else if (zone_id == 7) zone_density = 0.90;                   // sports grounds
+	else if (zone_id == 9) zone_density = 0.85;                   // track surrounds
+	else if (zone_id == 5) zone_density = 0.60;                   // nature reserve floor
+	else if (zone_id == 13) zone_density = 0.80;                  // shore sedge
+	else if (zone_id == 14) zone_density = 0.65;                  // wild meadow: thick, gaps
+	else if (zone_id == 10 || zone_id == 11) zone_density = 0.45; // woodland: sparse shade grass
 
 	if (r.x > zone_density) {
 		pos.y = 0. / 0.;

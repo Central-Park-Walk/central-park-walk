@@ -36,12 +36,12 @@ const VIS_BEGIN := 13.0
 const VIS_END := 120.0
 const VIS_FADE := 15.0
 
-## Zone → biome mapping (matches grass_particles.gdshader)
+## Zone → biome mapping (matches grass_particles.gdshader; truth in docs/grass.md §2)
 const ZONE_TO_BIOME := {
-	0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 9: 0,  # lawn zones
-	5: 1, 6: 1, 10: 1, 11: 1,              # shade/woodland
-	8: 2,                                    # wild meadow
-	7: 3,                                    # waterside/sedge
+	0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 6: 0, 7: 0, 9: 0,  # mown turf zones
+	5: 1, 10: 1, 11: 1,                                # shade/woodland
+	14: 2,                                              # wild meadow (102nd St + Dene Slope)
+	13: 3,                                              # shore sedge
 }
 
 ## Canopy suppression per biome

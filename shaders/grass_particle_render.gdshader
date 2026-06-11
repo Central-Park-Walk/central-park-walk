@@ -11,6 +11,8 @@ uniform bool has_normal_map = false;
 uniform bool use_texture = true;
 uniform bool debug_highlight = false;
 uniform vec3 debug_color : source_color = vec3(1.0, 0.0, 1.0);
+// 0=Lawn 1=Shade 2=Wild 3=Sedge — set per layer in _setup_grass_particles
+uniform int biome_id = 0;
 
 global uniform float season_t;
 global uniform vec2 wind_vec;
@@ -103,11 +105,13 @@ void fragment() {
 		ALPHA_HASH_SCALE = 1.0;
 	}
 
-	// Decode zone + biome from COLOR (set by particle process shader).
-	// R = zone_id/15, G = canopy_cover, B = biome_id*0.25, A = reserved.
+	// Decode zone data from COLOR (set by particle process shader).
+	// R = zone_id/15, G = canopy_cover, B/A = terrain tint (unused here).
+	// biome_id comes as a material uniform — each layer has its own render
+	// material. (Decoding it from COLOR.b was a bug: the spawn shader writes
+	// terrain tint there, so per-biome tints fired on color-map data.)
 	int zone_id = int(COLOR.r * 15.0 + 0.5);
 	float canopy_cover = COLOR.g;
-	int biome_id = int(COLOR.b * 4.0 + 0.5);  // 0=Lawn 1=Shade 2=Wild 3=Sedge
 	float blade_seed = data.r;
 
 	// --- Base color from shared zone palette + macro variation ---

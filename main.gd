@@ -1793,11 +1793,13 @@ const GRASS_BIOMES := [
 		"name": "Lawn", "biome_id": 0,
 		"mesh_path": "res://models/vegetation/Blade_Lawn.glb",
 		# Lawn: densest base coverage (maintained Kentucky bluegrass turf).
+		# Y-scale range tight (0.85-1.15): mowing homogenizes blade height
+		# (docs/grass.md §3). Width randomness unchanged.
 		"spacing": 0.10, "cell_width": 11.0, "grid_width": 11,
 		"min_distance": 4.0, "process_fps": 15,
 		"random_spacing": 0.5,
-		"min_scale": Vector3(0.6, 0.6, 0.6),
-		"max_scale": Vector3(1.4, 1.4, 1.4),
+		"min_scale": Vector3(0.6, 0.85, 0.6),
+		"max_scale": Vector3(1.4, 1.15, 1.4),
 		"position_offset": Vector3(0, -0.003, 0),
 	},
 	{  # Blade_Shade: 3 segments, 12cm tall, 10mm wide, 6 tris
@@ -1844,8 +1846,8 @@ const GRASS_TIER0 := [
 		"mesh_path": "res://models/vegetation/Blade_Lawn_Thin.glb",
 		"spacing": 0.0625, "cell_width": 4.0, "grid_width": 3,
 		"random_spacing": 0.6,
-		"min_scale": Vector3(0.6, 0.6, 0.6),
-		"max_scale": Vector3(1.4, 1.4, 1.4),
+		"min_scale": Vector3(0.6, 0.85, 0.6),
+		"max_scale": Vector3(1.4, 1.15, 1.4),
 		"position_offset": Vector3(0, -0.002, 0),
 	},
 	{  # Ryegrass broad blade — wider, shorter than Tier 1
@@ -1853,8 +1855,8 @@ const GRASS_TIER0 := [
 		"mesh_path": "res://models/vegetation/Blade_Lawn_Wide.glb",
 		"spacing": 0.0625, "cell_width": 4.0, "grid_width": 3,
 		"random_spacing": 0.6,
-		"min_scale": Vector3(0.6, 0.6, 0.6),
-		"max_scale": Vector3(1.4, 1.4, 1.4),
+		"min_scale": Vector3(0.6, 0.85, 0.6),
+		"max_scale": Vector3(1.4, 1.15, 1.4),
 		"position_offset": Vector3(0, -0.002, 0),
 	},
 	{  # Fine fescue — very thin, delicate shade grass
@@ -2065,6 +2067,7 @@ func _setup_grass_particles() -> void:
 		# Render material — textured alpha-scissor grass with wind + seasons
 		var render_mat := ShaderMaterial.new()
 		render_mat.shader = render_shader
+		render_mat.set_shader_parameter("biome_id", biome.biome_id)
 		if albedo_tex:
 			render_mat.set_shader_parameter("use_texture", true)
 			render_mat.set_shader_parameter("grass_albedo", albedo_tex)
