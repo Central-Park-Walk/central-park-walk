@@ -239,13 +239,20 @@ void fragment() {
 	// correctly in shadow/reflection passes.
 	float frag_cam_dist = length(frag_tree_pos - player_world_pos);
 
-	// Distance-adaptive discard threshold. Near: 0.5 keeps leaf shapes crisp
-	// (mip-averaged halo pixels cut). Far: threshold drops toward 0.10 so
-	// mip-averaged alpha still passes and distant canopy reads as a solid
-	// mass instead of thin twig silhouettes (replaces the old alpha-lift
-	// ramp, which is meaningless without an ALPHA write).
-	float opaque_ramp = smoothstep(100.0, 180.0, frag_cam_dist);
-	if (alpha < mix(0.5, 0.10, opaque_ramp)) discard;
+	// Coverage-preserving discard threshold, driven by the SAMPLED MIP —
+	// not camera distance. Box-filtered mips dilute alpha (binary at mip 0,
+	// graded above), so a fixed high threshold deletes small or edge-on
+	// cards wholesale. The old 100-180m camera ramp caused the Jun 11
+	// "leaves vanish as you approach" defect: walking in raised the
+	// threshold to 0.5 while edge-on under-crown cards kept sampling high
+	// mips whose alpha never reaches it. Mip 0 keeps 0.5 (crisp leaf
+	// shapes, halo pixels cut); by mip 4 the threshold reaches 0.10 (the
+	// dilated silhouette IS the leaf mass — keeping it preserves canopy
+	// density). Unlike the May 18 alpha-boost attempt (color steps via
+	// ALPHA blending), a threshold can't shift shading — surviving
+	// fragments shade identically.
+	float alpha_lod = textureQueryLod(albedo_tex, UV).y;
+	if (alpha < mix(0.5, 0.10, clamp(alpha_lod * 0.25, 0.0, 1.0))) discard;
 
 	// LOD crossfade: complementary dithering at tier boundaries.
 	// Outgoing: this tier dissolves away as camera moves beyond its range.
