@@ -21,10 +21,17 @@ point here and are the fields stills/text leave thin (method §3 step 2: ask on 
 - [x] **iNaturalist, CP-geofiltered** — API count: **283 research-grade _Lindera benzoin_
   observations** inside the park bbox — by far the dominant understory shrub, confirmed in
   *this* park. (Web UI 403s; API count only — individual photos not visually inspected.)
-- [ ] **Walk-through video (REQUESTED — North Woods / Ramble thicket)** — needed for: the
-  drooping/layering cascade habit in context, the bare-stem winter skeleton, how a CP
-  shade-form thicket actually reads, and wind behavior. *The Mall video (cathedral_elm) has
-  no spicebush — manicured allée + lawn.*
+- [x] **Walk-through video (North Woods, PRIMARY for in-context habit)** — user-supplied
+  *North Woods walking tour*, YouTube `250HlDgDVNw`, ~7:39, late-spring leaf-out (bright
+  green, spring ephemerals on the floor; the Loch/Ravine + Glen Span Arch). claudetube
+  URL/audio path failed (video-only stream, silent tour) → downloaded local + **ffmpeg
+  frames** at 45/90/135/180/225/**228/232**/270/315/360/**400**/405 s. Frames inspected.
+  *Covers in-stand habit, thicket interaction, leaf-out, behavior. Does NOT cover the bare
+  winter skeleton (spring footage) — winter habit taken from the authoritative bud/twig
+  description below; a late-fall/winter walk would refine it but is no longer blocking.*
+  **Honest scope:** the frames show the dominant North Woods shade-form understory shrub
+  layer read *as a mass* (the user identifies it as spicebush-dominated); habit/interaction
+  observed at the stand level, not botanically keyed plant-by-plant from frames.
 - [x] **Habit (authoritative)** — Morton Arboretum, Missouri Botanical (Kemper), NCSU
   Extension, PSU Extension, ODNR, Wikipedia: multi-stemmed; rounded to irregular, broad;
   **arching branches**; "tolerates full shade, but **habit becomes more open and
@@ -52,10 +59,12 @@ point here and are the fields stills/text leave thin (method §3 step 2: ask on 
 - **Overall form / crown shape:** mounding / broad-rounded, open & wide-spreading (shade
   form). Width ≈ or > height.
 - **Aspect (width : height):** ~1 : 1 to 1.3 : 1 (often wider than tall in shade).
-- **First branch / fork height:** low — multi-stemmed from a wide root crown; foliage carried
-  through the upper ⅔, stems somewhat bare/leggy low (shade form).
+- **First branch / fork height:** low — multi-stemmed from a wide root crown; **foliage
+  carried in the upper ½–⅔, lower stems visibly bare/leggy** (confirmed across North Woods
+  frames 225/228/232/400 — shade form: open, see-through at the base, mass held aloft).
 - **Branch character:** primary stems **arch** (not straight-out radial); secondaries
-  **droop and layer**; zigzag (sympodial) twig pattern; fine, airy in shade.
+  **droop and layer** into soft overlapping masses (frame 232: arching multi-stem with
+  layered foliage above a leggy base); zigzag (sympodial) twig pattern; fine, airy in shade.
 - **Asymmetry:** strongly irregular/lopsided in shade as stems reach for light gaps — wide
   envelope (§7).
 
@@ -70,7 +79,9 @@ point here and are the fields stills/text leave thin (method §3 step 2: ask on 
 - **Target stand reading:** *a North Woods / Ramble thicket reads as overlapping cascading
   mounds, masses flowing into each other and layering front-to-back under the canopy — not a
   field of identical isolated bushes.* (Validate on a thicket capture, not one shrub —
-  method §4. **Refine this against the requested CP walk video.**)
+  method §4.) **Confirmed in reference:** North Woods frames 232 & 400 (Glen Span Arch) show
+  the path flanked by continuous overlapping understory shrub masses — leggy-open at the
+  base, layered foliage above, thickets merging into each other. That is the target read.
 
 ## 3. Density
 - **Bucket:** dappled → open/lacy in shade (airy, leggy); fuller in sun.
@@ -131,6 +142,10 @@ cautionary tale is literally this plant). Widen substantially.*
 - [ ] User walk-around sign-off.
 
 ---
-**OPEN — blocks geometry on this species:** a North Woods / Ramble spicebush **walk video**
-to lock the cascade habit / winter skeleton / thicket read before modeling (method §5 step 1:
-no geometry before the reference set is complete). Requested from the user 2026-06-11.
+**Reference set status (2026-06-11):** COMPLETE enough to model. Habit (arch + droop +
+layered mound), leggy shade-form base, and thicket interaction are confirmed from the
+user-supplied North Woods walk (`250HlDgDVNw`, spring leaf-out) + authoritative form/season.
+**Remaining gap (non-blocking):** the bare-stem **winter skeleton** in context — spring
+footage can't show it; modeled from the authoritative olive-twig/paired-bud description. A
+late-fall or winter North Woods walk would refine the winter state but does not block
+habit-first geometry (the named-failure fix is the cascade, which is now referenced).
