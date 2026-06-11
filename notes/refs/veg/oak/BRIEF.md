@@ -14,10 +14,14 @@
 ## Reference set
 - [x] **iNaturalist, CP-geofiltered** — API: **290 research-grade _Quercus_ observations**
   inside the park bbox. Confirms oak as the dominant native canopy genus.
-- [x] **Walk-through video (in-stand canopy, North Woods)** — `250HlDgDVNw` (spring leaf-out),
+- [x] **Walk-through video (in-stand canopy, North Woods, spring)** — `250HlDgDVNw` (leaf-out),
   frames 45 / 360: closed oak-dominated woodland canopy with interlacing crowns and a layered
   sub-canopy — the broadleaf-template **stand** reference. *Honest caveat: the North Woods
   canopy is oak-dominated (red/black) but the frames aren't keyed plant-by-plant.*
+- [x] **Walk-through video (North Woods, WINTER bare structure)** — `jak1DISt1uU`, frames
+  18/30/42/66 %: the bare canopy skeleton — **tall clean trunks → heavy ascending-then-arching
+  limbs → fine ramification, crowns interlacing into a continuous bare branch mesh overhead.**
+  Note: these mature trees are **cleanly bare** — no marcescent leaf-hold visible (see §4).
 - [x] **Habit / bark / fall / winter (authoritative)** — NCSU Extension, ODNR, Britannica,
   MO Dept. Conservation, [[reference-tree-canopy-data]] §1.
 - [x] **Canopy numbers** — [[reference-tree-canopy-data]] §1 (LAI, leaf size, crown spread).
@@ -59,9 +63,11 @@
 - **Leaf:** alternate, simple, **deeply lobed with wide U-sinuses, bristle-tipped lobes**
   (pin/red/scarlet); 7.5–15 cm; distributed along branches, not tip-clustered.
 - **Summer color:** dark green. · **Fall color + timing:** **orange / bronze / russet-red**
-  (Oct–Nov). · **Winter:** young oaks are **marcescent** — hold bronze/russet leaves through
-  winter (drives the WINTER_RETENTION value + a distinct winter look; do NOT make oak
-  cleanly bare). · **Bloom:** catkins, inconspicuous (ignore visually).
+  (Oct–Nov). · **Winter:** **young/small oaks are marcescent** — hold bronze/russet leaves
+  through winter (drives WINTER_RETENTION on the `_s`/young tier). **Mature `_l` trees go
+  cleanly bare** (confirmed: winter video `jak1DISt1uU` — no leaf-hold on the big specimens).
+  So scale marcescent retention by tier/size, don't apply it uniformly. · **Bloom:** catkins,
+  inconspicuous (ignore visually).
 
 ## 5. Behavior
 - **Wind character:** **stiff** — oak is the canonical rigid crown

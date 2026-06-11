@@ -26,9 +26,13 @@ point here and are the fields stills/text leave thin (method §3 step 2: ask on 
   green, spring ephemerals on the floor; the Loch/Ravine + Glen Span Arch). claudetube
   URL/audio path failed (video-only stream, silent tour) → downloaded local + **ffmpeg
   frames** at 45/90/135/180/225/**228/232**/270/315/360/**400**/405 s. Frames inspected.
-  *Covers in-stand habit, thicket interaction, leaf-out, behavior. Does NOT cover the bare
-  winter skeleton (spring footage) — winter habit taken from the authoritative bud/twig
-  description below; a late-fall/winter walk would refine it but is no longer blocking.*
+  *Covers in-stand habit, thicket interaction, leaf-out, behavior.*
+- [x] **Walk-through video (North Woods, WINTER)** — user-supplied *winter North Woods walk*,
+  YouTube `jak1DISt1uU`, ~14:25, full snow cover. Local download + ffmpeg frames at 6/18/30/42/
+  54/66/78/90 %. **Closes the winter-skeleton gap:** bare, the understory shrub layer reads as a
+  **sparse, fine, twiggy, leggy multi-stem arching skeleton low on the woodland slopes —
+  see-through, NOT a dense mound** (frames 6/54/66 %). The mounding cascade is a *summer-foliage*
+  read; the winter skeleton is open and twiggy.
   **Honest scope:** the frames show the dominant North Woods shade-form understory shrub
   layer read *as a mass* (the user identifies it as spicebush-dominated); habit/interaction
   observed at the stand level, not botanically keyed plant-by-plant from frames.
@@ -104,8 +108,10 @@ point here and are the fields stills/text leave thin (method §3 step 2: ask on 
   secondaries sway with a soft pendulous lag. Not stiff (oak), not a curtain (willow) — a
   springy bounce on the arching stems.
 - **Seasonal timeline:** greenish-yellow bloom-haze (Mar, bare) → leaf flush (Apr) → green
-  summer mound → clear-yellow fall (Oct) → red drupes revealed at leaf drop → bare arching
-  multi-stem skeleton with paired buds on olive twigs (winter).
+  summer mound → clear-yellow fall (Oct) → red drupes revealed at leaf drop → **bare winter =
+  sparse, fine, twiggy, leggy multi-stem arching skeleton, see-through (NOT a dense mound)**,
+  paired buds on olive twigs (confirmed: winter video `jak1DISt1uU`). The summer model must
+  thin to this open twiggy skeleton through autumn, not just shrink the mound.
 
 ## 6. The one unmistakable thing
 The **arch-and-droop cascade**: primary stems arch and secondary growth layers over itself
@@ -142,10 +148,9 @@ cautionary tale is literally this plant). Widen substantially.*
 - [ ] User walk-around sign-off.
 
 ---
-**Reference set status (2026-06-11):** COMPLETE enough to model. Habit (arch + droop +
-layered mound), leggy shade-form base, and thicket interaction are confirmed from the
-user-supplied North Woods walk (`250HlDgDVNw`, spring leaf-out) + authoritative form/season.
-**Remaining gap (non-blocking):** the bare-stem **winter skeleton** in context — spring
-footage can't show it; modeled from the authoritative olive-twig/paired-bud description. A
-late-fall or winter North Woods walk would refine the winter state but does not block
-habit-first geometry (the named-failure fix is the cascade, which is now referenced).
+**Reference set status (2026-06-11):** COMPLETE — no remaining gap. Habit (arch + droop +
+layered mound), leggy shade-form base, and thicket interaction confirmed from the spring
+North Woods walk (`250HlDgDVNw`); the **bare twiggy winter skeleton** confirmed from the
+winter North Woods walk (`jak1DISt1uU`); form/season from authoritative sources. Ready for
+habit-first geometry — the named-failure fix (kill the V → arch/droop/layer cascade) and its
+seasonal endpoints are both referenced.
