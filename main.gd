@@ -228,6 +228,14 @@ func _parse_cli_args() -> void:
 		elif key == "--sun-cal" and val != "":
 			_cli_sun_cal = float(val)
 			print("[DIAG] sun-cal ×%.2f" % _cli_sun_cal)
+		elif key == "--fog-cal" and val != "":
+			# --fog-cal=sunvol:amb:emis:density:gi — volumetric-fog in-scatter
+			# multipliers (aerial-perspective sweeps, rendering.md §6c).
+			var fc := val.split(":")
+			for fci in mini(fc.size(), _cli_fog_cal.size()):
+				if fc[fci] != "": _cli_fog_cal[fci] = float(fc[fci])
+			print("[DIAG] fog-cal sunvol=%.2f amb=%.2f emis=%.2f density=%.2f gi=%.2f"
+					% _cli_fog_cal)
 		elif key == "--turf-sheen" and val != "":
 			_cli_turf_sheen = float(val)
 			print("[DIAG] turf-sheen %.2f" % _cli_turf_sheen)
@@ -280,6 +288,7 @@ func _ready() -> void:
 	_day_night.sun = _sun
 	_day_night.sky_cal_override = Vector3(_cli_sky_bg, _cli_sky_sun, _cli_sky_amb)
 	_day_night.sun_cal_override = _cli_sun_cal
+	_day_night.fog_cal_override = _cli_fog_cal
 	# Register global shader parameters BEFORE park_loader creates materials
 	RenderingServer.global_shader_parameter_add("wind_vec", RenderingServer.GLOBAL_VAR_TYPE_VEC2, Vector2.ZERO)
 	RenderingServer.global_shader_parameter_add("snow_cover", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
@@ -941,6 +950,8 @@ var _cli_sky_amb: float = -1.0
 # --sun-cal=mult: ground-light (DirectionalLight) calibration override
 # (-1 = shipped SUN_CAL; sky compensated — see day_night_cycle.gd)
 var _cli_sun_cal: float = -1.0
+# --fog-cal=sunvol:amb:emis:density:gi overrides (-1 = shipped FOG_CAL_*)
+var _cli_fog_cal: Array = [-1.0, -1.0, -1.0, -1.0, -1.0]
 # Turf sheen: broad white blade-cuticle specular on lawn terrain + blades
 # (grass.md §6 calibration). --turf-sheen=0..1 overrides for sweeps.
 # Measured 2026-06-11 with SUN_CAL=3 + thatch mix: lawn R/G 0.57→0.82
@@ -1655,8 +1666,12 @@ func _setup_environment() -> void:
 	# aerial perspective should noticeably desaturate + lighten objects.
 	_env.volumetric_fog_enabled = true
 	_env.volumetric_fog_density = 0.003  # CD-style dense atmosphere — visible god-ray shafts under canopy
-	_env.volumetric_fog_albedo = Color(0.92, 0.93, 0.96)  # slightly blue-white haze
-	_env.volumetric_fog_emission = Color(0.75, 0.80, 0.88)
+	# Albedo cool-tinted: the veil over distant objects should read slightly
+	# BLUE (Rayleigh skylight scatter), measured warm-grey pre-calibration
+	# (rendering.md §6c). Emission carries the sky-blue in-scatter floor;
+	# its energy is day-blended in day_night_cycle.gd (FOG_CAL_EMIS).
+	_env.volumetric_fog_albedo = Color(0.85, 0.90, 0.98)
+	_env.volumetric_fog_emission = Color(0.45, 0.62, 1.0)
 	_env.volumetric_fog_emission_energy = 0.06
 	_env.volumetric_fog_anisotropy = 0.35
 	_env.volumetric_fog_length = 800.0  # reach the buildings (was 100m!)

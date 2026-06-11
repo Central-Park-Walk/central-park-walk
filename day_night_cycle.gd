@@ -81,6 +81,29 @@ var sky_cal_override := Vector3(-1.0, -1.0, -1.0)
 const SUN_CAL := 3.0
 # --sun-cal=mult sets the exact multiplier (bypasses the day blend).
 var sun_cal_override := -1.0
+# Aerial-perspective / fog-veil calibration (rendering.md §6c,
+# COMPARISON.md #5). The volumetric-fog sun in-scatter term multiplies
+# sun.light_energy, so SUN_CAL tripled it without compensation (the same
+# coupling the cloud direct-sun term got via cal_sun / sun_mult) — the
+# distant tree line measured +48% warm-grey wash at ~400 m vs the real
+# ~10% slightly-blue veil (scripts/fog_veil_check.py). The volumetric
+# energy is divided by sun_mult here (day-blended, night untouched), then
+# the FOG_CAL_* constants calibrate each in-scatter source on top.
+# Shipped values measured 2026-06-11 (hero pose, fixed cloud seed 7):
+# /sun_mult compensation alone took the veil +48%→+20%; component zeroing
+# showed the sun term owns ~95% of the remainder → SUNVOL 0.4 (blended to
+# 1.0 at low sun via sun_low_factor — god rays keep full strength) + the
+# sky-blue emission floor ×7 (day-blended, night keeps 0.06) lands the
+# tree-line veil at +10% of unfogged, ΔRGB +9/+8/+16 (blue-led). Targets
+# and full record: rendering.md §6c.
+const FOG_VOL_ENERGY_BASE := 5.0   # sun.light_volumetric_fog_energy (god rays)
+const FOG_CAL_SUNVOL := 0.4   # × sun volumetric energy, AFTER /sun_mult
+const FOG_CAL_AMB := 1.0      # × volumetric_fog_ambient_inject (base 0.12)
+const FOG_CAL_EMIS := 7.0     # × volumetric_fog_emission_energy (base 0.06)
+const FOG_CAL_DENSITY := 1.0  # × keyframed vol_fog_density
+const FOG_CAL_GI := 1.0       # × volumetric_fog_gi_inject (base 0.25)
+# --fog-cal=sunvol:amb:emis:density:gi sets exact multipliers for sweeps.
+var fog_cal_override: Array = [-1.0, -1.0, -1.0, -1.0, -1.0]
 # --diag-hide=cloudshadows: zero the procedural ground cloud-shadow term
 # for attribution A/Bs (visible volumetric clouds unaffected).
 var cloud_shadow_disabled := false
@@ -162,11 +185,45 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 	if lightning_flash > 0.01:
 		env.adjustment_brightness *= (1.0 + lightning_flash * 0.8)
 
-	# Volumetric fog
-	env.volumetric_fog_density = _lerp_kf("vol_fog_density", a, b, t)
-	var base_aniso: float = _lerp_kf("vol_fog_anisotropy", a, b, t)
+	# Volumetric fog (FOG_CAL_*: aerial-perspective calibration above)
 	var pitch_val: float = _lerp_kf("sun_pitch", a, b, t)
 	var sun_low_factor: float = smoothstep(-25.0, -5.0, pitch_val) * smoothstep(5.0, -5.0, pitch_val)
+	# sunvol blends back to 1.0 as the sun drops: the high-sun veil is what
+	# we calibrate down; low-sun forward scatter IS the god rays — keep it.
+	# The outer day_f blend keeps night exact (sun_low_factor reads 0 at
+	# night because the light doubles as a HIGH moon, pitch -65 at 21:00).
+	# emis is the blue-skylight floor: it fades in with sun ELEVATION (a
+	# day_f gate alone turned 6:30 golden-hour mist blue — keyframe
+	# sun_energy is already 0.90 at dawn), and day_f keeps night exact
+	# (the high moon, pitch -65, would otherwise read as elevation 1.0).
+	var cal_fog_sunvol: float = lerpf(1.0, lerpf(FOG_CAL_SUNVOL, 1.0, sun_low_factor), day_f)
+	var cal_fog_amb: float = FOG_CAL_AMB
+	var high_sun_f: float = day_f * smoothstep(15.0, 40.0, -pitch_val)
+	var cal_fog_emis: float = lerpf(1.0, FOG_CAL_EMIS, high_sun_f)
+	var cal_fog_density: float = FOG_CAL_DENSITY
+	var cal_fog_gi: float = FOG_CAL_GI
+	# The veil calibration is a CLEAR-SKY aerial-perspective fix. Heavy
+	# weather is its own look (absolute density overrides below) — the
+	# bright sun in-scatter IS the white of a fog bank, and a blue
+	# skylight floor under overcast is wrong. /sun_mult compensation
+	# stays (it restores the long-standing pre-SUN_CAL weather look).
+	if weather != Weather.CLEAR:
+		cal_fog_sunvol = 1.0
+		cal_fog_emis = 1.0
+	if fog_cal_override[0] > 0.0: cal_fog_sunvol = fog_cal_override[0]
+	if fog_cal_override[1] > 0.0: cal_fog_amb = fog_cal_override[1]
+	if fog_cal_override[2] > 0.0: cal_fog_emis = fog_cal_override[2]
+	if fog_cal_override[3] > 0.0: cal_fog_density = fog_cal_override[3]
+	if fog_cal_override[4] > 0.0: cal_fog_gi = fog_cal_override[4]
+	# Compensate the SUN_CAL ground-light raise out of the fog sun
+	# in-scatter (it multiplies LIGHT_ENERGY), same construction as the
+	# cloud direct-sun term.
+	sun.light_volumetric_fog_energy = FOG_VOL_ENERGY_BASE * cal_fog_sunvol / sun_mult
+	env.volumetric_fog_ambient_inject = 0.12 * cal_fog_amb
+	env.volumetric_fog_emission_energy = 0.06 * cal_fog_emis
+	env.volumetric_fog_gi_inject = 0.25 * cal_fog_gi
+	env.volumetric_fog_density = _lerp_kf("vol_fog_density", a, b, t) * cal_fog_density
+	var base_aniso: float = _lerp_kf("vol_fog_anisotropy", a, b, t)
 	env.volumetric_fog_anisotropy = lerpf(base_aniso, 0.88, sun_low_factor * 0.5)
 
 	# Weather overrides

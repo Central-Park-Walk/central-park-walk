@@ -265,6 +265,68 @@ dispatch — cloudless sky + spurious flat tint from the cleared textures).
    `--sun-cal=mult`. Direct:diffuse is now ~4.9:1 at clear noon
    (physical; ambient keyframes untouched).
 
+## 6c. Aerial perspective / fog-veil calibration (2026-06-11 — COMPARISON.md #5a)
+
+The distant tree line measured ~2.5× too bright: at the Sheep Meadow hero
+pose (clear noon), volumetric fog added **+41 luma (+48%) of warm-grey
+wash** (ΔRGB +53/+38/+40) over the ~400 m tree-line band, vs the real
+clear-day NYC veil of ~10%, slightly blue. Protocol:
+`scripts/fog_veil_check.py` (tree-line band + tower patch, shared-mask
+fog-on/off deltas, poses from `sheep_meadow_ref_captures.sh`,
+`--cloud-seed=7`).
+
+Component attribution (zeroing each in-scatter source via `--fog-cal`):
+the **sun forward-scatter term owned ~95% of the veil**. Root cause is
+the §6b coupling rule by omission: SUN_CAL=3.0 multiplies
+`sun.light_energy`, which the fog sun in-scatter also multiplies — the
+clouds got the `/sun_mult` compensation, `light_volumetric_fog_energy`
+(5.0) never did. Ambient inject / GI inject / emission were ~+1 luma
+each.
+
+Shipped (day_night_cycle.gd `FOG_CAL_*`, main.gd fog colors):
+
+1. **`/sun_mult` compensation** on the volumetric sun energy (day-blended;
+   night exact). Alone: +48% → +20%. **The §6b coupling rule now covers
+   three terms: cloud direct-sun, AND fog sun in-scatter.**
+2. **`FOG_CAL_SUNVOL = 0.4`** on top, blended back to 1.0 at low sun via
+   `sun_low_factor` — dawn/dusk forward scatter IS the god rays, and the
+   compensation alone already restores their pre-SUN_CAL strength
+   (verified: dawn Ramble medians 29.2 vs old 29.3, RGB identical).
+3. **Blue skylight floor**: fog albedo cooled (0.92,0.93,0.96)→
+   (0.85,0.90,0.98); emission color → sky-blue (0.45,0.62,1.0) with
+   energy ×7 (`FOG_CAL_EMIS`), gated on **sun elevation** (`day_f ×
+   smoothstep(15°,40°, elevation)`) — a plain day_f gate turned 6:30
+   golden-hour mist blue (keyframe sun_energy is already 0.90 at dawn);
+   elevation gating restores dawn exactly while noon keeps the floor.
+4. **Heavy-weather gate**: any weather ≠ CLEAR resets SUNVOL/EMIS cals to
+   1.0 — bright sun in-scatter is the white of a fog bank, and a blue
+   floor under overcast is wrong. Weather fog keeps its long-standing
+   pre-SUN_CAL look (the compensation cancels SUN_CAL by construction).
+
+**Result (hero pose, shipped defaults): tree-line veil +8.5 luma (+10% of
+unfogged), ΔRGB +9/+8/+16 — blue-led.** Night 21:00 medians 19.9 vs 20.0;
+dusk 24.4 vs 24.8. Closer tree bands get proportionally less (+3% at the
+nw_across_meadow band) — correct, the veil is an integral over distance.
+
+Open, related (COMPARISON.md #5): towers at 1–3 km net ≈0 veil — on
+bright surfaces extinction cancels in-scatter, and the fog volume ends at
+`volumetric_fog_length` 800 m, so aerial perspective stops accumulating
+past that. Lifting distant-tower blacks needs depth-range fog (classic
+`fog_aerial_perspective` re-enable or longer froxel volume — measure god-ray
+depth-resolution cost first). And the unfogged canopy itself is still too
+bright (96.5 vs ref 36–62) — that's work item (b), canopy value.
+
+Sweep knob: `--fog-cal=sunvol:amb:emis:density:gi` (exact multipliers,
+bypass all blends/gates; partial OK, e.g. `--fog-cal=0.4::7`).
+
+Perf: free, verified by sandwich A/B (gates 20260611_123225 new vs
+_123800 old, same thermal state: 52/59/41/64/34 vs 51/58/41/64/35 fps).
+Both read ~+7 ms/location vs the cold 4 AM canonical gate
+20260611_042800 — a second documented instance of the §1 thermal-drift
+trap, this time offsetting a WHOLE gate uniformly: an absolute gate
+FAIL after a long capture session is not actionable without a
+same-state sandwich.
+
 ## 7. Shadow-casting policy (design rule)
 
 Only things whose shadow you can *name from a walk* cast: trees (via proxies), large structures, lamps at night. Grass, undergrowth, ground cover, leaves-as-geometry never cast (enforced in every builder; verified 2026-06-09 — shadow-pass primitives identical at 17.44M with grass shown vs hidden at Great Lawn). Perceived grass shadows are in-shader blade shading + SSAO/SSIL contact darkening. Shadow detail is a near-field privilege; beyond the first cascade, shape fidelity is invisible and dapple is texture, not geometry.
