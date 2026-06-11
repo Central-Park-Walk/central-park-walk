@@ -214,6 +214,14 @@ func _parse_cli_args() -> void:
 			print("[DIAG] grass grid ×%.2f" % _cli_grass_grid_mult)
 		elif key == "--cloud-seed" and val != "":
 			_cli_cloud_seed = int(val)
+		elif key == "--sky-cal" and val != "":
+			# --sky-cal=bg:sun:amb — background brightness, cloud direct-sun
+			# and cloud ambient multipliers (calibration sweeps).
+			var sc := val.split(":")
+			if sc.size() >= 1: _cli_sky_bg = float(sc[0])
+			if sc.size() >= 2: _cli_sky_sun = float(sc[1])
+			if sc.size() >= 3: _cli_sky_amb = float(sc[2])
+			print("[DIAG] sky-cal bg=%.2f sun=%.2f amb=%.2f" % [_cli_sky_bg, _cli_sky_sun, _cli_sky_amb])
 		elif arg == "--shadow-census":
 			_diag_shadow_census = true
 		elif arg == "--screenshot":
@@ -908,6 +916,10 @@ var _cli_grass_spacing_mult: float = 1.0
 var _cli_grass_grid_mult: float = 1.0
 # --cloud-seed=N: reproducible cloud field for calibration captures (-1 = random)
 var _cli_cloud_seed: int = -1
+# --sky-cal=bg:sun:amb overrides (-1 = shipped defaults)
+var _cli_sky_bg: float = -1.0
+var _cli_sky_sun: float = -1.0
+var _cli_sky_amb: float = -1.0
 # --shadow-census: one-shot dump of every shadow-casting GeometryInstance3D
 # (top 25 by mesh tris × instances) on the 3rd perf tick, after diag hides apply.
 var _diag_shadow_census: bool = false
@@ -1552,6 +1564,14 @@ func _setup_environment() -> void:
 		else:
 			vol_sky.time_offset = randf_range(0.0, 100.0)
 			vol_sky.wind_direction = randf_range(-PI, PI)
+		# Sky calibration overrides (--sky-cal=bg:sun:amb; defaults live in
+		# the shader uniform / cloud_sky.gd exports once calibrated).
+		if _cli_sky_sun > 0.0:
+			vol_sky.sun_scale = _cli_sky_sun
+		if _cli_sky_amb > 0.0:
+			vol_sky.ambient_scale = _cli_sky_amb
+		if _cli_sky_bg > 0.0:
+			vol_sky.sky_material.set_shader_parameter("sky_brightness", _cli_sky_bg)
 		vol_sky.sun = _sun  # will be set after _sun is created — deferred below
 		_sky_mat = vol_sky.sky_material
 		_vol_sky = vol_sky

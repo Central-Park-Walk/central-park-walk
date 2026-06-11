@@ -37,6 +37,10 @@ layout(push_constant, std430) uniform Params {
 	float density;
 	float cloud_coverage;
 	float time_offset;
+
+	float sun_scale;      // calibration: direct-sun term multiplier
+	float ambient_scale;  // calibration: sky/ground ambient multiplier
+	vec2 pad3;            // keep push-constant size 16-byte aligned
 } params;
 
 // Approximately earth sizes
@@ -161,11 +165,13 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 	// Stack multiple phase functions to emulate some backscattering
 	float phase = max(max(henyey_greenstein(costheta, 0.6), henyey_greenstein(costheta, (0.4 - 1.4 * ldir.y))), henyey_greenstein(costheta, -0.2));
 
-	// Read sun and ambient colors from the sky LUT.
-	vec3 atmosphere_sun = getValFromSkyLUT(params.LIGHT_DIRECTION) * 0.1 * params.LIGHT_ENERGY * params.LIGHT_COLOR;
-	vec3 atmosphere_ambient = getValFromSkyLUT(normalize(vec3(1.0, 1.0, 0.0))) * 0.05;
+	// Read sun and ambient colors from the sky LUT. sun_scale/ambient_scale
+	// are calibration multipliers (1.0 = upstream demo behavior) — see
+	// docs/rendering.md sky calibration.
+	vec3 atmosphere_sun = getValFromSkyLUT(params.LIGHT_DIRECTION) * 0.1 * params.LIGHT_ENERGY * params.LIGHT_COLOR * params.sun_scale;
+	vec3 atmosphere_ambient = getValFromSkyLUT(normalize(vec3(1.0, 1.0, 0.0))) * 0.05 * params.ambient_scale;
 	atmosphere_ambient = mix(atmosphere_ambient, vec3(length(atmosphere_ambient)), 0.5); // interpolate towards white with this intensity.
-	vec3 atmosphere_ground = getValFromSkyLUT(normalize(vec3(1.0, -1.0, 0.0))) * 5.0 * 0.05;
+	vec3 atmosphere_ground = getValFromSkyLUT(normalize(vec3(1.0, -1.0, 0.0))) * 5.0 * 0.05 * params.ambient_scale;
 	atmosphere_ground = mix(atmosphere_ground, params.ground_color.rgb * vec3(length(atmosphere_ground)), 0.5); // interpolate towards ground color with this intensity.
 	
 	const float weather_scale = 0.00006;

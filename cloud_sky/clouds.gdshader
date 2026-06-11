@@ -10,6 +10,11 @@ uniform sampler2D sky_blend_to_texture : filter_linear, repeat_disable, source_c
 uniform sampler2D source_transmittance : filter_linear, hint_default_black, repeat_disable;
 
 uniform float blend_amount : hint_range(0.0, 1.0, 0.01);
+// Background-atmosphere brightness calibration (2026-06-10): the LUT/50
+// convention came from the upstream demo's exposure setup; under our AgX
+// pipeline a clear noon sky measured ~1 stop under reference. Calibrated
+// via --sky-cal sweeps against real-photo targets (docs/rendering.md).
+uniform float sky_brightness = 1.0;
 uniform float sun_disk_scale = 1.0;
 uniform float sun_disk_hdr_brightness : hint_range(0.0, 100.0, 0.01) = 5.0;
 uniform float sun_disk_hdr_attenuation : hint_range(1.0, 10.0, 0.01) = 1.0;
@@ -43,7 +48,7 @@ vec3 getValFromSkyLUT(vec3 rayDir) {
 
 	vec3 blend_from = texture(sky_blend_from_texture, uv).rgb;
 	vec3 blend_to = texture(sky_blend_to_texture, uv).rgb;
-    return mix(blend_from, blend_to, blend_amount) / 50.0;
+    return mix(blend_from, blend_to, blend_amount) / 50.0 * sky_brightness;
 }
 
 // https://www.shadertoy.com/view/slSXRW

@@ -22,6 +22,11 @@ var density : float = 0.05
 var cloud_coverage : float = 0.25
 @export
 var time_offset : float = 0.0
+# Cloud-lighting calibration multipliers (1.0 = upstream demo behavior).
+@export
+var sun_scale : float = 1.0
+@export
+var ambient_scale : float = 1.0
 
 @export_group("Sky Settings")
 @export
@@ -305,6 +310,11 @@ func _fill_push_constant():
 	push_constant.push_back(frame_data.density)
 	push_constant.push_back(frame_data.cloud_coverage)
 	push_constant.push_back(frame_data.time_offset)
+
+	push_constant.push_back(sun_scale)
+	push_constant.push_back(ambient_scale)
+	push_constant.push_back(0.0)  # pad3
+	push_constant.push_back(0.0)
 
 	return push_constant
 
