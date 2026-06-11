@@ -20,7 +20,7 @@ const VIEWPOINTS: Array = [
 	{"name": "reservoir_south", "x": -200.0, "z": -300.0, "yaw": 0.0},
 	{"name": "bow_bridge", "x": -540.0, "z": 740.0, "yaw": 310.0},
 	{"name": "soccer_fields", "x": 390.0, "z": -1070.0, "yaw": 30.0},
-	{"name": "sheep_meadow", "x": -700.0, "z": 1600.0, "yaw": 270.0},
+	{"name": "sheep_meadow", "x": -820.0, "z": 1100.0, "yaw": 180.0},
 ]
 
 const ANGLES: Array = [
@@ -61,7 +61,7 @@ const SHOWCASE_SHOTS: Array = [
 	# Summer dawn at Reservoir
 	{"name": "reservoir_summer_dawn", "x": -200.0, "z": -300.0, "yaw": 0.0, "pitch": -5.0, "hour": 5.5, "season": 1.5, "weather": "clear"},
 	# Summer golden hour at Sheep Meadow — mowing stripes visible on green grass
-	{"name": "sheep_meadow_summer_golden", "x": -700.0, "z": 1600.0, "yaw": 270.0, "pitch": -3.0, "hour": 18.0, "season": 1.5, "weather": "clear"},
+	{"name": "sheep_meadow_summer_golden", "x": -690.0, "z": 1250.0, "yaw": 90.0, "pitch": -3.0, "hour": 18.0, "season": 1.5, "weather": "clear"},
 	# Autumn at the Lake
 	{"name": "the_lake_autumn_afternoon", "x": -560.0, "z": 780.0, "yaw": 60.0, "pitch": 0.0, "hour": 15.0, "season": 2.7, "weather": "clear"},
 	# Spring morning at soccer fields
@@ -80,12 +80,12 @@ const README_SHOTS: Array = [
 	{"name": "readme_literary_walk_summer", "x": -600.0, "z": 1420.0, "yaw": 30.0, "pitch": 0.0, "hour": 11.0, "season": 1.5, "weather": "clear"},
 	{"name": "readme_ramble_summer", "x": -350.0, "z": 650.0, "yaw": 200.0, "pitch": 0.0, "hour": 10.5, "season": 1.5, "weather": "clear"},
 	{"name": "readme_bethesda_summer", "x": -480.0, "z": 1020.0, "yaw": 350.0, "pitch": -5.0, "hour": 12.0, "season": 1.5, "weather": "clear"},
-	{"name": "readme_sheep_meadow_summer", "x": -750.0, "z": 1700.0, "yaw": 120.0, "pitch": 0.0, "hour": 14.0, "season": 1.5, "weather": "clear"},
+	{"name": "readme_sheep_meadow_summer", "x": -800.0, "z": 1110.0, "yaw": 160.0, "pitch": 0.0, "hour": 14.0, "season": 1.5, "weather": "clear"},
 	{"name": "readme_bow_bridge_summer", "x": -540.0, "z": 740.0, "yaw": 310.0, "pitch": -3.0, "hour": 13.0, "season": 1.5, "weather": "clear"},
 	{"name": "readme_cpw_skyline_golden", "x": -600.0, "z": 1420.0, "yaw": 90.0, "pitch": 0.0, "hour": 16.5, "season": 1.5, "weather": "clear"},
 	# --- AUTUMN ---
 	{"name": "readme_literary_walk_autumn", "x": -600.0, "z": 1420.0, "yaw": 30.0, "pitch": 0.0, "hour": 12.0, "season": 2.5, "weather": "clear"},
-	{"name": "readme_sheep_meadow_autumn", "x": -750.0, "z": 1700.0, "yaw": 120.0, "pitch": 0.0, "hour": 14.0, "season": 2.3, "weather": "clear"},
+	{"name": "readme_sheep_meadow_autumn", "x": -800.0, "z": 1110.0, "yaw": 160.0, "pitch": 0.0, "hour": 14.0, "season": 2.3, "weather": "clear"},
 	{"name": "readme_cherry_hill_autumn", "x": -630.0, "z": 880.0, "yaw": 90.0, "pitch": -3.0, "hour": 13.0, "season": 2.5, "weather": "clear"},
 	{"name": "readme_north_woods_autumn", "x": 600.0, "z": -1315.0, "yaw": 180.0, "pitch": 0.0, "hour": 11.0, "season": 2.5, "weather": "clear"},
 	# --- WINTER ---
@@ -99,7 +99,7 @@ const README_SHOTS: Array = [
 	{"name": "readme_bethesda_rain", "x": -480.0, "z": 1020.0, "yaw": 350.0, "pitch": -5.0, "hour": 13.0, "season": 1.5, "weather": "rain"},
 	{"name": "readme_north_woods_fog", "x": 850.0, "z": -1300.0, "yaw": 45.0, "pitch": 0.0, "hour": 10.0, "season": 1.5, "weather": "fog"},
 	# --- GOLDEN HOUR ---
-	{"name": "readme_sheep_golden", "x": -700.0, "z": 1600.0, "yaw": 270.0, "pitch": -3.0, "hour": 16.5, "season": 1.5, "weather": "clear"},
+	{"name": "readme_sheep_golden", "x": -690.0, "z": 1250.0, "yaw": 90.0, "pitch": -3.0, "hour": 16.5, "season": 1.5, "weather": "clear"},
 	{"name": "readme_lake_autumn_golden", "x": -560.0, "z": 780.0, "yaw": 60.0, "pitch": 0.0, "hour": 16.0, "season": 2.5, "weather": "clear"},
 	{"name": "readme_reservoir_autumn", "x": -200.0, "z": -300.0, "yaw": 0.0, "pitch": -2.0, "hour": 14.0, "season": 2.5, "weather": "clear"},
 ]
@@ -114,7 +114,9 @@ const PARK_AREAS: Array = [
 	[-550, -200, 400, 700, "The Ramble"],
 	[-700, -550, 800, 1000, "Cherry Hill"],
 	[-200, 200, -200, 400, "Great Lawn"],
-	[-900, -600, 1500, 2100, "Sheep Meadow"],
+	# Bounds measured from world_atlas.bin lawn polygon flood fill (2026-06-10);
+	# previous [-900,-600,1500,2100] was ~400m too far south (Pond/Wollman area).
+	[-1000, -660, 1030, 1410, "Sheep Meadow"],
 	[-300, 200, -800, -400, "Reservoir"],
 	[-200, 100, 800, 1050, "Conservatory Water"],
 	[200, 800, -1800, -1200, "North Meadow"],

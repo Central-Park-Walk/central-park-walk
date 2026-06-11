@@ -6,7 +6,9 @@
 # crossfade pops, grass swim, dapple movement).
 #
 # Conditions match the footage: midday, late summer, clear.
-# Yaw: 0=N 90=W 180=S 270=E. Meadow bounds: X -900..-600, Z 1500(N)..2100(S).
+# Yaw: 0=N 90=W 180=S 270=E.
+# Meadow bounds X -1000..-660, Z 1030(N)..1410(S) — measured from the
+# world_atlas.bin lawn polygon (tour_data's old Z 1500-2100 was The Pond).
 set -u
 G="${GODOT:-/home/chris/godot 4/Godot_v4.6.1-stable_linux.x86_64}"
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -30,18 +32,18 @@ cap() { # name, then pose args
 }
 
 # Stills mirroring the video views (timestamps refer to FRlNuZ4zz8U)
-cap nw_across_meadow   --pos=-680,1900,45            # 0:50 — NW across meadow to tree line
-cap w_cpw_treeline     --pos=-700,1750,90            # 2:08 — W: tree line + CPW behind
-cap crown_at_edge      --pos=-650,1650,315           # 4:10 — single big crown at meadow edge
-cap undercanopy_east   --pos=-620,1700,200           # 6:08 — under-canopy wear/shade zone
-cap s_skyline_hero     --pos=-750,1560,180           # 8:08 — S across meadow, skyline behind
-cap perimeter_path     --pos=-880,1800,250 --pitch=-2  # 9:28 — perimeter looking into meadow
+cap nw_across_meadow   --pos=-720,1360,45            # 0:50 — NW across meadow to tree line
+cap w_cpw_treeline     --pos=-750,1250,90            # 2:08 — W: tree line + CPW behind
+cap crown_at_edge      --pos=-700,1300,315           # 4:10 — single big crown at meadow edge
+cap undercanopy_east   --pos=-670,1250,200           # 6:08 — under-canopy wear/shade zone
+cap s_skyline_hero     --pos=-820,1080,180           # 8:08 — S across meadow, skyline behind
+cap perimeter_path     --pos=-1010,1250,250 --pitch=-2  # 9:28 — perimeter looking into meadow
 
 # 60 s forward walk, south end heading north, sampled every 0.3 s (~200 frames)
 WALK_DIR="notes/refs/sheep_meadow_game/walk"
 mkdir -p "$PROJECT_DIR/$WALK_DIR"
 timeout 200s "$G" --path "$PROJECT_DIR" --resolution 1920x1080 --disable-vsync \
-  -- --walk --pos=-720,2020,0 "${COND[@]}" \
+  -- --walk --pos=-820,1380,0 "${COND[@]}" \
   --walk-duration=60 --walk-interval=0.3 --walk-speed=1.4 --walk-settle=12 \
   --walk-dir="$WALK_DIR" \
   > "$OUT/walk.log" 2>&1
