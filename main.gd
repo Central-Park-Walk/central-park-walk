@@ -752,6 +752,10 @@ func _process(delta: float) -> void:
 
 	# Periodic perf log — runs regardless of overlay state, so we can
 	# A/B test the overlay's own cost by toggling F9 off.
+	var pf_ms: float = Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+	_pf_window_max_ms = maxf(_pf_window_max_ms, pf_ms)
+	if pf_ms > 8.0:
+		_pf_window_spikes += 1
 	_diag_log_timer += delta
 	if _diag_log_timer >= 2.0:
 		_diag_log_timer = 0.0
@@ -779,10 +783,13 @@ func _process(delta: float) -> void:
 		var sh_p := RenderingServer.viewport_get_render_info(vp_rid,
 			RenderingServer.VIEWPORT_RENDER_INFO_TYPE_SHADOW,
 			RenderingServer.VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME)
-		print("[PERF] fps=%d process=%.1f physics=%.1f sub=%.2f unacc=%.1f vpcpu=%.1f vpgpu=%.1f vistri=%d shobj=%d shtri=%d overlay=%s" % [
-			int(fps), p_ms, phy_ms, sub_us / 1000.0, p_ms - sub_us / 1000.0,
+		print("[PERF] fps=%d process=%.1f pmax=%.1f pspk=%d physics=%.1f sub=%.2f unacc=%.1f vpcpu=%.1f vpgpu=%.1f vistri=%d shobj=%d shtri=%d overlay=%s" % [
+			int(fps), p_ms, _pf_window_max_ms, _pf_window_spikes, phy_ms,
+			sub_us / 1000.0, p_ms - sub_us / 1000.0,
 			vpcpu_ms, vpgpu_ms, vis_p, sh_o, sh_p,
 			"ON" if _hud.perf_visible else "OFF"])
+		_pf_window_max_ms = 0.0
+		_pf_window_spikes = 0
 
 
 func _get_prof_data() -> Dictionary:
@@ -841,8 +848,10 @@ func _set_labels_visible(vis: bool) -> void:
 # Re-applied every perf tick (idempotent) so chunk systems that stream in
 # after the first application stay hidden.
 # Options: terrain trees undergrowth grass shadows sdfgi fog ssao ssil glow
-#          treeshadows proxyshadows furnitureshadows terrainshadows
+#          treeshadows proxyshadows furnitureshadows terrainshadows clouds
 #          treeshadows/terrainshadows/furnitureshadows (stay visible, stop casting)
+#          clouds (freeze volumetric-cloud + sky-LUT compute; sky keeps the
+#          last blended textures — isolates the per-frame dispatch cost)
 var _diag_hide: Array = []
 # Perf-experiment knobs: --shadow-dist=meters, --shadow-size=pixels,
 # --shadow-filter=0..5 (PCF quality; project default 2). -1 = keep defaults.
@@ -863,6 +872,11 @@ var _diag_grass_hidden: bool = false
 var _diag_terrain_hidden: bool = false
 var _diag_tree_mmis: Array = []
 var _diag_log_timer: float = 0.0
+# Per-window frame-time tail tracking (§5 floor anomaly). TIME_PROCESS is a
+# point sample of the previous frame, so the [PERF] means hide which frames
+# are slow; pmax/pspk expose the tail inside each 2s window.
+var _pf_window_max_ms: float = 0.0
+var _pf_window_spikes: int = 0
 
 func _diag_toggle_terrain() -> void:
 	if not _terrain3d:
@@ -1010,6 +1024,12 @@ func _diag_apply_hides() -> void:
 			"sdfgi":
 				if _env:
 					_env.sdfgi_enabled = false
+			"clouds":
+				# Freeze the volumetric-cloud compute (and the sky-LUT updates
+				# it drives). The sky shader keeps sampling the last blended
+				# textures, so the sky stays visible but static.
+				if _vol_sky:
+					_vol_sky.can_run = false
 			"fog":
 				if _env:
 					_env.volumetric_fog_enabled = false
