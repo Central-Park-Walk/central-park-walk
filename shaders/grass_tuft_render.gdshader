@@ -4,7 +4,10 @@
 // terrain impostor to ensure seamless color coherence across all LOD tiers.
 
 shader_type spatial;
-render_mode cull_disabled, diffuse_burley, specular_schlick_ggx;
+// diffuse_lambert + up-blended, backface-pre-flipped normals: same turf
+// lighting treatment as grass_particle_render.gdshader (dark-circle fix
+// 2026-06-11) so the dormant tuft tier stays color-coherent if revived.
+render_mode cull_disabled, diffuse_lambert, specular_schlick_ggx;
 
 uniform sampler2D grass_albedo : source_color, filter_linear_mipmap;
 uniform bool use_texture = true;
@@ -30,6 +33,10 @@ void vertex() {
 	v_custom = INSTANCE_CUSTOM;
 	v_world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 
+	// Up-blend card normals (model up ≈ world up for upright tufts) —
+	// see grass_particle_render.gdshader for the measured rationale.
+	NORMAL = normalize(mix(NORMAL, vec3(0.0, 1.0, 0.0), 0.7));
+
 	// Winter shrink
 	float w_winter = smoothstep(2.7, 3.5, season_t);
 	float w_snow = max(w_winter, snow_cover);
@@ -51,6 +58,11 @@ void vertex() {
 }
 
 void fragment() {
+	// Counter the engine's backface normal negation (cull_disabled) so
+	// up-blended normals stay up on back-facing cards — see
+	// grass_particle_render.gdshader.
+	if (!FRONT_FACING) { NORMAL = -NORMAL; }
+
 	// Heavy snow/winter: discard
 	float frag_snow = max(smoothstep(2.7, 3.5, season_t), snow_cover);
 	if (frag_snow > 0.6) discard;

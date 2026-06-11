@@ -3,7 +3,9 @@
 // seasonal modulation, canopy dapple, weather effects, and wind.
 
 shader_type spatial;
-render_mode skip_vertex_transform, cull_disabled;
+// diffuse_lambert matches the terrain shader (Burley's grazing retro-
+// reflection is wrong for turf — see terrain3d_override.gdshader header).
+render_mode skip_vertex_transform, cull_disabled, diffuse_lambert, specular_schlick_ggx;
 
 uniform sampler2D grass_albedo : source_color, filter_linear_mipmap;
 uniform sampler2D grass_normal : hint_normal, filter_linear_mipmap;
@@ -87,12 +89,29 @@ void vertex() {
 	data[2] = bend_strength; // pass to fragment for wind color shift
 
 	VERTEX = (VIEW_MATRIX * vec4(w_vertex, 1.0)).xyz;
-	NORMAL = MODELVIEW_NORMAL_MATRIX * NORMAL;
+	// Blend blade normals toward world up so blades shade like the turf
+	// surface they grow from: with raw card normals, blade sides face the
+	// sun at NdotL≈0 and the carpet reads darker than the terrain beyond
+	// the 36-60m fade. 0.7 keeps a little directional life on the taller
+	// unmown biomes. Pairs with the FRONT_FACING pre-flip in fragment() —
+	// without it, the engine's backface negation turns half of these
+	// normals DOWN (measured 2026-06-11: blade pixels -25..-40% vs
+	// terrain under ambient-only light — the "dark circle" root cause).
+	vec3 up_view = normalize((VIEW_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+	NORMAL = normalize(mix(MODELVIEW_NORMAL_MATRIX * NORMAL, up_view, 0.7));
 	BINORMAL = MODELVIEW_NORMAL_MATRIX * BINORMAL;
 	TANGENT = MODELVIEW_NORMAL_MATRIX * TANGENT;
 }
 
 void fragment() {
+	// The renderer negates the geometric normal for backfacing fragments
+	// (cull_disabled). Half of all blade quads face away from the camera,
+	// so the up-blended vertex normal becomes DOWN for them — ground-
+	// hemisphere ambient and zero sun. Measured 2026-06-11: blade pixels
+	// -25..-40% vs terrain under ambient-only light. Pre-flip here so the
+	// engine's flip restores the intended up-facing normal.
+	if (!FRONT_FACING) { NORMAL = -NORMAL; }
+
 	// Heavy snow/winter: hide grass entirely
 	float frag_snow = max(smoothstep(2.7, 3.5, season_t), snow_cover);
 	if (frag_snow > 0.6) discard;
@@ -164,14 +183,23 @@ void fragment() {
 	// blade bases; any noticeable root darkening reads as a "dark disc
 	// following the camera" against the terrain just beyond.
 	float root_t = smoothstep(0.0, 0.30, v_height_t);
-	col *= mix(0.96, 1.0, root_t);
+	col *= mix(0.98, 1.0, root_t);
 
 	// Thatch tint at base — barely-there now. The previous values created
 	// a visible darker zone where blades render vs terrain just beyond.
 	vec3 c_lo, c_hi;
 	grass_zone_palette(zone_id, c_lo, c_hi);
 	vec3 thatch_col = c_lo * 0.5;
-	col = mix(col, thatch_col, (1.0 - root_t) * 0.04);
+	col = mix(col, thatch_col, (1.0 - root_t) * 0.02);
+
+	// Blade-vs-terrain equalization (dark-circle fix, 2026-06-11). With
+	// the backface normal pre-flip + up-blended normals + Lambert in
+	// place, blade pixels measured +10.5% BRIGHTER than the terrain they
+	// cover (same-pixel A/B vs --diag-hide=grass at fixed cloud seed,
+	// noon): the blade chain's extras (dead tufts, biome tint, tip
+	// warmth, card specular) stack on top of now-correct lighting. Trim
+	// to parity so the 36-60m fade ring is invisible in both directions.
+	col *= 0.905;
 
 	// terrain_tint removed — dithered crossfade means terrain between blades
 	// is now filled by the next LOD tier, not visible through blade gaps.
