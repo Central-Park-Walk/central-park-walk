@@ -745,6 +745,13 @@ func _build_trees(trees: Array) -> void:
 		for tf: Transform3D in xf_list:
 			chunk_r = maxf(chunk_r, (tf.origin - chunk_origin).length())
 		var mesh_vis_end: float = _mesh_fade_end + chunk_r + 5.0
+		if _tier_isolate != "":
+			# Isolate captures render a tier pure with the dither disabled, so
+			# the tight per-chunk bound (correct in normal play, where trees
+			# beyond the fade end are fully discarded) would drop sparse far
+			# chunks out of the comparison band — keep a generous fixed
+			# envelope for diagnostics instead.
+			mesh_vis_end = _mesh_fade_end + 60.0
 		# [mesh, name prefix, visibility end] per mesh tier this chunk spawns
 		var tier_specs: Array = []
 		match _tier_isolate:
