@@ -212,6 +212,8 @@ func _parse_cli_args() -> void:
 		elif key == "--grass-grid-mult" and val != "":
 			_cli_grass_grid_mult = float(val)
 			print("[DIAG] grass grid ×%.2f" % _cli_grass_grid_mult)
+		elif key == "--cloud-seed" and val != "":
+			_cli_cloud_seed = int(val)
 		elif arg == "--shadow-census":
 			_diag_shadow_census = true
 		elif arg == "--screenshot":
@@ -904,6 +906,8 @@ var _cli_upscale_scale: float = 0.77
 # the covered radius (grid_width snapped odd).
 var _cli_grass_spacing_mult: float = 1.0
 var _cli_grass_grid_mult: float = 1.0
+# --cloud-seed=N: reproducible cloud field for calibration captures (-1 = random)
+var _cli_cloud_seed: int = -1
 # --shadow-census: one-shot dump of every shadow-casting GeometryInstance3D
 # (top 25 by mesh tris × instances) on the 3rd perf tick, after diag hides apply.
 var _diag_shadow_census: bool = false
@@ -1536,9 +1540,18 @@ func _setup_environment() -> void:
 		vol_sky.frames_to_update = 64
 		vol_sky.sun_disk_scale = 1.5
 		vol_sky.ground_color = Color(0.15, 0.18, 0.08)
-		# Randomize cloud pattern each session
-		vol_sky.time_offset = randf_range(0.0, 100.0)
-		vol_sky.wind_direction = randf_range(-PI, PI)
+		# Randomize cloud pattern each session. --cloud-seed=N makes the
+		# field reproducible for calibration captures (same seed = same sky).
+		if _cli_cloud_seed >= 0:
+			var crng := RandomNumberGenerator.new()
+			crng.seed = _cli_cloud_seed
+			vol_sky.time_offset = crng.randf_range(0.0, 100.0)
+			vol_sky.wind_direction = crng.randf_range(-PI, PI)
+			vol_sky.set_noise_seed(crng)
+			print("[DIAG] cloud seed = %d" % _cli_cloud_seed)
+		else:
+			vol_sky.time_offset = randf_range(0.0, 100.0)
+			vol_sky.wind_direction = randf_range(-PI, PI)
 		vol_sky.sun = _sun  # will be set after _sun is created — deferred below
 		_sky_mat = vol_sky.sky_material
 		_vol_sky = vol_sky

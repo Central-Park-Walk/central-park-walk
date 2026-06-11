@@ -88,6 +88,11 @@ class FrameData:
 
 var frame_data : FrameData = FrameData.new()
 var _noise_offset := Vector3(randf(), randf(), randf())  # random cloud shapes per session
+
+# Reseed the shape offset from a caller-provided RNG (--cloud-seed=N gives
+# reproducible skies for calibration captures).
+func set_noise_seed(rng: RandomNumberGenerator) -> void:
+	_noise_offset = Vector3(rng.randf(), rng.randf(), rng.randf())
 var update_position : Vector2i = Vector2i(0, 0)
 var update_region_size : int = 96 # texture_size / sqrt(frames_to_update)
 var num_workgroups : int = 12 # update_region_size / 8
