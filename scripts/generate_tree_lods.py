@@ -11,8 +11,11 @@ canopy holes), this script:
 
 The card scale factor is 1/sqrt(keep_ratio), preserving total leaf area.
 
-Tier spec (docs/trees.md §4c lever 3):
-  lod1 (near, 0–60m):   50% cards × 1.41, bark untouched
+Tier spec (docs/trees.md §4c lever 3, near tier revised Jun 11):
+  near (0–60m):         the FULL base model — rendered directly by the
+                        runtime, nothing generated here. A card-pruned
+                        _lod1 tier visibly thinned crowns at the closest
+                        viewing distances (Jun 11 walk-around defect #1).
   lod2 (mid, 60–250m):  40% cards × 1.58, bark ≤ 8k tris (budget ≤ ~12k total)
 
 For bark-only models (e.g., dead trees), falls back to Blender Decimate.
@@ -39,7 +42,6 @@ MODEL_DIR = os.path.join(PROJECT_DIR, "models", "trees")
 # (2026-06-10) range 12k–245k tris per variant, so flat ratios can't hit the
 # ~12k budget — leaf and bark trade against each other per variant instead.
 LOD_SPECS = {
-    "lod1": {"card_keep": 0.50, "bark_target": None},
     "lod2": {"adaptive": True},
 }
 

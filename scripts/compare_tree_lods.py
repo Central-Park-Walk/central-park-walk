@@ -1,8 +1,8 @@
 """
 Render per-tier silhouettes for LOD parity inspection.
 
-Produces a 4-panel composite per species (base|_lod1|_lod2|impostor-front) so
-we can eyeball whether the three mesh LODs + impostor atlas produce the same
+Produces a composite per species (base|_lod2|impostor-front) so
+we can eyeball whether the mesh tiers + impostor atlas produce the same
 silhouette at the same framing — answering "does the tree morph during LOD
 transitions because the meshes differ, or because the crossfade parameters
 are bad?"
@@ -94,7 +94,7 @@ def main():
     cam = setup_scene()
     for species in SPECIES:
         print(f"=== {species}{TIER} ===")
-        for suffix, label in [("", "base"), ("_lod1", "lod1"), ("_lod2", "lod2")]:
+        for suffix, label in [("", "base"), ("_lod2", "lod2")]:
             path = os.path.join(OUT_DIR, f"{species}_{label}.png")
             ok = render_glb(species, suffix, cam, path)
             print(f"  {label}: {'ok' if ok else 'missing'}")
