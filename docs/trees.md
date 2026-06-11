@@ -339,6 +339,19 @@ near-tree fill — canopy within 30 m may lose only the procedural dapple
 mottle, which the proxy-shadow dapple must visually replace; if near
 canopy reads flat, raise the fade-in start instead of abandoning.
 
+**OUTCOME (2026-06-10 night): BOTH LEVERS MEASURED DEAD — implemented,
+A/B'd, reverted (commit 052f81d, revert follows it).** Back-to-back
+`--detail-gates=0` A/Bs: north_woods 39 vs 38 fps (vpgpu identical 26.0),
+ramble 47 vs 46. Under the ship bar both times. **Why: post-opaque the
+canopy/bark fragment workload is texture/shadow-PCF *latency*-bound, so
+procedural ALU (vnoise/fbm) rides free under latency hiding — skipping it
+frees nothing at 1080p on this GPU.** The §4a `--simple-leaf −2.2`/
+`--simple-bark −2.2` deltas at NW sit inside that matrix's 1.7–4 ms
+thermal drift; treat the whole shader-body pool as ≈0. Corollary worth
+keeping: **ALU-side visual richness in these shaders is effectively free**
+— more noise octaves, richer dapple, per-pixel color work cost nothing
+measurable (D9–12 can spend there without gate anxiety).
+
 **Lever B — bark detail distance-gate (tree_bark.gdshader §styles).**
 Style 0 (oak/elm/maple/ginkgo — most of the forest) runs ~24 noise
 evaluations/fragment (fbm4×3 + fbm3×3 + vnoise×3, all triplanar). Beyond
