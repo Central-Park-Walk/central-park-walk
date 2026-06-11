@@ -253,6 +253,18 @@ Gotchas embedded: editing `clouds.glsl` requires a reimport or the game
 runs the stale SPIR-V (a push-constant size mismatch silently kills the
 dispatch — cloudless sky + spurious flat tint from the cleared textures).
 
+4. **Ground-light calibration is COUPLED to this** (2026-06-11,
+   docs/grass.md §6): the sky calibration brightened the rendered sky
+   ~1.2–1.5 stops but the DirectionalLight was left at the keyframe
+   values — sunlit turf measured ~1 stop dark vs reference. `SUN_CAL=3.0`
+   (day_night_cycle.gd) now multiplies sun.light_energy, day-blended like
+   the sky cal. The cloud-march direct-sun term multiplies LIGHT_ENERGY
+   (clouds.glsl:171), so `vol_sky.sun_scale` is divided by the same
+   factor — **any future change to SKY_CAL_SUN or SUN_CAL must preserve
+   that compensation** or clouds shift with ground light. Sweep knob:
+   `--sun-cal=mult`. Direct:diffuse is now ~4.9:1 at clear noon
+   (physical; ambient keyframes untouched).
+
 ## 7. Shadow-casting policy (design rule)
 
 Only things whose shadow you can *name from a walk* cast: trees (via proxies), large structures, lamps at night. Grass, undergrowth, ground cover, leaves-as-geometry never cast (enforced in every builder; verified 2026-06-09 — shadow-pass primitives identical at 17.44M with grass shown vs hidden at Great Lawn). Perceived grass shadows are in-shader blade shading + SSAO/SSIL contact darkening. Shadow detail is a near-field privilege; beyond the first cascade, shape fidelity is invisible and dapple is texture, not geometry.
