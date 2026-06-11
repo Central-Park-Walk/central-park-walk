@@ -32,8 +32,6 @@ const ARCHETYPE_MODEL := {
 const CATHEDRAL_ELM_ZONE := Rect2(-720.0, 1180.0, 90.0, 340.0)  # x, z, w, h
 
 var canopy_data: Array = []  # [{x, z, radius}] for canopy map generation
-var _lod1_xf: Dictionary = {}  # LOD1 (decimated _lod1 mesh) transforms per key
-var _lod1_cd: Dictionary = {}  # LOD1 custom data per key
 var _species_meshes: Dictionary = {}  # archetype_name -> Array[Mesh]
 var _species_heights: Dictionary = {} # archetype_name -> float (mesh height)
 
@@ -52,9 +50,11 @@ var _shadow_proxy: bool = false
 var _proxy_solid: bool = false
 var _proxy_mesh_cache: Dictionary = {}  # mesh_key -> ArrayMesh
 var proxy_instances: int = 0
-# --tier-isolate=mesh|impostor (diagnostic): render ONLY that tree tier with
-# crossfade dither disabled, so DoD captures can compare pure tiers at the
-# same distance (docs/trees.md §2 validation).
+# --tier-isolate=mesh|impostor|lod1|lod2 (diagnostic): render ONLY that tree
+# tier with the relevant crossfade dither disabled, so DoD captures can
+# compare pure tiers at the same distance (docs/trees.md §2/§4d validation).
+# mesh = both mesh LODs without the impostor fade; lod1/lod2 = a single mesh
+# LOD across the whole mesh range (for the 60m handoff comparison).
 var _tier_isolate: String = ""
 # --tree-mesh-range=N: mesh→impostor handoff distance (fade END, metres).
 # The 20m dither band, mesh chunk visibility (+40m = half chunk), impostor
@@ -62,6 +62,9 @@ var _tier_isolate: String = ""
 # proxies are NOT tied to it — they keep casting to 290m regardless, so the
 # camera-tier A/B does not perturb shadows.
 var _mesh_fade_end: float = 250.0
+# --tree-lod1-range=N: near-mesh (_lod1) → mid-mesh (_lod2) handoff (fade
+# END, metres). 10m dither band; near chunk visibility extends +40m past it.
+var _lod1_end: float = 60.0
 # --simple-leaf / --simple-bark (diagnostic): swap tree surface shaders for
 # minimal ones with identical render modes, splitting the camera-raster cost
 # into shader complexity vs raster structure (overdraw, quad efficiency).
@@ -87,6 +90,9 @@ func _init(loader) -> void:
 		elif arg.begins_with("--tree-mesh-range="):
 			_mesh_fade_end = clampf(float(arg.substr("--tree-mesh-range=".length())), 60.0, 1000.0)
 			print("TreeBuilder: mesh tier fade end = %.0fm (default 250) — impostors take over there" % _mesh_fade_end)
+		elif arg.begins_with("--tree-lod1-range="):
+			_lod1_end = clampf(float(arg.substr("--tree-lod1-range=".length())), 20.0, 250.0)
+			print("TreeBuilder: near mesh (_lod1) fade end = %.0fm (default 60) — _lod2 takes over there" % _lod1_end)
 		elif arg == "--simple-leaf":
 			_simple_leaf = true
 			print("TreeBuilder: SIMPLE LEAF shader (diagnostic) — isolates leaf shader complexity cost")
@@ -281,8 +287,9 @@ func _build_trees(trees: Array) -> void:
 
 	var _base_model_names := ["maple", "birch", "deciduous", "pine", "elm", "oak", "cherry", "ginkgo", "honeylocust", "linden", "london_plane", "callery_pear", "dead", "willow", "magnolia", "cathedral_elm"]
 	# Load tiered models (_s, _m, _l): age/size variants per archetype.
-	# Plus _lod1 decimated variants of each (same tree, fewer polygons) for
-	# the 3-tier LOD system (LOD0 mesh → LOD1 decimated → impostor).
+	# Plus _lod1 (card-pruned) and _lod2 (card-pruned + bark-decimated)
+	# variants of each for the 3-tier LOD system (docs/trees.md §4c):
+	# _lod1 near mesh → _lod2 mid mesh → impostor.
 	for base_name in _base_model_names:
 		var tier_list: Array
 		if base_name == "dead":
@@ -294,6 +301,7 @@ func _build_trees(trees: Array) -> void:
 			full_list.append(ts)
 			if ts != "":
 				full_list.append(ts + "_lod1")
+				full_list.append(ts + "_lod2")
 		for tier_suffix in full_list:
 			var model_key: String = base_name + tier_suffix
 			# Try .res cache first (skips GLTF parsing — much faster on subsequent loads)
@@ -368,7 +376,9 @@ func _build_trees(trees: Array) -> void:
 		if archetype == "dead":
 			tier_suffixes = [""]
 		else:
-			tier_suffixes = ["_s", "_m", "_l", "_s_lod1", "_m_lod1", "_l_lod1"]
+			tier_suffixes = ["_s", "_m", "_l",
+				"_s_lod1", "_m_lod1", "_l_lod1",
+				"_s_lod2", "_m_lod2", "_l_lod2"]
 		for tier_suffix in tier_suffixes:
 			var model_key: String = model_base + tier_suffix
 			if not base_meshes.has(model_key):
@@ -609,9 +619,9 @@ func _build_trees(trees: Array) -> void:
 		var cd := Color(float(pheno_idx) / 13.0, timing_off + 0.5, is_evergreen, color_jitter)
 		cd_by_key[key].append(cd)
 
-		# Two-tier LOD: _lod1 mesh is used directly in the main chunk pathway
-		# below (mesh lookup swap at chunk-build time), so there's no longer
-		# a separate LOD1 accumulation. Impostors take over past 250m.
+		# Mesh tiers (_lod1/_lod2) are spawned in the main chunk pathway
+		# below (mesh lookup at chunk-build time), so there's no separate
+		# per-tier accumulation here. Impostors take over past 250m.
 
 		# Canopy data for dappled shade map.
 		# LiDAR crown_a measures only the dense inner canopy (often 10-30m²
@@ -703,13 +713,19 @@ func _build_trees(trees: Array) -> void:
 		var last_us := mesh_key.rfind("_")
 		var sp_name: String = mesh_key.substr(0, last_us)
 		var vi: int = int(mesh_key.substr(last_us + 1))
-		# Two-tier LOD: render the _lod1 decimated mesh in the main chunk
-		# pathway so close and mid-distance share one tier. Falls back to the
-		# base mesh only if no _lod1 variant exists (e.g., dead snags).
+		# Three-tier LOD (docs/trees.md §4c): _lod1 near mesh to _lod1_end
+		# (60m default), _lod2 mid mesh (bark-decimated, card-pruned) to the
+		# impostor handoff, impostor beyond. Falls back: no _lod2 → near mesh
+		# covers the whole mesh range; no _lod1 → base mesh (dead snags).
 		var lod1_key: String = sp_name + "_lod1"
-		var mesh_source: String = lod1_key if _species_meshes.has(lod1_key) else sp_name
-		var lod1_vars: Array = _species_meshes[mesh_source]
-		var mesh: Mesh = lod1_vars[vi % lod1_vars.size()]
+		var lod2_key: String = sp_name + "_lod2"
+		var near_source: String = lod1_key if _species_meshes.has(lod1_key) else sp_name
+		var near_vars: Array = _species_meshes[near_source]
+		var near_mesh: Mesh = near_vars[vi % near_vars.size()]
+		var mid_mesh: Mesh = null
+		if _species_meshes.has(lod2_key):
+			var mid_vars: Array = _species_meshes[lod2_key]
+			mid_mesh = mid_vars[vi % mid_vars.size()]
 		var cx_sum := 0.0
 		var cy_sum := 0.0
 		var cz_sum := 0.0
@@ -719,37 +735,66 @@ func _build_trees(trees: Array) -> void:
 			cz_sum += tf.origin.z
 		var n := float(xf_list.size())
 		var chunk_origin := Vector3(cx_sum / n, cy_sum / n, cz_sum / n)
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.use_custom_data = true
-		mm.mesh = mesh
-		mm.instance_count = xf_list.size()
-		for i in xf_list.size():
-			var tf: Transform3D = xf_list[i]
-			var local_tf := Transform3D(tf.basis, tf.origin - chunk_origin)
-			mm.set_instance_transform(i, local_tf)
-			mm.set_instance_custom_data(i, cd_list[i])
-		var mmi := MultiMeshInstance3D.new()
-		mmi.multimesh = mm
-		mmi.position = chunk_origin
-		mmi.name = "Tree_%s" % ckey.replace("|", "_")
-		# Two-tier LOD: single mesh tier (_lod1) covers 0 to fade-end (250m
-		# default), dithering out over the last 20m to the impostor. Chunk
-		# visibility extends 40m past the fade end (= half CHUNK) so chunks
-		# whose origin is past the fade end but contain near-side instances
-		# inside the band still render.
-		mmi.visibility_range_begin = 0.0
-		mmi.visibility_range_end = _mesh_fade_end + 40.0
-		mmi.visibility_range_begin_margin = 0.0
-		mmi.visibility_range_end_margin = 0.0
-		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+		# Chunk visibility must extend past each tier's fade end by this
+		# chunk's actual instance spread, or members far from the centroid
+		# drop out before their dither band completes (the old fixed +40m
+		# margin under-covered skewed chunks). Exact per chunk: max member
+		# distance from centroid + pad. Beyond-band members cost vertex work
+		# only — their fragments are dither-discarded.
+		var chunk_r := 0.0
+		for tf: Transform3D in xf_list:
+			chunk_r = maxf(chunk_r, (tf.origin - chunk_origin).length())
+		var mesh_vis_end: float = _mesh_fade_end + chunk_r + 5.0
+		# [mesh, name prefix, visibility end] per mesh tier this chunk spawns
+		var tier_specs: Array = []
+		match _tier_isolate:
+			"impostor":
+				pass  # no mesh tiers
+			"lod1":
+				tier_specs.append([near_mesh, "Tree", mesh_vis_end])
+			"lod2":
+				var iso_mesh: Mesh = mid_mesh if mid_mesh != null else near_mesh
+				tier_specs.append([iso_mesh, "TreeL2", mesh_vis_end])
+			_:
+				var near_end: float = (_lod1_end + chunk_r + 5.0) if mid_mesh != null else mesh_vis_end
+				tier_specs.append([near_mesh, "Tree", near_end])
+				if mid_mesh != null:
+					tier_specs.append([mid_mesh, "TreeL2", mesh_vis_end])
+		for spec: Array in tier_specs:
+			var mm := MultiMesh.new()
+			mm.transform_format = MultiMesh.TRANSFORM_3D
+			mm.use_custom_data = true
+			mm.mesh = spec[0]
+			mm.instance_count = xf_list.size()
+			for i in xf_list.size():
+				var tf: Transform3D = xf_list[i]
+				var local_tf := Transform3D(tf.basis, tf.origin - chunk_origin)
+				mm.set_instance_transform(i, local_tf)
+				mm.set_instance_custom_data(i, cd_list[i])
+			var mmi := MultiMeshInstance3D.new()
+			mmi.multimesh = mm
+			mmi.position = chunk_origin
+			mmi.name = "%s_%s" % [spec[1], ckey.replace("|", "_")]
+			mmi.visibility_range_begin = 0.0
+			mmi.visibility_range_end = spec[2]
+			mmi.visibility_range_begin_margin = 0.0
+			mmi.visibility_range_end_margin = 0.0
+			mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+			if _shadow_proxy:
+				mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			_loader.add_child(mmi)
+			if spec[1] == "TreeL2":
+				lod1_instances += xf_list.size()
+				lod1_chunks += 1
+			else:
+				lod0_instances += xf_list.size()
+				lod0_chunks += 1
 		if _shadow_proxy:
-			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			var pmm := MultiMesh.new()
 			pmm.transform_format = MultiMesh.TRANSFORM_3D
 			pmm.use_custom_data = true  # phenology packing — proxy shader sheds crown shadow in winter
-			var proxy_key := "%s_%d" % [mesh_source, vi % lod1_vars.size()]
-			pmm.mesh = _get_shadow_proxy_mesh(proxy_key, sp_name, mesh)
+			var proxy_key := "%s_%d" % [near_source, vi % near_vars.size()]
+			pmm.mesh = _get_shadow_proxy_mesh(proxy_key, sp_name, near_mesh)
 			pmm.instance_count = xf_list.size()
 			for i in xf_list.size():
 				var tf: Transform3D = xf_list[i]
@@ -766,19 +811,15 @@ func _build_trees(trees: Array) -> void:
 			pmmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 			_loader.add_child(pmmi)
 			proxy_instances += xf_list.size()
-		if _tier_isolate != "impostor":
-			_loader.add_child(mmi)
-		lod0_instances += xf_list.size()
-		lod0_chunks += 1
 
 	# Canopy occluders disabled: OccluderInstance3D inherits Node3D (not
 	# GeometryInstance3D) so visibility_range cannot limit them. Without a
 	# distance gate they stay active at all ranges, hiding distant impostor
 	# trees behind canopy boxes and making distant woodland look sparse.
 
-	# Two-tier LOD: separate LOD1 chunk pass removed — the _lod1 mesh is now
-	# rendered directly by the main chunk pathway above (mesh lookup swap),
-	# so there's a single mesh tier from 0-290m that hands off to impostors.
+	# Both mesh tiers (_lod1 near, _lod2 mid) are spawned by the main chunk
+	# pathway above from the same buckets, so their per-tree transforms and
+	# custom data match exactly and the 60m crossfade is water-tight.
 
 	_build_tree_collision(all_trunk_xf)
 	# Debug: print a few tree heights to verify scale
@@ -796,28 +837,43 @@ func _build_trees(trees: Array) -> void:
 			_dbg_count += 1
 	print("Trees: %d placed, %d LOD0 chunks (skipped %d non-grass, nudged %d from paths)" % [
 		all_trunk_xf.size(), lod0_buckets.size(), _skip_surface, _nudged])
+	print("Trees mesh tiers: %d near (_lod1) MMIs / %d instances, %d mid (_lod2) MMIs / %d instances" % [
+		lod0_chunks, lod0_instances, lod1_chunks, lod1_instances])
 
 	# --- Impostors: octahedral billboards for distant trees (>90m) ---
 	_build_canopy_shells()
 
 	# Per-tier dither fade ranges. Shader dithering replaces Godot's
 	# VISIBILITY_RANGE_FADE_SELF (known bug #88854 with alpha_to_coverage).
-	# Two-tier system (band derives from _mesh_fade_end, default 250):
-	#   _lod1 mesh:  visible 0 to fade-end+40, fades out over the last 20m → impostor.
+	# Three-tier system (docs/trees.md §4c):
+	#   _lod1 near mesh: fades out over the 10m band ending at _lod1_end → _lod2.
+	#   _lod2 mid mesh:  fades in over that band, out over the 20m band ending
+	#                    at _mesh_fade_end → impostor.
+	#   No _lod2 (dead): near mesh covers the whole range, fades at the far band.
 	#   Base mesh:   unused (kept for impostor data); no fade needed.
-	#   Impostor:    fades in over the same band (set in _build_canopy_shells).
+	#   Impostor:    fades in over the far band (set in _build_canopy_shells).
 	var mesh_fade_out := Vector2(_mesh_fade_end - 20.0, _mesh_fade_end)
+	var lod1_fade := Vector2(_lod1_end - 10.0, _lod1_end)
 	const NO_FADE := Vector2(0.0, 0.0)
 	for sp_key in _species_meshes:
 		var fade_in := NO_FADE
 		var fade_out := NO_FADE
 		# tier_brightness was originally LOD1 compensation for reading brighter
-		# than LOD0 at distance. With one mesh tier covering 0-290m, that
+		# than LOD0 at distance. With derived tiers covering 0-290m, that
 		# rationale is gone — 0.95 keeps a slight knock-down so close trees
 		# don't blast bright, without the heavy darkening the 0.82 produced.
-		var tier_brightness: float = 0.95 if "_lod1" in sp_key else 1.0
-		if "_lod1" in sp_key and _tier_isolate != "mesh":
-			fade_out = mesh_fade_out
+		var tier_brightness: float = 0.95 if ("_lod1" in sp_key or "_lod2" in sp_key) else 1.0
+		if _tier_isolate == "lod1" or _tier_isolate == "lod2":
+			pass  # pure single-LOD render for the 60m handoff DoD — no crossfade
+		elif "_lod2" in sp_key:
+			fade_in = lod1_fade
+			if _tier_isolate != "mesh":
+				fade_out = mesh_fade_out
+		elif "_lod1" in sp_key:
+			if _species_meshes.has(sp_key.replace("_lod1", "_lod2")):
+				fade_out = lod1_fade
+			elif _tier_isolate != "mesh":
+				fade_out = mesh_fade_out
 		for mesh: Mesh in _species_meshes[sp_key]:
 			for si in mesh.get_surface_count():
 				var mat = mesh.surface_get_material(si)
@@ -842,84 +898,6 @@ func _build_trees(trees: Array) -> void:
 					mat.set_shader_parameter("lod_fade_out", fade_out)
 					mat.set_shader_parameter("lod_fade_in", fade_in)
 					mat.set_shader_parameter("tier_brightness", tier_brightness)
-
-
-func _build_lod_tier_chunks(xf_data: Dictionary, cd_data: Dictionary,
-		prefix: String, vis_begin: float, vis_end: float,
-		cast_shadow: bool = true) -> void:
-	## Spawns MultiMesh chunks for a single LOD tier from pre-collected
-	## transform/custom-data dictionaries. Visibility range limits when the
-	## tier's chunks are drawn; shader-side dither (set_shader_parameter
-	## "lod_fade_in" / "lod_fade_out") handles the crossfade with neighbors.
-	if xf_data.is_empty():
-		return
-	const CHUNK := 80.0
-	var chunks: Dictionary = {}
-	for key in xf_data:
-		var xf_arr: Array = xf_data[key]
-		var cd_arr: Array = cd_data[key]
-		for j in xf_arr.size():
-			var tf: Transform3D = xf_arr[j]
-			var cx := int(floorf(tf.origin.x / CHUNK))
-			var cz := int(floorf(tf.origin.z / CHUNK))
-			var ck := "%s|%d|%d" % [key, cx, cz]
-			if not chunks.has(ck):
-				chunks[ck] = {"mesh_key": key, "xf": [], "cd": []}
-			chunks[ck]["xf"].append(tf)
-			chunks[ck]["cd"].append(cd_arr[j])
-
-	var instance_count := 0
-	for ckey in chunks:
-		var info: Dictionary = chunks[ckey]
-		var mesh_key: String = info["mesh_key"]
-		var xf_list: Array = info["xf"]
-		var cd_list: Array = info["cd"]
-		if xf_list.is_empty():
-			continue
-		var last_us := mesh_key.rfind("_")
-		var sp_name: String = mesh_key.substr(0, last_us)
-		var vi: int = int(mesh_key.substr(last_us + 1))
-		if not _species_meshes.has(sp_name):
-			continue
-		var variants: Array = _species_meshes[sp_name]
-		if vi >= variants.size():
-			continue
-		var mesh: Mesh = variants[vi]
-		var cx_sum := 0.0; var cy_sum := 0.0; var cz_sum := 0.0
-		for tf: Transform3D in xf_list:
-			cx_sum += tf.origin.x; cy_sum += tf.origin.y; cz_sum += tf.origin.z
-		var n := float(xf_list.size())
-		var chunk_origin := Vector3(cx_sum / n, cy_sum / n, cz_sum / n)
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.use_custom_data = true
-		mm.mesh = mesh
-		mm.instance_count = xf_list.size()
-		for i in xf_list.size():
-			var tf: Transform3D = xf_list[i]
-			mm.set_instance_transform(i, Transform3D(tf.basis, tf.origin - chunk_origin))
-			mm.set_instance_custom_data(i, cd_list[i])
-		var mmi := MultiMeshInstance3D.new()
-		mmi.multimesh = mm
-		mmi.position = chunk_origin
-		mmi.name = "%s_%s" % [prefix, ckey.replace("|", "_")]
-		mmi.visibility_range_begin = vis_begin
-		mmi.visibility_range_end = vis_end
-		mmi.visibility_range_begin_margin = 0.0
-		mmi.visibility_range_end_margin = 0.0
-		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
-		if not cast_shadow:
-			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_loader.add_child(mmi)
-		instance_count += xf_list.size()
-		if prefix == "TreeL1":
-			lod1_instances += xf_list.size()
-			lod1_chunks += 1
-
-	print("%s: %d instances in %d chunks (%.0f-%.0fm)" % [
-		prefix, instance_count, chunks.size(), vis_begin, vis_end])
-	xf_data.clear()
-	cd_data.clear()
 
 
 # Crown lathe fit (docs/trees.md §3/§5): rings × segments of the silhouette

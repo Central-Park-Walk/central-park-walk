@@ -9,12 +9,19 @@ at the worst test location. Measured today: ~25 ms camera (Ramble), 18–28 ms s
 
 | tier | range | fade | representation | casts shadow | lit |
 |---|---|---|---|---|---|
-| mesh | 0–290 m | dither out 230–250 m | `{species}_{s,m,l}_lod1`, MMI per species-size × 80 m chunk | **never** (proxy does) | runtime sun + ambient |
+| near mesh | 0–60 m | dither out 50–60 m | `{species}_{s,m,l}_lod1` (50 % cards × 1.41, full bark), MMI per species-size × 80 m chunk | **never** (proxy does) | runtime sun + ambient |
+| mid mesh | 50–250 m | dither in 50–60 m, out 230–250 m | `{species}_{s,m,l}_lod2` (≤ ~12 k tris: adaptive card prune + bark decimation, §4c) | never | runtime sun + ambient |
 | shadow proxy | 0–290 m | none (pops with cascade distance, invisible) | trunk cylinder + crown hull ≤ ~300 tris, alpha-test dapple mask, MMI `SHADOWS_ONLY` | is the shadow | n/a |
 | impostor | 190–2500 m | dither in 230–250 m | 8×8 hemisphere octahedral, 2048² atlas per species-size (56 atlases) | never | **runtime sun + ambient (NEW)** |
 
-Changes from today: visible mesh stops casting (proxy takes over); impostor albedo
-becomes unlit so both tiers are lit by the same sun/ambient at runtime.
+Both mesh tiers spawn from the same per-chunk buckets (transforms + custom
+data identical, crossfade water-tight); chunk visibility ends derive from
+each chunk's actual max instance-to-centroid radius (the old fixed +40 m
+margin could under-cover skewed chunks). Species without a `_lod2` (dead
+snags) run the near mesh across the whole 0–250 m band. Diagnostics:
+`--tree-lod1-range=N` moves the 60 m handoff; `--tier-isolate=lod1|lod2`
+renders one mesh LOD across the full range (60 m handoff DoD);
+`TIER_A`/`TIER_B` env vars on `tier_handoff_check.sh` pick the compared pair.
 
 ## 2. Runtime-lit impostors (kills the bake-mismatch bug class)
 
@@ -197,6 +204,23 @@ maple_l 68 k. AAA forest budgets are 5–20 k/tree at these screen sizes.
    cleanly; cards pruned to ~40 % and rescaled 1.6×), runtime three-tier:
    lod1 0–60 m, lod2 60–250 m, impostor beyond. Blender-mechanical once
    spec'd; can run on cheaper sessions.
+
+   *Implementation record (2026-06-10, `scripts/generate_tree_lods.py`):*
+   measured base models run 12 k–245 k tris/variant, so flat ratios can't
+   hit one budget — the lod2 recipe is per-variant adaptive: card keep
+   `max(0.15, min(0.40, 9000/leaf_tris))` (scale `1/sqrt(keep)`), bark
+   collapse target `clamp(12000 − kept_leaf, 3000, 8000)`. Collapse alone
+   floors out on Mtree bark — measured cathedral_elm_l: **31,069 separate
+   bark islands averaging ~3 tris** (terminal twig stubs, sub-pixel beyond
+   60 m) — so islands < 0.5 m bbox diagonal are deleted smallest-first
+   until the remainder is within 3× of target, then collapse runs. Bark
+   decimates via separate-by-material → prune → decimate → rejoin (variant
+   node names and material-slot order survive — the runtime pairs variants
+   by index across tiers). Light-bark species are never pruned (skip when
+   already ≤ 3× target). Budget: every variant ≤ 12 k + 1 k slack (willow
+   rides the 0.15 keep floor: 64.8 k weeping-strand cards). Blender 4.5
+   `--background` hangs in teardown after script completion (futex, same
+   family as the impostor-baker hang) — the script `os._exit(0)`s.
 
 Tier boundary stays at 250 m (pull-in measured ≈ free, and distant mesh
 canopy is part of the look). Occlusion culling: dropped — it attacks load
