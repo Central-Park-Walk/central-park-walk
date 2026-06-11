@@ -313,6 +313,46 @@ for the old card density; fewer, larger cards mip differently). In-game
 this matters only inside the 230–250 m band, where the walk capture
 shows no step — but see open question below.
 
+### 4g. Shader-body gating spec (2026-06-10 night — post-opaque re-measure)
+
+**Measured pots (north_woods, report 20260610_215525, sandwich baselines
+24.4/22.7 real):** `--simple-leaf` −2.2 ms, `--simple-bark` −2.2 ms. The
+§4a readings (−12/−5) were transparent-overdraw amplification; with leaves
+opaque each shader body runs ~once per pixel, so this is the honest
+ceiling. Implement only if the cut is ≥1.5 ms on a back-to-back A/B.
+
+**Lever A — dapple near-gate (tree_leaf.gdshader:332–336).** The two
+always-on dapple vnoise octaves exist for mid/far canopy mass ("survives
+mip averaging… stays vivid at LOD1+ distance"). Near canopy already gets
+real shadow dapple (proxy holes), SDFGI, and the gated per-leaf detail
+layers. Fade dapple amplitude IN over 30→60 m (`gate_dapple =
+smoothstep(30, 60, frag_cam_dist)`), skip both vnoise calls under 0.001 —
+the inverse of the lever-1 gates. Near fragments (the majority when
+standing in woods) drop 2 noise evaluations.
+**Bake invariant:** the baker never registers `player_world_pos`, so bakes
+compute `frag_cam_dist ≈ 0` → a naive near-gate would strip dapple from
+every future atlas re-bake (current atlases have it baked in). Under
+`bake_mode != 0`, force the far path (`gate_dapple = 1.0`) — bake output
+unchanged by construction, no re-bake needed.
+**Visual DoD:** screenshot A/B at Ramble noon + Literary Walk 17:00,
+near-tree fill — canopy within 30 m may lose only the procedural dapple
+mottle, which the proxy-shadow dapple must visually replace; if near
+canopy reads flat, raise the fade-in start instead of abandoning.
+
+**Lever B — bark detail distance-gate (tree_bark.gdshader §styles).**
+Style 0 (oak/elm/maple/ginkgo — most of the forest) runs ~24 noise
+evaluations/fragment (fbm4×3 + fbm3×3 + vnoise×3, all triplanar). Beyond
+~25 m a trunk is a few dozen pixels wide and the fissure/grit detail is
+sub-pixel. Gate: `gate_bark = 1 − smoothstep(20, 35, bark_cam_dist)`;
+under 0.001 skip ALL procedural style work and shade from `bark_color ×
+tree_var` + PBR textures alone (they carry the mid-distance look); blend
+amplitude inside the band. Same triplanar PBR texture sampling stays (it
+is mip-cheap). Bake invariant: same `bake_mode != 0` → force near path
+(gate=1.0) so atlases keep full bark detail.
+**Visual DoD:** A/B at Literary Walk (elm trunks recede in rows — the
+worst case for a visible detail line); no perceptible transition walking
+toward a trunk.
+
 ## 5. Open questions
 
 - **lod2 distant thinning (2026-06-10, from §4f):** lod2 canopy coverage
