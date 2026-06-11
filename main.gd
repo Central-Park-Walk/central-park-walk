@@ -1650,13 +1650,22 @@ func _setup_environment() -> void:
 		get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		get_viewport().scaling_3d_scale = clampf(_cli_render_scale, 0.1, 2.0)
 		print("[DIAG] 3D render scale = %.2f" % _cli_render_scale)
-	if _cli_upscale_mode != "":
-		match _cli_upscale_mode:
+	# FSR2 @ 0.77 is the DEFAULT (2026-06-10, rendering.md §6.9): −4.6 ms real
+	# at north_woods, stills + walk-motion ghosting check clean (1:1 crops:
+	# canopy/sky edges, grass, trunks). Output stays 1080p. Opt out with
+	# --upscale=off (native) or override mode:scale for A/Bs.
+	if _cli_upscale_mode == "off":
+		print("[DIAG] upscaler OFF — native render resolution")
+	elif _cli_render_scale > 0.0:
+		pass  # --render-scale (bilinear) already applied above wins
+	else:
+		var up_mode := _cli_upscale_mode if _cli_upscale_mode != "" else "fsr2"
+		match up_mode:
 			"fsr2": get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2
 			"fsr1": get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
 			_: get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		get_viewport().scaling_3d_scale = clampf(_cli_upscale_scale, 0.1, 1.0)
-		print("[DIAG] upscaler %s active @ %.2f" % [_cli_upscale_mode, _cli_upscale_scale])
+		print("Upscaler: %s @ %.2f internal scale" % [up_mode, _cli_upscale_scale])
 
 	# Wire sun to volumetric cloud sky (deferred because _sun created after sky)
 	if vol_sky:
