@@ -269,6 +269,7 @@ func _ready() -> void:
 	_day_night.sky_mat = _sky_mat
 	_day_night.vol_sky = _vol_sky
 	_day_night.sun = _sun
+	_day_night.sky_cal_override = Vector3(_cli_sky_bg, _cli_sky_sun, _cli_sky_amb)
 	# Register global shader parameters BEFORE park_loader creates materials
 	RenderingServer.global_shader_parameter_add("wind_vec", RenderingServer.GLOBAL_VAR_TYPE_VEC2, Vector2.ZERO)
 	RenderingServer.global_shader_parameter_add("snow_cover", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
@@ -1564,21 +1565,9 @@ func _setup_environment() -> void:
 		else:
 			vol_sky.time_offset = randf_range(0.0, 100.0)
 			vol_sky.wind_direction = randf_range(-PI, PI)
-		# Sky calibration (2026-06-10, sweep vs real-photo targets — see
-		# docs/rendering.md sky calibration): background LUT ×5 puts clear
-		# noon blue at zenith ~127 / mid-dome ~144 sRGB; cloud sun ×20 +
-		# ambient ×6 puts cumulus bodies p50 ~190 with shaded bases intact.
-		# Shader/script defaults stay 1.0 (upstream semantics); calibration
-		# is owned here. --sky-cal=bg:sun:amb overrides for sweeps.
-		vol_sky.sun_scale = 20.0
-		vol_sky.ambient_scale = 6.0
-		vol_sky.sky_material.set_shader_parameter("sky_brightness", 5.0)
-		if _cli_sky_sun > 0.0:
-			vol_sky.sun_scale = _cli_sky_sun
-		if _cli_sky_amb > 0.0:
-			vol_sky.ambient_scale = _cli_sky_amb
-		if _cli_sky_bg > 0.0:
-			vol_sky.sky_material.set_shader_parameter("sky_brightness", _cli_sky_bg)
+		# Sky brightness calibration lives in day_night_cycle.gd (SKY_CAL_*
+		# constants, sun-elevation-blended). --sky-cal routes there as an
+		# exact-value override for sweeps — wired in _ready after _day_night.
 		vol_sky.sun = _sun  # will be set after _sun is created — deferred below
 		_sky_mat = vol_sky.sky_material
 		_vol_sky = vol_sky

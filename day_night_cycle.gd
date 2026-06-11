@@ -51,6 +51,18 @@ func get_lamp_emission() -> float:
 
 var _lamp_emission: float = 0.0
 
+# Sky calibration (2026-06-10, measured sweep vs real-photo targets — see
+# docs/rendering.md sky calibration). These are the FULL-DAY values; they
+# blend to 1.0 (upstream demo behavior) as the sun drops below the horizon,
+# because the flat multipliers turn night into daylight-overcast (measured:
+# 22:00 sky median 52 at x1 vs 121 at x5).
+const SKY_CAL_BG := 5.0     # background-atmosphere LUT multiplier
+const SKY_CAL_SUN := 20.0   # cloud-march direct-sun multiplier
+const SKY_CAL_AMB := 6.0    # cloud-march ambient multiplier
+# --sky-cal=bg:sun:amb sets exact values for calibration sweeps (bypasses
+# the sun-elevation blend). -1 components = unset.
+var sky_cal_override := Vector3(-1.0, -1.0, -1.0)
+
 
 func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 		lightning_flash: float, user_gamma: float, season_t: float) -> void:
@@ -65,6 +77,20 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 	if vol_sky:
 		vol_sky.cloud_coverage = clampf(cc_val, 0.20, 0.50)
 		vol_sky.density = clampf(_lerp_kf("cloud_density", a, b, t) * 0.08, 0.02, 0.10)
+		# Sun-elevation-blended sky calibration (constants above). Toward-sun
+		# elevation from the sun_pitch keyframe: rotating (0,0,1) about X by
+		# pitch gives y = -sin(pitch).
+		var cal_elev: float = -sin(deg_to_rad(_lerp_kf("sun_pitch", a, b, t)))
+		var day_f: float = smoothstep(-0.05, 0.15, cal_elev)
+		var cal_bg: float = lerpf(1.0, SKY_CAL_BG, day_f)
+		var cal_sun: float = lerpf(1.0, SKY_CAL_SUN, day_f)
+		var cal_amb: float = lerpf(1.0, SKY_CAL_AMB, day_f)
+		if sky_cal_override.x > 0.0: cal_bg = sky_cal_override.x
+		if sky_cal_override.y > 0.0: cal_sun = sky_cal_override.y
+		if sky_cal_override.z > 0.0: cal_amb = sky_cal_override.z
+		vol_sky.sun_scale = cal_sun
+		vol_sky.ambient_scale = cal_amb
+		sky_mat.set_shader_parameter("sky_brightness", cal_bg)
 	else:
 		var sky_top: Color = _lerp_kf("sky_top", a, b, t)
 		var sky_hor: Color = _lerp_kf("sky_horizon", a, b, t)
