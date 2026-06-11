@@ -191,6 +191,10 @@ func _parse_cli_args() -> void:
 			_cli_shadow_size = int(val)
 		elif key == "--shadow-filter" and val != "":
 			_cli_shadow_filter = int(val)
+		elif key == "--shadow-splits" and val != "":
+			_cli_shadow_splits = int(val)
+		elif key == "--shadow-blend" and val != "":
+			_cli_shadow_blend = int(val)
 		elif key == "--render-scale" and val != "":
 			_cli_render_scale = float(val)
 		elif key == "--grass-spacing-mult" and val != "":
@@ -876,6 +880,9 @@ var _diag_hide: Array = []
 var _cli_shadow_dist: float = -1.0
 var _cli_shadow_size: int = -1
 var _cli_shadow_filter: int = -1
+# --shadow-splits=1/2/4 (cascade count), --shadow-blend=0/1 (blend_splits)
+var _cli_shadow_splits: int = -1
+var _cli_shadow_blend: int = -1
 # --render-scale=0.5: 3D resolution scale (bilinear). Halving the scale
 # quarters fragment work but leaves vertex work untouched — splits a GPU
 # cost into fragment-bound vs vertex/primitive-bound.
@@ -1618,6 +1625,15 @@ func _setup_environment() -> void:
 		RenderingServer.directional_soft_shadow_filter_set_quality(
 			clampi(_cli_shadow_filter, 0, 5))
 		print("[DIAG] directional soft shadow filter quality = %d" % _cli_shadow_filter)
+	if _cli_shadow_splits > 0:
+		match _cli_shadow_splits:
+			1: _sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+			2: _sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+			_: _sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+		print("[DIAG] shadow splits = %d" % _cli_shadow_splits)
+	if _cli_shadow_blend >= 0:
+		_sun.directional_shadow_blend_splits = _cli_shadow_blend != 0
+		print("[DIAG] shadow blend splits = %d" % _cli_shadow_blend)
 	if _cli_render_scale > 0.0:
 		get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		get_viewport().scaling_3d_scale = clampf(_cli_render_scale, 0.1, 2.0)
