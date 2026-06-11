@@ -77,11 +77,11 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 	if vol_sky:
 		vol_sky.cloud_coverage = clampf(cc_val, 0.20, 0.50)
 		vol_sky.density = clampf(_lerp_kf("cloud_density", a, b, t) * 0.08, 0.02, 0.10)
-		# Sun-elevation-blended sky calibration (constants above). Toward-sun
-		# elevation from the sun_pitch keyframe: rotating (0,0,1) about X by
-		# pitch gives y = -sin(pitch).
-		var cal_elev: float = -sin(deg_to_rad(_lerp_kf("sun_pitch", a, b, t)))
-		var day_f: float = smoothstep(-0.05, 0.15, cal_elev)
+		# Day-blended sky calibration (constants above). sun_pitch can NOT be
+		# the day signal — the keyframes repurpose the light as a high moon at
+		# night (21:00 pitch −65). sun_energy is the honest one: 0.9–0.95 in
+		# daylight, 0.05 at night.
+		var day_f: float = smoothstep(0.15, 0.65, _lerp_kf("sun_energy", a, b, t))
 		var cal_bg: float = lerpf(1.0, SKY_CAL_BG, day_f)
 		var cal_sun: float = lerpf(1.0, SKY_CAL_SUN, day_f)
 		var cal_amb: float = lerpf(1.0, SKY_CAL_AMB, day_f)
