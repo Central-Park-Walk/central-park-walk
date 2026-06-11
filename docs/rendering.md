@@ -10,7 +10,8 @@ Companion docs: [`architecture.md`](architecture.md) (system map; its §7 hypoth
 - `scripts/perf_gate.sh` — pass/fail at the 5 locations. The gate for any perf-relevant change.
 - `scripts/perf_bisect.sh <location> [label=hides ...]` — per-subsystem attribution via `--diag-hide=` (terrain trees undergrowth grass shadows sdfgi fog ssao ssil glow treeshadows) and raw knobs (`--shadow-dist=`, `--shadow-size=`).
 - Protocol: 1080p, vsync off, noon/clear/summer, stationary, 60 s/run, stats from the last 10 `[PERF]` samples (2 s cadence). Scene load is ~35 s — runs shorter than ~50 s produce zero samples. **fps is median; ms columns are means** and include spikes (see §5 floor anomaly). Never touch a measurement window (`overlay=ON` marks the run contaminated).
-- `[PERF]` fields: `process` = main-loop ms (includes main thread blocked on GPU), `sub` = our profiled GDScript, `vpcpu`/`vpgpu` = `viewport_get_measured_render_time` CPU/GPU ms.
+- `[PERF]` fields: `process` = main-loop ms (includes main thread blocked on GPU), `sub` = our profiled GDScript, `vpcpu`/`vpgpu` = `viewport_get_measured_render_time` CPU/GPU ms, `pmax`/`pspk` = worst TIME_PROCESS + count >8 ms per 2 s window, `dmax`/`dspk` = same from `_process` delta (true wall dt — trust these for frame pacing). `[SPIKE]` lines timestamp any frame >50 ms.
+- **TIME_PROCESS caveat (measured 2026-06-10, §5):** at >100 fps the `process` column reads the *worst* recent frames, not the typical one — real frame time is `1000 / median fps`. At ≤60 fps the two agree.
 
 ## 2. The headline finding: we are GPU-bound
 
@@ -126,6 +127,22 @@ spec'd); (2) shadow receiver ~7 + SDFGI ~5 sweeps; (3) grass tier/density
 ~6.6; (4) floor spikes/cloud compute (§5). Gap to 16.6 ms at ramble:
 ~13 ms.**
 
+### 3e. Post-LOD-regen attribution at Ramble (2026-06-10 late, report 20260610_212106, sandwich baselines)
+
+| config | ms (fps) | Δ | reading |
+|---|---|---|---|
+| baseline | 28.3 (38) | | vistri 11.71 M, shtri 2.34 M |
+| baseline2 (end of matrix) | 30.3 (38) | | thermal drift ~2 ms — deltas under that are noise |
+| notrees | 19.6 (61) | **8.7** | still #1 — canopy *fragment shading* (LOD regen barely moved it) |
+| nograss | 22.2 (53) | **6.1** | 5.5 M of the vistri |
+| noshadow | 23.7 (47) | **4.6** | receiver-side PCF, post-proxy |
+| nosdfgi | 27.5 (40) | **0.8 — collapsed** | vpgpu identical (24.5 vs 24.7); the old ~5 ms reading predates opaque leaves + LOD regen. SDFGI sweep is a dead lever. |
+| floor | 10.6 process / **3.3 real** (314) | | §5: process column is a worst-frame proxy at high fps |
+
+Attribution closes: 8.7 + 6.1 + 4.6 + 0.8 + 3.3 ≈ 23.5 vs 26.3 real
+(1000/38). Remaining levers by size: trees-fragment ~8.7, grass ~6.1,
+shadow receiver ~4.6. Real gap to 16.6 at ramble: ~9.7 ms.
+
 **Stacked candidate state** (2026-06-10, commit d8f1784, solid-hull proxies):
 
 | stack | ramble ms (fps) | north_woods ms (fps) |
@@ -158,9 +175,28 @@ GPU ms at 1080p, measured at the worst of the 5 locations. A subsystem over its 
 
 CPU is not currently binding (`vpcpu` ~9 ms peak, GDScript <1 ms) but inherits the same 16.6 ms ceiling.
 
-## 5. Floor anomaly (open)
+## 5. Floor anomaly — RESOLVED 2026-06-10: measurement artifact, no real stalls
 
-With everything hidden, median fps ≈ 300 (≈3.3 ms typical frame) but *mean* process is 16–18 ms — large periodic spikes survive in the means of every config above. Prime suspect: volumetric cloud compute (768² target, 64-frame update cycle). Until measured, treat all ms columns as ~10–20% pessimistic and trust deltas more than absolutes. Follow-up: add a `clouds` diag option, measure, and either amortize the dispatch or budget it explicitly.
+Frame-tail instrumentation (`pmax`/`pspk` from TIME_PROCESS, `dmax`/`dspk`
+from `_process` delta, `[SPIKE]` stall locator — commits 2ad3e0d, and the
+delta follow-up) settled it:
+
+- **Real frame pacing at the floor is clean.** Wall dt: 3.3 ms typical,
+  window max 6–9 ms, ~0 frames over 8 ms per 2 s window. There are no
+  periodic stalls. Cloud compute measured innocent too (floor with
+  `--diag-hide=clouds`: identical).
+- **The "16–18 ms floor mean" was TIME_PROCESS itself.** At high fps the
+  monitor reads 8–9 ms while true dt is 3.3 ms — empirically it tracks the
+  *worst* recent frames, not the last frame. At low fps (heavy locations) it
+  converges to real frame time, so historical A/B deltas stand.
+- A 2.2 s **scene-load frame** leaks into the early sample windows; 60 s
+  runs keep load inside the "last 10 samples" tail. That produced the
+  earlier pmax=2210 reading.
+
+**Protocol consequences (binding):** real frame time = `1000 / median fps`,
+not the process column. Treat `process` as a worst-frame proxy at >100 fps.
+The true floor is ~3.3 ms (vpgpu ~2), so the §4 budget's available pool is
+larger than the old floor reading implied.
 
 ## 6. Reduction plan (D5–9, in order of measured size)
 
@@ -168,9 +204,9 @@ With everything hidden, median fps ≈ 300 (≈3.3 ms typical frame) but *mean* 
 2. **Tree camera raster — RESOLVED 2026-06-10** (−21 at ramble, −18 at north_woods): the cost was transparent-pass leaf overdraw, not geometry (§3c, trees.md §4e). The spec'd follow-ups occlusion-culling/tier-boundary were measured dead (~3 ms); LOD regeneration (true mid-LOD: bark decimate + card prune, trees.md §4c lever 3) remains queued for the residual vertex load.
    **LOD regen SHIPPED 2026-06-10 late (trees.md §4f): −1 to −3.3 ms per location, NOT the estimated 13–16.** New canonical gate (20260610_203758, commit 0cc6d1a): **25.3 / 22.1 / 27.8 / 18.9 / 32.3 ms** (lit_walk / bethesda / ramble / great_lawn / north_woods) — the D5–9 baseline. The §3d "trees ≈ 14.1 ms mostly vertex/LOD load" attribution was WRONG: with leaves opaque, the remaining tree line is canopy *fragment shading* (per-pixel PBR + SSS + shadow receive), which geometry LOD cannot reduce. Remaining tree levers are per-pixel: bark shader gating (§4c lever 2), leaf shader cost, shadow-receive sampling. Re-attribute (trees-off A/B at ramble/north_woods) before picking the next lever.
 3. **Other shadows — DECIDED 2026-06-10** (re-measured post-proxy/post-water; the old −16/−32 deltas no longer exist because the shadow load they amplified is gone): **atlas 4096 is the default** (−3.4 ms at Ramble 17:00, visually neutral at Ramble + Literary Walk golden hour — if anything slightly softer, which suits the tone). **PCF filter stays quality 2**: filter 1 now saves only ~5 ms and visibly hardens the long-shadow penumbra at low sun — and the proxy dapple *depends* on PCF blur to read as mottle (its holes sharpen into cut-outs at quality 1). Terrain caster (−9 pre-fix) not retested — candidate for D5–9 with a golden-hour visual check.
-4. **SDFGI** (−5.5): cascade count and cell size sweep — 6 cascades @ 0.5 m is generous for a park walk.
-5. **Grass** (−5.5): transparency ruled OUT 2026-06-10 — grass/tuft/undergrowth write `ALPHA_HASH_SCALE`, which keeps them in the opaque hashed pipeline (measured: discard-only variant within noise at great_lawn 20.2→19.7 and ramble 29.8→29.4; trees were the lone transparent-pass defect because tree_leaf wrote plain ALPHA + inert A2C). Remaining grass cost is honest geometry — tier ranges/density sweep.
-6. **Floor spikes** (§5).
+4. **SDFGI — DEAD LEVER (measured 2026-06-10, §3e):** 0.8 ms at ramble post-opaque-leaves/post-LOD-regen (vpgpu identical with it off). The −5.5 reading was from the old transparent-canopy world. No sweep needed; settings stay 6 cascades @ 0.5 m.
+5. **Grass** (−6.1, §3e): transparency ruled OUT 2026-06-10 — grass/tuft/undergrowth write `ALPHA_HASH_SCALE`, which keeps them in the opaque hashed pipeline (measured: discard-only variant within noise at great_lawn 20.2→19.7 and ramble 29.8→29.4; trees were the lone transparent-pass defect because tree_leaf wrote plain ALPHA + inert A2C). Remaining grass cost is honest geometry — tier ranges/density sweep via `--grass-spacing-mult` / `--grass-grid-mult`.
+6. **Floor spikes — RESOLVED, measurement artifact (§5).**
 
 Every step: perf_gate before/after at all 5 locations, committed with the numbers in the message.
 

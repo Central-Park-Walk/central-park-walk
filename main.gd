@@ -193,6 +193,12 @@ func _parse_cli_args() -> void:
 			_cli_shadow_filter = int(val)
 		elif key == "--render-scale" and val != "":
 			_cli_render_scale = float(val)
+		elif key == "--grass-spacing-mult" and val != "":
+			_cli_grass_spacing_mult = float(val)
+			print("[DIAG] grass spacing ×%.2f" % _cli_grass_spacing_mult)
+		elif key == "--grass-grid-mult" and val != "":
+			_cli_grass_grid_mult = float(val)
+			print("[DIAG] grass grid ×%.2f" % _cli_grass_grid_mult)
 		elif arg == "--shadow-census":
 			_diag_shadow_census = true
 		elif arg == "--screenshot":
@@ -874,6 +880,11 @@ var _cli_shadow_filter: int = -1
 # quarters fragment work but leaves vertex work untouched — splits a GPU
 # cost into fragment-bound vs vertex/primitive-bound.
 var _cli_render_scale: float = -1.0
+# Grass perf-sweep knobs (particle tiers only; Tier 2 tuft chunks untouched).
+# --grass-spacing-mult=1.41 halves blade count; --grass-grid-mult=0.8 shrinks
+# the covered radius (grid_width snapped odd).
+var _cli_grass_spacing_mult: float = 1.0
+var _cli_grass_grid_mult: float = 1.0
 # --shadow-census: one-shot dump of every shadow-casting GeometryInstance3D
 # (top 25 by mesh tris × instances) on the 3rd perf tick, after diag hides apply.
 var _diag_shadow_census: bool = false
@@ -1926,9 +1937,14 @@ func _setup_grass_particles() -> void:
 		gp.set_script(gp_script)
 		gp.name = "Grass_%s" % biome.name
 		gp.terrain = _terrain3d
-		gp.instance_spacing = biome.spacing
+		gp.instance_spacing = biome.spacing * _cli_grass_spacing_mult
 		gp.cell_width = biome.cell_width
-		gp.grid_width = biome.grid_width
+		var gw: int = biome.grid_width
+		if _cli_grass_grid_mult != 1.0:
+			gw = maxi(1, int(round(gw * _cli_grass_grid_mult)))
+			if gw % 2 == 0:
+				gw += 1
+		gp.grid_width = gw
 		gp.near_cull_distance = biome.get("min_distance", 0.0)
 		gp.process_fixed_fps = biome.get("process_fps", 30)
 		gp.shadow_mode = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
