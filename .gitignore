@@ -105,6 +105,18 @@ diag_grass*/
 # Third-party Blender libraries (not redistributable)
 assets/plant_library/
 perf_reports/
-notes/
+# Ignore all of notes/ EXCEPT the one-page reference briefs + template under
+# notes/refs/veg/ (bulk images/frames stay ignored). Git can't re-include a path whose
+# parent dir is excluded, so each level is unwound: exclude contents (dir/*), then
+# re-include the next dir down.
+notes/*
+!notes/refs/
+notes/refs/*
+!notes/refs/veg/
+notes/refs/veg/*
+!notes/refs/veg/*/
+!notes/refs/veg/BRIEF_TEMPLATE.md
+notes/refs/veg/*/*
+!notes/refs/veg/*/BRIEF.md
 hh_NYC_029.tif
 !.claude/settings.json

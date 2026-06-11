@@ -101,7 +101,10 @@ fall, winter, bloom). If any of those is missing, the model will guess that aspe
 guess wrong.
 
 ### `BRIEF.md` — the falsifiable target
-One page per species, tracked in git, written from the reference set. It states, in
+One page per species, tracked in git, written from the reference set. **Copy the
+fill-in template** `notes/refs/veg/BRIEF_TEMPLATE.md` to
+`notes/refs/veg/<species>/BRIEF.md` and complete every field (the gitignore tracks
+`BRIEF.md` and the template while ignoring bulk images/frames). It states, in
 checkable terms: the **habit** in one sentence ("multi-stemmed, primary stems arch to
 ~3 m then secondary growth droops and layers into a mound — cascades, never a V"); the
 **interaction** behavior (thicket-forming / crowns merge / solitary); the **layer** it
