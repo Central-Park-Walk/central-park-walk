@@ -21,6 +21,7 @@ Then state the session's target in one sentence before writing any code.
 - `docs/data_pipeline.md` — OSM + LiDAR + NYC tree census → world. *(to be written; architecture.md §2 covers the summary)*
 - [`docs/rendering.md`](docs/rendering.md) — measured frame anatomy, binding 16.6ms per-subsystem budgets, shadow policy, reduction plan.
 - [`docs/trees.md`](docs/trees.md) — tree tier spec: runtime-lit impostors, shadow proxies, validation DoD.
+- [`docs/grass.md`](docs/grass.md) — turf spec: zone truth table, mowing heights, wear/mottle system, DoD.
 - `docs/visual_style.md` — reference images, palette, lighting principles, tone, art bible. *(to be written)*
 - `docs/conventions.md` — naming, file organization, shader patterns, comment policy. *(to be written)*
 - [`docs/workflow.md`](docs/workflow.md) — session protocol, definition of done, iteration rules, enforcement.
