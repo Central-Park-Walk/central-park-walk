@@ -62,6 +62,17 @@ void grass_zone_palette(int zone_id, out vec3 c_lo, out vec3 c_hi) {
 	}
 }
 
+// Sedge tussock patchiness for the shore band (zone 13). Real sedge
+// grows in clumps interleaved with bank grass — a uniform teal strip
+// reads as a painted decal (walk-around defect #1, cpw_003). 0 = bank
+// grass, 1 = full sedge. Shared by terrain + blade shaders so patches
+// line up across tiers.
+float sedge_patch_mask(vec2 world_xz) {
+	float n = vnoise(world_xz / 4.5) * 0.65
+	        + vnoise(world_xz / 1.3 + vec2(3.1, 17.7)) * 0.35;
+	return smoothstep(0.30, 0.70, n);
+}
+
 // Grass base color WITHOUT dead-tuft accents.
 // The dead-tuft mask is fine-scale (~1.25m); on solid terrain it shows
 // as scattered brown flecks under the camera. Blade-coverage shaders

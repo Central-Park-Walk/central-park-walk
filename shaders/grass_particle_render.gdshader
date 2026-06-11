@@ -140,6 +140,12 @@ void fragment() {
 	// and golden undertone. Dead tufts are applied below with a seasonal
 	// gate so July reads green and autumn ramps the brown up.
 	vec3 col = grass_base_color_no_dead(zone_id, v_world_pos.xz);
+	// Shore band: sedge palette comes in by tussock patches (same mask as
+	// the terrain shader so patches line up across the 36-60m fade).
+	if (zone_id == 13) {
+		col = mix(grass_base_color_no_dead(0, v_world_pos.xz), col,
+			sedge_patch_mask(v_world_pos.xz));
+	}
 	float autumn_t_early = sn_veg_autumn(season_t);
 	col = apply_dead_tufts(col, v_world_pos.xz, 0.15 + 0.85 * autumn_t_early);
 
@@ -174,7 +180,10 @@ void fragment() {
 	} else if (biome_id == 2) {
 		col *= vec3(1.32, 1.05, 0.65);  // Wild: warm amber
 	} else if (biome_id == 3) {
-		col *= vec3(0.78, 1.02, 1.25);  // Sedge: cool teal
+		// Sedge: cool teal — masked by the same tussock patches; off-patch
+		// blades read like the lawn tint so the band isn't a flat decal.
+		col *= mix(vec3(1.05, 1.02, 0.92), vec3(0.78, 1.02, 1.25),
+			sedge_patch_mask(v_world_pos.xz));
 	}
 
 	// Root-to-tip gradient: very subtle darkening at base only.

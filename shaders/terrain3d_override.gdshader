@@ -355,7 +355,16 @@ void fragment() {
 	// Zone lookup. Encoding: 0=unzoned 1=garden 2=grass 3=pitch 4=playground
 	// 5=nature_reserve 6=dog_park 7=sports 8=pool 9=track 10=wood 11=forest
 	// 12=water 13=shore 14=wild_meadow.
-	float zone_val = texture(landuse_map, splat_uv).r * 255.0;
+	// Jitter the sample position with a world-space hash (±0.9m ≈ 1.5
+	// texels at 0.61m/texel) so int-zone boundaries dither organically
+	// instead of rendering the landuse texel grid as hard axis-aligned
+	// staircases (walk-around defect #1 2026-06-11: water-bed and sedge-
+	// band edges, screenshots/cpw_000/003). FSR2/TAA averages the hash
+	// into a soft ~1.8m blend band.
+	vec2 zone_jit = vec2(hash2(v_vertex.xz * 13.1),
+	                     hash2(v_vertex.xz * 13.1 + vec2(7.3, 41.9))) - 0.5;
+	vec2 zone_uv = (v_vertex.xz + zone_jit * 1.8 + world_size * 0.5) / world_size;
+	float zone_val = texture(landuse_map, zone_uv).r * 255.0;
 	int zone_id = int(zone_val + 0.5);
 	bool is_woodland = (zone_id == 5 || zone_id == 10 || zone_id == 11);
 	bool is_grass_zone = (zone_id == 0 || zone_id == 1 || zone_id == 2
@@ -387,7 +396,9 @@ void fragment() {
 		if (zone_id == 5 || zone_id == 10 || zone_id == 11) {
 			biome_terrain_tint = vec3(0.78, 0.92, 1.10);  // Shade: cool blue-green
 		} else if (zone_id == 13) {
-			biome_terrain_tint = vec3(0.82, 1.02, 1.18);  // Sedge: cool teal (shore)
+			// Sedge: cool teal (shore) — patchy tussocks, not a painted band
+			biome_terrain_tint = mix(vec3(1.0), vec3(0.82, 1.02, 1.18),
+				sedge_patch_mask(v_vertex.xz));
 		} else if (zone_id == 14) {
 			biome_terrain_tint = vec3(1.20, 1.05, 0.72);  // Wild: warm amber (hand-marked meadow)
 		}
@@ -406,6 +417,12 @@ void fragment() {
 		// hide it.
 		if (is_grass_zone) {
 			vec3 spectral_col = grass_base_color_no_dead(zone_id, v_vertex.xz);
+			// Shore band: blend the sedge palette in by tussock patches so
+			// the cool teal reads as clumped vegetation over bank grass.
+			if (zone_id == 13) {
+				spectral_col = mix(grass_base_color_no_dead(0, v_vertex.xz),
+					spectral_col, sedge_patch_mask(v_vertex.xz));
+			}
 			ALBEDO = mix(ALBEDO, spectral_col, 0.85);
 
 			// Turf wear: baked path/bench wear + ambient mottle + canopy
