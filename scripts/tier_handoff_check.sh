@@ -5,6 +5,9 @@
 # Usage: scripts/tier_handoff_check.sh [pos] [time ...]
 #   pos default: bethesda yaw 0 (-480,1020,0 — tree band at 220-290m)
 #   times default: noon (pass e.g. "8 12 17" for the full §2 matrix)
+#   TIER_A/TIER_B env vars override the compared --tier-isolate pair
+#   (default mesh/impostor). For the 60m lod1↔lod2 handoff (§4d):
+#   TIER_A=lod1 TIER_B=lod2 scripts/tier_handoff_check.sh "<pos with canopy at ~60m>"
 #
 # KNOWN PROTOCOL CAVEAT (2026-06-10): impostor-isolate renders trees to
 # 2500m while mesh-isolate stops at ~330m, so background canopy fills in
@@ -34,9 +37,11 @@ cap() { # name, extra args...
     echo "FAIL $name"; fi
 }
 
+TIER_A="${TIER_A:-mesh}"
+TIER_B="${TIER_B:-impostor}"
 for t in "${TIMES[@]}"; do
-  cap "mesh_$t"     --time="$t" --tier-isolate=mesh
-  cap "impostor_$t" --time="$t" --tier-isolate=impostor
+  cap "mesh_$t"     --time="$t" --tier-isolate="$TIER_A"
+  cap "impostor_$t" --time="$t" --tier-isolate="$TIER_B"
   cap "notrees_$t"  --time="$t" --diag-hide=trees
 done
 

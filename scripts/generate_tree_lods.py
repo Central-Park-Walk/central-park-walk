@@ -3,13 +3,17 @@
 Instead of generic mesh decimation (which destroys leaf card UVs and creates
 canopy holes), this script:
   1. Separates leaf geometry from bark by material name ("leaf")
-  2. Keeps bark geometry IDENTICAL across all LODs
-  3. Randomly removes entire leaf card quads (not edge-collapse)
-  4. Scales surviving cards UP to maintain constant canopy coverage density
+  2. Randomly removes entire leaf card quads (not edge-collapse)
+  3. Scales surviving cards UP to maintain constant canopy coverage density
+  4. (lod2 only) Decimates bark to a triangle budget — bark is opaque tube
+     geometry and collapses cleanly, and it dominates the heavy species
+     (cathedral_elm_l: 84% bark, 203k tris; see docs/trees.md §4b)
 
-The scale factor is 1/sqrt(keep_ratio):
-  LOD1 (50% cards): each card 1.41× larger → same total leaf area
-  LOD2 (25% cards): each card 2.0× larger → same total leaf area
+The card scale factor is 1/sqrt(keep_ratio), preserving total leaf area.
+
+Tier spec (docs/trees.md §4c lever 3):
+  lod1 (near, 0–60m):   50% cards × 1.41, bark untouched
+  lod2 (mid, 60–250m):  40% cards × 1.58, bark ≤ 8k tris (budget ≤ ~12k total)
 
 For bark-only models (e.g., dead trees), falls back to Blender Decimate.
 
@@ -29,11 +33,38 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
 MODEL_DIR = os.path.join(PROJECT_DIR, "models", "trees")
 
-# Fraction of leaf cards to KEEP at each LOD tier.
-LOD_RATIOS = {
-    "lod1": 0.50,   # 50% of cards, each scaled 1.41×
-    "lod2": 0.25,   # 25% of cards, each scaled 2.0×
+# Per-tier recipe. card_keep = fraction of leaf cards kept (survivors scale
+# by 1/sqrt(card_keep)); bark_target = bark triangle budget for collapse
+# decimation (None = bark untouched). lod2 is adaptive: measured base models
+# (2026-06-10) range 12k–245k tris per variant, so flat ratios can't hit the
+# ~12k budget — leaf and bark trade against each other per variant instead.
+LOD_SPECS = {
+    "lod1": {"card_keep": 0.50, "bark_target": None},
+    "lod2": {"adaptive": True},
 }
+
+LOD2_TOTAL_BUDGET = 12000   # docs/trees.md §4d: lod2 ≤ ~12k incl. cards
+LOD2_LEAF_BUDGET = 9000     # leaf tris before card_keep floors/caps apply
+LOD2_KEEP_MIN = 0.15        # below this, card scale (2.6×+) turns crowns to blobs
+LOD2_KEEP_MAX = 0.40
+LOD2_BARK_MIN = 3000        # trunk silhouette floor
+LOD2_BARK_MAX = 8000
+
+
+def lod2_recipe(leaf_tris, bark_tris):
+    """Per-variant (card_keep, bark_target) hitting LOD2_TOTAL_BUDGET.
+
+    Leaf gets first claim up to LOD2_LEAF_BUDGET (cards carry the canopy
+    look that the 60m handoff DoD compares); bark absorbs the remainder —
+    it's mostly hidden behind canopy at mid range. Willow (64.8k strand
+    cards) rides the KEEP_MIN floor and lands ~12.7k.
+    """
+    keep = max(LOD2_KEEP_MIN,
+               min(LOD2_KEEP_MAX, LOD2_LEAF_BUDGET / max(leaf_tris, 1)))
+    leaf_after = leaf_tris * keep
+    bark_target = int(min(max(LOD2_TOTAL_BUDGET - leaf_after, LOD2_BARK_MIN),
+                          LOD2_BARK_MAX))
+    return keep, bark_target
 
 SPECIES_TIERS = []
 for f in sorted(os.listdir(MODEL_DIR)):
@@ -129,15 +160,14 @@ def leaf_aware_lod(obj, keep_ratio, seed):
     each an independent mesh island. We randomly remove whole quads and
     scale survivors up by 1/sqrt(keep_ratio) to maintain coverage density.
 
-    - Bark geometry: untouched (identical across all LODs)
+    - Bark geometry: untouched here (lod2 decimates it separately)
     - Leaf geometry: random quad removal + survivor scaling
     """
     mesh = obj.data
     leaf_mat_idx = find_leaf_material_index(mesh)
 
     if leaf_mat_idx == -1:
-        # Bark-only model (e.g., dead tree) — apply gentle decimation
-        decimate_bark_only(obj, keep_ratio)
+        # Bark-only model (e.g., dead tree) — caller decimates instead
         return
 
     bm = bmesh.new()
@@ -234,7 +264,67 @@ def decimate_bark_only(obj, ratio):
           f"({new_faces/max(orig_faces,1)*100:.0f}%) [bark decimate]")
 
 
-def process_model(model_name, lod_name, ratio):
+def count_tris(mesh, leaf_mat_idx):
+    """Return (leaf_tris, bark_tris) for a mesh."""
+    mesh.calc_loop_triangles()
+    leaf = bark = 0
+    for t in mesh.loop_triangles:
+        if t.material_index == leaf_mat_idx:
+            leaf += 1
+        else:
+            bark += 1
+    return leaf, bark
+
+
+def decimate_bark_to_target(obj, target_tris):
+    """Collapse-decimate the bark portion of a mixed leaf+bark mesh.
+
+    Leaf cards must not pass through Decimate (it destroys card UVs), so:
+    separate by material, decimate the non-leaf parts, rejoin. The original
+    object stays the join target so its name and material-slot order — which
+    the runtime's variant-index pairing across tiers depends on — survive.
+
+    Returns the joined object.
+    """
+    mesh = obj.data
+    leaf_mat_idx = find_leaf_material_index(mesh)
+    _, bark_tris = count_tris(mesh, leaf_mat_idx)
+    if bark_tris <= target_tris:
+        return obj
+
+    orig_name = obj.name
+    bpy.ops.object.select_all(action='DESELECT')
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.mesh.separate(type='MATERIAL')
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+    parts = list(bpy.context.selected_objects)
+    ratio = target_tris / bark_tris
+    for p in parts:
+        pm = p.data
+        if len(pm.polygons) == 0:
+            continue
+        midx = pm.polygons[0].material_index
+        mat = pm.materials[midx] if midx < len(pm.materials) else None
+        if mat and "leaf" in mat.name.lower():
+            continue
+        decimate_bark_only(p, ratio)
+
+    bpy.ops.object.select_all(action='DESELECT')
+    join_target = obj if obj.name in {p.name for p in parts} else parts[0]
+    for p in parts:
+        p.select_set(True)
+    bpy.context.view_layer.objects.active = join_target
+    bpy.ops.object.join()
+    joined = bpy.context.view_layer.objects.active
+    joined.name = orig_name
+    return joined
+
+
+def process_model(model_name, lod_name, spec):
     """Load a GLB, apply leaf-aware LOD reduction, and export."""
     src_path = os.path.join(MODEL_DIR, f"{model_name}.glb")
     dst_path = os.path.join(MODEL_DIR, f"{model_name}_{lod_name}.glb")
@@ -256,14 +346,42 @@ def process_model(model_name, lod_name, ratio):
 
     # Use model name + lod name as seed for reproducibility
     seed = hash(f"{model_name}_{lod_name}")
+    adaptive = spec.get("adaptive", False)
 
+    final_objs = []
     for obj in imported:
         obj.select_set(True)
         bpy.context.view_layer.objects.active = obj
-        leaf_aware_lod(obj, ratio, seed)
+        leaf_mat_idx = find_leaf_material_index(obj.data)
+        leaf, bark = count_tris(obj.data, leaf_mat_idx)
+        if adaptive:
+            ratio, bark_target = lod2_recipe(leaf, bark)
+        else:
+            ratio, bark_target = spec["card_keep"], spec["bark_target"]
+        if leaf_mat_idx == -1:
+            # Bark-only model (dead snags): plain collapse decimation
+            if bark_target is not None:
+                decimate_bark_only(obj, min(1.0, bark_target / max(bark, 1)))
+            else:
+                decimate_bark_only(obj, ratio)
+        else:
+            leaf_aware_lod(obj, ratio, seed)
+            if bark_target is not None:
+                obj = decimate_bark_to_target(obj, bark_target)
         obj.select_set(False)
+        final_objs.append(obj)
 
-    total_new = sum(len(o.data.polygons) for o in imported if o.type == 'MESH')
+    # Per-variant budget report (docs/trees.md §4d: lod2 ≤ ~12k incl. cards;
+    # +1000 slack covers the KEEP_MIN floor on extreme-card species)
+    for obj in final_objs:
+        leaf, bark = count_tris(obj.data, find_leaf_material_index(obj.data))
+        flag = ""
+        if adaptive and leaf + bark > LOD2_TOTAL_BUDGET + 1000:
+            flag = "  ** OVER 12k BUDGET **"
+        print(f"    [{lod_name}] {obj.name}: {leaf} leaf + {bark} bark "
+              f"= {leaf + bark} tris{flag}")
+
+    total_new = sum(len(o.data.polygons) for o in final_objs)
 
     # Export
     bpy.ops.object.select_all(action='SELECT')
@@ -287,7 +405,7 @@ def main():
     print("\n" + "=" * 60)
     print("Tree LOD — Leaf-Aware Card Reduction (SpeedTree approach)")
     print(f"Models: {MODEL_DIR}")
-    print(f"LOD levels: {list(LOD_RATIOS.keys())}")
+    print(f"LOD levels: {list(LOD_SPECS.keys())}")
     print("=" * 60)
 
     # Parse --only filter
@@ -307,10 +425,10 @@ def main():
         print(f"  {model_name}")
         print(f"{'─'*40}")
 
-        for lod_name, ratio in LOD_RATIOS.items():
+        for lod_name, spec in LOD_SPECS.items():
             total += 1
             t0 = time.time()
-            if process_model(model_name, lod_name, ratio):
+            if process_model(model_name, lod_name, spec):
                 success += 1
                 dt = time.time() - t0
                 print(f"  {lod_name} done in {dt:.1f}s")
@@ -318,6 +436,12 @@ def main():
     print(f"\n{'='*60}")
     print(f"Done: {success}/{total} LOD models generated")
     print("=" * 60)
+    # Blender 4.5 --background hangs in process teardown after the script
+    # completes (observed 2026-06-10, ~25min stuck on a futex; same family
+    # as the impostor-baker hang in memory lessons_impostor_bake). All
+    # exports are flushed and closed by here — skip teardown entirely.
+    sys.stdout.flush()
+    os._exit(0)
 
 
 if __name__ == "__main__":
