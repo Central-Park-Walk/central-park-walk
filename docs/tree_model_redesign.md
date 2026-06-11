@@ -117,7 +117,10 @@ rescue. The biggest realism wins, in priority order:
 2. **Branch architecture you can see near.** Real branch tapering and forking, not
    leaf-clouds on stubs. Foliage should be **60–89% of tree geometry** (AAA norm,
    [[reference-aaa-tree-techniques]]); audit each species — heavy-bark species
-   (cathedral_elm_l was 84% bark) have it inverted.
+   (cathedral_elm_l was 84% bark) have it inverted. **Fix the inversion by cutting
+   wasted bark tris** (the measured 31 k three-tri twig-stub islands), **never by
+   adding leaf cards to hit the ratio** — that's the §2 overdraw budget violated from
+   the other direction.
 3. **Canopy density calibrated to LAI** ([[reference-tree-canopy-data]]): opaque
    linden/maple (LAI 5–7, ~1–8% transmission) vs lacy honeylocust (LAI 2–3.5,
    30–50% transmission) vs open birch/ginkgo. The per-species `leaf_density` and
@@ -189,12 +192,18 @@ and (now) per-tree height from census DBH. Push it further so a stand never tile
    height, and density across the 5, within the species silhouette. Consider raising to
    **6–8 variants** for the high-count species (oak 2.6 k, london_plane 1.7 k, linden
    1.75 k, honeylocust ~6 k combined, callery_pear 2 k, ginkgo 1.8 k) where tiling is
-   most visible; keep 5 for rare ones. (Confirm the runtime variant picker and impostor
-   bake loop handle >5 before committing to more — check, don't assume.)
-2. **Runtime per-instance transforms** (`tree_builder.gd`): small random yaw (already?),
+   most visible; keep 5 for rare ones. **Plumbing verified (2026-06-11): >5 variants is
+   free.** The runtime picker is count-agnostic (`tree_builder.gd:587` hashes mod
+   `meshes.size()`; the `.res` cache stores `n_variants` and self-invalidates when the
+   GLB mtime is newer, `tree_builder.gd:153-160`); impostor atlases are **per
+   species-tier, not per variant** (`tree_builder.gd:1185-1255`), so extra variants add
+   zero impostor VRAM or bake time. Corollary: variant diversity vanishes at impostor
+   distance (every billboard of a species-tier shows the same bake) — acceptable, since
+   tiling is only legible at near/mid tiers.
+2. **Runtime per-instance transforms** (`tree_builder.gd`): small random yaw,
    non-uniform scale (±height already from DBH — add slight crown-width jitter), and a
-   tiny per-instance lean. Verify what's already applied before adding (don't
-   double-apply).
+   tiny per-instance lean. What's already applied (yaw?) is settled during the §5b
+   pre-diagnosis — verify before adding (don't double-apply).
 3. **Per-instance color/phenology jitter** already exists (5 cm seed, fall timing) —
    keep, and make sure widened seed variants don't fight it.
 
@@ -241,6 +250,24 @@ Woods / Ramble stand, judged for canopy closure, crown interlace, and layered
 structure. A tree that passes its thumbnail but reads as an isolated ball in the stand
 has failed.
 
+**Pre-diagnosis — run this FIRST, before any hero modeling (Sonnet-capable, pure data
+analysis, ~a session):** sample actual inter-tree distances in North Woods / Ramble
+chunks vs the model crown radii (lever 2); histogram the height distribution in a
+woodland chunk (lever 4); confirm what `DEDUP_DIST` and the scatter actually permit
+(lever 3); and settle the §4 open question (is per-instance yaw already applied?). Its
+output sets the **crown-width targets the hero models are built to** — doing it after
+the heroes risks rebuilding them. Also **verify the "shared wind field" claim below in
+code** before relying on it: if trees actually sway on independent per-instance phases,
+that alone breaks stand coherence and no crown geometry fixes it.
+
+**Stand composition (measured 2026-06-11, scatter weights `convert_to_godot.py:1697` ×
+`SPECIES_MAP`):** North Woods is ~42% oak-mapped, ~29% maple-mapped (red/sugar maple +
+sweetgum + tupelo), ~14% cherry-mapped (black cherry + dogwood); Ramble is similar.
+**London plane and honeylocust are essentially absent from the validation stands** —
+they're street/allée trees. So the coherence *visual* pass requires **oak, maple, and
+cherry** to be redesigned first (see §6 ordering); judging crown fullness on a stand
+that's 60–75% old models proves nothing.
+
 Coherence is built from four levers, together — diagnose which are actually broken
 before turning knobs (check, don't estimate):
 
@@ -275,11 +302,15 @@ wind field** so the whole canopy moves as one mass with local variation
 reads as one feature; trees waving on independent phases read as separate objects.
 
 This work is judgment-heavy and cross-cutting (placement code + crown width + height
-map + variation) — **Opus**, after the hero species exist so the crown-fullness lever
-can be judged on good models. DoD: North Woods + Ramble stand captures show a closed,
-interlaced, layered canopy vs the current "balls with air between them," with no perf
-regression (perf gate ×5; mind the woodland locations are the worst-case for the 60fps
-gate — coherence changes must not push ramble/north_woods further from budget).
+map + variation) — **Opus**, after the woodland-dominant species exist (oak, maple,
+cherry — see stand composition above) so the crown-fullness lever is judged on good
+models. **Perf policy (user decision 2026-06-11, vision.md):** the woodland gate is
+**≥45 fps** at ramble/north_woods (60 stays the target in open areas) — this is the
+headroom that makes coherence work possible at all, since every lever here adds canopy
+overdraw exactly where the frame is most expensive. `perf_gate.sh` enforces the
+per-location targets. DoD: North Woods + Ramble stand captures show a closed,
+interlaced, layered canopy vs the current "balls with air between them," perf gate ×5
+passes (60 open / 45 woodland).
 
 ---
 
@@ -301,9 +332,22 @@ see §10):
    not raw overdraw.
 4. **Tune bark**: assign/adjust the `tree_bark.gdshader` style and bark color/texture
    for the species' bark character.
-5. **Re-thumbnail, compare to board, iterate.** Two failed iterations ⇒ the diagnosis
-   is wrong, stop and re-look (workflow.md §3).
-6. **Commit the base model + params** for that species, then move on. Downstream regen
+5. **Tune behavior**: the species' wind biomechanics
+   ([[project-species-wind]] — the per-species params already exist in the shaders)
+   against the board's **video** reference. Behavior is one of the method's three
+   pillars (vegetation_modeling.md §2) and "wind doesn't flow" is a standing user
+   complaint — don't skip this step because it isn't geometry.
+6. **Check the seasons**: the seasonal thinning system stores **literal card
+   fractions** (`WINTER_RETENTION`, e.g. oak 0.18) — any change to card count or
+   placement silently invalidates them. Recalibrate per species, and verify fall color
+   against the board.
+7. **Re-thumbnail, compare to board, iterate** — render **summer + fall + winter**
+   thumbnails (the winter skeleton is where habit is most legible — every BRIEF says
+   so; a summer-only check validates the least informative season). Emit
+   **side-by-side composites** (board photo | render in one image) so the comparison is
+   actually made, not vibed ([[feedback-screenshot-review]]). Two failed iterations ⇒
+   the diagnosis is wrong, stop and re-look (workflow.md §3).
+8. **Commit the base model + params** for that species, then move on. Downstream regen
    (§8) is batched after a group of species is approved, not per species.
 
 **Hero-first ordering** (prove the loop + the toolchain on these, then fan out):
@@ -315,7 +359,10 @@ see §10):
    canopy — currently a single-plane compound-leaf approximation, see
    [[reference-tree-canopy-data]] §7)
 
-Then the rest by census count: linden, callery_pear, ginkgo, cherry, maple, elm,
+Then **maple and cherry first** — they are the woodland mass (~29% + ~14% of the
+North Woods / Ramble stands via `SPECIES_MAP`: sweetgum/tupelo → maple, black
+cherry/dogwood → cherry) and the §5b coherence pass cannot run until they exist.
+Then the rest by census count: linden, callery_pear, ginkgo, elm,
 pine/conifer (the old "bare sticks" species — needs needle-mass work), magnolia,
 birch, willow, and `deciduous` (the generic fallback — make it a believable average
 broadleaf), `dead` (bare structure; no foliage, no impostor by design — trees.md /
@@ -330,9 +377,10 @@ Spicebush (`models/vegetation/Shrub_Spicebush_{0,1,2}.glb`, 3 seed variants,
 ([[project-asset-quality-ground-truth]], [[reference-vegetation-inventory]] §B). It is
 placed by `undergrowth_builder.gd` (entry @ ln 60; dominant in North Woods / Ramble).
 Its generator is the bespoke `make_spicebush()` path with custom cluster-card textures,
-spectral colors, and the 3 seed variants — **find and confirm the generator script**
-(it predates this spec; likely a `make_*.py` or inside the undergrowth tooling) before
-editing.
+spectral colors, and the 3 seed variants — **confirmed (2026-06-11):
+`scripts/make_undergrowth.py:844` (`make_spicebush`)**, whose stem comment (line ~896)
+literally says "leaning strongly outward to form a vase shape wider than tall" — the V
+is by design, which is exactly the §1 rule-not-reference failure.
 
 **The named failure is habit: it looks V-shaped instead of "flowing over itself"**
 (user, 2026-06-11). This is the canonical example of the
@@ -390,7 +438,11 @@ Use the harness that already exists — don't invent new validation
 ([[feedback-right-tools]]):
 
 - **Thumbnail vs board** (`render_tree_thumbnails.py`): the species reads as itself,
-  matches the board's silhouette/density/bark/color. Falsifiable, per §3 BRIEF.md.
+  matches the board's silhouette/density/bark/color — in **summer, fall, AND winter**
+  (§6 step 7), as side-by-side composites against the board.
+- **Behavior**: a short in-game wind capture (moving frames, not a still) reads as the
+  board video's wind character; the stand sways as one mass with local variation, not
+  on independent phases.
 - **In-game near capture** at a location the species dominates (memory "Key test
   locations"): branch architecture and canopy density correct close up; no near-tree
   sparsity regression (trees.md §7 mechanism — discard threshold follows
@@ -409,6 +461,14 @@ Use the harness that already exists — don't invent new validation
 - **Cathedral elm**: the Literary Walk arch capture (§5 DoD).
 - **User walk-around**: final sign-off (the user is ground truth,
   [[feedback-real-world-observation]]).
+
+**Validation-order dependency:** any *distance/stand* judgment (impostor-range reads,
+§5b captures) is contaminated until the **tier-approach continuity pass** lands
+(sprint open item: impostor re-bake through current shaders + fog/crossfade
+attribution — mesh tiers got denser after the Jun-11 mip-threshold fix while impostor
+atlases weren't re-baked, and the §6c fog veil colors everything past ~200 m). Near
+and thumbnail validation are unaffected. Don't tune a species against a distant read
+before that pass is done — you'd be tuning against a known-broken pipeline stage.
 
 ---
 
@@ -431,6 +491,8 @@ split:
 - The spicebush redesign (§7) — bespoke, judgment-heavy.
 
 **Sonnet 4.6 (mechanical, executes a proven spec):**
+- The §5b **pre-diagnosis** (spacing/height/dedup/yaw/wind-field data analysis) — run
+  it before hero modeling starts and report numbers.
 - The tuning loop (§6) for the **remaining species** once the hero examples exist,
   following the worked pattern and each species' BRIEF.md. (Escalate to Opus if a
   species fights the template — e.g. pine needle-mass, willow strands.)
@@ -454,23 +516,33 @@ and hand back up, don't guess ([[feedback-no-guessing]]).
 
 ## 11. Sequence summary
 
-1. **Opus:** reference boards + BRIEF.md for all species (§3); any shared
-   `leaf_card_utils` / variation-plumbing / shader groundwork (§4, §2).
-2. **Opus:** cathedral_elm hero (§5) — model + convergence placement + full chain +
+1. ~~**Opus:** reference boards + BRIEF.md for all species (§3)~~ — **DONE 2026-06-11**
+   (all 16 briefs committed under `notes/refs/veg/`).
+2. **Sonnet:** §5b **pre-diagnosis** (crown width vs census spacing, height histogram,
+   dedup behavior, yaw check, shared-wind-field verification) — pure data analysis;
+   its output sets the crown-width targets for everything below.
+3. **Opus:** any shared `leaf_card_utils` / variation-plumbing / shader groundwork
+   (§4, §2).
+4. **Opus:** cathedral_elm hero (§5) — model + convergence placement + full chain +
    DoD. Proves the whole loop on the signature view.
-3. **Opus:** oak, london_plane, honeylocust (§6) — proven worked examples covering
-   broadleaf template, bark workflow, lacy canopy.
-4. **Opus:** forest-coherence pass (§5b) — once good hero models exist, fix the
-   stand-level reading (crown width, placement density, height layering, interlocking
-   variation, shared wind). Validate on North Woods / Ramble stand captures.
-5. **Sonnet:** remaining 11 species (§6) following the worked examples; escalate the
-   awkward ones (pine, willow) to Opus.
-6. **Opus:** spicebush (§7) — habit-first (kill the V), validate on a thicket capture.
-7. **Sonnet:** downstream regen for every approved group (§8) + validation harness (§9).
-8. **User walk-around** sign-off; then resume the broader plan
-   ([[mission-fable5-sprint]] / post-sprint model-redo program). The reference-first
-   method ([`vegetation_modeling.md`](vegetation_modeling.md)) then governs every
-   remaining plant.
+5. **Opus:** oak (§6) — the broadleaf template and the biggest woodland species.
+6. **USER CHECKPOINT** — walk-around on cathedral_elm + oak before anything fans out.
+   One walk here is cheap insurance against replicating a wrong template 14 times.
+7. **Opus:** london_plane, honeylocust (§6) — bark workflow + lacy canopy templates.
+8. **Sonnet:** **maple + cherry** (§6 — woodland mass, follows the oak template;
+   escalate judgment calls).
+9. **Opus:** forest-coherence pass (§5b) — now the validation stands are majority new
+   models (oak + maple + cherry ≈ 85% of North Woods). Requires the tier-approach
+   continuity pass landed first (§9 validation-order dependency). Perf gate: 60 open /
+   45 woodland (vision.md).
+10. **Sonnet:** remaining species (§6) following the worked examples; escalate the
+    awkward ones (pine, willow) to Opus.
+11. **Opus:** spicebush (§7) — habit-first (kill the V), validate on a thicket capture.
+12. **Sonnet:** downstream regen for every approved group (§8) + validation harness (§9).
+13. **User walk-around** sign-off; then resume the broader plan
+    ([[mission-fable5-sprint]] / post-sprint model-redo program). The reference-first
+    method ([`vegetation_modeling.md`](vegetation_modeling.md)) then governs every
+    remaining plant.
 
 Throughout: commit after every verified species (no batching), perf-gate any
 per-frame-touching change, update this doc and `trees.md` if reality diverges from the
