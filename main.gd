@@ -197,6 +197,15 @@ func _parse_cli_args() -> void:
 			_cli_shadow_blend = int(val)
 		elif key == "--render-scale" and val != "":
 			_cli_render_scale = float(val)
+		elif key == "--upscale" and val != "":
+			# --upscale=fsr2:0.77 — temporal/spatial upscaler experiment knob
+			# (fsr2 / fsr1 / bilinear). Unlike --render-scale (always bilinear),
+			# fsr2 reconstructs toward native from temporal samples.
+			var up_parts := val.split(":")
+			_cli_upscale_mode = up_parts[0]
+			if up_parts.size() > 1:
+				_cli_upscale_scale = float(up_parts[1])
+			print("[DIAG] upscale %s @ %.2f" % [_cli_upscale_mode, _cli_upscale_scale])
 		elif key == "--grass-spacing-mult" and val != "":
 			_cli_grass_spacing_mult = float(val)
 			print("[DIAG] grass spacing ×%.2f" % _cli_grass_spacing_mult)
@@ -887,6 +896,9 @@ var _cli_shadow_blend: int = -1
 # quarters fragment work but leaves vertex work untouched — splits a GPU
 # cost into fragment-bound vs vertex/primitive-bound.
 var _cli_render_scale: float = -1.0
+# --upscale=mode:scale (fsr2/fsr1/bilinear)
+var _cli_upscale_mode: String = ""
+var _cli_upscale_scale: float = 0.77
 # Grass perf-sweep knobs (particle tiers only; Tier 2 tuft chunks untouched).
 # --grass-spacing-mult=1.41 halves blade count; --grass-grid-mult=0.8 shrinks
 # the covered radius (grid_width snapped odd).
@@ -1638,6 +1650,13 @@ func _setup_environment() -> void:
 		get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		get_viewport().scaling_3d_scale = clampf(_cli_render_scale, 0.1, 2.0)
 		print("[DIAG] 3D render scale = %.2f" % _cli_render_scale)
+	if _cli_upscale_mode != "":
+		match _cli_upscale_mode:
+			"fsr2": get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2
+			"fsr1": get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
+			_: get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+		get_viewport().scaling_3d_scale = clampf(_cli_upscale_scale, 0.1, 1.0)
+		print("[DIAG] upscaler %s active @ %.2f" % [_cli_upscale_mode, _cli_upscale_scale])
 
 	# Wire sun to volumetric cloud sky (deferred because _sun created after sky)
 	if vol_sky:
