@@ -203,9 +203,6 @@ func _parse_cli_args() -> void:
 		elif key == "--grass-grid-mult" and val != "":
 			_cli_grass_grid_mult = float(val)
 			print("[DIAG] grass grid ×%.2f" % _cli_grass_grid_mult)
-		elif key == "--detail-gates" and val != "":
-			_cli_detail_gates = clampf(float(val), 0.0, 1.0)
-			print("[DIAG] shader detail gates = %.1f" % _cli_detail_gates)
 		elif arg == "--shadow-census":
 			_diag_shadow_census = true
 		elif arg == "--screenshot":
@@ -268,9 +265,6 @@ func _ready() -> void:
 	# effects (LOD dither) compute against the player view, not whatever
 	# camera is active in the current render pass (shadow / reflection).
 	RenderingServer.global_shader_parameter_add("player_world_pos", RenderingServer.GLOBAL_VAR_TYPE_VEC3, Vector3.ZERO)
-	# §4g shader detail gates: 1 = distance-gate procedural bark/leaf detail,
-	# 0 = legacy always-on (perf A/B via --detail-gates=0).
-	RenderingServer.global_shader_parameter_add("detail_gates", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, _cli_detail_gates)
 	_wind_system = preload("res://wind_system.gd").new()
 	_wind_system.name = "WindSystem"
 	add_child(_wind_system)
@@ -898,8 +892,6 @@ var _cli_render_scale: float = -1.0
 # the covered radius (grid_width snapped odd).
 var _cli_grass_spacing_mult: float = 1.0
 var _cli_grass_grid_mult: float = 1.0
-# §4g shader detail gates (1=on / 0=legacy always-on detail)
-var _cli_detail_gates: float = 1.0
 # --shadow-census: one-shot dump of every shadow-casting GeometryInstance3D
 # (top 25 by mesh tris × instances) on the 3rd perf tick, after diag hides apply.
 var _diag_shadow_census: bool = false

@@ -11,7 +11,6 @@ global uniform vec2 wind_vec;
 global uniform vec3 sky_reflect_color;
 // Player camera world position. See tree_leaf.gdshader for rationale.
 global uniform vec3 player_world_pos;
-global uniform float detail_gates;  // 1=distance-gate procedural detail (§4g), 0=legacy always-on
 
 // PBR bark textures — photogrammetry-scanned real bark surfaces (CC0)
 // One set per bark style, blended with procedural FBM for per-tree variation
@@ -78,8 +77,8 @@ void vertex() {
 void fragment() {
 	// LOD crossfade dithering (must be early to avoid wasted shading)
 	vec3 tree_base = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-	float bark_cam_dist = length(tree_base - player_world_pos);
 	if (lod_fade_out.y > 0.0 || lod_fade_in.y > 0.0) {
+		float bark_cam_dist = length(tree_base - player_world_pos);
 		if (lod_fade_out.y > 0.0 && bark_cam_dist > lod_fade_out.x) {
 			if (lod_dither_discard(bark_cam_dist, lod_fade_out.x, lod_fade_out.y,
 			                       FRAGCOORD.xy, false)) discard;
@@ -114,23 +113,10 @@ void fragment() {
 	vec2 puv_xz = world_pos.xz + tree_uv_ofs;
 	vec2 puv_xy = world_pos.xy + tree_uv_ofs;
 
-	// §4g lever B: the procedural style work (~24 noise evals on style 0)
-	// is sub-pixel beyond ~35 m of trunk distance — fade its amplitude out
-	// over 20–35 m and skip it entirely past the band. The triplanar PBR
-	// textures below keep carrying the mid-distance look (mip-cheap).
-	// Bakes force the NEAR path (full detail in atlases, output unchanged —
-	// player_world_pos is unregistered in the baker, dist≈0, same result).
-	// detail_gates=0 (CLI --detail-gates=0) forces the old always-on path for A/Bs.
-	float gate_bark = (bake_mode != 0) ? 1.0
-		: mix(1.0, 1.0 - smoothstep(20.0, 35.0, bark_cam_dist), detail_gates);
-	vec3 col_pre_style = col;
-
 	// Triplanar FBM helper — samples from 3 planes, blends by normal
 	// Vertical stretch (1.2x) makes cracks run mostly vertical on trunks
 
-	if (gate_bark <= 0.001) {
-		// Far path: neutral structure (defaults above), textures only.
-	} else if (bark_style == 0) {
+	if (bark_style == 0) {
 		// --- Style 0: Rough fissured bark (oak, elm, maple, ginkgo, etc.) ---
 		float cn_yz = fbm(puv_yz * vec2(2.5, 1.2), 4);
 		float cn_xz = fbm(puv_xz * vec2(2.5, 1.2), 4);
@@ -256,15 +242,6 @@ void fragment() {
 		col *= (0.96 + bump * 0.08);
 	}
 
-	// §4g lever B: fade procedural structure to neutral across the gate band
-	// (no-op at gate=1; the far path above never wrote any of these).
-	if (gate_bark > 0.001 && gate_bark < 1.0) {
-		col = mix(col_pre_style, col, gate_bark);
-		furrow = mix(0.5, furrow, gate_bark);
-		rough = mix(0.88, rough, gate_bark);
-		micro *= gate_bark;
-	}
-
 	// --- Height-based bark variation (all styles) ---
 	float height_factor = smoothstep(0.0, 6.0, local_h);
 	col *= mix(0.88, 1.0, height_factor);
@@ -324,12 +301,11 @@ void fragment() {
 	SPECULAR = 0.04;
 
 	// --- Lichen patches: gray-green crusty patches common on NYC park trees ---
-	// §4g: gated with the style work — crustose patches are sub-pixel past 35 m.
 	float lichen_season = smoothstep(0.0, 0.8, season_t) * (1.0 - smoothstep(3.0, 3.8, season_t));
-	if (lichen_season > 0.01 && gate_bark > 0.001) {
+	if (lichen_season > 0.01) {
 		vec2 lich_uv = puv_yz * tri_w.x + puv_xz * tri_w.y + puv_xy * tri_w.z;
 		float lich_noise = fbm(lich_uv * vec2(2.0, 1.5) + tree_var * 10.0, 2);
-		float lich_mask = smoothstep(0.55, 0.72, lich_noise) * lichen_season * gate_bark;
+		float lich_mask = smoothstep(0.55, 0.72, lich_noise) * lichen_season;
 		// Only on bark ridges (not in deep furrows) and mid-height
 		lich_mask *= furrow * smoothstep(1.0, 3.0, local_h) * smoothstep(8.0, 5.0, local_h);
 		if (lich_mask > 0.01) {
@@ -341,21 +317,16 @@ void fragment() {
 	}
 
 	// --- Moss at trunk base: more in spring/summer, north-facing ---
-	// §4g: gated — the fbm ran on every bark fragment at every distance.
-	float moss = 0.0;
-	if (gate_bark > 0.001) {
-		float spring_summer = sn_warm_season(season_t);
-		float moss_height = smoothstep(3.0, 0.0, local_h);  // bottom 3m of trunk
-		float moss_facing = max(0.0, -world_nrm.z) * 0.5 + max(0.0, -world_nrm.x) * 0.3 + 0.2;
-		vec2 moss_uv = puv_yz * tri_w.x + puv_xz * tri_w.y + puv_xy * tri_w.z;
-		float moss_noise = fbm(moss_uv * vec2(3.0, 2.0), 2);
-		moss = moss_height * moss_facing * smoothstep(0.35, 0.6, moss_noise)
-			* spring_summer * gate_bark;
-		if (moss > 0.01) {
-			vec3 moss_col = mix(vec3(0.10, 0.20, 0.06), vec3(0.16, 0.26, 0.08), moss_noise);
-			ALBEDO = mix(ALBEDO, moss_col, moss * 0.45);
-			ROUGHNESS = mix(ROUGHNESS, 0.95, moss * 0.3);
-		}
+	float spring_summer = sn_warm_season(season_t);
+	float moss_height = smoothstep(3.0, 0.0, local_h);  // bottom 3m of trunk
+	float moss_facing = max(0.0, -world_nrm.z) * 0.5 + max(0.0, -world_nrm.x) * 0.3 + 0.2;
+	vec2 moss_uv = puv_yz * tri_w.x + puv_xz * tri_w.y + puv_xy * tri_w.z;
+	float moss_noise = fbm(moss_uv * vec2(3.0, 2.0), 2);
+	float moss = moss_height * moss_facing * smoothstep(0.35, 0.6, moss_noise) * spring_summer;
+	if (moss > 0.01) {
+		vec3 moss_col = mix(vec3(0.10, 0.20, 0.06), vec3(0.16, 0.26, 0.08), moss_noise);
+		ALBEDO = mix(ALBEDO, moss_col, moss * 0.45);
+		ROUGHNESS = mix(ROUGHNESS, 0.95, moss * 0.3);
 	}
 
 	// --- Rain: wet bark darkens, gets glossy ---
