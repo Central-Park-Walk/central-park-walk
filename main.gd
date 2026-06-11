@@ -1695,6 +1695,13 @@ var _grass_tuft_builder: Node3D  # Tier 2 static MultiMesh tuft chunks
 var _gpu_grass_nodes: Array = []  # GPUGrass compute-driven grass nodes (one per biome)
 var _landuse_texture: Texture2D  # cached for grass particle system
 
+# Perf: global density scale on every particle-layer spacing. 1.41 ≈ half
+# the blade count — measured −3.6 ms real at ramble (rendering.md §6.5),
+# visually neutral at eye height (screenshot A/B great_lawn + ramble noon:
+# lawns read smoother/more mown, woodland floor character preserved).
+# --grass-spacing-mult stacks on top for sweeps.
+const GRASS_DENSITY_SCALE := 1.41
+
 # Biome definitions for multi-layer grass particles.
 # 4 Tuft layers with PBR textures + alpha cutout — one per biome type, non-overlapping.
 # Tuft meshes have embedded albedo textures with alpha for realistic blade-level detail
@@ -1937,7 +1944,7 @@ func _setup_grass_particles() -> void:
 		gp.set_script(gp_script)
 		gp.name = "Grass_%s" % biome.name
 		gp.terrain = _terrain3d
-		gp.instance_spacing = biome.spacing * _cli_grass_spacing_mult
+		gp.instance_spacing = biome.spacing * GRASS_DENSITY_SCALE * _cli_grass_spacing_mult
 		gp.cell_width = biome.cell_width
 		var gw: int = biome.grid_width
 		if _cli_grass_grid_mult != 1.0:
