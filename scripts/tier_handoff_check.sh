@@ -28,8 +28,10 @@ mkdir -p "$OUT"
 cap() { # name, extra args...
   local name="$1"; shift
   rm -f /tmp/godot_screenshot.png
+  # EXTRA_ARGS: optional space-separated flags applied to every capture
+  # (e.g. EXTRA_ARGS="--canopy-ao=1:1:1" for an AO-off attribution run).
   timeout 80s "$G" --path "$PROJECT_DIR" --resolution 1920x1080 --disable-vsync \
-    -- --screenshot --pos="$POS" --weather=clear --season=summer "$@" \
+    -- --screenshot --pos="$POS" --weather=clear --season=summer ${EXTRA_ARGS:-} "$@" \
     > "$OUT/$name.log" 2>&1
   if [ -f /tmp/godot_screenshot.png ]; then
     mv /tmp/godot_screenshot.png "$OUT/$name.png"; echo "captured $name"

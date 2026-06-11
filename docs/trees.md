@@ -398,3 +398,84 @@ toward a trunk.
 - Proxy lathe fit adds ~4 s to scene load (surface_get_arrays + percentile
   sort per variant, GDScript). Once default-on, fold the proxy mesh into the
   tree .res cache so it's fit once, not per launch.
+
+## 6. Canopy value — crown-interior AO (spec 2026-06-11, COMPARISON.md #5b)
+
+**Defect (measured):** distant canopy reads ~2.5× too bright — hero-pose
+tree-line band 86 luma unfogged vs reference 36–62 ("dark mass"; real
+dense canopy has effective albedo ~0.05–0.08 from crown self-shadowing).
+Attribution at the band (`fog_veil_check.py`, fog hidden):
+
+- `--shadow-dist=800`: 86.8 vs 86.2 — shadow distance is NOT the
+  mechanism (dead hypothesis, do not revisit).
+- `--sun-cal=0.01`: 60.7 — **ambient owns ~70%.** Every leaf receives
+  the full (×5-calibrated) sky hemisphere; a real crown-interior leaf
+  sees ~5–15% of sky. SSAO is sub-pixel at 400 m; SDFGI doesn't occlude
+  the AMBIENT_SOURCE_SKY term on foliage.
+- Leaf-shader `apply_aerial` haze (double-counted the §6c volumetric
+  veil): −1.3 — removed 2026-06-11, small but principled.
+
+**Fix: bake crown depth per leaf vertex, output it as material `AO`**
+(Godot AO darkens ambient only, `AO_LIGHT_AFFECT 0` — matches the
+attribution; direct sun + SSS untouched). Standard SpeedTree-style
+interior AO.
+
+1. **Data:** `scripts/bake_crown_ao.py` (Blender headless, mirrors the
+   wind-weight baker): per leaf mesh, robust ellipsoid fit of the leaf
+   cloud (p5/p95 centroid + radii), per-vertex normalized radius
+   `rho = |(p−c)/radii|` rescaled so p95→1.0, written to **COLOR_0
+   alpha** (R/G/B wind weights preserved; bark untouched, alpha 1.0).
+   All tiers get it (base for impostor bakes, _lod1, _lod2).
+2. **Mesh tiers:** tree_leaf.gdshader reads COLOR.a → varying;
+   `AO = mix(ao_core, ao_shell, pow(rho, ao_exp))`, global uniform
+   `canopy_ao = vec3(core, exp, shell)` (CLI `--canopy-ao=core:exp:shell`,
+   shipped via global shader param like turf_sheen).
+   **Why a shell term < 1.0 (measured during implementation):** a
+   core-to-1.0 gradient alone read only −5% at the band — at 400 m the
+   visible canopy IS the outer shell (rho ~0.9), the dark core is hidden
+   behind it. Physically even shell leaves see ~half the sky hemisphere
+   while scene ambient is calibrated for unobstructed ground, so shell
+   AO 0.55 is the dominant term and the rho gradient runs beneath it.
+3. **Impostor tier:** depth-atlas G channel carries the RAW baked rho
+   (R stays parallax depth — shader only reads `d.r`; the premultiply
+   dilation copies texels whole, so G rides along). Leaf bake_mode 3
+   writes `(depth, rho, 0)`; bark writes `(depth, 1.0, 0)`;
+   tree_impostor.gdshader blends the depth atlas at the lit UVs and maps
+   G through the same `canopy_ao` uniform at runtime — retuning the AO
+   curve needs NO re-bake. Re-bake all species (per-species wrapper +
+   REIMPORT).
+
+Also removed with this work (both tiers, 2026-06-11): the shader-level
+`apply_aerial` haze on leaves/impostors — it double-counted the §6c
+calibrated volumetric veil and LIGHTENED distant canopy (−1.3 luma at
+the band on its own); tiers must agree, so both calls went together.
+
+**DoD (run 2026-06-11, shipped constants 0.12:1.6:0.55):**
+- [x] Hero-pose unfogged tree-line band ≤ 65 luma: **45.9** (was 86.2;
+      ref band 36–62, e.g. 55/65/36 — ours 35/51/28, same dark-mass
+      family). With the calibrated fog veil on top: ~54.
+- [x] Tier handoff: AO is value-continuous across tiers — handoff check
+      0.0758 with AO vs **0.0762 with `--canopy-ao=1:1:1`** (identical;
+      the 0.076 > 0.05 absolute is the PRE-EXISTING §5 lod2-thinning/
+      backdrop artifact, unchanged by AO; IoU 0.60 vs 0.55). New
+      `EXTRA_ARGS` env on tier_handoff_check.sh for attribution runs.
+- [x] Close-up look: Literary Walk + Ramble noon, Lit Walk 17:00, winter
+      3.3 — crowns gain interior depth, no blotch, no winter dark-blob
+      (captures /tmp/fog_cal/litwalk_AO*, ramble_AO).
+- [x] Perf gate sandwich: FREE. Back-to-back same-thermal-state gates
+      20260611_133637 (AO) vs _134224 (pre-AO): 68/75/53/84/45 vs
+      68/75/53/82/44 fps — identical within noise despite the 3 extra
+      depth-atlas fetches per impostor fragment (consistent with the
+      texture-latency-bound finding, §4g). Both gates read ~2 fps under
+      the cold 4 AM canonical 20260611_041200 — thermal, not code
+      (rendering.md §6c perf note).
+- [ ] User re-walk.
+
+Implementation note: `scripts/bake_crown_ao.py` is direct GLB surgery,
+NOT a Blender roundtrip — the Blender glTF exporter writes COLOR_0 as
+VEC3 and drops vertex alpha on every export path (verified; no exporter
+option restores it). The script appends a VEC4 u8-normalized COLOR_0
+accessor to the BIN chunk and repoints the attribute. Models are
+untracked binaries — backup at `~/cpw_backups/trees_preAO_20260611/`.
+Run once per model generation; after running: Godot `--headless --import`
++ impostor re-bake (per-species wrapper).

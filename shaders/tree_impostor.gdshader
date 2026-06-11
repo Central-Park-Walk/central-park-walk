@@ -27,6 +27,7 @@ global uniform vec2 wind_vec;
 global uniform float snow_cover;
 global uniform float season_t;
 global uniform vec3 sky_reflect_color;
+global uniform vec3 canopy_ao;
 
 // LOD crossfade: incoming dither range (begin, end).
 uniform vec2 lod_fade_in = vec2(0.0, 0.0);
@@ -458,12 +459,11 @@ void fragment() {
 	hsv.z *= 1.0 + (n_combined - 0.5) * 0.12;        // value ±6%
 	color = hsv_to_rgb(hsv);
 
-	// Aerial perspective — match tree_leaf.gdshader's eased settings.
-	// Reference drone shots show distant Central Park canopy stays vivid
-	// summer green even from ~1km, so 0.18/0.20 strength starting at 120m.
-	float imp_dist = length(imp_world - (INV_VIEW_MATRIX * vec4(vec3(0.0), 1.0)).xyz);
-	float imp_aerial = smoothstep(120.0, 400.0, imp_dist);
-	color = apply_aerial(color, imp_aerial, 0.18, 0.20, sky_reflect_color);
+	// NO shader-level aerial haze (removed 2026-06-11, with the matching
+	// removal in tree_leaf.gdshader — tiers must agree or the 250 m
+	// crossfade value-steps): the calibrated volumetric fog owns the
+	// distance veil (rendering.md §6c). Reference: distant canopy stays
+	// saturated and DARK.
 
 	// Re-premultiply for blend_premul_alpha output. ALPHA controls the
 	// destination factor (1 - alpha); ALBEDO is added directly without a
@@ -475,4 +475,11 @@ void fragment() {
 	ROUGHNESS = 1.0;
 	SPECULAR = 0.1;
 	METALLIC = 0.0;
+
+	// Crown-interior AO (trees.md §6): depth-atlas G carries the baked
+	// crown rho (bark texels 1.0); same canopy_ao mapping as the mesh
+	// tiers so the crossfade is value-continuous. Ambient only.
+	float crown_rho = blend_colors(uv1, uv2, uv3, v_blend_weights, atlas_depth).g;
+	AO = mix(canopy_ao.x, canopy_ao.z, pow(crown_rho, canopy_ao.y));
+	AO_LIGHT_AFFECT = 0.0;
 }

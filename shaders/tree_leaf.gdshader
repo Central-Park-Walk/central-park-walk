@@ -18,6 +18,12 @@ global uniform vec3 sky_reflect_color;
 // perspective) so the calculation stays consistent across shadow and
 // reflection passes whose INV_VIEW_MATRIX reflects the light/probe view.
 global uniform vec3 player_world_pos;
+// Crown-interior AO mapping (trees.md §6): x = AO at the crown core,
+// y = exponent on the baked crown radius rho (COLOR.a), z = AO at the
+// outer shell (< 1: even shell leaves see ~half the sky hemisphere, and
+// scene ambient is calibrated for unobstructed ground). Registered in
+// main.gd; sweep via --canopy-ao=core:exp:shell.
+global uniform vec3 canopy_ao;
 
 // LOD crossfade dither ranges (begin, end). Set per LOD tier.
 // vec2(0,0) = no dithering (default).
@@ -51,6 +57,7 @@ varying float v_species_idx; // species index for fragment shader
 // (the provoking vertex's value covers the triangle); ~0.8m world quantization
 // makes leaves on the same twig drop together, like real abscission.
 varying flat float v_card_seed;
+varying float v_crown_rho;   // COLOR.a: 0 = crown core, 1 = outer shell
 
 // Spring blossom colors: cherry = pink, callery_pear = white, magnolia = pink-white
 const vec3 BLOSSOM_COLORS[14] = vec3[14](
@@ -175,6 +182,7 @@ void vertex() {
 
 	float branch_phase = COLOR.b * 6.283 + phase;
 	float crown = smoothstep(1.5, 4.0, h);
+	v_crown_rho = COLOR.a;
 
 	// Cantilever trunk + branch sway + wind push (leaves: higher amplitudes than bark)
 	vec2 trunk_d = wind_cantilever_trunk(h, sway_freq, trunk_flex, rustle, phase);
@@ -392,6 +400,14 @@ void fragment() {
 	SPECULAR = spec;
 	METALLIC = 0.0;
 
+	// Crown-interior AO (trees.md §6): interior leaves see a small
+	// fraction of the sky hemisphere; without this, every leaf receives
+	// full calibrated sky ambient and distant canopy reads ~2.5× too
+	// bright (ambient owned ~70% of the excess by measurement).
+	// AO_LIGHT_AFFECT stays 0: direct sun and SSS untouched.
+	AO = mix(canopy_ao.x, canopy_ao.z, pow(v_crown_rho, canopy_ao.y));
+	AO_LIGHT_AFFECT = 0.0;
+
 	// Rain: wet leaves darken and get glossier (water film on surface)
 	if (rain_wetness > 0.01) {
 		ALBEDO *= mix(1.0, 0.70, rain_wetness);
@@ -428,14 +444,13 @@ void fragment() {
 	// between "lit" and "see-through").
 	BACKLIGHT = min(backlight_col * sss_strength, ALBEDO * 0.7);
 
-	// Aerial perspective: desaturate + cool shift + haze blend at distance.
-	// Tuned lighter (0.18/0.20, start 120m) than other surfaces because
-	// real summer canopy stays vivid green at distance — reference drone
-	// shots of Central Park show perimeter trees still saturated even from
-	// ~1km. Heavier defaults made our distant trees wash to fog color.
-	float leaf_dist = length(tree_pos - INV_VIEW_MATRIX[3].xyz);
-	float leaf_aerial = smoothstep(120.0, 400.0, leaf_dist);
-	ALBEDO = apply_aerial(ALBEDO, leaf_aerial, 0.18, 0.20, sky_reflect_color);
+	// NO shader-level aerial haze on leaves (removed 2026-06-11): the
+	// calibrated volumetric fog owns the distance veil (rendering.md §6c).
+	// This apply_aerial call double-counted it — its haze blend LIGHTENED
+	// distant canopy toward sky color (the tree line measured ~2.5× too
+	// bright vs reference) and its desat pushed leaf R/G toward grey
+	// (game 0.90 vs ref 0.85). Real summer canopy stays saturated and
+	// DARK at distance.
 
 	// No ALPHA write: opaque pass, coverage is discard-only (see render_mode
 	// note at top). Atlas bakes get alpha from the MSAA viewport's coverage
@@ -454,9 +469,12 @@ void fragment() {
 			vec3 bn = NORMAL.z < 0.0 ? -NORMAL : NORMAL;
 			EMISSION = bn * 0.5 + 0.5;
 		} else {
+			// R = parallax depth, G = raw crown rho (the impostor shader
+			// applies the same canopy_ao mapping at runtime — retuning
+			// the AO curve needs no re-bake).
 			float bd = (-VERTEX.z - bake_depth_range.x)
 				/ max(bake_depth_range.y - bake_depth_range.x, 0.001);
-			EMISSION = vec3(clamp(bd, 0.0, 1.0));
+			EMISSION = vec3(clamp(bd, 0.0, 1.0), v_crown_rho, 0.0);
 		}
 		ALBEDO = vec3(0.0);
 		BACKLIGHT = vec3(0.0);

@@ -385,9 +385,11 @@ void fragment() {
 			vec3 bn = NORMAL.z < 0.0 ? -NORMAL : NORMAL;
 			EMISSION = bn * 0.5 + 0.5;
 		} else {
+			// G = crown rho 1.0: bark is unoccluded by the canopy-AO
+			// convention (matches mesh-tier COLOR.a on bark vertices).
 			float bd = (-VERTEX.z - bake_depth_range.x)
 				/ max(bake_depth_range.y - bake_depth_range.x, 0.001);
-			EMISSION = vec3(clamp(bd, 0.0, 1.0));
+			EMISSION = vec3(clamp(bd, 0.0, 1.0), 1.0, 0.0);
 		}
 		ALBEDO = vec3(0.0);
 		SPECULAR = 0.0;

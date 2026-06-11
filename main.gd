@@ -239,6 +239,13 @@ func _parse_cli_args() -> void:
 		elif key == "--turf-sheen" and val != "":
 			_cli_turf_sheen = float(val)
 			print("[DIAG] turf-sheen %.2f" % _cli_turf_sheen)
+		elif key == "--canopy-ao" and val != "":
+			var ca := val.split(":")
+			if ca.size() >= 1 and ca[0] != "": _cli_canopy_ao.x = float(ca[0])
+			if ca.size() >= 2 and ca[1] != "": _cli_canopy_ao.y = float(ca[1])
+			if ca.size() >= 3 and ca[2] != "": _cli_canopy_ao.z = float(ca[2])
+			print("[DIAG] canopy-ao core=%.2f exp=%.2f shell=%.2f"
+					% [_cli_canopy_ao.x, _cli_canopy_ao.y, _cli_canopy_ao.z])
 		elif arg == "--shadow-census":
 			_diag_shadow_census = true
 		elif arg == "--screenshot":
@@ -303,6 +310,11 @@ func _ready() -> void:
 	# Turf sheen blend (grass.md §6 calibration; --turf-sheen overrides)
 	RenderingServer.global_shader_parameter_add("turf_sheen", RenderingServer.GLOBAL_VAR_TYPE_FLOAT,
 		TURF_SHEEN if _cli_turf_sheen < 0.0 else _cli_turf_sheen)
+	# Crown-interior AO mapping (trees.md §6; --canopy-ao=core:exp:shell)
+	RenderingServer.global_shader_parameter_add("canopy_ao", RenderingServer.GLOBAL_VAR_TYPE_VEC3,
+		Vector3(CANOPY_AO_CORE if _cli_canopy_ao.x < 0.0 else _cli_canopy_ao.x,
+				CANOPY_AO_EXP if _cli_canopy_ao.y < 0.0 else _cli_canopy_ao.y,
+				CANOPY_AO_SHELL if _cli_canopy_ao.z < 0.0 else _cli_canopy_ao.z))
 	# Player camera world position — pushed each frame so distance-based
 	# effects (LOD dither) compute against the player view, not whatever
 	# camera is active in the current render pass (shadow / reflection).
@@ -959,6 +971,16 @@ var _cli_fog_cal: Array = [-1.0, -1.0, -1.0, -1.0, -1.0]
 # for view-dependent life. Full record: docs/grass.md §6.
 const TURF_SHEEN := 0.6
 var _cli_turf_sheen: float = -1.0
+# Crown-interior AO (trees.md §6): leaf shaders map baked crown rho
+# (COLOR.a / depth-atlas G) to AO = mix(CORE, SHELL, pow(rho, EXP)).
+# SHELL < 1 because even outer leaves see ~half the sky hemisphere
+# (scene ambient is calibrated for unobstructed ground); the rho
+# gradient darkens further toward the crown core. Ambient-only by
+# AO_LIGHT_AFFECT 0. --canopy-ao=core:exp:shell for sweeps.
+const CANOPY_AO_CORE := 0.12
+const CANOPY_AO_EXP := 1.6
+const CANOPY_AO_SHELL := 0.55
+var _cli_canopy_ao := Vector3(-1.0, -1.0, -1.0)
 # --shadow-census: one-shot dump of every shadow-casting GeometryInstance3D
 # (top 25 by mesh tris × instances) on the 3rd perf tick, after diag hides apply.
 var _diag_shadow_census: bool = false
