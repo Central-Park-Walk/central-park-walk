@@ -210,7 +210,16 @@ larger than the old floor reading implied.
 6. **Floor spikes — RESOLVED, measurement artifact (§5).**
 7. **Shader-body ALU gates — MEASURED DEAD 2026-06-10** (trees.md §4g): canopy/bark fragment work is texture/PCF *latency*-bound; skipping procedural noise frees nothing. Corollary: ALU visual richness in those shaders is ~free.
 8. **Shadow cascade knobs — MEASURED DEAD 2026-06-10** (report 20260610_220421): `--shadow-splits=2` regresses (each split rasterizes more atlas area); `--shadow-blend=0` within a drifting matrix's noise. Receiver cost does not yield without breaking the PCF-q2/dapple policy.
-9. **FSR2 upscaling (report 20260610_222030, clean sandwich): `--upscale=fsr2:0.77` = −4.6 ms real at north_woods (38→46 fps); 0.85 = −2.5.** The biggest remaining lever. NOT yet default: visual verification pending (stills + wind-ghosting walk check — temporal upscalers smear exactly our content: dense moving foliage). Ship decision is also a DESIGN-level call (internal res 0.77 vs native 1080p).
+9. **FSR2 upscaling — SHIPPED default 2026-06-10 (commit 1366702): `fsr2 @ 0.77` internal scale, −4.6 ms real at north_woods (38→46 fps); 0.85 = −2.5 (report 20260610_222030, clean sandwich).** Visual DoD passed: 1:1 still crops (canopy/sky edges, grass blades, trunks) near-pixel-identical to native; walk-motion frames show no ghost trails or smear (dense moving foliage is FSR2's worst case — checked specifically). Output stays 1080p. `--upscale=off` = native; `--upscale=mode:scale` overrides.
+
+**Canonical gate after this session (20260610_223349, commit 1366702):
+literary_walk 66 / bethesda 73 / great_lawn 84 fps — PASS; ramble 54
+(−1.9 ms short), north_woods 46 (−5.1 ms short).** Session start was
+40/45/53/36/31. Remaining measured pools at NW (real ms): trees ~7,
+shadows ~6, grass ~3.6, floor ~3.3 — all resistant within current visual
+policy (§6.4/6.7/6.8, trees.md §4g). Closing the last 5 ms at NW likely
+requires a policy-level trade (deeper internal scale, grass step 2,
+shadow-distance cut) — surface to the user before taking any of them.
 
 Every step: perf_gate before/after at all 5 locations, committed with the numbers in the message.
 
