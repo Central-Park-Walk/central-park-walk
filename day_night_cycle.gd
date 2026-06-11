@@ -62,6 +62,9 @@ const SKY_CAL_AMB := 6.0    # cloud-march ambient multiplier
 # --sky-cal=bg:sun:amb sets exact values for calibration sweeps (bypasses
 # the sun-elevation blend). -1 components = unset.
 var sky_cal_override := Vector3(-1.0, -1.0, -1.0)
+# --diag-hide=cloudshadows: zero the procedural ground cloud-shadow term
+# for attribution A/Bs (visible volumetric clouds unaffected).
+var cloud_shadow_disabled := false
 
 
 func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
@@ -107,7 +110,11 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 		sky_mat.set_shader_parameter("cloud_color_top", Vector3(cc_top.r, cc_top.g, cc_top.b))
 		sky_mat.set_shader_parameter("cloud_color_bottom", Vector3(cc_bot.r, cc_bot.g, cc_bot.b))
 		sky_mat.set_shader_parameter("cloud_speed", cs_val)
-	RenderingServer.global_shader_parameter_set("cloud_coverage_g", cc_val)
+	# cloud_coverage_g feeds ONLY the procedural ground cloud-shadow path
+	# (hash_noise.gdshaderinc cloud_shadow consumers) — zeroing it kills
+	# ground shadow bands without touching the visible volumetric clouds.
+	RenderingServer.global_shader_parameter_set("cloud_coverage_g",
+		0.0 if cloud_shadow_disabled else cc_val)
 	RenderingServer.global_shader_parameter_set("cloud_speed_g", cs_val)
 
 	# Ambient

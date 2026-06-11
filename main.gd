@@ -1096,6 +1096,11 @@ func _diag_apply_hides() -> void:
 				# textures, so the sky stays visible but static.
 				if _vol_sky:
 					_vol_sky.can_run = false
+			"cloudshadows":
+				# Kill the procedural ground cloud-shadow bands (terrain +
+				# grass shaders); visible volumetric clouds unaffected.
+				if _day_night:
+					_day_night.cloud_shadow_disabled = true
 			"fog":
 				if _env:
 					_env.volumetric_fog_enabled = false
