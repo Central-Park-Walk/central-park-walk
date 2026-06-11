@@ -106,7 +106,7 @@ void fragment() {
 	}
 
 	// Decode zone data from COLOR (set by particle process shader).
-	// R = zone_id/15, G = canopy_cover, B/A = terrain tint (unused here).
+	// R = zone_id/15, G = canopy_cover, B = turf wear, A = unused.
 	// biome_id comes as a material uniform — each layer has its own render
 	// material. (Decoding it from COLOR.b was a bug: the spawn shader writes
 	// terrain tint there, so per-biome tints fired on color-map data.)
@@ -122,6 +122,14 @@ void fragment() {
 	vec3 col = grass_base_color_no_dead(zone_id, v_world_pos.xz);
 	float autumn_t_early = sn_veg_autumn(season_t);
 	col = apply_dead_tufts(col, v_world_pos.xz, 0.15 + 0.85 * autumn_t_early);
+
+	// Turf wear: survivors in worn patches read dusty/dry instead of
+	// popping green against the dirt. COLOR.b carries the spawn-time wear
+	// (baked + ambient); turf_wear_total re-maxes it with the canopy
+	// compaction term so blades under dense crowns match the dirt terrain
+	// (ambient recomputes to the identical value — same noise, same pos).
+	float wear_total = turf_wear_total(COLOR.b, canopy_cover, zone_id, v_world_pos.xz);
+	col = apply_turf_wear(col, wear_total, v_world_pos.xz);
 
 	// Texture modulation: texture luminance adds blade-level detail
 	// without overriding the zone palette. Same approach as tuft shader

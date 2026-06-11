@@ -122,6 +122,57 @@ vec3 grass_base_color_no_dead(int zone_id, vec2 world_xz) {
 	return col;
 }
 
+// =====================================================================
+// Turf wear (docs/grass.md §4) — green-brown mottle + worn dirt.
+// Reference: Sheep Meadow footage (notes/refs): mown turf is mottled
+// green-brown everywhere, trending to bare compacted dirt under canopy
+// and at high-traffic path edges; mid-meadow greenest.
+// =====================================================================
+
+// Ambient wear mottle — low-level patchiness across mown turf, present
+// even far from paths. Rotated octaves (same family as the macro
+// variation) so no axis-aligned lattice structure appears.
+float turf_ambient_wear(vec2 world_xz) {
+	vec2 rot = mat2(vec2(0.92, 0.39), vec2(-0.39, 0.92)) * world_xz;
+	float n = vnoise(rot / 13.0 + vec2(31.7, 5.3)) * 0.65
+	        + vnoise(rot / 4.7 + vec2(11.1, 47.9)) * 0.35;
+	return smoothstep(0.52, 0.95, n) * 0.35;
+}
+
+// Combine wear sources: baked map (paths/benches, data-driven), ambient
+// mottle, and canopy compaction — mown turf zones only. Unmown areas
+// (woodland, shore, wild meadow) read brown through their own palettes
+// and litter, not through lawn wear.
+float turf_wear_total(float baked_wear, float canopy_cover, int zone_id, vec2 world_xz) {
+	bool mown = (zone_id == 0 || zone_id == 1 || zone_id == 2 || zone_id == 3
+	          || zone_id == 4 || zone_id == 6 || zone_id == 7 || zone_id == 9);
+	float wear = baked_wear;
+	if (mown) {
+		wear = max(wear, turf_ambient_wear(world_xz));
+		// Bare compacted ground under big crowns (reference hq_06-08)
+		wear = max(wear, smoothstep(0.45, 0.9, canopy_cover) * 0.75);
+		if (zone_id == 6) { wear = max(wear, 0.5); } // dog park: trampled
+	}
+	return wear;
+}
+
+// Wear → albedo. Two stages with noise-perturbed edges so path shoulders
+// and patch boundaries read organic, not as smooth radial gradients:
+//   wear 0.15-0.55: thinning dry turf (desaturated yellow-brown)
+//   wear 0.55-0.95: bare compacted dirt
+vec3 apply_turf_wear(vec3 col, float wear, vec2 world_xz) {
+	if (wear <= 0.01) { return col; }
+	float n = vnoise(world_xz * 0.6) * 0.7 + vnoise(world_xz * 2.3) * 0.3;
+	float wn = clamp(wear * (0.65 + 0.75 * n), 0.0, 1.0);
+	// Thin/dry turf: dried-grass spectral (R+T) pulled toward soil
+	vec3 thin_col = vec3(0.241, 0.188, 0.103);
+	col = mix(col, thin_col, smoothstep(0.15, 0.55, wn) * 0.85);
+	// Compacted dirt with tonal variation
+	vec3 dirt = vec3(0.150, 0.120, 0.082) * mix(0.85, 1.15, vnoise(world_xz * 1.7));
+	col = mix(col, dirt, smoothstep(0.55, 0.95, wn));
+	return col;
+}
+
 // Apply dead-tuft (dried/dormant) brown accents at fine scale (~1.25m
 // period). Strength scales the mix amount — callers gate by season so
 // summer is near-zero and autumn ramps up.

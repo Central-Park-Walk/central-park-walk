@@ -1772,6 +1772,7 @@ var _grass_particle_nodes: Array[Node3D] = []
 var _grass_tuft_builder: Node3D  # Tier 2 static MultiMesh tuft chunks
 var _gpu_grass_nodes: Array = []  # GPUGrass compute-driven grass nodes (one per biome)
 var _landuse_texture: Texture2D  # cached for grass particle system
+var _wear_texture: Texture2D  # baked turf wear (scripts/gen_wear_map.py)
 
 # Perf: global density scale on every particle-layer spacing. 1.41 ≈ half
 # the blade count — measured −3.6 ms real at ramble (rendering.md §6.5),
@@ -2062,6 +2063,8 @@ func _setup_grass_particles() -> void:
 			proc_mat.set_shader_parameter("landuse_map", _landuse_texture)
 		if _park_loader and _park_loader._canopy_texture:
 			proc_mat.set_shader_parameter("canopy_map", _park_loader._canopy_texture)
+		if _wear_texture:
+			proc_mat.set_shader_parameter("wear_map", _wear_texture)
 		gp.process_material = proc_mat
 
 		# Render material — textured alpha-scissor grass with wind + seasons
@@ -2140,6 +2143,10 @@ func _setup_grass_tuft_chunks() -> void:
 	# Load canopy image
 	if _park_loader and _park_loader._canopy_texture:
 		builder.canopy_image = _park_loader._canopy_texture.get_image()
+
+	# Baked turf wear — tufts thin on worn dirt like the blade tiers
+	if _wear_texture:
+		builder.wear_image = _wear_texture.get_image()
 
 	# Load tuft meshes and textures per biome
 	for biome_id in TUFT_BIOMES:
@@ -2456,6 +2463,21 @@ func _apply_landuse_map(zones: Array, water: Array = []) -> void:
 	if shore_tex:
 		_set_terrain_param("shore_distance", shore_tex)
 		print("Terrain: loaded shore distance field %dx%d" % [shore_tex.get_width(), shore_tex.get_height()])
+
+	# Baked turf wear map (paths/benches → worn dirt; scripts/gen_wear_map.py).
+	# Optional: missing file just means no baked wear (ambient mottle still
+	# applies shader-side).
+	var wear_global := ProjectSettings.globalize_path("res://wear_map.png")
+	if FileAccess.file_exists(wear_global):
+		var wear_img := Image.load_from_file(wear_global)
+		if wear_img:
+			if wear_img.get_format() != Image.FORMAT_L8:
+				wear_img.convert(Image.FORMAT_L8)
+			_wear_texture = ImageTexture.create_from_image(wear_img)
+			_set_terrain_param("wear_map", _wear_texture)
+			print("Terrain: loaded turf wear map %dx%d" % [wear_img.get_width(), wear_img.get_height()])
+	else:
+		print("Terrain: wear_map.png not found — run scripts/gen_wear_map.py for baked turf wear")
 
 
 func _rasterize_landuse_runtime(zones: Array, water: Array) -> Image:

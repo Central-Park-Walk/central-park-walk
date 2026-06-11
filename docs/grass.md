@@ -15,7 +15,7 @@ Four cooperating layers; color coherence comes from every layer including
 |---|---|---|---|
 | Tier 0 blades + accents | `main.gd` `GRASS_TIER0`/`GRASS_ACCENTS`, `shaders/grass_particles.gdshader` (spawn), `grass_particle_render.gdshader` (draw) | 0–6 m | close-up blade variety, clover/dandelion |
 | Tier 1 blades | `main.gd` `GRASS_BIOMES`, same shaders | 0–60.5 m (dither fade from ~36 m) | base blade coverage, one mesh per biome |
-| Tier 2 tufts | `grass_tuft_builder.gd` (CPU build, static MultiMesh), `shaders/grass_tuft_render.gdshader` | 13–120 m | mid-distance coverage texture |
+| Tier 2 tufts (**dormant**) | `grass_tuft_builder.gd`, `shaders/grass_tuft_render.gdshader` | 13–120 m | `_setup_grass_tuft_chunks()` is never called (audited 2026-06-11) — retired in the 2026-05-09 unification; code kept wear-consistent in case of revival |
 | Terrain albedo | `shaders/terrain3d_override.gdshader` | everywhere | blends Terrain3D source 85% toward `grass_base_color_no_dead()` in grass zones — the dominant signal beyond ~20 m |
 
 Spawn-side data: `landuse_map.png` (R8 8192², zone IDs) + canopy map. Both sampled in the
@@ -127,10 +127,17 @@ Geometry response (coherence rule — **no green blades on dirt**):
 
 ## 6. Open / deferred
 
+- **Lawn absolute brightness**: clean-turf luminance ratio lawn/sky measured 0.37 in game
+  vs 0.63 in reference footage (2026-06-11, hero pose vs hq_02-08) — our sunlit turf is
+  ~1 stop dark relative to sky. Candidate causes: no turf sheen/specular, blade
+  self-shadowing at grazing angles, AgX shoulder. Needs its own measured calibration pass
+  (like the sky ×5/×20/×6 session); don't band-aid with an albedo multiplier.
+
 - True species mixes per CPC class ([grass conservancy data] memory) — palettes currently
   KBG/rye/fescue approximations; fine for now.
 - Mow-stripe feature: real footage shows mottle, not stripes, on meadows — stripes stay
   sport-turf-only (`ground_surface.gdshader`).
 - Wildflower meadow species models (zone 14) — post-sprint model program.
 - GPU-grass GDExtension (`gpu_grass/`) is retired from the lawn path (2026-05-09
-  unification); `_gpu_grass_nodes` references in main.gd are legacy.
+  unification); `_setup_gpu_grass()` and `_setup_grass_tuft_chunks()` are both
+  never called — beyond ~60 m the lawn is terrain albedo only.

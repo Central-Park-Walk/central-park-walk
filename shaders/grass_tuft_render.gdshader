@@ -62,10 +62,11 @@ void fragment() {
 		ALPHA_HASH_SCALE = 1.0;
 	}
 
-	// Decode per-instance data
+	// Decode per-instance data (A = baked wear, packed by grass_tuft_builder)
 	int zone_id = int(v_custom.r * 15.0 + 0.5);
 	float canopy_cover = v_custom.g;
 	float inst_seed = v_custom.b;
+	float baked_wear = v_custom.a;
 
 	// --- Base color from shared zone palette + macro variation ---
 	// No-dead version; seasonal dead-tuft scale applied below so July
@@ -73,6 +74,10 @@ void fragment() {
 	vec3 col = grass_base_color_no_dead(zone_id, v_world_pos.xz);
 	float autumn_t_early = sn_veg_autumn(season_t);
 	col = apply_dead_tufts(col, v_world_pos.xz, 0.15 + 0.85 * autumn_t_early);
+
+	// Turf wear — same response as terrain + blades (docs/grass.md §4)
+	float wear = turf_wear_total(baked_wear, canopy_cover, zone_id, v_world_pos.xz);
+	col = apply_turf_wear(col, wear, v_world_pos.xz);
 
 	// Texture luminance modulates zone color (textured tufts).
 	// Untextured clusters: use grass_base_color directly — matches textured

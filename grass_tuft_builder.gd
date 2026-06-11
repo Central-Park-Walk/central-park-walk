@@ -17,6 +17,8 @@ var terrain: Terrain3D
 var landuse_image: Image
 ## Grayscale canopy coverage image
 var canopy_image: Image
+## Baked foot-traffic wear (scripts/gen_wear_map.py), L8 4096
+var wear_image: Image
 ## World extent in meters (centered at origin)
 var world_size: float = 5000.0
 
@@ -58,6 +60,9 @@ var _lu_h: int
 var _can_bytes: PackedByteArray
 var _can_w: int
 var _can_h: int
+var _wear_bytes: PackedByteArray
+var _wear_w: int
+var _wear_h: int
 
 
 func build_all_chunks() -> void:
@@ -76,6 +81,10 @@ func build_all_chunks() -> void:
 		_can_bytes = canopy_image.get_data()
 		_can_w = canopy_image.get_width()
 		_can_h = canopy_image.get_height()
+	if wear_image:
+		_wear_bytes = wear_image.get_data()
+		_wear_w = wear_image.get_width()
+		_wear_h = wear_image.get_height()
 
 	_rng.seed = 42
 	print("GrassTuftBuilder: starting (%dx%d landuse, %d tuft meshes)" % [
@@ -172,6 +181,12 @@ func _build_chunk(origin_x: float, origin_z: float) -> void:
 			if canopy > 0.1 and _rng.randf() < canopy * suppress:
 				continue
 
+			# Turf wear thinning (docs/grass.md §4) — mirrors the blade
+			# spawn shader so dirt patches stay bare at tuft distances too
+			var wear := _wear_fast(jx, jz)
+			if _rng.randf() < smoothstep(0.2, 0.75, wear) * 0.97:
+				continue
+
 			# Interpolate height from pre-sampled grid
 			var height := _height_interp(h_grid, h_cols, h_step,
 				origin_x, origin_z, jx, jz)
@@ -188,7 +203,7 @@ func _build_chunk(origin_x: float, origin_z: float) -> void:
 
 			xforms[biome_id].append(t)
 			customs[biome_id].append(Color(
-				float(zone) / 15.0, canopy, _rng.randf(), 0.0))
+				float(zone) / 15.0, canopy, _rng.randf(), wear))
 
 	# Build MultiMeshInstance3D per biome
 	for biome_id in xforms:
@@ -247,6 +262,17 @@ func _canopy_fast(wx: float, wz: float) -> float:
 	var px := clampi(int(u * _can_w), 0, _can_w - 1)
 	var py := clampi(int(v * _can_h), 0, _can_h - 1)
 	return float(_can_bytes[py * _can_w + px]) / 255.0
+
+
+func _wear_fast(wx: float, wz: float) -> float:
+	"""Fast baked-wear lookup via raw byte array."""
+	if _wear_bytes.is_empty():
+		return 0.0
+	var u := (wx + world_size * 0.5) / world_size
+	var v := (wz + world_size * 0.5) / world_size
+	var px := clampi(int(u * _wear_w), 0, _wear_w - 1)
+	var py := clampi(int(v * _wear_h), 0, _wear_h - 1)
+	return float(_wear_bytes[py * _wear_w + px]) / 255.0
 
 
 func _height_interp(grid: PackedFloat32Array, grid_cols: int, grid_step: float,

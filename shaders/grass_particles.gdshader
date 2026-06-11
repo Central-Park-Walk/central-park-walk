@@ -42,11 +42,15 @@ group_uniforms central_park;
 // Zone-aware grass: only grow on grass/meadow zones, suppress under canopy
 uniform sampler2D landuse_map : filter_nearest, repeat_disable;
 uniform sampler2D canopy_map : filter_linear, repeat_disable;
+// Baked foot-traffic wear (paths/benches) — scripts/gen_wear_map.py
+uniform sampler2D wear_map : filter_linear, repeat_disable;
 uniform float world_size = 5000.0;
 global uniform float season_t;
 global uniform float snow_cover;
 
 #include "res://shaders/include/seasonal.gdshaderinc"
+#include "res://shaders/include/hash_noise.gdshaderinc"
+#include "res://shaders/include/grass_zone_colors.gdshaderinc"
 
 // Biome filter: 0=lawn 1=shade 2=wild 3=sedge  10=tuft_lawn 11=tuft_wild  -1=all(legacy)
 uniform int biome_id = -1;
@@ -274,6 +278,13 @@ void start() {
 	float height_var = textureLod(main_noise, pos.xz * 0.025, 0.0).r;
 	zone_height *= is_mown ? mix(0.9, 1.1, height_var) : mix(0.7, 1.3, height_var);
 
+	// --- Turf wear (docs/grass.md §4): blades thin + shorten where the
+	// terrain shows worn dirt, so dirt never carries green blades. Canopy
+	// is left at 0 here — canopy suppression below already handles it.
+	float baked_wear = textureLod(wear_map, splat_uv, 0.0).r;
+	float wear = turf_wear_total(baked_wear, 0.0, zone_id, pos.xz);
+	zone_height *= mix(1.0, 0.55, smoothstep(0.1, 0.7, wear));
+
 	vec3 scale = vec3(
 		mix(min_scale.x, max_scale.x, r.x) * width_modifier * zone_spread,
 		mix(min_scale.y, max_scale.y, r.y) * zone_height + clods,
@@ -376,16 +387,17 @@ void start() {
 		pos.xz = vec2(100000.0);
 	}
 
-	// Sample Terrain3D color map for grass-terrain root blending
-	ivec3 tc_idx = get_index_coord(floor(pos.xz * _vertex_density), VERTEX_PASS);
-	vec3 terrain_tint = vec3(1.0);
-	if (tc_idx.z >= 0) {
-		terrain_tint = texelFetch(_color_maps, tc_idx, 0).rgb;
+	// Wear culling: heavily worn ground keeps almost no blades
+	if (random(pos.xz + vec2(37.7, 11.3)) < smoothstep(0.2, 0.75, wear) * 0.97) {
+		pos.y = 0. / 0.;
+		pos.xz = vec2(100000.0);
 	}
 
-	// Pass zone + terrain data to render shader via COLOR
-	// R = zone_id normalized, G = canopy_cover, B = terrain_tint.r, A = terrain_tint.g
-	COLOR = vec4(float(zone_id) / 15.0, canopy_cover, terrain_tint.r, terrain_tint.g);
+	// Pass zone data to render shader via COLOR
+	// R = zone_id normalized, G = canopy_cover, B = turf wear, A = unused.
+	// (B/A used to carry a Terrain3D color-map tint the render shader no
+	// longer reads — that texelFetch block is gone.)
+	COLOR = vec4(float(zone_id) / 15.0, canopy_cover, wear, 0.0);
 
 	// Distance fade: gradually shrink blades as they approach max_dist.
 	// Maintains coverage (no dark gaps) while reducing visual presence.

@@ -73,6 +73,8 @@ uniform float noise2_scale : hint_range(0.001, 1.) = 0.076;
 uniform float world_size = 5000.0;
 uniform sampler2D landuse_map : filter_nearest, repeat_disable;
 uniform sampler2D canopy_map : filter_linear, repeat_disable;
+// Baked foot-traffic wear (paths/benches) — scripts/gen_wear_map.py
+uniform sampler2D wear_map : filter_linear, repeat_disable;
 
 // Global uniforms (set by main.gd)
 global uniform float snow_cover;
@@ -398,6 +400,15 @@ void fragment() {
 		if (is_grass_zone) {
 			vec3 spectral_col = grass_base_color_no_dead(zone_id, v_vertex.xz);
 			ALBEDO = mix(ALBEDO, spectral_col, 0.85);
+
+			// Turf wear: baked path/bench wear + ambient mottle + canopy
+			// compaction (docs/grass.md §4). The blade spawn shader thins
+			// blades with the same function, so dirt never shows green
+			// blades on top of it.
+			float baked_wear = texture(wear_map, splat_uv).r;
+			float wear_canopy = texture(canopy_map, splat_uv).r;
+			float wear = turf_wear_total(baked_wear, wear_canopy, zone_id, v_vertex.xz);
+			ALBEDO = apply_turf_wear(ALBEDO, wear, v_vertex.xz);
 		}
 	}
 
