@@ -37,8 +37,13 @@ static func _utc_offset(doy: float) -> float:
 
 
 static func _julian_day(doy: float, hour_local: float) -> float:
+	# The DATE is floor(doy) — the explicit hour owns time-of-day. A
+	# fractional doy (season_t rarely lands on a whole day, e.g. the
+	# default summer 1.5 -> 195.875) would otherwise add up to 24h on
+	# top of the hour and shift the whole diurnal curve (+3h sun at the
+	# default season; the validation suite's integer doys hid it).
 	var hour_utc: float = hour_local - _utc_offset(doy)
-	return JD_2026_JAN1 + doy + hour_utc / 24.0
+	return JD_2026_JAN1 + floor(doy) + hour_utc / 24.0
 
 
 # Geocentric solar ecliptic longitude (deg) + distance-free bits we need.

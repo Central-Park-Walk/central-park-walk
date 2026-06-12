@@ -70,6 +70,14 @@ func _init() -> void:
 	print("info Jan3 23h moon elev %.1f az %.1f (winter full moon rides HIGH)" % [mh.x, mh.y])
 	check("Jan3 full moon high", mh.x, 70.0, 12.0)
 
+	# --- Fractional-doy regression: the game default season_t=1.5 is
+	# doy 195.875 — the .875 must NOT shift the diurnal curve (it once
+	# added 21h to the JD on top of the hour: +3h sun, sunset at 23:18).
+	ev = Almanac.sun_events(1.5 * 0.0 + season_for_doy(195.0))
+	var ev_frac: Dictionary = Almanac.sun_events(1.5)
+	check("frac-doy sunset", ev_frac.sunset, ev.sunset, 0.05)
+	check("frac-doy 23h sun", Almanac.sun_horizontal(1.5, 23.0).x, -21.0, 4.0)
+
 	# --- World mapping: noon sun must be southish = +Z-ish, up ---
 	var d: Vector3 = Almanac.dir_from_horizontal(Vector2(55.0, 180.0))
 	check("map south x", d.x, 0.0, 0.01)
