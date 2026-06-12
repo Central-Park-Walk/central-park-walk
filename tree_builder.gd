@@ -618,7 +618,27 @@ func _build_trees(trees: Array) -> void:
 		# Build transform: Y rotation × non-uniform scale
 		# GLB models are Y-up (standard GLTF export from Blender).
 		# sx scales crown width (XZ), sy scales height (Y)
-		var basis := Basis(Vector3.UP, y_rot) * Basis().scaled(Vector3(sx, sy, sx))
+		# --- §5b per-instance coherence: break same-species clone tiling ---
+		# Derived from world XZ (NOT the sequential rng) so the basis is identical
+		# across near/lod2/impostor tiers; a leaning, slightly stretched tree must
+		# not pop or change shape at a tier handoff.
+		var h1 := fmod(abs(sin(tx * 12.9898 + tz * 78.233) * 43758.5453), 1.0)
+		var h2 := fmod(abs(sin(tx * 39.346 + tz * 11.135) * 24634.6345), 1.0)
+		var h3 := fmod(abs(sin(tx * 73.156 + tz * 52.235) * 13793.4537), 1.0)
+		# Plus/minus 10% XZ-scale jitter -> per-tree slenderness. Cathedral elms
+		# keep their exact forced width (allee convergence depends on it, §5b).
+		var sj := 1.0
+		if species != "cathedral_elm":
+			sj = 0.90 + h1 * 0.20
+		# Small natural lean (1-5 deg) at random azimuth; no real tree is vertical.
+		var lean_angle := deg_to_rad(1.0 + h2 * 4.0)
+		var lean_dir := h3 * TAU
+		var lean_axis := Vector3(cos(lean_dir), 0.0, sin(lean_dir))
+
+		# Build transform: lean * Y-rotation * non-uniform scale. GLB base sits at
+		# local origin, so the lean pivots at the trunk base.
+		var basis := Basis(lean_axis, lean_angle) \
+			* Basis(Vector3.UP, y_rot) * Basis().scaled(Vector3(sx * sj, sy, sx * sj))
 		var tf := Transform3D(basis, Vector3(tx, ty, tz))
 
 		var key := "%s_%d" % [species_tier, variant_idx]
@@ -1318,7 +1338,16 @@ func _build_canopy_shells() -> void:
 			_species_heights.get(model_name + "_s", 5.0))))
 		var sy: float = sd.h / maxf(model_height, 0.1)
 		var sx: float = sy * (1.50 if sd.archetype == "cathedral_elm" else 1.0)
-		var basis := Basis(Vector3.UP, y_rot) * Basis().scaled(Vector3(sx, sy, sx))
+		# §5b per-instance coherence — SAME world-XZ hash as the mesh path so the
+		# impostor matches its near/lod2 mesh (no lean/width pop at the handoff).
+		var h2 := fmod(abs(sin(sd.x * 39.346 + sd.z * 11.135) * 24634.6345), 1.0)
+		var h3 := fmod(abs(sin(sd.x * 73.156 + sd.z * 52.235) * 13793.4537), 1.0)
+		var sj := 1.0
+		if sd.archetype != "cathedral_elm":
+			sj = 0.90 + fmod(abs(sin(sd.x * 12.9898 + sd.z * 78.233) * 43758.5453), 1.0) * 0.20
+		var lean_axis := Vector3(cos(h3 * TAU), 0.0, sin(h3 * TAU))
+		var basis := Basis(lean_axis, deg_to_rad(1.0 + h2 * 4.0)) \
+			* Basis(Vector3.UP, y_rot) * Basis().scaled(Vector3(sx * sj, sy, sx * sj))
 		var tf := Transform3D(basis, Vector3(sd.x, sd.y, sd.z))
 		chunks[ck].xf.append(tf)
 		chunks[ck].cd.append(cd)
