@@ -853,15 +853,21 @@ SPECIES = {
     "callery_pear": {
         "name": "Callery Pear (Pyrus calleryana)",
         "crown_shape": "Spherical",  # Changed from Conical — Conical triggers Mtree 5.5 mesher crash
+        # Bradford-type: narrow UPRIGHT dense oval, steeply ascending branches packed
+        # around a strong central leader (BRIEF §1). H 9–15m, spread 6–10m → aspect
+        # ~0.5–0.6. Shape the columnar read via high up_attraction + low branch_angle,
+        # NOT a conical crown (mesher crashes on Conical).
         "trunk_frac": 0.20,
         "trunk_shape": 0.8,           # Strong central leader
-        "up_attraction": 0.8,
+        "up_attraction": 0.8,         # Strong vertical pull = upright habit
         "trunk_randomness": 0.3,
         "branch_start": 0.18,
         "branch_end": 0.95,
         "branch_density": 1.2,         # Reduced from 1.5 to avoid Mtree mesher crash
-        "branch_length_ratio": 0.30,
-        "branch_angle": 22,            # Notorious narrow crotches (ISA data: 15-30°)
+        "branch_length_ratio": 0.50,   # Long branches needed to get spread → target aspect 0.50
+        "branch_start_radius": 0.40,   # Moderate limb thickness (dense fine-branch oval)
+        "branch_angle_variation": 0.30,  # Tight upswept oval — crown stays narrow top→bottom
+        "branch_angle": 25,            # Slightly wider than minimum narrow crotch to achieve spread
         "branch_gravity": 5.0,
         "branch_stiffness": 0.3,
         "branch_up_attraction": 0.55,
@@ -890,10 +896,17 @@ SPECIES = {
         "leaf_scale": 0.55,  # Callery pear ~6cm, small glossy
         "leaf_cluster_size_range": (0.33, 0.72),
         "leaf_flatten_range": (0.50, 0.70),
-        "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
+        "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI) LAI 4.0-6.0
         "target_cluster_count_l": 630,
         "base_seed": 362,     # Shifted from 351 to avoid Mtree mesher crash at _m tier
         "seed_step": 23,
+        # High census (~2k); widen to 6 variants spanning the Bradford oval ↔ Chanticleer
+        # columnar spread (branch_angle + up_attraction, BRIEF §7).
+        "n_variants": 6,
+        "variant_spans": {
+            "branch_angle": [20, 30],        # oval (slightly wider) ↔ columnar (tighter)
+            "branch_up_attraction": [0.48, 0.62],  # crown height emphasis variation
+        },
         "tiers": {
             "s": {"target_h": 8, "height_range": [6, 10], "skeleton_overrides": {
                 "branch_density": 0.8, "branch_split_prob": 0.25, "sub_density": 0.3}},
@@ -1114,14 +1127,20 @@ SPECIES = {
     "ginkgo": {
         "name": "Ginkgo (Ginkgo biloba)",
         "crown_shape": "Conical",
+        # Upright, irregular/angular when young → broader with age (BRIEF §1).
+        # H 15–25m, spread 6–12m → aspect ~0.5–0.7. Stiff ascending branches,
+        # well-separated (open architecture). Mesher known to crash at dense+highres
+        # large scale — keep branch_density ≤ 0.8 and sub_min_height=999.
         "trunk_frac": 0.30,
         "trunk_shape": 0.8,
-        "up_attraction": 0.8,         # Strong central leader
+        "up_attraction": 0.8,         # Strong central leader (upright habit)
         "trunk_randomness": 0.3,
         "branch_start": 0.28,
         "branch_end": 0.95,
         "branch_density": 0.8,         # Reduced from 1.2 (crashes mesher at large scale)
-        "branch_length_ratio": 0.28,
+        "branch_length_ratio": 0.30,   # Moderate reach; older trees broader (spans below)
+        "branch_start_radius": 0.42,   # Stiff angular limbs (ginkgo branches are notable)
+        "branch_angle_variation": 0.35,  # Irregular ascending → spreading with age
         "branch_angle": 42,
         "branch_gravity": 5.0,
         "branch_stiffness": 0.3,
@@ -1150,7 +1169,7 @@ SPECIES = {
         "leaf_scale": 0.65,  # Ginkgo ~7cm fan
         "leaf_cluster_size_range": (0.27, 0.60),
         "leaf_flatten_range": (0.50, 0.70),
-        "leaf_density": 0.55,  # canopy density (0-1, from real-world LAI)
+        "leaf_density": 0.55,  # canopy density (0-1, from real-world LAI) LAI 2.5-4.0
         "target_cluster_count_l": 600,  # LAI 3-4; ginkgo fan cluster tops
         "foliage_radius_threshold": 0.40,  # No sub-branches → main branches are thick
         "foliage_min_depth": 0,
@@ -1159,6 +1178,15 @@ SPECIES = {
         "sub_min_height": 999,          # Spur shoots crash mesher; use primary-only
         "base_seed": 50,
         "seed_step": 31,
+        # High census (~1.8k), irregular tiling very visible; widen to 6 variants.
+        # Spans the young-narrow-angular ↔ old-broader age axis (BRIEF §7):
+        # branch_angle (ascending-tight young ↔ wider spreading old) +
+        # branch_length_ratio (shorter sparse young ↔ longer fuller old).
+        "n_variants": 6,
+        "variant_spans": {
+            "branch_angle": [36, 52],          # narrow ascending young ↔ wider spreading old
+            "branch_length_ratio": [0.24, 0.38],  # shorter young ↔ longer older crown
+        },
         "tiers": {
             "s": {"target_h": 10, "height_range": [8, 14], "skeleton_overrides": {
                 "branch_density": 0.5, "branch_split_prob": 0.25, "sub_density": 0.3}},
@@ -1234,6 +1262,9 @@ SPECIES = {
     "deciduous": {
         "name": "Generic Deciduous",
         "crown_shape": "Spherical",
+        # Catch-all for unmapped census genera (BRIEF §1): a believable AVERAGE
+        # rounded broadleaf — moderate everything, wide variation envelope so a
+        # cluster never tiles. Aspect ~0.6–0.7 (like oak template). LAI 4.0-5.0.
         "trunk_frac": 0.25,
         "trunk_shape": 0.6,
         "up_attraction": 0.55,
@@ -1241,7 +1272,9 @@ SPECIES = {
         "branch_start": 0.22,
         "branch_end": 0.95,
         "branch_density": 1.2,
-        "branch_length_ratio": 0.38,
+        "branch_length_ratio": 0.38,   # moderate spread → aspect ~0.6-0.7
+        "branch_start_radius": 0.45,   # mid-weight limbs (believable average)
+        "branch_angle_variation": 0.30,  # ascending-then-spreading (unremarkable broadleaf)
         "branch_angle": 50,
         "branch_gravity": 8.0,
         "branch_stiffness": 0.2,
@@ -1270,10 +1303,17 @@ SPECIES = {
         "leaf_scale": 1.0,  # generic average broadleaf
         "leaf_cluster_size_range": (0.33, 0.75),
         "leaf_flatten_range": (0.45, 0.65),
-        "leaf_density": 0.75,  # canopy density (0-1, from real-world LAI)
+        "leaf_density": 0.75,  # canopy density (0-1, from real-world LAI) LAI 4.0-5.0
         "target_cluster_count_l": 600,
         "base_seed": 700,
         "seed_step": 31,
+        # Wide variation envelope (BRIEF §7): can cluster anywhere, tiling risk high.
+        # Spans crown spread + vertical emphasis — every instance looks different.
+        "n_variants": 6,
+        "variant_spans": {
+            "branch_angle": [44, 58],          # crown spread: ascending-narrow ↔ spreading
+            "branch_up_attraction": [0.28, 0.45],  # vertical emphasis variation
+        },
         "tiers": {
             "s": {"target_h": 10, "height_range": [8, 14], "skeleton_overrides": {
                 "branch_density": 0.7, "branch_split_prob": 0.30, "sub_density": 0.4}},
