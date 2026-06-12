@@ -86,6 +86,7 @@ var _landuse_img: Image
 var _structure_img: Image
 var _shore_img: Image
 var _park_mask_img: Image
+var _atlas_data := PackedByteArray()  # world_atlas.bin RG8 — R = surface type
 var _frame := 0
 
 # Terrain hole polygons — structures where terrain must be invisible.
@@ -121,6 +122,22 @@ func _process(_delta: float) -> bool:
 			return false
 		if not _structure_img:
 			push_warning("structure_mask.png not found — structures will use default grass")
+
+		# World atlas surface types (convert_to_godot.py): cells the targeted
+		# rock outcrop restoration marked as type 7 must bake as rock — the
+		# domes are too smooth for the slope autoshader to ever rock them
+		# (walk-around 2026-06-12 cpw_000: grass-skinned "green mounds").
+		var afh := FileAccess.open("res://world_atlas.bin", FileAccess.READ)
+		if afh:
+			var aw := afh.get_32()
+			var ah := afh.get_32()
+			if aw == ATLAS_RES and ah == ATLAS_RES:
+				_atlas_data = afh.get_buffer(aw * ah * 2)
+			else:
+				push_warning("world_atlas.bin is %dx%d, expected %d — rock outcrops not baked" % [aw, ah, ATLAS_RES])
+			afh.close()
+		else:
+			push_warning("world_atlas.bin not found — rock outcrops not baked")
 
 		_terrain = Terrain3D.new()
 		get_root().add_child(_terrain)
@@ -262,6 +279,15 @@ func _do_bake() -> void:
 				elif struct_val > 16 and park_val > 0.5:
 					base_id = STRUCT_FLAT
 					zone_color = Color(1.0, 1.0, 1.0, 0.5)
+					use_auto = false
+				# Rock outcrop (world atlas type 7 — DSM-restored schist).
+				# Before shore: real outcrops (e.g. Hernshead) run into the
+				# lake and should stay rock, not mud. Census of all 1154
+				# clusters: scripts/rock_outcrop_census.py.
+				elif not _atlas_data.is_empty() and _atlas_data[(az * ATLAS_RES + ax) * 2] == 7:
+					base_id = TEX_ROCK
+					over_id = TEX_ROCK
+					zone_color = Color(0.95, 0.95, 0.97, 0.5)
 					use_auto = false
 				# Shore zone — blend shore/wet_earth with base texture
 				elif zone_id == 13 or (shore_val > 0.0 and shore_val < 0.5):
