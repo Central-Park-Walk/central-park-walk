@@ -12,9 +12,9 @@ var wind_direction: float = 0.0
 ## Sets the wind speed in m/s.
 @export_custom(PROPERTY_HINT_RANGE, "0,120,0.1,or_greater,or_less,suffix:m/s")
 var wind_speed: float = 1.0
-# TODO This needs calibration if we want the m/s to make some sense. We can't really specify the
-#      altitude of the clouds right now so it's more about getting things in a believable range
-#      where 120 m/s is quite a strong hurricane.
+# wind_speed is TRUE m/s at cloud altitude since 2026-06-11: _cloud_pos
+# integrates it directly and clouds.glsl applies the integral as meters of
+# world drift (factor 1). main.gd maps surface wind_vec to 4-24 m/s here.
 
 @export
 var density : float = 0.05
@@ -98,11 +98,17 @@ class FrameData:
 
 var frame_data : FrameData = FrameData.new()
 var _noise_offset := Vector3(randf(), randf(), randf())  # random cloud shapes per session
+# Random weather-map origin per session: the map is a baked texture, so
+# without this every launch shows the same cloud formation in the same
+# place (user-reported 2026-06-11). Rides the weather_pos push-constant
+# slot (drift itself is wind_world() in the shader).
+var _weather_origin := Vector2(randf(), randf())
 
 # Reseed the shape offset from a caller-provided RNG (--cloud-seed=N gives
 # reproducible skies for calibration captures).
 func set_noise_seed(rng: RandomNumberGenerator) -> void:
 	_noise_offset = Vector3(rng.randf(), rng.randf(), rng.randf())
+	_weather_origin = Vector2(rng.randf(), rng.randf())
 var update_position : Vector2i = Vector2i(0, 0)
 var update_region_size : int = 96 # texture_size / sqrt(frames_to_update)
 var num_workgroups : int = 12 # update_region_size / 8
@@ -211,6 +217,11 @@ func _update_per_frame_data():
 	frame_data._detailed_pos += delta * wind_direction_normalized * frame_data.wind_speed
 	frame_data._cloud_pos += delta * wind_direction_normalized * frame_data.wind_speed
 	frame_data._weather_pos += delta2 * wind_direction_normalized * frame_data.wind_speed
+	if OS.is_stdout_verbose():
+		print("[CLOUDWIND] speed=%.1f dir=(%.2f,%.2f) cloud_pos=(%.0f,%.0f) dt=%.2f"
+				% [frame_data.wind_speed, wind_direction_normalized.x,
+				wind_direction_normalized.y, frame_data._cloud_pos.x,
+				frame_data._cloud_pos.y, delta])
 
 	sky_lut.update_lut(frame_data.LIGHT_DIRECTION)
 
@@ -293,8 +304,8 @@ func _fill_push_constant():
 	push_constant.push_back(frame_data._detailed_pos.x)
 	push_constant.push_back(frame_data._detailed_pos.y)
 
-	push_constant.push_back(frame_data._weather_pos.x)
-	push_constant.push_back(frame_data._weather_pos.y)
+	push_constant.push_back(_weather_origin.x)
+	push_constant.push_back(_weather_origin.y)
 	push_constant.push_back(_noise_offset.x)  # noise_offset xy
 	push_constant.push_back(_noise_offset.y)
 	

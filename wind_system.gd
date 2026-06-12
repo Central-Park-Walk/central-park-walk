@@ -11,6 +11,7 @@ enum Weather { CLEAR, RAIN, THUNDERSTORM, SNOW, FOG }
 # Public state — read by main.gd and builders
 var wind_vec := Vector2.ZERO
 var wind_override := -1.0  # <0 = auto, >=0 = manual strength multiplier
+var dir_override := NAN    # radians; NAN = auto (noise-driven wander)
 
 # Internal state
 var _wind_time := 0.0
@@ -78,6 +79,8 @@ func update(delta: float, time_of_day: float, weather: int) -> void:
 	var dir_primary := _dir_noise.get_noise_1d(t) * PI
 	var dir_wobble := _dir_noise.get_noise_1d(t * 3.0 + 500.0) * 0.4
 	var dir_angle := dir_primary + dir_wobble
+	if not is_nan(dir_override):
+		dir_angle = dir_override
 	var wind_dir := Vector2(cos(dir_angle), sin(dir_angle))
 
 	# Base breeze: noise-driven, range ~0.03-0.20

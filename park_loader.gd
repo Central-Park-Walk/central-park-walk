@@ -1534,7 +1534,11 @@ func _load_glb_meshes(abs_path: String) -> Dictionary:
 	if root == null:
 		return result
 	_collect_named_meshes(root, result)
-	root.queue_free()
+	# free(), not queue_free(): the import scene was never in the tree, and
+	# synchronous free is the guaranteed path for orphans (the deferred
+	# queue left these as the exit-time ObjectDB/RID leak wall when loads
+	# happened mid-session from chunk builds).
+	root.free()
 	_glb_cache[abs_path] = result
 	return result
 

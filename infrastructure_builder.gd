@@ -784,6 +784,13 @@ func _build_statues(statues: Array) -> void:
 			body.add_child(shape)
 		_loader.add_child(body)
 
+	# Free the GLB template roots — placements use duplicate()s; the
+	# orphan templates were the exit-time ObjectDB/RID leak wall (33
+	# statue scenes with their meshes/materials/textures).
+	for skey in named_statue_glbs:
+		(named_statue_glbs[skey]["root"] as Node).free()
+	named_statue_glbs.clear()
+
 	print("ParkLoader: statues/monuments = %d (%d with pedestals)" % [statues.size(), pedestal_count])
 
 

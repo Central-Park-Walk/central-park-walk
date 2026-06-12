@@ -112,20 +112,22 @@ float intersectSphere(vec3 pos, vec3 dir,float r) {
 // detail noise (2026-06-11 flow fix). Before, three drift rates coexisted
 // (envelope 16.7x wind, base 12x, detail -40x) so clouds churned through
 // their own shapes instead of riding the wind. One offset = shapes move
-// with their envelopes. The 12.0 preserves the 2026-04-03 apparent-speed
-// calibration (main.gd wind_speed = wlen * 0.6). params.detailed_pos /
-// params.weather_pos stay in the push constant for layout stability but
-// are no longer read.
+// with their envelopes. cloud_pos integrates wind_speed (true m/s at
+// cloud altitude, set by main.gd) — this IS meters of drift, factor 1.
+// params.detailed_pos stays in the push constant for layout stability but
+// is no longer read; params.weather_pos now carries the per-session
+// random weather-map origin (see weather_at).
 vec2 wind_world() {
-	return params.cloud_pos * 12.0;
+	return params.cloud_pos;
 }
 
 // Single source of truth for weather sampling — the light march previously
 // omitted the drift offset on its distant sample, shading against a stale
-// weather field.
+// weather field. weather_pos carries the per-session random map origin
+// (without it every launch shows the same formation in the same place).
 vec3 weather_at(vec3 p) {
 	const float weather_scale = 0.00006;
-	return texture(weather_noise, (p.xz + wind_world()) * weather_scale + 0.5).xyz;
+	return texture(weather_noise, (p.xz + wind_world()) * weather_scale + 0.5 + params.weather_pos).xyz;
 }
 
 // Returns density at a given point
@@ -199,8 +201,6 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 	
 
 	float costheta = dot(ldir, dir);
-	// Stack multiple phase functions to emulate some backscattering
-	float phase = max(max(henyey_greenstein(costheta, 0.6), henyey_greenstein(costheta, (0.4 - 1.4 * ldir.y))), henyey_greenstein(costheta, -0.2));
 
 	// Read sun and ambient colors from the sky LUT. sun_scale/ambient_scale
 	// are calibration multipliers (1.0 = upstream demo behavior) — see
@@ -245,20 +245,45 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 			lt = pow(density(lp, lweather, 5.0), (1.0 - lheight_fraction) * 0.8 + 0.5);
 			cd += lt;
 			
-			// captures the direct lighting from the sun
-			float beers = exp(-params.density * cd * lss * 3.0);
-			float powder_sugar_effect = 1.0 - exp(-params.density * cd * lss * 3.0 * 2.0);
-			float beers_total = 2 * beers * powder_sugar_effect;
+			// Direct sun via multi-scattering octaves (Wrenninge/Schneider,
+			// 2026-06-11 "lacks detail and depth"): each octave relaxes
+			// extinction and phase anisotropy, the way real multiple
+			// scattering floods light through dense cores. Replaces the
+			// single-octave Beer x powder, which clamped thin regions to
+			// black (no translucent edges, no silver lining) and dense
+			// regions to a flat mid-grey.
+			float tau = params.density * cd * lss * 3.0;
+			float beers_total = 0.0;
+			float ms_a = 1.0;  // octave contribution
+			float ms_b = 1.0;  // octave extinction relax
+			float ms_c = 1.0;  // octave phase relax
+			for (int k = 0; k < 3; k++) {
+				float ph = max(max(
+					henyey_greenstein(costheta, 0.6 * ms_c),
+					henyey_greenstein(costheta, (0.4 - 1.4 * ldir.y) * ms_c)),
+					henyey_greenstein(costheta, -0.2 * ms_c));
+				beers_total += ms_a * exp(-tau * ms_b) * ph;
+				ms_a *= 0.45; ms_b *= 0.45; ms_c *= 0.7;
+			}
+			// Powder (dark in-shadow crevices) belongs on front-lit views
+			// only — applying it everywhere is what erased the backlit
+			// translucent rim.
+			float powder_sugar_effect = 1.0 - exp(-tau * 2.0);
+			beers_total *= 2.0 * mix(1.0, powder_sugar_effect,
+					clamp(costheta * 0.5 + 0.5, 0.0, 1.0));
 
 			// Ambient mixes ground->sky by position within the CLOUD, not
 			// absolute layer height: with tower-capped shallow cumulus the
 			// whole cloud sits in the bottom ~30% of the layer, and the old
 			// absolute mix locked it to the dark ground term (grey clouds at
 			// noon). A shallow cloud's top still sees the whole sky dome.
+			// The exp() term occludes ambient with interior depth — dense
+			// cores and under-bellies read deeper than wisps.
 			float col_hf = clamp(height_fraction / max(weather_sample.g, 0.03), 0.0, 1.0);
-			vec3 ambient = mix(atmosphere_ground, atmosphere_ambient, smoothstep(0.0, 1.0, col_hf));
+			vec3 ambient = mix(atmosphere_ground, atmosphere_ambient, smoothstep(0.0, 1.0, col_hf))
+					* (0.55 + 0.45 * exp(-tau * 0.6));
 			alpha += (1.0 - dt) * (1.0 - alpha);
-			vec3 radiance = (ambient + beers_total * atmosphere_sun * phase) * t;
+			vec3 radiance = (ambient + beers_total * atmosphere_sun) * t;
 			L += T * (radiance - radiance * dt) / max(0.0000001, t);
 			T *= dt;
 		}

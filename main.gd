@@ -217,6 +217,15 @@ func _parse_cli_args() -> void:
 			print("[DIAG] grass biome highlight requested")
 		elif key == "--cloud-seed" and val != "":
 			_cli_cloud_seed = int(val)
+		elif key == "--wind" and val != "":
+			# --wind=strength (0..3, the in-game override scale) — fixes the
+			# wind for flow checks / calibration captures.
+			_cli_wind_override = float(val)
+			print("[DIAG] wind override %.2f" % _cli_wind_override)
+		elif key == "--wind-dir" and val != "":
+			# --wind-dir=degrees (0 = +X east, 90 = +Z south, world axes)
+			_cli_wind_dir_deg = float(val)
+			print("[DIAG] wind direction %.0f deg" % _cli_wind_dir_deg)
 		elif key == "--sky-cal" and val != "":
 			# --sky-cal=bg:sun:amb — background brightness, cloud direct-sun
 			# and cloud ambient multipliers (calibration sweeps).
@@ -321,6 +330,10 @@ func _ready() -> void:
 	RenderingServer.global_shader_parameter_add("player_world_pos", RenderingServer.GLOBAL_VAR_TYPE_VEC3, Vector3.ZERO)
 	_wind_system = preload("res://wind_system.gd").new()
 	_wind_system.name = "WindSystem"
+	if _cli_wind_override >= 0.0:
+		_wind_system.wind_override = _cli_wind_override
+	if not is_nan(_cli_wind_dir_deg):
+		_wind_system.dir_override = deg_to_rad(_cli_wind_dir_deg)
 	add_child(_wind_system)
 	_weather_mgr = preload("res://weather_manager.gd").new()
 	_weather_mgr.name = "WeatherManager"
@@ -603,9 +616,25 @@ func _exit_tree() -> void:
 			_park_loader._ground_cover_builder.free_all_chunks()
 	if _vol_sky:
 		_vol_sky.can_run = false
+		# Detach the per-frame hook BEFORE freeing RD RIDs — a final
+		# frame_pre_draw after cleanup dispatched against freed uniform
+		# sets ("Parameter us is null" / invalid-texture exit errors).
+		if RenderingServer.frame_pre_draw.is_connected(_vol_sky.update_sky):
+			RenderingServer.frame_pre_draw.disconnect(_vol_sky.update_sky)
+		# Drop the sky material's references to the Texture2DRDs so the
+		# material system doesn't rebuild uniform sets against freed RIDs.
+		for pn in ["blend_from_texture", "blend_to_texture",
+				"sky_blend_from_texture", "sky_blend_to_texture"]:
+			_vol_sky.sky_material.set_shader_parameter(pn, null)
 		# cleanup() frees RD RIDs — serialize with the per-frame compute
-		# dispatches by running it on the render thread.
+		# dispatches by running it on the render thread, then flush so it
+		# completes before the rest of teardown frees the LUT resources.
 		RenderingServer.call_on_render_thread(_vol_sky.cleanup)
+		RenderingServer.force_sync()
+	# Name any orphan nodes on verbose runs (zero-error goal: anything
+	# printed here will appear in the exit-time ObjectDB leak list).
+	if OS.is_stdout_verbose():
+		print_orphan_nodes()
 
 
 func _process(delta: float) -> void:
@@ -614,6 +643,31 @@ func _process(delta: float) -> void:
 	# shaders (tree LOD dither) compute against the actual view.
 	if _player_camera:
 		RenderingServer.global_shader_parameter_set("player_world_pos", _player_camera.global_position)
+
+	# Wind + GPU grass push + volumetric clouds — must run BEFORE the tour
+	# and walk-bot early returns: those paths exist to CAPTURE the world,
+	# and skipping the wind tick froze the cloud system in every capture
+	# (2026-06-11 — the "static clouds" flow checks measured a harness
+	# artifact: wind_speed stayed at the 0.03 setup value).
+	var _tw0 := Time.get_ticks_usec()
+	_wind_system.update(delta, _time_of_day, _weather_mode)
+	_wind_vec = _wind_system.wind_vec
+	for gn in _gpu_grass_nodes:
+		if is_instance_valid(gn):
+			gn.set("wind_vec", _wind_vec)
+	if _vol_sky:
+		var wlen: float = _wind_vec.length()
+		if wlen > 0.01:
+			_vol_sky.wind_direction = atan2(_wind_vec.y, _wind_vec.x)
+		# Cloud-level wind in real m/s (2026-06-11 static-cloud fix).
+		# wind_vec is a SHADER-units vector (typ. 0.2-0.6, max ~1.65 at the
+		# 300% override) — the old wlen*0.6 mapping drove ~2 m/s of world
+		# drift at 2 km altitude, imperceptible; the "motion" users saw was
+		# the detail-churn defect. Winds aloft exceed surface wind almost
+		# always: floor of 4 m/s at surface calm, ~14 m/s at default
+		# breeze, ~24 m/s with wind cranked (real cumulus: 5-15+ m/s).
+		_vol_sky.wind_speed = 4.0 + wlen * 12.0
+	_prof_wind_us = lerpf(float(Time.get_ticks_usec() - _tw0), _prof_wind_us, PROF_SMOOTH)
 
 	# --- Tour mode state machine ---
 	if _tour_mode:
@@ -750,26 +804,8 @@ func _process(delta: float) -> void:
 		_update_lamp_lights()
 	_prof_lamps_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_lamps_us, PROF_SMOOTH)
 
-	# Wind + GPU grass push + volumetric clouds
-	_t0 = Time.get_ticks_usec()
-	_wind_system.update(delta, _time_of_day, _weather_mode)
-	_wind_vec = _wind_system.wind_vec
-	for gn in _gpu_grass_nodes:
-		if is_instance_valid(gn):
-			gn.set("wind_vec", _wind_vec)
-	if _vol_sky:
-		var wlen: float = _wind_vec.length()
-		if wlen > 0.01:
-			_vol_sky.wind_direction = atan2(_wind_vec.y, _wind_vec.x)
-		# Cloud-level wind in real m/s (2026-06-11 static-cloud fix).
-		# wind_vec is a SHADER-units vector (typ. 0.2-0.6, max ~1.65 at the
-		# 300% override) — the old wlen*0.6 mapping drove ~2 m/s of world
-		# drift at 2 km altitude, imperceptible; the "motion" users saw was
-		# the detail-churn defect. Winds aloft exceed surface wind almost
-		# always: floor of 4 m/s at surface calm, ~14 m/s at default
-		# breeze, ~24 m/s with wind cranked (real cumulus: 5-15+ m/s).
-		_vol_sky.wind_speed = 4.0 + wlen * 12.0
-	_prof_wind_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_wind_us, PROF_SMOOTH)
+	# (Wind + cloud coupling moved to the top of _process — before the
+	# tour / walk-bot early returns.)
 
 	# Ambient audio + weather + season
 	_t0 = Time.get_ticks_usec()
@@ -981,6 +1017,9 @@ var _cli_grass_grid_mult: float = 1.0
 var _cli_grass_highlight: bool = false
 # --cloud-seed=N: reproducible cloud field for calibration captures (-1 = random)
 var _cli_cloud_seed: int = -1
+# --wind=strength / --wind-dir=deg: fixed wind for flow checks (-1/NAN = auto)
+var _cli_wind_override: float = -1.0
+var _cli_wind_dir_deg: float = NAN
 # --sky-cal=bg:sun:amb overrides (-1 = shipped defaults)
 var _cli_sky_bg: float = -1.0
 var _cli_sky_sun: float = -1.0
@@ -1641,7 +1680,7 @@ func _setup_environment() -> void:
 	if vol_sky:
 		vol_sky.cloud_coverage = 0.30
 		vol_sky.density = 0.04
-		vol_sky.wind_speed = 0.03
+		vol_sky.wind_speed = 4.0  # calm-floor m/s; per-frame coupling owns it
 		vol_sky.texture_size = 768
 		vol_sky.frames_to_update = 64
 		vol_sky.sun_disk_scale = 1.5
