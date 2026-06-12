@@ -415,23 +415,23 @@ SPECIES = {
         "branch_start": 0.22,          # Lower fork than cathedral_elm — ordinary elm
         "branch_end": 0.90,
         "branch_density": 1.3,
-        "branch_length_ratio": 0.62,   # LONG limbs — build the vase width into model
+        "branch_length_ratio": 0.62,   # Long limbs — build the vase width into model
                                        # (no runtime stretch; need aspect ~0.90-1.10)
         "branch_start_radius": 0.44,   # Fine-to-medium elm branchlets (fountain, not
                                        # heavy oak-style limbs)
-        "branch_angle_variation": 0.50, # Ascending fountain: upper limbs sweep up,
-                                        # lower arch out — the vase envelope
-        "branch_angle": 55,            # Wide vase spread
-        "branch_gravity": 5.0,         # Reduced gravity — limbs sweep UP then arch
-        "branch_stiffness": 0.18,
-        "branch_up_attraction": 0.50,  # Strong upward pull for ascending vase shape
+        "branch_angle_variation": 0.42, # Moderate vase variation
+        "branch_angle": 72,            # Very wide spreading angle for broad vase
+        "branch_gravity": 3.0,         # Minimal gravity — limbs spread outward wide
+        "branch_stiffness": 0.22,
+        "branch_up_attraction": 0.18,  # Very low upward pull — spreads wide
         "branch_split_prob": 0.55,
         "branch_split_angle": 40.0,
-        "branch_flatness": 0.40,       # Strong lateral spread → 2-ranked spray habit
+        "branch_flatness": 0.45,       # Strong lateral spread → 2-ranked spray habit
         "branch_break_chance": 0.02,
         "branch_resolution": 0.7,      # Size lever (keeps _l under ~100MB)
         "radial_pts": 16,              # Size lever — smooth trunk w/ smooth_iter=2
-        "sub_density": 0.6,            # Dense fine drooping spray (curtain); keep lean
+        "sub_density": 0.18,           # Lean sub-branch count — keeps _l under 100MB
+                                       # (curtain character from gravity/droop not count)
         "sub_length_ratio": 0.16,
         "sub_angle": 55,
         "sub_gravity": 14.0,           # Heavy droop — hanging spray curtain
@@ -457,7 +457,7 @@ SPECIES = {
         # 5 variants (moderate census); spans: fork height + crown spread (±~1SD).
         "variant_spans": {
             "branch_start": [0.18, 0.28],   # fork height: low ↔ moderate (below cathedral's 0.34)
-            "branch_angle": [50, 65],        # narrow young vase ↔ broad old fountain
+            "branch_angle": [62, 80],        # narrow young vase ↔ broad old fountain
         },
         "tiers": {
             "s": {"target_h": 12, "height_range": [8, 14], "skeleton_overrides": {
