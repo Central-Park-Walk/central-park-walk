@@ -89,3 +89,10 @@ for t in sys.argv[2:]:
           f"({'sign OK' if gr_mesh * gr_imp >= 0 else 'HUE FLIP'})")
     print(f"  DoD: mean<0.05 -> {'PASS' if d.mean() < 0.05 else 'FAIL (see backdrop caveat in header — inspect visually before acting)'}")
 EOF
+
+# Silhouette geometry fit (walk-around cpw_003: tier comes in shorter/
+# sparser than the impostor). Same captures, directional metrics.
+for t in "${TIMES[@]}"; do
+  python3 "$PROJECT_DIR/scripts/tier_fit_check.py" "$OUT" \
+    --a "impostor_$t" --b "mesh_$t" --plate "notrees_$t"
+done
