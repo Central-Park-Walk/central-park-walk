@@ -332,18 +332,27 @@ SPECIES = {
     "oak": {
         "name": "Pin Oak (Quercus palustris)",
         "crown_shape": "Spherical",
+        # Oak is EXCURRENT (opposite of the elm vase): a strong central leader
+        # carried HIGH into the crown, with branches in TIERS — lower droop, mid
+        # horizontal, upper ascend (BRIEF §1). The old trunk_randomness 0.8 made a
+        # wandering snake-trunk (skeleton re-baseline 2026-06-11); a real oak leader
+        # is stout and roughly straight.
         "trunk_frac": 0.18,        # Pin oak: very low first branches (USDA Silvics)
         "trunk_shape": 0.5,       # Radius falloff curve
-        "up_attraction": 0.5,
-        "trunk_randomness": 0.8,
-        "branch_start": 0.16,     # Matches low trunk_frac
+        "up_attraction": 0.6,     # carry the central leader high into the crown (excurrent)
+        "trunk_randomness": 0.35,  # stout straight-ish leader (was 0.8 — wandering spire)
+        "branch_start": 0.16,     # low persistent fork, but the leader continues THROUGH
         "branch_end": 0.95,
         "branch_density": 1.2,
-        "branch_length_ratio": 0.30,  # Pin oak: compact crown, 0.25-0.35 of height
+        "branch_length_ratio": 0.37,  # broad oval/rounded crown — aspect 0.6-0.8 (BRIEF §1);
+                                      # the red-oak group is broader than compact pin oak (0.30)
+        "branch_start_radius": 0.55,  # STOUT heavy oak limbs (data: stiff, stout — BRIEF §1)
+        "branch_angle_variation": 0.4,  # tiered droop->horizontal->ascend, gentle enough that
+                                        # the upper ascend doesn't pinch the crown narrow
         "branch_angle": 55,
         "branch_gravity": 8.0,
         "branch_stiffness": 0.2,
-        "branch_up_attraction": 0.4,
+        "branch_up_attraction": 0.28,  # let mid limbs spread horizontal (broad crown, was 0.4)
         "branch_split_prob": 0.55,
         "branch_split_angle": 40.0,
         "branch_flatness": 0.30,
@@ -367,10 +376,19 @@ SPECIES = {
         "leaf_seed": 881,
         "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.40, 0.70),
-        "leaf_density": 0.55,  # Pin oak LAI 3.0-4.5 → moderate, not dense
+        "leaf_density": 0.55,  # Pin oak LAI 3.0-4.5 → moderate (dappled, not dense like elm)
         "target_cluster_count_l": 680,
         "base_seed": 105,   # shifted from 100 to avoid Mtree mesher crash at _m tier
         "seed_step": 23,
+        # Highest-census species (~2.6k) → tiling is most visible; widen the seed
+        # envelope to 7 (free downstream, tree_model_redesign.md §4).
+        "n_variants": 7,
+        # Variants span the real oak form (±~1 SD): woodland gap-reach narrow ↔
+        # open-grown round, and weak ↔ strong central-leader prominence (BRIEF §7).
+        "variant_spans": {
+            "branch_angle": [45, 60],     # crown spread: narrow woodland ↔ round open-grown
+            "up_attraction": [0.45, 0.72],  # central-leader prominence
+        },
         "tiers": {
             "s": {"target_h": 10, "height_range": [8, 12], "skeleton_overrides": {
                 "branch_density": 0.7, "branch_split_prob": 0.30, "sub_density": 0.4}},
