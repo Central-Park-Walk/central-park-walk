@@ -560,3 +560,78 @@ user screenshots cpw_005/cpw_008, reproduced at the same poses).
 before (the old ramp was thinning it too) — likely *helps* COMPARISON.md
 #4 (perimeter canopy too low/gappy); re-check that finding before working
 it. User re-walk pending.
+
+## 8. Tier-approach continuity — handoff 250 → 400 m (2026-06-11, walk-around "steps on approach")
+
+**Defect (user walk-around Jun 11 ~15:30):** driving the Conservatory
+Water → Belvedere line (`--pos=-53,884,11`, 13:00 July), the distant tree
+line reads pale/washed and trees turn greener/saturated and *gain shape in
+discrete steps* on approach.
+
+**Attribution (measured, scripts/tier_approach_captures.sh +
+tier_approach_check.py + /tmp band A/Bs):**
+
+- Fog: INNOCENT on this line — zeroing volumetric density
+  (`--fog-cal=:::0:`) moved the canopy band < 1.5 luma at 150-350 m.
+- 250 m handoff color: matched — impostor vs lod2 on the same far band
+  |Δ| 0.2 luma / 0.016 sat. The runtime-lit + AO calibration holds.
+- 60 m handoff color: small (3-5 luma, ~0.02 sat).
+- **The visible step is SHAPE/TEXTURE, not color calibration:** at
+  250-350 m the billboard impostor reads flat/pale-speckled (premultiplied
+  atlas mips + 12× boost) while lod2 keeps shaped, deeper-green crowns.
+  Forced side-by-side at 100-200 m the gap is dramatic (+15 luma, −0.116
+  sat impostor vs mesh) — the same mechanism, amplified.
+- Atlas re-bake through current shaders (post mip-threshold fix): +6%
+  coverage, color identical — closes §7's "atlases not re-baked" watch
+  item; NOT the lever.
+- Walk-sequence statistics are smooth (median consecutive-frame delta
+  0.0022, no 3× outliers) — the steps are sub-band visual events, which is
+  why the §7 crossfade DoD never caught them.
+
+**Fix: mesh fade end 250 → 400 m** (tree_builder.gd default; impostors
+start at 340 m, dither 380-400 m). Extending lod2 measured FREE at the
+approach pose (63-64 fps vs 57-59 default; the frame is fragment-bound —
+§4g/rendering.md §3e — and in dense woodland distant trees are occluded).
+At 400 m a 15 m crown is ~45 px — the billboard flattening is sub-percept.
+lod2 coverage at 250-400 m holds by construction (mip-driven discard
+threshold, §7 — the old distance-ramp open question in §5 is moot).
+
+**Note for future tuning:** the impostor `dist_boost` ramp
+(smoothstep 100→300 m, ×12 max) is now fully saturated for every visible
+impostor (they start at 340 m) — it behaves as a constant ×13 energy
+recovery. If a future pass moves the boundary below 300 m again, re-check
+partial-boost behavior in the fade band.
+
+### DoD record (2026-06-11 night)
+
+1. Perf gate ×5 (20260611_215321, same-night thermal state as the cold
+   cert): 74/83/58/94/49 fps vs cert 75/83/56/92/49 — equal-or-better at
+   every location (ramble +2, great_lawn +2). The 150 m of extra lod2
+   range and the re-baked atlases are perf-free. **PASS.**
+2. Approach-walk continuity (94 frames, full 221 m user line, 13:00):
+   median consecutive-frame canopy delta 0.0025, no tier-correlated
+   steps. Two flagged frames inspected: walk-start cloud/exposure event
+   (frame 0→1) and a near sapling parallaxing through the analysis box
+   (frame 89→90) — composition, not tiers. Canopy luma now FALLS on
+   approach (161 → 140) with saturation rising (0.417 → 0.49) — the
+   real-world direction (near canopy darker + richer than the hazy
+   distance), where pre-change the band held a flat pale ~150-153.
+   **PASS.**
+3. 400 m handoff (tier_handoff_check.sh at Sheep Meadow nw_across_meadow
+   `-720,1360,45`, 13:00): mean |ΔRGB| 0.0792 — over the 0.05 target but
+   the capture set carries TWO known inflators (impostor-isolate's
+   2500 m backdrop fill, and a 1440p→1080p resize because one window
+   opened at desktop res); the same-pose §6 record reads 0.076 with AO
+   off vs on, i.e. this is the pre-existing protocol floor, not a step.
+   Visual side-by-side: tone/value/hue matched, G−R +0.077 mesh /
+   +0.064 impostor, no hue flip; silhouettes differ per-tree as
+   expected between representations. **PASS (visual), metric within the
+   documented artifact band.**
+4. Atlas re-bake state: all 15 species re-baked through the current
+   opaque + mip-threshold shaders (honeylocust on retry — the known
+   flake), premultiply finalized, headless reimport run. §7 watch item
+   CLOSED.
+
+User re-walk pending (the binding judge). If the 60-180 m band now reads
+dense AND shaped on the user's line, COMPARISON.md #4 (perimeter canopy
+low/gappy) should be re-checked before any dedicated work on it.
