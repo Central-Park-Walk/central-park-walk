@@ -782,6 +782,27 @@ func _process(delta: float) -> void:
 							break
 			print("[DIAG] hide-node %s: %d nodes hidden" % [str(_hide_node_substrings), hidden])
 
+	# Undergrowth + ground-cover chunk builders — MUST run BEFORE the tour /
+	# walk-bot early returns. These are queue-driven (chunks drain one-per-frame
+	# from update_camera), so the capture paths — which exist to photograph the
+	# world — were skipping every undergrowth/ground-cover update and producing
+	# screenshots with no forbs, ferns, spicebush, leaf litter, etc. (same trap
+	# as the wind tick above). During the tour SETTLE state and the walk-bot
+	# settle phase the per-frame ticks here let the nearby chunks build before
+	# the first capture. (2026-06-12)
+	var _t0: int  # profiling scratch (shared below)
+	_t0 = Time.get_ticks_usec()
+	if _player and _park_loader and _park_loader._undergrowth_builder:
+		_park_loader._undergrowth_builder.season_t = _season_t
+		_park_loader._undergrowth_builder.rain_wetness = _rain_wetness
+		_park_loader._undergrowth_builder.update_camera(_player.global_position)
+	_prof_undergrowth_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_undergrowth_us, PROF_SMOOTH)
+	_t0 = Time.get_ticks_usec()
+	if _player and _park_loader and _park_loader._ground_cover_builder:
+		_park_loader._ground_cover_builder.season_t = _season_t
+		_park_loader._ground_cover_builder.update_camera(_player.global_position)
+	_prof_ground_cover_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_ground_cover_us, PROF_SMOOTH)
+
 	# --- Tour mode state machine ---
 	if _tour_mode:
 		if _hud.canvas and _hud.canvas.visible:
@@ -907,8 +928,6 @@ func _process(delta: float) -> void:
 			if _hud.canvas:
 				_hud.canvas.visible = true  # restore HUD after capture
 				_set_labels_visible(true)
-	var _t0: int  # profiling scratch
-
 	# Update lamp lights every 0.5s
 	_t0 = Time.get_ticks_usec()
 	_lamp_light_timer += delta
@@ -934,20 +953,8 @@ func _process(delta: float) -> void:
 		RenderingServer.global_shader_parameter_set("season_t", _season_t)
 	_prof_weather_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_weather_us, PROF_SMOOTH)
 
-	# Undergrowth chunk builder
-	_t0 = Time.get_ticks_usec()
-	if _player and _park_loader and _park_loader._undergrowth_builder:
-		_park_loader._undergrowth_builder.season_t = _season_t
-		_park_loader._undergrowth_builder.rain_wetness = _rain_wetness
-		_park_loader._undergrowth_builder.update_camera(_player.global_position)
-	_prof_undergrowth_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_undergrowth_us, PROF_SMOOTH)
-
-	# Ground cover chunk builder
-	_t0 = Time.get_ticks_usec()
-	if _player and _park_loader and _park_loader._ground_cover_builder:
-		_park_loader._ground_cover_builder.season_t = _season_t
-		_park_loader._ground_cover_builder.update_camera(_player.global_position)
-	_prof_ground_cover_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_ground_cover_us, PROF_SMOOTH)
+	# (Undergrowth + ground-cover chunk builders moved to the top of _process —
+	# before the tour / walk-bot early returns, so capture modes get them.)
 
 	# Grass tour auto-teleport + screenshot
 	_grass_tour_process(delta)
