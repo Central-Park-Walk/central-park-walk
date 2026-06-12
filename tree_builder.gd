@@ -1383,10 +1383,19 @@ func _build_canopy_shells() -> void:
 		mmi.position = origin
 		mmi.name = "TreeImp_%s_%s" % [model_name, ck.get_slice("|", 0) + "_" + ck.get_slice("|", 1)]
 		# Impostors take over where the mesh fades out (fade-end − 20m).
-		# Chunk visibility begins 40m (half CHUNK) before the fade band so
-		# chunks whose origin is just inside it still render. Shader-side
-		# dither (lod_fade_in) handles the crossfade.
-		mmi.visibility_range_begin = 0.0 if _tier_isolate == "impostor" else maxf(_mesh_fade_end - 60.0, 0.0)
+		# Chunk visibility must begin far enough BEFORE the fade band that
+		# every member is covered: this chunk's actual instance spread from
+		# the centroid + pad, same exact per-chunk bound as the mesh tiers.
+		# The old fixed 40m margin under-covered skewed/diagonal chunks
+		# (80m cell half-diagonal is 57m): a member >40m past the centroid
+		# lost its impostor while its mesh was still dither-faded or fully
+		# discarded — trees vanished mid-handoff (walk-around cpw_002).
+		var imp_chunk_r := 0.0
+		for tf: Transform3D in xf_list:
+			imp_chunk_r = maxf(imp_chunk_r, (tf.origin - origin).length())
+		var imp_fade_begin: float = _mesh_fade_end - 20.0
+		mmi.visibility_range_begin = 0.0 if _tier_isolate == "impostor" \
+			else maxf(imp_fade_begin - imp_chunk_r - 5.0, 0.0)
 		mmi.visibility_range_end = 2500.0
 		mmi.visibility_range_begin_margin = 0.0
 		mmi.visibility_range_end_margin = 0.0
@@ -1404,5 +1413,5 @@ func _build_canopy_shells() -> void:
 		imp_instances += xf_list.size()
 		imp_chunks += 1
 
-	print("Trees Impostor: %d billboard impostors (%.0f-2500m) in %d chunks (%d species)" % [
-		impostor_count, maxf(_mesh_fade_end - 60.0, 0.0), chunks.size(), impostor_mats.size()])
+	print("Trees Impostor: %d billboard impostors (fade in %.0f-%.0fm, per-chunk cull) in %d chunks (%d species)" % [
+		impostor_count, _mesh_fade_end - 20.0, _mesh_fade_end, chunks.size(), impostor_mats.size()])
