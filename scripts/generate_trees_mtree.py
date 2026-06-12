@@ -1213,10 +1213,10 @@ SPECIES = {
         "leaf_tex_size": 1024,
         "leaf_seed": 663,
         "leaf_scale": 1.25,  # Magnolia ~14cm obovate
-        "leaf_cluster_size_range": (0.42, 0.88),
+        "leaf_cluster_size_range": (0.52, 1.00),  # Large clusters for big obovate leaves
         "leaf_flatten_range": (0.45, 0.65),
-        "leaf_density": 0.70,  # LAI 3.5-5 → moderate; thick waxy leaves
-        "target_cluster_count_l": 480,  # _s only; calibrated to moderate canopy
+        "leaf_density": 0.80,  # LAI 3.5-5 → moderate-dense; thick waxy leaves
+        "target_cluster_count_l": 700,   # _s tier gets 15% = 105 clusters (was 72)
         "base_seed": 500,
         "seed_step": 29,
         # 5-6 variants (high census, _s-only is cheap). Spans: crown width + lean.
