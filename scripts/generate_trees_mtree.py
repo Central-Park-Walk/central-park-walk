@@ -866,23 +866,30 @@ SPECIES = {
         "branch_start": 0.18,          # Matches low trunk_frac
         "branch_end": 0.90,
         "branch_density": 1.2,
-        "branch_length_ratio": 0.55,   # Very long scaffold branches (spread ratio ~1.0)
+        "branch_length_ratio": 0.62,   # Broad weeping dome — spread 12-18m vs H 9-15m,
+                                       # "often wider than tall" (canopy data §9) → aspect
+                                       # ~1.0-1.2; willow gets no runtime stretch so the
+                                       # width must live in the model.
+        "branch_start_radius": 0.45,   # stout scaffold limbs off a stout short trunk
+        "branch_angle_variation": 0.2, # mild: lower scaffolds spread, the weep is sub-driven
         "branch_angle": 50,
         "branch_gravity": 10.0,        # Scaffold branches arch and droop significantly
         "branch_stiffness": 0.4,
-        "branch_up_attraction": 0.5,
+        "branch_up_attraction": 0.5,   # rise, then arch out into the dome
         "branch_split_prob": 0.45,
         "branch_split_angle": 35.0,
         "branch_flatness": 0.20,
         "branch_break_chance": 0.01,
         "branch_resolution": 1.4,
         # Willow sub-branches: long, drooping curtains
-        "sub_density": 1.2,
-        "sub_length_ratio": 0.30,      # Long drooping strands
+        "sub_density": 1.6,            # MANY pendulous strands — the curtain is the species
+        "sub_length_ratio": 0.45,      # LONG drooping strands (was 0.30 — too short to read
+                                       # as curtains); length+density drive the visible weep
+                                       # since sub_gravity is capped (>30 crashes Mtree core)
         "sub_angle": 65,
-        "sub_gravity": 25.0,           # Strong droop (reduced from 200 — crashed Mtree core)
+        "sub_gravity": 26.0,           # Strong droop, just under the mesher crash cap (~30)
         "sub_stiffness": 0.05,
-        "sub_up_attraction": -0.4,     # Downward tendency (reduced from -0.8)
+        "sub_up_attraction": -0.45,    # Downward pull (−0.8 crashed Mtree; stay above it)
         "sub_split_prob": 0.05,
         "sub_split_angle": 20.0,
         "sub_flatness": 0.0,
@@ -896,17 +903,27 @@ SPECIES = {
         "leaf_cluster_size_range": (0.27, 0.60),
         "leaf_flatten_range": (0.55, 0.75),
         "leaf_density": 0.45,  # Willow LAI 2.5-3.5 → curtain, not solid mass
-        "target_cluster_count_l": 720,
+        # The weep is a curtain of MANY small clusters clothing the long drooping
+        # strands. Willow has no _l tier, so _m draws target_l×0.40 — bumped high so
+        # the strands read as dense vertical curtains, not bare wands with leaf blobs.
+        "target_cluster_count_l": 1400,
         "cards_per_cluster": 45,
-        "droop_factor": 0.3,
+        "droop_factor": 0.5,           # extra downshift on cluster placement along the strands
         "sub_min_height": 14,          # Sub-branches only on mature willows
         "base_seed": 50,
         "seed_step": 41,
+        # Willow's natural variation: dome breadth (open-grown wide ↔ tighter) and
+        # scaffold rise — within ~1 SD of the 12-18m-spread / 9-15m-tall population.
+        "n_variants": 5,
+        "variant_spans": {
+            "branch_length_ratio": [0.55, 0.68],  # tighter ↔ broad open-grown dome
+            "branch_angle": [44, 58],             # more upright ↔ more spreading scaffolds
+        },
         "tiers": {
             "s": {"target_h": 12, "height_range": [8, 14], "skeleton_overrides": {
-                "branch_density": 0.7, "branch_split_prob": 0.25, "sub_density": 0.3}},
+                "branch_density": 0.7, "branch_split_prob": 0.25, "sub_density": 0.5}},
             "m": {"target_h": 16, "height_range": [14, 20], "skeleton_overrides": {
-                "branch_density": 1.0, "branch_split_prob": 0.35, "sub_density": 0.8}},
+                "branch_density": 1.0, "branch_split_prob": 0.35, "sub_density": 1.2}},
         },
     },
 
