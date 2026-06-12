@@ -433,15 +433,37 @@ SPECIES = {
 
     "cathedral_elm": {
         "name": "Cathedral American Elm (Literary Walk)",
-        "crown_shape": "Spherical",
-        "trunk_frac": 0.16,            # Short trunk — fork low for vase shape
+        "crown_shape": "Spherical",    # round ~1:1 vase aspect (skeleton sweep 2026-06-11)
+        # HIGH vase: the Mall allée elms have a tall clean bole (~⅓ height) before
+        # the crown opens — you walk UNDER the ceiling (BRIEF §1; the old 0.14 fork
+        # made a low bush, the §2.1 distinctness defect). Skeleton sweep "thick_av"
+        # recipe: high fork + thick ascending limbs + Spherical crown = wide full vase.
+        "trunk_frac": 0.34,            # tall clean bole (was 0.16)
         "trunk_shape": 0.5,
         "up_attraction": 0.4,          # Less vertical pull — let branches spread
         "trunk_randomness": 0.4,
-        "branch_start": 0.14,          # Fork very low (typical mature elm)
+        "branch_start": 0.34,          # fork HIGH (was 0.14) — cathedral ceiling overhead
         "branch_end": 0.85,
-        "branch_density": 1.1,
-        "branch_length_ratio": 0.52,   # Longer main branches to reach across path
+        "branch_density": 1.0,         # DENSE — American elm is a fountain of MANY fine
+                                       # ascending branches (LAI 4.5-6, BRIEF §3), not a few
+                                       # heavy limbs. Branch count is a species trait, not a
+                                       # size knob (user 2026-06-11): GLB size comes from
+                                       # radial_pts + branch_resolution below, NOT fewer branches.
+        "branch_length_ratio": 0.56,   # crown aspect ~0.78 model → ~1.16 in-game w/ runtime
+                                       # ×1.5 — within the brief's 1:1–1.2:1 allée target
+        "branch_start_radius": 0.44,   # FINE elm branchlets (fountain), not thick oak limbs
+        "radial_pts": 16,              # 16-sided branches (vs global 24) — size lever, no
+                                       # architecture change; smooth_iter=2 keeps trunks round
+        "branch_resolution": 0.7,      # size lever (was 0.8), no architecture change
+        "branch_angle_variation": 0.6, # limbs sweep UP — the ascending fountain/vase
+        # Variants span the real population's FORM (±~1 SD): young narrow high-fork
+        # replants ↔ old wide low-fork vases (BRIEF §7; user: variants reflect the data).
+        "variant_spans": {
+            "branch_start": [0.28, 0.42],         # fork height across the allée's age mix
+            "branch_angle": [48, 62],             # crown spread: upright-narrow young ↔
+                                                  # wide-arching old (the dominant width lever)
+            "branch_length_ratio": [0.50, 0.62],  # limb reach (secondary structural variety)
+        },
         "branch_angle": 55,            # Wide vase angle (was 40) — 55° creates arch
         "branch_gravity": 6.0,         # Less gravity — branches sweep UP then out
         "branch_stiffness": 0.20,
@@ -450,7 +472,6 @@ SPECIES = {
         "branch_split_angle": 50.0,    # Wide secondary splits (was 45)
         "branch_flatness": 0.50,       # Strong lateral spread (was 0.35)
         "branch_break_chance": 0.01,
-        "branch_resolution": 0.8,
         "sub_density": 0.20,            # Canopy curtain (1.5→…→0.7→0.20, controls bark vert count — keeps GLB <100MB)
         "sub_length_ratio": 0.16,
         "sub_angle": 55,               # Sub-branches spread wide too
@@ -475,7 +496,7 @@ SPECIES = {
         "seed_step": 23,
         "tiers": {
             "m": {"target_h": 22, "height_range": [18, 26], "skeleton_overrides": {
-                "branch_density": 0.9, "branch_split_prob": 0.45, "sub_density": 0.12}},
+                "branch_density": 0.85, "branch_split_prob": 0.45, "sub_density": 0.12}},
             "l": {"target_h": 30, "height_range": [26, 35]},
         },
     },
@@ -1188,13 +1209,21 @@ def _build_mtree(sp, height, seed):
     br.length = m_tree.PropertyWrapper(
         m_tree.ConstantProperty(height * sp["branch_length_ratio"])
     )
-    br.start_radius = m_tree.PropertyWrapper(m_tree.ConstantProperty(0.4))
+    # Branch base radius RELATIVE TO PARENT (Mtree semantics). 0.4 = thin twigs
+    # off a dominant central spire (the "pole + twigs" defect); higher reads as
+    # major tapering limbs. Per-species via branch_start_radius (default 0.4).
+    br.start_radius = m_tree.PropertyWrapper(
+        m_tree.ConstantProperty(sp.get("branch_start_radius", 0.4)))
     br.randomness = m_tree.PropertyWrapper(m_tree.ConstantProperty(0.5))
     br.start_angle = m_tree.PropertyWrapper(
         m_tree.ConstantProperty(float(sp["branch_angle"]))
     )
     crown_name = CROWN_MAP.get(sp["crown_shape"], "Spherical")
     br.crown.shape = getattr(m_tree.CrownShape, crown_name)
+    # Height-based branch-angle envelope: positive = limbs sweep UP at the top,
+    # droop at the base (oak's tiered droop→horizontal→ascend; the elm vase's
+    # ascending limbs). Default 0 = uniform (legacy behaviour, no regression).
+    br.crown.angle_variation = sp.get("branch_angle_variation", 0.0)
 
     sub_min_h = sp.get("sub_min_height", 0)
     if sp["sub_density"] > 0 and height >= sub_min_h:
@@ -1213,7 +1242,8 @@ def _build_mtree(sp, height, seed):
         sub.length = m_tree.PropertyWrapper(
             m_tree.ConstantProperty(height * sp["sub_length_ratio"])
         )
-        sub.start_radius = m_tree.PropertyWrapper(m_tree.ConstantProperty(0.25))
+        sub.start_radius = m_tree.PropertyWrapper(
+            m_tree.ConstantProperty(sp.get("sub_start_radius", 0.25)))
         sub.randomness = m_tree.PropertyWrapper(m_tree.ConstantProperty(0.6))
         sub.start_angle = m_tree.PropertyWrapper(
             m_tree.ConstantProperty(float(sp["sub_angle"]))
@@ -1819,12 +1849,29 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
         if tier_overrides:
             sp_tier = {**sp, **tier_overrides}
 
+        # --- Per-variant DATA-SPANNING ---
+        # Variants must reflect the real population spread (user 2026-06-11:
+        # "models and variants should reflect the data, within ~1 SD of the
+        # mean"), not 5 near-identical seeds. Each param in `variant_spans`
+        # cycles its [lo,hi] range across the variants, offset per param so no
+        # single variant is uniformly extreme (a young narrow high-fork tree and
+        # an old wide low-fork tree both appear, decorrelated). Ranges are set in
+        # the SPECIES dict to ±~1 SD of the species' real form distribution.
+        # Default: no spans → legacy seed-only variation.
+        sp_variant = sp_tier
+        spans = sp.get("variant_spans")
+        if spans and n_variants > 1:
+            sp_variant = dict(sp_tier)
+            for pi, (pname, (lo, hi)) in enumerate(spans.items()):
+                t = ((vi + pi) % n_variants) / (n_variants - 1)
+                sp_variant[pname] = lo + (hi - lo) * t
+
         # --- Find a safe seed via fork-test, then generate ---
         seed = base_seed
         if not skip_fork_test:
             MAX_SEED_RETRIES = 8
             for attempt in range(MAX_SEED_RETRIES):
-                if _test_seed_safe(sp_tier, target_h, seed):
+                if _test_seed_safe(sp_variant, target_h, seed):
                     break
                 print(f"  v{vi} seed={seed} crashed Mtree mesher, retrying with seed={seed + 1}")
                 seed += 1
@@ -1834,7 +1881,7 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
 
         rng = random.Random(seed)
         t0 = time.time()
-        cpp_mesh = generate_tree_skeleton(sp_tier, target_h, seed)
+        cpp_mesh = generate_tree_skeleton(sp_variant, target_h, seed)
 
         mesh = bpy.data.meshes.new(f"{species_name}_{tier_name}_v{vi}")
         trunk_obj = bpy.data.objects.new(f"{species_name}_{tier_name}_v{vi}", mesh)
@@ -1846,7 +1893,7 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
         actual_h, actual_w = clean_nan_vertices(trunk_obj)
 
         # --- Place leaf cards ---
-        placements = extract_leaf_positions(trunk_obj, sp, target_h, rng, tier=tier_name)
+        placements = extract_leaf_positions(trunk_obj, sp_variant, target_h, rng, tier=tier_name)
 
         # --- Clean degenerate branch-tip geometry ---
         # Must run after leaf position extraction (uses Mtree vertex attributes)
