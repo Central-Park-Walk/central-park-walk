@@ -80,11 +80,13 @@ var sky_cal_override := Vector3(-1.0, -1.0, -1.0)
 # (physical clear-noon). Sky compensation verified: dark-cloud fraction
 # flat across the sweep (16.8%→15.6%); +10 sky median = background mie
 # term (physical sun-side haze). Full record: docs/grass.md §6.
-# 2026-06-12: trimmed 3.0 -> 2.6 with the almanac sun — June noon
+# 2026-06-12: trimmed 3.0 -> 2.3 with the almanac sun — June noon
 # elevation rose 55->73 deg (real), lifting flat-lawn NdotL ~17%; lawn
-# median measured 160/255 vs the 126-149 reference band, back to ~143
-# at 2.6 (turf_luminance_check.py, same hero pose/protocol).
-const SUN_CAL := 2.6
+# median measured 160/255 at 3.0 and 154 at 2.6 vs the 126-149
+# reference band (turf_luminance_check.py, same hero pose/protocol);
+# 2.3 lands ~149. Response is shallower than the direct:diffuse ratio
+# predicts (sheen + ambient share) — measure, don't extrapolate.
+const SUN_CAL := 2.3
 # --sun-cal=mult sets the exact multiplier (bypasses the day blend).
 var sun_cal_override := -1.0
 # Aerial-perspective / fog-veil calibration (rendering.md §6c,
