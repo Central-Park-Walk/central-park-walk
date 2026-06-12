@@ -1138,10 +1138,10 @@ SPECIES = {
         "branch_start": 0.28,
         "branch_end": 0.95,
         "branch_density": 0.8,         # Reduced from 1.2 (crashes mesher at large scale)
-        "branch_length_ratio": 0.30,   # Moderate reach; older trees broader (spans below)
+        "branch_length_ratio": 0.46,   # Reach for 0.5-0.7 aspect (BRIEF §1); spans widen further
         "branch_start_radius": 0.42,   # Stiff angular limbs (ginkgo branches are notable)
         "branch_angle_variation": 0.35,  # Irregular ascending → spreading with age
-        "branch_angle": 42,
+        "branch_angle": 44,            # Slightly wider base for spread; spans cover 36-52°
         "branch_gravity": 5.0,
         "branch_stiffness": 0.3,
         "branch_up_attraction": 0.5,
@@ -1184,8 +1184,8 @@ SPECIES = {
         # branch_length_ratio (shorter sparse young ↔ longer fuller old).
         "n_variants": 6,
         "variant_spans": {
-            "branch_angle": [36, 52],          # narrow ascending young ↔ wider spreading old
-            "branch_length_ratio": [0.24, 0.38],  # shorter young ↔ longer older crown
+            "branch_angle": [40, 58],          # narrow ascending young ↔ wider spreading old
+            "branch_length_ratio": [0.50, 0.72],  # shorter young ↔ longer older crown
         },
         "tiers": {
             "s": {"target_h": 10, "height_range": [8, 14], "skeleton_overrides": {
