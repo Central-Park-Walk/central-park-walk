@@ -158,8 +158,8 @@ const ZONE_SPECIES := {
 	# ground_cover_instances.bin — woodland undergrowth is placed via the
 	# canopy-gated WOODLAND_SPECIES fallback below, NOT through these entries.
 	# Goldenrod and aster are open-sun meadow forbs, so they live in the real
-	# open-meadow zones (2 North Meadow, 8 Wild Meadow), which is_meadow=true
-	# treats as sun-optimal in _ecology_density_mult.
+	# open-meadow zones (2 North Meadow, 8 Wild Meadow); _build_chunk runs them
+	# through the sun-optimal (open_meadow=true) branch of _ecology_density_mult.
 	2: [  # North Meadow — managed meadow with grass + forb margins
 		[23, 4.0],  # goldenrod (one-sided golden plumes, colonial patches)
 		[29, 3.0],  # aster (bushy mounds of purple daisies)
@@ -567,36 +567,33 @@ func _build_chunk(ck: String) -> void:
 	var cx: float = float(ck_p[0]) * CHUNK
 	var cz: float = float(ck_p[1]) * CHUNK
 
-	# Determine what species to place based on zone type
+	# Determine what species to place. Two independent, ADDITIVE layers — each
+	# entry is [species_index, density, require_canopy]:
+	#   1. Zone-assigned forbs from the ground-cover zoning (goldenrod/aster) —
+	#      sun-loving, no canopy requirement.
+	#   2. Woodland understory overlay (spicebush) — added wherever a chunk
+	#      falls inside a woodland Z-range, REGARDLESS of its ground-cover zone.
+	#      The per-instance canopy gate places it only under actual tree cover,
+	#      so it fills the real forest floor while staying out of the open
+	#      clearings/meadow that the coarse band also spans. This is why a chunk
+	#      the zoning mislabels — forested ground tagged OpenLawn (the Ramble &
+	#      Hallett bands, ~88%/93%) or NorthMeadow (43% of the North Woods band)
+	#      — still gets its understory instead of coming up bare or forb-only.
 	var zone_type: int = _zone_map.get(ck, -1)
-	var species_list: Array
-	var require_canopy := false  # if true, each instance must be under tree cover
-	# An *empty* ZONE_SPECIES entry (zone 9 OpenLawn, zone 7 Waterside) is "no
-	# assignment", NOT "suppress understory" — it must fall through to the
-	# woodland fallback below. Otherwise the Ramble & Hallett woodland bands,
-	# which the ground-cover zoning labels OpenLawn (~88%/93% of their cells),
-	# would short-circuit here and place nothing despite being dense forest.
-	if zone_type >= 0 and ZONE_SPECIES.has(zone_type) and not (ZONE_SPECIES[zone_type] as Array).is_empty():
-		species_list = ZONE_SPECIES[zone_type]
-	else:
-		# Check if this chunk is in a woodland foliage zone — override lawn
-		# classification for areas that are actually forest (ground_cover_instances
-		# doesn't distinguish woodland floor from maintained lawn)
-		var chunk_z: float = cz + CHUNK * 0.5
-		var in_woodland := false
-		for zr in WOODLAND_Z_RANGES:
-			if chunk_z >= zr[0] and chunk_z <= zr[1]:
-				in_woodland = true
-				break
-		if in_woodland:
-			# Woodland fallback: require canopy overhead so shrubs don't
-			# appear in open clearings that happen to be in the Z range
-			species_list = WOODLAND_SPECIES
-			require_canopy = true
-		elif zone_type < 0:
-			return  # No data and not woodland — skip
-		else:
-			return  # Mowed lawn, formal garden, etc. — no undergrowth
+	var species_list: Array = []
+	if zone_type >= 0 and ZONE_SPECIES.has(zone_type):
+		for e in ZONE_SPECIES[zone_type]:
+			species_list.append([e[0], e[1], false])
+
+	var chunk_z: float = cz + CHUNK * 0.5
+	for zr in WOODLAND_Z_RANGES:
+		if chunk_z >= zr[0] and chunk_z <= zr[1]:
+			for e in WOODLAND_SPECIES:
+				species_list.append([e[0], e[1], true])
+			break
+
+	if species_list.is_empty():
+		return  # No zone forbs and not woodland — nothing to place
 
 	# Distance-based density thinning
 	var chunk_center := Vector3(cx + CHUNK * 0.5, 0, cz + CHUNK * 0.5)
@@ -613,12 +610,15 @@ func _build_chunk(ck: String) -> void:
 	# Rain boosts mushroom density
 	var rain_boost: float = 1.0 + rain_wetness * 0.5
 
-	# Ecology-driven density modulation: sample chunk center to get a
-	# multiplier based on canopy cover, slope, moisture, and patch noise.
-	# Meadow zones (2 North Meadow, 8 Wild Meadow) host sun forbs — flip the
-	# canopy response so open sun is the optimum, not a penalty.
-	var is_meadow := zone_type == 2 or zone_type == 8
-	var eco_mult := _ecology_density_mult(cx + CHUNK * 0.5, cz + CHUNK * 0.5, is_meadow)
+	# Ecology-driven density modulation based on canopy cover, slope, moisture,
+	# and patch noise. Sampled at chunk centre for both responses: woodland
+	# understory (canopy-required) wants the shade-loving curve; the open-meadow
+	# forbs want full sun as the optimum. A single chunk can host both layers,
+	# so compute each once and pick per species below.
+	var ccx := cx + CHUNK * 0.5
+	var ccz := cz + CHUNK * 0.5
+	var eco_shade := _ecology_density_mult(ccx, ccz, false)
+	var eco_sun := _ecology_density_mult(ccx, ccz, true)
 
 	# Pre-allocate buffers per species
 	var bufs: Dictionary = {}
@@ -627,7 +627,8 @@ func _build_chunk(ck: String) -> void:
 
 	for sp_entry in species_list:
 		var sp_idx: int = sp_entry[0]
-		var density: float = sp_entry[1] * eco_mult
+		var entry_require_canopy: bool = sp_entry[2]
+		var density: float = sp_entry[1] * (eco_shade if entry_require_canopy else eco_sun)
 		var sp_name: String = SPECIES[sp_idx].name
 		if not _meshes.has(sp_name): continue
 
@@ -663,8 +664,8 @@ func _build_chunk(ck: String) -> void:
 			if _atlas_data[ai] != 1: continue
 			# Check occupancy — avoid trees, benches, etc.
 			if _atlas_data[ai + 1] != 0: continue
-			# Canopy check — woodland fallback requires tree cover overhead
-			if require_canopy and _canopy_at(bx, bz) < 30: continue
+			# Canopy check — the woodland overlay requires tree cover overhead
+			if entry_require_canopy and _canopy_at(bx, bz) < 30: continue
 			# Path proximity buffer (~1.5m = ~2.5 atlas cells at 0.6m/cell)
 			var near_path := false
 			for dxy in [[-2,0],[2,0],[0,-2],[0,2],[-2,-2],[2,2],[-2,2],[2,-2]]:
