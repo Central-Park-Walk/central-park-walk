@@ -475,6 +475,11 @@ Use the existing harness ([[feedback-right-tools]] — the tree program built it
 - **In-game placed capture at the species' real zone** (`--shots=x,z,yaw[,pitch[,hour]]`
   multi-pose bot; memory "Key test locations" + the wetland/meadow coords). The species
   must actually appear at a believable density — this is the re-enablement check.
+  (The chunk builders are queue-driven and drain one chunk/frame from `update_camera`;
+  the per-pose teleport gives the ~3 s `--shots` settle to build the nearby chunks. If a
+  far/dense stand reads thin, give it more settle or use `--walk` rather than concluding
+  the placement is sparse. Bot captures only render undergrowth as of 2026-06-12 — earlier
+  the `update_camera` ticks sat behind the tour/walk early-returns and were skipped.)
 - **Stand / thicket / colony capture** (the validation unit, method §4): a spicebush
   *thicket*, a cattail *colony wall*, a white-wood-aster *drift*, a little-bluestem
   *meadow matrix* — judged for overlapping/interlocking mass, not one instance.
