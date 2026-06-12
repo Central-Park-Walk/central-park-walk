@@ -938,6 +938,16 @@ def main(args=None) -> None:
             hm_mb = os.path.getsize("heightmap.bin") / 1e6
             print(f"  Saved → heightmap.bin  ({hm_mb:.1f} MB)")
 
+            # Sidecar copy of the RAW bare-earth DEM. heightmap.bin gets
+            # overwritten by rock restoration + mound flattening; the raw
+            # DEM is the stable reference both the restoration diff and
+            # scripts/lawn_mound_audit.py detection run against, so those
+            # passes stay idempotent across arbitrary re-runs.
+            import shutil as _shutil
+            os.makedirs("lidar_data", exist_ok=True)
+            _shutil.copyfile("heightmap.bin", os.path.join("lidar_data", "dem_raw.bin"))
+            print("  Saved → lidar_data/dem_raw.bin (raw DEM reference)")
+
             # Pre-bake 4K GPU texture (RG8 16-bit encoded heights)
             # Matches park_loader.gd _build_hm_gpu_texture() encoding exactly
             import numpy as np
@@ -2743,6 +2753,14 @@ def main(args=None) -> None:
         # Strategy: blend DSM back into DEM ONLY where moderate-height features
         # exist in natural (grass/rock) areas — never near buildings or outside park.
         rock_inputs = [LIDAR_DSM, LIDAR_DEM]
+        # Lawn mound verdicts (scripts/lawn_mound_audit.py) participate in
+        # the cache key: re-auditing re-triggers this stage.
+        MOUND_VERDICTS = os.path.join("lidar_data", "lawn_mound_verdicts.json")
+        if os.path.exists(MOUND_VERDICTS):
+            rock_inputs = rock_inputs + [MOUND_VERDICTS]
+        _mound_mask_path = os.path.join("lidar_data", "lawn_mound_mask.png")
+        if os.path.exists(_mound_mask_path):
+            rock_inputs = rock_inputs + [_mound_mask_path]
         rock_outputs = ["heightmap.bin", "heightmap_gpu.bin", "world_atlas.bin"]
         rock_cached = cache.is_current("rock_restore", rock_inputs, rock_outputs)
         if os.path.exists(LIDAR_DSM) and surface_arr is not None and not rock_cached:
@@ -2755,8 +2773,38 @@ def main(args=None) -> None:
                 dsm_arr = np.maximum(dsm_arr, 0.0)
                 del dsm_raw
 
-                # Height difference: features above bare earth
-                diff = dsm_arr - hm_arr
+                # Height difference vs the RAW bare-earth DEM. hm_arr mutates
+                # across runs (restoration blend + mound flattening), so
+                # diffing against it re-marked flattened artifact footprints
+                # as rock (their objects exist in the DSM too) and made the
+                # whole pass non-idempotent.
+                _dem_raw_path = os.path.join("lidar_data", "dem_raw.bin")
+                if os.path.exists(_dem_raw_path):
+                    dem_raw_arr = np.fromfile(_dem_raw_path, dtype=np.float32,
+                                              offset=16).reshape(GRID_H, GRID_W)
+                else:
+                    print("  WARNING: lidar_data/dem_raw.bin missing — diffing "
+                          "against current heightmap (rebuild terrain to fix)")
+                    dem_raw_arr = hm_arr
+                diff = dsm_arr - dem_raw_arr
+
+                # Sidecar for scripts/lawn_mound_audit.py: the audit
+                # validates restoration candidates against aerial imagery
+                # (DSM contamination in open lawn — e.g. the twin 3 m
+                # "outcrops" on the Great Lawn, cpw_002 — passes every
+                # geometric filter; only imagery rules it out). The audit
+                # has no GDAL, so hand it the finished diff.
+                _dsm_diff_path = os.path.join("lidar_data", "dsm_diff.bin")
+                if not os.path.exists(_dsm_diff_path):
+                    with open(_dsm_diff_path, "wb") as fh:
+                        fh.write(struct.pack("<II", GRID_W, GRID_H))
+                        fh.write(struct.pack("<ff", WORLD_SIZE, 0.0))
+                        fh.write(diff.astype(np.float32).tobytes())
+                    print("  Saved → lidar_data/dsm_diff.bin (audit sidecar)")
+
+                # Type-7 is DERIVED state — reset and re-mark every run so
+                # stale marks never accumulate in world_atlas.bin.
+                surface_arr[surface_arr == 7] = 1
 
                 # Rock candidate mask: moderate-height features in natural areas.
                 # The DSM has tree canopy masked, so non-building elevated features
@@ -2773,6 +2821,35 @@ def main(args=None) -> None:
                     ~building_buffer                  # not near buildings/bridges
                 )
                 del natural_mask, building_buffer
+
+                # Exclude audited artifact-mound footprints (lawn_mound_audit
+                # verdicts, loaded below). Their objects often exist in the
+                # DSM too (construction heaps, monuments): once the mound is
+                # flattened out of the DEM, diff would exceed 0.2 m here and
+                # the restoration would re-raise the artifact as "rock" on
+                # the next run.
+                _mound_mask_p = os.path.join("lidar_data", "lawn_mound_mask.png")
+                verdict_data = None
+                mound_label_arr = None
+                if os.path.exists(MOUND_VERDICTS) and os.path.exists(_mound_mask_p):
+                    from PIL import Image as _Image
+                    with open(MOUND_VERDICTS) as vf:
+                        verdict_data = json.load(vf)
+                    mound_label_arr = np.asarray(_Image.open(_mound_mask_p),
+                                                 dtype=np.uint16)
+                    if mound_label_arr.shape != hm_arr.shape:
+                        print(f"  Lawn mound mask is {mound_label_arr.shape}, "
+                              f"expected {hm_arr.shape} — ignoring")
+                        verdict_data = None
+                        mound_label_arr = None
+                if verdict_data is not None:
+                    artifact_ids = [m["label_id"] for m in verdict_data.get("mounds", [])
+                                    if m.get("verdict") == "artifact" and m.get("label_id")]
+                    if artifact_ids:
+                        artifact_excl = binary_dilation(
+                            np.isin(mound_label_arr, artifact_ids), iterations=8)
+                        rock_candidates &= ~artifact_excl
+                        del artifact_excl
 
                 if rock_candidates.any():
                     # Aggressive morphological opening removes isolated noise
@@ -2831,6 +2908,75 @@ def main(args=None) -> None:
                     print("  No rock candidates found in natural areas")
 
                 del dsm_arr, diff, rock_candidates
+
+                # --- Lawn mound artifact handling (walk-around 2026-06-12
+                # cpw_000/cpw_002: "green mounds") ---
+                # scripts/lawn_mound_audit.py finds smooth bare-earth DEM
+                # domes inside open lawn (no atlas marking) and classifies
+                # each against NYC aerial imagery at its lat/lon:
+                #   "artifact" — imagery shows flat mowed lawn: LiDAR
+                #                ground-return contamination. Flatten to a
+                #                plane fitted on the dome's boundary ring
+                #                (a morphological opening CANNOT remove
+                #                domes wider than its disk — first attempt
+                #                left 108/151 domes standing).
+                #   "rock"     — imagery shows gray schist: a real outcrop
+                #                the DSM restoration missed. Mark type 7 so
+                #                the control bake textures it as rock.
+                #   "review"   — ambiguous; left untouched.
+                if verdict_data is not None:
+                    from scipy.ndimage import binary_dilation as _bdil
+                    n_flat = n_rock = n_skip = 0
+                    for mound in verdict_data.get("mounds", []):
+                        verdict = mound.get("verdict", "review")
+                        lid = mound.get("label_id")
+                        if verdict not in ("artifact", "rock") or not lid:
+                            continue
+                        cell_m = WORLD_SIZE / GRID_W
+                        mcx = int((mound["x"] + WORLD_SIZE / 2.0) / cell_m)
+                        mcz = int((mound["z"] + WORLD_SIZE / 2.0) / cell_m)
+                        # Window = mound bbox + working margin
+                        r_px = max(int(round(((mound["area_m2"] / math.pi) ** 0.5
+                                              + 25.0) / cell_m)), 24)
+                        z0 = max(mcz - r_px, 0); z1 = min(mcz + r_px, GRID_H)
+                        x0 = max(mcx - r_px, 0); x1 = min(mcx + r_px, GRID_W)
+                        fp = mound_label_arr[z0:z1, x0:x1] == lid
+                        if not fp.any():
+                            n_skip += 1
+                            continue
+                        win = hm_arr[z0:z1, x0:x1]
+                        # Footprint + margin; plane fit on the clean ring
+                        # just outside it (exact footprint, no circular
+                        # approximation — elongated blobs poisoned the
+                        # ring in the previous approach).
+                        core = _bdil(fp, iterations=6)
+                        ring = _bdil(core, iterations=8) & ~core
+                        if ring.sum() < 30:
+                            n_skip += 1
+                            continue
+                        wy, wx = np.mgrid[0:win.shape[0], 0:win.shape[1]]
+                        A = np.column_stack([wx[ring], wy[ring],
+                                             np.ones(int(ring.sum()))])
+                        coef = np.linalg.lstsq(A, win[ring], rcond=None)[0]
+                        keep = np.abs(win[ring] - A @ coef) < 0.5
+                        if keep.sum() >= 30:
+                            coef = np.linalg.lstsq(A[keep], win[ring][keep],
+                                                   rcond=None)[0]
+                        base = coef[0] * wx + coef[1] * wy + coef[2]
+                        if verdict == "artifact":
+                            target = np.minimum(win, base)  # never raise
+                            weight = np.clip(gaussian_filter(
+                                core.astype(np.float32), sigma=3.0), 0.0, 1.0)
+                            hm_arr[z0:z1, x0:x1] = \
+                                win * (1.0 - weight) + target * weight
+                            n_flat += 1
+                        else:  # rock — real outcrop the DSM pass missed
+                            surface_arr[z0:z1, x0:x1][
+                                fp & ((win - base) > 0.2)] = 7
+                            n_rock += 1
+                    print(f"  Lawn mound verdicts: {n_flat} artifact domes "
+                          f"flattened, {n_rock} marked as rock outcrop, "
+                          f"{n_skip} skipped")
 
                 # Re-write heightmap.bin with rock-restored values
                 flat = hm_arr.flatten()
