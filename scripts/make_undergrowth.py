@@ -702,7 +702,7 @@ def _scatter_cluster_cards(bm, positions, card_size, uv_layer, col_layer, rng,
 
 def _make_branch(bm, origin, direction, length, r_start, n_segs, zigzag_amt,
                  stem_color_base, stem_color_tip, uv_layer, col_layer, rng,
-                 depth=0, max_depth=3, cluster_list=None):
+                 arch=0.0, depth=0, max_depth=3, cluster_list=None):
     """Recursively build a branch with natural zigzag, taper, and child branches.
 
     Each branch node is a potential foliage attachment point. Child branches
@@ -743,6 +743,10 @@ def _make_branch(bm, origin, direction, length, r_start, n_segs, zigzag_amt,
     phase2 = rng.uniform(0, math.tau)
     phase3 = rng.uniform(0, math.tau)
 
+    # Horizontal heading of this branch — the azimuth the arch bends outward along.
+    az = Vector((direction.x, direction.y, 0.0))
+    az = az.normalized() if az.length > 1e-4 else Vector((1.0, 0.0, 0.0))
+
     seg_len = length / n_fine
     pos = origin.copy()
 
@@ -759,26 +763,46 @@ def _make_branch(bm, origin, direction, length, r_start, n_segs, zigzag_amt,
               math.sin(t * 5.5 * math.pi + phase3 + 2.0) * 0.30 +
               math.sin(t * 8.8 * math.pi + phase1 + 0.5) * 0.20) * zigzag_amt * 0.8
 
-        # Phototropism: gentle upward + outward bend
-        up_bias = 0.04 * seg_len
-        if depth == 0:
-            outward = 0.02 * t  # main stems lean outward more toward top
-
         displacement = perp1 * d1 + perp2 * d2
 
         if i == 0:
             pts.append(origin.copy())
+            continue
+
+        if arch > 0.0 and depth == 0:
+            # GRAVITY ARCH (Lindera mounding cascade): the cane rises ~straight,
+            # then in its UPPER portion bends outward and gently over — a fountain
+            # cane. All canes together make a rounded DOME that flows over itself,
+            # NOT a straight outward V/vase nor a flat pancake. The bend is held
+            # off until ~30% height (smoothstep) so the dome stays tall.
+            bt = max(0.0, (t - 0.35) / 0.65)
+            bend = 0.75 * bt * bt * (3.0 - 2.0 * bt)     # ease-in, capped <1 so tips
+            #                                              keep rising → rounded dome top
+            tip = az * (0.50 + 0.30 * arch) + Vector((0.0, 0.0, -0.12 * arch))
+            tip = tip.normalized() if tip.length > 1e-4 else az
+            fwd = Vector((0.0, 0.0, 1.0)) * (1.0 - bend) + tip * bend
+            fwd = fwd.normalized() if fwd.length > 1e-4 else Vector((0.0, 0.0, 1.0))
+            new_pos = pts[-1] + fwd * seg_len + displacement * seg_len
+        elif arch > 0.0 and depth >= 1:
+            # Secondary/tertiary growth droops and layers over the mound — the
+            # "flows over itself" habit. Blend the spawn direction toward straight
+            # down as the twig extends.
+            dt = t
+            fwd = current_dir * (1.0 - 0.75 * arch * dt) + Vector((0.0, 0.0, -1.0)) * (0.95 * arch * dt)
+            fwd = fwd.normalized() if fwd.length > 1e-4 else current_dir
+            new_pos = pts[-1] + fwd * seg_len + displacement * seg_len
         else:
-            # Direction: base direction + gradual outward lean for main stems
+            # Original phototropic behavior (non-arch shrubs): upward + outward bend.
+            up_bias = 0.04 * seg_len
             fwd = current_dir.copy()
-            if depth == 0 and i > 0:
+            if depth == 0:
                 horizontal = Vector((pos.x, pos.y, 0))
                 if horizontal.length > 0.01:
-                    fwd = (fwd + horizontal.normalized() * outward).normalized()
-
+                    fwd = (fwd + horizontal.normalized() * (0.02 * t)).normalized()
             new_pos = pts[-1] + fwd * seg_len + displacement * seg_len + Vector((0, 0, up_bias))
-            pts.append(new_pos)
-            pos = new_pos
+
+        pts.append(new_pos)
+        pos = new_pos
 
     n_segs_smooth = len(pts) - 1
 
@@ -789,16 +813,18 @@ def _make_branch(bm, origin, direction, length, r_start, n_segs, zigzag_amt,
               stem_color_base, stem_color_tip, uv_layer=uv_layer, col_layer=col_layer,
               uv_y_start=0.0, uv_y_end=0.5)
 
-    # Foliage clusters at upper portions and tip — sample along smooth curve
-    n_foliage_samples = max(4, n_segs)  # sample at coarse-node density
+    # Foliage clusters along the branch — sample at TWICE node density and start
+    # lower so the dense leafy SHELL of the mound fills in (the reference shrubs
+    # read as a solid rounded mass, not bunched mid-stem with straggly tips).
+    n_foliage_samples = max(6, n_segs * 2)
     for i in range(n_foliage_samples + 1):
         t = i / n_foliage_samples
-        # Main stems bare in lower portion (real spicebush: foliage starts ~40-50%)
-        min_foliage_t = [0.42, 0.20, 0.0, 0.0][min(depth, 3)]
+        # Foliage covers most of each cane (only the very base is bare wood).
+        min_foliage_t = [0.28, 0.10, 0.0, 0.0][min(depth, 3)]
         if t >= min_foliage_t:
             # Map to smooth pts index
             pi = min(int(t * n_segs_smooth), n_segs_smooth)
-            cluster_r = 0.20 + (0.15 * t) + rng.uniform(0, 0.08)
+            cluster_r = 0.26 + (0.16 * t) + rng.uniform(0, 0.08)
             cluster_r *= [1.0, 0.85, 0.7, 0.55][min(depth, 3)]
             if pi < n_segs_smooth:
                 br_dir = (pts[pi + 1] - pts[pi]).normalized()
@@ -823,8 +849,11 @@ def _make_branch(bm, origin, direction, length, r_start, n_segs, zigzag_amt,
             else:
                 side = parent_dir.cross(Vector((1, 0, 0))).normalized()
             up = side.cross(parent_dir).normalized()
+            # With arch, children start more horizontal (less upward bias) so the
+            # gravity droop in the recursion carries them out and over the mound.
+            up_z = 0.2 * (1.0 - 0.8 * arch)
             child_dir = (parent_dir * 0.4 + side * ca * 0.5 + up * sa * 0.3
-                        + Vector((0, 0, 0.2))).normalized()
+                        + Vector((0, 0, up_z))).normalized()
 
             child_len = length * rng.uniform(0.3, 0.55)
             child_r = r_start * node_t * rng.uniform(0.3, 0.5)
@@ -834,7 +863,7 @@ def _make_branch(bm, origin, direction, length, r_start, n_segs, zigzag_amt,
             _make_branch(bm, node_pos, child_dir, child_len, child_r,
                         child_segs, child_zigzag,
                         stem_color_base, stem_color_tip,
-                        uv_layer, col_layer, rng,
+                        uv_layer, col_layer, rng, arch=arch,
                         depth=depth + 1, max_depth=max_depth,
                         cluster_list=cluster_list)
 
@@ -892,34 +921,38 @@ def make_spicebush(seed=101):
                   root_color, root_color, uv_layer=uv, col_layer=co)
 
     # --- Main stems ---
-    # Real spicebush: 5-8 stems emerging from a wide root crown, leaning
-    # strongly outward to form a vase shape wider than tall. Lower stems
-    # are bare — foliage concentrated in upper half.
-    # Ref: Lindera benzoin_webbc0078__03548.jpg
+    # Real spicebush: 5-8 stems from a root crown that RISE then ARCH outward and
+    # over — primary stems bend under their own weight and secondary growth droops
+    # and layers, so the shrub flows over itself into a rounded MOUND (NOT a
+    # straight-stemmed V/vase — that was the §1 rule-not-reference failure).
+    # The arch (not the initial lean) makes the width; lower stems read as bare
+    # arching canes, foliage cascades over the dome.  Ref: iNat Lindera benzoin.
     n_stems = rng.randint(5, 8)
     all_clusters = []
 
     for s in range(n_stems):
-        # Stems emerge from the collar perimeter, widely spaced
-        stem_angle = (s / n_stems) * math.tau + rng.uniform(-0.25, 0.25)
-        # Strong outward lean — creates the wide vase/umbrella shape
-        lean = rng.uniform(0.35, 0.65)
+        # Stems emerge near the collar, fairly upright — the arch supplies spread.
+        stem_angle = (s / n_stems) * math.tau + rng.uniform(-0.30, 0.30)
+        # Gentle initial lean only; the gravity arch does the outward sweep.
+        lean = rng.uniform(0.08, 0.22)
         ca, sa = math.cos(stem_angle), math.sin(stem_angle)
 
-        # Origins spread 10-15cm from center (not 3cm) — matches wide root crown
-        spread = rng.uniform(0.10, 0.15)
+        spread = rng.uniform(0.06, 0.12)
         stem_origin = Vector((ca * spread, sa * spread, -0.08))
         stem_dir = Vector((ca * lean, sa * lean, 1.0)).normalized()
 
-        stem_height = rng.uniform(2.2, 3.2)
+        # Canes arch over, so the mound apex lands below the cane length and the
+        # tips droop. Tuned for a ~2.5-3m-tall, ~3-3.5m-wide rounded mound.
+        stem_height = rng.uniform(2.5, 3.2)
         stem_r = rng.uniform(0.022, 0.035)
 
-        # max_depth=3 for finer twig structure — real spicebush has intricate
-        # branching that creates the dense foliage cloud
+        # arch>0 turns on the gravity-bend (rise → out → over) + drooping
+        # secondaries.  max_depth=3 keeps the intricate twig/foliage cloud.
         _make_branch(bm, stem_origin, stem_dir, stem_height, stem_r,
                     n_segs=5, zigzag_amt=0.18,
                     stem_color_base=bark_base, stem_color_tip=bark_tip,
                     uv_layer=uv, col_layer=co, rng=rng,
+                    arch=rng.uniform(0.60, 0.85),
                     depth=0, max_depth=3, cluster_list=all_clusters)
 
     # --- Scatter leaf clusters at all branch-attached positions ---
@@ -928,9 +961,11 @@ def make_spicebush(seed=101):
 
     # 20 cards/cluster at 0.20m — smaller cards break up blobby silhouette,
     # higher density fills the volume without individual quads being visible.
-    _scatter_cluster_cards(bm, cluster_positions, card_size=0.20,
+    # Bigger cards, fewer per cluster (cluster COUNT roughly doubled above) →
+    # a continuous leafy shell over the mound without ballooning face count.
+    _scatter_cluster_cards(bm, cluster_positions, card_size=0.24,
                           uv_layer=uv, col_layer=co, rng=rng,
-                          n_cards_per_cluster=20, flatten=0.65,
+                          n_cards_per_cluster=13, flatten=0.70,
                           leaf_color=leaf_color)
 
     return bm
@@ -2465,6 +2500,165 @@ def make_black_eyed_susan():
     return bm
 
 
+def make_goldenrod(seed=2301):
+    """Goldenrod (Solidago canadensis/altissima) — 0.8-1.2m.
+    Densely-leafy erect stem topped by a one-sided (SECUND) arching golden
+    plume — pyramidal, nodding to one side like a golden fountain. Colonial
+    autumn meadow perennial; the secund plume is the identity. ~750 faces.
+    See notes/refs/veg/goldenrod/BRIEF.md."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    co = bm.loops.layers.color.new("Col")
+    rng = random.Random(seed)
+
+    H = rng.uniform(0.85, 1.15)
+    lean_dir = rng.uniform(0.0, math.tau)            # the side the plume arches to
+    ldx, ldy = math.cos(lean_dir), math.sin(lean_dir)
+    stem_lo = (0.20, 0.30, 0.12)
+    stem_hi = (0.30, 0.34, 0.16)
+    leaf_lo = (0.18, 0.36, 0.10)
+    leaf_hi = (0.26, 0.42, 0.14)
+
+    # --- densely-leafy erect stem, accumulating a gentle lean toward the plume side
+    n_seg = 9
+    pts = []
+    for i in range(n_seg):
+        t = i / (n_seg - 1)
+        bend = (t ** 1.6) * 0.06
+        pts.append(Vector((ldx * bend + rng.uniform(-0.008, 0.008),
+                           ldy * bend + rng.uniform(-0.008, 0.008),
+                           H * t)))
+    make_tube(bm, pts, 0.010, 0.004, 5, stem_lo, stem_hi, uv, co)
+
+    # --- lanceolate leaves the WHOLE length (no bare zone), smaller upward
+    n_nodes = 11
+    for li in range(n_nodes):
+        t = (li + 0.5) / n_nodes
+        bend = (t ** 1.6) * 0.06
+        base = Vector((ldx * bend, ldy * bend, H * t))
+        side = -1 if li % 2 == 0 else 1
+        la = lean_dir + math.pi * 0.5 * side + rng.uniform(-0.3, 0.3)
+        leaf_len = (0.13 - t * 0.075) * rng.uniform(0.85, 1.15)   # narrow, grass-like
+        off = leaf_len * 0.4
+        lc = base + Vector((math.cos(la) * off, math.sin(la) * off, leaf_len * 0.12))
+        lcol = _lerp_color(leaf_lo, leaf_hi, rng.random())[:3]
+        make_leaf_card(bm, lc, leaf_len * 0.22, leaf_len, la,
+                       rng.uniform(-0.2, 0.1), lcol, 0.5, uv, co)
+
+    # --- one-sided arching golden plume: spine arches to lean side & nods over,
+    #     branchlets longer at the base (pyramidal), each massed with tiny heads
+    gold_lo = (0.84, 0.72, 0.10)
+    gold_hi = (0.93, 0.83, 0.22)
+    pz0 = H * 0.70
+    plume_h = H * 0.34
+    n_spine = 7
+    spine = []
+    for i in range(n_spine):
+        t = i / (n_spine - 1)
+        arch = math.sin(t * 1.35) * 0.22                 # lateral reach (the secund curve)
+        rise = plume_h * (t - 0.12 * t * t)              # rises, tip noses over
+        spine.append(Vector((ldx * arch, ldy * arch, pz0 + rise)))
+    for i in range(n_spine):
+        t = i / (n_spine - 1)
+        sp = spine[i]
+        branch_len = (1.0 - t) * 0.16 + 0.02             # long low → short at tip
+        n_br = max(2, int(5 * (1.0 - t)) + 1)
+        for _ in range(n_br):
+            # spread biased to the lean side keeps the plume one-sided
+            ba = lean_dir + rng.uniform(-1.0, 1.0)
+            bl = branch_len * rng.uniform(0.7, 1.1)
+            tip = sp + Vector((math.cos(ba) * bl, math.sin(ba) * bl, -bl * 0.35 + 0.02))
+            for f in range(4):
+                ft = (f + 0.5) / 4
+                fcp = sp.lerp(tip, ft) + Vector((rng.uniform(-0.012, 0.012),
+                                                 rng.uniform(-0.012, 0.012),
+                                                 rng.uniform(-0.006, 0.006)))
+                gcol = _lerp_color(gold_lo, gold_hi, rng.random())[:3]
+                make_leaf_card(bm, fcp, 0.018, 0.024,
+                               ba + rng.uniform(-0.3, 0.3),
+                               rng.uniform(-0.2, 0.3), gcol, 0.9, uv, co)
+
+    return bm
+
+
+def _aster_daisy(bm, center, radius, ray_col, n_rays, uv_layer, col_layer, rng):
+    """A small composite daisy: yellow disc center + ring of ray petals."""
+    make_leaf_card(bm, center + Vector((0, 0, 0.002)),
+                   radius * 0.5, radius * 0.5, rng.uniform(0, math.tau), 0.0,
+                   (0.92, 0.78, 0.12), 0.95, uv_layer, col_layer)   # yellow eye
+    for p in range(n_rays):
+        pa = (p / n_rays) * math.tau + rng.uniform(-0.1, 0.1)
+        pv = center + Vector((math.cos(pa) * radius * 0.55,
+                              math.sin(pa) * radius * 0.55, -0.002))
+        make_leaf_card(bm, pv, radius * 0.42, radius * 1.05, pa, -0.25,
+                       ray_col, 0.92, uv_layer, col_layer)
+
+
+def make_aster(seed=2901):
+    """Aster (Symphyotrichum spp. — New England / smooth) — 0.8-1.2m.
+    Bushy, much-branched rounded mound smothered in masses of small
+    purple/violet daisies with yellow centers in fall — a dense mounded
+    bush of color (NOT the low white woodland carpet of white wood aster).
+    ~1700 faces. See notes/refs/veg/aster/BRIEF.md."""
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    co = bm.loops.layers.color.new("Col")
+    rng = random.Random(seed)
+
+    H = rng.uniform(0.85, 1.15)
+    mound_r = H * 0.36                                # aspect ~0.7:1 (W ≈ 0.72·H)
+    if rng.random() < 0.2:
+        ray_col = (0.92, 0.93, 0.95)                  # occasional white form
+    else:
+        ray_col = (rng.uniform(0.52, 0.64), rng.uniform(0.34, 0.44),
+                   rng.uniform(0.66, 0.78))           # purple/violet, per-plant jitter
+    stem_lo = (0.22, 0.28, 0.13)
+    stem_hi = (0.28, 0.32, 0.16)
+
+    # --- several leafy stems leaning outward → a bushy rounded mound
+    n_stems = rng.randint(3, 4)
+    for si in range(n_stems):
+        ang = si * math.tau / n_stems + rng.uniform(-0.3, 0.3)
+        lean = mound_r * rng.uniform(0.6, 1.0)
+        n_seg = 7
+        pts = []
+        for i in range(n_seg):
+            t = i / (n_seg - 1)
+            r = lean * (t ** 1.3)
+            pts.append(Vector((math.cos(ang) * r + rng.uniform(-0.01, 0.01),
+                               math.sin(ang) * r + rng.uniform(-0.01, 0.01),
+                               H * t * rng.uniform(0.92, 1.0))))
+        make_tube(bm, pts, 0.008, 0.003, 5, stem_lo, stem_hi, uv, co)
+        # narrow lanceolate leaves, leafy along each branched stem
+        for li in range(5):
+            t = (li + 1) / 6
+            base = pts[min(li + 1, n_seg - 1)]
+            for side in (-1, 1):
+                if rng.random() < 0.7:
+                    la = ang + side * 1.2 + rng.uniform(-0.3, 0.3)
+                    ll = (0.07 - t * 0.03) * rng.uniform(0.8, 1.2)
+                    lc = base + Vector((math.cos(la) * ll * 0.4,
+                                        math.sin(la) * ll * 0.4, 0.0))
+                    make_leaf_card(bm, lc, ll * 0.28, ll, la,
+                                   rng.uniform(-0.1, 0.2),
+                                   (0.20, 0.36, 0.12), 0.5, uv, co)
+
+    # --- daisies smothering the upper-outer mound surface (the unmistakable read)
+    n_daisies = rng.randint(18, 24)
+    cz = H * 0.62                                     # mound center height
+    for _ in range(n_daisies):
+        phi = rng.uniform(0, math.tau)
+        elev = 0.15 + 0.85 * rng.random()            # up the mound
+        zz = cz + (H - cz) * elev + rng.uniform(-0.03, 0.03)
+        rr = mound_r * math.sqrt(max(0.0, 1.0 - (elev - 0.5) ** 2 * 1.6)) \
+            * rng.uniform(0.7, 1.05)                  # rounded-mound radius
+        center = Vector((math.cos(phi) * rr, math.sin(phi) * rr, zz))
+        _aster_daisy(bm, center, rng.uniform(0.018, 0.028),
+                     ray_col, rng.randint(6, 8), uv, co, rng)
+
+    return bm
+
+
 # ==========================================================================
 # Build all species
 # ==========================================================================
@@ -2513,19 +2707,37 @@ SPECIES = [
     (make_tussock_sedge,       "Grass_TussockSedge"),
     (make_pa_sedge,            "Grass_PASedge"),
     (make_black_eyed_susan,    "Herb_BlackeyedSusan"),
+    # Meadow fall-color forbs — colonial, 3 variants each (v=3 in the runtime
+    # SPECIES array) for anti-tiling in the dense patches they form.
+    (lambda: make_goldenrod(seed=2301), "Flower_Goldenrod_0"),
+    (lambda: make_goldenrod(seed=2302), "Flower_Goldenrod_1"),
+    (lambda: make_goldenrod(seed=2303), "Flower_Goldenrod_2"),
+    (lambda: make_aster(seed=2901),     "Flower_Aster_0"),
+    (lambda: make_aster(seed=2902),     "Flower_Aster_1"),
+    (lambda: make_aster(seed=2903),     "Flower_Aster_2"),
 ]
 
 if __name__ == "__main__":
+    import sys
+    # Optional name filter after `--` (build a subset): e.g.
+    #   blender --background --python scripts/make_undergrowth.py -- Goldenrod Aster
+    name_filter: list = []
+    if "--" in sys.argv:
+        name_filter = sys.argv[sys.argv.index("--") + 1:]
+    build = [(f, n) for (f, n) in SPECIES
+             if not name_filter or any(k.lower() in n.lower() for k in name_filter)]
+
     print("=" * 60)
-    print(f"Building {len(SPECIES)} undergrowth species")
+    print(f"Building {len(build)} undergrowth species"
+          + (f" (filter: {name_filter})" if name_filter else ""))
     print("=" * 60)
 
-    for func, name in SPECIES:
+    for func, name in build:
         print(f"\n  Building {name}...")
         clear_scene()
         bm = func()
         finalize_and_export(bm, name)
 
     print(f"\n{'=' * 60}")
-    print(f"Done — {len(SPECIES)} undergrowth GLBs exported")
+    print(f"Done — {len(build)} undergrowth GLBs exported")
     print("=" * 60)
