@@ -255,6 +255,15 @@ func _parse_cli_args() -> void:
 			if ca.size() >= 3 and ca[2] != "": _cli_canopy_ao.z = float(ca[2])
 			print("[DIAG] canopy-ao core=%.2f exp=%.2f shell=%.2f"
 					% [_cli_canopy_ao.x, _cli_canopy_ao.y, _cli_canopy_ao.z])
+		elif key == "--shots" and val != "":
+			# --shots=x,z,yaw[,pitch[,hour]];x,z,yaw... — generic teleporting
+			# snapshot bot: every pose captured in ONE Godot session (launch
+			# cost paid once). Output --shots-dir (default /tmp/tour).
+			# Launch-time flags (--tier-isolate etc.) still need their own
+			# sessions — this is for multi-POSE work under one config.
+			_cli_shots_spec = val
+		elif key == "--shots-dir" and val != "":
+			_tour_save_dir = val
 		elif key == "--dump-near" and val != "":
 			# --dump-near=x,z[,r] — after scene build, list MeshInstance/MMI
 			# geometry intersecting the ground circle, then quit. For
@@ -402,8 +411,20 @@ func _ready() -> void:
 	#	_audio_manager = preload("res://audio_manager.gd").new(_park_loader)
 	#	_audio_manager.setup(_player, _park_loader.water_bodies, _park_loader.boundary_polygon)
 	#	print("main: audio: ready")
-	# Check for --tour / --tour-showcase / --readme-shots CLI arg
+	# Check for --tour / --tour-showcase / --readme-shots / --shots CLI arg
+	if _cli_shots_spec != "":
+		_tour_mode = true
+		_build_cli_shots()
+		_tour_state = 0  # WAIT_LOAD
+		_tour_timer = 0.0
+		_tour_idx = 0
+		_tour_settle_time = 3.0
+		_player.tour_freeze = true
+		DirAccess.make_dir_recursive_absolute(_tour_save_dir)
+		print("Shots mode: %d poses queued → %s/" % [_tour_shots.size(), _tour_save_dir])
 	for arg in OS.get_cmdline_user_args():
+		if _tour_mode:
+			break
 		if arg in ["--tour", "--tour-showcase", "--readme-shots"]:
 			_tour_mode = true
 			_build_tour_shots()
@@ -432,6 +453,7 @@ func _ready() -> void:
 		print("Walk bot: settling for %.0fs before walking..." % _walk_bot_settle)
 var _screenshot_timer := 0.0
 var _screenshot_done  := false
+var _cli_shots_spec := ""           # --shots=x,z,yaw[,pitch[,hour]];...
 var _dump_near := Vector3.ZERO      # x, z, radius (--dump-near)
 var _dump_near_set := false
 var _dump_near_timer := 0.0
@@ -465,6 +487,29 @@ var _tour_save_dir := "/tmp/tour"  # overridden by --readme-shots
 var _tour_settle_time := 3.0  # seconds to wait at each location (60 for showcase)
 
 ## Tour/showcase/readme data moved to tour_data.gd (TourData class_name)
+
+func _build_cli_shots() -> void:
+	## --shots= spec → tour-shot dicts. Pose hour defaults to the launch
+	## --time so a whole diagnostic set shares one time of day unless a
+	## per-shot hour is given.
+	_tour_shots.clear()
+	var i := 0
+	for spec in _cli_shots_spec.split(";", false):
+		var p := spec.split(",")
+		if p.size() < 2:
+			continue
+		var shot := {
+			"name": "shot_%02d" % i,
+			"x": float(p[0]),
+			"z": float(p[1]),
+			"yaw": float(p[2]) if p.size() > 2 and p[2] != "" else 0.0,
+			"pitch": float(p[3]) if p.size() > 3 and p[3] != "" else 0.0,
+			"hour": float(p[4]) if p.size() > 4 and p[4] != "" else _time_of_day,
+			"filename": "shot_%02d_x%s_z%s" % [i, p[0], p[1]],
+		}
+		_tour_shots.append(shot)
+		i += 1
+
 
 func _build_tour_shots() -> void:
 	_tour_shots.clear()
