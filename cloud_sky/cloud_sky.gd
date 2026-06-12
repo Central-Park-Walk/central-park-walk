@@ -85,6 +85,9 @@ class FrameData:
 	var _cloud_pos : Vector2 = Vector2(0.0, 0.0)
 	var _detailed_pos : Vector2 = Vector2(0.0, 0.0)
 	var _weather_pos : Vector2 = Vector2(0.0, 0.0)
+	# Latched once per texture swap — the sky texture renders region-by-
+	# region over frames_to_update frames, so a live value would tear.
+	var _weather_mix : float = 0.0
 
 	# Properties updated by the light
 	var LIGHT_DIRECTION : Vector3 = Vector3(0.0, -1.0, 0.0)
@@ -97,6 +100,18 @@ class FrameData:
 		LIGHT_COLOR = light.light_color.srgb_to_linear()
 
 var frame_data : FrameData = FrameData.new()
+
+# Per-weather-state weather maps (sky.md P1). The state machine targets a
+# map by name; weather_at() in clouds.glsl crossfades current->target by
+# weather_mix so fronts arrive over ~a minute instead of popping.
+const WEATHER_MAP_NAMES := ["fair_cumulus", "stratocumulus_sheet",
+		"stratus_overcast", "storm_congestus", "broken_dramatic"]
+var _weather_maps := {}          # name -> Texture2D, loaded in delayed_init
+var _map_from := "fair_cumulus"
+var _map_to := "fair_cumulus"
+var _weather_mix := 0.0
+var _weather_fade_rate := 0.0    # mix units per second
+
 var _noise_offset := Vector3(randf(), randf(), randf())  # random cloud shapes per session
 # Random weather-map origin per session: the map is a baked texture, so
 # without this every launch shows the same cloud formation in the same
@@ -128,7 +143,56 @@ var needs_full_sky_init = true
 var _initialized = false
 
 func _init():
+	# Weather maps must exist before the first set_weather_map() — the
+	# day/night cycle's first force_apply lands in the same frame the
+	# scene tree is built, EARLIER than the deferred delayed_init (a
+	# missing map made the call a silent no-op, and with a frozen clock
+	# it never repeated).
+	for n in WEATHER_MAP_NAMES:
+		var path: String = get_script().resource_path.get_base_dir() + "/weather_%s.bmp" % n
+		if ResourceLoader.exists(path):
+			_weather_maps[n] = load(path)
+	if not _weather_maps.has("fair_cumulus"):
+		# Fallback to the legacy single map if the per-state set is missing.
+		_weather_maps["fair_cumulus"] = load(
+				get_script().resource_path.get_base_dir() + "/weather.bmp")
 	call_deferred("delayed_init")
+
+# Switch the target weather map; crossfades over fade_seconds (<= 0 snaps).
+# No-op when already targeting `name` — safe to call every _apply().
+func set_weather_map(map_name: String, fade_seconds: float = 30.0) -> void:
+	if map_name == _map_to or not _weather_maps.has(map_name):
+		if map_name != _map_to and OS.is_stdout_verbose():
+			print("[WMAP] set_weather_map('%s') UNKNOWN — have %s" % [map_name, _weather_maps.keys()])
+		return
+	if OS.is_stdout_verbose():
+		print("[WMAP] iid=%d %s -> %s over %.0fs (can_run=%s)" % [get_instance_id(), _map_to, map_name, fade_seconds, can_run])
+	if fade_seconds <= 0.0:
+		_map_from = map_name
+		_map_to = map_name
+		_weather_mix = 0.0
+		_weather_fade_rate = 0.0
+	else:
+		# Interrupting a fade mid-way snaps `from` to the old target —
+		# transitions are minutes apart in practice, the pop is theoretical.
+		_map_from = _map_to
+		_map_to = map_name
+		_weather_mix = 0.0
+		_weather_fade_rate = 1.0 / fade_seconds
+	if can_run:
+		RenderingServer.call_on_render_thread(_rebuild_noise_uniform_set)
+
+
+# Jump the in-progress fade to its end state (screenshot/capture bots).
+func snap_weather_fade() -> void:
+	if _map_from == _map_to:
+		return
+	_map_from = _map_to
+	_weather_mix = 0.0
+	_weather_fade_rate = 0.0
+	if can_run:
+		RenderingServer.call_on_render_thread(_rebuild_noise_uniform_set)
+
 
 # Workaround due to the fact that exports are set after _init() is called
 func delayed_init():
@@ -217,6 +281,17 @@ func _update_per_frame_data():
 	frame_data._detailed_pos += delta * wind_direction_normalized * frame_data.wind_speed
 	frame_data._cloud_pos += delta * wind_direction_normalized * frame_data.wind_speed
 	frame_data._weather_pos += delta2 * wind_direction_normalized * frame_data.wind_speed
+
+	# Advance the weather-map crossfade (sky.md P1)
+	if _weather_fade_rate > 0.0:
+		_weather_mix = minf(_weather_mix + delta * _weather_fade_rate, 1.0)
+		if _weather_mix >= 1.0:
+			# Fade complete: canonicalize so both bindings carry the target.
+			_map_from = _map_to
+			_weather_mix = 0.0
+			_weather_fade_rate = 0.0
+			RenderingServer.call_on_render_thread(_rebuild_noise_uniform_set)
+	frame_data._weather_mix = _weather_mix
 	if OS.is_stdout_verbose():
 		print("[CLOUDWIND] speed=%.1f dir=(%.2f,%.2f) cloud_pos=(%.0f,%.0f) dt=%.2f"
 				% [frame_data.wind_speed, wind_direction_normalized.x,
@@ -331,8 +406,8 @@ func _fill_push_constant():
 
 	push_constant.push_back(sun_scale)
 	push_constant.push_back(ambient_scale)
+	push_constant.push_back(frame_data._weather_mix)
 	push_constant.push_back(0.0)  # pad3
-	push_constant.push_back(0.0)
 
 	return push_constant
 
@@ -376,9 +451,11 @@ func _create_noise_uniform_set() -> RID:
 	uniform.add_id(SSN_rd)
 	uniforms.push_back(uniform)
 	
-	var weather_noise = preload("weather.bmp")
-	var W_rd = RenderingServer.texture_get_rd_texture(weather_noise.get_rid())
-	
+	if OS.is_stdout_verbose():
+		print("[WMAP] iid=%d binding uniform set: from=%s to=%s" % [get_instance_id(), _map_from, _map_to])
+	var weather_from: Texture2D = _weather_maps.get(_map_from, _weather_maps.values()[0])
+	var W_rd = RenderingServer.texture_get_rd_texture(weather_from.get_rid())
+
 	uniform = RDUniform.new()
 	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE
 	uniform.binding = 2
@@ -386,7 +463,26 @@ func _create_noise_uniform_set() -> RID:
 	uniform.add_id(W_rd)
 	uniforms.push_back(uniform)
 
+	var weather_to: Texture2D = _weather_maps.get(_map_to, weather_from)
+	var WB_rd = RenderingServer.texture_get_rd_texture(weather_to.get_rid())
+
+	uniform = RDUniform.new()
+	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE
+	uniform.binding = 3
+	uniform.add_id(noise_sampler)
+	uniform.add_id(WB_rd)
+	uniforms.push_back(uniform)
+
 	return rd.uniform_set_create(uniforms, shader_rd, 1)
+
+
+# Rebind the weather-map pair after a map switch (render thread only).
+func _rebuild_noise_uniform_set() -> void:
+	if not can_run:
+		return
+	if noise_uniform_set.is_valid():
+		rd.free_rid(noise_uniform_set)
+	noise_uniform_set = _create_noise_uniform_set()
 	
 func _create_sky_uniform_set(tex_id : int) -> RID:
 	var uniforms = []

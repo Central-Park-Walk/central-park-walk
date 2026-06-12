@@ -108,6 +108,41 @@ var fog_cal_override: Array = [-1.0, -1.0, -1.0, -1.0, -1.0]
 # for attribution A/Bs (visible volumetric clouds unaffected).
 var cloud_shadow_disabled := false
 
+# Weather-state -> weather-map table (sky.md §2.6). CLEAR additionally
+# swaps to broken_dramatic on scheduled mornings/evenings (see
+# _clear_sky_map). FOG shares the stratus deck — the existing fog volumes
+# carry the at-ground look.
+const WEATHER_MAP := {
+	Weather.CLEAR: "fair_cumulus",
+	Weather.RAIN: "stratus_overcast",
+	Weather.THUNDERSTORM: "storm_congestus",
+	Weather.SNOW: "stratocumulus_sheet",
+	Weather.FOG: "stratus_overcast",
+}
+const WEATHER_MAP_FADE := 30.0  # seconds; fronts arrive, not pop
+# --cloud-map=name forces a specific map regardless of weather state;
+# --sky-dramatic forces the dramatic schedule on (1) or off (0). -1 unset.
+var cloud_map_override := ""
+var dramatic_override := -1
+
+
+# Dramatic-sky schedule (sky.md §2.6 "CLEAR -> dramatic"): a few mornings/
+# evenings per game-month swap CLEAR's cumulus for broken_dramatic — big
+# torn sheets that low sun paints. Deterministic per game-day so a given
+# date always has the same sky character.
+func _clear_sky_map(canon_hour: float, season_t: float) -> String:
+	var in_window: bool = (canon_hour >= 17.0 and canon_hour <= 21.0) \
+			or (canon_hour >= 5.0 and canon_hour <= 7.5)
+	if dramatic_override == 0:
+		return "fair_cumulus"
+	if dramatic_override == 1 and in_window:
+		return "broken_dramatic"
+	if not in_window:
+		return "fair_cumulus"
+	var day: int = int(floor(59.0 + season_t * 91.25))
+	var h: float = fposmod(sin(float(day) * 12.9898) * 43758.5453, 1.0)
+	return "broken_dramatic" if h < 0.18 else "fair_cumulus"
+
 
 func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 		lightning_flash: float, user_gamma: float, season_t: float) -> void:
@@ -268,7 +303,9 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 		env.adjustment_brightness *= 0.75
 		if vol_sky:
 			vol_sky.cloud_coverage = 0.68
-			vol_sky.density = 0.10
+			# Denser than the keyframe clamp (0.10): storm_congestus towers
+			# read friendly-white at 0.10 — extinction darkens the bases.
+			vol_sky.density = 0.14
 		else:
 			sky_mat.set_shader_parameter("cloud_coverage", 0.82)
 			sky_mat.set_shader_parameter("cloud_density", 0.85)
@@ -341,11 +378,25 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 	if weather == Weather.CLEAR:
 		if vol_sky:
 			vol_sky.cloud_coverage = maxf(lerpf(vol_sky.cloud_coverage, data_cover, 0.7), 0.25)
+			# Dramatic torn-sheet skies want more presence than the NOAA
+			# fair-weather number (the map's own gaps keep blue visible).
+			if _clear_sky_map(time_of_day, season_t) == "broken_dramatic":
+				vol_sky.cloud_coverage = maxf(vol_sky.cloud_coverage, 0.42)
 		else:
 			var cc: float = sky_mat.get_shader_parameter("cloud_coverage")
 			sky_mat.set_shader_parameter("cloud_coverage", lerpf(cc, data_cover, 0.7))
 			if s_winter > 0.3:
 				sky_mat.set_shader_parameter("cloud_type", lerpf(0.0, 1.0, s_winter))
+
+	# Weather-map selection + crossfade (sky.md P1): each weather state
+	# gets its meteorologically correct cloud structure instead of
+	# "denser cumulus". set_weather_map no-ops when already targeting.
+	if vol_sky:
+		var map_name: String = cloud_map_override
+		if map_name == "":
+			map_name = _clear_sky_map(time_of_day, season_t) \
+					if weather == Weather.CLEAR else WEATHER_MAP[weather]
+		vol_sky.set_weather_map(map_name, WEATHER_MAP_FADE)
 
 	# Sun / moon directional light (SUN_CAL: ground-light calibration above)
 	sun.light_energy    = _lerp_kf("sun_energy", a, b, t) * sun_mult

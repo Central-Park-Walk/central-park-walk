@@ -248,6 +248,16 @@ func _parse_cli_args() -> void:
 		elif key == "--turf-sheen" and val != "":
 			_cli_turf_sheen = float(val)
 			print("[DIAG] turf-sheen %.2f" % _cli_turf_sheen)
+		elif key == "--cloud-map" and val != "":
+			# --cloud-map=name forces a weather map (fair_cumulus,
+			# stratocumulus_sheet, stratus_overcast, storm_congestus,
+			# broken_dramatic) regardless of weather state.
+			_cli_cloud_map = val
+			print("[DIAG] cloud map forced: %s" % val)
+		elif key == "--sky-dramatic" and val != "":
+			# --sky-dramatic=1/0 forces the dramatic-sky schedule on/off.
+			_cli_sky_dramatic = int(val)
+			print("[DIAG] dramatic sky override: %d" % _cli_sky_dramatic)
 		elif key == "--canopy-ao" and val != "":
 			var ca := val.split(":")
 			if ca.size() >= 1 and ca[0] != "": _cli_canopy_ao.x = float(ca[0])
@@ -328,6 +338,8 @@ func _ready() -> void:
 	_day_night.sky_cal_override = Vector3(_cli_sky_bg, _cli_sky_sun, _cli_sky_amb)
 	_day_night.sun_cal_override = _cli_sun_cal
 	_day_night.fog_cal_override = _cli_fog_cal
+	_day_night.cloud_map_override = _cli_cloud_map
+	_day_night.dramatic_override = _cli_sky_dramatic
 	# Register global shader parameters BEFORE park_loader creates materials
 	RenderingServer.global_shader_parameter_add("wind_vec", RenderingServer.GLOBAL_VAR_TYPE_VEC2, Vector2.ZERO)
 	RenderingServer.global_shader_parameter_add("snow_cover", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
@@ -1184,6 +1196,9 @@ var _cli_sky_amb: float = -1.0
 var _cli_sun_cal: float = -1.0
 # --fog-cal=sunvol:amb:emis:density:gi overrides (-1 = shipped FOG_CAL_*)
 var _cli_fog_cal: Array = [-1.0, -1.0, -1.0, -1.0, -1.0]
+# --cloud-map=name / --sky-dramatic=0|1: weather-map debug overrides
+var _cli_cloud_map: String = ""
+var _cli_sky_dramatic: int = -1
 # Turf sheen: broad white blade-cuticle specular on lawn terrain + blades
 # (grass.md §6 calibration). --turf-sheen=0..1 overrides for sweeps.
 # Measured 2026-06-11 with SUN_CAL=3 + thatch mix: lawn R/G 0.57→0.82
@@ -1571,6 +1586,10 @@ func _set_weather(mode) -> void:
 	_weather_mode = _weather_mgr.mode
 	_snow_cover = _weather_mgr.snow_cover
 	_rain_wetness = _weather_mgr.rain_wetness
+	# Programmatic weather set (screenshot/capture bots): the sky should
+	# already BE in the requested state, not fading toward it.
+	if _vol_sky:
+		_vol_sky.snap_weather_fade()
 
 
 func _tour_write_manifest() -> void:

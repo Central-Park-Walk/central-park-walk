@@ -10,6 +10,10 @@ layout(rgba16f, set = 0, binding = 0) uniform restrict writeonly image2D current
 layout(set = 1, binding = 0) uniform sampler3D large_scale_noise;
 layout(set = 1, binding = 1) uniform sampler3D small_scale_noise;
 layout(set = 1, binding = 2) uniform sampler2D weather_noise;
+// Second weather map for crossfading between weather states (sky.md P1):
+// weather_at() lerps noise->noise_b by weather_mix so fronts ARRIVE over
+// minutes instead of the sky popping when the state machine switches.
+layout(set = 1, binding = 3) uniform sampler2D weather_noise_b;
 
 layout(set = 2, binding = 0) uniform sampler2D sky_lut;
 
@@ -40,7 +44,8 @@ layout(push_constant, std430) uniform Params {
 
 	float sun_scale;      // calibration: direct-sun term multiplier
 	float ambient_scale;  // calibration: sky/ground ambient multiplier
-	vec2 pad3;            // keep push-constant size 16-byte aligned
+	float weather_mix;    // 0 = weather_noise, 1 = weather_noise_b
+	float pad3;           // keep push-constant size 16-byte aligned
 } params;
 
 // Approximately earth sizes
@@ -83,9 +88,16 @@ float GetHeightFractionForPoint(float inPosition) {
 	return clamp(height_fraction, 0.0, 1.0);
 }
 
+// Height-density profiles in RESCALED hf (height / weather.g tower).
+// Since the tower-height fix, weather.g owns cloud THICKNESS — these
+// profiles only shape base/top edge character. Schneider's originals were
+// authored for the unrescaled 2.5 km layer; under rescaling the stratus
+// profile (0.02-0.11) squeezed an overcast deck into a ~60 m paper sheet.
+// Stratus: flat fill, hard base and top (featureless veil). Stratocumulus:
+// lumpy top. Cumulus: domed top, fills the column (unchanged).
 vec4 mixGradients(float cloudType){
-	const vec4 STRATUS_GRADIENT = vec4(0.02f, 0.05f, 0.09f, 0.11f);
-	const vec4 STRATOCUMULUS_GRADIENT = vec4(0.02f, 0.2f, 0.48f, 0.625f);
+	const vec4 STRATUS_GRADIENT = vec4(0.0f, 0.06f, 0.82f, 0.94f);
+	const vec4 STRATOCUMULUS_GRADIENT = vec4(0.0f, 0.12f, 0.62f, 0.85f);
 	const vec4 CUMULUS_GRADIENT = vec4(0.01f, 0.0625f, 0.78f, 1.0f);
 	float stratus = 1.0f - clamp(cloudType * 2.0f, 0.0, 1.0);
 	float stratocumulus = 1.0f - abs(cloudType - 0.5f) * 2.0f;
@@ -127,7 +139,9 @@ vec2 wind_world() {
 // (without it every launch shows the same formation in the same place).
 vec3 weather_at(vec3 p) {
 	const float weather_scale = 0.00006;
-	return texture(weather_noise, (p.xz + wind_world()) * weather_scale + 0.5 + params.weather_pos).xyz;
+	vec2 uv = (p.xz + wind_world()) * weather_scale + 0.5 + params.weather_pos;
+	return mix(texture(weather_noise, uv).xyz,
+			texture(weather_noise_b, uv).xyz, params.weather_mix);
 }
 
 // Returns density at a given point
