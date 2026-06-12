@@ -635,3 +635,55 @@ partial-boost behavior in the fade band.
 User re-walk pending (the binding judge). If the 60-180 m band now reads
 dense AND shaped on the user's line, COMPARISON.md #4 (perimeter canopy
 low/gappy) should be re-checked before any dedicated work on it.
+
+## 9. Impostor mip sampling + deterministic capture protocol (2026-06-12)
+
+**Defect (user walk-around Jun 12 ~10:47, Great Lawn, 16 h):** advancing
+on a stand at 400-900 m, impostor crowns read as dark solid blobs that
+flip per-tree to pale sparse mesh trees crossing the 380-400 m band
+(screenshots cpw_002-013).
+
+**Root causes found (in order of discovery, only the last is the fix):**
+
+1. NOT the bake/import cache: the 10:47 run used the fresh runtime-lit
+   atlases (md5-verified; normals/depths are byte-deterministic so
+   Godot's import skip was correct).
+2. NOT AO/SSS tier asymmetry: an apparent -0.073 signed luminance gap at
+   8 h was capture noise — the per-session random cloud field puts
+   ±0.04-0.07 mean luminance on a canopy band between runs. A
+   mesh-vs-mesh repeat pair disagreed by more than the tier gap under
+   study. **All cross-run comparisons need `--cloud-seed=N` (and
+   `--diag-hide=cloudshadows` for stats); seeded repeat-pair signed
+   noise is ±0.0005.** tier_handoff_check.sh now bakes this in.
+3. THE BUG: every atlas sample forced mip 0 (`textureLod(..., 0.0)`),
+   defeating the premultiplied-mip silhouette design — at 400 m the
+   256 px frame undersamples ~6:1, crowns degenerate to speckle, and the
+   ×12 dist_boost (correctly designed for *mip-averaged* alpha) smashed
+   the speckle into a solid dark cutout. Fixed with `textureGrad` using
+   pre-parallax-warp frame-1 gradients (smooth everywhere; the warp is
+   sub-texel relative to the footprint).
+
+**Post-fix state (seeded, Great Lawn line, 16 h):**
+
+- Impostor far-field tone matches the LOD0 reference (0.325 vs 0.341
+  union lum; p25 0.270 vs 0.261). The runtime-lit bake is calibrated.
+- 250-400 m: impostor vs lod2 coverage 76 % vs 73 %, union lum Δ 0.003.
+- Walk A/B `--tree-mesh-range=300` vs default 400: per-frame band stats
+  identical (|Δluma| ≤ ~1 / 255, Δcover ≤ 0.004) — the handoff is
+  value-tight at either boundary. Default stays 400 m (§8 shape
+  rationale unaffected).
+- Remaining flagged "steps" on the line are cloud-shadow band crossings
+  (identical in both runs), not tier events.
+
+**Open follow-ups:**
+
+- lod2 geometric thinning beyond ~300 m (sub-pixel cards don't
+  rasterize; coverage collapses to ~8 % by 500 m — never user-visible at
+  the shipped 400 m boundary, but bounds how far the boundary could ever
+  move out). Principled fix: area-conserving card prune when generating
+  `_lod2` (scale surviving cluster cards to conserve leaf area) — model
+  pipeline change, belongs to the tree-model redesign workstream.
+- dist_boost is unchanged and still saturates alpha ≥ 0.077 to opaque
+  at 340 m+; with correct mips this now matches the LOD0 solid-crown
+  read, but re-check if alpha_clamp (0.05) or the boost curve is ever
+  retuned.
