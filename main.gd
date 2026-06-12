@@ -255,6 +255,20 @@ func _parse_cli_args() -> void:
 			if ca.size() >= 3 and ca[2] != "": _cli_canopy_ao.z = float(ca[2])
 			print("[DIAG] canopy-ao core=%.2f exp=%.2f shell=%.2f"
 					% [_cli_canopy_ao.x, _cli_canopy_ao.y, _cli_canopy_ao.z])
+		elif key == "--dump-near" and val != "":
+			# --dump-near=x,z[,r] — after scene build, list MeshInstance/MMI
+			# geometry intersecting the ground circle, then quit. For
+			# identifying mystery props at walk-around coords.
+			var dn := val.split(",")
+			if dn.size() >= 2:
+				_dump_near = Vector3(float(dn[0]), float(dn[1]),
+						float(dn[2]) if dn.size() > 2 and dn[2] != "" else 30.0)
+				_dump_near_set = true
+		elif key == "--hide-node" and val != "":
+			# --hide-node=substr[,substr...] — hide scene nodes whose name
+			# contains any substring (case-insensitive). Visual A/B for
+			# builder-placed props that have no --diag-hide entry.
+			_hide_node_substrings = Array(val.to_lower().split(","))
 		elif arg == "--shadow-census":
 			_diag_shadow_census = true
 		elif arg == "--screenshot":
@@ -418,6 +432,13 @@ func _ready() -> void:
 		print("Walk bot: settling for %.0fs before walking..." % _walk_bot_settle)
 var _screenshot_timer := 0.0
 var _screenshot_done  := false
+var _dump_near := Vector3.ZERO      # x, z, radius (--dump-near)
+var _dump_near_set := false
+var _dump_near_timer := 0.0
+var _dump_near_done := false
+var _hide_node_substrings: Array = []
+var _hide_node_timer := 0.0
+var _hide_nodes_done := false
 var _labels_hidden_for_screenshot := false
 var _screenshot_counter := 0  # incrementing counter for F12 screenshots
 var _auto_screenshot := false  # only auto-capture when --quit-after is used
@@ -770,6 +791,35 @@ func _process(delta: float) -> void:
 		_hud.update(_player, _time_of_day, TIME_SPEED_NAMES[_time_speed_idx], _season_t)
 		return
 
+	# --dump-near / --hide-node diagnostics (same 8s settle as auto-screenshot)
+	if _dump_near_set and not _dump_near_done:
+		_dump_near_timer += delta
+		if _dump_near_timer >= 8.0:
+			_dump_near_done = true
+			_do_dump_near()
+			get_tree().quit()
+	if not _hide_node_substrings.is_empty() and not _hide_nodes_done:
+		# Wait for the builders to finish adding nodes (same window as the
+		# auto-screenshot settle, which fires at 8s).
+		_hide_node_timer += delta
+	if not _hide_node_substrings.is_empty() and not _hide_nodes_done \
+			and _hide_node_timer >= 7.0:
+		_hide_nodes_done = true
+		var stack: Array = [get_tree().root]
+		var hidden := 0
+		while not stack.is_empty():
+			var n: Node = stack.pop_back()
+			for c in n.get_children():
+				stack.push_back(c)
+			if n is Node3D:
+				var lname := String(n.name).to_lower()
+				for sub in _hide_node_substrings:
+					if lname.contains(String(sub)):
+						(n as Node3D).visible = false
+						hidden += 1
+						break
+		print("[DIAG] hide-node %s: %d nodes hidden" % [str(_hide_node_substrings), hidden])
+
 	# Auto-screenshot for headless capture (only with --quit-after)
 	if not _screenshot_done and _auto_screenshot:
 		_screenshot_timer += delta
@@ -971,6 +1021,60 @@ func _get_prof_data() -> Dictionary:
 
 
 ## _update_perf_overlay, _update_hud moved to hud_manager.gd
+
+
+func _do_dump_near() -> void:
+	## --dump-near diagnostic: list scene geometry whose footprint touches
+	## the XZ circle. Combined builder meshes (e.g. RetainingWalls) cover
+	## huge AABBs — a hit means "candidate", confirm with --hide-node A/B.
+	var cx: float = _dump_near.x
+	var cz: float = _dump_near.y
+	var r: float = _dump_near.z
+	print("[DUMP] geometry intersecting circle (%.1f, %.1f) r=%.0f:" % [cx, cz, r])
+	var stack: Array = [get_tree().root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for c in n.get_children():
+			stack.push_back(c)
+		if not (n is VisualInstance3D):
+			continue
+		var vi := n as VisualInstance3D
+		var aabb: AABB = vi.global_transform * vi.get_aabb()
+		var nx: float = clampf(cx, aabb.position.x, aabb.position.x + aabb.size.x)
+		var nz: float = clampf(cz, aabb.position.z, aabb.position.z + aabb.size.z)
+		var ddx: float = cx - nx
+		var ddz: float = cz - nz
+		if ddx * ddx + ddz * ddz > r * r:
+			continue
+		if n is MultiMeshInstance3D:
+			var mm: MultiMesh = (n as MultiMeshInstance3D).multimesh
+			if mm == null:
+				continue
+			var cnt := 0
+			for i in mm.instance_count:
+				var p: Vector3 = (vi.global_transform * mm.get_instance_transform(i)).origin
+				var pdx: float = p.x - cx
+				var pdz: float = p.z - cz
+				if pdx * pdx + pdz * pdz <= r * r:
+					cnt += 1
+					if cnt <= 6:
+						print("  [MMI inst] %s #%d at (%.1f, %.1f, %.1f)"
+								% [vi.get_path(), i, p.x, p.y, p.z])
+			if cnt > 0:
+				print("  [MMI] %s: %d/%d instances in radius" % [vi.get_path(), cnt, mm.instance_count])
+		elif n is MeshInstance3D:
+			var mi := n as MeshInstance3D
+			var mat_desc := "none"
+			if mi.mesh and mi.mesh.get_surface_count() > 0:
+				var am: Material = mi.get_active_material(0)
+				if am:
+					mat_desc = am.get_class()
+					if am is ShaderMaterial and (am as ShaderMaterial).shader:
+						mat_desc += ":" + (am as ShaderMaterial).shader.resource_path.get_file()
+			print("  [MESH] %s pos=(%.1f,%.1f,%.1f) aabb=(%.1f×%.1f×%.1f) mat=%s vis=%s"
+					% [vi.get_path(), mi.global_position.x, mi.global_position.y,
+					mi.global_position.z, aabb.size.x, aabb.size.y, aabb.size.z,
+					mat_desc, str(mi.visible)])
 
 
 func _set_labels_visible(vis: bool) -> void:
