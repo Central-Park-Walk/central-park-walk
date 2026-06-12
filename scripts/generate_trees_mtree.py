@@ -736,11 +736,15 @@ SPECIES = {
         "branch_start": 0.28,          # Matches higher trunk_frac
         "branch_end": 0.95,
         "branch_density": 1.0,
-        "branch_length_ratio": 0.28,   # Shorter branches → open, airy crown
+        "branch_length_ratio": 0.32,   # short-ish (open crown) but broad-spreading aspect
+                                       # ~0.55 in the brief's 0.5-0.7 (openness from leaf_density
+                                       # + ferny texture, NOT a narrow crown)
+        "branch_start_radius": 0.42,   # moderate limbs (open frame reads through foliage)
+        "branch_angle_variation": 0.3, # ascending then wide-spreading (BRIEF §1)
         "branch_angle": 48,
         "branch_gravity": 7.0,
         "branch_stiffness": 0.18,
-        "branch_up_attraction": 0.35,
+        "branch_up_attraction": 0.30,  # let limbs spread (broad open crown)
         "branch_split_prob": 0.5,
         "branch_split_angle": 38.0,
         "branch_flatness": 0.25,
@@ -769,6 +773,13 @@ SPECIES = {
         "placement_interval_factor": 0.050,
         "base_seed": 400,
         "seed_step": 29,
+        # High combined count (~6k) → widen to 7; variants span openness + bole height
+        # (the lacy bucket's natural spread) per the real population (BRIEF §7).
+        "n_variants": 7,
+        "variant_spans": {
+            "branch_angle": [42, 55],     # crown spread / openness
+            "branch_start": [0.24, 0.34],  # bole height
+        },
         "tiers": {
             "s": {"target_h": 10, "height_range": [8, 14], "skeleton_overrides": {
                 "branch_density": 0.6, "branch_split_prob": 0.30, "sub_density": 0.3}},
@@ -951,15 +962,19 @@ SPECIES = {
         "branch_end": 0.95,
         "branch_density": 1.1,
         "branch_length_ratio": 0.38,
+        "branch_start_radius": 0.52,   # STOUT crooked plane limbs (BRIEF §1)
+        "branch_angle_variation": 0.25,  # mostly horizontal-to-ascending (not a steep vase)
         "branch_angle": 60,            # London plane: notably horizontal (50-70°, Silvics)
         "branch_gravity": 8.0,
         "branch_stiffness": 0.2,
         "branch_up_attraction": 0.35,
+        "radial_pts": 16,              # size lever (stout limbs pushed _l to 101MB); bark is
+                                       # shader-painted so mesh roundness can drop w/o bark loss
         "branch_split_prob": 0.55,
         "branch_split_angle": 40.0,
         "branch_flatness": 0.25,
         "branch_break_chance": 0.02,
-        "branch_resolution": 1.4,
+        "branch_resolution": 1.0,      # was 1.4 — size lever (with radial_pts 16) for <100MB
         "sub_density": 1.1,            # Reduced: full resolution at 1.6 → 102MB
         "sub_length_ratio": 0.14,
         "sub_angle": 50,
@@ -982,6 +997,15 @@ SPECIES = {
         "target_cluster_count_l": 900,  # LAI 5-6; major shade canopy, was dramatically undersized
         "base_seed": 200,
         "seed_step": 31,
+        # High census (~1.7k, formal rows) → tiling visible; widen to 7. Variants span
+        # crown width + bole height (free-form ↔ pollarded-knuckled span, BRIEF §7).
+        # NOTE: the camouflage bark — london_plane's hero identity — is a tree_bark.gdshader
+        # style, DEFERRED to wire-in (Fable ground rule: no tree-shader edits mid-flight).
+        "n_variants": 7,
+        "variant_spans": {
+            "branch_angle": [54, 66],     # crown spread
+            "branch_start": [0.24, 0.34],  # bole height
+        },
         "tiers": {
             "m": {"target_h": 22, "height_range": [15, 25], "skeleton_overrides": {
                 "branch_density": 0.9, "branch_split_prob": 0.45, "sub_density": 0.7}},
@@ -1811,6 +1835,7 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
     # All tiers use the same dense texture (60-80% alpha coverage).
     # Industry standard: high coverage works at all distances.
     fascicle = sp["leaf_shape"] == "needle"
+    compound = sp["leaf_shape"] == "compound"  # lacy/ferny pinnate frond (honeylocust)
     leaf_mat = create_leaf_material(
         f"{species_name}_leaf",
         leaf_shape=sp["leaf_shape"],
@@ -1818,6 +1843,7 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
         tex_size=sp["leaf_tex_size"],
         seed=sp["leaf_seed"],
         fascicle_mode=fascicle,
+        compound_mode=compound,
     )
     # Viewport display color for Workbench thumbnail renderer
     if fascicle:

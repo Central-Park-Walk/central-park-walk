@@ -125,7 +125,7 @@ def _draw_twig_line(pixels, tex_size, x0, y0, x1, y1,
 
 def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic",
                           seed=42, draw_twigs=True, fascicle_mode=False,
-                          spread=None, size_scale=1.0):
+                          compound_mode=False, spread=None, size_scale=1.0):
     """Generate a leaf cluster texture with proper alpha for alpha-to-coverage.
 
     Returns a bpy.types.Image with scattered overlapping leaves.
@@ -133,6 +133,9 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic"
 
     If draw_twigs=True, subtle twig lines connect leaves to center.
     If fascicle_mode=True, needles are grouped into fascicle bundles (pine).
+    If compound_mode=True, leaflets are arranged pinnately along fronds with
+    see-through gaps — a LACY/FERNY texture (honeylocust): low coverage so the
+    branch skeleton and ground read through the crown (BRIEF: openness is the species).
     spread: placement radius from center (default TEX//4). Larger = fills more of texture.
     size_scale: multiplier for leaf size (default 1.0). >1 for denser LOD textures.
     """
@@ -149,7 +152,51 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic"
     # Pre-compute all leaf parameters
     leaves = []
 
-    if fascicle_mode:
+    if compound_mode:
+        # Pinnately-compound LACY frond: a few rachises radiating from center,
+        # each carrying paired leaflets that shrink toward the tip, with gaps
+        # between pairs so the texture stays mostly transparent (see-through).
+        edge_fn = EDGE_FNS["narrow"]
+        n_fronds = max(3, n_leaves // 7)
+        rachis_color = (0.34, 0.30, 0.16)
+        for fi in range(n_fronds):
+            ang = rng.uniform(0, math.pi * 2)
+            ox = TEX // 2 + rng.randint(-spread // 2, spread // 2)
+            oy = TEX // 2 + rng.randint(-spread // 2, spread // 2)
+            rlen = TEX * rng.uniform(0.30, 0.46) * size_scale
+            tx = ox + math.cos(ang) * rlen
+            ty = oy + math.sin(ang) * rlen
+            _draw_twig_line(pixels, TEX, int(ox), int(oy), int(tx), int(ty),
+                            rachis_color)
+            n_pairs = rng.randint(6, 10)
+            px_ = math.cos(ang + math.pi / 2)
+            py_ = math.sin(ang + math.pi / 2)
+            for pi in range(1, n_pairs + 1):
+                t = pi / (n_pairs + 1)
+                taper = 1.0 - 0.55 * t          # leaflets shrink toward the tip
+                bx = ox + (tx - ox) * t
+                by = oy + (ty - oy) * t
+                llen = TEX * 0.045 * size_scale * taper
+                loff = llen * 0.85
+                for side in (-1, 1):
+                    cx = int(bx + px_ * loff * side)
+                    cy = int(by + py_ * loff * side)
+                    # leaflet long axis ~50° off the rachis, splayed outward
+                    lrot = ang + side * math.radians(52)
+                    leaves.append({
+                        'cx': cx, 'cy': cy,
+                        'w': max(2, int(llen * 0.30)), 'h': max(3, int(llen)),
+                        'rot': lrot,
+                        'r': rng.uniform(0.46, 0.60),
+                        'g': rng.uniform(0.64, 0.80),
+                        'b': rng.uniform(0.32, 0.46),
+                        'tip_yellow': rng.uniform(1.0, 1.05),
+                        'base_dark': rng.uniform(0.93, 1.0),
+                        'side_warm': rng.uniform(-0.01, 0.01),
+                        'phase': rng.uniform(0, math.pi * 2),
+                    })
+
+    elif fascicle_mode:
         # Pine fascicle mode: needles grouped into bundles radiating
         # from shared fascicle points, each with a brown sheath.
         n_fascicles = max(1, n_leaves // 3)
@@ -224,8 +271,9 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic"
                 'phase': rng.uniform(0, math.pi * 2),
             })
 
-    # Draw twig lines before leaves (foliage overlays naturally)
-    if draw_twigs and not fascicle_mode:
+    # Draw twig lines before leaves (foliage overlays naturally).
+    # Skip for compound (rachises already drawn) and fascicle (sheaths drawn).
+    if draw_twigs and not fascicle_mode and not compound_mode:
         center_x, center_y = TEX // 2, TEX // 2
         twig_color = (0.25, 0.18, 0.10)
         for leaf in leaves:
@@ -295,12 +343,14 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic"
 
 def create_leaf_material(name, leaf_shape="elliptic", n_leaves=22,
                          tex_size=512, seed=42, draw_twigs=True,
-                         fascicle_mode=False, spread=None, size_scale=1.0):
+                         fascicle_mode=False, compound_mode=False,
+                         spread=None, size_scale=1.0):
     """Create a leaf material with a multi-leaf cluster texture."""
     leaf_img = generate_leaf_texture(
         f"{name}Tex", tex_size=tex_size, n_leaves=n_leaves,
         leaf_shape=leaf_shape, seed=seed, draw_twigs=draw_twigs,
-        fascicle_mode=fascicle_mode, spread=spread, size_scale=size_scale)
+        fascicle_mode=fascicle_mode, compound_mode=compound_mode,
+        spread=spread, size_scale=size_scale)
 
     mat = bpy.data.materials.new(name=name)
     mat.use_nodes = True
