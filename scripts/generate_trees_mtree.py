@@ -401,34 +401,46 @@ SPECIES = {
 
     "elm": {
         "name": "American Elm (Ulmus americana)",
-        "crown_shape": "Spherical",   # Mtree doesn't have 'vase'; we shape via gravity/up_attraction
+        # The classic vase/fountain: trunk forks at moderate height into ascending
+        # arching limbs that sweep UP then arch outward. The general park population
+        # — plainer than cathedral_elm (lower fork, more variable, NOT the Literary
+        # Walk allée). Target model aspect ~0.90-1.10 (build width INTO the model
+        # since sx=sy — no runtime 1.5x stretch). LAI 4.5-6, opaque dense shade.
+        # (BRIEF: vase fountain, clearly LESSER sibling to cathedral_elm.)
+        "crown_shape": "Spherical",    # Mtree has no vase; shaped via angle+gravity
         "trunk_frac": 0.25,
-        "trunk_shape": 0.6,
-        "up_attraction": 0.7,          # Elm trunks grow straight up
+        "trunk_shape": 0.55,
+        "up_attraction": 0.45,         # Let the crown spread (less vertical pull than cathedral)
         "trunk_randomness": 0.5,
-        "branch_start": 0.22,
-        "branch_end": 0.92,
+        "branch_start": 0.22,          # Lower fork than cathedral_elm — ordinary elm
+        "branch_end": 0.90,
         "branch_density": 1.3,
-        "branch_length_ratio": 0.45,   # Longer arching branches
-        "branch_angle": 35,            # More upright then arching
-        "branch_gravity": 12.0,        # Strong gravity creates droop
-        "branch_stiffness": 0.15,
-        "branch_up_attraction": 0.6,   # Branches go UP first, then arch
-        "branch_split_prob": 0.5,
-        "branch_split_angle": 35.0,
-        "branch_flatness": 0.20,
+        "branch_length_ratio": 0.62,   # LONG limbs — build the vase width into model
+                                       # (no runtime stretch; need aspect ~0.90-1.10)
+        "branch_start_radius": 0.44,   # Fine-to-medium elm branchlets (fountain, not
+                                       # heavy oak-style limbs)
+        "branch_angle_variation": 0.50, # Ascending fountain: upper limbs sweep up,
+                                        # lower arch out — the vase envelope
+        "branch_angle": 55,            # Wide vase spread
+        "branch_gravity": 5.0,         # Reduced gravity — limbs sweep UP then arch
+        "branch_stiffness": 0.18,
+        "branch_up_attraction": 0.50,  # Strong upward pull for ascending vase shape
+        "branch_split_prob": 0.55,
+        "branch_split_angle": 40.0,
+        "branch_flatness": 0.40,       # Strong lateral spread → 2-ranked spray habit
         "branch_break_chance": 0.02,
-        "branch_resolution": 1.4,
-        "sub_density": 0.7,            # Reduced: full resolution at sub_density 1.0 → 111MB
-        "sub_length_ratio": 0.15,
+        "branch_resolution": 0.7,      # Size lever (keeps _l under ~100MB)
+        "radial_pts": 16,              # Size lever — smooth trunk w/ smooth_iter=2
+        "sub_density": 0.6,            # Dense fine drooping spray (curtain); keep lean
+        "sub_length_ratio": 0.16,
         "sub_angle": 55,
-        "sub_gravity": 15.0,           # Heavy droop on sub-branches
-        "sub_stiffness": 0.08,
-        "sub_up_attraction": -0.2,     # Sub-branches droop
-        "sub_split_prob": 0.3,
+        "sub_gravity": 14.0,           # Heavy droop — hanging spray curtain
+        "sub_stiffness": 0.07,
+        "sub_up_attraction": -0.25,    # Sub-branches droop down
+        "sub_split_prob": 0.30,
         "sub_split_angle": 30.0,
-        "sub_flatness": 0.25,
-        "sub_resolution": 1.0,
+        "sub_flatness": 0.30,
+        "sub_resolution": 0.8,
         "bark_color": (0.30, 0.25, 0.18),
         "bark_roughness": 0.88,
         "leaf_shape": "elliptic",
@@ -436,17 +448,22 @@ SPECIES = {
         "leaf_tex_size": 1024,
         "leaf_seed": 777,
         "leaf_scale": 1.05,  # American elm ~12cm
-        "leaf_cluster_size_range": (0.38, 0.83),
+        "leaf_cluster_size_range": (0.40, 0.88),
         "leaf_flatten_range": (0.40, 0.70),
-        "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
-        "target_cluster_count_l": 700,  # LAI 4-5; American elm is iconic dense shade
+        "leaf_density": 0.80,  # LAI 4.5-6 → opaque shade tree
+        "target_cluster_count_l": 720,
         "base_seed": 42,
         "seed_step": 17,
+        # 5 variants (moderate census); spans: fork height + crown spread (±~1SD).
+        "variant_spans": {
+            "branch_start": [0.18, 0.28],   # fork height: low ↔ moderate (below cathedral's 0.34)
+            "branch_angle": [50, 65],        # narrow young vase ↔ broad old fountain
+        },
         "tiers": {
             "s": {"target_h": 12, "height_range": [8, 14], "skeleton_overrides": {
                 "branch_density": 0.8, "branch_split_prob": 0.30, "sub_density": 0.2}},
             "m": {"target_h": 20, "height_range": [14, 22], "skeleton_overrides": {
-                "branch_density": 1.1, "branch_split_prob": 0.40, "sub_density": 0.5}},
+                "branch_density": 1.0, "branch_split_prob": 0.42, "sub_density": 0.4}},
             "l": {"target_h": 28, "height_range": [22, 30]},
         },
     },
@@ -965,26 +982,32 @@ SPECIES = {
     # ----- Dense symmetrical -----
     "linden": {
         "name": "Linden (Tilia americana)",
-        "crown_shape": "Hemispherical",
+        # Pyramidal-young → broadly-rounded dome. VERY DENSE opaque crown (LAI 5-7,
+        # ~3-8% light transmission). Target aspect (w/h) ~0.55-0.65 at _l tier
+        # (spread 9-15 m on H 18-24 m). Dense like maple, orderly not wild.
+        # (BRIEF: dense tidy heart-leaved dome, distinct from oak tiers / elm vase.)
+        "crown_shape": "Spherical",
         "trunk_frac": 0.26,
         "trunk_shape": 0.65,
-        "up_attraction": 0.65,
-        "trunk_randomness": 0.3,       # Very straight
+        "up_attraction": 0.60,
+        "trunk_randomness": 0.3,       # Very straight, orderly linden character
         "branch_start": 0.24,
         "branch_end": 0.95,
         "branch_density": 1.4,
-        "branch_length_ratio": 0.30,   # Compact symmetrical crown (Silvics)
+        "branch_length_ratio": 0.46,   # Wide rounded dome: aspect 0.55-0.65 (was 0.30 → too narrow)
+        "branch_start_radius": 0.46,   # Stout limbs — linden has thick main branches
+        "branch_angle_variation": 0.35, # Young narrow-pyramidal → old broad-spreading
         "branch_angle": 45,
-        "branch_gravity": 6.0,
-        "branch_stiffness": 0.25,
-        "branch_up_attraction": 0.4,
+        "branch_gravity": 7.0,
+        "branch_stiffness": 0.22,
+        "branch_up_attraction": 0.38,
         "branch_split_prob": 0.5,
         "branch_split_angle": 32.0,
-        "branch_flatness": 0.20,
+        "branch_flatness": 0.22,
         "branch_break_chance": 0.01,
         "branch_resolution": 1.4,
-        "sub_density": 1.6,
-        "sub_length_ratio": 0.13,
+        "sub_density": 1.6,            # High density — opaque crown (LAI 5-7)
+        "sub_length_ratio": 0.14,
         "sub_angle": 45,
         "sub_gravity": 8.0,
         "sub_stiffness": 0.15,
@@ -1002,16 +1025,23 @@ SPECIES = {
         "leaf_scale": 1.5,  # Linden ~19cm, 100-200cm2 — largest
         "leaf_cluster_size_range": (0.33, 0.72),
         "leaf_flatten_range": (0.45, 0.60),
-        "leaf_density": 0.85,  # Linden LAI 4.5-5.5 → very dense shade tree
-        "target_cluster_count_l": 840,
+        "leaf_density": 0.85,  # Linden LAI 5-7 → opaque dense shade tree
+        "target_cluster_count_l": 880,
         "placement_interval_factor": 0.032,
         "base_seed": 500,
         "seed_step": 37,
+        # High census (~1.75k) → 6 variants (free downstream, §4). Spans: crown
+        # width (narrow-young → broad-old) + up_attraction (orderly vs open-grown).
+        "n_variants": 6,
+        "variant_spans": {
+            "branch_angle": [40, 52],       # narrow young-pyramidal ↔ broad old dome
+            "up_attraction": [0.55, 0.75],  # compact-upright ↔ spreading
+        },
         "tiers": {
             "s": {"target_h": 10, "height_range": [8, 14], "skeleton_overrides": {
-                "branch_density": 0.8, "branch_split_prob": 0.30, "sub_density": 0.4}},
+                "branch_density": 0.8, "branch_split_prob": 0.30, "sub_density": 0.5}},
             "m": {"target_h": 18, "height_range": [14, 22], "skeleton_overrides": {
-                "branch_density": 1.1, "branch_split_prob": 0.40, "sub_density": 1.0}},
+                "branch_density": 1.1, "branch_split_prob": 0.40, "sub_density": 1.1}},
             "l": {"target_h": 25, "height_range": [22, 28]},
         },
     },
@@ -1141,50 +1171,62 @@ SPECIES = {
     # ----- Large-leaved ornamental -----
     "magnolia": {
         "name": "Saucer Magnolia",
+        # Low-branching, BROAD spreading — _s-only (sub-canopy ornamental). Often
+        # multi-stemmed from near the base. Target aspect ~0.80-1.00 (spread 6-9m
+        # on H 6-9m): WIDER THAN TALL or equal. Smooth light-gray bark, large
+        # obovate leaves. (BRIEF: low multi-stem, wider than tall, sculptural bare.)
+        # NOTE: do NOT add m/l tiers — runtime requests _s only (TIER_BOUNDS).
         "crown_shape": "Hemispherical",
-        "trunk_frac": 0.15,            # Very low branching, often multi-stemmed
-        "trunk_shape": 0.5,
-        "up_attraction": 0.5,
-        "trunk_randomness": 0.6,
-        "branch_start": 0.13,          # Matches very low trunk_frac
-        "branch_end": 0.90,
-        "branch_density": 1.2,
-        "branch_length_ratio": 0.42,   # Wide spreading relative to modest height
-        "branch_angle": 48,
-        "branch_gravity": 7.0,
-        "branch_stiffness": 0.2,
-        "branch_up_attraction": 0.35,
+        "trunk_frac": 0.12,            # Very low branching / near-ground fork
+        "trunk_shape": 0.45,
+        "up_attraction": 0.30,         # Little vertical pull — spread outward
+        "trunk_randomness": 0.65,      # Multi-stem character (gnarled, asymmetric)
+        "branch_start": 0.10,          # Near-ground start — very low fork
+        "branch_end": 0.88,
+        "branch_density": 1.3,
+        "branch_length_ratio": 0.65,   # LONG spreading limbs — aspect 0.80-1.0
+        "branch_start_radius": 0.42,   # Stout smooth limbs (sculptural character)
+        "branch_angle_variation": 0.20, # Low spreading, not strongly upright
+        "branch_angle": 65,            # Wide spread angle for broad crown
+        "branch_gravity": 4.5,         # Low gravity — stiff horizontal spread
+        "branch_stiffness": 0.28,
+        "branch_up_attraction": 0.18,  # Mostly spread outward, slight upward tendency
         "branch_split_prob": 0.45,
         "branch_split_angle": 35.0,
-        "branch_flatness": 0.25,
+        "branch_flatness": 0.30,
         "branch_break_chance": 0.02,
         "branch_resolution": 1.2,
-        "sub_density": 1.3,
-        "sub_length_ratio": 0.13,
-        "sub_angle": 48,
-        "sub_gravity": 9.0,
-        "sub_stiffness": 0.12,
-        "sub_up_attraction": 0.2,
+        "sub_density": 1.1,
+        "sub_length_ratio": 0.14,
+        "sub_angle": 50,
+        "sub_gravity": 8.0,
+        "sub_stiffness": 0.14,
+        "sub_up_attraction": 0.15,
         "sub_split_prob": 0.25,
-        "sub_split_angle": 30.0,
+        "sub_split_angle": 28.0,
         "sub_flatness": 0.3,
         "sub_resolution": 1.0,
-        "bark_color": (0.42, 0.38, 0.32),
-        "bark_roughness": 0.78,
+        "bark_color": (0.68, 0.65, 0.60),  # Light gray smooth bark (feature)
+        "bark_roughness": 0.62,
         "leaf_shape": "ovate",
         "leaf_n": 45,
         "leaf_tex_size": 1024,
         "leaf_seed": 663,
         "leaf_scale": 1.25,  # Magnolia ~14cm obovate
-        "leaf_cluster_size_range": (0.38, 0.83),
+        "leaf_cluster_size_range": (0.42, 0.88),
         "leaf_flatten_range": (0.45, 0.65),
-        "leaf_density": 0.7,  # canopy density (0-1, from real-world LAI)
-        "target_cluster_count_l": 550,  # LAI 3-4; saucer magnolia thick waxy leaves
+        "leaf_density": 0.70,  # LAI 3.5-5 → moderate; thick waxy leaves
+        "target_cluster_count_l": 480,  # _s only; calibrated to moderate canopy
         "base_seed": 500,
         "seed_step": 29,
+        # 5-6 variants (high census, _s-only is cheap). Spans: crown width + lean.
+        "n_variants": 6,
+        "variant_spans": {
+            "branch_angle": [58, 73],       # moderate spread ↔ wide/flat crown
+            "trunk_randomness": [0.45, 0.75], # upright-trunked ↔ multi-stem lean
+        },
         "tiers": {
-            "s": {"target_h": 7, "height_range": [5, 9], "skeleton_overrides": {
-                "branch_density": 0.7, "branch_split_prob": 0.25, "sub_density": 0.3}},
+            "s": {"target_h": 7, "height_range": [5, 9]},
         },
     },
 
