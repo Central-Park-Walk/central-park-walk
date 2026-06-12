@@ -354,10 +354,15 @@ BEFORE/AFTER capture protocol: `scripts/sky_captures.sh` (16 poses,
 3. **Morph-not-flow = three drift rates.** Envelope moved at 16.7×wind,
    base noise at 12×, detail at −40× (sign-opposed!) plus a 40 m/s
    constant vertical scroll — clouds churned through their own shapes.
-   All three now ride ONE world offset (`wind_world()`, 12× preserving
-   the 2026-04-03 apparent-speed calibration); evolution comes from a
-   5 m/s vertical boil only. Side fix: the light march's distant sample
-   omitted the drift offset entirely (shaded against a stale field).
+   All three now ride ONE world offset (`wind_world()`); evolution comes
+   from a 5 m/s vertical boil only. Side fix: the light march's distant
+   sample omitted the drift offset entirely (shaded against a stale
+   field). **Follow-up same day (user: "static even at max wind"):
+   `wind_vec` is a shader-units vector (max ~1.65), not m/s — true
+   advection was ~2 m/s at 2 km altitude, imperceptible; the "motion"
+   seen before the unification was the churn defect itself. `wind_speed`
+   is now honest m/s end-to-end: main.gd maps surface wind → 4–24 m/s
+   aloft (winds at cloud height never read zero), shader factor 1.**
 4. **Grey clouds at noon (regression risk class):** the march's ambient
    term mixed ground→sky by ABSOLUTE layer height; shallow tower-capped
    clouds live entirely in the bottom 30 % of the layer and went

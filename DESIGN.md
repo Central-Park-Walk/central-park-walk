@@ -24,6 +24,7 @@ Then state the session's target in one sentence before writing any code.
 - [`docs/vegetation_modeling.md`](docs/vegetation_modeling.md) — **reference-first modeling discipline for ALL park vegetation**: build from real photos/video (habit, interaction, behavior), not rules; the stand is a validation unit. Governs the tree redesign and the whole model-redo program.
 - [`docs/tree_model_redesign.md`](docs/tree_model_redesign.md) — tree + spicebush model/geometry redesign plan (art direction, per-species tuning, variation, cathedral-elm convergence, forest coherence, model allocation). Applies vegetation_modeling.md; feeds source meshes into the trees.md tier chain.
 - [`docs/grass.md`](docs/grass.md) — turf spec: zone truth table, mowing heights, wear/mottle system, DoD.
+- [`docs/sky.md`](docs/sky.md) — cloud taxonomy program (stratus/cumulonimbus/cirrus/mammatus, sundogs), lighting-depth levers, weather-state sky mapping, phasing.
 - `docs/visual_style.md` — reference images, palette, lighting principles, tone, art bible. *(to be written)*
 - `docs/conventions.md` — naming, file organization, shader patterns, comment policy. *(to be written)*
 - [`docs/workflow.md`](docs/workflow.md) — session protocol, definition of done, iteration rules, enforcement.
