@@ -35,7 +35,7 @@ def _load_tex(path):
 
 def make_pbr_material(name, texture_set, tint=None, tint_strength=0.5,
                        roughness_fallback=0.65, metallic_fallback=0.0,
-                       normal_strength=0.8):
+                       normal_strength=0.8, metallic_override=None):
     """Create a PBR material using ambientCG textures.
 
     Args:
@@ -46,6 +46,10 @@ def make_pbr_material(name, texture_set, tint=None, tint_strength=0.5,
         roughness_fallback: Roughness if no texture found
         metallic_fallback: Metallic if no texture found
         normal_strength: Normal map intensity
+        metallic_override: Scalar metallic that REPLACES the metalness map.
+            Use for painted metal: full metalness renders near-black
+            outdoors in Godot without reflection probes, and paint is a
+            dielectric anyway.
     """
     mat = bpy.data.materials.new(name=name)
     mat.use_nodes = True
@@ -110,7 +114,9 @@ def make_pbr_material(name, texture_set, tint=None, tint_strength=0.5,
         bsdf.inputs['Roughness'].default_value = roughness_fallback
 
     # Metalness
-    if has_metal:
+    if metallic_override is not None:
+        bsdf.inputs['Metallic'].default_value = metallic_override
+    elif has_metal:
         metal_img = _load_tex(os.path.join(tex_dir, f"{prefix}_Metalness.jpg"))
         if metal_img:
             metal_img.colorspace_settings.name = 'Non-Color'

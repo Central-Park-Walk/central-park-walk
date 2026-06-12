@@ -287,10 +287,15 @@ func _build_sport_markings(landuse: Array) -> void:
 
 
 func _line_quad(x1: float, z1: float, x2: float, z2: float,
-		y: float, hw: float, col: Color,
+		_y: float, hw: float, col: Color,
 		verts: PackedVector3Array, normals: PackedVector3Array,
 		colors: PackedColorArray) -> void:
-	## Draw a line quad from (x1,z1) to (x2,z2) with half-width hw at height y.
+	## Draw a line quad from (x1,z1) to (x2,z2) with half-width hw, draped
+	## over the terrain. The flat single-height version buried line
+	## segments wherever the lawn rose >5cm above the court center
+	## (walk-around 2026-06-12 cpw_008: lines terminating mid-field), so
+	## segments are subdivided ~2m and every vertex samples the terrain.
+	## _y is unused (kept so the marking helpers' call sites stay intact).
 	var dx := x2 - x1
 	var dz := z2 - z1
 	var len := sqrt(dx * dx + dz * dz)
@@ -298,14 +303,23 @@ func _line_quad(x1: float, z1: float, x2: float, z2: float,
 		return
 	var nx := -dz / len * hw
 	var nz := dx / len * hw
-	var a := Vector3(x1 + nx, y, z1 + nz)
-	var b := Vector3(x1 - nx, y, z1 - nz)
-	var c := Vector3(x2 - nx, y, z2 - nz)
-	var d := Vector3(x2 + nx, y, z2 + nz)
-	verts.append_array(PackedVector3Array([a, b, c, a, c, d]))
-	for _i in 6:
-		normals.append(Vector3.UP)
-		colors.append(col)
+	var steps := maxi(int(ceil(len / 2.0)), 1)
+	const LIFT := 0.05
+	for i in steps:
+		var t0 := float(i) / float(steps)
+		var t1 := float(i + 1) / float(steps)
+		var sx0 := x1 + dx * t0
+		var sz0 := z1 + dz * t0
+		var sx1 := x1 + dx * t1
+		var sz1 := z1 + dz * t1
+		var a := Vector3(sx0 + nx, _loader._terrain_y(sx0 + nx, sz0 + nz) + LIFT, sz0 + nz)
+		var b := Vector3(sx0 - nx, _loader._terrain_y(sx0 - nx, sz0 - nz) + LIFT, sz0 - nz)
+		var c := Vector3(sx1 - nx, _loader._terrain_y(sx1 - nx, sz1 - nz) + LIFT, sz1 - nz)
+		var d := Vector3(sx1 + nx, _loader._terrain_y(sx1 + nx, sz1 + nz) + LIFT, sz1 + nz)
+		verts.append_array(PackedVector3Array([a, b, c, a, c, d]))
+		for _i in 6:
+			normals.append(Vector3.UP)
+			colors.append(col)
 
 
 func _arc_quads(cx: float, cz: float, y: float, radius: float,

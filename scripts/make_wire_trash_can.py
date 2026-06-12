@@ -17,9 +17,15 @@ from pbr_utils import make_pbr_material
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete()
 
-green = make_pbr_material("ParkGreen", "cast_iron", tint=(0.08, 0.08, 0.09), tint_strength=0.6)
+# Painted dark "Central Park green" steel. The old near-black tint
+# (0.08, 0.08, 0.09) + full metalness map rendered as a pure-black
+# silhouette outdoors (no reflection probes; walk-around 2026-06-12
+# cpw_009). Paint is dielectric: scalar low metallic, green-dominant tint.
+green = make_pbr_material("ParkGreen", "cast_iron", tint=(0.043, 0.114, 0.057),
+                          tint_strength=0.85, metallic_override=0.1)
 
-steel = make_pbr_material("Steel", "cast_iron", tint=(0.08, 0.08, 0.09), tint_strength=0.6)
+steel = make_pbr_material("Steel", "cast_iron", tint=(0.043, 0.114, 0.057),
+                          tint_strength=0.85, metallic_override=0.1)
 
 CAN_R = 0.225    # radius
 CAN_H = 0.75     # can height
@@ -102,3 +108,25 @@ os.makedirs(outdir, exist_ok=True)
 outpath = os.path.join(outdir, "cp_wire_trash_can.glb")
 bpy.ops.export_scene.gltf(filepath=outpath, export_format='GLB', export_image_format='JPEG', export_image_quality=85)
 print(f"Exported: {outpath} ({os.path.getsize(outpath)} bytes)")
+
+# The glTF exporter cannot express the ShaderNodeMix tint, so the baked
+# GLB ships the raw gray Metal027 albedo. Patch baseColorFactor (glTF
+# multiplies it with the texture) to get the painted CP-green basket.
+import json
+import struct
+with open(outpath, 'rb') as f:
+    data = f.read()
+magic, ver, _total = struct.unpack_from('<III', data, 0)
+clen, ctype = struct.unpack_from('<II', data, 12)
+gltf = json.loads(data[20:20 + clen])
+for m in gltf.get('materials', []):
+    m.setdefault('pbrMetallicRoughness', {})['baseColorFactor'] = [0.11, 0.27, 0.15, 1.0]
+payload = json.dumps(gltf, separators=(',', ':')).encode()
+payload += b' ' * ((4 - len(payload) % 4) % 4)
+rest = data[20 + clen:]
+with open(outpath, 'wb') as f:
+    f.write(struct.pack('<III', magic, ver, 12 + 8 + len(payload) + len(rest)))
+    f.write(struct.pack('<II', len(payload), ctype))
+    f.write(payload)
+    f.write(rest)
+print(f"Patched baseColorFactor (park green) — {os.path.getsize(outpath)} bytes")

@@ -1605,8 +1605,11 @@ func _build_tree_pit_grates(trees: Array) -> void:
 		for si in mesh.get_surface_count():
 			mesh.surface_set_material(si, mat)
 
-	# Tree pit grates only around trees adjacent to paved surfaces
-	# Check atlas surface type at tree position and 2m radius
+	# A grate exists only where the tree itself stands IN pavement (street
+	# trees / perimeter sidewalks / plazas). The old "within 2m of paving"
+	# fallback caught every woodland tree beside a footpath and littered
+	# the forest floor with flat iron outlines (walk-around 2026-06-12
+	# cpw_015/016).
 	var xforms: Array = []
 	for tree in trees:
 		var tpos: Array = tree.get("pos", [])
@@ -1614,17 +1617,8 @@ func _build_tree_pit_grates(trees: Array) -> void:
 			continue
 		var tx: float = float(tpos[0])
 		var tz: float = float(tpos[2])
-		# Tree must be on or near paved path (atlas surface type 2)
-		var surf: int = _loader._atlas_surface(tx, tz)
-		if surf != 2:
-			# Check 2m radius for nearby pavement
-			var near_paved := false
-			for off in [Vector2(2,0), Vector2(-2,0), Vector2(0,2), Vector2(0,-2)]:
-				if _loader._atlas_surface(tx + off.x, tz + off.y) == 2:
-					near_paved = true
-					break
-			if not near_paved:
-				continue
+		if _loader._atlas_surface(tx, tz) != 2:
+			continue
 		var ty: float = _loader._terrain_y(tx, tz) + 0.01  # slightly above ground
 		var rng := RandomNumberGenerator.new()
 		rng.seed = int(tx * 47.0 + tz * 131.0) & 0x7FFFFFFF
