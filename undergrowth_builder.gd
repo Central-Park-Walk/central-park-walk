@@ -318,13 +318,6 @@ func _build_zone_map() -> void:
 			_zone_map[ck] = best_type
 
 	print("  Undergrowth: zone map built (%d chunks)" % _zone_map.size())
-	var zhist: Dictionary = {}
-	for ck in _zone_map:
-		var z: int = _zone_map[ck]
-		zhist[z] = zhist.get(z, 0) + 1
-	print("  [ZONEMAP] dist=%s  has(-23|74)=%s -> %s  has(14|-59)=%s -> %s" % [
-		zhist, _zone_map.has("-23|74"), _zone_map.get("-23|74", -1),
-		_zone_map.has("14|-59"), _zone_map.get("14|-59", -1)])
 
 
 # Free every live chunk's RenderingServer RIDs. Called from main at quit —
@@ -368,8 +361,6 @@ func _update_chunks_near(pos: Vector3) -> void:
 			var apx: int = int((sample_x + _atlas_half) * _atlas_scale)
 			var apz: int = int((sample_z + _atlas_half) * _atlas_scale)
 			if apx < 0 or apx >= _atlas_res or apz < 0 or apz >= _atlas_res: continue
-			if dx == 0 and dz == 0:
-				print("[ATLAS] player chunk %s atlas_type=%d zone=%s" % [ck, _atlas_data[(apz * _atlas_res + apx) * 2], _zone_map.get(ck, -1)])
 			if _atlas_data[(apz * _atlas_res + apx) * 2] != 1: continue
 
 			needed[ck] = true
@@ -626,14 +617,10 @@ func _build_chunk(ck: String) -> void:
 	var cnts: Dictionary = {}
 	var sums: Dictionary = {}
 
-	if zone_type == 2 or zone_type == 8:
-		print("[ZONE] chunk %s zone=%d list=%d eco=%.2f tier=%.2f" % [ck, zone_type, species_list.size(), eco_mult, tier_mult])
 	for sp_entry in species_list:
 		var sp_idx: int = sp_entry[0]
 		var density: float = sp_entry[1] * eco_mult
 		var sp_name: String = SPECIES[sp_idx].name
-		if sp_idx == 23 or sp_idx == 29:
-			print("[FORBTRY] chunk %s idx=%d has_mesh=%s density=%.2f target=%d" % [ck, sp_idx, _meshes.has(sp_name), density, int(density * CHUNK * CHUNK / 100.0 * tier_mult)])
 		if not _meshes.has(sp_name): continue
 
 		# Skip fungi outside their season
@@ -731,8 +718,6 @@ func _build_chunk(ck: String) -> void:
 	for sp_idx in bufs:
 		var c: int = cnts[sp_idx]
 		if c == 0: continue
-		if sp_idx == 23 or sp_idx == 29:
-			print("[FORB] chunk %s zone=%d idx=%d (%s) placed=%d eco=%.2f" % [ck, zone_type, sp_idx, SPECIES[sp_idx].name, c, eco_mult])
 		var sp: Dictionary = SPECIES[sp_idx]
 		var sp_name: String = sp.name
 		var mesh: Mesh = _meshes.get(sp_name)

@@ -2516,10 +2516,11 @@ def make_goldenrod(seed=2301):
     ldx, ldy = math.cos(lean_dir), math.sin(lean_dir)
     stem_lo = (0.20, 0.30, 0.12)
     stem_hi = (0.30, 0.34, 0.16)
-    leaf_lo = (0.18, 0.36, 0.10)
-    leaf_hi = (0.26, 0.42, 0.14)
+    leaf_lo = (0.17, 0.34, 0.09)
+    leaf_hi = (0.27, 0.45, 0.15)
+    leaf_top = H * 0.70                               # foliage clothes up to the plume
 
-    # --- densely-leafy erect stem, accumulating a gentle lean toward the plume side
+    # --- erect stem, accumulating a gentle lean toward the plume side
     n_seg = 9
     pts = []
     for i in range(n_seg):
@@ -2528,55 +2529,66 @@ def make_goldenrod(seed=2301):
         pts.append(Vector((ldx * bend + rng.uniform(-0.008, 0.008),
                            ldy * bend + rng.uniform(-0.008, 0.008),
                            H * t)))
-    make_tube(bm, pts, 0.010, 0.004, 5, stem_lo, stem_hi, uv, co)
+    make_tube(bm, pts, 0.011, 0.004, 5, stem_lo, stem_hi, uv, co)
 
-    # --- lanceolate leaves the WHOLE length (no bare zone), smaller upward
-    n_nodes = 11
+    def stem_at(z):
+        t = max(0.0, min(1.0, z / H))
+        bend = (t ** 1.6) * 0.06
+        return Vector((ldx * bend, ldy * bend, z))
+
+    # --- DENSE lanceolate foliage clothing the whole stem (no bare zone):
+    #     ascending, appressed leaves at tightly-spaced nodes (golden-angle
+    #     phyllotaxy), overlapping vertically into an erect leafy spike that
+    #     hides the stem; longer below, shorter upward — NOT a drooping tassel.
+    n_nodes = 28
     for li in range(n_nodes):
         t = (li + 0.5) / n_nodes
-        bend = (t ** 1.6) * 0.06
-        base = Vector((ldx * bend, ldy * bend, H * t))
-        side = -1 if li % 2 == 0 else 1
-        la = lean_dir + math.pi * 0.5 * side + rng.uniform(-0.3, 0.3)
-        leaf_len = (0.13 - t * 0.075) * rng.uniform(0.85, 1.15)   # narrow, grass-like
-        off = leaf_len * 0.4
-        lc = base + Vector((math.cos(la) * off, math.sin(la) * off, leaf_len * 0.12))
-        lcol = _lerp_color(leaf_lo, leaf_hi, rng.random())[:3]
-        make_leaf_card(bm, lc, leaf_len * 0.22, leaf_len, la,
-                       rng.uniform(-0.2, 0.1), lcol, 0.5, uv, co)
+        z = leaf_top * t
+        base = stem_at(z)
+        leaf_len = (0.15 - t * 0.07) * rng.uniform(0.85, 1.15)
+        for k in range(3):                           # 3 leaves per node
+            la = li * 2.39996 + k * math.tau / 3 + rng.uniform(-0.2, 0.2)  # golden-angle
+            off = leaf_len * 0.22                     # hug the stem
+            lc = base + Vector((math.cos(la) * off, math.sin(la) * off, leaf_len * 0.34))
+            lcol = _lerp_color(leaf_lo, leaf_hi, rng.random())[:3]
+            tilt = rng.uniform(0.7, 1.05)             # strongly ascending (appressed)
+            make_leaf_card(bm, lc, leaf_len * 0.24, leaf_len, la, tilt, lcol, 0.5, uv, co)
 
     # --- one-sided arching golden plume: spine arches to lean side & nods over,
-    #     branchlets longer at the base (pyramidal), each massed with tiny heads
-    gold_lo = (0.84, 0.72, 0.10)
-    gold_hi = (0.93, 0.83, 0.22)
-    pz0 = H * 0.70
-    plume_h = H * 0.34
-    n_spine = 7
+    #     branchlets longer at the base (pyramidal), each densely massed with
+    #     tiny heads so the plume reads as a solid golden fountain, not dots.
+    #     Starts where the leafy spike ends (no bare stem between).
+    gold_lo = (0.83, 0.70, 0.09)
+    gold_hi = (0.95, 0.85, 0.24)
+    pz0 = H * 0.68
+    plume_h = H * 0.40
+    n_spine = 8
     spine = []
     for i in range(n_spine):
         t = i / (n_spine - 1)
-        arch = math.sin(t * 1.35) * 0.22                 # lateral reach (the secund curve)
+        arch = math.sin(t * 1.4) * 0.24                  # lateral reach (the secund curve)
         rise = plume_h * (t - 0.12 * t * t)              # rises, tip noses over
         spine.append(Vector((ldx * arch, ldy * arch, pz0 + rise)))
     for i in range(n_spine):
         t = i / (n_spine - 1)
         sp = spine[i]
-        branch_len = (1.0 - t) * 0.16 + 0.02             # long low → short at tip
-        n_br = max(2, int(5 * (1.0 - t)) + 1)
+        branch_len = (1.0 - t) * 0.20 + 0.03             # long low → short at tip
+        n_br = max(3, int(7 * (1.0 - t)) + 2)
         for _ in range(n_br):
             # spread biased to the lean side keeps the plume one-sided
-            ba = lean_dir + rng.uniform(-1.0, 1.0)
+            ba = lean_dir + rng.uniform(-0.9, 0.9)
             bl = branch_len * rng.uniform(0.7, 1.1)
-            tip = sp + Vector((math.cos(ba) * bl, math.sin(ba) * bl, -bl * 0.35 + 0.02))
-            for f in range(4):
-                ft = (f + 0.5) / 4
-                fcp = sp.lerp(tip, ft) + Vector((rng.uniform(-0.012, 0.012),
-                                                 rng.uniform(-0.012, 0.012),
-                                                 rng.uniform(-0.006, 0.006)))
+            tip = sp + Vector((math.cos(ba) * bl, math.sin(ba) * bl, -bl * 0.4 + 0.02))
+            n_fc = 6
+            for f in range(n_fc):
+                ft = (f + 0.5) / n_fc
+                fcp = sp.lerp(tip, ft) + Vector((rng.uniform(-0.014, 0.014),
+                                                 rng.uniform(-0.014, 0.014),
+                                                 rng.uniform(-0.008, 0.008)))
                 gcol = _lerp_color(gold_lo, gold_hi, rng.random())[:3]
-                make_leaf_card(bm, fcp, 0.018, 0.024,
-                               ba + rng.uniform(-0.3, 0.3),
-                               rng.uniform(-0.2, 0.3), gcol, 0.9, uv, co)
+                make_leaf_card(bm, fcp, 0.022, 0.030,
+                               ba + rng.uniform(-0.4, 0.4),
+                               rng.uniform(-0.25, 0.35), gcol, 0.9, uv, co)
 
     return bm
 
@@ -2606,7 +2618,8 @@ def make_aster(seed=2901):
     rng = random.Random(seed)
 
     H = rng.uniform(0.85, 1.15)
-    mound_r = H * 0.36                                # aspect ~0.7:1 (W ≈ 0.72·H)
+    mound_r = H * 0.38                                # aspect ~0.75:1 (W ≈ 0.76·H)
+    mound_cz = H * 0.58                               # mound center height
     if rng.random() < 0.2:
         ray_col = (0.92, 0.93, 0.95)                  # occasional white form
     else:
@@ -2614,12 +2627,19 @@ def make_aster(seed=2901):
                    rng.uniform(0.66, 0.78))           # purple/violet, per-plant jitter
     stem_lo = (0.22, 0.28, 0.13)
     stem_hi = (0.28, 0.32, 0.16)
+    leaf_lo = (0.16, 0.32, 0.10)
+    leaf_hi = (0.26, 0.42, 0.16)
 
-    # --- several leafy stems leaning outward → a bushy rounded mound
-    n_stems = rng.randint(3, 4)
+    # mound shell radius at a given height fraction (0 base … 1 top): rounded dome
+    def shell_r(ef):
+        return mound_r * math.sqrt(max(0.0, 1.0 - ((ef - 0.45) / 0.62) ** 2))
+
+    # --- short, central structural stems (kept inside the leaf mass so they
+    #     don't read as a splayed vase of sticks)
+    n_stems = rng.randint(4, 5)
     for si in range(n_stems):
         ang = si * math.tau / n_stems + rng.uniform(-0.3, 0.3)
-        lean = mound_r * rng.uniform(0.6, 1.0)
+        lean = mound_r * rng.uniform(0.30, 0.6)       # stay near the core
         n_seg = 7
         pts = []
         for i in range(n_seg):
@@ -2629,32 +2649,33 @@ def make_aster(seed=2901):
                                math.sin(ang) * r + rng.uniform(-0.01, 0.01),
                                H * t * rng.uniform(0.92, 1.0))))
         make_tube(bm, pts, 0.008, 0.003, 5, stem_lo, stem_hi, uv, co)
-        # narrow lanceolate leaves, leafy along each branched stem
-        for li in range(5):
-            t = (li + 1) / 6
-            base = pts[min(li + 1, n_seg - 1)]
-            for side in (-1, 1):
-                if rng.random() < 0.7:
-                    la = ang + side * 1.2 + rng.uniform(-0.3, 0.3)
-                    ll = (0.07 - t * 0.03) * rng.uniform(0.8, 1.2)
-                    lc = base + Vector((math.cos(la) * ll * 0.4,
-                                        math.sin(la) * ll * 0.4, 0.0))
-                    make_leaf_card(bm, lc, ll * 0.28, ll, la,
-                                   rng.uniform(-0.1, 0.2),
-                                   (0.20, 0.36, 0.12), 0.5, uv, co)
 
-    # --- daisies smothering the upper-outer mound surface (the unmistakable read)
-    n_daisies = rng.randint(18, 24)
-    cz = H * 0.62                                     # mound center height
-    for _ in range(n_daisies):
+    # --- DENSE leafy mound body: scatter many overlapping narrow lance leaves
+    #     through the rounded dome volume, outward-facing, so the bush reads as a
+    #     solid leafy mass with little see-through (daisies nestle ON this).
+    n_leaves = 110
+    for _ in range(n_leaves):
+        ef = rng.random() ** 0.6                      # bias toward the upper mound
         phi = rng.uniform(0, math.tau)
-        elev = 0.15 + 0.85 * rng.random()            # up the mound
-        zz = cz + (H - cz) * elev + rng.uniform(-0.03, 0.03)
-        rr = mound_r * math.sqrt(max(0.0, 1.0 - (elev - 0.5) ** 2 * 1.6)) \
-            * rng.uniform(0.7, 1.05)                  # rounded-mound radius
+        rr = shell_r(ef) * rng.uniform(0.35, 1.0)     # fill interior→shell densely
+        zz = (H * 0.10) + (H - H * 0.10) * ef
+        cx, cy = math.cos(phi) * rr, math.sin(phi) * rr
+        ll = rng.uniform(0.055, 0.10)
+        lcol = _lerp_color(leaf_lo, leaf_hi, rng.random())[:3]
+        # outward + upward facing, slight droop
+        make_leaf_card(bm, Vector((cx, cy, zz)), ll * 0.32, ll, phi,
+                       rng.uniform(-0.1, 0.45), lcol, 0.5, uv, co)
+
+    # --- daisies smothering the outer-upper surface of the leafy mound
+    n_daisies = rng.randint(24, 30)
+    for _ in range(n_daisies):
+        ef = 0.30 + 0.70 * rng.random()              # upper-outer surface
+        phi = rng.uniform(0, math.tau)
+        rr = shell_r(ef) * rng.uniform(0.95, 1.12)   # sit just outside the leaf shell
+        zz = (H * 0.10) + (H - H * 0.10) * ef + rng.uniform(-0.02, 0.02)
         center = Vector((math.cos(phi) * rr, math.sin(phi) * rr, zz))
-        _aster_daisy(bm, center, rng.uniform(0.018, 0.028),
-                     ray_col, rng.randint(6, 8), uv, co, rng)
+        _aster_daisy(bm, center, rng.uniform(0.020, 0.030),
+                     ray_col, rng.randint(7, 9), uv, co, rng)
 
     return bm
 
@@ -2717,13 +2738,68 @@ SPECIES = [
     (lambda: make_aster(seed=2903),     "Flower_Aster_2"),
 ]
 
+def render_thumbnail(obj, name, out_dir):
+    """Render a lit 3/4 view of a freshly-built species (vertex colors wired
+    via make_material). Offscreen Eevee — no display needed. For visual DoD."""
+    import mathutils
+    os.makedirs(out_dir, exist_ok=True)
+    scene = bpy.context.scene
+    try:
+        scene.render.engine = 'BLENDER_EEVEE_NEXT'
+    except TypeError:
+        scene.render.engine = 'BLENDER_EEVEE'
+    scene.render.resolution_x = 700
+    scene.render.resolution_y = 900
+    scene.render.film_transparent = False
+
+    world = bpy.data.worlds.new("thumb_world")
+    world.use_nodes = True
+    bg = world.node_tree.nodes.get("Background")
+    if bg:
+        bg.inputs[0].default_value = (0.60, 0.65, 0.72, 1.0)
+        bg.inputs[1].default_value = 0.9
+    scene.world = world
+
+    zs = [(obj.matrix_world @ v.co).z for v in obj.data.vertices]
+    xs = [(obj.matrix_world @ v.co).x for v in obj.data.vertices]
+    h = (max(zs) - min(zs)) if zs else 1.0
+    cz = ((max(zs) + min(zs)) * 0.5) if zs else 0.5
+    span = max(h, (max(xs) - min(xs)) if xs else 0.6, 0.5)
+
+    cam_data = bpy.data.cameras.new("thumb_cam")
+    cam = bpy.data.objects.new("thumb_cam", cam_data)
+    scene.collection.objects.link(cam)
+    scene.camera = cam
+    dist = span * 2.1
+    cam.location = (dist * 0.5, -dist, cz + h * 0.12)
+    look = mathutils.Vector((0, 0, cz)) - mathutils.Vector(cam.location)
+    cam.rotation_euler = look.to_track_quat('-Z', 'Y').to_euler()
+    cam_data.lens = 55
+
+    sun_d = bpy.data.lights.new("sun", 'SUN'); sun_d.energy = 3.5
+    sun = bpy.data.objects.new("sun", sun_d); scene.collection.objects.link(sun)
+    sun.rotation_euler = (math.radians(55), math.radians(10), math.radians(40))
+    fill_d = bpy.data.lights.new("fill", 'SUN'); fill_d.energy = 1.1
+    fill = bpy.data.objects.new("fill", fill_d); scene.collection.objects.link(fill)
+    fill.rotation_euler = (math.radians(62), 0, math.radians(-130))
+
+    scene.render.filepath = os.path.join(out_dir, f"thumb_{name}.png")
+    bpy.ops.render.render(write_still=True)
+    print(f"    thumbnail → {scene.render.filepath}")
+
+
 if __name__ == "__main__":
     import sys
     # Optional name filter after `--` (build a subset): e.g.
     #   blender --background --python scripts/make_undergrowth.py -- Goldenrod Aster
+    # Include the token `thumb` to also render lit thumbnails (visual DoD).
     name_filter: list = []
+    want_thumb = False
     if "--" in sys.argv:
         name_filter = sys.argv[sys.argv.index("--") + 1:]
+        if "thumb" in [k.lower() for k in name_filter]:
+            want_thumb = True
+            name_filter = [k for k in name_filter if k.lower() != "thumb"]
     build = [(f, n) for (f, n) in SPECIES
              if not name_filter or any(k.lower() in n.lower() for k in name_filter)]
 
@@ -2736,7 +2812,10 @@ if __name__ == "__main__":
         print(f"\n  Building {name}...")
         clear_scene()
         bm = func()
-        finalize_and_export(bm, name)
+        obj = finalize_and_export(bm, name)
+        if want_thumb and obj is not None:
+            render_thumbnail(obj, name,
+                             os.path.join(PROJECT_DIR, "notes", "veg_thumbs"))
 
     print(f"\n{'=' * 60}")
     print(f"Done — {len(build)} undergrowth GLBs exported")
