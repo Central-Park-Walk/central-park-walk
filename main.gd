@@ -139,6 +139,11 @@ func _parse_cli_args() -> void:
 			_terrain_only = true
 		elif key == "--time" and val != "":
 			cli_time = val
+		elif key == "--screenshot-file" and val != "":
+			# Output path for --screenshot. Default /tmp/godot_screenshot.png
+			# is a shared rendezvous — concurrent capture sessions clobber
+			# each other; pass a unique path per session/script.
+			_screenshot_file = val
 		elif key == "--weather" and val != "":
 			var widx := WEATHER_NAMES.find(val)
 			if widx >= 0:
@@ -476,6 +481,7 @@ var _hide_nodes_done := false
 var _labels_hidden_for_screenshot := false
 var _screenshot_counter := 0  # incrementing counter for F12 screenshots
 var _auto_screenshot := false  # only auto-capture when --quit-after is used
+var _screenshot_file := "/tmp/godot_screenshot.png"  # --screenshot-file=path overrides
 var _lt_screenshot_pending := false  # debounce for gamepad left trigger screenshots
 
 # Distance overlay (F1) — floating Label3Ds on nearest trees, color-coded by LOD band.
@@ -894,8 +900,8 @@ func _process(delta: float) -> void:
 			_screenshot_done = true
 			var img := get_viewport().get_texture().get_image()
 			if img:
-				img.save_png("/tmp/godot_screenshot.png")
-				print("Screenshot saved to /tmp/godot_screenshot.png")
+				img.save_png(_screenshot_file)
+				print("Screenshot saved to %s" % _screenshot_file)
 			if _player:
 				_player.set_physics_process(true)
 			if _hud.canvas:
