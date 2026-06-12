@@ -17,10 +17,23 @@ uniform float blend_amount : hint_range(0.0, 1.0, 0.01);
 uniform float sky_brightness = 1.0;
 // Celestial sun direction from day_night_cycle.gd (decoupled from the
 // shadow light during twilight, 2026-06-11). ZERO = unset → LIGHT0.
+// At night it hands over to the MOON (the LUT/clouds are moonlit), so
+// the visible sun disk uses true_sun_dir instead (sky.md 2.5) — the old
+// path drew the sun disk at the night light's position, which is what
+// the "always-full moon" actually was.
 uniform vec3 celestial_dir = vec3(0.0);
+uniform vec3 true_sun_dir = vec3(0.0);
 uniform float sun_disk_scale = 1.0;
 uniform float sun_disk_hdr_brightness : hint_range(0.0, 100.0, 0.01) = 5.0;
 uniform float sun_disk_hdr_attenuation : hint_range(1.0, 10.0, 0.01) = 1.0;
+// Refraction flattening within ~2 deg of the horizon (vertical squash)
+uniform float sun_disk_squash = 1.0;
+// Moon (sky.md 2.5): direction + (illum fraction, perceptual disk scale,
+// visibility, refraction squash). The terminator is geometric — the disk
+// is shaded as a sphere lit by true_sun_dir, so phase AND orientation
+// are exact by construction.
+uniform vec3 moon_dir = vec3(0.0, -1.0, 0.0);
+uniform vec4 moon_params = vec4(1.0, 1.0, 0.0, 1.0);
 
 vec2 oct_wrap(vec2 v) {
 	vec2 signVal;
@@ -54,14 +67,29 @@ vec3 getValFromSkyLUT(vec3 rayDir) {
     return mix(blend_from, blend_to, blend_amount) / 50.0 * sky_brightness;
 }
 
+// Decompose the angular offset from a body into horizontal/vertical
+// components and return an effective cosTheta with the vertical axis
+// squashed (refraction flattening near the horizon). squash=1 → exact.
+float squashed_cos_theta(vec3 rayDir, vec3 bodyDir, float squash) {
+	float cosTheta = dot(rayDir, bodyDir);
+	if (squash >= 0.999 || abs(bodyDir.y) > 0.99) return cosTheta;
+	vec3 u = normalize(cross(vec3(0.0, 1.0, 0.0), bodyDir)); // horizontal
+	vec3 v = cross(bodyDir, u);                              // vertical
+	vec3 off = rayDir - bodyDir * cosTheta;
+	float du = dot(off, u);
+	float dv = dot(off, v) / squash;
+	float s2 = du * du + dv * dv;                            // ~sin^2 theta
+	return sqrt(max(1.0 - s2, 0.0)) * sign(cosTheta);
+}
+
 // https://www.shadertoy.com/view/slSXRW
 vec3 sunWithBloom(vec3 rayDir, vec3 sunDir) {
     float sunSolidAngle = sun_disk_scale * 0.53*PI/180.0;
     float minSunCosTheta = cos(sunSolidAngle);
 
-    float cosTheta = dot(rayDir, sunDir);
+    float cosTheta = squashed_cos_theta(rayDir, sunDir, sun_disk_squash);
     if (cosTheta >= minSunCosTheta) return vec3(1.0 + pow(smoothstep(minSunCosTheta, 1.0, cosTheta), sun_disk_hdr_attenuation) * sun_disk_hdr_brightness);
-    
+
     float offset = minSunCosTheta - cosTheta;
     float gaussianBloom = exp(-offset*50000.0)*0.5;
     float invBloom = 1.0/(0.02 + offset*300.0)*0.01;
@@ -98,18 +126,65 @@ vec3 sun_dir() {
 	return dot(celestial_dir, celestial_dir) > 0.25 ? celestial_dir : LIGHT0_DIRECTION;
 }
 
+// The VISIBLE sun disk/blaze follow the true sun (which sets for real);
+// the LUT/cloud lighting direction (sun_dir) becomes the moon at night.
+vec3 disk_sun_dir() {
+	return dot(true_sun_dir, true_sun_dir) > 0.25 ? true_sun_dir : sun_dir();
+}
+
+// Moon body (sky.md 2.5): opaque phase-shaded disk. Returns the pixel
+// color with the moon composited over the background — the lit part is
+// moonlight through atmospheric transmittance (reddens/dims at the
+// horizon) plus the sky's own in-scatter haze (daytime moon reads pale
+// blue-washed for free); the dark limb keeps faint earthshine.
+vec3 moon_body(vec3 dir, vec3 bg) {
+	if (moon_params.z <= 0.001) return bg;
+	vec3 m = normalize(moon_dir);
+	if (dot(dir, m) < 0.5) return bg;
+	float ang_r = moon_params.y * 0.53 * PI / 180.0; // matches sun convention
+	vec3 u = normalize(cross(vec3(0.0, 1.0, 0.0), m));
+	vec3 v = cross(m, u);
+	vec3 off = dir - m * dot(dir, m);
+	float sin_r = sin(ang_r);
+	float px = dot(off, u) / sin_r;
+	float pv = dot(off, v) / (moon_params.w * sin_r);
+	float r2 = px * px + pv * pv;
+	if (r2 >= 1.0) return bg;
+	// Sphere normal on the earth-facing hemisphere; light with the true
+	// sun direction (sun is ~400x farther — its earth-relative direction
+	// IS the light direction at the moon).
+	float z = sqrt(1.0 - r2);
+	vec3 n = normalize(u * px + v * pv - m * z);
+	float lit = dot(n, normalize(disk_sun_dir()));
+	float shade = smoothstep(-0.06, 0.18, lit);
+	// Limb darkening + a touch of large-scale maria mottling
+	float limb = 0.78 + 0.22 * z;
+	float maria = 0.88 + 0.12 * sin(px * 7.1 + 2.3) * sin(pv * 6.3 - 1.7);
+	// Day washes the disk toward the sky (contrast collapses; the in-
+	// scatter term below does the rest).
+	float dayness = smoothstep(-0.05, 0.20, disk_sun_dir().y);
+	float lum = mix(2.2, 0.9, dayness);
+	vec3 surf = vec3(0.92, 0.93, 0.95) * lum * limb * maria
+			* (shade + 0.018 * (1.0 - shade));         // earthshine
+	surf *= getValFromTLUT(source_transmittance, tLUTRes, viewPos, m);
+	vec3 moon_col = surf + getValFromSkyLUT(dir);       // in-scatter haze
+	float edge = smoothstep(1.0, 0.93, r2);             // soft limb
+	return mix(bg, moon_col, edge * moon_params.z);
+}
+
 vec3 get_atmo(vec3 dir) {
 	vec3 col = getValFromSkyLUT(dir);
-	vec3 sunLum = sunWithBloom(dir, sun_dir());
+	vec3 sunLum = sunWithBloom(dir, disk_sun_dir());
     if (length(sunLum) > 0.0) {
         if (rayIntersectSphere(viewPos, dir, groundRadiusMM) >= 0.0) {
             sunLum *= 0.0;
         } else {
             // If the sun value is applied to this pixel, we need to calculate the transmittance to obscure it.
-        	sunLum *= getValFromTLUT(source_transmittance, tLUTRes, viewPos, sun_dir());
+        	sunLum *= getValFromTLUT(source_transmittance, tLUTRes, viewPos, disk_sun_dir());
 		}
     }
     col += sunLum;
+	col = moon_body(dir, col);
 	return col;
 }
 
@@ -128,7 +203,8 @@ void sky() {
 	// low. Keyed on the celestial sun (crosses the horizon, 2026-06-11) —
 	// peaks at elev 0 to -4 deg where the reference pinks live, fades out
 	// by -8 deg (clouds past the terminator go grey-mauve).
-	vec3 sdir = sun_dir();
+	// Blaze keys on the TRUE sun (celestial blends to the moon at night)
+	vec3 sdir = disk_sun_dir();
 	float sun_elev = sdir.y;
 	float golden = smoothstep(0.25, -0.02, sun_elev) * smoothstep(-0.14, -0.06, sun_elev);
 	if (golden > 0.01 && clouds.a > 0.01) {

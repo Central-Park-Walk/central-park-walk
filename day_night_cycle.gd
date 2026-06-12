@@ -8,6 +8,8 @@ extends Node
 # Weather enum must match main.gd
 enum Weather { CLEAR, RAIN, THUNDERSTORM, SNOW, FOG }
 
+const ALM := preload("res://almanac.gd")
+
 # Environment objects — set by main.gd after _setup_environment()
 var env: Environment
 var sky_mat: ShaderMaterial
@@ -78,7 +80,11 @@ var sky_cal_override := Vector3(-1.0, -1.0, -1.0)
 # (physical clear-noon). Sky compensation verified: dark-cloud fraction
 # flat across the sweep (16.8%→15.6%); +10 sky median = background mie
 # term (physical sun-side haze). Full record: docs/grass.md §6.
-const SUN_CAL := 3.0
+# 2026-06-12: trimmed 3.0 -> 2.6 with the almanac sun — June noon
+# elevation rose 55->73 deg (real), lifting flat-lawn NdotL ~17%; lawn
+# median measured 160/255 vs the 126-149 reference band, back to ~143
+# at 2.6 (turf_luminance_check.py, same hero pose/protocol).
+const SUN_CAL := 2.6
 # --sun-cal=mult sets the exact multiplier (bypasses the day blend).
 var sun_cal_override := -1.0
 # Aerial-perspective / fog-veil calibration (rendering.md §6c,
@@ -146,7 +152,22 @@ func _clear_sky_map(canon_hour: float, season_t: float) -> String:
 
 func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 		lightning_flash: float, user_gamma: float, season_t: float) -> void:
-	var pair: Array = _find_keyframe_pair(time_of_day)
+	# --- Celestial almanac (docs/sky.md 2.5) ---------------------------
+	# True sun/moon positions for the game date+time. The keyframes keep
+	# owning color/energy/mood, but are indexed by a CANONICAL hour: a
+	# piecewise-linear remap anchored on the date's real solar events, so
+	# "sunset keyframe colors" happen at the actual sunset (16:32 in
+	# December, 20:31 in June) instead of a fixed wall-clock hour. All
+	# hour windows below run on canonical time.
+	var sun_ev: Dictionary = ALM.sun_events(season_t)
+	var canon: float = _canonical_hour(time_of_day, sun_ev)
+	var sun_h: Vector2 = ALM.sun_horizontal(season_t, time_of_day)
+	var moon_h: Vector2 = ALM.moon_horizontal(season_t, time_of_day)
+	var sun_dir3: Vector3 = ALM.dir_from_horizontal(sun_h)
+	var moon_dir3: Vector3 = ALM.dir_from_horizontal(moon_h)
+	var moon_k: float = ALM.moon_illum(sun_dir3, moon_dir3)
+
+	var pair: Array = _find_keyframe_pair(canon)
 	var a: Dictionary = pair[0]
 	var b: Dictionary = pair[1]
 	var t: float = float(pair[2])
@@ -167,10 +188,10 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 	# 2026-06-11). Falls to 0 in step with the celestial->moon blend so
 	# the accepted night sky stays exact.
 	var twilight_f: float = 0.0
-	if time_of_day >= 19.0 and time_of_day < 21.0:
-		twilight_f = 1.0 - smoothstep(20.55, 21.0, time_of_day)
-	elif time_of_day >= 5.0 and time_of_day < 6.5:
-		twilight_f = smoothstep(5.0, 5.3, time_of_day)
+	if canon >= 19.0 and canon < 21.0:
+		twilight_f = 1.0 - smoothstep(20.55, 21.0, canon)
+	elif canon >= 5.0 and canon < 6.5:
+		twilight_f = smoothstep(5.0, 5.3, canon)
 	var sky_f: float = maxf(day_f, twilight_f)
 	var sun_mult: float = lerpf(1.0, SUN_CAL, day_f)
 	if sun_cal_override > 0.0:
@@ -233,8 +254,10 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 	if lightning_flash > 0.01:
 		env.adjustment_brightness *= (1.0 + lightning_flash * 0.8)
 
-	# Volumetric fog (FOG_CAL_*: aerial-perspective calibration above)
-	var pitch_val: float = _lerp_kf("sun_pitch", a, b, t)
+	# Volumetric fog (FOG_CAL_*: aerial-perspective calibration above).
+	# pitch_val is the REAL solar elevation (negated, light convention) —
+	# the keyframed sun_pitch is no longer read anywhere.
+	var pitch_val: float = -sun_h.x
 	var sun_low_factor: float = smoothstep(-25.0, -5.0, pitch_val) * smoothstep(5.0, -5.0, pitch_val)
 	# sunvol blends back to 1.0 as the sun drops: the high-sun veil is what
 	# we calibrate down; low-sun forward scatter IS the god rays — keep it.
@@ -336,11 +359,11 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 
 	# Morning dew
 	var dew := 0.0
-	if time_of_day >= 4.5 and time_of_day <= 8.5:
-		if time_of_day <= 6.0:
-			dew = smoothstep(4.5, 6.0, time_of_day)
+	if canon >= 4.5 and canon <= 8.5:
+		if canon <= 6.0:
+			dew = smoothstep(4.5, 6.0, canon)
 		else:
-			dew = 1.0 - smoothstep(6.0, 8.5, time_of_day)
+			dew = 1.0 - smoothstep(6.0, 8.5, canon)
 	if weather != Weather.CLEAR:
 		dew = 0.0
 	RenderingServer.global_shader_parameter_set("dew_amount", dew)
@@ -351,11 +374,11 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 	# produces (references: notes/refs/sky_2026_06_11/sunrise_01).
 	if weather == Weather.CLEAR:
 		var dawn_mist := 0.0
-		if time_of_day >= 5.6 and time_of_day <= 7.5:
-			if time_of_day <= 6.3:
-				dawn_mist = smoothstep(5.6, 6.3, time_of_day)
+		if canon >= 5.6 and canon <= 7.5:
+			if canon <= 6.3:
+				dawn_mist = smoothstep(5.6, 6.3, canon)
 			else:
-				dawn_mist = 1.0 - smoothstep(6.3, 7.5, time_of_day)
+				dawn_mist = 1.0 - smoothstep(6.3, 7.5, canon)
 			env.volumetric_fog_density += dawn_mist * 0.0012
 			env.adjustment_saturation *= (1.0 - dawn_mist * 0.10)
 
@@ -380,7 +403,7 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 			vol_sky.cloud_coverage = maxf(lerpf(vol_sky.cloud_coverage, data_cover, 0.7), 0.25)
 			# Dramatic torn-sheet skies want more presence than the NOAA
 			# fair-weather number (the map's own gaps keep blue visible).
-			if _clear_sky_map(time_of_day, season_t) == "broken_dramatic":
+			if _clear_sky_map(canon, season_t) == "broken_dramatic":
 				vol_sky.cloud_coverage = maxf(vol_sky.cloud_coverage, 0.42)
 		else:
 			var cc: float = sky_mat.get_shader_parameter("cloud_coverage")
@@ -394,60 +417,98 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 	if vol_sky:
 		var map_name: String = cloud_map_override
 		if map_name == "":
-			map_name = _clear_sky_map(time_of_day, season_t) \
+			map_name = _clear_sky_map(canon, season_t) \
 					if weather == Weather.CLEAR else WEATHER_MAP[weather]
 		vol_sky.set_weather_map(map_name, WEATHER_MAP_FADE)
 
-	# Sun / moon directional light (SUN_CAL: ground-light calibration above)
-	sun.light_energy    = _lerp_kf("sun_energy", a, b, t) * sun_mult
+	# Sun / moon directional light (SUN_CAL: ground-light calibration
+	# above). Direction comes from the ALMANAC (real seasonal path);
+	# keyframes — indexed by canonical hour — keep owning energy/color.
+	# The shadow light's elevation floors at 2 deg while the sun is up
+	# (shadow stability); the celestial sun below carries the real
+	# horizon crossing for the sky systems.
+	var sun_light_dir: Vector3 = ALM.dir_from_horizontal(
+			Vector2(maxf(sun_h.x, 2.0), sun_h.y))
+
+	# Night: the light becomes the MOON at its true position, with energy
+	# scaled by phase (full keeps the accepted night look; new moon drops
+	# to a sky-glow floor). The handover spans the twilight canon windows
+	# where keyframed energy is fading to 0.05 — shadows are near-
+	# invisible, so the direction swing cannot pop. When the moon is set,
+	# the floor keeps a dim high "sky-glow" light instead of lighting
+	# from below the horizon.
+	var moon_f: float = 0.0
+	if canon >= 20.3 or canon < 5.7:
+		if canon >= 20.3 and canon < 21.0:
+			moon_f = smoothstep(20.3, 21.0, canon)
+		elif canon >= 5.0 and canon < 5.7:
+			moon_f = 1.0 - smoothstep(5.0, 5.7, canon)
+		else:
+			moon_f = 1.0
+	var energy_scale: float = 1.0
+	var light_dir3: Vector3 = sun_light_dir
+	if moon_f > 0.0:
+		var moon_up: float = smoothstep(-4.0, 6.0, moon_h.x)
+		# Perceptual phase curve: quarter moon ~25% of full (real is ~8%,
+		# but the game still needs a readable night).
+		var phase_e: float = 0.08 + 0.92 * pow(moon_k, 2.2)
+		var skyglow_dir: Vector3 = ALM.dir_from_horizontal(Vector2(65.0, 220.0))
+		var moon_light_dir: Vector3 = ALM.dir_from_horizontal(
+				Vector2(maxf(moon_h.x, 5.0), moon_h.y)).slerp(
+				skyglow_dir, 1.0 - moon_up).normalized()
+		light_dir3 = sun_light_dir.slerp(moon_light_dir, moon_f).normalized()
+		energy_scale = lerpf(1.0, maxf(phase_e * moon_up, 0.06), moon_f)
+
+	sun.light_energy    = _lerp_kf("sun_energy", a, b, t) * sun_mult * energy_scale
 	sun.light_color     = _lerp_kf("sun_color", a, b, t)
-	var pitch: float    = _lerp_kf("sun_pitch", a, b, t)
-	var yaw: float      = _lerp_kf("sun_yaw", a, b, t)
-	sun.rotation_degrees = Vector3(pitch, yaw, 0.0)
+	# basis*+Z must point TOWARD the body (FrameData.update_light_data).
+	sun.transform.basis = Basis.looking_at(-light_dir3, Vector3.UP)
 	sun.directional_shadow_max_distance = _lerp_kf("shadow_dist", a, b, t)
 
 	# Celestial sun for the sky systems (atmosphere LUT, cloud march, sky
-	# shader disk/blaze) — decoupled from the shadow light during twilight
-	# (2026-06-11). The keyframed light never goes below ~2 deg elevation
-	# while lit (and doubles as a high moon at night), so the Hillaire
-	# LUT's sunrise/sunset band (0 to -6 deg, where ALL the color lives —
-	# see notes/refs/sky_2026_06_11/) was unreachable: flat dawn/dusk
-	# skies. The celestial path crosses the horizon at the 5.75 / 20.2
-	# keyframes and blends back to the light direction by full night so
-	# the accepted night sky stays exact. Positive pitch = below horizon.
-	var cel_pitch: float = pitch
-	if time_of_day >= 19.0 and time_of_day < 21.0:
-		var c_dusk: float
-		if time_of_day < 20.2:
-			c_dusk = lerpf(-12.0, 0.0, (time_of_day - 19.0) / 1.2)
-		else:
-			c_dusk = lerpf(0.0, 6.0, (time_of_day - 20.2) / 0.8)
-		cel_pitch = lerpf(c_dusk, pitch, smoothstep(20.7, 21.0, time_of_day))
-	elif time_of_day >= 5.0 and time_of_day < 6.5:
-		var c_dawn: float
-		if time_of_day < 5.75:
-			c_dawn = lerpf(6.0, 0.0, (time_of_day - 5.0) / 0.75)
-		else:
-			c_dawn = lerpf(0.0, -12.0, (time_of_day - 5.75) / 0.75)
-		cel_pitch = lerpf(pitch, c_dawn, smoothstep(5.0, 5.35, time_of_day))
-	var cel_dir: Vector3 = (Basis.from_euler(Vector3(deg_to_rad(cel_pitch),
-			deg_to_rad(yaw), 0.0)) * Vector3(0.0, 0.0, 1.0)).normalized()
+	# shader): the TRUE almanac sun — it crosses the horizon for real, so
+	# the Hillaire LUT's sunrise/sunset band (0 to -6 deg, where ALL the
+	# color lives) is reached on every date at its actual event times.
+	# Below -6 deg it hands over to the night light (= the moon), keeping
+	# the moonlit-clouds/night-sky construction.
+	var night_celest: float = smoothstep(-6.0, -10.0, sun_h.x)
+	var cel_dir: Vector3 = sun_dir3.slerp(light_dir3, night_celest).normalized()
 	if vol_sky:
 		vol_sky.celestial_direction = cel_dir
 	sky_mat.set_shader_parameter("celestial_dir", cel_dir)
+
+	# Moon + sun disk rendering inputs (sky.md 2.5): true sun for the
+	# disk/blaze + the moon's terminator, moon direction/phase, and the
+	# perceptual apparent-size drive — bodies swell ~1.6x near the
+	# horizon (the classic perceptual moon illusion, art-directed),
+	# shrink slightly toward zenith; refraction squashes the disk
+	# vertically within ~2 deg of the horizon.
+	sky_mat.set_shader_parameter("true_sun_dir", sun_dir3)
+	sky_mat.set_shader_parameter("moon_dir", moon_dir3)
+	var moon_vis: float = smoothstep(-1.5, 2.0, moon_h.x)
+	var moon_scale: float = (1.0 + 0.6 * smoothstep(10.0, 0.0, moon_h.x)) \
+			* (1.0 - 0.12 * smoothstep(30.0, 60.0, moon_h.x))
+	var moon_squash: float = 1.0 - 0.22 * smoothstep(4.0, -0.5, moon_h.x)
+	sky_mat.set_shader_parameter("moon_params",
+			Vector4(moon_k, moon_scale, moon_vis, moon_squash))
+	if vol_sky:
+		vol_sky.sun_disk_scale = 1.5 * (1.0 + 0.5 * smoothstep(10.0, 0.0, sun_h.x)) \
+				* (1.0 - 0.15 * smoothstep(40.0, 70.0, sun_h.x))
+	sky_mat.set_shader_parameter("sun_disk_squash",
+			1.0 - 0.22 * smoothstep(4.0, -0.5, sun_h.x))
 
 	# Lamp emission
 	_lamp_emission = _lerp_kf("lamp_emission", a, b, t)
 	RenderingServer.global_shader_parameter_set("lamp_glow", clampf(_lamp_emission / 5.0, 0.0, 1.0))
 
-	# Building window night_factor
+	# Building window night_factor (canonical: tracks real dusk/dawn)
 	var nf: float = 0.0
-	if time_of_day >= 18.0 and time_of_day < 21.0:
-		nf = (time_of_day - 18.0) / 3.0
-	elif time_of_day >= 21.0 or time_of_day < 5.0:
+	if canon >= 18.0 and canon < 21.0:
+		nf = (canon - 18.0) / 3.0
+	elif canon >= 21.0 or canon < 5.0:
 		nf = 1.0
-	elif time_of_day >= 5.0 and time_of_day < 7.0:
-		nf = 1.0 - (time_of_day - 5.0) / 2.0
+	elif canon >= 5.0 and canon < 7.0:
+		nf = 1.0 - (canon - 5.0) / 2.0
 	if absf(nf - _last_night_factor) > 0.005:
 		_last_night_factor = nf
 		for fm in facade_materials:
@@ -455,6 +516,30 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 				fm.set_shader_parameter("night_factor", nf)
 
 	_last_applied_tod = time_of_day
+
+
+# Wall-clock -> canonical keyframe hour (sky.md 2.5). The keyframes were
+# authored against June-ish anchor times (5.0 night-end .. 5.75 sunrise ..
+# 12.0 noon .. 20.2 sunset .. 21.0 night); this piecewise-linear remap
+# pins those anchors to the date's REAL solar events, so keyframe colors,
+# fog, dew, lamps and the twilight windows all track the seasons. The
+# night span (sunset+0.8 .. sunrise-0.75) stretches across canon 21->29.
+func _canonical_hour(wall: float, ev: Dictionary) -> float:
+	var aw: Array = [ev.sunrise - 0.75, ev.sunrise, ev.sunrise + 0.75,
+			ev.noon, ev.sunset - 1.2, ev.sunset, ev.sunset + 0.8]
+	var ac: Array = [5.0, 5.75, 6.5, 12.0, 19.0, 20.2, 21.0]
+	var n: int = aw.size()
+	var w: float = wall
+	if w < aw[0]:
+		w += 24.0
+	for i in n:
+		var a0: float = aw[i]
+		var a1: float = (aw[0] + 24.0) if i == n - 1 else aw[i + 1]
+		var c0: float = ac[i]
+		var c1: float = (ac[0] + 24.0) if i == n - 1 else ac[i + 1]
+		if w >= a0 and w < a1:
+			return fposmod(c0 + (w - a0) / maxf(a1 - a0, 0.001) * (c1 - c0), 24.0)
+	return wall
 
 
 func _find_keyframe_pair(hour: float) -> Array:
@@ -489,6 +574,10 @@ func _lerp_kf(key: String, a: Dictionary, b: Dictionary, t: float):
 		return lerpf(float(va), float(vb), t)
 
 
+# NOTE (sky.md 2.5): keyframe hours are CANONICAL (June-anchored event
+# times — see _canonical_hour). sun_pitch/sun_yaw fields are retained in
+# the data but no longer drive the light direction (the almanac does);
+# sun_pitch=-2 entries still document the intended low-sun moments.
 func _build_keyframes() -> void:
 	_keyframes.append({"hour": 5.0, "sky_top": Color(0.02, 0.02, 0.06), "sky_horizon": Color(0.14, 0.11, 0.20), "gnd_bottom": Color(0.02, 0.02, 0.035), "gnd_horizon": Color(0.10, 0.07, 0.12), "ambient_color": Color(0.16, 0.14, 0.22), "ambient_energy": 0.45, "exposure": 1.05, "white": 6.0, "ssao_radius": 2.0, "ssao_intensity": 1.4, "ssao_power": 1.5, "saturation": 0.75, "contrast": 1.02, "brightness": 0.96, "fog_color": Color(0.12, 0.10, 0.14), "fog_energy": 0.20, "fog_scatter": 0.05, "fog_density": 0.0005, "fog_aerial": 0.20, "fog_sky_affect": 0.6, "sun_energy": 0.05, "sun_color": Color(0.65, 0.72, 0.95), "sun_pitch": -10.0, "sun_yaw": -100.0, "shadow_dist": 250.0, "lamp_emission": 5.0, "vol_fog_density": 0.0004, "vol_fog_anisotropy": 0.45, "cloud_coverage": 0.24, "cloud_density": 0.55, "cloud_color_top": Color(0.42, 0.40, 0.44), "cloud_color_bottom": Color(0.16, 0.14, 0.18), "cloud_speed": 0.00003})
 	# 5.75 sunrise moment (2026-06-11 dawn/dusk vibrancy): the sun light dips

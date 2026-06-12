@@ -19,17 +19,40 @@ and rare/dramatic formations appear at realistic frequencies — a
 mackerel-sky morning or a winter sundog should be something you *catch*,
 not a slider.
 
-## 1. Current state (after 2026-06-11)
+## 1. Current state (after 2026-06-12: P1 + §2.5 SHIPPED)
 
 - One volumetric layer (1.5–4 km shell) marching a Schneider density
-  field; weather map (`gen_weather_map.py`) = fair-weather cumulus cells
-  with per-column tower heights (G), type (R), coverage (B).
-- The Schneider `densityHeightGradient` ALREADY blends three profiles
-  (stratus / stratocumulus / cumulus) from the R channel — we only ever
-  feed it R ≈ 0.45–1.0. Stratus support is latent, unused.
-- Weather presets (RAIN/FOG/SNOW/THUNDERSTORM) merely raise
-  coverage/density of the SAME cumulus cell field — overcast currently
-  renders as "more/denser cumulus", which is wrong.
+  field. **P1 is live**: five per-weather-state maps
+  (`gen_weather_map.py --type`, §2.1 table) crossfade at runtime —
+  `clouds.glsl` binds current+target maps (set 1 binding 2/3) and lerps
+  by `weather_mix` (pad3 push-constant float); `cloud_sky.gd
+  set_weather_map()` fades over 30 s (bots `snap_weather_fade()`).
+  Weather→map table + the dramatic-sky schedule (deterministic per
+  game-day hash, ~18% of dawn/dusk windows) live in `day_night_cycle.gd`.
+  CLI: `--cloud-map=name`, `--sky-dramatic=0|1`.
+- The height-gradient profiles were RESCALED for the tower-rescaled hf
+  (weather.g owns thickness; profiles only shape base/top edges — the
+  Schneider stratus original would squeeze an overcast deck to ~60 m).
+- **§2.5 is live**: `almanac.gd` computes true NYC solar/lunar
+  positions + moon phase (validated headless by
+  `scripts/test_almanac.gd`, 23 checks vs published values). The
+  keyframes are indexed by a CANONICAL hour — piecewise-linear remap
+  anchored to each date's real sunrise/solar-noon/sunset
+  (`_canonical_hour`), so keyframe mood + every hour window (twilight,
+  dew, dawn mist, lamps, building windows) track the seasons. The
+  shadow light follows the almanac sun (2° elevation floor); at night
+  it becomes the real moon, energy scaled by phase (full = the
+  accepted night look; moonless floor 0.06×). The celestial sun is the
+  TRUE sun (crosses the horizon at real event times), handing over to
+  the moon below −6°. The moon renders as a phase-shaded sphere lit by
+  the true sun direction (geometric terminator + earthshine), through
+  atmospheric transmittance + in-scatter (pale day moon for free).
+  Perceptual disk sizing: both bodies swell ~1.6× near the horizon,
+  shrink toward zenith, refraction-squash within ~2°. The old night
+  "always-full moon" was the SUN DISK drawn at the night light's
+  position — gone (disk follows `true_sun_dir`).
+- SUN_CAL trimmed 3.0→2.6: the real June noon sun (73° vs keyframed
+  55°) lifted lawn NdotL ~17%; turf re-centered in the 126–149 band.
 - Lighting: multi-scatter octave approximation (3 octaves, per-octave
   phase), front-lit-gated powder, within-cloud ambient gradient with
   interior occlusion (shipped 2026-06-11).
@@ -160,10 +183,15 @@ Shipped: multi-scatter octaves, gated powder, in-cloud ambient gradient
 - Flow DoD: `scripts/cloud_flow_check.sh` — visible coherent drift at
   default wind within 30 s; shape identity preserved.
 
-## 5. Phasing (post-Fable sessions can execute 2.1→2.4 mechanically)
+## 5. Phasing (post-Fable sessions can execute 2.2→2.4 mechanically)
 
-- **P1**: map set + crossfade switching + weather-state table (2.1, 2.6).
-  Biggest payoff: overcast stops being "dense cumulus"; dramatic skies.
+- **P1: DONE 2026-06-12** (see §1). Per-type DoD passed by capture:
+  stratus = featureless veil, stratocu = lumpy sheet with blue gaps,
+  storm = dark mass + congestus towers (density 0.14), dramatic dusk =
+  torn salmon sheets. Worst-case march (full-coverage stratus) measured
+  85 fps at Great Lawn — no perf impact.
+- **§2.5: DONE 2026-06-12** (see §1). Almanac + canonical-hour remap +
+  moon phases + perceptual disk sizing.
 - **P2**: high ice layer + twilight interplay (2.2). Unlocks the pink
   cloud-ceiling reference look.
 - **P3**: cumulonimbus anvil + mammatus (2.3).
