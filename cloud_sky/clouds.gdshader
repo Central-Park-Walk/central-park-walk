@@ -15,6 +15,9 @@ uniform float blend_amount : hint_range(0.0, 1.0, 0.01);
 // pipeline a clear noon sky measured ~1 stop under reference. Calibrated
 // via --sky-cal sweeps against real-photo targets (docs/rendering.md).
 uniform float sky_brightness = 1.0;
+// Celestial sun direction from day_night_cycle.gd (decoupled from the
+// shadow light during twilight, 2026-06-11). ZERO = unset → LIGHT0.
+uniform vec3 celestial_dir = vec3(0.0);
 uniform float sun_disk_scale = 1.0;
 uniform float sun_disk_hdr_brightness : hint_range(0.0, 100.0, 0.01) = 5.0;
 uniform float sun_disk_hdr_attenuation : hint_range(1.0, 10.0, 0.01) = 1.0;
@@ -91,15 +94,19 @@ vec3 getValFromTLUT(sampler2D tex, vec2 bufferRes, vec3 pos, vec3 sunDir) {
     return texture(tex, uv).rgb;
 }
 
+vec3 sun_dir() {
+	return dot(celestial_dir, celestial_dir) > 0.25 ? celestial_dir : LIGHT0_DIRECTION;
+}
+
 vec3 get_atmo(vec3 dir) {
 	vec3 col = getValFromSkyLUT(dir);
-	vec3 sunLum = sunWithBloom(dir, LIGHT0_DIRECTION);
+	vec3 sunLum = sunWithBloom(dir, sun_dir());
     if (length(sunLum) > 0.0) {
         if (rayIntersectSphere(viewPos, dir, groundRadiusMM) >= 0.0) {
             sunLum *= 0.0;
         } else {
             // If the sun value is applied to this pixel, we need to calculate the transmittance to obscure it.
-        	sunLum *= getValFromTLUT(source_transmittance, tLUTRes, viewPos, LIGHT0_DIRECTION);
+        	sunLum *= getValFromTLUT(source_transmittance, tLUTRes, viewPos, sun_dir());
 		}
     }
     col += sunLum;
@@ -117,26 +124,33 @@ void sky() {
 	vec4 clouds = mix(blend_from, blend_to, blend_amount);
 	vec3 background = get_atmo(EYEDIR);
 
-	// Sunset/sunrise: volumetric clouds blaze with warm colors when sun is low
-	float sun_elev = LIGHT0_DIRECTION.y;
-	float golden = smoothstep(0.25, -0.05, sun_elev);
+	// Sunset/sunrise: volumetric clouds blaze with warm colors when sun is
+	// low. Keyed on the celestial sun (crosses the horizon, 2026-06-11) —
+	// peaks at elev 0 to -4 deg where the reference pinks live, fades out
+	// by -8 deg (clouds past the terminator go grey-mauve).
+	vec3 sdir = sun_dir();
+	float sun_elev = sdir.y;
+	float golden = smoothstep(0.25, -0.02, sun_elev) * smoothstep(-0.14, -0.06, sun_elev);
 	if (golden > 0.01 && clouds.a > 0.01) {
-		float sun_dot_c = dot(normalize(EYEDIR), LIGHT0_DIRECTION);
+		float sun_dot_c = dot(normalize(EYEDIR), sdir);
 		// Sunward clouds: deep orange to crimson
 		float sun_face = pow(max(sun_dot_c, 0.0), 1.5);
 		vec3 blaze = mix(vec3(1.2, 0.55, 0.18), vec3(1.0, 0.30, 0.10), golden);
 		clouds.rgb += blaze * sun_face * golden * clouds.a * 0.45;
-		// Anti-sun clouds: pink-purple tones (scattered skylight)
+		// Anti-sun clouds: salmon-pink (scattered skylight; reference dusk
+		// frames show pink across the WHOLE dome, not just sunward)
 		float anti_face = pow(max(-sun_dot_c, 0.0), 2.0);
-		clouds.rgb += vec3(0.45, 0.20, 0.35) * anti_face * golden * clouds.a * 0.25;
+		clouds.rgb += vec3(0.55, 0.28, 0.38) * anti_face * golden * clouds.a * 0.40;
 		// Overall warm shift on all clouds at golden hour
 		clouds.rgb *= mix(vec3(1.0), vec3(1.20, 0.90, 0.72), golden * 0.40);
 		// Bright rim on backlit cloud edges
 		float rim = pow(max(sun_dot_c, 0.0), 4.0);
 		clouds.rgb += LIGHT0_COLOR * rim * golden * 0.25;
-		// Deep sunset: clouds go red at the very end
+		// Deep sunset: clouds shift salmon-pink at the very end (reference
+		// dusk undersides are pink, not brown-red; scaled by the golden
+		// gate so it fades out with everything else past the terminator)
 		float deep = smoothstep(-0.02, -0.10, sun_elev);
-		clouds.rgb += vec3(0.30, 0.05, 0.02) * deep * clouds.a * 0.35;
+		clouds.rgb += vec3(0.32, 0.10, 0.14) * deep * clamp(golden * 2.0, 0.0, 1.0) * clouds.a * 0.40;
 	}
 
 	COLOR = background * (1.0-clouds.a) + clouds.xyz;

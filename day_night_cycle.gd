@@ -22,7 +22,7 @@ var _keyframes: Array = []
 var _last_applied_tod: float = -999.0
 var _last_night_factor: float = -1.0
 
-const _KF_HOURS: Array = [5.0, 6.5, 12.0, 19.0, 21.0]
+const _KF_HOURS: Array = [5.0, 5.75, 6.5, 12.0, 19.0, 20.2, 21.0]
 
 
 func _ready() -> void:
@@ -124,6 +124,19 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 	# at night (21:00 pitch −65). sun_energy is the honest one: 0.9–0.95 in
 	# daylight, 0.05 at night.
 	var day_f: float = smoothstep(0.15, 0.65, _lerp_kf("sun_energy", a, b, t))
+	# Twilight window factor: the background-sky calibration (cal_bg) must
+	# stay up while the celestial sun (computed below) is rendering real
+	# twilight — day_f tracks sun_energy, which fades exactly when the LUT
+	# needs its AgX exposure correction most (the below-horizon LUT is
+	# already dark; un-calibrating it too turned dusk near-black,
+	# 2026-06-11). Falls to 0 in step with the celestial->moon blend so
+	# the accepted night sky stays exact.
+	var twilight_f: float = 0.0
+	if time_of_day >= 19.0 and time_of_day < 21.0:
+		twilight_f = 1.0 - smoothstep(20.55, 21.0, time_of_day)
+	elif time_of_day >= 5.0 and time_of_day < 6.5:
+		twilight_f = smoothstep(5.0, 5.3, time_of_day)
+	var sky_f: float = maxf(day_f, twilight_f)
 	var sun_mult: float = lerpf(1.0, SUN_CAL, day_f)
 	if sun_cal_override > 0.0:
 		sun_mult = sun_cal_override
@@ -131,7 +144,7 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 		vol_sky.cloud_coverage = clampf(cc_val, 0.20, 0.50)
 		vol_sky.density = clampf(_lerp_kf("cloud_density", a, b, t) * 0.08, 0.02, 0.10)
 		# Day-blended sky calibration (constants above).
-		var cal_bg: float = lerpf(1.0, SKY_CAL_BG, day_f)
+		var cal_bg: float = lerpf(1.0, SKY_CAL_BG, sky_f)
 		var cal_sun: float = lerpf(1.0, SKY_CAL_SUN, day_f)
 		var cal_amb: float = lerpf(1.0, SKY_CAL_AMB, day_f)
 		if sky_cal_override.x > 0.0: cal_bg = sky_cal_override.x
@@ -295,16 +308,19 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 		dew = 0.0
 	RenderingServer.global_shader_parameter_set("dew_amount", dew)
 
-	# Dawn mist
+	# Dawn mist — peaks just AFTER sunrise (5.75) as golden mist. The old
+	# 5.5 peak filled the pre-dawn twilight window with warm-grey soup and
+	# erased the deep-blue + amber stratification the celestial sun now
+	# produces (references: notes/refs/sky_2026_06_11/sunrise_01).
 	if weather == Weather.CLEAR:
 		var dawn_mist := 0.0
-		if time_of_day >= 4.5 and time_of_day <= 7.5:
-			if time_of_day <= 5.5:
-				dawn_mist = smoothstep(4.5, 5.5, time_of_day)
+		if time_of_day >= 5.6 and time_of_day <= 7.5:
+			if time_of_day <= 6.3:
+				dawn_mist = smoothstep(5.6, 6.3, time_of_day)
 			else:
-				dawn_mist = 1.0 - smoothstep(5.5, 7.5, time_of_day)
-			env.volumetric_fog_density += dawn_mist * 0.002
-			env.adjustment_saturation *= (1.0 - dawn_mist * 0.15)
+				dawn_mist = 1.0 - smoothstep(6.3, 7.5, time_of_day)
+			env.volumetric_fog_density += dawn_mist * 0.0012
+			env.adjustment_saturation *= (1.0 - dawn_mist * 0.10)
 
 	# Seasonal fog and atmosphere modulation
 	var s_autumn := smoothstep(1.5, 2.5, season_t) * (1.0 - smoothstep(2.5, 3.5, season_t))
@@ -338,6 +354,36 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 	var yaw: float      = _lerp_kf("sun_yaw", a, b, t)
 	sun.rotation_degrees = Vector3(pitch, yaw, 0.0)
 	sun.directional_shadow_max_distance = _lerp_kf("shadow_dist", a, b, t)
+
+	# Celestial sun for the sky systems (atmosphere LUT, cloud march, sky
+	# shader disk/blaze) — decoupled from the shadow light during twilight
+	# (2026-06-11). The keyframed light never goes below ~2 deg elevation
+	# while lit (and doubles as a high moon at night), so the Hillaire
+	# LUT's sunrise/sunset band (0 to -6 deg, where ALL the color lives —
+	# see notes/refs/sky_2026_06_11/) was unreachable: flat dawn/dusk
+	# skies. The celestial path crosses the horizon at the 5.75 / 20.2
+	# keyframes and blends back to the light direction by full night so
+	# the accepted night sky stays exact. Positive pitch = below horizon.
+	var cel_pitch: float = pitch
+	if time_of_day >= 19.0 and time_of_day < 21.0:
+		var c_dusk: float
+		if time_of_day < 20.2:
+			c_dusk = lerpf(-12.0, 0.0, (time_of_day - 19.0) / 1.2)
+		else:
+			c_dusk = lerpf(0.0, 6.0, (time_of_day - 20.2) / 0.8)
+		cel_pitch = lerpf(c_dusk, pitch, smoothstep(20.7, 21.0, time_of_day))
+	elif time_of_day >= 5.0 and time_of_day < 6.5:
+		var c_dawn: float
+		if time_of_day < 5.75:
+			c_dawn = lerpf(6.0, 0.0, (time_of_day - 5.0) / 0.75)
+		else:
+			c_dawn = lerpf(0.0, -12.0, (time_of_day - 5.75) / 0.75)
+		cel_pitch = lerpf(pitch, c_dawn, smoothstep(5.0, 5.35, time_of_day))
+	var cel_dir: Vector3 = (Basis.from_euler(Vector3(deg_to_rad(cel_pitch),
+			deg_to_rad(yaw), 0.0)) * Vector3(0.0, 0.0, 1.0)).normalized()
+	if vol_sky:
+		vol_sky.celestial_direction = cel_dir
+	sky_mat.set_shader_parameter("celestial_dir", cel_dir)
 
 	# Lamp emission
 	_lamp_emission = _lerp_kf("lamp_emission", a, b, t)
@@ -394,7 +440,15 @@ func _lerp_kf(key: String, a: Dictionary, b: Dictionary, t: float):
 
 func _build_keyframes() -> void:
 	_keyframes.append({"hour": 5.0, "sky_top": Color(0.02, 0.02, 0.06), "sky_horizon": Color(0.14, 0.11, 0.20), "gnd_bottom": Color(0.02, 0.02, 0.035), "gnd_horizon": Color(0.10, 0.07, 0.12), "ambient_color": Color(0.16, 0.14, 0.22), "ambient_energy": 0.45, "exposure": 1.05, "white": 6.0, "ssao_radius": 2.0, "ssao_intensity": 1.4, "ssao_power": 1.5, "saturation": 0.75, "contrast": 1.02, "brightness": 0.96, "fog_color": Color(0.12, 0.10, 0.14), "fog_energy": 0.20, "fog_scatter": 0.05, "fog_density": 0.0005, "fog_aerial": 0.20, "fog_sky_affect": 0.6, "sun_energy": 0.05, "sun_color": Color(0.65, 0.72, 0.95), "sun_pitch": -10.0, "sun_yaw": -100.0, "shadow_dist": 250.0, "lamp_emission": 5.0, "vol_fog_density": 0.0004, "vol_fog_anisotropy": 0.45, "cloud_coverage": 0.24, "cloud_density": 0.55, "cloud_color_top": Color(0.42, 0.40, 0.44), "cloud_color_bottom": Color(0.16, 0.14, 0.18), "cloud_speed": 0.00003})
+	# 5.75 sunrise moment (2026-06-11 dawn/dusk vibrancy): the sun light dips
+	# to 2 deg elevation, deep orange, while the celestial sun (sky systems)
+	# crosses the horizon. References: notes/refs/sky_2026_06_11/.
+	_keyframes.append({"hour": 5.75, "sky_top": Color(0.10, 0.16, 0.40), "sky_horizon": Color(0.95, 0.55, 0.30), "gnd_bottom": Color(0.05, 0.04, 0.04), "gnd_horizon": Color(0.30, 0.20, 0.14), "ambient_color": Color(0.42, 0.34, 0.28), "ambient_energy": 0.55, "exposure": 1.0, "white": 5.8, "ssao_radius": 2.0, "ssao_intensity": 1.4, "ssao_power": 1.5, "saturation": 1.08, "contrast": 1.02, "brightness": 0.98, "fog_color": Color(0.58, 0.44, 0.32), "fog_energy": 0.40, "fog_scatter": 0.18, "fog_density": 0.0005, "fog_aerial": 0.18, "fog_sky_affect": 0.4, "sun_energy": 0.35, "sun_color": Color(1.0, 0.55, 0.28), "sun_pitch": -2.0, "sun_yaw": -98.0, "shadow_dist": 300.0, "lamp_emission": 2.0, "vol_fog_density": 0.00035, "vol_fog_anisotropy": 0.85, "cloud_coverage": 0.25, "cloud_density": 0.52, "cloud_color_top": Color(1.0, 0.78, 0.55), "cloud_color_bottom": Color(0.62, 0.38, 0.25), "cloud_speed": 0.00005})
 	_keyframes.append({"hour": 6.5, "sky_top": Color(0.18, 0.32, 0.62), "sky_horizon": Color(0.75, 0.52, 0.35), "gnd_bottom": Color(0.10, 0.08, 0.06), "gnd_horizon": Color(0.46, 0.34, 0.22), "ambient_color": Color(0.48, 0.38, 0.26), "ambient_energy": 0.75, "exposure": 0.95, "white": 5.5, "ssao_radius": 1.5, "ssao_intensity": 1.5, "ssao_power": 1.5, "saturation": 1.0, "contrast": 1.02, "brightness": 1.0, "fog_color": Color(0.50, 0.42, 0.34), "fog_energy": 0.45, "fog_scatter": 0.18, "fog_density": 0.0005, "fog_aerial": 0.18, "fog_sky_affect": 0.30, "sun_energy": 0.90, "sun_color": Color(1.0, 0.75, 0.50), "sun_pitch": -12.0, "sun_yaw": -95.0, "shadow_dist": 350.0, "lamp_emission": 0.0, "vol_fog_density": 0.0003, "vol_fog_anisotropy": 0.80, "cloud_coverage": 0.25, "cloud_density": 0.50, "cloud_color_top": Color(0.95, 0.85, 0.72), "cloud_color_bottom": Color(0.52, 0.42, 0.32), "cloud_speed": 0.00005})
 	_keyframes.append({"hour": 12.0, "sky_top": Color(0.12, 0.28, 0.65), "sky_horizon": Color(0.55, 0.60, 0.68), "gnd_bottom": Color(0.12, 0.12, 0.10), "gnd_horizon": Color(0.38, 0.36, 0.32), "ambient_color": Color(0.50, 0.46, 0.38), "ambient_energy": 0.95, "exposure": 1.0, "white": 6.0, "ssao_radius": 2.0, "ssao_intensity": 1.3, "ssao_power": 1.4, "saturation": 1.0, "contrast": 1.01, "brightness": 1.0, "fog_color": Color(0.62, 0.60, 0.56), "fog_energy": 0.5, "fog_scatter": 0.06, "fog_density": 0.00015, "fog_aerial": 0.12, "fog_sky_affect": 0.30, "sun_energy": 0.95, "sun_color": Color(0.95, 0.92, 0.85), "sun_pitch": -55.0, "sun_yaw": -20.0, "shadow_dist": 400.0, "lamp_emission": 0.0, "vol_fog_density": 0.0001, "vol_fog_anisotropy": 0.45, "cloud_coverage": 0.28, "cloud_density": 0.50, "cloud_color_top": Color(0.95, 0.95, 0.93), "cloud_color_bottom": Color(0.68, 0.68, 0.66), "cloud_speed": 0.00006})
 	_keyframes.append({"hour": 19.0, "sky_top": Color(0.18, 0.14, 0.38), "sky_horizon": Color(0.82, 0.50, 0.28), "gnd_bottom": Color(0.10, 0.07, 0.04), "gnd_horizon": Color(0.48, 0.35, 0.20), "ambient_color": Color(0.48, 0.42, 0.32), "ambient_energy": 0.88, "exposure": 0.95, "white": 5.5, "ssao_radius": 2.0, "ssao_intensity": 1.4, "ssao_power": 1.5, "saturation": 1.0, "contrast": 1.02, "brightness": 0.98, "fog_color": Color(0.55, 0.45, 0.35), "fog_energy": 0.45, "fog_scatter": 0.18, "fog_density": 0.0005, "fog_aerial": 0.18, "fog_sky_affect": 0.30, "sun_energy": 0.95, "sun_color": Color(1.0, 0.72, 0.45), "sun_pitch": -12.0, "sun_yaw": 95.0, "shadow_dist": 350.0, "lamp_emission": 0.0, "vol_fog_density": 0.0003, "vol_fog_anisotropy": 0.80, "cloud_coverage": 0.28, "cloud_density": 0.50, "cloud_color_top": Color(0.85, 0.55, 0.38), "cloud_color_bottom": Color(0.55, 0.30, 0.18), "cloud_speed": 0.00005})
+	# 20.2 sunset moment (2026-06-11): mirror of 5.75 — sun light at 2 deg,
+	# deep red-orange; the celestial sun crosses the horizon here and the
+	# post-sunset window 20.2-20.8 carries the reference pinks/corals.
+	_keyframes.append({"hour": 20.2, "sky_top": Color(0.10, 0.10, 0.30), "sky_horizon": Color(0.92, 0.45, 0.22), "gnd_bottom": Color(0.06, 0.045, 0.035), "gnd_horizon": Color(0.34, 0.22, 0.13), "ambient_color": Color(0.45, 0.36, 0.30), "ambient_energy": 0.55, "exposure": 0.95, "white": 5.5, "ssao_radius": 2.0, "ssao_intensity": 1.4, "ssao_power": 1.5, "saturation": 1.08, "contrast": 1.02, "brightness": 0.96, "fog_color": Color(0.50, 0.38, 0.30), "fog_energy": 0.40, "fog_scatter": 0.18, "fog_density": 0.0005, "fog_aerial": 0.18, "fog_sky_affect": 0.35, "sun_energy": 0.35, "sun_color": Color(1.0, 0.48, 0.22), "sun_pitch": -2.0, "sun_yaw": 97.0, "shadow_dist": 300.0, "lamp_emission": 1.5, "vol_fog_density": 0.00035, "vol_fog_anisotropy": 0.85, "cloud_coverage": 0.26, "cloud_density": 0.50, "cloud_color_top": Color(0.95, 0.55, 0.40), "cloud_color_bottom": Color(0.55, 0.28, 0.18), "cloud_speed": 0.00005})
 	_keyframes.append({"hour": 21.0, "sky_top": Color(0.015, 0.01, 0.01), "sky_horizon": Color(0.08, 0.05, 0.03), "gnd_bottom": Color(0.02, 0.015, 0.01), "gnd_horizon": Color(0.08, 0.06, 0.04), "ambient_color": Color(0.85, 0.65, 0.40), "ambient_energy": 0.06, "exposure": 0.90, "white": 6.0, "ssao_radius": 2.0, "ssao_intensity": 1.4, "ssao_power": 1.5, "saturation": 0.50, "contrast": 1.01, "brightness": 0.88, "fog_color": Color(0.08, 0.06, 0.04), "fog_energy": 0.20, "fog_scatter": 0.06, "fog_density": 0.0003, "fog_aerial": 0.15, "fog_sky_affect": 0.4, "sun_energy": 0.05, "sun_color": Color(0.70, 0.78, 1.00), "sun_pitch": -65.0, "sun_yaw": 40.0, "shadow_dist": 250.0, "lamp_emission": 5.0, "vol_fog_density": 0.0005, "vol_fog_anisotropy": 0.35, "cloud_coverage": 0.20, "cloud_density": 0.50, "cloud_color_top": Color(0.14, 0.12, 0.18), "cloud_color_bottom": Color(0.06, 0.05, 0.08), "cloud_speed": 0.00003})

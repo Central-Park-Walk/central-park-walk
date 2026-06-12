@@ -62,6 +62,11 @@ var texture_size : int = 768: # Needs to be divisible by sqrt(frames_to_update)
 
 var sun : DirectionalLight3D
 
+# Celestial sun direction for the sky LUT + cloud march, set by
+# day_night_cycle.gd (decoupled from the shadow light during twilight —
+# 2026-06-11). ZERO = unset, follow the light.
+var celestial_direction := Vector3.ZERO
+
 var date_time_location : Node3D
 
 # Everything in the compute shader must be cached here so that it only updates
@@ -186,6 +191,8 @@ func update_sky():
 func _update_per_frame_data():
 	if sun:
 		frame_data.update_light_data(sun)
+		if celestial_direction != Vector3.ZERO:
+			frame_data.LIGHT_DIRECTION = celestial_direction
 	frame_data.wind_direction = Vector2.from_angle(wind_direction)
 	frame_data.wind_speed = wind_speed
 	frame_data.density = density
