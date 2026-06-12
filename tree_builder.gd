@@ -85,6 +85,32 @@ var _simple_bark: bool = false
 var _leaf_no_prepass: bool = false
 var _noprepass_shader: Shader = null
 
+# Desired height ranges per species archetype (metres)
+# [min, max] — census DBH drives interpolation within range
+# DBH fallback height ranges (metres). Minimums raised because woodland-fill
+# trees represent established 150-year-old Central Park canopy, not saplings.
+# "cherry" includes black cherry (Prunus serotina, 25m+) not just ornamentals.
+# Class-level so eval_plot_builder.gd can size its specimen rows from it.
+const HEIGHT_RANGES := {
+	"oak":           [15.0, 30.0],   # red/white oak — massive when mature
+	"maple":         [14.0, 26.0],   # sugar/Norway maple
+	"elm":           [16.0, 32.0],   # American Elm — tall vase shape
+	"conifer":       [14.0, 30.0],
+	"deciduous":     [14.0, 28.0],   # generic canopy tree
+	"birch":         [10.0, 22.0],   # gray/river birch
+	"honeylocust":   [14.0, 25.0],   # open, airy crown
+	"callery_pear":  [8.0, 18.0],    # medium street tree
+	"ginkgo":        [10.0, 22.0],   # slow-growing
+	"london_plane":  [16.0, 32.0],   # tall broad crown, like sycamore
+	"linden":        [14.0, 24.0],   # dense symmetrical crown
+	"cherry":        [10.0, 22.0],   # includes black cherry (P. serotina 25m+)
+	"zelkova":       [14.0, 24.0],   # upright vase shape
+	"dead":          [8.0, 20.0],    # shorter (broken top)
+	"willow":        [10.0, 22.0],   # weeping willow — wide, medium height
+	"magnolia":      [6.0, 16.0],    # sweetbay magnolia can reach 20m
+	"cathedral_elm": [22.0, 34.0],   # mature Literary Walk elms — tall, wide vase
+}
+
 func _init(loader) -> void:
 	_loader = loader
 	# Default ON since 2026-06-10 (docs/trees.md §3 DoD passed: shtri, SDFGI
@@ -446,31 +472,6 @@ func _build_trees(trees: Array) -> void:
 		print("WARNING: no tree GLB models loaded, falling back skipped")
 		return
 
-	# Desired height ranges per species archetype (metres)
-	# [min, max] — census DBH drives interpolation within range
-	# DBH fallback height ranges (metres). Minimums raised because woodland-fill
-	# trees represent established 150-year-old Central Park canopy, not saplings.
-	# "cherry" includes black cherry (Prunus serotina, 25m+) not just ornamentals.
-	var height_ranges := {
-		"oak":           [15.0, 30.0],   # red/white oak — massive when mature
-		"maple":         [14.0, 26.0],   # sugar/Norway maple
-		"elm":           [16.0, 32.0],   # American Elm — tall vase shape
-		"conifer":       [14.0, 30.0],
-		"deciduous":     [14.0, 28.0],   # generic canopy tree
-		"birch":         [10.0, 22.0],   # gray/river birch
-		"honeylocust":   [14.0, 25.0],   # open, airy crown
-		"callery_pear":  [8.0, 18.0],    # medium street tree
-		"ginkgo":        [10.0, 22.0],   # slow-growing
-		"london_plane":  [16.0, 32.0],   # tall broad crown, like sycamore
-		"linden":        [14.0, 24.0],   # dense symmetrical crown
-		"cherry":        [10.0, 22.0],   # includes black cherry (P. serotina 25m+)
-		"zelkova":       [14.0, 24.0],   # upright vase shape
-		"dead":          [8.0, 20.0],    # shorter (broken top)
-		"willow":        [10.0, 22.0],   # weeping willow — wide, medium height
-		"magnolia":      [6.0, 16.0],    # sweetbay magnolia can reach 20m
-		"cathedral_elm": [22.0, 34.0],   # mature Literary Walk elms — tall, wide vase
-	}
-
 	# Foliage zone data for deciduous sub-species assignment
 
 	# Collect transforms + season data per species-variant for MultiMesh batching
@@ -537,7 +538,9 @@ func _build_trees(trees: Array) -> void:
 			species = "cathedral_elm"
 
 		# Standing dead trees (snags): ~3% of non-conifer trees become dead snags
-		if species != "conifer" and species != "dead":
+		# (never eval-plot specimens — a labelled oak must stay an oak)
+		var is_eval: bool = typeof(tree_entry) == TYPE_DICTIONARY and tree_entry.get("eval", false)
+		if species != "conifer" and species != "dead" and not is_eval:
 			var dead_hash := fmod(abs(sin(float(i) * 127.1 + tx * 311.7 + tz * 183.3) * 43758.5453), 1.0)
 			if dead_hash < 0.03:
 				species = "dead"
@@ -550,9 +553,9 @@ func _build_trees(trees: Array) -> void:
 		var desired_h: float
 		if typeof(tree_entry) == TYPE_DICTIONARY and tree_entry.has("lidar_h") and float(tree_entry["lidar_h"]) > 0.0:
 			desired_h = float(tree_entry["lidar_h"])
-			desired_h = clampf(desired_h, 3.0, float(height_ranges.get(species, [10.0, 35.0])[1]) * 1.2)
+			desired_h = clampf(desired_h, 3.0, float(HEIGHT_RANGES.get(species, [10.0, 35.0])[1]) * 1.2)
 		else:
-			var h_range: Array = height_ranges.get(species, [10.0, 22.0])
+			var h_range: Array = HEIGHT_RANGES.get(species, [10.0, 22.0])
 			var h_min := float(h_range[0])
 			var h_max := float(h_range[1])
 			var dbh_t := clampf((float(dbh) - 3.0) / 45.0, 0.0, 1.0)
