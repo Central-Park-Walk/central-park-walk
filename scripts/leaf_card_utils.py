@@ -125,7 +125,8 @@ def _draw_twig_line(pixels, tex_size, x0, y0, x1, y1,
 
 def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic",
                           seed=42, draw_twigs=True, fascicle_mode=False,
-                          compound_mode=False, spread=None, size_scale=1.0):
+                          compound_mode=False, spread=None, size_scale=1.0,
+                          leaf_scale=1.0):
     """Generate a leaf cluster texture with proper alpha for alpha-to-coverage.
 
     Returns a bpy.types.Image with scattered overlapping leaves.
@@ -253,11 +254,18 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic"
                         pixels[idx + 3] = 0.85
 
     else:
-        # Standard leaf mode
-        for leaf_i in range(n_leaves):
+        # Standard leaf mode. Individual leaf size is DATA-DRIVEN per species via
+        # leaf_scale (blade-length normalised, oak≈1.0): a Linden's 20cm leaf reads
+        # ~3× a Gray Birch's 7cm leaf. Count compensates by leaf_scale² so per-texture
+        # COVERAGE stays ~constant (cards always read as foliage with clean alpha
+        # breakup) while only the leaf GRAIN changes — big leaves few & coarse, small
+        # leaves many & fine. Canopy opacity differences live in cluster count /
+        # leaf_density, not here.
+        n_eff = max(8, round(n_leaves / (leaf_scale * leaf_scale)))
+        for leaf_i in range(n_eff):
             cx = TEX // 2 + rng.randint(-spread, spread)
             cy = TEX // 2 + rng.randint(-spread, spread)
-            base_size = TEX * rng.uniform(0.10, 0.22) * size_scale
+            base_size = TEX * rng.uniform(0.10, 0.22) * size_scale * leaf_scale
             leaf_w = int(base_size * aspect)
             leaf_h = int(base_size)
             rot = rng.uniform(0, math.pi * 2)
@@ -347,13 +355,13 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic"
 def create_leaf_material(name, leaf_shape="elliptic", n_leaves=22,
                          tex_size=512, seed=42, draw_twigs=True,
                          fascicle_mode=False, compound_mode=False,
-                         spread=None, size_scale=1.0):
+                         spread=None, size_scale=1.0, leaf_scale=1.0):
     """Create a leaf material with a multi-leaf cluster texture."""
     leaf_img = generate_leaf_texture(
         f"{name}Tex", tex_size=tex_size, n_leaves=n_leaves,
         leaf_shape=leaf_shape, seed=seed, draw_twigs=draw_twigs,
         fascicle_mode=fascicle_mode, compound_mode=compound_mode,
-        spread=spread, size_scale=size_scale)
+        spread=spread, size_scale=size_scale, leaf_scale=leaf_scale)
 
     mat = bpy.data.materials.new(name=name)
     mat.use_nodes = True

@@ -374,6 +374,7 @@ SPECIES = {
         "leaf_n": 50,
         "leaf_tex_size": 1024,
         "leaf_seed": 881,
+        "leaf_scale": 1.0,  # Pin oak ~11cm blade (ref)
         "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.40, 0.70),
         "leaf_density": 0.55,  # Pin oak LAI 3.0-4.5 → moderate (dappled, not dense like elm)
@@ -434,6 +435,7 @@ SPECIES = {
         "leaf_n": 50,
         "leaf_tex_size": 1024,
         "leaf_seed": 777,
+        "leaf_scale": 1.05,  # American elm ~12cm
         "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.40, 0.70),
         "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
@@ -506,6 +508,7 @@ SPECIES = {
         "leaf_n": 52,
         "leaf_tex_size": 1024,
         "leaf_seed": 888,
+        "leaf_scale": 1.05,  # American elm ~12cm
         "leaf_cluster_size_range": (0.45, 0.90),
         "leaf_flatten_range": (0.40, 0.70),
         "leaf_density": 0.75,  # canopy density (0-1, from real-world LAI) — reduced for <100MB
@@ -529,7 +532,10 @@ SPECIES = {
         "branch_start": 0.22,
         "branch_end": 0.95,
         "branch_density": 1.4,
-        "branch_length_ratio": 0.30,  # Sugar maple: compact dense crown
+        "branch_length_ratio": 0.36,  # rounded-to-oval dense crown; spread 10-18m vs
+                                      # H 20-27m → aspect ~0.6-0.7 (canopy data §3)
+        "branch_start_radius": 0.48,  # heavy-wood maple: stout primary limbs
+        "branch_angle_variation": 0.35,  # gentle tiering into a dense rounded-oval crown
         "branch_angle": 45,
         "branch_gravity": 6.0,
         "branch_stiffness": 0.25,
@@ -555,12 +561,21 @@ SPECIES = {
         "leaf_n": 50,
         "leaf_tex_size": 1024,
         "leaf_seed": 552,
+        "leaf_scale": 1.35,  # Sugar maple ~16cm, among largest
         "leaf_cluster_size_range": (0.33, 0.75),
         "leaf_flatten_range": (0.45, 0.60),
-        "leaf_density": 0.9,  # canopy density (0-1, from real-world LAI)
+        "leaf_density": 0.9,  # LAI 5-7, "essentially opaque" (~1.3%% transmittance, §3)
         "target_cluster_count_l": 1000,  # LAI 5-7; sugar maple denser than oak
         "base_seed": 300,
         "seed_step": 29,
+        # Woodland mass (~29%% of North Woods/Ramble via sweetgum/tupelo → maple) — high
+        # census, so widen the seed envelope to 7 to kill stand tiling. Variants span
+        # the rounded↔oval form within ~1 SD of the real population.
+        "n_variants": 7,
+        "variant_spans": {
+            "branch_angle": [40, 55],       # upright-oval ↔ rounded-spreading crown
+            "up_attraction": [0.45, 0.65],  # central-leader prominence
+        },
         "tiers": {
             "s": {"target_h": 10, "height_range": [8, 14], "skeleton_overrides": {
                 "branch_density": 0.8, "branch_split_prob": 0.30, "sub_density": 0.4}},
@@ -611,6 +626,7 @@ SPECIES = {
         "leaf_n": 60,
         "leaf_tex_size": 1024,
         "leaf_seed": 601,
+        "leaf_scale": 1.0,  # needle (fascicle) — unaffected by leaf_scale
         "leaf_cluster_size_range": (0.42, 0.83),
         "leaf_flatten_range": (0.40, 0.60),
         "leaf_density": 0.72,  # "among the densest pines" — light transmission only 10-20%
@@ -671,6 +687,7 @@ SPECIES = {
         "leaf_n": 48,
         "leaf_tex_size": 1024,
         "leaf_seed": 443,
+        "leaf_scale": 0.85,  # Yoshino cherry ~10cm
         "leaf_cluster_size_range": (0.30, 0.68),
         "leaf_flatten_range": (0.50, 0.75),
         "leaf_density": 0.55,  # Cherry LAI 3.0-4.0 → moderate, dappled shade
@@ -723,6 +740,7 @@ SPECIES = {
         "leaf_n": 45,
         "leaf_tex_size": 1024,
         "leaf_seed": 551,
+        "leaf_scale": 0.6,  # Gray birch ~7cm, small triangular
         "leaf_cluster_size_range": (0.27, 0.60),
         "leaf_flatten_range": (0.40, 0.70),
         "leaf_density": 0.5,  # canopy density (0-1, from real-world LAI)
@@ -779,6 +797,7 @@ SPECIES = {
         "leaf_n": 55,
         "leaf_tex_size": 1024,
         "leaf_seed": 661,
+        "leaf_scale": 1.0,  # compound leaflets — unaffected by leaf_scale
         "leaf_cluster_size_range": (0.30, 0.63),
         "leaf_flatten_range": (0.45, 0.65),
         "leaf_density": 0.35,  # Honeylocust LAI 2.0-2.5 → very airy, dappled light
@@ -840,6 +859,7 @@ SPECIES = {
         "leaf_n": 50,
         "leaf_tex_size": 1024,
         "leaf_seed": 557,
+        "leaf_scale": 0.55,  # Callery pear ~6cm, small glossy
         "leaf_cluster_size_range": (0.33, 0.72),
         "leaf_flatten_range": (0.50, 0.70),
         "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
@@ -900,6 +920,7 @@ SPECIES = {
         "leaf_n": 55,
         "leaf_tex_size": 1024,
         "leaf_seed": 801,
+        "leaf_scale": 0.95,  # Willow ~12cm long but narrow (aspect via lanceolate)
         "leaf_cluster_size_range": (0.27, 0.60),
         "leaf_flatten_range": (0.55, 0.75),
         "leaf_density": 0.45,  # Willow LAI 2.5-3.5 → curtain, not solid mass
@@ -964,6 +985,7 @@ SPECIES = {
         "leaf_n": 48,
         "leaf_tex_size": 1024,
         "leaf_seed": 773,
+        "leaf_scale": 1.5,  # Linden ~19cm, 100-200cm2 — largest
         "leaf_cluster_size_range": (0.33, 0.72),
         "leaf_flatten_range": (0.45, 0.60),
         "leaf_density": 0.85,  # Linden LAI 4.5-5.5 → very dense shade tree
@@ -1021,6 +1043,7 @@ SPECIES = {
         "leaf_n": 48,
         "leaf_tex_size": 1024,
         "leaf_seed": 447,
+        "leaf_scale": 1.4,  # London plane ~15cm x 18 wide, palmate
         "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.45, 0.65),
         "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
@@ -1080,6 +1103,7 @@ SPECIES = {
         "leaf_n": 50,
         "leaf_tex_size": 1024,
         "leaf_seed": 557,
+        "leaf_scale": 0.65,  # Ginkgo ~7cm fan
         "leaf_cluster_size_range": (0.27, 0.60),
         "leaf_flatten_range": (0.50, 0.70),
         "leaf_density": 0.55,  # canopy density (0-1, from real-world LAI)
@@ -1137,6 +1161,7 @@ SPECIES = {
         "leaf_n": 45,
         "leaf_tex_size": 1024,
         "leaf_seed": 663,
+        "leaf_scale": 1.25,  # Magnolia ~14cm obovate
         "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.45, 0.65),
         "leaf_density": 0.7,  # canopy density (0-1, from real-world LAI)
@@ -1186,6 +1211,7 @@ SPECIES = {
         "leaf_n": 50,
         "leaf_tex_size": 1024,
         "leaf_seed": 700,
+        "leaf_scale": 1.0,  # generic average broadleaf
         "leaf_cluster_size_range": (0.33, 0.75),
         "leaf_flatten_range": (0.45, 0.65),
         "leaf_density": 0.75,  # canopy density (0-1, from real-world LAI)
@@ -1874,6 +1900,8 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
         seed=sp["leaf_seed"],
         fascicle_mode=fascicle,
         compound_mode=compound,
+        leaf_scale=sp.get("leaf_scale", 1.0),  # per-species real leaf size (blade-length
+                                               # normalised, oak≈1.0; canopy data §each)
     )
     # Viewport display color for Workbench thumbnail renderer
     if fascicle:
