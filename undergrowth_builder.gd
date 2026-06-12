@@ -308,6 +308,17 @@ func _build_zone_map() -> void:
 	print("  Undergrowth: zone map built (%d chunks)" % _zone_map.size())
 
 
+# Free every live chunk's RenderingServer RIDs. Called from main at quit —
+# chunk unloading only frees DISTANT chunks, so whatever was active at exit
+# leaked (instance + multimesh RIDs, which also pin their meshes/materials).
+func free_all_chunks() -> void:
+	for key in _active_chunks:
+		var rids: Array = _active_chunks[key]
+		RenderingServer.free_rid(rids[1])  # instance first
+		RenderingServer.free_rid(rids[0])  # multimesh second
+	_active_chunks.clear()
+
+
 func update_camera(camera_pos: Vector3) -> void:
 	var moved := camera_pos.distance_to(_last_update_pos) > UPDATE_DIST
 	if moved:

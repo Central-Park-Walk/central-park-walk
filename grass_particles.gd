@@ -242,12 +242,11 @@ func _position_grid(pos: Vector3) -> void:
 		var node: GPUParticles3D = particle_nodes[i]
 		var snap = Vector3(pos.x, 0, pos.z).snapped(Vector3.ONE) + offsets[i]
 		node.global_position = (snap / instance_spacing).round() * instance_spacing
-		# reset_physics_interpolation is needed so the grid teleport doesn't
-		# render as a smooth slide between old and new positions. Godot 4.6
-		# routes this through a compat shim and emits a deprecation warning;
-		# functional behavior is fine, and removing the call breaks the
-		# follow-the-camera grass visually.
-		node.reset_physics_interpolation()
+		# The grid teleport must not render as a smooth interpolated slide
+		# between old and new positions. Node.reset_physics_interpolation()
+		# routes through a deprecated RS compat shim in 4.6 (startup
+		# warning); instance_teleport is its direct replacement.
+		RenderingServer.instance_teleport(node.get_instance())
 		node.restart(true) # keep the same seed.
 
 

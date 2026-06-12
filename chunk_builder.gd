@@ -57,6 +57,18 @@ func _init_chunks(chunk: float, load_r: float, unload_r: float,
 	_hm_half = _hm_ws * 0.5
 
 
+# Free every live chunk's RenderingServer RIDs. Called from main at quit —
+# chunk unloading only frees DISTANT chunks, so whatever was active at exit
+# leaked (instance + multimesh RIDs, which also pin their meshes/materials:
+# the exit-time "RID allocations leaked" wall).
+func free_all_chunks() -> void:
+	for ck in _active_chunks:
+		for rids in _active_chunks[ck]:
+			RenderingServer.free_rid(rids[1])  # instance first
+			RenderingServer.free_rid(rids[0])  # multimesh second
+	_active_chunks.clear()
+
+
 func update_camera(camera_pos: Vector3) -> void:
 	var dv := camera_pos - _last_update_pos
 	if dv.x * dv.x + dv.z * dv.z > _update_dist * _update_dist:

@@ -589,6 +589,25 @@ func _carve_terrain_rect(x_min: float, x_max: float, z_min: float, z_max: float,
 # ---------------------------------------------------------------------------
 # Per-frame update: time + HUD
 # ---------------------------------------------------------------------------
+func _exit_tree() -> void:
+	## Quit-path teardown (zero-error goal, 2026-06-11): free everything we
+	## allocated directly on the RenderingServer / RenderingDevice. Node
+	## teardown can't do it for us (chunk builders aren't scene nodes, the
+	## volumetric sky is a Resource whose PREDELETE can't reach self), and
+	## whatever is still live at exit prints the RID-leak error wall —
+	## leaked multimesh instances also pin their meshes/materials.
+	if _park_loader:
+		if _park_loader._undergrowth_builder:
+			_park_loader._undergrowth_builder.free_all_chunks()
+		if _park_loader._ground_cover_builder:
+			_park_loader._ground_cover_builder.free_all_chunks()
+	if _vol_sky:
+		_vol_sky.can_run = false
+		# cleanup() frees RD RIDs — serialize with the per-frame compute
+		# dispatches by running it on the render thread.
+		RenderingServer.call_on_render_thread(_vol_sky.cleanup)
+
+
 func _process(delta: float) -> void:
 	# Player camera world position — must be pushed every frame, *before*
 	# any early-return paths (tour mode, walk bot), so distance-based
@@ -742,7 +761,14 @@ func _process(delta: float) -> void:
 		var wlen: float = _wind_vec.length()
 		if wlen > 0.01:
 			_vol_sky.wind_direction = atan2(_wind_vec.y, _wind_vec.x)
-		_vol_sky.wind_speed = wlen * 0.6
+		# Cloud-level wind in real m/s (2026-06-11 static-cloud fix).
+		# wind_vec is a SHADER-units vector (typ. 0.2-0.6, max ~1.65 at the
+		# 300% override) — the old wlen*0.6 mapping drove ~2 m/s of world
+		# drift at 2 km altitude, imperceptible; the "motion" users saw was
+		# the detail-churn defect. Winds aloft exceed surface wind almost
+		# always: floor of 4 m/s at surface calm, ~14 m/s at default
+		# breeze, ~24 m/s with wind cranked (real cumulus: 5-15+ m/s).
+		_vol_sky.wind_speed = 4.0 + wlen * 12.0
 	_prof_wind_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_wind_us, PROF_SMOOTH)
 
 	# Ambient audio + weather + season
@@ -1761,7 +1787,14 @@ func _setup_environment() -> void:
 	else:
 		var up_mode := _cli_upscale_mode if _cli_upscale_mode != "" else "fsr2"
 		match up_mode:
-			"fsr2": get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2
+			"fsr2":
+				# FSR2 does its own temporal accumulation; the engine
+				# force-disables TAA with a startup warning. Disable it
+				# first to keep the log clean (zero-error goal) —
+				# project.godot use_taa=true still applies under
+				# --upscale=off / bilinear modes.
+				get_viewport().use_taa = false
+				get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2
 			"fsr1": get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
 			_: get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		get_viewport().scaling_3d_scale = clampf(_cli_upscale_scale, 0.1, 1.0)
