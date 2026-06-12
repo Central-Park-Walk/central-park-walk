@@ -193,6 +193,52 @@ Rules:
 - `perf_gate.sh` ×5 locations, per-location targets (60 open / 45 woodland), no
   regression — same gate as trees.
 
+### 2b. Seasonal state and bloom — a first-class requirement, not an afterthought
+
+Non-tree plants are **far more seasonal than trees**: most are herbaceous and either
+die back completely, collapse at frost, or stand as dead structure through winter, and
+their **bloom is often the entire identity** (cardinal flower *is* a scarlet spike in
+August; goldenrod *is* a golden autumn plume; witch hazel *is* yellow ribbons in
+November; little bluestem *is* copper-and-silver in October). A model that's only right
+in summer green is wrong three seasons out of four. So every brief states, and every
+model and `SPECIES`-row must honor, the full **seasonal timeline** — and the runtime
+already has the hooks for it (`undergrowth_builder.gd` `season_t` per frame; per-species
+`fall` color, `green` evergreen flag, `fc` flower color, `bl` bloom `season_t` window).
+
+Each species must be correct in **five seasonal states**, validated by the seasonal-sweep
+DoD (§10):
+
+1. **Spring flush / emergence** — fiddleheads (ferns), red shoots (knotweed/pokeweed),
+   the basal rosette (biennials like burdock; cardinal flower's overwintering rosette).
+2. **Summer mass** — full foliage, the baseline.
+3. **Bloom** — fired in the species' real **`bl` window** with the right `fc` color, and
+   *staggered* so a stand doesn't all flower on one frame (§4). Bloom timing is wildly
+   species-specific and must match the brief: spring (yellow iris, PA/tussock sedge,
+   cinnamon-fern fertile fronds), early–mid summer (elderberry, viburnum), mid–late
+   summer (most forbs, sweet pepperbush, cattail spike browning), **autumn** (goldenrod,
+   the asters, little bluestem seed-silver, and the outlier **witch hazel**, which blooms
+   on bare branches in late fall).
+4. **Fall** — the `fall` color (and for some the *bloom is the fall event* — asters,
+   goldenrod) or the showy fall foliage (sumac scarlet, little bluestem copper/wine,
+   viburnum wine-purple); fruit/seed-head states (sumac crimson cones, viburnum
+   blue-black berries, elderberry purple berries, milkweed/teasel-like persistent heads).
+5. **Winter** — the decisive split the brief must declare for each species:
+   - **Evergreen / semi-evergreen** — stays green (`green=1`): christmas fern (reclining
+     but green), PA sedge (semi-evergreen base).
+   - **Frost-collapse annual/tender** — vanishes suddenly at first frost: jewelweed,
+     sensitive fern (no winter presence at all — must disappear, not brown-in-place).
+   - **Standing dead structure** — persists as a recognizable winter skeleton/seed-head:
+     spicebush twiggy skeleton, knotweed tan canes, ironweed stiff stalks, phragmites
+     silver plumes, cattail brown spikes bursting to fluff, ostrich/sensitive-fern dark
+     fertile fronds, goldenrod fluffy plumes.
+
+Because foliage geometry and card counts change during this redesign, any
+season-dependent value baked into the model or the seasonal system (leaf-drop fractions,
+the trees' `WINTER_RETENTION` analog, fertile-frond/bloom gating windows) is **silently
+invalidated by a model change and must be recalibrated per species** — exactly the trees'
+gotcha (§9 step 5, tree spec §6 step 6). A species is not done until its five states are
+captured and correct.
+
 ---
 
 ## 3. Reference sets and briefs (do this before touching any species)
