@@ -15,15 +15,21 @@ at the worst test location. Measured today: ~25 ms camera (Ramble), 18–28 ms s
 | tier | range | fade | representation | casts shadow | lit |
 |---|---|---|---|---|---|
 | near mesh | 0–60 m | dither out 50–60 m | `{species}_{s,m,l}` — the **full base model** (revised Jun 11, §7: the 50 %-card `_lod1` tier visibly thinned close crowns), MMI per species-size × 80 m chunk | **never** (proxy does) | runtime sun + ambient |
-| mid mesh | 50–250 m | dither in 50–60 m, out 230–250 m | `{species}_{s,m,l}_lod2` (≤ ~12 k tris: adaptive card prune + bark decimation, §4c) | never | runtime sun + ambient |
-| shadow proxy | 0–290 m | none (pops with cascade distance, invisible) | trunk cylinder + crown hull ≤ ~300 tris, alpha-test dapple mask, MMI `SHADOWS_ONLY` | is the shadow | n/a |
-| impostor | 190–2500 m | dither in 230–250 m | 8×8 hemisphere octahedral, 2048² atlas per species-size (56 atlases) | never | **runtime sun + ambient (NEW)** |
+| mid mesh | 50–400 m | dither in 50–60 m, out 380–400 m | `{species}_{s,m,l}_lod2` (≤ ~12 k tris: adaptive card prune + bark decimation, §4c) | never | runtime sun + ambient |
+| shadow proxy | 0–290 m | none (pops with cascade distance, invisible; shadow distance is 150 m so the 290 m cap is never the binding limit) | trunk cylinder + crown hull ≤ ~300 tris, alpha-test dapple mask, MMI `SHADOWS_ONLY` | is the shadow | n/a |
+| impostor | 340–2500 m | dither in 380–400 m | 8×8 hemisphere octahedral, 2048² atlas per species-size (56 atlases) | never | **runtime sun + ambient (NEW)** |
+
+Mesh fade end moved 250 → 400 m on 2026-06-11 (§8): the 250 m handoff was
+color-matched but the billboard's flat/speckled read vs lod2's shaped
+crowns at 250–350 m was the user's "trees gain shape in discrete steps"
+walk-around defect; the frame is fragment-bound, so the extra mesh-tier
+range measured free.
 
 Both mesh tiers spawn from the same per-chunk buckets (transforms + custom
 data identical, crossfade water-tight); chunk visibility ends derive from
 each chunk's actual max instance-to-centroid radius (the old fixed +40 m
 margin could under-cover skewed chunks). Species without a `_lod2` (dead
-snags) run the near mesh across the whole 0–250 m band. Diagnostics:
+snags) run the near mesh across the whole 0–400 m band. Diagnostics:
 `--tree-lod1-range=N` moves the 60 m handoff; `--tier-isolate=lod1|lod2`
 renders one mesh LOD across the full range (60 m handoff DoD);
 `TIER_A`/`TIER_B` env vars on `tier_handoff_check.sh` pick the compared pair.

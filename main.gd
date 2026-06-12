@@ -445,7 +445,7 @@ var _auto_screenshot := false  # only auto-capture when --quit-after is used
 var _lt_screenshot_pending := false  # debounce for gamepad left trigger screenshots
 
 # Distance overlay (F1) — floating Label3Ds on nearest trees, color-coded by LOD band.
-# LOD bands match mission_vegetation_toolkit Phase 1: LOD0 0–100m, LOD1 100–230m, impostor 230m+.
+# LOD bands match docs/trees.md §1: near mesh 0–60m, lod2 60–400m, impostor 400m+.
 var _dist_overlay_visible := false
 var _dist_labels: Array = []  # Array[Label3D] — pool, reused each frame
 const _DIST_POOL_SIZE := 40
@@ -1420,11 +1420,12 @@ func _dist_overlay_update() -> void:
 		var lbl: Label3D = _dist_labels[k]
 		lbl.global_position = p + Vector3(0.0, 4.0, 0.0)  # float above trunk
 		lbl.text = "%.0fm" % dist
-		# Color-code by LOD band (Phase 1 boundaries: 0-100, 100-230, 230+)
-		if dist < 100.0:
-			lbl.modulate = Color(0.5, 1.0, 0.5)  # LOD0 — green
-		elif dist < 230.0:
-			lbl.modulate = Color(1.0, 1.0, 0.4)  # LOD1 — yellow
+		# Color-code by tier band (docs/trees.md §1: near 0-60, lod2 60-400,
+		# impostor 400+)
+		if dist < 60.0:
+			lbl.modulate = Color(0.5, 1.0, 0.5)  # near mesh — green
+		elif dist < 400.0:
+			lbl.modulate = Color(1.0, 1.0, 0.4)  # lod2 — yellow
 		else:
 			lbl.modulate = Color(1.0, 0.5, 0.5)  # impostor — red
 		lbl.visible = true

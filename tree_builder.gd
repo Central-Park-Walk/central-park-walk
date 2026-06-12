@@ -61,7 +61,16 @@ var _tier_isolate: String = ""
 # fade-in and impostor chunk visibility (-60m) all derive from this. Shadow
 # proxies are NOT tied to it — they keep casting to 290m regardless, so the
 # camera-tier A/B does not perturb shadows.
-var _mesh_fade_end: float = 250.0
+#
+# Default 400 since 2026-06-11 (was 250): the tier-approach continuity pass
+# measured the 250m handoff color-matched (|Δ| 0.2 luma) but VISUALLY the
+# impostor reads flat/speckled vs lod2's shaped crowns at 250-350m — the
+# user's "trees gain shape in steps" walk-around defect. Extending lod2 to
+# 1000m measured FREE at the approach pose (63-64 fps vs 57-59; frame is
+# fragment-bound, rendering.md §3e) — 400m puts the billboard swap where a
+# crown is sub-45px and the flattening is invisible. Perf gate ×5 validated
+# (docs/trees.md §8).
+var _mesh_fade_end: float = 400.0
 # --tree-lod1-range=N: near-mesh (base) → mid-mesh (_lod2) handoff (fade
 # END, metres). 10m dither band; near chunk visibility extends +40m past it.
 var _lod1_end: float = 60.0
@@ -94,7 +103,7 @@ func _init(loader) -> void:
 			print("TreeBuilder: TIER ISOLATE '%s' — single tier, no crossfade (diagnostic)" % _tier_isolate)
 		elif arg.begins_with("--tree-mesh-range="):
 			_mesh_fade_end = clampf(float(arg.substr("--tree-mesh-range=".length())), 60.0, 1000.0)
-			print("TreeBuilder: mesh tier fade end = %.0fm (default 250) — impostors take over there" % _mesh_fade_end)
+			print("TreeBuilder: mesh tier fade end = %.0fm (default 400) — impostors take over there" % _mesh_fade_end)
 		elif arg.begins_with("--tree-lod1-range="):
 			_lod1_end = clampf(float(arg.substr("--tree-lod1-range=".length())), 20.0, 250.0)
 			print("TreeBuilder: near mesh (_lod1) fade end = %.0fm (default 60) — _lod2 takes over there" % _lod1_end)
@@ -629,7 +638,7 @@ func _build_trees(trees: Array) -> void:
 
 		# Mesh tiers (base/_lod2) are spawned in the main chunk pathway
 		# below (mesh lookup at chunk-build time), so there's no separate
-		# per-tier accumulation here. Impostors take over past 250m.
+		# per-tier accumulation here. Impostors take over past _mesh_fade_end (400m default).
 
 		# Canopy data for dappled shade map.
 		# LiDAR crown_a measures only the dense inner canopy (often 10-30m²
@@ -1254,7 +1263,7 @@ func _build_canopy_shells() -> void:
 			_load_impostor_mat.call("%s_%s" % [model_name, tier])
 		_load_impostor_mat.call(model_name)  # generic fallback
 
-	# Impostors fade in over the mesh tier's fade-out band (default 230-250m).
+	# Impostors fade in over the mesh tier's fade-out band (default 380-400m).
 	var imp_fade_in := Vector2(_mesh_fade_end - 20.0, _mesh_fade_end)
 	if _tier_isolate == "impostor":
 		imp_fade_in = Vector2(0.0, 0.0)   # pure tier at any distance

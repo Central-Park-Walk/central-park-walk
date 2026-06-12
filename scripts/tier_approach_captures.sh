@@ -27,7 +27,7 @@ run_walk() { # name, extra args...
   rm -rf "$PROJECT_DIR/$OUT_BASE/$name"
   mkdir -p "$PROJECT_DIR/$OUT_BASE/$name"
   echo "== walk: $name $* =="
-  timeout $((DURATION + SETTLE + 60))s "$G" --path "$PROJECT_DIR" \
+  timeout $((DURATION + SETTLE + 150))s "$G" --path "$PROJECT_DIR" \
     --resolution 1920x1080 --disable-vsync \
     -- --pos="$POS" --time="$TIME" --weather=clear --season=summer \
     --walk --walk-speed=$SPEED --walk-duration=$DURATION --walk-interval=1 \
