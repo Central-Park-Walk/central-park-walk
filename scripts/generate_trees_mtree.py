@@ -581,7 +581,11 @@ SPECIES = {
         "branch_start": 0.22,         # Branches begin higher
         "branch_end": 0.95,
         "branch_density": 2.0,         # Dense whorled branches
-        "branch_length_ratio": 0.32,   # Moderate branch length
+        "branch_length_ratio": 0.32,   # Moderate branch length; spread 7.5-10.5m vs H 12-18m
+                                       # → crown aspect ~0.6 (canopy data §4)
+        "branch_start_radius": 0.40,   # tapering conifer limbs, stout at the whorl
+        "branch_angle_variation": 0.3, # whorled profile: lower branches spread/downsweep,
+                                       # upper whorls ascend (the conifer silhouette lever)
         "branch_angle": 70,            # Austrian pine: notably horizontal (60-80°)
         "branch_gravity": 6.0,         # Stiff horizontal, not drooping
         "branch_stiffness": 0.25,      # Pine branches are rigid
@@ -609,11 +613,20 @@ SPECIES = {
         "leaf_seed": 601,
         "leaf_cluster_size_range": (0.42, 0.83),
         "leaf_flatten_range": (0.40, 0.60),
-        "leaf_density": 0.65,  # Austrian pine LAI ~4.0 → moderate for conifer
+        "leaf_density": 0.72,  # "among the densest pines" — light transmission only 10-20%
+                               # (canopy data §4); needle mass, not the old bare-sticks pine
         "target_cluster_count_l": 720,
         "foliage_extent_range": (0.10, 0.95),
         "base_seed": 400,
         "seed_step": 29,
+        # Austrian pine's natural variation IS its age transform: pyramidal/narrow when
+        # young → broadly rounded / flat-topped with age (canopy data §4). Span that axis
+        # within ~1 SD of the park population (mix of mid-age specimens).
+        "n_variants": 5,
+        "variant_spans": {
+            "branch_angle": [62, 78],          # steep narrow-conical young ↔ flat-spreading old
+            "branch_length_ratio": [0.28, 0.40],  # short young ↔ long lower limbs (broad old)
+        },
         "tiers": {
             "m": {"target_h": 14, "height_range": [10, 18], "skeleton_overrides": {
                 "branch_density": 1.6, "branch_split_prob": 0.35, "sub_density": 1.5}},
@@ -1847,7 +1860,7 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
     )
     # Viewport display color for Workbench thumbnail renderer
     if fascicle:
-        leaf_mat.diffuse_color = (0.28, 0.52, 0.22, 1.0)  # dark forest green
+        leaf_mat.diffuse_color = (0.17, 0.35, 0.20, 1.0)  # Austrian pine: very dark needle green
     else:
         leaf_mat.diffuse_color = (0.38, 0.62, 0.30, 1.0)  # deciduous green
 
