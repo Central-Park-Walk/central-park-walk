@@ -735,6 +735,35 @@ func _process(delta: float) -> void:
 		_vol_sky.wind_speed = 4.0 + wlen * 12.0
 	_prof_wind_us = lerpf(float(Time.get_ticks_usec() - _tw0), _prof_wind_us, PROF_SMOOTH)
 
+	# --dump-near / --hide-node diagnostics. MUST run before the tour/walk
+	# early returns (same trap as the wind tick above — capture paths skip
+	# the rest of _process). Hide fires at 7s, before the tour's first
+	# capture (12s load wait + 3s settle).
+	if _dump_near_set and not _dump_near_done:
+		_dump_near_timer += delta
+		if _dump_near_timer >= 8.0:
+			_dump_near_done = true
+			_do_dump_near()
+			get_tree().quit()
+	if not _hide_node_substrings.is_empty() and not _hide_nodes_done:
+		_hide_node_timer += delta
+		if _hide_node_timer >= 7.0:
+			_hide_nodes_done = true
+			var hstack: Array = [get_tree().root]
+			var hidden := 0
+			while not hstack.is_empty():
+				var hn: Node = hstack.pop_back()
+				for hc in hn.get_children():
+					hstack.push_back(hc)
+				if hn is Node3D:
+					var lname := String(hn.name).to_lower()
+					for sub in _hide_node_substrings:
+						if lname.contains(String(sub)):
+							(hn as Node3D).visible = false
+							hidden += 1
+							break
+			print("[DIAG] hide-node %s: %d nodes hidden" % [str(_hide_node_substrings), hidden])
+
 	# --- Tour mode state machine ---
 	if _tour_mode:
 		if _hud.canvas and _hud.canvas.visible:
@@ -835,35 +864,6 @@ func _process(delta: float) -> void:
 		_lightning_flash, _user_gamma, _season_t)
 		_hud.update(_player, _time_of_day, TIME_SPEED_NAMES[_time_speed_idx], _season_t)
 		return
-
-	# --dump-near / --hide-node diagnostics (same 8s settle as auto-screenshot)
-	if _dump_near_set and not _dump_near_done:
-		_dump_near_timer += delta
-		if _dump_near_timer >= 8.0:
-			_dump_near_done = true
-			_do_dump_near()
-			get_tree().quit()
-	if not _hide_node_substrings.is_empty() and not _hide_nodes_done:
-		# Wait for the builders to finish adding nodes (same window as the
-		# auto-screenshot settle, which fires at 8s).
-		_hide_node_timer += delta
-	if not _hide_node_substrings.is_empty() and not _hide_nodes_done \
-			and _hide_node_timer >= 7.0:
-		_hide_nodes_done = true
-		var stack: Array = [get_tree().root]
-		var hidden := 0
-		while not stack.is_empty():
-			var n: Node = stack.pop_back()
-			for c in n.get_children():
-				stack.push_back(c)
-			if n is Node3D:
-				var lname := String(n.name).to_lower()
-				for sub in _hide_node_substrings:
-					if lname.contains(String(sub)):
-						(n as Node3D).visible = false
-						hidden += 1
-						break
-		print("[DIAG] hide-node %s: %d nodes hidden" % [str(_hide_node_substrings), hidden])
 
 	# Auto-screenshot for headless capture (only with --quit-after)
 	if not _screenshot_done and _auto_screenshot:
@@ -1115,7 +1115,13 @@ func _do_dump_near() -> void:
 				if am:
 					mat_desc = am.get_class()
 					if am is ShaderMaterial and (am as ShaderMaterial).shader:
-						mat_desc += ":" + (am as ShaderMaterial).shader.resource_path.get_file()
+						var sm2 := am as ShaderMaterial
+						mat_desc += ":" + sm2.shader.resource_path.get_file()
+						# CPU-side params, to split "params never set" from
+						# "params set but not reaching the GPU".
+						mat_desc += " tint=%s tex_alb=%s" % [
+							str(sm2.get_shader_parameter("tint")),
+							str(sm2.get_shader_parameter("tex_alb"))]
 			print("  [MESH] %s pos=(%.1f,%.1f,%.1f) aabb=(%.1f×%.1f×%.1f) mat=%s vis=%s"
 					% [vi.get_path(), mi.global_position.x, mi.global_position.y,
 					mi.global_position.z, aabb.size.x, aabb.size.y, aabb.size.z,

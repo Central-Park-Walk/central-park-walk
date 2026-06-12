@@ -306,10 +306,30 @@ func _get_shader(key: String, code_or_path: String) -> Shader:
 func _make_mesh(verts: PackedVector3Array, normals: PackedVector3Array,
 				uvs = null, colors = null, indices = null) -> ArrayMesh:
 	## Build an ArrayMesh from packed arrays. Accepts optional UVs, colors, indices.
+	## Always synthesizes tangents from the normals: shaders that write
+	## NORMAL_MAP (stone.gdshader & co.) light from the tangent frame, and a
+	## surface without ARRAY_TANGENT gives them garbage — the 2026-06-11
+	## "black retaining-wall slabs" (RetainingWalls/StoneWalls/GardenBorders
+	## were the only un-tangented stone consumers). Triplanar shaders ignore
+	## the exact direction, so any unit tangent orthogonal to the normal is
+	## correct.
 	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_NORMAL] = normals
+	var tans := PackedFloat32Array()
+	tans.resize(verts.size() * 4)
+	for i in verts.size():
+		var n := normals[i]
+		var t := n.cross(Vector3.UP)
+		if t.length_squared() < 0.01:
+			t = n.cross(Vector3.RIGHT)
+		t = t.normalized()
+		tans[i * 4] = t.x
+		tans[i * 4 + 1] = t.y
+		tans[i * 4 + 2] = t.z
+		tans[i * 4 + 3] = 1.0
+	arrays[Mesh.ARRAY_TANGENT] = tans
 	if uvs != null:
 		arrays[Mesh.ARRAY_TEX_UV] = uvs
 	if colors != null:

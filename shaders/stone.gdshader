@@ -5,6 +5,14 @@ uniform sampler2D tex_alb : source_color,      filter_linear_mipmap_anisotropic,
 uniform sampler2D tex_nrm : hint_normal,        filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D tex_rgh : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform vec4 tint : source_color = vec4(1.0);
+// Linear-space per-channel mean of the bound albedo texture. The sample is
+// divided by this so its MEAN is 1.0 and `tint` alone sets the rendered
+// reflectance/hue. Without it, rock_wall_diff (linear mean ~0.13/0.07/0.04
+// — a dark brown photo) times the sRGB-converted tint gave ~2% albedo:
+// every stone surface in the park rendered near-black (2026-06-11 "black
+// slabs" walk-around defect; masked before 2026-03-10 by the EMISSION
+// shadow-fill hack removed in 89e993c).
+uniform vec3 tex_alb_mean = vec3(0.1326, 0.0716, 0.0433);
 global uniform float rain_wetness;
 global uniform float snow_cover;
 global uniform float season_t;
@@ -37,7 +45,9 @@ void fragment() {
 	float rgh = texture(tex_rgh, world_pos.xz / tile).r * blend.y
 	          + texture(tex_rgh, world_pos.xy / tile).r * blend.z
 	          + texture(tex_rgh, world_pos.yz / tile).r * blend.x;
-	ALBEDO     = alb * tint.rgb;
+	// Mean-normalized texture × authored tint (see tex_alb_mean above).
+	// Ratio capped at 2.5 (p99 measured 3.2) so hot texels can't blow out.
+	ALBEDO     = min(alb / tex_alb_mean, vec3(2.5)) * tint.rgb;
 	NORMAL_MAP = nrm;
 	ROUGHNESS  = clamp(rgh + 0.05, 0.0, 1.0);
 	METALLIC   = 0.0;
