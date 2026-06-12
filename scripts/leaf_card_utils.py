@@ -123,6 +123,55 @@ def _draw_twig_line(pixels, tex_size, x0, y0, x1, y1,
                     pixels[idx + 3] = alpha
 
 
+def _rasterize_leaf(pixels, TEX, leaf, edge_fn):
+    """Rasterize one leaf (a dict of cx/cy/w/h/rot/color params) into the
+    RGBA pixel buffer with edge shape, midrib vein, tip gradient and noise.
+    Shared by the cluster texture and the willow strand texture."""
+    cx, cy = leaf['cx'], leaf['cy']
+    leaf_w, leaf_h = leaf['w'], leaf['h']
+    cos_r = math.cos(leaf['rot'])
+    sin_r = math.sin(leaf['rot'])
+    r, g, b = leaf['r'], leaf['g'], leaf['b']
+    tip_yellow = leaf['tip_yellow']
+    base_dark = leaf['base_dark']
+    side_warm = leaf['side_warm']
+    phase = leaf['phase']
+
+    radius = max(leaf_w, leaf_h)
+    for dy in range(-radius, radius + 1):
+        for dx in range(-radius, radius + 1):
+            lx = dx * cos_r + dy * sin_r
+            ly = -dx * sin_r + dy * cos_r
+            nx = lx / max(leaf_w, 1)
+            ny = ly / max(leaf_h, 1)
+            dist = math.sqrt(nx * nx + ny * ny)
+            angle = math.atan2(ny, nx)
+            edge_r = edge_fn(angle, phase)
+            if dist <= edge_r:
+                px = (cx + dx) % TEX
+                py = (cy + dy) % TEX
+                idx = (py * TEX + px) * 4
+                edge_dark = 1.0 - 0.2 * (dist / max(edge_r, 0.01))
+                vein = 1.0 - 0.08 * math.exp(-abs(nx) * 8.0)
+                tip_t = (ny + 1.0) * 0.5
+                grad = mix_f(base_dark, tip_yellow, tip_t)
+                lr = r * edge_dark * vein * grad
+                lg = g * edge_dark * vein * grad
+                lb = b * edge_dark * vein * (2.0 - grad)
+                lr += side_warm * nx
+                n1 = _pixel_hash(px, py) * 0.05
+                n2 = _pixel_hash(px + 7919, py) * 0.025
+                n3 = _pixel_hash(px, py + 6271) * 0.025
+                lr = max(0.0, min(1.0, lr + n1 + n2))
+                lg = max(0.0, min(1.0, lg + n1))
+                lb = max(0.0, min(1.0, lb + n1 + n3))
+                if pixels[idx + 3] < 0.9:
+                    pixels[idx + 0] = lr
+                    pixels[idx + 1] = lg
+                    pixels[idx + 2] = lb
+                    pixels[idx + 3] = 1.0
+
+
 def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic",
                           seed=42, draw_twigs=True, fascicle_mode=False,
                           compound_mode=False, spread=None, size_scale=1.0,
@@ -293,55 +342,7 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic"
 
     # Draw all leaves
     for leaf in leaves:
-        cx, cy = leaf['cx'], leaf['cy']
-        leaf_w, leaf_h = leaf['w'], leaf['h']
-        cos_r = math.cos(leaf['rot'])
-        sin_r = math.sin(leaf['rot'])
-        r, g, b = leaf['r'], leaf['g'], leaf['b']
-        tip_yellow = leaf['tip_yellow']
-        base_dark = leaf['base_dark']
-        side_warm = leaf['side_warm']
-        phase = leaf['phase']
-
-        radius = max(leaf_w, leaf_h)
-        for dy in range(-radius, radius + 1):
-            for dx in range(-radius, radius + 1):
-                lx = dx * cos_r + dy * sin_r
-                ly = -dx * sin_r + dy * cos_r
-
-                nx = lx / max(leaf_w, 1)
-                ny = ly / max(leaf_h, 1)
-                dist = math.sqrt(nx * nx + ny * ny)
-                angle = math.atan2(ny, nx)
-                edge_r = edge_fn(angle, phase)
-
-                if dist <= edge_r:
-                    px = (cx + dx) % TEX
-                    py = (cy + dy) % TEX
-                    idx = (py * TEX + px) * 4
-
-                    edge_dark = 1.0 - 0.2 * (dist / max(edge_r, 0.01))
-                    vein = 1.0 - 0.08 * math.exp(-abs(nx) * 8.0)
-                    tip_t = (ny + 1.0) * 0.5
-                    grad = mix_f(base_dark, tip_yellow, tip_t)
-                    lr = r * edge_dark * vein * grad
-                    lg = g * edge_dark * vein * grad
-                    lb = b * edge_dark * vein * (2.0 - grad)
-                    lr += side_warm * nx
-
-                    n1 = _pixel_hash(px, py) * 0.05
-                    n2 = _pixel_hash(px + 7919, py) * 0.025
-                    n3 = _pixel_hash(px, py + 6271) * 0.025
-                    lr = max(0.0, min(1.0, lr + n1 + n2))
-                    lg = max(0.0, min(1.0, lg + n1))
-                    lb = max(0.0, min(1.0, lb + n1 + n3))
-
-                    old_a = pixels[idx + 3]
-                    if old_a < 0.9:
-                        pixels[idx + 0] = lr
-                        pixels[idx + 1] = lg
-                        pixels[idx + 2] = lb
-                        pixels[idx + 3] = 1.0
+        _rasterize_leaf(pixels, TEX, leaf, edge_fn)
 
     img.pixels[:] = pixels
     img.pack()

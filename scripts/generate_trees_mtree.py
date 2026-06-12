@@ -941,6 +941,9 @@ SPECIES = {
         "target_cluster_count_l": 1400,
         "cards_per_cluster": 45,
         "droop_factor": 0.5,           # extra downshift on cluster placement along the strands
+        "strand_foliage": True,        # AAA hanging leaf-strip curtains (the true weep —
+                                       # see create_strand_cards_at_positions); the skeleton
+                                       # gives the dome mass, strands give the pendulous drop
         "sub_min_height": 14,          # Sub-branches only on mature willows
         "base_seed": 50,
         "seed_step": 41,
@@ -1696,6 +1699,80 @@ def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=
     return all_objects
 
 
+def create_strand_cards_at_positions(placements, strand_mat, rng, target_height):
+    """Willow weeping curtain (AAA hanging leaf-strip technique).
+
+    Hang tall vertical leaf-strip cards straight DOWN (world -Z, the pre-export
+    up axis) from canopy positions, INDEPENDENT of branch angle. Each strand is
+    a crossed pair of quads with the strand texture tiled along its length, so
+    the branchlet+leaves pattern runs the full pendulous drop. This is the part
+    of the weeping habit the gravity-capped Mtree skeleton cannot produce
+    (sub_gravity crashes the mesher above ~30, far short of a true vertical weep).
+    """
+    if not placements:
+        return []
+    # Crown frame: hang the curtain from the OUTER, lower-to-mid canopy and
+    # sweep each strand down to near ground level — the willow "skirt". Deep
+    # interior and the very crown top stay as the leaf-cluster dome mass.
+    cx = sum(p[0].x for p in placements) / len(placements)
+    cy = sum(p[0].y for p in placements) / len(placements)
+    zs = [p[0].z for p in placements]
+    zmin, zmax = min(zs), max(zs)
+    maxr = max(0.5, max(math.hypot(p[0].x - cx, p[0].y - cy) for p in placements))
+
+    all_objects = []
+    for pos, size, flatten in placements:
+        rad = math.hypot(pos.x - cx, pos.y - cy)
+        zfrac = (pos.z - zmin) / max(zmax - zmin, 0.1)
+        # outer positions hang more; damp the top 40% so strands don't sprout
+        # from the crown apex.
+        p_hang = (0.25 + 0.70 * (rad / maxr)) * (1.0 - 0.65 * max(0.0, zfrac - 0.6) / 0.4)
+        if rng.random() > p_hang:
+            continue
+        bm = bmesh.new()
+        uv_layer = bm.loops.layers.uv.new("UVMap")
+        n_strands = rng.randint(1, 3)
+        for _s in range(n_strands):
+            top = Vector((pos.x + rng.uniform(-size, size),
+                          pos.y + rng.uniform(-size, size),
+                          pos.z + rng.uniform(-size * 0.3, size * 0.3)))
+            # sweep down to ~ground level (curtains of a weeping willow reach
+            # the ground); base sits at z=0 so a small negative just kisses it.
+            bottom_z = rng.uniform(-0.4, 1.8)
+            strand_len = top.z - bottom_z
+            if strand_len < 0.10 * target_height:   # too short to read as a strand
+                continue
+            strand_w = rng.uniform(0.28, 0.50)
+            sway_ang = rng.uniform(0, math.pi * 2)
+            sway = rng.uniform(0.04, 0.16) * strand_len
+            bottom = Vector((top.x + math.cos(sway_ang) * sway,
+                             top.y + math.sin(sway_ang) * sway, bottom_z))
+            # Tile the (square) cluster leaf texture down the strand with ~square
+            # tiles so leaves keep their aspect rather than stretching.
+            v_rep = max(2.0, strand_len / max(strand_w, 0.12))
+            base_ang = rng.uniform(0, math.pi)
+            for c in range(2):  # crossed pair → reads from all azimuths
+                a = base_ang + c * math.pi / 2
+                hdir = Vector((math.cos(a), math.sin(a), 0.0)) * (strand_w * 0.5)
+                corners = [top - hdir, top + hdir, bottom + hdir, bottom - hdir]
+                vts = [bm.verts.new(v) for v in corners]
+                face = bm.faces.new(vts)
+                uvs = [(0.0, 0.0), (1.0, 0.0), (1.0, v_rep), (0.0, v_rep)]
+                for loop, uv in zip(face.loops, uvs):
+                    loop[uv_layer].uv = uv
+        if len(bm.faces) == 0:
+            bm.free()
+            continue
+        mesh = bpy.data.meshes.new("willow_strands")
+        bm.to_mesh(mesh)
+        bm.free()
+        obj = bpy.data.objects.new("willow_strands", mesh)
+        obj.data.materials.append(strand_mat)
+        bpy.context.collection.objects.link(obj)
+        all_objects.append(obj)
+    return all_objects
+
+
 def create_crown_fill_cards(placements, leaf_mat, rng, target_height):
     """LOD1 (tier _m): fill the crown volume with large overlapping cards.
 
@@ -2020,6 +2097,15 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
         # branch tips), but each cluster gets the same detail level.
         n_cards = sp.get("cards_per_cluster", FOLIAGE_DEFAULTS["cards_per_cluster"])
         leaf_objs = create_leaf_cards_at_positions(placements, leaf_mat, rng, tier=tier_name, n_cards=n_cards)
+
+        # Willow weeping curtain: hang strand cards from a subset of canopy
+        # positions — the pendulous drop Mtree's gravity-capped skeleton can't
+        # make. The strands REUSE the cluster leaf material (UV-tiled) so they
+        # inherit the in-game tree_leaf shader (wind, translucency, lighting);
+        # the hanging geometry supplies the weep, the leaf texture the foliage.
+        if sp.get("strand_foliage"):
+            leaf_objs += create_strand_cards_at_positions(
+                placements, leaf_mat, rng, target_h)
 
         # --- Join all objects ---
         bpy.ops.object.select_all(action='DESELECT')
