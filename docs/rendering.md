@@ -327,6 +327,57 @@ trap, this time offsetting a WHOLE gate uniformly: an absolute gate
 FAIL after a long capture session is not actionable without a
 same-state sandwich.
 
+## 6d. Cloud shape, flow, and twilight sky (2026-06-11 — "psychedelic marshmallows" fixed)
+
+The user walk-around defect (clouds as tall vertical pills that morph
+rather than flow) plus "flat dawn/dusk skies" had four distinct roots,
+all fixed. References: `notes/refs/sky_2026_06_11/` (user-supplied CP
+dusk walking tour XY9f8t46G9M + Columbus Circle sunrise time-lapses);
+BEFORE/AFTER capture protocol: `scripts/sky_captures.sh` (16 poses,
+`--cloud-seed=7`).
+
+1. **Vertical pills = no height control.** The weather map's G channel
+   was unused, so every cell extruded as a cylinder through the full
+   2.5 km layer (~1:1 aspect; median cell 1.7 km wide). Real fair-weather
+   cumulus is ~2.5–3:1 wide. `gen_weather_map.py` now writes per-column
+   tower height into G (h ≈ 0.75 × cell radius, 0.35 km floor, dome
+   profile `blob^0.45`); `clouds.glsl density()` rescales the height
+   fraction by it → flat shared bases at the condensation level, capped
+   domed tops.
+2. **Smooth extruded sides = base noise far coarser than cells.** The
+   perlin-worley base sampled at 12.5 km wavelength vs 1–3 km cells, so
+   the soft weather-disc envelope WAS the silhouette. Now 5.6 km
+   (0.00018) — lobes at cell scale. CAUTION: this couples to the cell
+   coverage threshold — at 0.00025 the within-cell variance dropped whole
+   cells below the Schneider remap and the noon dome emptied; the map's
+   interior values were lifted to compensate (`b_chan = coverage^0.75`).
+3. **Morph-not-flow = three drift rates.** Envelope moved at 16.7×wind,
+   base noise at 12×, detail at −40× (sign-opposed!) plus a 40 m/s
+   constant vertical scroll — clouds churned through their own shapes.
+   All three now ride ONE world offset (`wind_world()`, 12× preserving
+   the 2026-04-03 apparent-speed calibration); evolution comes from a
+   5 m/s vertical boil only. Side fix: the light march's distant sample
+   omitted the drift offset entirely (shaded against a stale field).
+4. **Grey clouds at noon (regression risk class):** the march's ambient
+   term mixed ground→sky by ABSOLUTE layer height; shallow tower-capped
+   clouds live entirely in the bottom 30 % of the layer and went
+   ground-grey. The mix now uses position within the cloud (`hf`).
+
+Twilight sky (companion commit `ada7052`): celestial sun decoupled from
+the shadow light — see the commit message and day_night_cycle.gd
+comments. Coupled rule added to §6b's family: **cal_bg blends on
+`max(day_f, twilight_f)`**, because day_f (sun_energy) fades exactly when
+the below-horizon LUT needs its exposure correction most (dusk went
+near-black without it).
+
+Knobs: `--cloud-seed=N` (reproducible field), map regen
+`python3 scripts/gen_weather_map.py --coverage 0.42`. Flow flip-book:
+`scripts/cloud_flow_check.sh`. NOAA monthly coverage remains the global
+scale (June ≈ 0.30 — a data-correct June sky is ~1/3 cloud, not the
+drama-selected reference frames).
+
+Reimport gotcha applies to BOTH clouds.glsl and weather.bmp (§6b).
+
 ## 7. Shadow-casting policy (design rule)
 
 Only things whose shadow you can *name from a walk* cast: trees (via proxies), large structures, lamps at night. Grass, undergrowth, ground cover, leaves-as-geometry never cast (enforced in every builder; verified 2026-06-09 — shadow-pass primitives identical at 17.44M with grass shown vs hidden at Great Lawn). Perceived grass shadows are in-shader blade shading + SSAO/SSIL contact darkening. Shadow detail is a near-field privilege; beyond the first cascade, shape fidelity is invisible and dapple is texture, not geometry.
