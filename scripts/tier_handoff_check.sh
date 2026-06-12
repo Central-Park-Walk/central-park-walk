@@ -27,14 +27,22 @@ mkdir -p "$OUT"
 
 cap() { # name, extra args...
   local name="$1"; shift
-  rm -f /tmp/godot_screenshot.png
   # EXTRA_ARGS: optional space-separated flags applied to every capture
   # (e.g. EXTRA_ARGS="--canopy-ao=1:1:1" for an AO-off attribution run).
-  timeout 80s "$G" --path "$PROJECT_DIR" --resolution 1920x1080 --disable-vsync \
-    -- --screenshot --pos="$POS" --weather=clear --season=summer ${EXTRA_ARGS:-} "$@" \
+  # --cloud-seed + --diag-hide=cloudshadows are MANDATORY for cross-run
+  # comparison: without them the random per-session cloud field and the
+  # drifting ground shadow bands put +/-0.04-0.07 luminance of pure noise
+  # on the canopy (measured 2026-06-12 — a mesh-vs-mesh repeat pair
+  # disagreed by more than the tier gap under study). Seeded, repeat-pair
+  # signed noise is +/-0.0005. --screenshot-file avoids the shared
+  # /tmp/godot_screenshot.png rendezvous (concurrent sessions clobber it).
+  timeout 140s "$G" --path "$PROJECT_DIR" --resolution 1920x1080 --disable-vsync \
+    -- --screenshot --screenshot-file="$OUT/$name.png" --pos="$POS" \
+    --weather=clear --season=summer --cloud-seed=42 --diag-hide=cloudshadows \
+    ${EXTRA_ARGS:-} "$@" \
     > "$OUT/$name.log" 2>&1
-  if [ -f /tmp/godot_screenshot.png ]; then
-    mv /tmp/godot_screenshot.png "$OUT/$name.png"; echo "captured $name"
+  if [ -f "$OUT/$name.png" ]; then
+    echo "captured $name"
   else
     echo "FAIL $name"; fi
 }
@@ -44,7 +52,8 @@ TIER_B="${TIER_B:-impostor}"
 for t in "${TIMES[@]}"; do
   cap "mesh_$t"     --time="$t" --tier-isolate="$TIER_A"
   cap "impostor_$t" --time="$t" --tier-isolate="$TIER_B"
-  cap "notrees_$t"  --time="$t" --diag-hide=trees
+  # NB --diag-hide is last-wins, so the plate must re-list cloudshadows
+  cap "notrees_$t"  --time="$t" --diag-hide=cloudshadows,trees
 done
 
 python3 - "$OUT" "${TIMES[@]}" <<'EOF'
