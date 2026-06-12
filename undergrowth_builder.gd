@@ -170,12 +170,15 @@ const ZONE_SPECIES := {
 	6: [  # Ramble (dead via zone map — see note; kept for documentation)
 		[0, 5.0],   # spicebush (placed via WOODLAND_SPECIES fallback)
 	],
-	7: [],  # Waterside — bespoke wetland queued; bare until then
+	7: [],  # Waterside — bespoke wetland queued; bare until then. Empty =
+	        # falls through to the woodland fallback inside WOODLAND_Z_RANGES.
 	8: [  # Wild Meadow — colonial sun forbs, the autumn fall-color read
 		[23, 7.0],  # goldenrod (massed golden plume patches)
 		[29, 6.0],  # aster (bushy mounds smothered in purple daisies)
 	],
-	9: [],  # Open Lawn
+	9: [],  # Open Lawn — empty. The Ramble/Hallett woods are labelled OpenLawn
+	        # by the ground-cover zoning, so this empty entry deliberately falls
+	        # through to the canopy-gated woodland fallback (see _build_chunk).
 }
 
 # Woodland chunks (no pre-baked data) get understory — but ONLY in actual
@@ -568,7 +571,12 @@ func _build_chunk(ck: String) -> void:
 	var zone_type: int = _zone_map.get(ck, -1)
 	var species_list: Array
 	var require_canopy := false  # if true, each instance must be under tree cover
-	if zone_type >= 0 and ZONE_SPECIES.has(zone_type):
+	# An *empty* ZONE_SPECIES entry (zone 9 OpenLawn, zone 7 Waterside) is "no
+	# assignment", NOT "suppress understory" — it must fall through to the
+	# woodland fallback below. Otherwise the Ramble & Hallett woodland bands,
+	# which the ground-cover zoning labels OpenLawn (~88%/93% of their cells),
+	# would short-circuit here and place nothing despite being dense forest.
+	if zone_type >= 0 and ZONE_SPECIES.has(zone_type) and not (ZONE_SPECIES[zone_type] as Array).is_empty():
 		species_list = ZONE_SPECIES[zone_type]
 	else:
 		# Check if this chunk is in a woodland foliage zone — override lawn
