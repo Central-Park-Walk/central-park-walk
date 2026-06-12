@@ -108,38 +108,75 @@ float intersectSphere(vec3 pos, vec3 dir,float r) {
     return max(p, p2) / (2.0 * a);
 }
 
+// World-space wind offset shared by the weather envelope, base noise and
+// detail noise (2026-06-11 flow fix). Before, three drift rates coexisted
+// (envelope 16.7x wind, base 12x, detail -40x) so clouds churned through
+// their own shapes instead of riding the wind. One offset = shapes move
+// with their envelopes. The 12.0 preserves the 2026-04-03 apparent-speed
+// calibration (main.gd wind_speed = wlen * 0.6). params.detailed_pos /
+// params.weather_pos stay in the push constant for layout stability but
+// are no longer read.
+vec2 wind_world() {
+	return params.cloud_pos * 12.0;
+}
+
+// Single source of truth for weather sampling — the light march previously
+// omitted the drift offset on its distant sample, shading against a stale
+// weather field.
+vec3 weather_at(vec3 p) {
+	const float weather_scale = 0.00006;
+	return texture(weather_noise, (p.xz + wind_world()) * weather_scale + 0.5).xyz;
+}
+
 // Returns density at a given point
 // Heavily based on method from Schneider
 float density(vec3 pip, vec3 weather, float mip) {
 	vec3 p = pip;
 	float height_fraction = GetHeightFractionForPoint(length(p));
+	// Tower height (weather.g, 2026-06-11 marshmallow fix): fraction of
+	// the layer this column's cloud top reaches. Rescaling the height
+	// fraction gives every cell a flat shared base at the condensation
+	// level and a per-column domed top — fair-weather cumulus is wider
+	// than tall (~3:1). Without it every cell extruded through the full
+	// 2.5 km layer as a vertical pill.
+	float tower = max(weather.g, 0.03);
+	float hf = height_fraction / tower;
+	if (hf >= 1.0) {
+		return 0.0;
+	}
 	// Per-session random offset — shifts noise sampling only, not altitude
 	p += vec3(params.noise_offset.x, params.noise_offset_z, params.noise_offset.y) * 50000.0;
 
-	// Base wind.
-	p.xz += 20.0 * params.cloud_pos * 0.6;
+	// Wind: same world offset as the weather envelope.
+	p.xz += wind_world();
 
-	// Define the base of the cloud. 
-	vec4 n = textureLod(large_scale_noise, p.xyz * 0.00008, mip - 2.0);
+	// Define the base of the cloud. 0.00018 puts the perlin-worley lobes
+	// at ~hundreds of meters against 1-3 km cells (cauliflower); the old
+	// 0.00008 (12.5 km wavelength) barely varied across a cell, leaving
+	// the soft weather-map disc as the silhouette (smooth extruded sides).
+	// (0.00025 fragmented too much — whole cells fell below the coverage
+	// threshold and the noon dome emptied out.)
+	vec4 n = textureLod(large_scale_noise, p.xyz * 0.00018, mip - 2.0);
 	float fbm = n.g * 0.625 + n.b * 0.25 + n.a * 0.125;
 
 	// Remap based on weather, coverage, and cloud shape gradient.
-	float g = densityHeightGradient(height_fraction, weather.r);
+	float g = densityHeightGradient(hf, weather.r);
 	float base_cloud = remap(n.r, -(1.0 - fbm), 1.0, 0.0, 1.0);
 	float weather_coverage = params.cloud_coverage * weather.b;
 	base_cloud = remap(base_cloud * g, 1.0 - (weather_coverage), 1.0, 0.0, 1.0);
 	base_cloud *= weather_coverage;
 
-	// Detailed wind. 
-	p.xz -= params.detailed_pos * 40.;
-	p.y -= params.time * 40.;
+	// Detail rides with the base (zero horizontal slip); shape evolution
+	// comes from a slow vertical boil. Real thermal updrafts are m/s
+	// scale — the old 40 m/s churned a cloud's whole texture in seconds.
+	p.y -= params.time * 5.0;
 
 	// Detailed texture.
 	vec3 hn = textureLod(small_scale_noise, p * 0.001, mip).rgb;
 	float hfbm = hn.r * 0.625 + hn.g * 0.25 + hn.b * 0.125;
-	hfbm = mix(hfbm, 1.0 - hfbm, clamp(height_fraction * 4.0, 0.0, 1.0));
-	base_cloud = remap(base_cloud, hfbm * 0.4 * height_fraction, 1.0, 0.0, 1.0);
-	return pow(clamp(base_cloud, 0.0, 1.0), (1.0 - height_fraction) * 0.8 + 0.5);
+	hfbm = mix(hfbm, 1.0 - hfbm, clamp(hf * 4.0, 0.0, 1.0));
+	base_cloud = remap(base_cloud, hfbm * 0.45 * hf, 1.0, 0.0, 1.0);
+	return pow(clamp(base_cloud, 0.0, 1.0), (1.0 - hf) * 0.8 + 0.5);
 }
 
 vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
@@ -168,18 +205,20 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 	// Read sun and ambient colors from the sky LUT. sun_scale/ambient_scale
 	// are calibration multipliers (1.0 = upstream demo behavior) — see
 	// docs/rendering.md sky calibration.
-	vec3 atmosphere_sun = getValFromSkyLUT(params.LIGHT_DIRECTION) * 0.1 * params.LIGHT_ENERGY * params.LIGHT_COLOR * params.sun_scale;
+	// Clouds at ~2 km altitude see the sun ~2 deg past ground sunset
+	// (horizon dip + refraction) — sample the sun LUT slightly lifted so
+	// undersides stay lit (the reference pinks/corals) through civil
+	// twilight instead of cutting to black with the ground (2026-06-11).
+	vec3 sun_lut_dir = normalize(params.LIGHT_DIRECTION + vec3(0.0, 0.035, 0.0));
+	vec3 atmosphere_sun = getValFromSkyLUT(sun_lut_dir) * 0.1 * params.LIGHT_ENERGY * params.LIGHT_COLOR * params.sun_scale;
 	vec3 atmosphere_ambient = getValFromSkyLUT(normalize(vec3(1.0, 1.0, 0.0))) * 0.05 * params.ambient_scale;
 	atmosphere_ambient = mix(atmosphere_ambient, vec3(length(atmosphere_ambient)), 0.5); // interpolate towards white with this intensity.
 	vec3 atmosphere_ground = getValFromSkyLUT(normalize(vec3(1.0, -1.0, 0.0))) * 5.0 * 0.05 * params.ambient_scale;
 	atmosphere_ground = mix(atmosphere_ground, params.ground_color.rgb * vec3(length(atmosphere_ground)), 0.5); // interpolate towards ground color with this intensity.
 	
-	const float weather_scale = 0.00006;
-	vec2 weather_pos = params.weather_pos;
-
 	for (int i = 0; i < depth; i++) {
 		p += dir * ss;
-		vec3 weather_sample = texture(weather_noise, p.xz * weather_scale + 0.5 + weather_pos).xyz;
+		vec3 weather_sample = weather_at(p);
 		float height_fraction = GetHeightFractionForPoint(length(p));
 
 		t = density(p, weather_sample, 0.0);
@@ -194,15 +233,15 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 			for (int j = 0; j < 6; j++) {
 				lp +=  (ldir + RANDOM_VECTORS[j] * float(j)) * lss;
 				lheight_fraction = GetHeightFractionForPoint(length(lp));
-				vec3 lweather = texture(weather_noise, lp.xz * weather_scale + 0.5 + weather_pos).xyz;
+				vec3 lweather = weather_at(lp);
 				lt = density(lp, lweather, float(j));
 				cd += lt;
 			}
-			
+
 			// Take a single distant sample
 			lp = p + ldir * 18.0 * lss;
 			lheight_fraction = GetHeightFractionForPoint(length(lp));
-			vec3 lweather = texture(weather_noise, lp.xz * weather_scale + 0.5).xyz;
+			vec3 lweather = weather_at(lp);
 			lt = pow(density(lp, lweather, 5.0), (1.0 - lheight_fraction) * 0.8 + 0.5);
 			cd += lt;
 			
@@ -211,7 +250,13 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 			float powder_sugar_effect = 1.0 - exp(-params.density * cd * lss * 3.0 * 2.0);
 			float beers_total = 2 * beers * powder_sugar_effect;
 
-			vec3 ambient = mix(atmosphere_ground, atmosphere_ambient, smoothstep(0.0, 1.0, height_fraction));
+			// Ambient mixes ground->sky by position within the CLOUD, not
+			// absolute layer height: with tower-capped shallow cumulus the
+			// whole cloud sits in the bottom ~30% of the layer, and the old
+			// absolute mix locked it to the dark ground term (grey clouds at
+			// noon). A shallow cloud's top still sees the whole sky dome.
+			float col_hf = clamp(height_fraction / max(weather_sample.g, 0.03), 0.0, 1.0);
+			vec3 ambient = mix(atmosphere_ground, atmosphere_ambient, smoothstep(0.0, 1.0, col_hf));
 			alpha += (1.0 - dt) * (1.0 - alpha);
 			vec3 radiance = (ambient + beers_total * atmosphere_sun * phase) * t;
 			L += T * (radiance - radiance * dt) / max(0.0000001, t);

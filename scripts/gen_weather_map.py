@@ -17,7 +17,11 @@ Field model (real-world envelope, NYC summer):
 
 Channels (Schneider convention, consumed by clouds.glsl density()):
 - R: cloud type (0 stratus .. 1 cumulus). Cores read more cumulus.
-- G: unused by the shader — zeroed.
+- G: tower height — fraction of the 2.5 km layer this column's cloud top
+  reaches (2026-06-11, marshmallow fix). Real fair-weather cumulus is
+  WIDER THAN TALL (~3:1): height ≈ 0.6 x cell radius, domed (edges low,
+  core tall). Without this the shader extruded every cell through the
+  full layer = vertical pills. clouds.glsl rescales height_fraction by G.
 - B: coverage. Cell interiors ~0.75–1.0 with soft edges, hard 0 between.
   `params.cloud_coverage` (NOAA monthly data via day_night_cycle.gd)
   remains the global scale on top of this.
@@ -65,12 +69,14 @@ def main():
 
     yy, xx = np.mgrid[0:SIZE, 0:SIZE].astype(float)
 
-    # --- Cell placement: jittered grid, ~2.4 km pitch ---
-    pitch_km = 2.1
+    # --- Cell placement: jittered grid ---
+    pitch_km = 1.75
     n = max(4, int(round(KM_PER_REPEAT / pitch_km)))   # cells per axis
     step = SIZE / n
     coverage = np.zeros((SIZE, SIZE))
     strength = np.zeros((SIZE, SIZE))   # blob-core strength for the R channel
+    tower = np.zeros((SIZE, SIZE))      # per-column cloud-top height (G channel)
+    LAYER_KM = 2.5                      # clouds.glsl sky_b..sky_t thickness
 
     # Cloud-street anisotropy: stretch along a session direction.
     street_ang = rng.uniform(0, np.pi)
@@ -97,16 +103,23 @@ def main():
             blob = blob * blob * (3 - 2 * blob)
             coverage = np.maximum(coverage, blob)
             strength = np.maximum(strength, blob * min(1.0, r_km / 1.1))
+            # Tower height: ~0.75 x radius at the core, 0.35 km floor
+            # (humilis->mediocris mix, width:height ~2.5:1). blob^0.45
+            # keeps the dome flat on top, dropping fast only at the rim —
+            # higher exponents read as isolated UFO lenses.
+            h_km = max(0.75 * r_km, 0.35)
+            tower = np.maximum(tower, (blob ** 0.45) * (h_km / LAYER_KM))
 
     # --- 5-10 km patchiness: clear out whole regions ---
     patch = value_noise(rng, SIZE, 3)            # ~5.6 km features
     patch = np.clip((patch - 0.22) / 0.25, 0.0, 1.0)
     coverage *= patch
     strength *= patch
+    tower *= 0.4 + 0.6 * patch          # patch edges get shallower cells
 
     # --- Per-cell edge raggedness (small-scale erosion of the soft edge) ---
     rag = value_noise(rng, SIZE, 24)             # ~700 m features
-    coverage = np.clip(coverage - (1.0 - coverage) * rag * 0.35, 0.0, 1.0)
+    coverage = np.clip(coverage - (1.0 - coverage) * rag * 0.50, 0.0, 1.0)
 
     # --- Normalize to the target areal coverage ---
     area = (coverage > 0.05).mean()
@@ -116,13 +129,18 @@ def main():
     if abs(area - args.coverage) > 0.10:
         print("WARN: areal coverage off target — tune pitch/empty-slot rate")
 
-    # Interiors: lift cell cores toward 1.0 so coverage*B keeps punch
-    b_chan = np.clip(coverage * 0.85 + (coverage ** 3) * 0.15, 0.0, 1.0)
+    # Interiors: lift cell cores toward 1.0 so coverage*B keeps punch.
+    # ^0.75 (2026-06-11): the finer base-noise scale in clouds.glsl adds
+    # within-cell variance, so interiors need more headroom against the
+    # Schneider threshold or whole cells vanish (empty noon dome).
+    b_chan = np.clip(coverage ** 0.75, 0.0, 1.0)
 
     # R: cloud type — cores of big cells most cumulus; thin edges stratocu-ish
     r_chan = np.clip(0.45 + strength * 0.5 + (rag - 0.5) * 0.08, 0.0, 1.0)
 
-    img = np.stack([r_chan, np.zeros_like(b_chan), b_chan], axis=-1)
+    g_chan = np.clip(tower, 0.0, 1.0)
+
+    img = np.stack([r_chan, g_chan, b_chan], axis=-1)
     img8 = (img * 255 + 0.5).astype(np.uint8)
     out = os.path.abspath(args.out)
     Image.fromarray(img8, "RGB").save(out)
@@ -131,6 +149,10 @@ def main():
     print(f"wrote {out}")
     print(f"B stats: zero {np.mean(b < 0.02) * 100:.0f}%  >0.5 {np.mean(b > 0.5) * 100:.0f}%  "
           f"mean-inside {b[b > 0.05].mean():.2f}")
+    gt = g_chan[b > 0.05]
+    print(f"G (tower) stats inside cells: p50 {np.percentile(gt, 50):.2f} "
+          f"p90 {np.percentile(gt, 90):.2f} max {gt.max():.2f} "
+          f"(x{LAYER_KM:.1f} km = cloud-top height)")
 
 if __name__ == "__main__":
     main()
