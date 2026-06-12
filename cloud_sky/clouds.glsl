@@ -201,6 +201,18 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 	
 
 	float costheta = dot(ldir, dir);
+	// Per-octave phase values are constant along the ray — precompute
+	// (the multi-scatter loop below would otherwise re-evaluate 9 HG
+	// lobes per lit sample).
+	vec3 ms_phase;
+	float pc = 1.0;
+	for (int k = 0; k < 3; k++) {
+		ms_phase[k] = max(max(
+			henyey_greenstein(costheta, 0.6 * pc),
+			henyey_greenstein(costheta, (0.4 - 1.4 * ldir.y) * pc)),
+			henyey_greenstein(costheta, -0.2 * pc));
+		pc *= 0.7;
+	}
 
 	// Read sun and ambient colors from the sky LUT. sun_scale/ambient_scale
 	// are calibration multipliers (1.0 = upstream demo behavior) — see
@@ -256,14 +268,9 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 			float beers_total = 0.0;
 			float ms_a = 1.0;  // octave contribution
 			float ms_b = 1.0;  // octave extinction relax
-			float ms_c = 1.0;  // octave phase relax
 			for (int k = 0; k < 3; k++) {
-				float ph = max(max(
-					henyey_greenstein(costheta, 0.6 * ms_c),
-					henyey_greenstein(costheta, (0.4 - 1.4 * ldir.y) * ms_c)),
-					henyey_greenstein(costheta, -0.2 * ms_c));
-				beers_total += ms_a * exp(-tau * ms_b) * ph;
-				ms_a *= 0.45; ms_b *= 0.45; ms_c *= 0.7;
+				beers_total += ms_a * exp(-tau * ms_b) * ms_phase[k];
+				ms_a *= 0.45; ms_b *= 0.45;
 			}
 			// Powder (dark in-shadow crevices) belongs on front-lit views
 			// only — applying it everywhere is what erased the backlit
