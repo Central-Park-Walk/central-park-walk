@@ -314,10 +314,19 @@ vec2 recalc_uv(vec2 uv_f, vec2 frame_coord, vec2 xy_f,
 	return clamp(uv_f, vec2(0.0), vec2(1.0));
 }
 
-vec4 blend_colors(vec2 uv1, vec2 uv2, vec2 uv3, vec4 w, sampler2D tex) {
-	vec4 a = textureLod(tex, uv1, 0.0);
-	vec4 b = textureLod(tex, uv2, 0.0);
-	vec4 c = textureLod(tex, uv3, 0.0);
+// Sample with explicit gradients from the PRE-parallax-warp UVs: the
+// depth warp in recalc_uv makes implicit derivatives garbage at
+// silhouette edges (the reason this used to force mip 0), but mip 0 at
+// distance defeats the entire premultiplied-mip design (header comment)
+// — the atlas frame undersamples ~6:1 at 400 m and crowns degenerate to
+// per-pixel speckle, which the old ×12 dist_boost then smashed to a
+// solid cutout. Pre-warp gradients are smooth everywhere and within a
+// texel of the warped ones, so mips resolve correctly.
+vec4 blend_colors(vec2 uv1, vec2 uv2, vec2 uv3, vec4 w, sampler2D tex,
+                  vec2 gx, vec2 gy) {
+	vec4 a = textureGrad(tex, uv1, gx, gy);
+	vec4 b = textureGrad(tex, uv2, gx, gy);
+	vec4 c = textureGrad(tex, uv3, gx, gy);
 	return a * w.x + b * w.y + c * w.z;
 }
 
@@ -330,10 +339,11 @@ vec3 normal_from_map(vec4 n_tex, vec3 tangent, vec3 binormal, vec3 f_norm) {
 }
 
 vec3 blended_normals(vec2 uv1, vec3 fn1, vec2 uv2, vec3 fn2, vec2 uv3, vec3 fn3,
-                     vec3 tangent, vec3 binormal, vec4 w, sampler2D ntex) {
-	vec4 a = textureLod(ntex, uv1, 0.0);
-	vec4 b = textureLod(ntex, uv2, 0.0);
-	vec4 c = textureLod(ntex, uv3, 0.0);
+                     vec3 tangent, vec3 binormal, vec4 w, sampler2D ntex,
+                     vec2 gx, vec2 gy) {
+	vec4 a = textureGrad(ntex, uv1, gx, gy);
+	vec4 b = textureGrad(ntex, uv2, gx, gy);
+	vec4 c = textureGrad(ntex, uv3, gx, gy);
 	vec3 n1 = normal_from_map(a, tangent, binormal, fn1);
 	vec3 n2 = normal_from_map(b, tangent, binormal, fn2);
 	vec3 n3 = normal_from_map(c, tangent, binormal, fn3);
@@ -350,13 +360,19 @@ void fragment() {
 	vec2 uv2 = recalc_uv(v_uv_frame2, v_frame2, v_xy_frame2, frame_size, depth_scale, atlas_depth);
 	vec2 uv3 = recalc_uv(v_uv_frame3, v_frame3, v_xy_frame3, frame_size, depth_scale, atlas_depth);
 
+	// Pre-warp atlas-space gradients for mip selection (see blend_colors).
+	// Frame 1 is the dominant blend weight; all three frames share the
+	// same footprint scale so one gradient pair serves all samples.
+	vec2 atlas_gx = frame_size * dFdx(v_uv_frame1);
+	vec2 atlas_gy = frame_size * dFdy(v_uv_frame1);
+
 	// 3-frame blended sampling — both seasonal atlases at the same UVs so
 	// we can crossfade by phenology. Only one branch of the mix dominates
 	// at any given time, but sampling both unconditionally avoids flicker
 	// at the transition and lets the GPU overlap the fetches.
 	// Atlases are premultiplied (color*alpha); see scripts/premultiply_impostors.py.
-	vec4 tex_summer = blend_colors(uv1, uv2, uv3, v_blend_weights, atlas);
-	vec4 tex_winter = blend_colors(uv1, uv2, uv3, v_blend_weights, atlas_winter);
+	vec4 tex_summer = blend_colors(uv1, uv2, uv3, v_blend_weights, atlas, atlas_gx, atlas_gy);
+	vec4 tex_winter = blend_colors(uv1, uv2, uv3, v_blend_weights, atlas_winter, atlas_gx, atlas_gy);
 	float winter_mix_t = v_scalars.w;
 	float leaf_density = v_scalars.x;
 
@@ -403,7 +419,7 @@ void fragment() {
 	// Normal map
 	vec3 nm = blended_normals(uv1, v_frame1_normal, uv2, v_frame2_normal,
 	                          uv3, v_frame3_normal, TANGENT, BINORMAL,
-	                          v_blend_weights, atlas_normal);
+	                          v_blend_weights, atlas_normal, atlas_gx, atlas_gy);
 	NORMAL = nm;
 
 	// Un-premultiply so downstream color math (jitter, season tint, snow,
@@ -479,7 +495,7 @@ void fragment() {
 	// Crown-interior AO (trees.md §6): depth-atlas G carries the baked
 	// crown rho (bark texels 1.0); same canopy_ao mapping as the mesh
 	// tiers so the crossfade is value-continuous. Ambient only.
-	float crown_rho = blend_colors(uv1, uv2, uv3, v_blend_weights, atlas_depth).g;
+	float crown_rho = blend_colors(uv1, uv2, uv3, v_blend_weights, atlas_depth, atlas_gx, atlas_gy).g;
 	AO = mix(canopy_ao.x, canopy_ao.z, pow(crown_rho, canopy_ao.y));
 	AO_LIGHT_AFFECT = 0.0;
 }
