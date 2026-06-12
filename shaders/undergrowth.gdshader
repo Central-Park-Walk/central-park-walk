@@ -17,6 +17,8 @@ uniform float is_evergreen : hint_range(0.0, 1.0) = 0.0;
 uniform vec3 fall_tint = vec3(0.5, 0.35, 0.08);
 uniform vec3 flower_color = vec3(0.0, 0.0, 0.0);  // (0,0,0) = no flowers
 uniform vec2 bloom_range = vec2(1.0, 2.0);  // season_t range when flowers appear
+uniform vec3 berry_color = vec3(0.0, 0.0, 0.0);  // (0,0,0) = no fall fruit
+uniform vec2 berry_range = vec2(2.0, 3.0);  // season_t range when drupes show
 uniform sampler2D canopy_map : filter_linear, repeat_disable;
 uniform float hm_world_size = 5000.0;
 
@@ -213,6 +215,22 @@ void fragment() {
 		float fl_hue = hash2(fl_px + vec2(43.1, 0.0)) * 0.06 - 0.03;
 		f_col += vec3(fl_noise + fl_hue, fl_noise, fl_noise - fl_hue);
 		col = mix(col, f_col, flower_mask * bloom_chance * 0.8);
+	}
+
+	// Fall drupes — discrete RED berry speckles among the (golden) fall foliage.
+	// Dioecious: only ~half the plants (female) fruit. A sparse high-frequency
+	// speckle reads as individual berries, not a red wash. (Spicebush: bright
+	// red drupes Aug–Oct; iconic against the clear-yellow fall leaves.)
+	if (berry_color.r + berry_color.g + berry_color.b > 0.01) {
+		float berry_t = smoothstep(berry_range.x, berry_range.x + 0.3, season_t)
+		              * (1.0 - smoothstep(berry_range.y - 0.2, berry_range.y, season_t));
+		float female = step(0.5, hash2(floor(v_world_pos.xz) + vec2(7.3, 2.1)));
+		vec2 bpx = v_world_pos.xz * 53.0 + vec2(height_frac * 40.0, v_seed * 10.0);
+		float speckle = step(0.87, hash2(bpx));            // ~13% of fragments
+		float berry_mask = speckle * smoothstep(0.30, 0.55, height_frac)
+		                 * berry_t * female * (1.0 - is_stem);
+		vec3 b_col = berry_color * mix(0.80, 1.12, hash2(bpx + vec2(5.0)));
+		col = mix(col, b_col, berry_mask);
 	}
 
 	// Wind color shift

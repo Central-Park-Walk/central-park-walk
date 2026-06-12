@@ -57,7 +57,7 @@ const SPECIES := [
 	# --- SHRUBS (0-6) --- multi-stemmed woody plants 1.5-4m ---
 	# sc: stem_color RGB, sr: stem_roughness (woody bark = 0.90+, herbaceous = 0.80-0.88)
 	# 0: Spicebush (Lindera benzoin) — dominant understory, yellow fall, tiny yellow spring flowers
-	{name="Shrub_Spicebush", v=3, s=[0.6, 1.1], flex=0.30, green=0, fall=[0.82, 0.75, 0.15], fc=[0.70, 0.68, 0.10], bl=[0.2, 0.7], trans=0.90, sc=[0.35, 0.28, 0.15], sr=0.92},
+	{name="Shrub_Spicebush", v=3, s=[0.6, 1.1], flex=0.30, green=0, fall=[0.84, 0.72, 0.12], fc=[0.70, 0.68, 0.10], bl=[0.1, 0.5], berry=[0.80, 0.07, 0.05], br=[1.8, 2.9], trans=0.90, sc=[0.35, 0.28, 0.15], sr=0.92},
 	# 1: Witch Hazel (Hamamelis virginiana) — zigzag branches, yellow fall, flowers in AUTUMN
 	{name="Shrub_WitchHazel", s=[0.7, 1.2], flex=0.25, green=0, fall=[0.75, 0.65, 0.12], fc=[0.80, 0.72, 0.08], bl=[2.2, 3.0], sc=[0.30, 0.25, 0.18], sr=0.93},
 	# 2: Viburnum (Viburnum dentatum) — dense screening, red-purple fall, white spring flowers
@@ -107,8 +107,8 @@ const SPECIES := [
 	{name="Herb_RoseMallow", s=[0.7, 1.2], flex=0.35, green=0, fall=[0.50, 0.40, 0.08], fc=[0.88, 0.55, 0.65], bl=[1.0, 1.8], sc=[0.26, 0.34, 0.12], sr=0.84},
 	# 22: Burdock (Arctium minus) — 1.2m, stout gray-brown stems
 	{name="Herb_Burdock", s=[0.7, 1.2], flex=0.25, green=0, fall=[0.50, 0.42, 0.10], fc=[0.60, 0.30, 0.55], bl=[1.0, 1.6], sc=[0.30, 0.26, 0.20], sr=0.90},
-	# 23: Goldenrod (Solidago spp.) — 1m, green to woody brown stems
-	{name="Flower_Goldenrod", s=[0.8, 1.3], flex=0.35, green=0, fall=[0.72, 0.58, 0.10], fc=[0.85, 0.75, 0.10], bl=[1.5, 2.5], sc=[0.28, 0.30, 0.14], sr=0.84},
+	# 23: Goldenrod (Solidago spp.) — 1m, densely-leafy stem, one-sided arching golden plume
+	{name="Flower_Goldenrod", v=3, s=[0.8, 1.3], flex=0.35, green=0, fall=[0.72, 0.58, 0.10], fc=[0.85, 0.75, 0.10], bl=[1.5, 2.5], sc=[0.28, 0.30, 0.14], sr=0.84},
 
 	# --- GRASSES (24) --- tall bunch/clump grasses ---
 	# Grass stems: green, low roughness (smooth culms)
@@ -126,8 +126,8 @@ const SPECIES := [
 	{name="Wetland_Phragmites", s=[0.7, 1.3], flex=0.35, green=0, fall=[0.65, 0.55, 0.18], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.38, 0.38, 0.20], sr=0.82},
 
 	# --- ACCENT FLOWERS (29) --- used as undergrowth in meadow zones ---
-	# 29: Aster (Symphyotrichum spp.) — purple/white, fall bloom, meadow + woodland edge
-	{name="Flower_Aster", s=[0.8, 1.3], flex=0.30, green=0, fall=[0.50, 0.40, 0.10], fc=[0.60, 0.40, 0.72], bl=[1.5, 2.5], sc=[0.26, 0.30, 0.14], sr=0.82},
+	# 29: Aster (Symphyotrichum spp.) — bushy mound smothered in small purple/yellow daisies; fall bloom
+	{name="Flower_Aster", v=3, s=[0.8, 1.3], flex=0.30, green=0, fall=[0.50, 0.40, 0.10], fc=[0.60, 0.40, 0.72], bl=[1.5, 2.5], sc=[0.26, 0.30, 0.14], sr=0.82},
 
 	# --- ADDITIONAL GRASSES (30-33) + MEADOW FLOWER (34) ---
 	# 30: Little Bluestem (Schizachyrium scoparium) — 0.9m bunch grass, blue-green culms
@@ -147,22 +147,34 @@ const SPECIES := [
 # Zone types: 0=SheepMeadow, 1=GreatLawn, 2=NorthMeadow, 3=FormalGarden,
 #   4=SportsTurf, 5=NorthWoods, 6=Ramble, 7=Waterside, 8=WildMeadow, 9=OpenLawn
 #
-# Primitive species (2026-05-08): all generic-helper procedurals retired from
-# placement — shrubs (1-6), ferns (7-10), herbs (11-23), wetland (25-28),
-# grasses (24, 30-33), accent flowers (29 Aster, 34 Black-eyed Susan). All use
-# `make_crossed_planes` or simple stem+petal-ring construction below the
-# Spicebush bespoke quality bar. Only Spicebush (0) currently meets the bar.
-# Data gap over fake — see Task 14 bespoke queue.
+# Primitive species (2026-05-08): generic-helper procedurals retired from
+# placement until rebuilt to the Spicebush bespoke bar. Re-enabled so far:
+# Spicebush (0), Goldenrod (23) and Aster (29) — the two meadow fall-color
+# forbs rebuilt 2026-06-12 with bespoke habit (secund golden plume / bushy
+# daisy mound). The rest remain a data gap over fake — see model-redo program.
 const ZONE_SPECIES := {
 	# Zones 0,1,3,4: no undergrowth (maintained lawn / formal / sports)
-	5: [  # North Woods
-		[0, 4.0],   # spicebush (dominant shrub — forms thickets)
+	# NOTE: zones 5 (North Woods) and 6 (Ramble) carry NO instances in
+	# ground_cover_instances.bin — woodland undergrowth is placed via the
+	# canopy-gated WOODLAND_SPECIES fallback below, NOT through these entries.
+	# Goldenrod and aster are open-sun meadow forbs, so they live in the real
+	# open-meadow zones (2 North Meadow, 8 Wild Meadow), which is_meadow=true
+	# treats as sun-optimal in _ecology_density_mult.
+	2: [  # North Meadow — managed meadow with grass + forb margins
+		[23, 4.0],  # goldenrod (one-sided golden plumes, colonial patches)
+		[29, 3.0],  # aster (bushy mounds of purple daisies)
 	],
-	6: [  # Ramble
-		[0, 5.0],   # spicebush (very common — thicket-forming)
+	5: [  # North Woods (dead via zone map — see note; kept for documentation)
+		[0, 4.0],   # spicebush (placed via WOODLAND_SPECIES fallback)
+	],
+	6: [  # Ramble (dead via zone map — see note; kept for documentation)
+		[0, 5.0],   # spicebush (placed via WOODLAND_SPECIES fallback)
 	],
 	7: [],  # Waterside — bespoke wetland queued; bare until then
-	8: [],  # Wild Meadow — bespoke meadow queued
+	8: [  # Wild Meadow — colonial sun forbs, the autumn fall-color read
+		[23, 7.0],  # goldenrod (massed golden plume patches)
+		[29, 6.0],  # aster (bushy mounds smothered in purple daisies)
+	],
 	9: [],  # Open Lawn
 }
 
@@ -306,6 +318,13 @@ func _build_zone_map() -> void:
 			_zone_map[ck] = best_type
 
 	print("  Undergrowth: zone map built (%d chunks)" % _zone_map.size())
+	var zhist: Dictionary = {}
+	for ck in _zone_map:
+		var z: int = _zone_map[ck]
+		zhist[z] = zhist.get(z, 0) + 1
+	print("  [ZONEMAP] dist=%s  has(-23|74)=%s -> %s  has(14|-59)=%s -> %s" % [
+		zhist, _zone_map.has("-23|74"), _zone_map.get("-23|74", -1),
+		_zone_map.has("14|-59"), _zone_map.get("14|-59", -1)])
 
 
 # Free every live chunk's RenderingServer RIDs. Called from main at quit —
@@ -349,6 +368,8 @@ func _update_chunks_near(pos: Vector3) -> void:
 			var apx: int = int((sample_x + _atlas_half) * _atlas_scale)
 			var apz: int = int((sample_z + _atlas_half) * _atlas_scale)
 			if apx < 0 or apx >= _atlas_res or apz < 0 or apz >= _atlas_res: continue
+			if dx == 0 and dz == 0:
+				print("[ATLAS] player chunk %s atlas_type=%d zone=%s" % [ck, _atlas_data[(apz * _atlas_res + apx) * 2], _zone_map.get(ck, -1)])
 			if _atlas_data[(apz * _atlas_res + apx) * 2] != 1: continue
 
 			needed[ck] = true
@@ -466,23 +487,35 @@ func _dem_height(wx: float, wz: float) -> float:
 	else:
 		return h00 + (h11 - h01) * fx + (h01 - h00) * fz
 
-func _ecology_density_mult(wx: float, wz: float) -> float:
+func _ecology_density_mult(wx: float, wz: float, open_meadow := false) -> float:
 	# Returns 0.15 – 2.5 multiplier on base density for this position.
+	# open_meadow=true flips the canopy response for sun-loving meadow forbs
+	# (goldenrod, aster): they peak in open sun and are shaded out under canopy,
+	# the opposite of woodland understory.
 	var mult := 1.0
 
-	# 1) Canopy sweet spot — understory peaks at partial shade (40-75%).
-	#    Deep shade (>85%) or full sun (<20%) suppresses growth.
 	var canopy: float = float(_canopy_at(wx, wz)) / 255.0  # 0-1
-	if canopy < 0.20:
-		mult *= 0.3  # open sun — grass dominates
-	elif canopy < 0.40:
-		mult *= lerpf(0.3, 1.0, (canopy - 0.20) / 0.20)  # transition
-	elif canopy <= 0.75:
-		mult *= lerpf(1.0, 1.4, (canopy - 0.40) / 0.35)  # sweet spot — peaks at 75%
-	elif canopy <= 0.85:
-		mult *= lerpf(1.4, 0.8, (canopy - 0.75) / 0.10)  # declining in deep shade
+	if open_meadow:
+		# Sun forbs — full sun is ideal, partial-to-deep shade thins them out.
+		if canopy < 0.35:
+			mult *= 1.0  # open sun — the meadow optimum
+		elif canopy < 0.65:
+			mult *= lerpf(1.0, 0.5, (canopy - 0.35) / 0.30)  # edge shade
+		else:
+			mult *= lerpf(0.5, 0.2, clampf((canopy - 0.65) / 0.35, 0.0, 1.0))  # shaded out
 	else:
-		mult *= lerpf(0.8, 0.4, (canopy - 0.85) / 0.15)  # suppressed
+		# 1) Canopy sweet spot — understory peaks at partial shade (40-75%).
+		#    Deep shade (>85%) or full sun (<20%) suppresses growth.
+		if canopy < 0.20:
+			mult *= 0.3  # open sun — grass dominates
+		elif canopy < 0.40:
+			mult *= lerpf(0.3, 1.0, (canopy - 0.20) / 0.20)  # transition
+		elif canopy <= 0.75:
+			mult *= lerpf(1.0, 1.4, (canopy - 0.40) / 0.35)  # sweet spot — peaks at 75%
+		elif canopy <= 0.85:
+			mult *= lerpf(1.4, 0.8, (canopy - 0.75) / 0.10)  # declining in deep shade
+		else:
+			mult *= lerpf(0.8, 0.4, (canopy - 0.85) / 0.15)  # suppressed
 
 	# 2) Slope penalty — steep terrain has thin soil, poor rooting.
 	var slope: float = _slope_at(wx, wz)
@@ -583,17 +616,24 @@ func _build_chunk(ck: String) -> void:
 
 	# Ecology-driven density modulation: sample chunk center to get a
 	# multiplier based on canopy cover, slope, moisture, and patch noise.
-	var eco_mult := _ecology_density_mult(cx + CHUNK * 0.5, cz + CHUNK * 0.5)
+	# Meadow zones (2 North Meadow, 8 Wild Meadow) host sun forbs — flip the
+	# canopy response so open sun is the optimum, not a penalty.
+	var is_meadow := zone_type == 2 or zone_type == 8
+	var eco_mult := _ecology_density_mult(cx + CHUNK * 0.5, cz + CHUNK * 0.5, is_meadow)
 
 	# Pre-allocate buffers per species
 	var bufs: Dictionary = {}
 	var cnts: Dictionary = {}
 	var sums: Dictionary = {}
 
+	if zone_type == 2 or zone_type == 8:
+		print("[ZONE] chunk %s zone=%d list=%d eco=%.2f tier=%.2f" % [ck, zone_type, species_list.size(), eco_mult, tier_mult])
 	for sp_entry in species_list:
 		var sp_idx: int = sp_entry[0]
 		var density: float = sp_entry[1] * eco_mult
 		var sp_name: String = SPECIES[sp_idx].name
+		if sp_idx == 23 or sp_idx == 29:
+			print("[FORBTRY] chunk %s idx=%d has_mesh=%s density=%.2f target=%d" % [ck, sp_idx, _meshes.has(sp_name), density, int(density * CHUNK * CHUNK / 100.0 * tier_mult)])
 		if not _meshes.has(sp_name): continue
 
 		# Skip fungi outside their season
@@ -691,6 +731,8 @@ func _build_chunk(ck: String) -> void:
 	for sp_idx in bufs:
 		var c: int = cnts[sp_idx]
 		if c == 0: continue
+		if sp_idx == 23 or sp_idx == 29:
+			print("[FORB] chunk %s zone=%d idx=%d (%s) placed=%d eco=%.2f" % [ck, zone_type, sp_idx, SPECIES[sp_idx].name, c, eco_mult])
 		var sp: Dictionary = SPECIES[sp_idx]
 		var sp_name: String = sp.name
 		var mesh: Mesh = _meshes.get(sp_name)
@@ -763,10 +805,17 @@ func _load_model(sp_name: String) -> Mesh:
 	if meshes.is_empty(): return null
 	var mesh: Mesh = meshes.values()[0]
 
-	# Find species config
+	# Find species config. Variant meshes carry a "_<n>" suffix (e.g.
+	# "Flower_Goldenrod_0") not present in the SPECIES name ("Flower_Goldenrod"),
+	# so match the base name — otherwise variants silently fall back to default
+	# material params (no flower color, no fall tint, default stem).
+	var cfg_name := sp_name
+	var us := sp_name.rfind("_")
+	if us != -1 and sp_name.substr(us + 1).is_valid_int():
+		cfg_name = sp_name.substr(0, us)
 	var sp_cfg: Dictionary = {}
 	for sp in SPECIES:
-		if sp.name == sp_name:
+		if sp.name == cfg_name:
 			sp_cfg = sp
 			break
 
@@ -805,6 +854,10 @@ func _load_model(sp_name: String) -> Mesh:
 		mat.set_shader_parameter("flower_color", Vector3(fc[0], fc[1], fc[2]))
 		var bl: Array = sp_cfg.get("bl", [1.0, 2.0])
 		mat.set_shader_parameter("bloom_range", Vector2(bl[0], bl[1]))
+		var bc: Array = sp_cfg.get("berry", [0.0, 0.0, 0.0])
+		mat.set_shader_parameter("berry_color", Vector3(bc[0], bc[1], bc[2]))
+		var brg: Array = sp_cfg.get("br", [2.0, 2.9])
+		mat.set_shader_parameter("berry_range", Vector2(brg[0], brg[1]))
 		mat.set_shader_parameter("roughness_base", sp_cfg.get("rough", 0.82))
 		mat.set_shader_parameter("specular_base", sp_cfg.get("spec", 0.04))
 		mat.set_shader_parameter("translucency", sp_cfg.get("trans", 0.5))
