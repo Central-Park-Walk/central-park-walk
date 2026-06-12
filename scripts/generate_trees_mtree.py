@@ -661,11 +661,15 @@ SPECIES = {
         "branch_start": 0.18,          # Matches low trunk_frac
         "branch_end": 0.90,
         "branch_density": 1.3,
-        "branch_length_ratio": 0.42,   # Graceful spreading
+        "branch_length_ratio": 0.52,   # broad spreading — Yoshino is "wider than tall"
+                                       # (spread 9-12m vs H 9-15m → aspect ~0.85-1.0,
+                                       # canopy data §5); no runtime stretch so it's in-model
+        "branch_start_radius": 0.38,   # slender ornamental limbs, not heavy-wood
+        "branch_angle_variation": 0.25,  # layered horizontal-spreading tiers
         "branch_angle": 50,
         "branch_gravity": 9.0,
         "branch_stiffness": 0.15,
-        "branch_up_attraction": 0.3,
+        "branch_up_attraction": 0.22,  # horizontal spread → broad flat-rounded crown
         "branch_split_prob": 0.45,
         "branch_split_angle": 35.0,
         "branch_flatness": 0.35,
@@ -694,6 +698,13 @@ SPECIES = {
         "target_cluster_count_l": 600,  # LAI 3-4 moderate canopy
         "base_seed": 200,
         "seed_step": 19,
+        # Woodland understory mass (~14%% via black-cherry/dogwood → cherry). Variants
+        # span the spreading form within ~1 SD of the 9-12m-spread population.
+        "n_variants": 6,
+        "variant_spans": {
+            "branch_length_ratio": [0.46, 0.58],  # tighter ↔ broad open-grown spread
+            "branch_angle": [46, 60],             # more upright ↔ more spreading
+        },
         "tiers": {
             "s": {"target_h": 7, "height_range": [5, 9], "skeleton_overrides": {
                 "branch_density": 0.8, "branch_split_prob": 0.25, "sub_density": 0.4}},
