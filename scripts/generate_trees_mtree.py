@@ -1804,7 +1804,13 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
     # generate independently instead of deriving from _l).
     tier_seed_offset = {"s": 0, "m": 37, "l": 7}
 
-    for vi in range(N_VARIANTS):
+    # Per-species variant count: high-census species (oak ~2.6k, etc.) widen the
+    # seed envelope to 6-8 to kill stand tiling (tree_model_redesign.md §4). The
+    # runtime picker is count-agnostic (tree_builder.gd:587) and impostor atlases
+    # are per species-tier, so >5 is free downstream.
+    n_variants = sp.get("n_variants", N_VARIANTS)
+
+    for vi in range(n_variants):
         base_seed = sp["base_seed"] + vi * sp["seed_step"] + tier_seed_offset.get(tier_name, 0)
 
         # Tier-specific skeleton overrides
