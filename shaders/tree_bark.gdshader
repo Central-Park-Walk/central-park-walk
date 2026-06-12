@@ -167,32 +167,51 @@ void fragment() {
 		peel *= smoothstep(2.0, 4.0, local_h) * smoothstep(8.0, 5.0, local_h);
 		col = mix(col, col * 1.15, peel * 0.3);
 	} else if (bark_style == 2) {
-		// --- Style 2: Exfoliating mottled patches (london plane / sycamore) ---
-		float pn_yz = fbm(puv_yz * vec2(1.5, 1.0), 3);
-		float pn_xz = fbm(puv_xz * vec2(1.5, 1.0), 3);
-		float pn_xy = fbm(puv_xy * vec2(1.5, 1.0), 3);
-		float patch_n = pn_yz * tri_w.x + pn_xz * tri_w.y + pn_xy * tri_w.z;
-		float p2_yz = vnoise(puv_yz * vec2(2.8, 2.2) + vec2(17.0, 0.0));
-		float p2_xz = vnoise(puv_xz * vec2(2.8, 2.2) + vec2(17.0, 0.0));
-		float p2_xy = vnoise(puv_xy * vec2(2.8, 2.2) + vec2(17.0, 0.0));
-		float patch2 = p2_yz * tri_w.x + p2_xz * tri_w.y + p2_xy * tri_w.z;
-		vec3 cream_bark = col * vec3(1.30, 1.25, 1.10);
-		vec3 olive_bark = col * vec3(0.82, 0.88, 0.75);
-		vec3 gray_bark  = col * vec3(0.90, 0.88, 0.85);
-		float zone1 = smoothstep(0.3, 0.5, patch_n);
-		float zone2 = smoothstep(0.5, 0.7, patch2);
-		col = mix(gray_bark, cream_bark, zone1);
-		col = mix(col, olive_bark, zone2 * 0.6);
-		float edge = abs(fract(patch_n * 3.0) - 0.5) * 2.0;
-		edge = 1.0 - smoothstep(0.0, 0.15, edge);
-		col *= (1.0 - edge * 0.12);
-		furrow = 1.0 - edge;
-		float mi_yz = vnoise(puv_yz * vec2(10.0, 8.0));
-		float mi_xz = vnoise(puv_xz * vec2(10.0, 8.0));
-		float mi_xy = vnoise(puv_xy * vec2(10.0, 8.0));
-		micro = (mi_yz * tri_w.x + mi_xz * tri_w.y + mi_xy * tri_w.z) * 0.08;
-		col *= (0.96 + micro);
-		rough = mix(0.65, 0.80, zone1);
+		// --- Style 2: Camouflage exfoliating bark (London plane / sycamore) ---
+		// The signature jigsaw: big plates of older bark peel away to reveal
+		// pale fresh bark beneath. Two patch scales + CRISP boundaries (narrow
+		// smoothstep = sharp exfoliation edges, not soft blobs) and a 4-tone
+		// high-contrast palette (pale cream-green / olive / gray-brown / dark old).
+		// Large peeling plates — vertically biased (plates run along the trunk).
+		float pl_yz = fbm(puv_yz * vec2(0.85, 0.5), 4);
+		float pl_xz = fbm(puv_xz * vec2(0.85, 0.5), 4);
+		float pl_xy = fbm(puv_xy * vec2(0.85, 0.5), 4);
+		float plate = pl_yz * tri_w.x + pl_xz * tri_w.y + pl_xy * tri_w.z;
+		// Medium patches breaking up the plates (offset frequency).
+		float pm_yz = fbm(puv_yz * vec2(2.4, 1.7) + vec2(31.0, 7.0), 3);
+		float pm_xz = fbm(puv_xz * vec2(2.4, 1.7) + vec2(31.0, 7.0), 3);
+		float pm_xy = fbm(puv_xy * vec2(2.4, 1.7) + vec2(31.0, 7.0), 3);
+		float patchm = pm_yz * tri_w.x + pm_xz * tri_w.y + pm_xy * tri_w.z;
+
+		// High-contrast plane palette (col base ~cream-gray).
+		vec3 fresh_cream = col * vec3(1.52, 1.58, 1.42);  // pale greenish-cream (freshest)
+		vec3 olive_green = col * vec3(0.74, 0.84, 0.56);  // olive-green mid bark
+		vec3 gray_brown  = col * vec3(0.82, 0.76, 0.68);  // gray-brown older bark
+		vec3 dark_old    = col * vec3(0.50, 0.50, 0.46);  // darkest retained outer bark
+
+		// Crisp patch zones (narrow transitions = peeling-plate edges).
+		float zfresh = smoothstep(0.54, 0.62, plate);         // big fresh plates
+		float zolive = smoothstep(0.46, 0.53, patchm);        // olive medium patches
+		float zdark  = smoothstep(0.30, 0.36, 1.0 - plate);   // dark old remnants
+		col = gray_brown;
+		col = mix(col, dark_old, zdark * 0.7);
+		col = mix(col, olive_green, zolive * 0.7);
+		col = mix(col, fresh_cream, zfresh);
+
+		// Upper trunk/branches read smoother and paler on a real plane.
+		col = mix(col, fresh_cream, smoothstep(3.0, 11.0, local_h) * 0.35);
+
+		// Recessed exfoliation crack at the plate boundary.
+		float edge = 1.0 - smoothstep(0.0, 0.05, abs(plate - 0.58));
+		col *= (1.0 - edge * 0.30);
+		furrow = 1.0 - edge * 0.8;
+		// Fine fleck mottle within patches.
+		float mi_yz = vnoise(puv_yz * vec2(9.0, 7.0));
+		float mi_xz = vnoise(puv_xz * vec2(9.0, 7.0));
+		float mi_xy = vnoise(puv_xy * vec2(9.0, 7.0));
+		micro = (mi_yz * tri_w.x + mi_xz * tri_w.y + mi_xy * tri_w.z) * 0.10;
+		col *= (0.95 + micro);
+		rough = mix(0.52, 0.80, zfresh);  // fresh patches smoother/waxier
 	} else if (bark_style == 3) {
 		// --- Style 3: Thick scaled plates (pine / conifer) ---
 		float sn_yz = vnoise(puv_yz * vec2(0.5, 0.3));
