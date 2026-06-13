@@ -1,6 +1,7 @@
 ## Infrastructure builder — barriers, labels, statues, amenities, facilities, viewpoints, attractions, gardens, meadow labels, special zones.
 
 var _loader
+var skip_great_lawn_markings := false  # eval plot: keep the lawn a clean ground plane
 
 
 
@@ -195,6 +196,8 @@ func _build_sport_markings(landuse: Array) -> void:
 	for zone in landuse:
 		var sport: String = str(zone.get("sport", ""))
 		if sport.is_empty():
+			continue
+		if skip_great_lawn_markings and str(zone.get("name", "")).begins_with("Great Lawn"):
 			continue
 		var pts: Array = zone.get("points", [])
 		if pts.size() < 3:

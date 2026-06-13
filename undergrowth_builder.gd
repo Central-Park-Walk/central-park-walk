@@ -332,6 +332,92 @@ func free_all_chunks() -> void:
 		RenderingServer.free_rid(rids[1])  # instance first
 		RenderingServer.free_rid(rids[0])  # multimesh second
 	_active_chunks.clear()
+	for rids in _eval_rids:
+		RenderingServer.free_rid(rids[1])
+		RenderingServer.free_rid(rids[0])
+	_eval_rids.clear()
+
+
+# --- Eval plot (--eval-plot) -----------------------------------------------
+# Persistent specimen blocks for the Great Lawn evaluation plot
+# (eval_plot_builder.gd). Same instance buffer layout, meshes, materials and
+# custom data as _build_chunk, so specimens render exactly as in-park
+# placements — but at fixed positions, never chunk-streamed, and visible from
+# across the plot. Mesh variants are cycled across specimens so every variant
+# of a species is on display.
+var _eval_rids: Array = []  # [mm_rid, inst_rid] pairs, freed in free_all_chunks
+
+func build_eval_block(sp_idx: int, pts: Array, scales: Array, tag: String) -> bool:
+	var sp: Dictionary = SPECIES[sp_idx]
+	var sp_name: String = sp.name
+	if not _meshes.has(sp_name):
+		return false
+	var variants: Array = _meshes[sp_name + "_variants"] \
+		if _meshes.has(sp_name + "_variants") else [_meshes[sp_name]]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(tag) & 0x7FFFFFFF
+	var by_variant: Dictionary = {}  # variant idx -> Array of pts indices
+	for j in pts.size():
+		var vi: int = j % variants.size()
+		if not by_variant.has(vi):
+			by_variant[vi] = []
+		by_variant[vi].append(j)
+	var RS := RenderingServer
+	for vi in by_variant:
+		var idxs: Array = by_variant[vi]
+		var c: int = idxs.size()
+		var ys := PackedFloat32Array()
+		ys.resize(c)
+		var ox := 0.0
+		var oy := 0.0
+		var oz := 0.0
+		for k in c:
+			var p: Vector2 = pts[idxs[k]]
+			ys[k] = _dem_height(p.x, p.y)
+			ox += p.x; oy += ys[k]; oz += p.y
+		ox /= float(c); oy /= float(c); oz /= float(c)
+		var buf := PackedFloat32Array()
+		buf.resize(c * 16)
+		for k in c:
+			var j: int = idxs[k]
+			var p: Vector2 = pts[j]
+			var sc: float = scales[j]
+			var yr: float = rng.randf() * TAU
+			var mx: float = 1.0 if rng.randf() > 0.5 else -1.0
+			var tilt: float = rng.randf_range(-0.087, 0.087)
+			var cr := cos(yr)
+			var sr := sin(yr)
+			var ct := cos(tilt)
+			var st := sin(tilt)
+			var o: int = k * 16
+			buf[o]    = cr * sc * mx;  buf[o+1] = sr * st * sc * mx; buf[o+2]  = sr * ct * sc * mx; buf[o+3]  = p.x - ox
+			buf[o+4]  = 0.0;           buf[o+5] = ct * sc;           buf[o+6]  = -st * sc;          buf[o+7]  = ys[k] - oy
+			buf[o+8]  = -sr * sc;      buf[o+9] = cr * st * sc;      buf[o+10] = cr * ct * sc;      buf[o+11] = p.y - oz
+			buf[o+12] = rng.randf(); buf[o+13] = sc; buf[o+14] = float(sp_idx); buf[o+15] = 0.0
+		var mm_rid := RS.multimesh_create()
+		RS.multimesh_allocate_data(mm_rid, c, RS.MULTIMESH_TRANSFORM_3D, false, true)
+		RS.multimesh_set_mesh(mm_rid, (variants[vi] as Mesh).get_rid())
+		RS.multimesh_set_buffer(mm_rid, buf)
+		var aabb_min := Vector3(INF, INF, INF)
+		var aabb_max := Vector3(-INF, -INF, -INF)
+		for k in c:
+			var o := k * 16
+			aabb_min = aabb_min.min(Vector3(buf[o + 3], buf[o + 7], buf[o + 11]))
+			aabb_max = aabb_max.max(Vector3(buf[o + 3], buf[o + 7], buf[o + 11]))
+		aabb_min -= Vector3(3, 1, 3)
+		aabb_max += Vector3(3, 4, 3)
+		RS.multimesh_set_custom_aabb(mm_rid, AABB(aabb_min, aabb_max - aabb_min))
+		var inst_rid := RS.instance_create()
+		RS.instance_set_base(inst_rid, mm_rid)
+		RS.instance_set_scenario(inst_rid, _scenario)
+		RS.instance_set_transform(inst_rid, Transform3D(Basis.IDENTITY, Vector3(ox, oy, oz)))
+		RS.instance_set_visible(inst_rid, true)
+		RS.instance_geometry_set_visibility_range(inst_rid, 0.0, 500.0, 0.0, 30.0,
+			RS.VISIBILITY_RANGE_FADE_SELF)
+		RS.instance_geometry_set_cast_shadows_setting(inst_rid,
+			RS.SHADOW_CASTING_SETTING_OFF)
+		_eval_rids.append([mm_rid, inst_rid])
+	return true
 
 
 func update_camera(camera_pos: Vector3) -> void:

@@ -112,6 +112,7 @@ var _cli_pitch := 0.0   # --pitch degrees (negative = look down)
 # --walk bot: auto-walk in a direction, capturing screenshots at intervals.
 # Usage: --walk --pos=x,z,yaw --walk-duration=30 --walk-interval=1.0 --walk-speed=1.2
 var _tree_species_filter: Array = []  # --tree-species=oak,maple → only place those
+var _eval_plot := ""  # --eval-plot[=spec] → Great Lawn model evaluation plot
 var _walk_bot := false
 var _walk_bot_duration := 30.0   # seconds of walking
 var _walk_bot_interval := 1.0    # seconds between screenshots
@@ -165,6 +166,12 @@ func _parse_cli_args() -> void:
 		elif key == "--tree-species" and val != "":
 			_tree_species_filter = Array(val.split(","))
 			print("Tree species filter: %s" % str(_tree_species_filter))
+		elif key == "--eval-plot":
+			# Great Lawn model evaluation plot (eval_plot_builder.gd).
+			# Bare flag = full lineup; =trees/=undergrowth = one section;
+			# =name[,name] = matching species (single match → stand mode).
+			_eval_plot = eq_val if has_eq and eq_val != "" else "all"
+			print("Eval plot: %s" % _eval_plot)
 		elif arg == "--walk":
 			_walk_bot = true
 		elif key == "--walk-duration" and val != "":
@@ -304,6 +311,12 @@ func _parse_cli_args() -> void:
 		if earg.begins_with("--quit-after"):
 			_auto_screenshot = true
 			break
+	# Eval plot: unless --pos was given, spawn at the plot's south edge
+	# facing north up the specimen rows (SPAWN is x, yaw_degrees, z).
+	if _eval_plot != "" and not _cli_pos_set:
+		var esp: Vector3 = preload("res://eval_plot_builder.gd").SPAWN
+		_cli_pos = esp
+		_cli_pos_set = true
 	if cli_time != "":
 		if TIME_PRESETS.has(cli_time):
 			_time_of_day = TIME_PRESETS[cli_time]
@@ -1154,6 +1167,10 @@ func _do_dump_near() -> void:
 
 
 func _set_labels_visible(vis: bool) -> void:
+	# Eval plot: species labels are the point of the plot — keep them in
+	# captures too (this hide exists for clean README/tour shots).
+	if _eval_plot != "" and not vis:
+		return
 	if _cached_label3d_nodes.is_empty():
 		_cached_label3d_nodes = find_children("*", "Label3D", true, false)
 	for n: Node in _cached_label3d_nodes:
@@ -2649,6 +2666,7 @@ func _setup_park() -> void:
 	if _terrain3d:
 		loader.terrain3d = _terrain3d
 	loader.tree_species_filter = _tree_species_filter
+	loader.eval_plot = _eval_plot
 	add_child(loader)
 	_park_loader = loader
 

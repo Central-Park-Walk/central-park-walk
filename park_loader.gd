@@ -49,6 +49,8 @@ var _water_builder                        # water_builder.gd instance
 var _building_builder                     # building_builder.gd instance
 var _tree_builder                        # tree_builder.gd instance
 var tree_species_filter: Array = []      # CLI: only place these species (empty = all)
+var eval_plot: String = ""               # CLI --eval-plot: ""=off, "all", "trees", "undergrowth", species list
+var _eval_builder                        # eval_plot_builder.gd instance (eval runs only)
 var _boundary_builder                    # boundary_builder.gd instance
 var _furniture_builder                   # furniture_builder.gd instance
 var _infrastructure_builder              # infrastructure_builder.gd instance
@@ -1041,6 +1043,8 @@ func _ready() -> void:
 	_boundary_builder = preload("res://boundary_builder.gd").new(self)
 	_furniture_builder = preload("res://furniture_builder.gd").new(self)
 	_infrastructure_builder = preload("res://infrastructure_builder.gd").new(self)
+	# Eval plot runs keep the Great Lawn as a clean ground plane — no ball fields
+	_infrastructure_builder.skip_great_lawn_markings = eval_plot != ""
 	_landmark_builder = preload("res://landmark_builder.gd").new(self)
 	_detail_builder = preload("res://detail_builder.gd").new(self)
 	_gap_builder = preload("res://gap_builder.gd").new(self)
@@ -1069,6 +1073,13 @@ func _ready() -> void:
 	# --- Blender GLB models (data-positioned) ---
 	_build_bridge_models()
 	print("  bridge models: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
+	# Eval plot (--eval-plot): inject synthetic census records BEFORE the tree
+	# build so specimens run the full pipeline (LOD tiers, impostors, wind).
+	if eval_plot != "":
+		_eval_builder = preload("res://eval_plot_builder.gd").new(self)
+		_eval_builder.resolve(eval_plot)
+		var _eval_n: int = _eval_builder.inject_trees(trees)
+		print("  eval plot: %d tree specimens injected" % _eval_n)
 	_tree_builder._build_trees(trees)
 	print("  trees: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	_canopy_texture = _generate_canopy_map(_tree_builder.canopy_data)
@@ -1076,6 +1087,8 @@ func _ready() -> void:
 	# Grass handled by Terrain3D GPU particle system in main.gd
 	_tp = Time.get_ticks_msec()
 	_undergrowth_builder._build_undergrowth()
+	if _eval_builder:
+		_eval_builder.build(_undergrowth_builder)
 	print("  undergrowth: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	_ground_cover_builder._build_ground_cover()
 	print("  ground cover: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
