@@ -925,8 +925,13 @@ SPECIES = {
         "up_attraction": 0.7,
         "trunk_randomness": 0.5,
         "branch_start": 0.18,          # Matches low trunk_frac
-        "branch_end": 0.90,
-        "branch_density": 1.2,
+        # The parametric fountain (create_willow_branchlets) now provides the
+        # crown + weep, so the Mtree skeleton is just an interior trunk/limb
+        # frame hidden under the crown shell. Keep its branching SPARSE and LOW
+        # so no bare twig pokes through the foliage (the "disconnected branches"
+        # / "gathered as they arch over" defects).
+        "branch_end": 0.74,
+        "branch_density": 0.6,
         "branch_length_ratio": 0.62,   # Broad weeping dome — spread 12-18m vs H 9-15m,
                                        # "often wider than tall" (canopy data §9) → aspect
                                        # ~1.0-1.2; willow gets no runtime stretch so the
@@ -942,8 +947,9 @@ SPECIES = {
         "branch_flatness": 0.20,
         "branch_break_chance": 0.01,
         "branch_resolution": 1.4,
-        # Willow sub-branches: long, drooping curtains
-        "sub_density": 1.6,            # MANY pendulous strands — the curtain is the species
+        # Mtree sub-branches are now redundant (the fountain whips ARE the weep)
+        # and only add bare twigs poking through — keep them minimal.
+        "sub_density": 0.2,
         "sub_length_ratio": 0.45,      # LONG drooping strands (was 0.30 — too short to read
                                        # as curtains); length+density drive the visible weep
                                        # since sub_gravity is capped (>30 crashes Mtree core)
@@ -965,15 +971,17 @@ SPECIES = {
         "leaf_cluster_size_range": (0.27, 0.60),
         "leaf_flatten_range": (0.55, 0.75),
         "leaf_density": 0.45,  # Willow LAI 2.5-3.5 → curtain, not solid mass
-        # The weep is a curtain of MANY small clusters clothing the long drooping
-        # strands. Willow has no _l tier, so _m draws target_l×0.40 — bumped high so
-        # the strands read as dense vertical curtains, not bare wands with leaf blobs.
-        "target_cluster_count_l": 1400,
-        "cards_per_cluster": 45,
-        "droop_factor": 0.5,           # extra downshift on cluster placement along the strands
-        "strand_foliage": True,        # AAA hanging leaf-strip curtains (the true weep —
-                                       # see create_strand_cards_at_positions); the skeleton
-                                       # gives the dome mass, strands give the pendulous drop
+        # The crown clusters only cap the dome top (willow_crown_placements thins
+        # them to the upper crown); the weep itself is real drooping branchlet
+        # geometry (create_willow_branchlets), not tiled cards.
+        "target_cluster_count_l": 900,
+        "cards_per_cluster": 30,
+        "droop_factor": 0.5,           # extra downshift on cluster placement
+        "branchlet_foliage": True,     # real drooping twig GEOMETRY weep — fine
+                                       # tapering tubes + small leaf tufts hung
+                                       # from the outer crown to the ground
+                                       # (create_willow_branchlets). Replaces the
+                                       # old hanging-card curtain (read as bars).
         "sub_min_height": 14,          # Sub-branches only on mature willows
         "base_seed": 50,
         "seed_step": 41,
@@ -986,9 +994,9 @@ SPECIES = {
         },
         "tiers": {
             "s": {"target_h": 12, "height_range": [8, 14], "skeleton_overrides": {
-                "branch_density": 0.7, "branch_split_prob": 0.25, "sub_density": 0.5}},
+                "branch_density": 0.5, "branch_split_prob": 0.20, "sub_density": 0.15}},
             "m": {"target_h": 16, "height_range": [14, 20], "skeleton_overrides": {
-                "branch_density": 1.0, "branch_split_prob": 0.35, "sub_density": 1.2}},
+                "branch_density": 0.6, "branch_split_prob": 0.25, "sub_density": 0.2}},
         },
     },
 
@@ -1782,69 +1790,80 @@ def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=
 
 
 def create_strand_cards_at_positions(placements, strand_mat, rng, target_height):
-    """Willow weeping curtain (AAA hanging leaf-strip technique).
+    """Willow weeping curtain — a continuous fountain skirt.
 
-    Hang tall vertical leaf-strip cards straight DOWN (world -Z, the pre-export
-    up axis) from canopy positions, INDEPENDENT of branch angle. Each strand is
-    a crossed pair of quads with the strand texture tiled along its length, so
-    the branchlet+leaves pattern runs the full pendulous drop. This is the part
-    of the weeping habit the gravity-capped Mtree skeleton cannot produce
-    (sub_gravity crashes the mesher above ~30, far short of a true vertical weep).
+    The signature weeping willow read is a *continuous draping curtain* of fine
+    branchlets sweeping from a broad dome to the ground, with an open interior
+    that lets the stout short trunk show through. The previous version hung a
+    handful of narrow near-vertical strands from scattered crown points, which
+    read as discrete green ropes with gaps between them — not a curtain.
+
+    This builds the skirt as overlapping wide leaf-strip panels around the OUTER
+    crown (the dome shoulder), each panel a small fan of 2-3 strands so adjacent
+    panels merge into a single screen. Strands flare slightly outward toward the
+    ground (the fountain spread) and sweep to near ground level. The interior
+    (rad < 0.4·crown) is deliberately left open so the trunk reads. A handful of
+    placement-driven interior strands add depth without filling the centre.
+
+    Strands are crossed quad pairs with the cluster leaf texture tiled along
+    their length (the branchlet+leaf pattern runs the full pendulous drop) — the
+    part of the weep the gravity-capped Mtree skeleton can't make (sub_gravity
+    crashes the mesher above ~30, far short of a true vertical weep).
     """
     if not placements:
         return []
-    # Crown frame: hang the curtain from the OUTER, lower-to-mid canopy and
-    # sweep each strand down to near ground level — the willow "skirt". Deep
-    # interior and the very crown top stay as the leaf-cluster dome mass.
     cx = sum(p[0].x for p in placements) / len(placements)
     cy = sum(p[0].y for p in placements) / len(placements)
     zs = [p[0].z for p in placements]
     zmin, zmax = min(zs), max(zs)
+    crown_h = max(zmax - zmin, 0.1)
     maxr = max(0.5, max(math.hypot(p[0].x - cx, p[0].y - cy) for p in placements))
+    # Willow open-grown spread ~1.1-1.3·H (radius ~0.55-0.65·H). Guarantee a
+    # broad skirt even when the Mtree crown comes out tight, but don't inflate so
+    # far past the actual crown that curtains appear to hang from empty air.
+    dome_r = max(maxr, 0.42 * target_height)
+    dome_r = min(dome_r, maxr * 1.5)
+    shoulder_z = zmin + 0.50 * crown_h   # curtains hang from the lower-outer crown
+    print(f"    [willow] crown maxr={maxr:.2f} dome_r={dome_r:.2f} "
+          f"crown_h={crown_h:.2f} (target_h={target_height:.1f})")
 
     all_objects = []
-    for pos, size, flatten in placements:
-        rad = math.hypot(pos.x - cx, pos.y - cy)
-        zfrac = (pos.z - zmin) / max(zmax - zmin, 0.1)
-        # outer positions hang more; damp the top 40% so strands don't sprout
-        # from the crown apex.
-        p_hang = (0.25 + 0.70 * (rad / maxr)) * (1.0 - 0.65 * max(0.0, zfrac - 0.6) / 0.4)
-        if rng.random() > p_hang:
-            continue
-        bm = bmesh.new()
-        uv_layer = bm.loops.layers.uv.new("UVMap")
-        n_strands = rng.randint(1, 3)
-        for _s in range(n_strands):
-            top = Vector((pos.x + rng.uniform(-size, size),
-                          pos.y + rng.uniform(-size, size),
-                          pos.z + rng.uniform(-size * 0.3, size * 0.3)))
-            # sweep down to ~ground level (curtains of a weeping willow reach
-            # the ground); base sits at z=0 so a small negative just kisses it.
-            bottom_z = rng.uniform(-0.4, 1.8)
-            strand_len = top.z - bottom_z
-            if strand_len < 0.10 * target_height:   # too short to read as a strand
-                continue
-            strand_w = rng.uniform(0.28, 0.50)
-            sway_ang = rng.uniform(0, math.pi * 2)
-            sway = rng.uniform(0.04, 0.16) * strand_len
-            bottom = Vector((top.x + math.cos(sway_ang) * sway,
-                             top.y + math.sin(sway_ang) * sway, bottom_z))
-            # Tile the (square) cluster leaf texture down the strand with ~square
-            # tiles so leaves keep their aspect rather than stretching.
-            v_rep = max(2.0, strand_len / max(strand_w, 0.12))
-            base_ang = rng.uniform(0, math.pi)
-            for c in range(2):  # crossed pair → reads from all azimuths
-                a = base_ang + c * math.pi / 2
-                hdir = Vector((math.cos(a), math.sin(a), 0.0)) * (strand_w * 0.5)
-                corners = [top - hdir, top + hdir, bottom + hdir, bottom - hdir]
-                vts = [bm.verts.new(v) for v in corners]
-                face = bm.faces.new(vts)
-                uvs = [(0.0, 0.0), (1.0, 0.0), (1.0, v_rep), (0.0, v_rep)]
-                for loop, uv in zip(face.loops, uvs):
-                    loop[uv_layer].uv = uv
+
+    def add_strand(bm, uv_layer, top, bottom_z, width, sway_scale=1.0):
+        """One crossed-quad pendulous strand from `top` down to `bottom_z`,
+        flaring slightly outward (fountain spread) with a gentle sway."""
+        strand_len = top.z - bottom_z
+        if strand_len < 0.12 * target_height:
+            return False
+        out = Vector((top.x - cx, top.y - cy, 0.0))
+        if out.length > 1e-4:
+            out.normalize()
+        else:
+            a0 = rng.uniform(0, math.tau)
+            out = Vector((math.cos(a0), math.sin(a0), 0.0))
+        flare = rng.uniform(0.04, 0.20) * strand_len * sway_scale
+        sway_ang = rng.uniform(0, math.tau)
+        sway = rng.uniform(0.03, 0.12) * strand_len * sway_scale
+        bottom = Vector((top.x + out.x * flare + math.cos(sway_ang) * sway,
+                         top.y + out.y * flare + math.sin(sway_ang) * sway,
+                         bottom_z))
+        v_rep = max(2.0, strand_len / max(width, 0.12))
+        base_ang = rng.uniform(0, math.pi)
+        for c in range(2):  # crossed pair → reads from all azimuths
+            a = base_ang + c * math.pi / 2
+            hdir = Vector((math.cos(a), math.sin(a), 0.0)) * (width * 0.5)
+            corners = [top - hdir, top + hdir, bottom + hdir, bottom - hdir]
+            vts = [bm.verts.new(v) for v in corners]
+            face = bm.faces.new(vts)
+            uvs = [(0.0, 0.0), (1.0, 0.0), (1.0, v_rep), (0.0, v_rep)]
+            for loop, uv in zip(face.loops, uvs):
+                loop[uv_layer].uv = uv
+        return True
+
+    def emit(bm):
         if len(bm.faces) == 0:
             bm.free()
-            continue
+            return
         mesh = bpy.data.meshes.new("willow_strands")
         bm.to_mesh(mesh)
         bm.free()
@@ -1852,7 +1871,435 @@ def create_strand_cards_at_positions(placements, strand_mat, rng, target_height)
         obj.data.materials.append(strand_mat)
         bpy.context.collection.objects.link(obj)
         all_objects.append(obj)
+
+    LEAF_TILE = 0.62   # model-space size of one tiled leaf-cluster cell
+
+    def add_panel(bm, uv_layer, ang, r_top, top_z, bottom_z, width):
+        """A wide tangential curtain panel: a vertical sheet spanning `width`
+        tangentially at radius r_top, draping from top_z to bottom_z and flaring
+        outward + widening at the base (the fountain bell). UVs tile the leaf
+        texture in BOTH axes so the sheet reads as a dappled foliage wall, not a
+        stretched clump or a single rope. Returns True if built."""
+        if top_z - bottom_z < 0.12 * target_height:
+            return False
+        tang = Vector((-math.sin(ang), math.cos(ang), 0.0))
+        radial = Vector((math.cos(ang), math.sin(ang), 0.0))
+        half = width * 0.5
+        flare = rng.uniform(0.05, 0.18) * (top_z - bottom_z)
+        top_c = Vector((cx + radial.x * r_top, cy + radial.y * r_top, top_z))
+        base_c = Vector((cx + radial.x * (r_top + flare),
+                         cy + radial.y * (r_top + flare), bottom_z))
+        half_b = half * rng.uniform(1.0, 1.3)   # bell out at the ground
+        tl, tr = top_c - tang * half, top_c + tang * half
+        br, bl = base_c + tang * half_b, base_c - tang * half_b
+        u_rep = max(1.0, width / LEAF_TILE)
+        v_rep = max(2.0, (top_z - bottom_z) / LEAF_TILE)
+        vts = [bm.verts.new(v) for v in (tl, tr, br, bl)]
+        face = bm.faces.new(vts)
+        uvs = [(0.0, 0.0), (u_rep, 0.0), (u_rep, v_rep), (0.0, v_rep)]
+        for loop, uv in zip(face.loops, uvs):
+            loop[uv_layer].uv = uv
+        return True
+
+    # --- 1. Perimeter fountain skirt: overlapping wide curtain panels ---
+    # Two concentric rings of tangential panels, each wide enough to overlap its
+    # neighbours into a continuous draping wall (a single panel per slot would
+    # read as a rope; overlap + the dappled leaf alpha give a real curtain).
+    # The leaf texture's transparent gaps keep it from looking like a solid sock.
+    for ring_i, (r_mul, n_div, w_over) in enumerate(
+            [(1.00, 30, 1.55), (0.82, 24, 1.6)]):
+        ring_r = dome_r * r_mul
+        spacing = (2.0 * math.pi * ring_r) / n_div
+        width = spacing * w_over
+        for pidx in range(n_div):
+            ang = (pidx / n_div) * math.tau + rng.uniform(-0.05, 0.05) \
+                + ring_i * (math.pi / n_div)   # stagger the inner ring
+            r = ring_r * rng.uniform(0.92, 1.05)
+            top_z = shoulder_z + rng.uniform(-0.08, 0.14) * crown_h \
+                - 0.10 * crown_h * r_mul
+            bottom_z = rng.uniform(-0.30, 0.05 * target_height)  # sweep to ground
+            bm = bmesh.new()
+            uv_layer = bm.loops.layers.uv.new("UVMap")
+            if add_panel(bm, uv_layer, ang, r, top_z, bottom_z,
+                         width * rng.uniform(0.9, 1.15)):
+                emit(bm)
+            else:
+                bm.free()
+
+    # --- 1b. Fine perimeter strands: break the panel silhouette at the edge ---
+    n_fine = int(2.0 * math.pi * dome_r / 0.7)
+    n_fine = max(16, min(n_fine, 64))
+    for fidx in range(n_fine):
+        ang = (fidx / n_fine) * math.tau + rng.uniform(-0.10, 0.10)
+        r = dome_r * rng.uniform(0.96, 1.12)   # just outside the panel wall
+        top_z = shoulder_z + rng.uniform(-0.05, 0.10) * crown_h
+        bm = bmesh.new()
+        uv_layer = bm.loops.layers.uv.new("UVMap")
+        top = Vector((cx + math.cos(ang) * r, cy + math.sin(ang) * r,
+                      top_z + rng.uniform(-0.12, 0.12)))
+        if add_strand(bm, uv_layer, top,
+                      rng.uniform(-0.30, 0.05 * target_height),
+                      rng.uniform(0.40, 0.66)):
+            emit(bm)
+        else:
+            bm.free()
+
+    # --- 2. Interior depth strands from the outer canopy placements ---
+    # Keep the trunk/interior open (rad gate) so the short stout trunk reads.
+    for pos, size, flatten in placements:
+        rad = math.hypot(pos.x - cx, pos.y - cy)
+        if rad < 0.40 * dome_r:
+            continue
+        zfrac = (pos.z - zmin) / crown_h
+        p_hang = (0.18 + 0.45 * (rad / maxr)) * (1.0 - 0.6 * max(0.0, zfrac - 0.6) / 0.4)
+        if rng.random() > p_hang:
+            continue
+        bm = bmesh.new()
+        uv_layer = bm.loops.layers.uv.new("UVMap")
+        made = False
+        for _s in range(rng.randint(1, 2)):
+            top = Vector((pos.x + rng.uniform(-size, size),
+                          pos.y + rng.uniform(-size, size),
+                          pos.z + rng.uniform(-size * 0.3, size * 0.3)))
+            made |= add_strand(bm, uv_layer, top, rng.uniform(-0.3, 1.6),
+                               rng.uniform(0.38, 0.62))
+        if made:
+            emit(bm)
+        else:
+            bm.free()
+
     return all_objects
+
+
+# --- Weeping Willow (Salix babylonica) canopy data ---------------------------
+# Source: reference_tree_canopy_data §9 (NCSU / Morton Arb / USDA Silvics).
+# Every willow form parameter — crown width, branch count / length / thickness,
+# leaf count / density, and the young↔mature age differences — DERIVES from
+# these constants, not hand-tuned magic numbers. Absolute geometry counts are
+# bounded by WILLOW_TUFT_CAP: a stated perf budget (willows are a sparse,
+# waterside species, never in the woodland that governs the 45fps floor), so the
+# data sets the *relationships* and the cap sets the affordable absolute scale.
+WILLOW_CANOPY = {
+    "height_m": (9.0, 15.0),               # mature height (occasionally to 18)
+    "spread_m": (12.0, 18.0),              # crown spread — often WIDER than tall
+    "lai": (3.0, 5.0),                     # individual-tree leaf area index
+    "curtain_transmission": (0.15, 0.25),  # light through the outer curtain
+    "leaf_area_cm2": 8.0,                  # one linear-lanceolate leaf (5-12 cm²)
+    "twig_diam_cm": (0.6, 1.4),            # pendulous whip (multi-year) diameter
+    "fork_frac": 0.18,                     # low fork (Silvics; branch_start 0.18)
+}
+WILLOW_TUFT_CAP = 4200   # max leaf-tuft cards on a mature willow (perf budget)
+
+
+def _wlerp(a, b, t):
+    return a + (b - a) * max(0.0, min(1.0, t))
+
+
+def _wbezier(p0, p1, p2, p3, t):
+    u = 1.0 - t
+    return (p0 * (u * u * u) + p1 * (3.0 * u * u * t)
+            + p2 * (3.0 * u * t * t) + p3 * (t * t * t))
+
+
+def _willow_form(height, age01):
+    """Derive a willow's geometry from canopy data + age (0=young, 1=mature).
+
+    `height` is the actual tree height (the Mtree crown top, so the fountain is
+    self-consistent regardless of any Mtree overshoot). Young willows are upright
+    and narrow; they broaden into the wide weeping dome with age (Silvics), so
+    age01 drives crown width, branch count / length / thickness and leaf density
+    together — the s (young) and m (mature) tiers are genuinely different ages.
+    """
+    d = WILLOW_CANOPY
+    # Crown width: spread/height ratio climbs narrow-young → wide-mature.
+    # Data: spread 12-18 m on H 9-15 m → mature ratio ~1.0-1.3 (wider than tall).
+    spread_ratio = _wlerp(0.72, 1.22, age01)
+    dome_r = 0.5 * height * spread_ratio
+    lai = _wlerp(d["lai"][0] + 0.3, d["lai"][1], age01)        # denser with age
+    # Whip thickness from twig-diameter data, scaled to model size; limbs thicker.
+    twig_cm = _wlerp(d["twig_diam_cm"][0], d["twig_diam_cm"][1], age01)
+    whip_r = (twig_cm / 100.0) * 0.5 * (height / 12.0)
+    limb_r = whip_r * _wlerp(4.5, 6.5, age01)
+    n_limbs = int(round(_wlerp(5, 8, age01)))
+    # Leaf-tuft (clump) card size from the real leaf footprint, scaled with age.
+    tuft_sz = _wlerp(0.17, 0.30, age01) * (height / 12.0)
+    whip_reach = _wlerp(0.74, 0.96, age01)   # whips sweep to ground (data)
+    # Leaves "along the full length" → clump tufts spaced down each whip; spacing
+    # from the tuft footprint. Whip count then follows from the LAI-scaled leaf
+    # budget so the curtain density tracks LAI (denser, older = fuller).
+    leaf_spacing = tuft_sz * 1.0   # tufts overlap down the whip (continuous curtain)
+    avg_whip_len = whip_reach * 0.85 * height
+    avg_leaves = max(3.0, avg_whip_len / leaf_spacing)
+    tuft_budget = WILLOW_TUFT_CAP * (0.40 + 0.60 * age01) * (lai / 4.0)
+    circ = 2.0 * math.pi * dome_r
+    n_whips = int(max(10, min(tuft_budget / avg_leaves, circ / (tuft_sz * 0.6))))
+    return {
+        "dome_r": dome_r, "lai": lai, "whip_r": whip_r, "limb_r": limb_r,
+        "n_limbs": n_limbs, "tuft_sz": tuft_sz, "whip_reach": whip_reach,
+        "leaf_spacing": leaf_spacing, "n_whips": n_whips,
+        "tuft_budget": int(tuft_budget), "fork_frac": d["fork_frac"],
+    }
+
+
+def willow_crown_placements(placements, rng):
+    """Thin the cluster-card placements for a weeping willow to the UPPER crown
+    only. A willow's interior is open (you see the trunk and sky through the
+    weeping curtain) — the dense full-volume scatter every other tree uses reads
+    as a solid 'bush inside the curtain'. The hanging branchlets supply the rest
+    of the foliage; these clusters just cap the dome so it reads from above and
+    at distance."""
+    if not placements:
+        return []
+    zs = [p[0].z for p in placements]
+    zmin, zmax = min(zs), max(zs)
+    zr = max(zmax - zmin, 0.1)
+    kept = []
+    for pos, size, flatten in placements:
+        zf = (pos.z - zmin) / zr
+        # keep almost none of the lower interior, most of the dome top
+        keep_p = max(0.0, min(1.0, 0.05 + 1.5 * (zf - 0.45)))
+        if rng.random() < keep_p:
+            kept.append((pos, size, flatten))
+    return kept
+
+
+def create_willow_branchlets(trunk_obj, placements, leaf_mat, bark_mat, rng,
+                             target_height, age01):
+    """The weeping willow as REAL geometry: a data-driven arching fountain.
+
+    A few primary limbs leave the low fork, rise and arch OUT to a broad dome
+    (crown width from canopy data), then fine tapering whips cascade from the
+    outer limbs to the ground with leaf tufts along their full length. The
+    pendulous geometry IS the weep — Mtree's gravity-capped skeleton can't make
+    it (sub_gravity crashes the mesher above ~30, far short of a true vertical
+    fall), and earlier tiled-card curtains always read as hard vertical green
+    bars. Branch count / length / thickness, leaf density and the young↔mature
+    differences ALL come from _willow_form (canopy data + age), not magic numbers.
+
+    Perf: thin 3-sided tubes + a leaf-tuft budget (WILLOW_TUFT_CAP) keep the tri
+    count bounded; willows are sparse, waterside, never in the 45fps woodland.
+
+    Wind: each tube carries Mtree-style float attributes (hierarchy_depth/
+    branch_extent/stem_id) scaled to the scaffold so bake_wind_vertex_colors
+    animates the pendulous tips (limbs stiffer, whip tips flexible); the leaf
+    tufts inherit wind from the nearest tube vertex via the existing grid step.
+
+    Returns [tube_object, leaf_object] (either may be absent).
+    """
+    src = trunk_obj.data
+    nsrc = len(src.vertices)
+    if nsrc == 0:
+        return []
+
+    def _attr_max(name):
+        at = src.attributes.get(name)
+        if not at:
+            return 1.0
+        arr = np.zeros(nsrc)
+        at.data.foreach_get("value", arr)
+        return max(float(arr.max()), 1.0)
+    hd_max = _attr_max("hierarchy_depth")
+    be_max = _attr_max("branch_extent")
+
+    # Trunk axis + height from the Mtree trunk — the fountain hangs off this.
+    coords = np.zeros(nsrc * 3)
+    src.vertices.foreach_get("co", coords)
+    coords = coords.reshape(nsrc, 3)
+    Hc = float(coords[:, 2].max())
+    base_mask = coords[:, 2] < 0.12 * Hc
+    if base_mask.any():
+        cx = float(coords[base_mask, 0].mean())
+        cy = float(coords[base_mask, 1].mean())
+    else:
+        cx = float(coords[:, 0].mean())
+        cy = float(coords[:, 1].mean())
+
+    f = _willow_form(Hc, age01)
+    dome_r = f["dome_r"]
+    fork_z = f["fork_frac"] * Hc
+    # The leafy crown reaches nearly the full tree height so it BURIES the Mtree
+    # leader/upper branches instead of leaving them poking out the top (the
+    # "central bare stick" defect); foliage starts at crown_base and the lower
+    # centre stays open (the willow "room underneath").
+    dome_top = _wlerp(0.86, 0.96, age01) * Hc
+    crown_base = _wlerp(0.42, 0.52, age01) * Hc
+    rise = max(dome_top - fork_z, 0.5)
+    tuft_sz = f["tuft_sz"]
+
+    tube_bm = bmesh.new()
+    ext_vals, sid_vals, hd_vals = [], [], []
+    leaf_bm = bmesh.new()
+    leaf_uv = leaf_bm.loops.layers.uv.new("UVMap")
+    tuft_count = [0]
+    SEG = 6
+
+    def add_tube(pts, r0, r1, sid_val, hd_val):
+        n = len(pts)
+        rings = []
+        for i, pt in enumerate(pts):
+            t = i / (n - 1)
+            r = r0 + (r1 - r0) * t
+            fwd = pts[min(i + 1, n - 1)] - pts[max(i - 1, 0)]
+            if fwd.length < 1e-5:
+                fwd = Vector((0, 0, -1))
+            fwd.normalize()
+            ref = Vector((0, 0, 1)) if abs(fwd.z) < 0.95 else Vector((1, 0, 0))
+            side = fwd.cross(ref).normalized()
+            up = side.cross(fwd).normalized()
+            ring = []
+            for j in range(3):
+                a = 2.0 * math.pi * j / 3.0
+                off = side * (math.cos(a) * r) + up * (math.sin(a) * r)
+                ring.append(tube_bm.verts.new(pt + off))
+                ext_vals.append(t * be_max)
+                sid_vals.append(float(sid_val))
+                hd_vals.append(hd_val)
+            rings.append(ring)
+        for i in range(len(rings) - 1):
+            for j in range(3):
+                j2 = (j + 1) % 3
+                tube_bm.faces.new([rings[i][j], rings[i][j2],
+                                   rings[i + 1][j2], rings[i + 1][j]])
+
+    def add_leaf_tuft(center, scale):
+        tuft_count[0] += 1
+        yaw = rng.uniform(0, math.tau)
+        pitch = rng.uniform(-1.2, -0.2)          # tilt downward (pendulous)
+        for c in range(2):                       # crossed pair → all azimuths
+            a = yaw + c * math.pi / 2
+            ca, sa = math.cos(a), math.sin(a)
+            cp, sp_ = math.cos(pitch), math.sin(pitch)
+            hw = scale * rng.uniform(0.9, 1.25) * 0.5
+            hh = scale * rng.uniform(0.95, 1.3) * 0.5  # ~round so tufts fill, not streak
+            local = [(-hw, 0.0, -hh), (hw, 0.0, -hh), (hw, 0.0, hh), (-hw, 0.0, hh)]
+            verts = []
+            for lx, ly, lz in local:
+                rx = lx * ca - ly * sa
+                ry = lx * sa + ly * ca
+                ry2 = ry * cp - lz * sp_
+                rz2 = ry * sp_ + lz * cp
+                verts.append(leaf_bm.verts.new(center + Vector((rx, ry2, rz2))))
+            fc = leaf_bm.faces.new(verts)
+            for loop, uv in zip(fc.loops, [(0, 0), (1, 0), (1, 1), (0, 1)]):
+                loop[leaf_uv].uv = uv
+
+    sid = 7000
+    # --- Primary arching limbs: the structural frame (mostly hidden under the
+    # crown shell) + the bark the crown/whips ride for wind. They diverge
+    # outward early (p1 at 0.42·limb_r) so they don't gather into a central
+    # bundle (the "branches gathered as they arch over" defect). ---
+    for L in range(f["n_limbs"]):
+        az = (L + rng.uniform(-0.25, 0.25)) / f["n_limbs"] * math.tau
+        dd = Vector((math.cos(az), math.sin(az), 0.0))
+        limb_r = dome_r * rng.uniform(0.85, 1.05)
+        p0 = Vector((cx, cy, fork_z))
+        p1 = Vector((cx + dd.x * 0.42 * limb_r, cy + dd.y * 0.42 * limb_r,
+                     fork_z + 0.55 * rise))
+        p2 = Vector((cx + dd.x * 0.85 * limb_r, cy + dd.y * 0.85 * limb_r, dome_top))
+        p3 = Vector((cx + dd.x * 1.00 * limb_r, cy + dd.y * 1.00 * limb_r,
+                     dome_top - 0.30 * rise))
+        npt = 9
+        lp = [_wbezier(p0, p1, p2, p3, i / (npt - 1)) for i in range(npt)]
+        add_tube(lp, f["limb_r"], f["limb_r"] * 0.30, sid, hd_max * 0.35)
+        sid += 1
+
+    # --- Crown shell: a dense leafy dome cap over the WHOLE upper crown (centre
+    # included), so the trunk/leader and the bare Mtree branches are BURIED
+    # under foliage instead of poking through. Hemisphere profile from
+    # crown_base up to dome_top, area-uniform scatter with inward thickness. ---
+    cap_h = max(dome_top - crown_base, 0.3)
+    n_crown = int(f["tuft_budget"] * 0.45)
+    for _k in range(n_crown):
+        rr = dome_r * math.sqrt(rng.uniform(0.0, 1.0))      # area-uniform
+        aa = rng.uniform(0, math.tau)
+        prof = math.sqrt(max(0.0, 1.0 - (rr / dome_r) ** 2))
+        zz = crown_base + cap_h * prof - rng.uniform(0.0, 0.30) * cap_h
+        c = Vector((cx + math.cos(aa) * rr, cy + math.sin(aa) * rr, zz))
+        add_leaf_tuft(c, tuft_sz * rng.uniform(1.0, 1.6))
+
+    # Apex cap: a few tufts up the central axis from dome_top toward the very
+    # top, so the bare Mtree trunk tip above the dome is hidden, not poking out.
+    n_apex = max(5, int(n_crown * 0.05))
+    for _k in range(n_apex):
+        rr = dome_r * rng.uniform(0.0, 0.20)
+        aa = rng.uniform(0, math.tau)
+        zz = rng.uniform(dome_top - 0.04 * Hc, min(dome_top + 0.06 * Hc, Hc))
+        add_leaf_tuft(Vector((cx + math.cos(aa) * rr, cy + math.sin(aa) * rr, zz)),
+                      tuft_sz * rng.uniform(1.1, 1.7))
+
+    # --- Pendulous whips cascading from the dome rim to the ground (the skirt).
+    # Hung around the lower-outer dome, not from a single limb, so the curtain
+    # is continuous; the lower centre is left open (the room underneath). ---
+    n_whips = f["n_whips"]
+    for w in range(n_whips):
+        if tuft_count[0] >= f["tuft_budget"]:
+            break
+        aa = (w + rng.uniform(-0.4, 0.4)) / n_whips * math.tau
+        rr = dome_r * rng.uniform(0.58, 1.02)
+        dd = Vector((math.cos(aa), math.sin(aa), 0.0))
+        prof = math.sqrt(max(0.0, 1.0 - (min(rr, dome_r) / dome_r) ** 2))
+        # hang from the rim underside; inner whips start a little higher
+        top_z = crown_base + cap_h * prof * rng.uniform(0.2, 0.7)
+        apos = Vector((cx + dd.x * rr, cy + dd.y * rr, top_z))
+        # Vary length: most sweep near the ground, some shorter — an irregular
+        # soft hem, not a flat picket-fence of equal bars.
+        whip_len = f["whip_reach"] * apos.z * rng.uniform(0.62, 1.04)
+        if whip_len < 0.12 * Hc:
+            continue
+        perp = Vector((-dd.y, dd.x, 0.0))
+        out_reach = rng.uniform(0.04, 0.16) * whip_len
+        sway_phase = rng.uniform(0, math.tau)
+        sway_amp = rng.uniform(0.015, 0.05) * whip_len
+        jit = Vector((rng.uniform(-0.12, 0.12), rng.uniform(-0.12, 0.12), 0.0))
+        pts = []
+        for i in range(SEG + 1):
+            t = i / SEG
+            horiz = out_reach * (1.0 - (1.0 - t) ** 2)   # reach out then ease
+            vert = -whip_len * (t ** 1.5)                # gravity accelerates
+            wob = math.sin(sway_phase + t * 4.0) * sway_amp * t
+            p = apos + dd * horiz + perp * wob + jit * t
+            p.z = apos.z + vert
+            pts.append(p)
+        add_tube(pts, f["whip_r"], f["whip_r"] * 0.25, sid, hd_max * 0.92)
+        sid += 1
+        # leaf tufts down the full whip length (spacing from leaf-clump data)
+        n_leaf = max(3, int(whip_len / f["leaf_spacing"]))
+        for li in range(n_leaf):
+            t = (li + rng.uniform(0.15, 0.85)) / n_leaf
+            idx = min(int(t * SEG), SEG)
+            off = Vector((rng.uniform(-0.07, 0.07), rng.uniform(-0.07, 0.07),
+                          rng.uniform(-0.05, 0.05)))
+            add_leaf_tuft(pts[idx] + off, tuft_sz * rng.uniform(0.8, 1.3))
+
+    objs = []
+    if len(tube_bm.faces) > 0:
+        tmesh = bpy.data.meshes.new("willow_branchlet")
+        tube_bm.to_mesh(tmesh)
+        tube_bm.free()
+        nv = len(tmesh.vertices)
+        hd = tmesh.attributes.new("hierarchy_depth", 'FLOAT', 'POINT')
+        be = tmesh.attributes.new("branch_extent", 'FLOAT', 'POINT')
+        si = tmesh.attributes.new("stem_id", 'FLOAT', 'POINT')
+        hd.data.foreach_set("value", np.array(hd_vals[:nv], dtype=np.float64))
+        be.data.foreach_set("value", np.array(ext_vals[:nv], dtype=np.float64))
+        si.data.foreach_set("value", np.array(sid_vals[:nv], dtype=np.float64))
+        tobj = bpy.data.objects.new("willow_branchlet", tmesh)
+        tobj.data.materials.append(bark_mat)
+        bpy.context.collection.objects.link(tobj)
+        objs.append(tobj)
+    else:
+        tube_bm.free()
+    if len(leaf_bm.faces) > 0:
+        lmesh = bpy.data.meshes.new("willow_leaf_tufts")
+        leaf_bm.to_mesh(lmesh)
+        leaf_bm.free()
+        lobj = bpy.data.objects.new("willow_leaf_tufts", lmesh)
+        lobj.data.materials.append(leaf_mat)
+        bpy.context.collection.objects.link(lobj)
+        objs.append(lobj)
+    else:
+        leaf_bm.free()
+    return objs
 
 
 def create_crown_fill_cards(placements, leaf_mat, rng, target_height):
@@ -2178,16 +2625,22 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
         # leaf cards. Smaller trees naturally get fewer clusters (fewer
         # branch tips), but each cluster gets the same detail level.
         n_cards = sp.get("cards_per_cluster", FOLIAGE_DEFAULTS["cards_per_cluster"])
-        leaf_objs = create_leaf_cards_at_positions(placements, leaf_mat, rng, tier=tier_name, n_cards=n_cards)
-
-        # Willow weeping curtain: hang strand cards from a subset of canopy
-        # positions — the pendulous drop Mtree's gravity-capped skeleton can't
-        # make. The strands REUSE the cluster leaf material (UV-tiled) so they
-        # inherit the in-game tree_leaf shader (wind, translucency, lighting);
-        # the hanging geometry supplies the weep, the leaf texture the foliage.
-        if sp.get("strand_foliage"):
-            leaf_objs += create_strand_cards_at_positions(
-                placements, leaf_mat, rng, target_h)
+        if sp.get("branchlet_foliage"):
+            # Willow: the data-driven fountain (create_willow_branchlets) supplies
+            # ALL foliage — a dense crown shell over the upper dome plus the
+            # cascading whip skirt. No Mtree cluster cards: they formed a central
+            # foliage column above the weep ("the bush inside the curtain").
+            # _s and _m are age variants: young vs mature (form from _willow_form).
+            age01 = {"s": 0.12, "m": 0.70, "l": 1.0}.get(tier_name, 0.5)
+            leaf_objs = create_willow_branchlets(
+                trunk_obj, placements, leaf_mat, bark_mat, rng, target_h, age01)
+        else:
+            leaf_objs = create_leaf_cards_at_positions(
+                placements, leaf_mat, rng, tier=tier_name, n_cards=n_cards)
+            # Legacy hanging-card curtain (superseded by branchlet geometry).
+            if sp.get("strand_foliage"):
+                leaf_objs += create_strand_cards_at_positions(
+                    placements, leaf_mat, rng, target_h)
 
         # --- Join all objects ---
         bpy.ops.object.select_all(action='DESELECT')

@@ -16,7 +16,7 @@ const vec3 SUMMER_COLORS[14] = vec3[14](
 	vec3(0.26, 0.45, 0.20),  // 9 london_plane: dark slightly gray-green
 	vec3(0.24, 0.46, 0.16),  // 10 linden: rich medium green, slightly lime
 	vec3(0.28, 0.48, 0.18),  // 11 cherry: medium green, reddish tint to new growth
-	vec3(0.30, 0.50, 0.16),  // 12 willow: pale sage green
+	vec3(0.44, 0.55, 0.21),  // 12 willow: pale luminous yellow-green (Salix — paler & yellower than the green crowns)
 	vec3(0.22, 0.42, 0.14)   // 13 magnolia: thick waxy dark green
 );
 
