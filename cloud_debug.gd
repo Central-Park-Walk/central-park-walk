@@ -132,6 +132,7 @@ func _to_auto() -> void:
 	_day_night.manual_clouds = false
 	_day_night.cloud_map_override = ""
 	_day_night.high_clouds_override = Vector3(-1.0, -1.0, -1.0)
+	_main.cloud_reapply()
 
 
 func _adjust(dir: int) -> void:
@@ -157,6 +158,9 @@ func _adjust(dir: int) -> void:
 			var ws = _main._wind_system
 			if ws.wind_override < 0.0: ws.wind_override = 1.0
 			ws.wind_override = clampf(ws.wind_override + dir * 0.1, 0.0, 3.0)
+	# Map / high-cloud / coverage edits only land on a sky re-apply (apply()
+	# throttles while the clock is paused) — force it for instant feedback.
+	_main.cloud_reapply()
 
 
 func _reseed() -> void:

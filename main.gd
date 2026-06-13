@@ -1652,6 +1652,19 @@ func _tour_write_manifest() -> void:
 ## _compass_label, _nearest_area moved to hud_manager.gd
 
 
+# Re-apply the sky NOW (cloud panel). The day/night apply() throttles when
+# the clock is frozen, so panel edits to the map / high-cloud amounts /
+# coverage wouldn't take until time advanced — force it, and snap the
+# weather-map crossfade so map changes are instant feedback.
+func cloud_reapply() -> void:
+	if not _day_night:
+		return
+	_day_night.force_apply(_time_of_day, _weather_mode, _wind_vec,
+		_lightning_flash, _user_gamma, _season_t)
+	if _vol_sky:
+		_vol_sky.snap_weather_fade()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	# Gamepad left trigger → screenshot
 	if event is InputEventJoypadMotion and event.axis == JOY_AXIS_TRIGGER_LEFT:
