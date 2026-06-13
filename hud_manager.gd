@@ -95,7 +95,7 @@ func setup(parent: Node) -> void:
 	vbox.add_child(_location_label)
 
 	var hint := Label.new()
-	hint.text = "WASD: move   Mouse+RMB: look   Scroll/+/-: speed   9/0: wind   T: time   [/]: ±1h   P: weather   N: month   H: HUD   F9: perf"
+	hint.text = "WASD: move   Mouse+RMB: look   Scroll/+/-: speed   9/0: wind   T: time   [/]: ±1h   P: weather   N: month   C: clouds   H: HUD   F9: perf"
 	hint.add_theme_font_size_override("font_size", 15)
 	hint.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
 	vbox.add_child(hint)

@@ -20,6 +20,7 @@ var _hm_world_size:    float   = 5000.0
 
 var _player:        CharacterBody3D
 var _hud = null     # HudManager instance (hud_manager.gd)
+var _cloud_debug = null  # CloudDebug panel (cloud_debug.gd), toggle with C
 
 # ---------------------------------------------------------------------------
 # Day/night cycle
@@ -439,6 +440,8 @@ func _ready() -> void:
 		_terrain3d.set_camera(_player_camera)
 	_hud = preload("res://hud_manager.gd").new()
 	_hud.setup(self)
+	_cloud_debug = preload("res://cloud_debug.gd").new()
+	_cloud_debug.setup(self, self)
 	_setup_color_grade()
 	if not _terrain_only:
 		_setup_lamp_lights()
@@ -1016,6 +1019,8 @@ func _process(delta: float) -> void:
 	_t0 = Time.get_ticks_usec()
 	_hud.update(_player, _time_of_day, TIME_SPEED_NAMES[_time_speed_idx], _season_t)
 	_hud.update_perf(delta, _get_prof_data())
+	if _cloud_debug and _cloud_debug.visible:
+		_cloud_debug.refresh()
 	_prof_hud_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_hud_us, PROF_SMOOTH)
 
 	if _dist_overlay_visible:
@@ -1676,6 +1681,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			print("Month: %s (season_t=%.2f)" % [_hud._month_name(_season_t), _season_t])
 		return
 	if not (event is InputEventKey and event.pressed):
+		return
+	# Cloud panel (C): when open it eats its nav keys (arrows/R/Backspace).
+	if event.keycode == KEY_C:
+		_cloud_debug.toggle()
+		return
+	if _cloud_debug and _cloud_debug.handle_key(event.keycode):
 		return
 	if event.keycode == KEY_T:
 		_time_speed_idx = (_time_speed_idx + 1) % TIME_SPEEDS.size()

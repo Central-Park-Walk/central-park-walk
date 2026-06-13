@@ -136,6 +136,20 @@ var dramatic_override := -1
 # --high-clouds=cir:cs:ac forces them for capture/calibration.
 var high_clouds_override := Vector3(-1.0, -1.0, -1.0)
 
+# Live cloud state, published each _apply for the in-game cloud panel
+# (cloud_debug.gd) — the actual values the schedule produced, so a sky
+# that looks wrong shows its real numbers instead of guessed ones.
+var live_cir := 0.0
+var live_cs := 0.0
+var live_ac := 0.0
+var live_canon := 0.0
+var live_map := "fair_cumulus"
+# Manual cloud mode (cloud panel): freeze coverage/density to these and
+# take the map/high-cloud overrides above instead of the schedule.
+var manual_clouds := false
+var manual_cover := 0.30
+var manual_density := 0.05
+
 
 # Dramatic-sky schedule (sky.md §2.6 "CLEAR -> dramatic"): a few mornings/
 # evenings per game-month swap CLEAR's cumulus for broken_dramatic — big
@@ -425,6 +439,8 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 			map_name = _clear_sky_map(canon, season_t) \
 					if weather == Weather.CLEAR else WEATHER_MAP[weather]
 		vol_sky.set_weather_map(map_name, WEATHER_MAP_FADE)
+		live_map = map_name
+	live_canon = canon
 
 	# High ice layer presence (sky.md P2 / §2.6): cirrus/cirrostratus/
 	# altocumulus opacity by weather state, season (more ice aloft in
@@ -458,6 +474,15 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 		sky_mat.set_shader_parameter("cirrus_amount", cir)
 		sky_mat.set_shader_parameter("cirrostratus_amount", cs)
 		sky_mat.set_shader_parameter("altocumulus_amount", ac)
+		live_cir = cir
+		live_cs = cs
+		live_ac = ac
+		# Manual cloud mode (in-game panel): hold coverage/density steady so
+		# the schedule doesn't fight the sliders. Map + high-cloud amounts
+		# come through the *_override fields the panel already set above.
+		if manual_clouds:
+			vol_sky.cloud_coverage = manual_cover
+			vol_sky.density = manual_density
 
 	# Sun / moon directional light (SUN_CAL: ground-light calibration
 	# above). Direction comes from the ALMANAC (real seasonal path);
