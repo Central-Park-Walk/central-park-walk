@@ -270,15 +270,27 @@ vec4 high_clouds(vec3 rayDir, vec3 sdir) {
 		streak *= 0.55 + 0.45 * smoothstep(0.40, 0.85, fbm(q * 4.3 + 1.0));
 		cover = max(cover, streak * cirrus_amount * 0.55);
 	}
-	// Altocumulus: mackerel cells with blue gaps + per-cell shading.
+	// Altocumulus: mackerel sky — cloudlets in wind-aligned rows (cloud
+	// streets), domain-warped so they read as organic ripples, not a
+	// uniform dot grid. Bigger-than-before cells, gaps of blue between
+	// groups, soft edges.
 	if (altocumulus_amount > 0.001) {
-		float w = worley(p * 2.3);
-		float cells = smoothstep(0.62, 0.18, w);
-		float patch = smoothstep(0.42, 0.70, fbm(p * 0.45 + 9.0));
-		float ac = cells * patch * altocumulus_amount * 0.80;
+		// Domain warp breaks the regular Worley lattice into organic shapes
+		// with cell-to-cell size variation.
+		vec2 wp = p * 1.7 + 0.45 * vec2(fbm(p * 0.8 + 3.0), fbm(p * 0.8 + 8.0));
+		float w = worley(wp);
+		float cell = smoothstep(0.70, 0.10, w);
+		// Mackerel rows: a directional ripple (cloud streets) wobbled by
+		// noise so the bands meander rather than march in straight lines.
+		vec2 rdir = vec2(0.80, 0.60);
+		float ripple = 0.5 + 0.5 * sin(dot(p, rdir) * 3.1 + fbm(p * 1.1) * 4.0);
+		float rows = mix(0.45, 1.0, smoothstep(0.30, 0.90, ripple));
+		// Large patches of clear blue between cloud groups.
+		float patch = smoothstep(0.40, 0.74, fbm(p * 0.40 + 9.0));
+		float ac = cell * rows * patch * altocumulus_amount * 0.78;
 		if (ac > cover) {
 			// Cell centres bright (sunlit tops), gaps/edges shaded undersides.
-			shade = 0.55 + 0.45 * smoothstep(0.55, 0.05, w);
+			shade = 0.50 + 0.50 * smoothstep(0.60, 0.05, w);
 		}
 		cover = max(cover, ac);
 	}

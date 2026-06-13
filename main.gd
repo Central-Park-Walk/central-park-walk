@@ -1691,6 +1691,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.keycode == KEY_T:
 		_time_speed_idx = (_time_speed_idx + 1) % TIME_SPEEDS.size()
 		_time_speed = TIME_SPEEDS[_time_speed_idx]
+		# Re-sync the sky to the CURRENT time on pause/speed change: apply()
+		# throttles when the clock is frozen, so without this the sky (incl.
+		# the high-cloud layer) could stay stranded at a stale state.
+		_day_night.force_apply(_time_of_day, _weather_mode, _wind_vec,
+			_lightning_flash, _user_gamma, _season_t)
 		print("Time speed: ", TIME_SPEED_NAMES[_time_speed_idx])
 	elif event.keycode == KEY_BRACKETLEFT:
 		_time_of_day = fmod(_time_of_day - 1.0 + 24.0, 24.0)
@@ -1760,6 +1765,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			_season_t = fmod(_season_t + 1.0 / 3.0, 4.0)
 		RenderingServer.global_shader_parameter_set("season_t", _season_t)
+		# Re-sync the sky to the new season (keyframes + dramatic-day pick)
+		# even while the clock is paused — otherwise it stays stale.
+		_day_night.force_apply(_time_of_day, _weather_mode, _wind_vec,
+			_lightning_flash, _user_gamma, _season_t)
 		print("Month: %s (season_t=%.2f)" % [_hud._month_name(_season_t), _season_t])
 	elif event.keycode == KEY_F12:
 		_take_screenshot()

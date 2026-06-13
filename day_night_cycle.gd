@@ -458,9 +458,10 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 			if _clear_sky_map(canon, season_t) == "broken_dramatic":
 				# The dusk showcase: mackerel altocumulus + a cirrostratus veil
 				# catch the low sun (the salmon-pink-on-periwinkle reference).
-				cs = 0.50
-				ac = 0.60
-				cir = maxf(cir, 0.40)
+				# Kept moderate — a full-strength mackerel deck reads busy.
+				cs = 0.40
+				ac = 0.45
+				cir = maxf(cir, 0.35)
 		elif weather == Weather.SNOW:
 			cs = 0.60          # cirrostratus ahead of/with snow fronts
 			cir = 0.30
@@ -477,6 +478,9 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 		live_cir = cir
 		live_cs = cs
 		live_ac = ac
+		if OS.is_stdout_verbose():
+			print("[HICLOUD] wall=%.1f canon=%.1f season_t=%.2f weather=%d map=%s cir=%.2f cs=%.2f ac=%.2f"
+					% [time_of_day, canon, season_t, weather, live_map, cir, cs, ac])
 		# Manual cloud mode (in-game panel): hold coverage/density steady so
 		# the schedule doesn't fight the sliders. Map + high-cloud amounts
 		# come through the *_override fields the panel already set above.
