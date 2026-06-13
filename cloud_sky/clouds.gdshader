@@ -35,6 +35,19 @@ uniform float sun_disk_squash = 1.0;
 uniform vec3 moon_dir = vec3(0.0, -1.0, 0.0);
 uniform vec4 moon_params = vec4(1.0, 1.0, 0.0, 1.0);
 
+// High ice layer (sky.md P2): cirrus / cirrostratus / altocumulus at 6-10
+// km, far above the volumetric shell. Rendered as a flat sheet the view
+// ray pierces, advected by the upper wind (high_cloud_offset, in metres,
+// integrated in cloud_sky.gd). Each type is gated by an opacity that the
+// day/night cycle sets per weather state (CLEAR wisps, dramatic-dusk
+// mackerel, snow veil). high_cloud_gain anchors lit-ice brightness in the
+// sky LUT exposure (calibrated by capture, like sky_brightness/sun_cal).
+uniform vec2 high_cloud_offset = vec2(0.0);
+uniform float cirrus_amount : hint_range(0.0, 1.0) = 0.0;
+uniform float cirrostratus_amount : hint_range(0.0, 1.0) = 0.0;
+uniform float altocumulus_amount : hint_range(0.0, 1.0) = 0.0;
+uniform float high_cloud_gain : hint_range(0.0, 40.0) = 6.0;
+
 vec2 oct_wrap(vec2 v) {
 	vec2 signVal;
 	signVal.x = v.x >= 0.0 ? 1.0 : -1.0;
@@ -188,6 +201,105 @@ vec3 get_atmo(vec3 dir) {
 	return col;
 }
 
+// --- High ice layer noise (cheap value-noise fBm + Worley cells) ---
+float h21(vec2 p) {
+	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+float vnoise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	float a = h21(i);
+	float b = h21(i + vec2(1.0, 0.0));
+	float c = h21(i + vec2(0.0, 1.0));
+	float d = h21(i + vec2(1.0, 1.0));
+	return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+float fbm(vec2 p) {
+	float s = 0.0;
+	float a = 0.5;
+	for (int i = 0; i < 5; i++) {
+		s += a * vnoise(p);
+		p *= 2.02;
+		a *= 0.5;
+	}
+	return s;
+}
+// Worley F1 distance — small value near a cell centre, ~1 at cell edges.
+float worley(vec2 p) {
+	vec2 ip = floor(p);
+	vec2 fp = fract(p);
+	float d = 1.5;
+	for (int y = -1; y <= 1; y++) {
+		for (int x = -1; x <= 1; x++) {
+			vec2 g = vec2(float(x), float(y));
+			vec2 o = vec2(h21(ip + g), h21(ip + g + vec2(31.4, 17.7)));
+			vec2 r = g + o - fp;
+			d = min(d, dot(r, r));
+		}
+	}
+	return sqrt(d);
+}
+
+// The high ice deck. Returns the lit cloud colour (rgb) and a coverage
+// (a) to composite OVER the atmosphere but UNDER the volumetric clouds
+// (which sit lower and occlude the ice). sdir = the true sun direction.
+vec4 high_clouds(vec3 rayDir, vec3 sdir) {
+	float amt = cirrus_amount + cirrostratus_amount + altocumulus_amount;
+	if (amt < 0.001 || rayDir.y < 0.02) return vec4(0.0);
+
+	// Pierce a flat sheet: p is the world-plane position where the ray
+	// crosses the deck. As rayDir.y -> 0 the sheet compresses toward the
+	// horizon (natural perspective foreshortening of distant cloud).
+	vec2 p = rayDir.xz / rayDir.y * 8.0 + high_cloud_offset * 0.0004;
+
+	float cover = 0.0;
+	float shade = 1.0;   // per-cell shading multiplier (altocumulus undersides)
+
+	// Cirrostratus: broad smooth milky veil (the halo-bearing sheet).
+	if (cirrostratus_amount > 0.001) {
+		float v = fbm(p * 0.55 + 17.0);
+		float cs = smoothstep(0.30, 0.72, v);
+		cover = max(cover, cs * cirrostratus_amount * 0.65);
+	}
+	// Cirrus: wind-stretched fibrous streaks (anisotropic ridged fBm).
+	if (cirrus_amount > 0.001) {
+		vec2 q = vec2(p.x * 0.22, p.y * 1.7);
+		float r = fbm(q * 1.15 + 4.0);
+		float streak = smoothstep(0.55, 0.95, r);
+		streak *= 0.55 + 0.45 * smoothstep(0.40, 0.85, fbm(q * 4.3 + 1.0));
+		cover = max(cover, streak * cirrus_amount * 0.55);
+	}
+	// Altocumulus: mackerel cells with blue gaps + per-cell shading.
+	if (altocumulus_amount > 0.001) {
+		float w = worley(p * 2.3);
+		float cells = smoothstep(0.62, 0.18, w);
+		float patch = smoothstep(0.42, 0.70, fbm(p * 0.45 + 9.0));
+		float ac = cells * patch * altocumulus_amount * 0.80;
+		if (ac > cover) {
+			// Cell centres bright (sunlit tops), gaps/edges shaded undersides.
+			shade = 0.55 + 0.45 * smoothstep(0.55, 0.05, w);
+		}
+		cover = max(cover, ac);
+	}
+	if (cover < 0.001) return vec4(0.0);
+
+	// Fade the compressed sheet near the horizon (avoids an aliased band).
+	cover *= smoothstep(0.02, 0.16, rayDir.y);
+
+	// Lighting: lift the sun to the deck's horizon (~+4 deg dip at ~8 km)
+	// so the ice stays sunlit ~20 min past ground sunset — the dusk pinks.
+	// Sun colour through the atmosphere (reddens/dims when low) IS the
+	// colour of light hitting the ice; the local sky LUT is the ambient.
+	vec3 lifted = normalize(sdir + vec3(0.0, 0.07, 0.0));
+	float lit = smoothstep(-0.14, 0.06, lifted.y) * shade;
+	vec3 sun_col = getValFromTLUT(source_transmittance, tLUTRes, viewPos, sdir);
+	vec3 lit_col = sun_col * high_cloud_gain * vec3(0.95, 0.97, 1.03);
+	vec3 sky_here = getValFromSkyLUT(rayDir);
+	vec3 col = mix(sky_here * 0.85, lit_col, lit);
+	return vec4(col, clamp(cover, 0.0, 1.0));
+}
+
 void sky() {
 	vec3 norm = EYEDIR;
 	norm.y = max(0.0, norm.y);
@@ -198,6 +310,12 @@ void sky() {
 	vec4 blend_to = textureLod(blend_to_texture, norm.xz, 0.0);
 	vec4 clouds = mix(blend_from, blend_to, blend_amount);
 	vec3 background = get_atmo(EYEDIR);
+
+	// High ice layer (sky.md P2) sits above the volumetric shell: composite
+	// it onto the atmosphere first, then let the volumetric clouds occlude
+	// it. A veil crossing the sun dims the disk (and glows — halo-ready).
+	vec4 ice = high_clouds(EYEDIR, disk_sun_dir());
+	background = background * (1.0 - ice.a) + ice.rgb * ice.a;
 
 	// Sunset/sunrise: volumetric clouds blaze with warm colors when sun is
 	// low. Keyed on the celestial sun (crosses the horizon, 2026-06-11) —

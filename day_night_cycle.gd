@@ -132,6 +132,9 @@ const WEATHER_MAP_FADE := 30.0  # seconds; fronts arrive, not pop
 # --sky-dramatic forces the dramatic schedule on (1) or off (0). -1 unset.
 var cloud_map_override := ""
 var dramatic_override := -1
+# High ice layer opacities (sky.md P2). -1 = data-driven schedule below;
+# --high-clouds=cir:cs:ac forces them for capture/calibration.
+var high_clouds_override := Vector3(-1.0, -1.0, -1.0)
 
 
 # Dramatic-sky schedule (sky.md §2.6 "CLEAR -> dramatic"): a few mornings/
@@ -422,6 +425,39 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 			map_name = _clear_sky_map(canon, season_t) \
 					if weather == Weather.CLEAR else WEATHER_MAP[weather]
 		vol_sky.set_weather_map(map_name, WEATHER_MAP_FADE)
+
+	# High ice layer presence (sky.md P2 / §2.6): cirrus/cirrostratus/
+	# altocumulus opacity by weather state, season (more ice aloft in
+	# winter), and the dramatic schedule (the dusk mackerel hero sky).
+	if vol_sky:
+		var cir := 0.0
+		var cs := 0.0
+		var ac := 0.0
+		if weather == Weather.CLEAR:
+			# Deterministic per-day cirrus presence — some days carry wispy
+			# high cloud, others are bald blue; winter runs icier.
+			var day_i: int = int(floor(59.0 + season_t * 91.25))
+			var hh: float = fposmod(sin(float(day_i) * 7.13 + 2.0) * 43758.5453, 1.0)
+			cir = smoothstep(0.45, 0.90, hh) * (0.25 + 0.35 * s_winter)
+			if _clear_sky_map(canon, season_t) == "broken_dramatic":
+				# The dusk showcase: mackerel altocumulus + a cirrostratus veil
+				# catch the low sun (the salmon-pink-on-periwinkle reference).
+				cs = 0.50
+				ac = 0.60
+				cir = maxf(cir, 0.40)
+		elif weather == Weather.SNOW:
+			cs = 0.60          # cirrostratus ahead of/with snow fronts
+			cir = 0.30
+		elif weather == Weather.THUNDERSTORM:
+			cir = 0.50         # anvil cirrus shelf (P3 refines)
+			cs = 0.20
+		# RAIN / FOG: none — the low deck hides anything above it.
+		if high_clouds_override.x >= 0.0: cir = high_clouds_override.x
+		if high_clouds_override.y >= 0.0: cs = high_clouds_override.y
+		if high_clouds_override.z >= 0.0: ac = high_clouds_override.z
+		sky_mat.set_shader_parameter("cirrus_amount", cir)
+		sky_mat.set_shader_parameter("cirrostratus_amount", cs)
+		sky_mat.set_shader_parameter("altocumulus_amount", ac)
 
 	# Sun / moon directional light (SUN_CAL: ground-light calibration
 	# above). Direction comes from the ALMANAC (real seasonal path);

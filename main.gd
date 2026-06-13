@@ -270,6 +270,15 @@ func _parse_cli_args() -> void:
 			# --sky-dramatic=1/0 forces the dramatic-sky schedule on/off.
 			_cli_sky_dramatic = int(val)
 			print("[DIAG] dramatic sky override: %d" % _cli_sky_dramatic)
+		elif key == "--high-clouds" and val != "":
+			# --high-clouds=cir:cs:ac forces the high ice layer opacities
+			# (cirrus, cirrostratus, altocumulus) regardless of weather/day.
+			var hc := val.split(":")
+			if hc.size() >= 1 and hc[0] != "": _cli_high_clouds.x = float(hc[0])
+			if hc.size() >= 2 and hc[1] != "": _cli_high_clouds.y = float(hc[1])
+			if hc.size() >= 3 and hc[2] != "": _cli_high_clouds.z = float(hc[2])
+			print("[DIAG] high-clouds cir=%.2f cs=%.2f ac=%.2f"
+					% [_cli_high_clouds.x, _cli_high_clouds.y, _cli_high_clouds.z])
 		elif key == "--canopy-ao" and val != "":
 			var ca := val.split(":")
 			if ca.size() >= 1 and ca[0] != "": _cli_canopy_ao.x = float(ca[0])
@@ -358,6 +367,7 @@ func _ready() -> void:
 	_day_night.fog_cal_override = _cli_fog_cal
 	_day_night.cloud_map_override = _cli_cloud_map
 	_day_night.dramatic_override = _cli_sky_dramatic
+	_day_night.high_clouds_override = _cli_high_clouds
 	# Register global shader parameters BEFORE park_loader creates materials
 	RenderingServer.global_shader_parameter_add("wind_vec", RenderingServer.GLOBAL_VAR_TYPE_VEC2, Vector2.ZERO)
 	RenderingServer.global_shader_parameter_add("snow_cover", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
@@ -1229,6 +1239,8 @@ var _cli_fog_cal: Array = [-1.0, -1.0, -1.0, -1.0, -1.0]
 # --cloud-map=name / --sky-dramatic=0|1: weather-map debug overrides
 var _cli_cloud_map: String = ""
 var _cli_sky_dramatic: int = -1
+# --high-clouds=cir:cs:ac: force high ice layer opacities (-1 = data-driven)
+var _cli_high_clouds: Vector3 = Vector3(-1.0, -1.0, -1.0)
 # Turf sheen: broad white blade-cuticle specular on lawn terrain + blades
 # (grass.md §6 calibration). --turf-sheen=0..1 overrides for sweeps.
 # Measured 2026-06-11 with SUN_CAL=3 + thatch mix: lawn R/G 0.57→0.82

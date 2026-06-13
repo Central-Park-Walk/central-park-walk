@@ -112,6 +112,14 @@ var _map_to := "fair_cumulus"
 var _weather_mix := 0.0
 var _weather_fade_rate := 0.0    # mix units per second
 
+# High ice layer drift (sky.md P2). Integrated continuously per render
+# frame (the 2D sheet in clouds.gdshader would step visibly if it only
+# moved on the ~64-frame texture swap). Upper winds run faster than the
+# cloud deck, but the high deck is far away so apparent motion stays slow.
+const HIGH_WIND_FACTOR := 2.5
+var _high_pos := Vector2.ZERO
+var _high_time := 0.0
+
 var _noise_offset := Vector3(randf(), randf(), randf())  # random cloud shapes per session
 # Random weather-map origin per session: the map is a baked texture, so
 # without this every launch shows the same cloud formation in the same
@@ -246,6 +254,17 @@ func update_sky():
 		frame = 0
 
 	sky_material.set_shader_parameter("blend_amount", float(frame) / float(frames_to_update))
+
+	# Advect the high ice layer continuously (sky.md P2). Same wind as the
+	# deck, scaled up for the faster upper flow; integrated every frame so
+	# the 2D sheet drifts smoothly rather than stepping on texture swaps.
+	var hnow := Time.get_ticks_msec() / 1000.0
+	var hdt := hnow - _high_time
+	_high_time = hnow
+	if hdt > 0.0 and hdt < 1.0:
+		_high_pos += frame_data.wind_direction.normalized() \
+				* frame_data.wind_speed * HIGH_WIND_FACTOR * hdt
+	sky_material.set_shader_parameter("high_cloud_offset", _high_pos)
 
 	RenderingServer.call_on_render_thread(_render_process.bind(texture_to_update))
 	
