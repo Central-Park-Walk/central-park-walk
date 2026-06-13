@@ -116,6 +116,8 @@ cd ..
 -- --walk-interval=1.0 # Screenshot interval in seconds
 -- --walk-speed=1.2    # Walk speed in m/s
 -- --tree-species=oak,maple  # Only place specific species (debug)
+-- --eval-plot         # Model evaluation plot on the Great Lawn (labelled specimen garden)
+-- --eval-plot=spicebush  # Single species → size-graded row + natural-density stand
 ```
 
 ## What's In It

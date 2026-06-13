@@ -31,6 +31,10 @@ A change is done when its class's checklist passes. "It feels right" and "the ge
 - [ ] Committed immediately after verification (no batching).
 - [ ] If it contradicts `DESIGN.md`/`docs/`, the doc is updated in the same commit — or the change is wrong.
 
+### Vegetation model change
+- [ ] Reviewed on the **Great Lawn evaluation plot** (`--eval-plot=<species>`), not by hunting park placements. Single-species mode gives a size-graded specimen row plus a natural-density stand — judge both (vegetation_modeling.md §4: the stand is the validation unit).
+- [ ] Trees: walk the row backwards to check LOD tier handoffs and the impostor transition on the actual specimens (eval trees run the full census pipeline).
+
 ## 3. Iteration rules
 
 - **Two failed iterations means the diagnosis is wrong.** Stop. Re-investigate from captured evidence (actual error output, actual pixel values, actual profiler numbers). Do not write a third fix for the same theory.
