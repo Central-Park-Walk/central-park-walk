@@ -19,7 +19,25 @@ and rare/dramatic formations appear at realistic frequencies — a
 mackerel-sky morning or a winter sundog should be something you *catch*,
 not a slider.
 
-## 1. Current state (after 2026-06-12: P1 + §2.5 SHIPPED)
+## 1. Current state (after 2026-06-12: P1 + §2.5 + P2 SHIPPED)
+
+- **P2 is live** (high ice layer): `clouds.gdshader` now renders a flat
+  ice deck (cirrus/cirrostratus/altocumulus) the view ray pierces at ~8 km
+  scale, composited onto the atmosphere UNDER the volumetric shell. Three
+  types gated by per-weather opacity — cirrus fibrous streaks (anisotropic
+  ridged fBm), cirrostratus milky veil (smooth fBm), altocumulus mackerel
+  cells (Worley with per-cell underside shading). Advected by the upper
+  wind (`high_cloud_offset`, integrated per-frame in `cloud_sky.gd` at
+  ×2.5 the deck wind). **Twilight interplay:** the deck's sun is lifted
+  ~+4° (horizon dip at altitude), lit colour = transmittance LUT (reddens
+  when low) over the sky-LUT ambient → ice stays sunlit past ground sunset
+  (salmon-pink-on-periwinkle). Opacity set in `day_night_cycle.gd` per
+  §2.6: CLEAR deterministic-per-day wisps (icier in winter), dramatic-dusk
+  mackerel hero, snow cirrostratus, storm anvil cirrus. CLI
+  `--high-clouds=cir:cs:ac`. Early-outs when all amounts are 0 → the
+  clear-noon perf gate is unchanged by construction; worst case (all three
+  forced 0.8 over the open dome) measured ~1–2 ms GPU at Great Lawn.
+
 
 - One volumetric layer (1.5–4 km shell) marching a Schneider density
   field. **P1 is live**: five per-weather-state maps
@@ -192,8 +210,13 @@ Shipped: multi-scatter octaves, gated powder, in-cloud ambient gradient
   85 fps at Great Lawn — no perf impact.
 - **§2.5: DONE 2026-06-12** (see §1). Almanac + canonical-hour remap +
   moon phases + perceptual disk sizing.
-- **P2**: high ice layer + twilight interplay (2.2). Unlocks the pink
-  cloud-ceiling reference look.
+- **P2: DONE 2026-06-12** (see §1). High ice layer shipped:
+  cirrus/cirrostratus/altocumulus flat sheet, twilight-lit, per-weather
+  opacity. Altocumulus reworked to organic mackerel rows (domain-warped
+  Worley + cloud-street ripple) after the uniform-dot-grid v1 read busy.
+  Also shipped this session: the in-game **cloud control panel** (C —
+  `cloud_debug.gd`) and a fix for a stale high-cloud latch (apply()
+  throttles when the clock is paused → T/N now force_apply).
 - **P3**: cumulonimbus anvil + mammatus (2.3).
 - **P4**: halos/sundogs/pillars (2.4).
 - **P5**: altocumulus cellular layer; rarities (lenticular over the
