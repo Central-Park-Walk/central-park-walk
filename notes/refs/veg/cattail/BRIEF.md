@@ -28,8 +28,12 @@ dense vertical-strap stand that is the whole identity.
 - **One-liner:** a **strictly vertical, unbranched strap-leaf shoot** topped by a single
   brown cylindrical "hotdog" spike on a bare stalk — never arching, never bending; the
   identity is the rigid vertical and the dense COLONY wall it forms.
-- **Overall form / crown shape:** strict vertical column; flat strap leaves 1.0–1.8 m,
-  spike-stalk rising 30–60 cm above.
+- **Overall form / crown shape:** strict vertical column; flat strap leaves 1.0–1.8 m.
+  **Correction (2026-06-17, from `reference_photos/`):** the leaves **overtop the brown
+  spike** (or roughly equal it) — the spike sits AMONG the foliage at ~65–80% of leaf
+  height, NOT on a bare stalk rising above it. (Prior "spike-stalk rising 30–60 cm above"
+  was wrong; real-world photos are ground truth.) The clump is **columnar**, not a
+  bottom-heavy tussock/cone — blades hold near-full width most of the way up.
 - **Aspect (width : height):** narrow — a single tall vertical with strap leaves splaying
   modestly; the *mass* is the colony, not the shoot.
 - **First branch / fork height:** none — unbranched single terminal spike per shoot.

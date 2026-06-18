@@ -2070,69 +2070,74 @@ def make_bottlebrush_grass():
 # Species: WETLAND
 # ==========================================================================
 
-def make_cattail():
-    """Cattail (Typha latifolia) — 1.5-3m.
-    THE wetland plant. Sword-like leaves + iconic brown spike. ~250 faces."""
+def make_cattail(seed=901, spike_stage="brown", height=2.0):
+    """Cattail (Typha latifolia) — broadleaf, 1.5-3m. BRIEF: notes/refs/veg/cattail.
+    Identity (BRIEF §1/§6): a STRICT-VERTICAL, unbranched strap-leaf shoot topped by
+    the brown no-gap "hot-dog" spike (female cylinder + male section, touching) held
+    near the crown on a bare round culm. Never arching. ~260 faces.
+    spike_stage: "green" (immature) | "brown" (mature) | "bursting" (winter seed-burst).
+    """
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
     co = bm.loops.layers.color.new("Col")
-    rng = random.Random(901)
+    rng = random.Random(seed)
 
-    h = 2.0
+    h = height
 
-    # 7 tall sword-like leaves — folded (V-cross-section)
-    for i in range(7):
-        angle = (i / 7) * math.tau + rng.uniform(-0.18, 0.18)
-        leaf_h = rng.uniform(1.3, 1.9)
+    # --- Leaf clump: dense, wide, STRICT-vertical strap blades (BRIEF §1/§4 —
+    # broadleaf, keeled/D-section, never arching). Built as crossed billboard planes
+    # with a V-fold, the established grass-blade pattern (cf. switchgrass) that reads
+    # from every angle, unlike flat single-plane fronds that collapse to a sliver. ---
+    # Refs (reference_photos/): tall near-full-height straps, COLUMNAR (not a conical
+    # tussock), the blades overtopping the brown spikes. So leaf_h ≈ full height, and
+    # width_top stays wide (low taper) to avoid the bottom-heavy fir-tree read.
+    leaf_h = h * rng.uniform(0.92, 1.0)
 
-        def lcolor(t, _h=leaf_h):
-            return (0.15 + t * 0.13, 0.35 + t * 0.10, 0.08 + t * 0.07)
+    def _leaf_col(t):  # glaucous blue-green (BRIEF §4), slightly lighter toward the tip
+        return (0.22 + 0.13 * t, 0.40 + 0.12 * t, 0.17 + 0.05 * t)
 
-        # Use crossed_planes with fold for sword-leaf V shape
-        bm2 = bmesh.new()
-        uv2 = bm2.loops.layers.uv.new("UVMap")
-        co2 = bm2.loops.layers.color.new("Col")
-        make_crossed_planes(bm2, leaf_h, 0.05, 0.02, 1, 5, lcolor, uv2, co2, fold=0.22)
-        # Transfer to main bm with rotation
-        ca, sa = math.cos(angle), math.sin(angle)
-        for v in bm2.verts:
-            x, y, z = v.co
-            rx = x * ca - y * sa
-            ry = x * sa + y * ca
-            bm.verts.new(Vector((rx, ry, z)))
-        # Just add the faces referencing transferred verts — merge via frond instead
-        bm2.free()
+    make_crossed_planes(bm, leaf_h, 0.32, 0.13, 11, 6, _leaf_col, uv, co, fold=0.10)
 
-        # Use make_frond for proper connectivity
-        make_frond(bm, Vector((0, 0, 0.0)),
-                   length=leaf_h, width=0.045, segments=5,
-                   arch=0.22, droop=0.14, angle_y=angle,
-                   color_base=(0.30, 0.55, 0.15),
-                   color_tip=(0.45, 0.62, 0.22),
-                   uv_layer=uv, col_layer=co)
+    # --- Spike colors by maturity stage ---
+    if spike_stage == "green":
+        fem0, fem1 = (0.26, 0.38, 0.13), (0.32, 0.44, 0.16)   # immature green
+        mal0, mal1 = (0.34, 0.46, 0.18), (0.46, 0.56, 0.24)
+        fem_r = 0.021
+    elif spike_stage == "bursting":
+        fem0, fem1 = (0.46, 0.36, 0.22), (0.62, 0.52, 0.40)   # paler, cottony burst
+        mal0, mal1 = (0.50, 0.42, 0.28), (0.34, 0.28, 0.22)
+        fem_r = 0.028
+    else:  # brown (mature) — WARM cinnamon-brown (reads brown not black at range;
+           # the dark-chocolate value went near-black in-engine), fat enough to read
+        fem0, fem1 = (0.44, 0.27, 0.13), (0.52, 0.34, 0.18)
+        mal0, mal1 = (0.56, 0.44, 0.24), (0.66, 0.56, 0.34)
+        fem_r = 0.024
 
-    # 2 detailed central stalks
-    for stalk_i in range(2):
-        ox = rng.uniform(-0.04, 0.04)
-        oy = rng.uniform(-0.04, 0.04)
-        stalk_pts = []
-        for i in range(7):
-            t = i / 6
-            stalk_pts.append(Vector((ox, oy, h * t)))
-        make_tube(bm, stalk_pts, 0.009, 0.006, 5,
-                  (0.35, 0.55, 0.18), (0.42, 0.60, 0.20),
-                  uv, co, 0.0, 0.5)
+    # --- 3 culms, placed toward the clump EDGE (radius ~0.08) at varied heights so the
+    # brown cigars read from any angle instead of hiding behind the central leaf planes
+    # (refs: spikes sit among/at the front of the blades, overtopped by the leaf tips). ---
+    for si in range(3):
+        ang = (si / 3.0) * math.tau + rng.uniform(-0.3, 0.3)
+        rad = rng.uniform(0.06, 0.10)
+        ox, oy = rad * math.cos(ang), rad * math.sin(ang)
+        crown = h * rng.uniform(0.78, 0.90)          # among the upper blades
+        fem_top = crown - 0.06                        # ~6cm male above the female
+        fem_base = fem_top - 0.16                     # female "hot-dog" ~16cm
+        mal_top = crown
 
-        # Brown spike ("hot dog") near top
-        spike_base = h * 0.63
-        spike_top = h * 0.80
-        spike_pts = []
-        for i in range(5):
-            t = i / 4
-            spike_pts.append(Vector((ox, oy, spike_base + (spike_top - spike_base) * t)))
-        make_tube(bm, spike_pts, 0.024, 0.022, 7,
-                  (0.45, 0.25, 0.10), (0.55, 0.30, 0.12),
-                  uv, co, 0.7, 0.85)
+        # bare round green culm from ground to the female-spike base
+        stalk_pts = [Vector((ox, oy, (fem_base + 0.02) * (i / 6))) for i in range(7)]
+        make_tube(bm, stalk_pts, 0.010, 0.007, 5,
+                  (0.34, 0.52, 0.18), (0.40, 0.56, 0.20),
+                  uv, co, 0.0, 0.45)
+
+        # female cylinder ("hot-dog"), ~16cm, near-constant radius
+        fpts = [Vector((ox, oy, fem_base + (fem_top - fem_base) * (i / 5))) for i in range(6)]
+        make_tube(bm, fpts, fem_r, fem_r, 8, fem0, fem1, uv, co, 0.55, 0.80)
+
+        # male section directly on top — NO gap (the T. latifolia ID), tapering to a point
+        mpts = [Vector((ox, oy, fem_top + (mal_top - fem_top) * (i / 4))) for i in range(5)]
+        make_tube(bm, mpts, fem_r * 0.62, 0.002, 7, mal0, mal1, uv, co, 0.80, 0.95)
 
     return bm
 

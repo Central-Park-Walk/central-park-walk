@@ -116,8 +116,12 @@ const SPECIES := [
 	{name="Grass_Bottlebrush", s=[0.7, 1.2], flex=0.40, green=0, fall=[0.60, 0.50, 0.15], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.30, 0.36, 0.20], sr=0.78},
 
 	# --- WETLAND (25-28) --- waterside specialists ---
-	# 25: Cattail (Typha latifolia) — 2m, iconic brown cylinder heads, pond edge
-	{name="Wetland_Cattail", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.55, 0.45, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.32, 0.42, 0.18], sr=0.78},
+	# 25: Cattail (Typha latifolia) — 2m, iconic brown cylinder heads, pond edge.
+	# sc (stem_color) = WARM CINNAMON-BROWN: in the undergrowth shader opaque stem
+	# geometry is painted with stem_color (vertex color is ignored for stems), and the
+	# spike is stem-tagged — so this IS the spike color. The thin culms read tan/brown
+	# too, which is correct. The blades are leaf-tagged (textured), so they stay green.
+	{name="Wetland_Cattail", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.55, 0.45, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.45, 0.29, 0.15], sr=0.80},
 	# 26: Yellow Iris (Iris pseudacorus) — 1.2m, bright yellow flowers, wet meadow
 	{name="Wetland_YellowIris", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.55, 0.48, 0.10], fc=[0.88, 0.82, 0.10], bl=[0.6, 1.2], sc=[0.20, 0.30, 0.10], sr=0.76},
 	# 27: Lizard's Tail (Saururus cernuus) — 0.9m, drooping white spikes, stream edge
