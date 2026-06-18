@@ -141,12 +141,19 @@ def finalize_and_export(bm, name, mat=None):
     # Check for cluster texture first (volumetric card approach), then single-leaf
     cluster_path = os.path.join(OUT_DIR, f"cluster_{name}_v0.png")
     tex_path = os.path.join(OUT_DIR, f"tex_leaf_{name}.png")
+    # Variant species (name ends _0/_1/_2) with no per-variant texture share the
+    # base species' leaf texture (e.g. Wetland_Cattail_0 → tex_leaf_Wetland_Cattail.png).
+    base_name = name.rsplit("_", 1)[0] if ("_" in name and name.rsplit("_", 1)[1].isdigit()) else name
+    tex_path_base = os.path.join(OUT_DIR, f"tex_leaf_{base_name}.png")
     if os.path.exists(cluster_path):
         m = make_textured_material(name + "_Mat", cluster_path)
         print(f"    → embedded cluster texture: cluster_{name}_v0.png")
     elif os.path.exists(tex_path):
         m = make_textured_material(name + "_Mat", tex_path)
         print(f"    → embedded texture: tex_leaf_{name}.png")
+    elif os.path.exists(tex_path_base):
+        m = make_textured_material(name + "_Mat", tex_path_base)
+        print(f"    → embedded shared texture: tex_leaf_{base_name}.png")
     else:
         m = make_material(name + "_Mat")
     obj.data.materials.append(m)
@@ -2096,7 +2103,7 @@ def make_cattail(seed=901, spike_stage="brown", height=2.0):
     def _leaf_col(t):  # glaucous blue-green (BRIEF §4), slightly lighter toward the tip
         return (0.22 + 0.13 * t, 0.40 + 0.12 * t, 0.17 + 0.05 * t)
 
-    make_crossed_planes(bm, leaf_h, 0.32, 0.13, 11, 6, _leaf_col, uv, co, fold=0.10)
+    make_crossed_planes(bm, leaf_h, 0.32, 0.13, 8, 6, _leaf_col, uv, co, fold=0.10)
 
     # --- Spike colors by maturity stage ---
     if spike_stage == "green":
@@ -2713,7 +2720,12 @@ SPECIES = [
     (make_mugwort,             "Herb_Mugwort"),
     (make_ostrich_fern,        "Fern_Ostrich"),
     (make_christmas_fern,      "Fern_Christmas"),
-    (make_cattail,             "Wetland_Cattail"),
+    # Cattail: 3 seed variants (different blade angles/heights + spike placement) so
+    # dense colony stands don't tile. All share tex_leaf_Wetland_Cattail.png + the
+    # warm-brown stem_color (spike). Named _0/_1/_2 for the runtime variant loader.
+    (lambda: make_cattail(seed=901, height=2.0),  "Wetland_Cattail_0"),
+    (lambda: make_cattail(seed=917, height=2.2),  "Wetland_Cattail_1"),
+    (lambda: make_cattail(seed=933, height=1.85), "Wetland_Cattail_2"),
     # Tier 3
     (make_sweet_pepperbush,    "Shrub_SweetPepperbush"),
     (make_flowering_raspberry, "Shrub_FloweringRaspberry"),

@@ -37,6 +37,7 @@ var _canopy_cell_m: float = 0.0
 
 # Zone type data from ground_cover_instances
 var _zone_map: Dictionary = {}  # "cx|cz" (grass chunk) -> dominant zone type
+var _waterside_chunks: Dictionary = {}  # "cx|cz" -> true if it contains zone-7 cells
 var _scenario: RID               # cached world scenario for RS instance creation
 
 const CHUNK := 20.0
@@ -121,7 +122,7 @@ const SPECIES := [
 	# geometry is painted with stem_color (vertex color is ignored for stems), and the
 	# spike is stem-tagged — so this IS the spike color. The thin culms read tan/brown
 	# too, which is correct. The blades are leaf-tagged (textured), so they stay green.
-	{name="Wetland_Cattail", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.55, 0.45, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.45, 0.29, 0.15], sr=0.80},
+	{name="Wetland_Cattail", v=3, s=[0.7, 1.2], flex=0.30, green=0, fall=[0.55, 0.45, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.45, 0.29, 0.15], sr=0.80},
 	# 26: Yellow Iris (Iris pseudacorus) — 1.2m, bright yellow flowers, wet meadow
 	{name="Wetland_YellowIris", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.55, 0.48, 0.10], fc=[0.88, 0.82, 0.10], bl=[0.6, 1.2], sc=[0.20, 0.30, 0.10], sr=0.76},
 	# 27: Lizard's Tail (Saururus cernuus) — 0.9m, drooping white spikes, stream edge
@@ -174,8 +175,11 @@ const ZONE_SPECIES := {
 	6: [  # Ramble (dead via zone map — see note; kept for documentation)
 		[0, 5.0],   # spicebush (placed via WOODLAND_SPECIES fallback)
 	],
-	7: [],  # Waterside — bespoke wetland queued; bare until then. Empty =
-	        # falls through to the woodland fallback inside WOODLAND_Z_RANGES.
+	7: [],  # Waterside — placed via the WATERSIDE_SPECIES overlay below, NOT here.
+	        # Zone 7 is a thin shoreline fringe (3047 gc cells) almost never the
+	        # DOMINANT zone of its 20m chunk (present in 188 chunks, dominant in only
+	        # 32), so a ZONE_SPECIES[7] entry would miss nearly every real lakeshore —
+	        # the same coarse-zoning trap as the spicebush north-band bug.
 	8: [  # Wild Meadow — colonial sun forbs, the autumn fall-color read
 		[23, 7.0],  # goldenrod (massed golden plume patches)
 		[29, 6.0],  # aster (bushy mounds smothered in purple daisies)
@@ -192,6 +196,22 @@ const ZONE_SPECIES := {
 const WOODLAND_SPECIES: Array = [
 	[0, 3.5],   # spicebush (thicket-forming dominant)
 ]
+# Waterside emergents overlay — added to any chunk that CONTAINS Waterside (zone 7)
+# ground-cover cells (tracked in _waterside_chunks), then gated per-instance to the
+# actual water's edge (atlas water cells within WATER_EDGE_CELLS). Mirrors the
+# woodland overlay so the thin shoreline fringe is placed despite the coarse
+# dominant-zone map dropping it.
+const WATERSIDE_SPECIES: Array = [
+	[25, 6.0],  # cattail (dense water's-edge colony, BRIEF §2/§8). NOTE: density +
+	            # WATERSIDE_MAX_DIST are UNVALIDATED for perf — headless fps is an Xvfb
+	            # artifact; tune after a real-display scripts/perf_gate.sh run.
+]
+const WATER_EDGE_CELLS: int = 6  # atlas cells (~3.6m @ 0.61m/cell) max dist to water
+# Waterside emergents are tall transparent cards and a lakeshore can ring the whole
+# visible water, so cull them before the general undergrowth range as a precaution
+# against shoreline-panorama overdraw. PRECAUTIONARY/untuned — the real cost must be
+# measured on a real display (headless fps is an Xvfb present-stall artifact).
+const WATERSIDE_MAX_DIST: float = 90.0
 # Z ranges where woodland fallback is allowed (from park_data.json foliage_zones)
 const WOODLAND_Z_RANGES: Array = [
 	[-1800, -1050],  # North Woods + The Pool
@@ -312,7 +332,8 @@ func _build_zone_map() -> void:
 		var d: Dictionary = chunk_types[ck]
 		d[zt] = d.get(zt, 0) + 1
 
-	# Pick dominant type per chunk
+	# Pick dominant type per chunk; also flag chunks containing Waterside (zone 7)
+	# cells so the shoreline overlay can place emergents the dominant vote would drop.
 	for ck in chunk_types:
 		var d: Dictionary = chunk_types[ck]
 		var best_type := -1
@@ -323,8 +344,11 @@ func _build_zone_map() -> void:
 				best_type = zt
 		if best_type >= 0:
 			_zone_map[ck] = best_type
+		if d.get(7, 0) >= 2:  # ≥2 waterside cells = a real shoreline chunk
+			_waterside_chunks[ck] = true
 
-	print("  Undergrowth: zone map built (%d chunks)" % _zone_map.size())
+	print("  Undergrowth: zone map built (%d chunks, %d waterside)" % [
+		_zone_map.size(), _waterside_chunks.size()])
 
 
 # Free every live chunk's RenderingServer RIDs. Called from main at quit —
@@ -525,6 +549,27 @@ func _canopy_at(wx: float, wz: float) -> int:
 	return _canopy_buf[pz * _canopy_res + px]
 
 
+func _near_water(apx: int, apz: int) -> bool:
+	# True if any world-atlas cell within WATER_EDGE_CELLS is water (surface type 4).
+	# Keeps the waterside overlay hugging the shoreline instead of spreading inland
+	# across the whole 20m chunk. apx/apz are atlas-grid coords.
+	# Stride-sampled (every 2 cells) so this stays cheap in the per-attempt placement
+	# loop — water bodies are large contiguous blobs, so a coarse sample never misses
+	# a real shore. Short-circuits on the first water cell.
+	var r := WATER_EDGE_CELLS
+	var r2 := r * r
+	for dz in range(-r, r + 1, 2):
+		var nz := apz + dz
+		if nz < 0 or nz >= _atlas_res: continue
+		for dx in range(-r, r + 1, 2):
+			if dx * dx + dz * dz > r2: continue
+			var nx := apx + dx
+			if nx < 0 or nx >= _atlas_res: continue
+			if _atlas_data[(nz * _atlas_res + nx) * 2] == 4:
+				return true
+	return false
+
+
 # ── Ecology-driven density modulation ──────────────────────────────────
 # Real understory density varies with microsite conditions. Instead of
 # uniform placement, modulate per-chunk density based on what drives
@@ -669,21 +714,28 @@ func _build_chunk(ck: String) -> void:
 	#      the zoning mislabels — forested ground tagged OpenLawn (the Ramble &
 	#      Hallett bands, ~88%/93%) or NorthMeadow (43% of the North Woods band)
 	#      — still gets its understory instead of coming up bare or forb-only.
+	# Entry layout: [species_index, density, require_canopy, require_water]
 	var zone_type: int = _zone_map.get(ck, -1)
 	var species_list: Array = []
 	if zone_type >= 0 and ZONE_SPECIES.has(zone_type):
 		for e in ZONE_SPECIES[zone_type]:
-			species_list.append([e[0], e[1], false])
+			species_list.append([e[0], e[1], false, false])
 
 	var chunk_z: float = cz + CHUNK * 0.5
 	for zr in WOODLAND_Z_RANGES:
 		if chunk_z >= zr[0] and chunk_z <= zr[1]:
 			for e in WOODLAND_SPECIES:
-				species_list.append([e[0], e[1], true])
+				species_list.append([e[0], e[1], true, false])
 			break
 
+	# Waterside overlay — shoreline emergents on chunks holding zone-7 cells,
+	# gated per-instance to the water's edge (require_water).
+	if _waterside_chunks.has(ck):
+		for e in WATERSIDE_SPECIES:
+			species_list.append([e[0], e[1], false, true])
+
 	if species_list.is_empty():
-		return  # No zone forbs and not woodland — nothing to place
+		return  # No zone forbs, not woodland, not waterside — nothing to place
 
 	# Distance-based density thinning
 	var chunk_center := Vector3(cx + CHUNK * 0.5, 0, cz + CHUNK * 0.5)
@@ -718,6 +770,9 @@ func _build_chunk(ck: String) -> void:
 	for sp_entry in species_list:
 		var sp_idx: int = sp_entry[0]
 		var entry_require_canopy: bool = sp_entry[2]
+		var entry_require_water: bool = sp_entry[3]
+		# Hard distance cull for waterside emergents (see WATERSIDE_MAX_DIST).
+		if entry_require_water and chunk_dist > WATERSIDE_MAX_DIST: continue
 		var density: float = sp_entry[1] * (eco_shade if entry_require_canopy else eco_sun)
 		var sp_name: String = SPECIES[sp_idx].name
 		if not _meshes.has(sp_name): continue
@@ -756,6 +811,8 @@ func _build_chunk(ck: String) -> void:
 			if _atlas_data[ai + 1] != 0: continue
 			# Canopy check — the woodland overlay requires tree cover overhead
 			if entry_require_canopy and _canopy_at(bx, bz) < 30: continue
+			# Water-edge gate — waterside emergents only within a few metres of water
+			if entry_require_water and not _near_water(apx, apz): continue
 			# Path proximity buffer (~1.5m = ~2.5 atlas cells at 0.6m/cell)
 			var near_path := false
 			for dxy in [[-2,0],[2,0],[0,-2],[0,2],[-2,-2],[2,2],[-2,2],[2,-2]]:
