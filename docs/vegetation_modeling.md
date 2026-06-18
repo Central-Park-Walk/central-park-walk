@@ -180,3 +180,74 @@ reference must capture **habit, interaction, and behavior**, the **BRIEF.md** is
 falsifiable target, and **the stand is a validation unit** alongside the individual
 model. Any vegetation model that was not built against a reference set is provisional,
 regardless of how it scores in isolation.
+
+---
+
+## 7. The schematic-driven build loop (agreed 2026-06-17 — not yet tested)
+
+Refines §5 with an approval gate and an image-gen step, so the user signs off on a
+plant's look *before* geometry exists. **Status: agreed in principle, not yet run on a
+real plant.** First test plant TBD (cattail or witch hazel — strong silhouettes, both
+currently weak procedural placeholders). The goal is **at least one model of every plant
+in the park**, redoing existing weak models last.
+
+### The loop
+1. **Select** the next plant from the **manifest** (a tracked status table — see below —
+   prioritized by *in-game visibility*, not new-vs-existing).
+2. **Triage** before building anything: is there a usable **gscatter** scan
+   ([[reference-vegetation-inventory]] — ~24 species sit imported-but-unwired)? a tree
+   for **Mtree**? an existing **archetype generator**? Only fall to bespoke geometry if
+   none fits. (Reuse tools; don't rebuild them — [[feedback-keep-tools]],
+   [[feedback-right-tools]].)
+3. **Research → `BRIEF.md`** (§3). Pull traits from botanical authorities
+   (USDA PLANTS, GoBotany, BONAP, iNat), not generic web text — that's where species-
+   trait hallucination creeps in ([[feedback-verify-everything]]).
+4. **Schematic via Nano Banana** (Google Gemini Pro image model). Claude writes a
+   research packet + a ready-to-paste generation prompt; the **user** runs Gemini and
+   brings back the line art. Multi-view (front + side + leaf/node detail) on a **fixed
+   style preamble** (black line on white, orthographic, labeled scale reference) reused
+   for *every* plant, so the whole schematic library reads as one coherent set.
+   *Local image-gen was rejected:* the feature we need is subject **consistency across
+   edits** ("same plant, now autumn / now the side view"), which local SD/Flux can't
+   hold. Standard Nano Banana is expected to suffice; don't pay up for a higher image
+   tier until a plant actually defeats it.
+5. **User approves the schematic.** This is the cheap pre-geometry gate.
+6. **Build** by composing **archetype primitives** (or instancing gscatter/Mtree),
+   habit-first (§2, §5). Then **texture** (albedo/normal/roughness + alpha leaf cards —
+   reuse the parametric leaf/fern texture generators), assign a **wind class**
+   (rigid/sway/droop/nod — [[project-species-wind]]) and **spectral color** with
+   per-instance jitter.
+7. **Wire in + write a placement spec** (zones, density, canopy-gating — placement is
+   its own failure mode, cf. the spicebush north-band bug).
+8. **Validate in the Great Lawn eval plot** (`--eval-plot=species`) and on the **stand**
+   (§4), to the **spicebush quality bar**. Iterate.
+9. **LOD now; bake impostors in batches** at checkpoints (`impostor_baker.gd` hangs
+   run all-at-once — one Godot per species, [[lessons-impostor-bake]]).
+10. **Update the manifest.** Re-check the **running parkwide frame budget** (16.6 ms,
+    GPU-bound) — the per-model ≥45fps gate catches one regression, not the aggregate of
+    hundreds of placed species.
+
+### Two principles that make this durable
+- **The BRIEF is the canonical source of truth; the schematic is the approval +
+  character layer, never the metric spec.** An image model fakes orthographic projection
+  and will invent wrong phyllotaxy/leaf shape — so read it for silhouette, habit, and
+  gesture, and *never* extract dimensions from its pixels. Numbers live in the BRIEF,
+  verified against real photos. Collapse the two and you approve a beautiful wrong plant.
+- **Models are regenerable from the BRIEF, so accuracy ratchets over time.** The game
+  never finishes; as image-gen / image-to-3D / generators improve, we re-derive better
+  geometry from the *same verified research* without redoing it. The research compounds;
+  only the rendering method is swappable. Version the BRIEFs; keep models reproducible.
+
+### Archetype layer (accepted 2026-06-17)
+"Every plant in the park" (~600–700 vascular taxa + garden cultivars + fungi/lichens) is
+infeasible one bespoke model at a time — and the trees already proved the fix: ~16
+archetypes carry ~170 census species. Define ~20–30 **morphological archetypes** (umbel
+forb, basal rosette, tussock grass, panicle grass, fern, spike inflorescence, suckering
+shrub, …); build each generator carefully *once*; then most species become
+**archetype + parameter set + textures**. Reserve full bespoke geometry for hero plants.
+
+### Manifest
+A tracked JSON/CSV seeded from [[reference-vegetation-inventory]], one row per plant:
+status (researched / spec'd / approved / modeled / textured / wired / LOD / impostor /
+placed), archetype, zones, source (gscatter / Mtree / bespoke), visibility-priority.
+Makes "select an uncreated plant" deterministic and keeps the long program legible.
