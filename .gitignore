@@ -118,6 +118,8 @@ notes/refs/veg/*
 !notes/refs/veg/BRIEF_TEMPLATE.md
 notes/refs/veg/*/*
 !notes/refs/veg/*/BRIEF.md
+!notes/refs/veg/*/SCHEMATIC_PROMPT.md
+!notes/refs/veg/SCHEMATIC_STYLE.md
 hh_NYC_029.tif
 !.claude/settings.json
 
