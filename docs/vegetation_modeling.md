@@ -183,13 +183,26 @@ regardless of how it scores in isolation.
 
 ---
 
-## 7. The schematic-driven build loop (agreed 2026-06-17 — not yet tested)
+## 7. The BRIEF-driven build loop (image schematic = optional, demoted 2026-06-17)
 
-Refines §5 with an approval gate and an image-gen step, so the user signs off on a
-plant's look *before* geometry exists. **Status: agreed in principle, not yet run on a
-real plant.** First test plant TBD (cattail or witch hazel — strong silhouettes, both
-currently weak procedural placeholders). The goal is **at least one model of every plant
-in the park**, redoing existing weak models last.
+Refines §5 with a cheap pre-geometry approval gate. **The `BRIEF.md` is that gate** —
+its habit/gesture sections (§1 form, §2 interaction, §6 "the one unmistakable thing")
+*are* the look description, in language the user reads and signs off before any geometry
+exists.
+
+> **Nano Banana schematic step — tested on cattail 2026-06-17, demoted to OPTIONAL.**
+> We ran it end-to-end on cattail (strong silhouette). Verdict: for a well-understood
+> plant it re-renders what the BRIEF already states and adds a manual round-trip without
+> changing the build (the build never reads the schematic's pixels — see the two
+> principles below). It is also weakest exactly where it would help most: for an unusual
+> habit, the image model is most likely to invent the form wrong, so it can't be trusted
+> there either. **Decision: the BRIEF is the default approval gate; generate a schematic
+> only on demand** for the rare plant where the user wants to eyeball a look first. The
+> fixed style preamble + per-plant prompt convention is kept for that case
+> (`notes/refs/veg/SCHEMATIC_STYLE.md`, `<plant>/SCHEMATIC_PROMPT.md`).
+
+The goal is **at least one model of every plant in the park**, redoing existing weak
+models last.
 
 ### The loop
 1. **Select** the next plant from the **manifest** (a tracked status table — see below —
@@ -202,16 +215,15 @@ in the park**, redoing existing weak models last.
 3. **Research → `BRIEF.md`** (§3). Pull traits from botanical authorities
    (USDA PLANTS, GoBotany, BONAP, iNat), not generic web text — that's where species-
    trait hallucination creeps in ([[feedback-verify-everything]]).
-4. **Schematic via Nano Banana** (Google Gemini Pro image model). Claude writes a
-   research packet + a ready-to-paste generation prompt; the **user** runs Gemini and
-   brings back the line art. Multi-view (front + side + leaf/node detail) on a **fixed
-   style preamble** (black line on white, orthographic, labeled scale reference) reused
-   for *every* plant, so the whole schematic library reads as one coherent set.
-   *Local image-gen was rejected:* the feature we need is subject **consistency across
-   edits** ("same plant, now autumn / now the side view"), which local SD/Flux can't
-   hold. Standard Nano Banana is expected to suffice; don't pay up for a higher image
-   tier until a plant actually defeats it.
-5. **User approves the schematic.** This is the cheap pre-geometry gate.
+4. **User approves the BRIEF** — the cheap pre-geometry gate. The habit/gesture in §1,
+   §2, §6 is the look being signed off.
+   *(Optional)* If the habit is genuinely hard to picture from words and the user wants
+   to eyeball it first, generate a **Nano Banana schematic**: Claude writes a ready-to-
+   paste prompt on the fixed style preamble (`notes/refs/veg/SCHEMATIC_STYLE.md`), the
+   user runs Gemini and brings back the line art. Multi-view (front + side + leaf/node
+   detail), black line on white, orthographic. Treat strictly as a look reference, never
+   a metric spec (see principles below). Not run by default — demoted 2026-06-17.
+5. *(folded into 4)*
 6. **Build** by composing **archetype primitives** (or instancing gscatter/Mtree),
    habit-first (§2, §5). Then **texture** (albedo/normal/roughness + alpha leaf cards —
    reuse the parametric leaf/fern texture generators), assign a **wind class**
