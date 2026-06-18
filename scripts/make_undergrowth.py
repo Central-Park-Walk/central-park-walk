@@ -2080,8 +2080,8 @@ def make_bottlebrush_grass():
 def make_cattail(seed=901, spike_stage="brown", height=2.0):
     """Cattail (Typha latifolia) — broadleaf, 1.5-3m. BRIEF: notes/refs/veg/cattail.
     Identity (BRIEF §1/§6): a STRICT-VERTICAL, unbranched strap-leaf shoot topped by
-    the brown no-gap "hot-dog" spike (female cylinder + male section, touching) held
-    near the crown on a bare round culm. Never arching. ~260 faces.
+    the brown no-gap "hot-dog" spike (female cylinder + male section, touching). Leaves
+    are individual curved blades at irregular angles (organic, not a radial star).
     spike_stage: "green" (immature) | "brown" (mature) | "bursting" (winter seed-burst).
     """
     bm = bmesh.new()
@@ -2091,19 +2091,28 @@ def make_cattail(seed=901, spike_stage="brown", height=2.0):
 
     h = height
 
-    # --- Leaf clump: dense, wide, STRICT-vertical strap blades (BRIEF §1/§4 —
-    # broadleaf, keeled/D-section, never arching). Built as crossed billboard planes
-    # with a V-fold, the established grass-blade pattern (cf. switchgrass) that reads
-    # from every angle, unlike flat single-plane fronds that collapse to a sliver. ---
-    # Refs (reference_photos/): tall near-full-height straps, COLUMNAR (not a conical
-    # tussock), the blades overtopping the brown spikes. So leaf_h ≈ full height, and
-    # width_top stays wide (low taper) to avoid the bottom-heavy fir-tree read.
-    leaf_h = h * rng.uniform(0.92, 1.0)
-
-    def _leaf_col(t):  # glaucous blue-green (BRIEF §4), slightly lighter toward the tip
-        return (0.22 + 0.13 * t, 0.40 + 0.12 * t, 0.17 + 0.05 * t)
-
-    make_crossed_planes(bm, leaf_h, 0.32, 0.13, 8, 6, _leaf_col, uv, co, fold=0.10)
+    # --- Leaves: INDIVIDUAL curved blades at irregular azimuths/heights — organic and
+    # asymmetric. The old crossed-planes clump read as a rigid radial STAR from above
+    # (user note 2026-06-18) with no curvature. Real cattail blades arch gracefully and
+    # splay every which way; flat straps at random azimuths present broadside from any
+    # view (edge-on thinness is true to life), and varied arch/height/base-offset kills
+    # the symmetry. Refs: reference_photos/. ---
+    leaf_h = h * rng.uniform(0.92, 1.02)
+    n_blades = rng.randint(12, 16)
+    for _i in range(n_blades):
+        az = rng.uniform(0.0, math.tau)             # irregular — NOT evenly spaced
+        blade_h = leaf_h * rng.uniform(0.62, 1.0)   # strong height variation
+        arch = rng.uniform(0.10, 0.46)              # curvature: some near-straight, some arching
+        droop = rng.uniform(0.05, 0.32)
+        bx = rng.uniform(-0.04, 0.04)               # base spread — not one point
+        by = rng.uniform(-0.04, 0.04)
+        cj = rng.uniform(-0.03, 0.03)               # per-blade color jitter
+        make_frond(bm, Vector((bx, by, 0.0)),
+                   length=blade_h, width=0.042, segments=6,
+                   arch=arch, droop=droop, angle_y=az,
+                   color_base=(0.21 + cj, 0.39 + cj, 0.16),
+                   color_tip=(0.36 + cj, 0.52 + cj, 0.22),
+                   uv_layer=uv, col_layer=co)
 
     # --- Spike colors by maturity stage ---
     if spike_stage == "green":
@@ -2120,30 +2129,35 @@ def make_cattail(seed=901, spike_stage="brown", height=2.0):
         mal0, mal1 = (0.56, 0.44, 0.24), (0.66, 0.56, 0.34)
         fem_r = 0.024
 
-    # --- 3 culms, placed toward the clump EDGE (radius ~0.08) at varied heights so the
-    # brown cigars read from any angle instead of hiding behind the central leaf planes
-    # (refs: spikes sit among/at the front of the blades, overtopped by the leaf tips). ---
-    for si in range(3):
-        ang = (si / 3.0) * math.tau + rng.uniform(-0.3, 0.3)
-        rad = rng.uniform(0.06, 0.10)
+    # --- 2-4 culms, each LEANING in a random direction (real culms aren't dead-straight
+    # ramrods) with the no-gap female+male spike riding the leaned top. ---
+    for _si in range(rng.randint(2, 4)):
+        ang = rng.uniform(0.0, math.tau)
+        rad = rng.uniform(0.05, 0.11)
         ox, oy = rad * math.cos(ang), rad * math.sin(ang)
-        crown = h * rng.uniform(0.78, 0.90)          # among the upper blades
+        lean_az = rng.uniform(0.0, math.tau)         # culm leans this way at the top
+        lean = rng.uniform(0.05, 0.16)
+        lx, ly = lean * math.cos(lean_az), lean * math.sin(lean_az)
+        crown = h * rng.uniform(0.74, 0.92)          # spike crown among the upper blades
         fem_top = crown - 0.06                        # ~6cm male above the female
-        fem_base = fem_top - 0.16                     # female "hot-dog" ~16cm
-        mal_top = crown
+        fem_base = fem_top - rng.uniform(0.14, 0.20)  # female "hot-dog" 14-20cm
+        mal_top = crown + rng.uniform(0.0, 0.03)
 
-        # bare round green culm from ground to the female-spike base
-        stalk_pts = [Vector((ox, oy, (fem_base + 0.02) * (i / 6))) for i in range(7)]
+        # curved/leaning culm: lateral offset grows with height (∝ t²)
+        def _cx(t): return ox + lx * t * t
+        def _cy(t): return oy + ly * t * t
+        stalk_pts = [Vector((_cx(i / 6.0), _cy(i / 6.0), (fem_base + 0.02) * (i / 6.0)))
+                     for i in range(7)]
         make_tube(bm, stalk_pts, 0.010, 0.007, 5,
-                  (0.34, 0.52, 0.18), (0.40, 0.56, 0.20),
-                  uv, co, 0.0, 0.45)
+                  (0.34, 0.52, 0.18), (0.40, 0.56, 0.20), uv, co, 0.0, 0.45)
 
-        # female cylinder ("hot-dog"), ~16cm, near-constant radius
-        fpts = [Vector((ox, oy, fem_base + (fem_top - fem_base) * (i / 5))) for i in range(6)]
+        tx, ty = ox + lx, oy + ly                     # culm top (leaned) XY
+        # female cylinder ("hot-dog"), near-constant radius
+        fpts = [Vector((tx, ty, fem_base + (fem_top - fem_base) * (i / 5.0))) for i in range(6)]
         make_tube(bm, fpts, fem_r, fem_r, 8, fem0, fem1, uv, co, 0.55, 0.80)
 
         # male section directly on top — NO gap (the T. latifolia ID), tapering to a point
-        mpts = [Vector((ox, oy, fem_top + (mal_top - fem_top) * (i / 4))) for i in range(5)]
+        mpts = [Vector((tx, ty, fem_top + (mal_top - fem_top) * (i / 4.0))) for i in range(5)]
         make_tube(bm, mpts, fem_r * 0.62, 0.002, 7, mal0, mal1, uv, co, 0.80, 0.95)
 
     return bm
@@ -2723,9 +2737,9 @@ SPECIES = [
     # Cattail: 3 seed variants (different blade angles/heights + spike placement) so
     # dense colony stands don't tile. All share tex_leaf_Wetland_Cattail.png + the
     # warm-brown stem_color (spike). Named _0/_1/_2 for the runtime variant loader.
-    (lambda: make_cattail(seed=901, height=2.0),  "Wetland_Cattail_0"),
-    (lambda: make_cattail(seed=917, height=2.2),  "Wetland_Cattail_1"),
-    (lambda: make_cattail(seed=933, height=1.85), "Wetland_Cattail_2"),
+    (lambda: make_cattail(seed=901, height=2.5),  "Wetland_Cattail_0"),
+    (lambda: make_cattail(seed=917, height=2.8),  "Wetland_Cattail_1"),
+    (lambda: make_cattail(seed=933, height=2.25), "Wetland_Cattail_2"),
     # Tier 3
     (make_sweet_pepperbush,    "Shrub_SweetPepperbush"),
     (make_flowering_raspberry, "Shrub_FloweringRaspberry"),
