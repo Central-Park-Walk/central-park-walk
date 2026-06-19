@@ -192,9 +192,12 @@ def _lerp_color(c0, c1, t, alpha=1.0):
 
 
 def make_tube(bm, points, r_start, r_end, n_sides, color_start, color_end,
-              uv_layer, col_layer, uv_y_start=0.0, uv_y_end=1.0, alpha=0.0):
+              uv_layer, col_layer, uv_y_start=0.0, uv_y_end=1.0, alpha=0.0,
+              cap=False):
     """Create a tube mesh along a list of points. Returns list of vertex rings.
-    alpha: vertex color alpha — 0.0 for stem (shader bark path), 1.0 for leaf."""
+    alpha: vertex color alpha — 0.0 for stem (shader bark path), 1.0 for leaf.
+    cap: close the first and last ring with n-gon end caps (solid ends, e.g. the
+    cattail cigar) — winding is irrelevant since the undergrowth shader is cull_disabled."""
     rings = []
     n = len(points)
     for i, pt in enumerate(points):
@@ -239,6 +242,18 @@ def make_tube(bm, points, r_start, r_end, n_sides, color_start, color_end,
                     else:
                         loop[uv_layer].uv = (0.5, uv3)
                         loop[col_layer] = c3
+            except ValueError:
+                pass
+
+    # End caps — close the first/last ring so the tube isn't a hollow open cylinder.
+    if cap and n_sides >= 3 and len(rings) >= 1:
+        for ring in (rings[0], rings[-1]):
+            verts = [v for (v, _uv, _c) in ring]
+            try:
+                f = bm.faces.new(verts)
+                for loop in f.loops:
+                    loop[uv_layer].uv = (0.5, ring[0][1])
+                    loop[col_layer] = ring[0][2]
             except ValueError:
                 pass
     return rings
@@ -2097,18 +2112,22 @@ def make_cattail(seed=901, spike_stage="brown", height=2.0):
     # splay every which way; flat straps at random azimuths present broadside from any
     # view (edge-on thinness is true to life), and varied arch/height/base-offset kills
     # the symmetry. Refs: reference_photos/. ---
-    leaf_h = h * rng.uniform(0.92, 1.02)
-    n_blades = rng.randint(12, 16)
+    # Refs (34-cattail-pond...webp): TALL blades that clearly OVERTOP the spikes, fairly
+    # upright with gentle curves (NOT strongly arching), forming a DENSE clump of many
+    # wide straps. Height variation + gentle varied curve = organic without the rigid
+    # radial star or the floppy-fountain look.
+    leaf_h = h * rng.uniform(0.98, 1.08)
+    n_blades = rng.randint(22, 28)
     for _i in range(n_blades):
         az = rng.uniform(0.0, math.tau)             # irregular — NOT evenly spaced
-        blade_h = leaf_h * rng.uniform(0.62, 1.0)   # strong height variation
-        arch = rng.uniform(0.10, 0.46)              # curvature: some near-straight, some arching
-        droop = rng.uniform(0.05, 0.32)
-        bx = rng.uniform(-0.04, 0.04)               # base spread — not one point
-        by = rng.uniform(-0.04, 0.04)
+        blade_h = leaf_h * rng.uniform(0.82, 1.05)  # tall — foliage overtops the spikes
+        arch = rng.uniform(0.04, 0.30)              # mostly upright, gentle splay
+        droop = rng.uniform(0.04, 0.24)
+        bx = rng.uniform(-0.055, 0.055)             # wider clump base — not one point
+        by = rng.uniform(-0.055, 0.055)
         cj = rng.uniform(-0.03, 0.03)               # per-blade color jitter
         make_frond(bm, Vector((bx, by, 0.0)),
-                   length=blade_h, width=0.042, segments=6,
+                   length=blade_h, width=0.05, segments=6,
                    arch=arch, droop=droop, angle_y=az,
                    color_base=(0.21 + cj, 0.39 + cj, 0.16),
                    color_tip=(0.36 + cj, 0.52 + cj, 0.22),
@@ -2131,16 +2150,17 @@ def make_cattail(seed=901, spike_stage="brown", height=2.0):
 
     # --- 2-4 culms, each LEANING in a random direction (real culms aren't dead-straight
     # ramrods) with the no-gap female+male spike riding the leaned top. ---
-    for _si in range(rng.randint(2, 4)):
+    for _si in range(rng.randint(3, 4)):
         ang = rng.uniform(0.0, math.tau)
         rad = rng.uniform(0.05, 0.11)
         ox, oy = rad * math.cos(ang), rad * math.sin(ang)
         lean_az = rng.uniform(0.0, math.tau)         # culm leans this way at the top
         lean = rng.uniform(0.05, 0.16)
         lx, ly = lean * math.cos(lean_az), lean * math.sin(lean_az)
-        crown = h * rng.uniform(0.74, 0.92)          # spike crown among the upper blades
+        # Refs: spike sits at ~60-70% of leaf height — blades clearly OVERTOP it.
+        crown = h * rng.uniform(0.56, 0.74)
         fem_top = crown - 0.06                        # ~6cm male above the female
-        fem_base = fem_top - rng.uniform(0.14, 0.20)  # female "hot-dog" 14-20cm
+        fem_base = fem_top - rng.uniform(0.15, 0.21)  # female "hot-dog" 15-21cm
         mal_top = crown + rng.uniform(0.0, 0.03)
 
         # curved/leaning culm: lateral offset grows with height (∝ t²)
@@ -2148,17 +2168,18 @@ def make_cattail(seed=901, spike_stage="brown", height=2.0):
         def _cy(t): return oy + ly * t * t
         stalk_pts = [Vector((_cx(i / 6.0), _cy(i / 6.0), (fem_base + 0.02) * (i / 6.0)))
                      for i in range(7)]
-        make_tube(bm, stalk_pts, 0.010, 0.007, 5,
+        make_tube(bm, stalk_pts, 0.010, 0.007, 7,
                   (0.34, 0.52, 0.18), (0.40, 0.56, 0.20), uv, co, 0.0, 0.45)
 
         tx, ty = ox + lx, oy + ly                     # culm top (leaned) XY
-        # female cylinder ("hot-dog"), near-constant radius
+        # female cylinder ("hot-dog") — 12-sided (round, not octagonal) + capped ends so
+        # it reads as a solid cigar with a top and bottom, not a hollow open tube.
         fpts = [Vector((tx, ty, fem_base + (fem_top - fem_base) * (i / 5.0))) for i in range(6)]
-        make_tube(bm, fpts, fem_r, fem_r, 8, fem0, fem1, uv, co, 0.55, 0.80)
+        make_tube(bm, fpts, fem_r, fem_r, 12, fem0, fem1, uv, co, 0.55, 0.80, cap=True)
 
         # male section directly on top — NO gap (the T. latifolia ID), tapering to a point
         mpts = [Vector((tx, ty, fem_top + (mal_top - fem_top) * (i / 4.0))) for i in range(5)]
-        make_tube(bm, mpts, fem_r * 0.62, 0.002, 7, mal0, mal1, uv, co, 0.80, 0.95)
+        make_tube(bm, mpts, fem_r * 0.62, 0.003, 10, mal0, mal1, uv, co, 0.80, 0.95, cap=True)
 
     return bm
 
