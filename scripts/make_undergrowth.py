@@ -2124,16 +2124,33 @@ def make_cattail(seed=901, spike_stage="brown", height=2.0):
     for _i in range(n_blades):
         az = rng.uniform(0.0, math.tau)             # irregular — NOT evenly spaced
         blade_h = leaf_h * rng.uniform(0.82, 1.05)  # tall — foliage overtops the spikes
-        arch = rng.uniform(0.04, 0.30)              # mostly upright, gentle splay
-        droop = rng.uniform(0.04, 0.24)
+        # Reconciled data: reference photos (ground truth) + FNA ("leaves quite flexible")
+        # show leaves that curve OUTWARD and droop at the tips. The botany doc's "strict
+        # vertical / no arching" describes the overall HABIT (a vertical wall, not an
+        # arching mound) and the stiff flower-STALK — not the leaves. So: upright at the
+        # base, real curve + flexible droop toward the tips, varied per blade (inner
+        # straighter, outer/taller ones curving more). NOT a floppy fountain.
+        arch = rng.uniform(0.05, 0.28)
+        droop = rng.uniform(0.14, 0.42)
         bx = rng.uniform(-0.055, 0.055)             # wider clump base — not one point
         by = rng.uniform(-0.055, 0.055)
-        cj = rng.uniform(-0.03, 0.03)               # per-blade color jitter
+        # Color = GLAUCOUS grey/blue-green (verified: FNA describes the blade as glaucous;
+        # reference_photos/cattail confirm a muted blue-green/grey-green, NOT a saturated
+        # grass-green — the internal botany doc's "true grass-green, NOT blue-green" is an
+        # unverified/likely-hallucinated claim, overridden by FNA + photos). Variation is
+        # VALUE + how strong the waxy bloom (grey) reads; ~12% of blades yellow at the tip
+        # (older leaves; July is pre-fall, so few). Seasonal browning is Oct+.
+        val = rng.uniform(-0.045, 0.05)             # light/dark
+        glauc = rng.uniform(0.0, 0.07)              # waxy grey-blue bloom amount
+        base = (0.16 + val + glauc, 0.30 + val, 0.18 + val + glauc)
+        if rng.random() < 0.12:
+            tip = (0.42 + val, 0.42 + val, 0.20)            # older blade — yellowing tip
+        else:
+            tip = (0.26 + val + glauc, 0.43 + val, 0.24 + glauc)
         make_frond(bm, Vector((bx, by, 0.0)),
                    length=blade_h, width=0.05, segments=6,
                    arch=arch, droop=droop, angle_y=az,
-                   color_base=(0.21 + cj, 0.39 + cj, 0.16),
-                   color_tip=(0.36 + cj, 0.52 + cj, 0.22),
+                   color_base=base, color_tip=tip,
                    uv_layer=uv, col_layer=co)
 
     # --- Spike colors by maturity stage ---
@@ -2158,7 +2175,9 @@ def make_cattail(seed=901, spike_stage="brown", height=2.0):
         rad = rng.uniform(0.05, 0.11)
         ox, oy = rad * math.cos(ang), rad * math.sin(ang)
         lean_az = rng.uniform(0.0, math.tau)         # culm leans this way at the top
-        lean = rng.uniform(0.05, 0.16)
+        # Data: the flowering culm is STIFF / nearly rigid (botany doc: holds the cylinder
+        # "quite rigid, sways minimally") — only a slight lean, unlike the flexible leaves.
+        lean = rng.uniform(0.02, 0.10)
         lx, ly = lean * math.cos(lean_az), lean * math.sin(lean_az)
         # Refs: spike sits at ~60-70% of leaf height — blades clearly OVERTOP it.
         crown = h * rng.uniform(0.56, 0.74)

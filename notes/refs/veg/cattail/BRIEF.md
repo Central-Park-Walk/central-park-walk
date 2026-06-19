@@ -1,5 +1,15 @@
 # BRIEF — Broadleaf Cattail (Typha latifolia)
 
+> **⚠ VERIFICATION (2026-06-18):** this brief was compiled by an earlier Claude prone to
+> hallucination — treat unsourced claims as suspect ([[feedback_verify_internal_botany]]).
+> Verified corrections against FNA + USDA FEIS + `reference_photos/cattail/`:
+> • Leaves are **glaucous grey/blue-green** (FNA + photos), NOT the "true grass-green, NOT
+>   blue-green" claimed in §4 below.
+> • Leaves are **"quite flexible"** (FNA) and visibly **curve/arch + droop at the tips**
+>   in the photos — the "never arching / never bending / strict vertical" in §1/§6 is the
+>   overall HABIT + the stiff flower-STALK, NOT the leaves. Model curving, flexible leaves.
+> • Density: **~21 ramets/m² sheltered, ~10 open** (FEIS) — see §3.
+>
 > Per-species reference brief. The falsifiable target the visual DoD is judged against.
 > Method: [`docs/vegetation_modeling.md`](../../../docs/vegetation_modeling.md);
 > non-tree application: [`docs/undergrowth_model_redesign.md`](../../../docs/undergrowth_model_redesign.md).
