@@ -193,16 +193,19 @@ def _lerp_color(c0, c1, t, alpha=1.0):
 
 def make_tube(bm, points, r_start, r_end, n_sides, color_start, color_end,
               uv_layer, col_layer, uv_y_start=0.0, uv_y_end=1.0, alpha=0.0,
-              cap=False):
+              cap=False, radii=None):
     """Create a tube mesh along a list of points. Returns list of vertex rings.
     alpha: vertex color alpha — 0.0 for stem (shader bark path), 1.0 for leaf.
     cap: close the first and last ring with n-gon end caps (solid ends, e.g. the
-    cattail cigar) — winding is irrelevant since the undergrowth shader is cull_disabled."""
+    cattail cigar) — winding is irrelevant since the undergrowth shader is cull_disabled.
+    radii: optional per-point radius list (len == len(points)); overrides r_start/r_end,
+    e.g. a rounded-end profile for the cigar (faces are flat-shaded by finalize's
+    normal blend, so smoothness comes from side count + a rounded profile)."""
     rings = []
     n = len(points)
     for i, pt in enumerate(points):
         t = i / max(n - 1, 1)
-        r = r_start + (r_end - r_start) * t
+        r = radii[i] if radii is not None else r_start + (r_end - r_start) * t
         uv_y = uv_y_start + (uv_y_end - uv_y_start) * t
         col = _lerp_color(color_start, color_end, t, alpha=alpha)
 
@@ -2172,14 +2175,29 @@ def make_cattail(seed=901, spike_stage="brown", height=2.0):
                   (0.34, 0.52, 0.18), (0.40, 0.56, 0.20), uv, co, 0.0, 0.45)
 
         tx, ty = ox + lx, oy + ly                     # culm top (leaned) XY
-        # female cylinder ("hot-dog") — 12-sided (round, not octagonal) + capped ends so
-        # it reads as a solid cigar with a top and bottom, not a hollow open tube.
-        fpts = [Vector((tx, ty, fem_base + (fem_top - fem_base) * (i / 5.0))) for i in range(6)]
-        make_tube(bm, fpts, fem_r, fem_r, 12, fem0, fem1, uv, co, 0.55, 0.80, cap=True)
+        # female cylinder ("hot-dog"): 18-sided with a ROUNDED radius profile (tapered
+        # round bottom into the stalk, full body, gently rounded top) so it reads as a
+        # smooth cigar, not a faceted hollow tube. (finalize flat-shades faces, so
+        # roundness comes from the side count + this profile, not smooth normals.)
+        nf = 9
+        fpts = [Vector((tx, ty, fem_base + (fem_top - fem_base) * (i / (nf - 1.0))))
+                for i in range(nf)]
+        f_rad = []
+        for i in range(nf):
+            ft = i / (nf - 1.0)
+            if ft <= 0.16:        # rounded bottom: 0 -> full
+                rf = math.sin(ft / 0.16 * math.pi * 0.5)
+            elif ft >= 0.86:      # gently rounded top: full -> ~0.5 (male emerges here)
+                rf = 0.5 + 0.5 * math.sin((1.0 - ft) / 0.14 * math.pi * 0.5)
+            else:
+                rf = 1.0
+            f_rad.append(fem_r * rf)
+        make_tube(bm, fpts, fem_r, fem_r, 18, fem0, fem1, uv, co, 0.55, 0.80,
+                  cap=True, radii=f_rad)
 
         # male section directly on top — NO gap (the T. latifolia ID), tapering to a point
         mpts = [Vector((tx, ty, fem_top + (mal_top - fem_top) * (i / 4.0))) for i in range(5)]
-        make_tube(bm, mpts, fem_r * 0.62, 0.003, 10, mal0, mal1, uv, co, 0.80, 0.95, cap=True)
+        make_tube(bm, mpts, fem_r * 0.5, 0.003, 14, mal0, mal1, uv, co, 0.80, 0.95, cap=True)
 
     return bm
 

@@ -202,11 +202,13 @@ const WOODLAND_SPECIES: Array = [
 # woodland overlay so the thin shoreline fringe is placed despite the coarse
 # dominant-zone map dropping it.
 const WATERSIDE_SPECIES: Array = [
-	[25, 6.0],  # cattail (dense water's-edge colony, BRIEF §2/§8). NOTE: density +
-	            # WATERSIDE_MAX_DIST are UNVALIDATED for perf — headless fps is an Xvfb
-	            # artifact; tune after a real-display scripts/perf_gate.sh run.
+	[25, 14.0],  # cattail — DENSE water's-edge colony wall (BRIEF §2/§8). Bumped from 6
+	             # (user: too sparse 2026-06-18). User confirmed >50fps headroom; the
+	             # undergrowth overlay measured ~0.01ms in-engine, so density is cheap.
 ]
-const WATER_EDGE_CELLS: int = 6  # atlas cells (~3.6m @ 0.61m/cell) max dist to water
+const WATER_EDGE_CELLS: int = 10  # atlas cells (~6m @ 0.61m/cell) max dist to water —
+                                  # widened from 6 so the shoreline fringe is a band,
+                                  # not a thin line (user: too sparse 2026-06-18)
 # Waterside emergents are tall transparent cards and a lakeshore can ring the whole
 # visible water, so cull them before the general undergrowth range as a precaution
 # against shoreline-panorama overdraw. PRECAUTIONARY/untuned — the real cost must be
