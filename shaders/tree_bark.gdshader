@@ -173,14 +173,18 @@ void fragment() {
 		// smoothstep = sharp exfoliation edges, not soft blobs) and a 4-tone
 		// high-contrast palette (pale cream-green / olive / gray-brown / dark old).
 		// Large peeling plates — vertically biased (plates run along the trunk).
-		float pl_yz = fbm(puv_yz * vec2(0.85, 0.5), 4);
-		float pl_xz = fbm(puv_xz * vec2(0.85, 0.5), 4);
-		float pl_xy = fbm(puv_xy * vec2(0.85, 0.5), 4);
+		// Frequency tuned so a plate spans ~30-40cm: a 0.3-0.6m plane bole reads
+		// as a JIGSAW of several patches, not one slow band (the old 0.85/m made
+		// each plate ~1.2m — bigger than the trunk — so it read as a plain
+		// tan cylinder, 2026-06-19 eval).
+		float pl_yz = fbm(puv_yz * vec2(2.4, 1.5), 4);
+		float pl_xz = fbm(puv_xz * vec2(2.4, 1.5), 4);
+		float pl_xy = fbm(puv_xy * vec2(2.4, 1.5), 4);
 		float plate = pl_yz * tri_w.x + pl_xz * tri_w.y + pl_xy * tri_w.z;
-		// Medium patches breaking up the plates (offset frequency).
-		float pm_yz = fbm(puv_yz * vec2(2.4, 1.7) + vec2(31.0, 7.0), 3);
-		float pm_xz = fbm(puv_xz * vec2(2.4, 1.7) + vec2(31.0, 7.0), 3);
-		float pm_xy = fbm(puv_xy * vec2(2.4, 1.7) + vec2(31.0, 7.0), 3);
+		// Medium patches breaking up the plates (~15cm, offset frequency).
+		float pm_yz = fbm(puv_yz * vec2(6.0, 4.2) + vec2(31.0, 7.0), 3);
+		float pm_xz = fbm(puv_xz * vec2(6.0, 4.2) + vec2(31.0, 7.0), 3);
+		float pm_xy = fbm(puv_xy * vec2(6.0, 4.2) + vec2(31.0, 7.0), 3);
 		float patchm = pm_yz * tri_w.x + pm_xz * tri_w.y + pm_xy * tri_w.z;
 
 		// High-contrast plane palette (col base ~cream-gray).
@@ -190,12 +194,15 @@ void fragment() {
 		vec3 dark_old    = col * vec3(0.50, 0.50, 0.46);  // darkest retained outer bark
 
 		// Crisp patch zones (narrow transitions = peeling-plate edges).
-		float zfresh = smoothstep(0.54, 0.62, plate);         // big fresh plates
-		float zolive = smoothstep(0.46, 0.53, patchm);        // olive medium patches
+		// Lower thresholds = more of the bole is cream/olive (not base brown),
+		// so the camouflage actually dominates the trunk instead of peeking
+		// through occasionally.
+		float zfresh = smoothstep(0.46, 0.56, plate);         // big fresh plates
+		float zolive = smoothstep(0.40, 0.50, patchm);        // olive medium patches
 		float zdark  = smoothstep(0.30, 0.36, 1.0 - plate);   // dark old remnants
 		col = gray_brown;
 		col = mix(col, dark_old, zdark * 0.7);
-		col = mix(col, olive_green, zolive * 0.7);
+		col = mix(col, olive_green, zolive * 0.85);
 		col = mix(col, fresh_cream, zfresh);
 
 		// Upper trunk/branches read smoother and paler on a real plane.
@@ -300,8 +307,12 @@ void fragment() {
 	float tex_rough = tr_yz * tri_w.x + tr_xz * tri_w.y + tr_xy * tri_w.z;
 
 	// Blend: procedural provides structure + per-tree variation,
-	//        texture provides photographic surface detail
-	col = mix(col, col * tex_albedo * 2.2, tex_blend);  // multiply-blend preserves procedural tone
+	//        texture provides photographic surface detail.
+	// Style 2 (london plane camouflage) keeps the photo's relief (normal/rough)
+	// but takes much less of its COLOR — the grey-brown exfoliating photo was
+	// multiplying the cream/olive jigsaw back down to a muddy tan (2026-06-19).
+	float col_tex_blend = (bark_style == 2) ? tex_blend * 0.35 : tex_blend;
+	col = mix(col, col * tex_albedo * 2.2, col_tex_blend);  // multiply-blend preserves procedural tone
 	rough = mix(rough, tex_rough, tex_blend * 0.6);
 	vec3 final_normal_perturb = mix(bark_normal_perturb, tex_nrm * 0.4, tex_blend);
 	NORMAL = normalize(NORMAL + final_normal_perturb * 2.5);
