@@ -172,19 +172,24 @@ void fragment() {
 		// pale fresh bark beneath. Two patch scales + CRISP boundaries (narrow
 		// smoothstep = sharp exfoliation edges, not soft blobs) and a 4-tone
 		// high-contrast palette (pale cream-green / olive / gray-brown / dark old).
-		// Large peeling plates — vertically biased (plates run along the trunk).
-		// Frequency tuned so a plate spans ~30-40cm: a 0.3-0.6m plane bole reads
-		// as a JIGSAW of several patches, not one slow band (the old 0.85/m made
-		// each plate ~1.2m — bigger than the trunk — so it read as a plain
-		// tan cylinder, 2026-06-19 eval).
-		float pl_yz = fbm(puv_yz * vec2(2.4, 1.5), 4);
-		float pl_xz = fbm(puv_xz * vec2(2.4, 1.5), 4);
-		float pl_xy = fbm(puv_xy * vec2(2.4, 1.5), 4);
+		// Peeling plates ~30-45cm: a 0.3-0.6m plane bole reads as a JIGSAW of
+		// several patches, not one slow band. ISOTROPIC frequency (was vertically
+		// biased 2.4×1.5 — that stretched patches into long vertical STREAKS that
+		// ran the whole bole; user 2026-06-19 "no straight lines that go very far").
+		// A low-freq domain warp wanders the plate boundaries so no edge stays
+		// straight for long.
+		float wf = 1.1;  // warp noise frequency (world m)
+		vec2 w_yz = (vec2(vnoise(puv_yz * wf), vnoise(puv_yz * wf + vec2(19.1, 3.7))) - 0.5) * 0.30;
+		vec2 w_xz = (vec2(vnoise(puv_xz * wf), vnoise(puv_xz * wf + vec2(19.1, 3.7))) - 0.5) * 0.30;
+		vec2 w_xy = (vec2(vnoise(puv_xy * wf), vnoise(puv_xy * wf + vec2(19.1, 3.7))) - 0.5) * 0.30;
+		float pl_yz = fbm((puv_yz + w_yz) * 2.2, 4);
+		float pl_xz = fbm((puv_xz + w_xz) * 2.2, 4);
+		float pl_xy = fbm((puv_xy + w_xy) * 2.2, 4);
 		float plate = pl_yz * tri_w.x + pl_xz * tri_w.y + pl_xy * tri_w.z;
-		// Medium patches breaking up the plates (~15cm, offset frequency).
-		float pm_yz = fbm(puv_yz * vec2(6.0, 4.2) + vec2(31.0, 7.0), 3);
-		float pm_xz = fbm(puv_xz * vec2(6.0, 4.2) + vec2(31.0, 7.0), 3);
-		float pm_xy = fbm(puv_xy * vec2(6.0, 4.2) + vec2(31.0, 7.0), 3);
+		// Medium patches breaking up the plates (~16cm, isotropic, warped, offset).
+		float pm_yz = fbm((puv_yz + w_yz) * 5.5 + vec2(31.0, 7.0), 3);
+		float pm_xz = fbm((puv_xz + w_xz) * 5.5 + vec2(31.0, 7.0), 3);
+		float pm_xy = fbm((puv_xy + w_xy) * 5.5 + vec2(31.0, 7.0), 3);
 		float patchm = pm_yz * tri_w.x + pm_xz * tri_w.y + pm_xy * tri_w.z;
 
 		// High-contrast plane palette (col base ~cream-gray).
@@ -208,10 +213,12 @@ void fragment() {
 		// Upper trunk/branches read smoother and paler on a real plane.
 		col = mix(col, fresh_cream, smoothstep(3.0, 11.0, local_h) * 0.35);
 
-		// Recessed exfoliation crack at the plate boundary.
+		// Recessed exfoliation crack at the plate boundary. Softened (was 0.30/0.8)
+		// so the boundary reads as a peel seam, not a hard dark LINE running the
+		// length of the bole (user 2026-06-19).
 		float edge = 1.0 - smoothstep(0.0, 0.05, abs(plate - 0.58));
-		col *= (1.0 - edge * 0.30);
-		furrow = 1.0 - edge * 0.8;
+		col *= (1.0 - edge * 0.16);
+		furrow = 1.0 - edge * 0.45;
 		// Fine fleck mottle within patches.
 		float mi_yz = vnoise(puv_yz * vec2(9.0, 7.0));
 		float mi_xz = vnoise(puv_xz * vec2(9.0, 7.0));
