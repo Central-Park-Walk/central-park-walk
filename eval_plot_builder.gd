@@ -22,8 +22,13 @@
 const TreeBuilderScript := preload("res://tree_builder.gd")
 const UndergrowthScript := preload("res://undergrowth_builder.gd")
 
-# main.gd default spawn for eval runs: south edge, facing north up the rows
-const SPAWN := Vector3(-99.0, 360.0, 308.0)  # x, yaw_degrees, z
+# main.gd default spawn for eval runs. Sits in the CENTRAL Great Lawn ellipse
+# (oval center ≈ X-99 Z173), a short viewing distance south of the stand-mode
+# clusters, facing north. User 2026-06-19: eval models live at the ellipse
+# centre and that central area is the default spawn (was the far south edge
+# Z308, 158m from the specimens). Single-species STAND mode is the primary
+# use; in grid (--eval-plot=all) mode this puts the camera mid-lineup.
+const SPAWN := Vector3(-99.0, 360.0, 213.0)  # x, yaw_degrees, z
 
 # Grid-mode layout
 const TREE_ROW_Z0 := 50.0      # northernmost tree row
@@ -36,11 +41,13 @@ const UG_COLS := 8
 const UG_COL_X0 := -179.0
 const UG_COL_DX := 26.0
 
-# Stand-mode layout (single matched species)
-const STAND_TREE_ROW_Z := 150.0    # 5 size-graded specimens
-const STAND_TREE_GROVE_Z := 80.0   # 3×3 grove at natural spacing
-const STAND_UG_ROW_Z := 290.0      # 5 size-graded specimens near spawn
-const STAND_UG_STAND_Z := 262.0    # natural-density stand behind them
+# Stand-mode layout (single matched species) — clustered at the ellipse centre
+# (Z≈173), viewed from SPAWN (Z213) facing north. Trees + undergrowth stand
+# bands never coexist (single-species mode), so both centre on the same spot.
+const STAND_TREE_ROW_Z := 173.0    # 5 size-graded specimens — ellipse centre
+const STAND_TREE_GROVE_Z := 145.0  # 3×3 grove behind (north of) the row
+const STAND_UG_ROW_Z := 196.0      # 5 size-graded specimens, near (17m from spawn)
+const STAND_UG_STAND_Z := 174.0    # natural-density stand behind them
 const STAND_X := -99.0
 
 # Display name, census species key. Order = stature, tallest rows northmost
