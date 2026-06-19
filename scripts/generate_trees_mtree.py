@@ -1126,6 +1126,12 @@ SPECIES = {
             "branch_start": [0.24, 0.34],  # bole height
         },
         "tiers": {
+            # Young street/lawn planes are ~1/3 of the census (327 <6" DBH, 222
+            # 6-12"; 2026-06-19). Sapling: dominant straight leader, sparse open
+            # crown, juvenile pyramidal habit, fewer/shorter limbs.
+            "s": {"target_h": 9, "height_range": [7, 13], "skeleton_overrides": {
+                "branch_density": 0.7, "branch_split_prob": 0.30, "sub_density": 0.35,
+                "branch_start": 0.40}},
             "m": {"target_h": 22, "height_range": [15, 25], "skeleton_overrides": {
                 "branch_density": 1.0, "branch_split_prob": 0.5, "sub_density": 0.85}},
             "l": {"target_h": 30, "height_range": [25, 35]},
