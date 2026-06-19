@@ -36,6 +36,7 @@ uniform float use_texture = 0.0;  // 1.0 = read albedo+alpha from albedo_tex
 uniform float roughness_base : hint_range(0.3, 1.0) = 0.82;
 uniform float specular_base : hint_range(0.0, 0.5) = 0.04;
 uniform float translucency : hint_range(0.0, 1.5) = 0.5;
+uniform float leaf_senescence : hint_range(0.0, 1.0) = 0.0;  // per-blade tan-brown variation (cattail)
 
 // Stem rendering — procedural bark when COLOR.a < 0.5 (stem vertex)
 uniform vec3 stem_color : source_color = vec3(0.30, 0.25, 0.15);
@@ -179,13 +180,24 @@ void fragment() {
 	float broad = vnoise(v_world_pos.xz / 10.0);
 	col *= mix(0.88, 1.12, broad);
 
-	// Blade-scale shade variation (LEAVES only): a dense clump shows many shades —
-	// bright sunlit, mid, dark-shadowed, glaucous. World-pos noise at ~30 cm so
-	// neighbouring blades differ in value + warmth, instead of one flat uniform shade.
+	// Blade-scale shade + senescence variation (LEAVES only). CRITICAL: this must key off
+	// frag_world (the true per-FRAGMENT world position), NOT v_world_pos — v_world_pos is
+	// instance_origin, i.e. per-CLUMP, so every blade in a clump rendered identically and
+	// read "too clean and neat" (user 2026-06-19). frag_world differs blade-to-blade (each
+	// blade sits at its own xz) and drifts gently along a blade, so a dense clump now shows
+	// many shades — bright sunlit, mid, dark-shadowed, glaucous — like real foliage.
 	if (is_stem < 0.5) {
-		float blade_n = vnoise(v_world_pos.xz * 3.3 + vec2(7.0, 3.0));
-		col *= mix(0.76, 1.20, blade_n);
-		col = mix(col, col * vec3(1.12, 1.05, 0.80), blade_n * 0.35);
+		float blade_n = vnoise(frag_world.xz * 2.1 + vec2(7.0, 3.0));
+		col *= mix(0.74, 1.18, blade_n);
+		col = mix(col, col * vec3(1.14, 1.05, 0.78), blade_n * 0.35);
+		// Senescence: a minority of blades (and streaks within them) go tan-brown. Gated
+		// by per-species leaf_senescence so only species that really senesce visibly in
+		// summer (cattail) get it — others (default 0) are untouched.
+		if (leaf_senescence > 0.001) {
+			float sen_n = vnoise(frag_world.xz * 5.3 + frag_world.y * 1.1 + vec2(2.0, 9.0));
+			float sen = smoothstep(0.60, 0.93, sen_n) * leaf_senescence;
+			col = mix(col, col * vec3(1.06, 0.80, 0.42), sen);
+		}
 	}
 
 	// ---- AO from vertex height ----

@@ -2095,6 +2095,78 @@ def make_bottlebrush_grass():
 # Species: WETLAND
 # ==========================================================================
 
+def make_cattail_blade(bm, origin, length, width, angle_y, arch, droop,
+                       bend_pos, twist, jitter_amp, rng,
+                       color_base, color_tip, uv_layer, col_layer, segments=9):
+    """One cattail strap-leaf with ORGANIC, per-blade-randomized curvature.
+
+    Unlike make_frond (a single uniform smooth arc — reads as a too-neat fan), this:
+      • stands ~vertical below `bend_pos` then bends OUTWARD increasingly above it, so
+        the kink/inflection sits at a different HEIGHT on every blade (bend_pos varies
+        ~normally across a clump);
+      • applies a tip `droop` that pulls the very top back down (the flop real wide
+        straps get) independent of where the main bend is;
+      • TWISTS the flat strap along its length (ribbon turn: broadside→edge-on), so the
+        blade catches light differently up its length instead of reading as a flat card;
+      • adds a damped random-walk micro-`jitter` so the curve isn't a perfect parabola.
+    The point (user 2026-06-19): organic = every measure randomized within bounds on a
+    normal distribution, complex enough to read as chaos. UVs/colors as make_frond."""
+    ca, sa = math.cos(angle_y), math.sin(angle_y)
+    # horizontal perpendicular to the blade's azimuth (the un-twisted width direction)
+    perp_x, perp_y = -sa, ca
+    verts = []
+    jx = jy = 0.0          # accumulated micro-jitter (random walk)
+    vjx = vjy = 0.0        # jitter "velocity" — damped so it wanders, doesn't run away
+    for i in range(segments + 1):
+        t = i / segments
+        # vertical rise; droop pulls the tip back down (t^3 → only the top bends over)
+        rise = length * (0.80 * t - droop * t * t * t)
+        # lateral curve: gentle lean below bend_pos, accelerating outward above it
+        if t <= bend_pos:
+            latf = (t / bend_pos) * 0.18 if bend_pos > 1e-4 else 0.0
+        else:
+            u = (t - bend_pos) / (1.0 - bend_pos)
+            latf = 0.18 + (u ** 1.8) * 0.82
+        out = length * arch * latf
+        # damped random-walk jitter (perp + radial), scales away to ~0 at the rigid base
+        vjx = vjx * 0.55 + rng.gauss(0.0, jitter_amp)
+        vjy = vjy * 0.55 + rng.gauss(0.0, jitter_amp)
+        jx += vjx * t
+        jy += vjy * t
+        cx = origin.x + ca * out + jx
+        cy = origin.y + sa * out + jy
+        cz = origin.z + rise
+
+        # Nearly parallel-sided: the leaf-area study gives Sf = 0.965·L·W (blade fills 96.5%
+        # of its L×W rectangle), so a cattail strap barely narrows until the very tip — the
+        # texture's tip_sharp makes the point, not the card. (Old 0.72 double-tapered.)
+        fw = width * (1.0 - t * 0.28) * 0.5
+        tw = twist * t                      # ribbon twist grows toward the tip
+        cw = math.cos(tw)
+        wx = perp_x * fw * cw
+        wy = perp_y * fw * cw
+        wz = fw * math.sin(tw)              # vertical component = the strap turning edge-on
+
+        col = _lerp_color(color_base, color_tip, t)
+        vl = bm.verts.new((cx + wx, cy + wy, cz + wz))
+        vr = bm.verts.new((cx - wx, cy - wy, cz - wz))
+        verts.append((vl, vr, t, col))
+
+    for i in range(segments):
+        vl0, vr0, uv0, c0 = verts[i]
+        vl1, vr1, uv1, c1 = verts[i + 1]
+        try:
+            f = bm.faces.new([vl0, vr0, vr1, vl1])
+            uv_map = {id(vl0): (0.0, uv0), id(vr0): (1.0, uv0),
+                      id(vr1): (1.0, uv1), id(vl1): (0.0, uv1)}
+            for loop in f.loops:
+                loop[uv_layer].uv = uv_map[id(loop.vert)]
+                loop[col_layer] = c0 if loop.vert in (vl0, vr0) else c1
+        except ValueError:
+            pass
+    return verts
+
+
 def make_cattail(seed=901, spike_stage="brown", height=2.0):
     """Cattail (Typha latifolia) — broadleaf, 1.5-3m. BRIEF: notes/refs/veg/cattail.
     Identity (BRIEF §1/§6): a STRICT-VERTICAL, unbranched strap-leaf shoot topped by
@@ -2120,20 +2192,56 @@ def make_cattail(seed=901, spike_stage="brown", height=2.0):
     # wide straps. Height variation + gentle varied curve = organic without the rigid
     # radial star or the floppy-fountain look.
     leaf_h = h * rng.uniform(0.98, 1.08)
-    n_blades = rng.randint(22, 28)
+    # RAMETS: a clump is NOT a single rooted point — it is several shoots (ramets) arising
+    # from spreading rhizomes every 10-20 cm (BRIEF §2, FEIS), each its own leaf tuft (and
+    # sometimes a catkin). Emerging every blade from one tight centre read as a pinched VASE
+    # (user 2026-06-19: "clumps too vase-shaped ... leaves and stems a little farther
+    # apart"). Spreading the ramet bases 10-20 cm apart is both data-correct AND breaks the
+    # vase. Each blade belongs to a ramet and scatters tightly around its base.
+    n_ramets = rng.randint(4, 6)
+    ramet_bases = []
+    for _r in range(n_ramets):
+        rang = rng.uniform(0.0, math.tau)
+        rrad = 0.03 + abs(rng.gauss(0.0, 0.075))    # ~3-20 cm from centre (rhizome spacing)
+        ramet_bases.append((rrad * math.cos(rang), rrad * math.sin(rang)))
+    n_blades = rng.randint(32, 40)              # denser thatch (was 22-28): file.jpg reference
+                                                # shows a FULL packed tuft, not a sparse splay
     for _i in range(n_blades):
+        rb = ramet_bases[rng.randrange(n_ramets)]   # this blade belongs to one ramet tuft
         az = rng.uniform(0.0, math.tau)             # irregular — NOT evenly spaced
-        blade_h = leaf_h * rng.uniform(0.82, 1.05)  # tall — foliage overtops the spikes
+        # Size variation is NORMALLY distributed (user 2026-06-19): the bulk of blades fall
+        # within ~1 SD of the mean, with the occasional taller/shorter outlier — NOT a flat
+        # uniform spread. gauss() gives exactly that (~68% within 1 SD). Clamped low so no
+        # degenerate near-zero blades.
+        blade_h = leaf_h * max(0.62, rng.gauss(0.935, 0.105))  # mean ~0.935·clump, SD 0.105
         # Reconciled data: reference photos (ground truth) + FNA ("leaves quite flexible")
         # show leaves that curve OUTWARD and droop at the tips. The botany doc's "strict
         # vertical / no arching" describes the overall HABIT (a vertical wall, not an
         # arching mound) and the stiff flower-STALK — not the leaves. So: upright at the
         # base, real curve + flexible droop toward the tips, varied per blade (inner
         # straighter, outer/taller ones curving more). NOT a floppy fountain.
-        arch = rng.uniform(0.05, 0.28)
-        droop = rng.uniform(0.14, 0.42)
-        bx = rng.uniform(-0.055, 0.055)             # wider clump base — not one point
-        by = rng.uniform(-0.055, 0.055)
+        # ORGANIC curvature — every blade-shape measure is gauss(mean, sd) over a band
+        # DERIVED FROM DATA, not eyeballed (user 2026-06-19: "a band derived from data").
+        # Sources: FNA + GoBotany (dims), the leaf-area study Sf=0.965·L·W (shape), the
+        # micro-CT "lightweight cantilever beam" finding (mechanics), and a measured single-
+        # clump splay profile traced off file.jpg (the endorsed target). Derivations:
+        #  • arch (tip lateral / length): file.jpg clump half-width/height ≈ 0.2+ (clipped,
+        #    so a floor) → outer blades deflect ~0.2·L. Mean 0.21, SD 0.11; clamp 0.04
+        #    (near-upright inner blade) .. 0.52 (strongly arched outer/old blade).
+        #  • bend_pos (height where outward bend begins): file.jpg reaches ~max splay by
+        #    ~40% height → bend onset low-middle, but the sheath-clasped base (FNA) + a
+        #    cantilever's rigid root keep it off the floor. Mean 0.40, SD 0.13; clamp 0.20..0.65.
+        #  • droop (extra tip drop, t^3): a self-loaded cantilever beam deflects tip-first
+        #    (micro-CT study). Mean 0.12, SD 0.09; clamp 0.0 .. 0.40.
+        #  • twist (ribbon turn, rad): flat strap w/ semilunate section turns broadside↔edge;
+        #    no published number — photo-observed envelope. Mean 0, SD 0.40; clamp ±1.0.
+        arch     = min(0.52, max(0.04, rng.gauss(0.21, 0.11)))
+        bend_pos = min(0.65, max(0.20, rng.gauss(0.40, 0.13)))
+        droop    = min(0.40, max(0.00, rng.gauss(0.12, 0.09)))
+        twist    = max(-1.0, min(1.0, rng.gauss(0.0, 0.40)))
+        jit      = blade_h * rng.uniform(0.004, 0.010)            # micro-wander per step
+        bx = rb[0] + rng.gauss(0.0, 0.022)          # tight local scatter around this ramet
+        by = rb[1] + rng.gauss(0.0, 0.022)
         # Color = GLAUCOUS grey/blue-green (verified: FNA describes the blade as glaucous;
         # reference_photos/cattail confirm a muted blue-green/grey-green, NOT a saturated
         # grass-green — the internal botany doc's "true grass-green, NOT blue-green" is an
@@ -2147,12 +2255,17 @@ def make_cattail(seed=901, spike_stage="brown", height=2.0):
             tip = (0.42 + val, 0.42 + val, 0.20)            # older blade — yellowing tip
         else:
             tip = (0.26 + val + glauc, 0.43 + val, 0.24 + glauc)
-        bw = rng.uniform(0.038, 0.062)              # per-blade width — varied sizes
-        make_frond(bm, Vector((bx, by, 0.0)),
-                   length=blade_h, width=bw, segments=6,
-                   arch=arch, droop=droop, angle_y=az,
-                   color_base=base, color_tip=tip,
-                   uv_layer=uv, col_layer=co)
+        # Width DATA-DERIVED: FNA widest-blade 10-23(-29)mm on a 150-300cm plant (GoBotany)
+        # → leaf width/height ratio 0.0033..0.015, mean ~0.0067. The texture leaf fills only
+        # max_w=0.42 of the card width, so card width = visible/0.42 → ratio mean 0.016,
+        # band 0.008..0.034. Tied to this blade's height (width & length co-scale with vigor).
+        bw = blade_h * min(0.034, max(0.008, rng.gauss(0.016, 0.005)))
+        make_cattail_blade(bm, Vector((bx, by, 0.0)),
+                           length=blade_h, width=bw, angle_y=az,
+                           arch=arch, droop=droop, bend_pos=bend_pos,
+                           twist=twist, jitter_amp=jit, rng=rng,
+                           color_base=base, color_tip=tip,
+                           uv_layer=uv, col_layer=co, segments=9)
 
     # --- Spike colors by maturity stage ---
     if spike_stage == "green":
@@ -2169,12 +2282,14 @@ def make_cattail(seed=901, spike_stage="brown", height=2.0):
         mal0, mal1 = (0.56, 0.44, 0.24), (0.66, 0.56, 0.34)
         fem_r = 0.024
 
-    # --- 2-4 culms, each LEANING in a random direction (real culms aren't dead-straight
-    # ramrods) with the no-gap female+male spike riding the leaned top. ---
-    for _si in range(rng.randint(3, 4)):
-        ang = rng.uniform(0.0, math.tau)
-        rad = rng.uniform(0.05, 0.11)
-        ox, oy = rad * math.cos(ang), rad * math.sin(ang)
+    # --- Catkins ride a SUBSET of the ramets — not every shoot flowers (many are vegetative;
+    # the 3D-model refs show 2-4 catkins among many leaf shoots). One culm per flowering
+    # ramet, rooted at THAT ramet's base so its catkin sits over its own leaf tuft. Each
+    # LEANS in a random direction (real culms aren't dead-straight ramrods). ---
+    n_catkins = rng.randint(2, 4)
+    flowering = rng.sample(range(n_ramets), min(n_catkins, n_ramets))
+    for ri in flowering:
+        ox, oy = ramet_bases[ri]
         lean_az = rng.uniform(0.0, math.tau)         # culm leans this way at the top
         # Data: the flowering culm is STIFF / nearly rigid (botany doc: holds the cylinder
         # "quite rigid, sways minimally") — only a slight lean, unlike the flexible leaves.

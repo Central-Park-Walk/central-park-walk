@@ -380,8 +380,12 @@ SPECIES = {
     # ── WETLAND ──
     "Wetland_Cattail": {
         "size": (96, 512),                  # very narrow sword blade
-        "base_color": (90, 146, 80),        # fresh-to-glaucous green (aquatic ref shows
-                                            # lively greens; glaucous banding adds grey zones)
+        "base_color": (118, 150, 72),       # MEASURED from reference_photos/cattail (2026-06-19):
+                                            # pooled leaf median (102,145,54), aquatic-cluster ref
+                                            # (129,153,81). Real foliage is a WARM yellow-green
+                                            # (high R, low B), NOT cool blue-green. Prior (90,146,80)
+                                            # was too blue. Glaucous banding (below) adds the grey-
+                                            # blue FNA zones on top of this warm base.
         "widest_pos": 0.15,                 # widest near base
         "max_w": 0.42,
         "base_w": 0.38,                     # nearly as wide at base
@@ -395,6 +399,13 @@ SPECIES = {
         "noise_std": 8,                     # tonal mottle (was 3 — read flat)
         "striations": 18,                   # fine longitudinal venation (de-plastics)
         "glaucous_amt": 0.40,               # waxy grey-blue banding
+        # Imperfections (user 2026-06-19: "the leaves are too clean and pretty"). Real
+        # cattail blades carry tan senescence spots and dry browned tips. Refs:
+        # reference_photos/cattail show flecking + browned tips even on summer foliage.
+        "blemish_amt": 0.55,                # strength of brown senescence spots
+        "blemish_count": 9,                 # number of scattered spots
+        "tip_brown": 0.85,                  # fraction up the blade where the dry tip starts
+        "brown_color": (110, 84, 46),       # tan-brown senescence / dry-tip target
     },
     "Wetland_YellowIris": {
         "size": (96, 512),
@@ -728,6 +739,28 @@ def generate_leaf(species_name, sp):
 
     striations = sp.get("striations", 0)       # fine longitudinal veins (linear blades)
     glaucous_amt = sp.get("glaucous_amt", 0.0)  # waxy grey-blue bloom banding
+
+    # Imperfection layer: scattered tan senescence spots + a dry browned tip. Defaults off
+    # so other species are untouched. Spots are elongated along the blade (narrow in x).
+    blemish_amt = sp.get("blemish_amt", 0.0)
+    blemish_count = sp.get("blemish_count", 0)
+    tip_brown = sp.get("tip_brown", 1.0)        # 1.0 = no tip browning
+    brown_col = sp.get("brown_color", (110, 84, 46))
+    spots = []
+    if blemish_amt > 0.0 and blemish_count > 0:
+        # Rejection-sample spot centres ONTO the filled leaf silhouette — earlier spots fell
+        # in the transparent margins of the narrow blade and never showed (user 2026-06-19:
+        # "leaves still look clean"). Bias toward the upper blade where senescence starts.
+        tries = 0
+        while len(spots) < blemish_count and tries < blemish_count * 40:
+            tries += 1
+            sxp = rng.randint(0, W - 1)
+            syp = rng.randint(int(H * 0.05), H - 1)
+            if pixels[sxp, syp][3] > 0:                     # must be on the leaf body
+                spots.append((float(sxp), float(syp),
+                              rng.uniform(0.035, 0.11) * H,  # radius (along-blade)
+                              rng.uniform(0.55, 1.0)))       # per-spot intensity
+
     for y in range(H):
         for x in range(W):
             r, g, b, a = pixels[x, y]
@@ -763,6 +796,27 @@ def generate_leaf(species_name, sp):
                 r2 = int(min(255, max(0, r + nx + mod * 50 + gl * 28)))
                 g2 = int(min(255, max(0, g + ny + mod * 64 + gl * 20)))
                 b2 = int(min(255, max(0, b + nx * 0.4 - edge_dark * 15 + gl * 24)))
+
+                # Imperfections: brown amount from the dry tip + any senescence spot
+                if blemish_amt > 0.0 or tip_brown < 1.0:
+                    br = 0.0
+                    if t_along > tip_brown:
+                        br = (t_along - tip_brown) / (1.0 - tip_brown) * 0.9
+                    for sx, sy, sr_, inten in spots:
+                        ddx = (x - sx) / (sr_ * 0.42)   # x tighter — blade is narrow
+                        ddy = (y - sy) / sr_
+                        d2 = ddx * ddx + ddy * ddy
+                        if d2 < 1.0:
+                            br = max(br, (1.0 - d2) * inten * blemish_amt)
+                    if br > 0.0:
+                        r2 = int(r2 + (brown_col[0] - r2) * br)
+                        g2 = int(g2 + (brown_col[1] - g2) * br)
+                        b2 = int(b2 + (brown_col[2] - b2) * br)
+                        if br > 0.30:               # dry zones are rougher/noisier
+                            j = rng.gauss(0, 11)
+                            r2 = int(min(255, max(0, r2 + j)))
+                            g2 = int(min(255, max(0, g2 + j * 0.8)))
+                            b2 = int(min(255, max(0, b2 + j * 0.5)))
 
                 pixels[x, y] = (r2, g2, b2, a)
 

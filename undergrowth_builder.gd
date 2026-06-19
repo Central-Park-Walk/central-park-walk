@@ -122,7 +122,7 @@ const SPECIES := [
 	# geometry is painted with stem_color (vertex color is ignored for stems), and the
 	# spike is stem-tagged — so this IS the spike color. The thin culms read tan/brown
 	# too, which is correct. The blades are leaf-tagged (textured), so they stay green.
-	{name="Wetland_Cattail", v=3, s=[0.8, 1.25], flex=0.30, green=0, fall=[0.55, 0.45, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.40, 0.24, 0.12], sr=0.80, trans=0.82},
+	{name="Wetland_Cattail", v=3, s=[0.8, 1.25], flex=0.30, green=0, fall=[0.55, 0.45, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.52, 0.36, 0.24], sr=0.80, trans=0.82, sen=0.55},
 	# 26: Yellow Iris (Iris pseudacorus) — 1.2m, bright yellow flowers, wet meadow
 	{name="Wetland_YellowIris", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.55, 0.48, 0.10], fc=[0.88, 0.82, 0.10], bl=[0.6, 1.2], sc=[0.20, 0.30, 0.10], sr=0.76},
 	# 27: Lizard's Tail (Saururus cernuus) — 0.9m, drooping white spikes, stream edge
@@ -202,14 +202,16 @@ const WOODLAND_SPECIES: Array = [
 # woodland overlay so the thin shoreline fringe is placed despite the coarse
 # dominant-zone map dropping it.
 const WATERSIDE_SPECIES: Array = [
-	[25, 20.0],  # cattail — DENSE clone-patch colony (BRIEF §2/§8). Tuned to real Typha
-	             # density (FEIS ~15-21 shoots/m² sheltered); placed in discrete 3-5m
-	             # clone patches (see clustering in _build_chunk). User confirmed >50fps
-	             # headroom; the undergrowth overlay measured ~0.01ms in-engine.
+	[25, 44.0],  # cattail — DENSE clone-patch colony (BRIEF §2/§8). Data-fit to real Typha:
+	             # discrete 3-5m clone patches (CLUSTERS) at ~15-21 ramets/m² (FEIS sheltered).
+	             # density 44 → ~3 clusters/shoreline-chunk × ~59 clumps → ~16 ramets/m² in-patch
+	             # (derivation in _build_chunk). Confirmed perf headroom (low-30s fps with trees,
+	             # 50s without); the clump model is parsimonious at ~1.5k tris.
 ]
-const WATER_EDGE_CELLS: int = 10  # atlas cells (~6m @ 0.61m/cell) max dist to water —
-                                  # widened from 6 so the shoreline fringe is a band,
-                                  # not a thin line (user: too sparse 2026-06-18)
+const WATER_EDGE_CELLS: int = 12  # atlas cells (~7m @ 0.61m/cell) max dist to water — the
+                                  # fringe still has INLAND DEPTH (not a 1D line) but groups are
+                                  # pulled back toward dry land via the land-biased anchor below
+                                  # (user 2026-06-19: "the group is a bit too far from dry land").
 # Waterside emergents are tall transparent cards and a lakeshore can ring the whole
 # visible water, so cull them before the general undergrowth range as a precaution
 # against shoreline-panorama overdraw. PRECAUTIONARY/untuned — the real cost must be
@@ -799,22 +801,54 @@ func _build_chunk(ck: String) -> void:
 		var s_lo: float = sp.s[0]
 		var s_hi: float = sp.s[1]
 
-		# Waterside emergents grow in TIGHT rhizome clusters, not even scatter (user
-		# 2026-06-18: "more tightly clustered, many more in a cluster"). Seed a few
-		# near-water centres and pack all the shoots tightly around them.
-		# Sized to real Typha clone patches: 3-5m diameter, ~15-21 shoots/m² (FEIS:
-		# 21 ramets/m² sheltered, 10 open), discrete patches with gaps between them.
+		# PLACEMENT — data-fit (user 2026-06-19: "be sure placement fits the data, as well as
+		# cluster size and density"). Terminology (user): a CLUMP = one model instance — a
+		# rhizome knot of ~3-4 ramets (3-4 catkins + ~36 blades, confirmed by the new 3D-model
+		# refs); a CLUSTER = a clone patch = a group of clumps.
+		# Data (FEIS Typha latifolia + GoBotany + BRIEF §3):
+		#   • clone patch (CLUSTER) = discrete 3-5 m diameter, with GAPS between patches.
+		#   • shoot (ramet) density in a sheltered stand ~15-21 /m² (CP shores = dense end).
+		# Derivation: at ~3.4 ramets per clump → 4.4-6 clumps/m²; a 4 m patch (~12.5 m²) holds
+		# ~55-75 clumps. So: seed a FEW land-biased clusters per shoreline chunk (discrete,
+		# with gaps) and pack each to that density. With WATERSIDE density 44 → target≈176,
+		# n_clusters≈3 → ~59 clumps each → ~4.7 clumps/m² → ~16 ramets/m² (inside FEIS band).
+		# Each cluster: [centre:Vector2, radius:float (clone-patch radius), weight:float].
 		var clusters: Array = []
+		var weight_sum := 0.0
 		if entry_require_water:
-			var n_clusters := clampi(int(round(target / 22.0)), 1, 4)
-			for _ci in range(n_clusters):
-				for _try in range(20):
-					var klx := cx + rng.randf() * CHUNK
-					var klz := cz + rng.randf() * CHUNK
-					if _near_water(int((klx + _atlas_half) * _atlas_scale),
-							int((klz + _atlas_half) * _atlas_scale)):
-						clusters.append(Vector2(klx, klz))
-						break
+			var n_clusters := clampi(int(round(target / 60.0)), 1, 3)
+			for _c in range(n_clusters):
+				# Anchor BIASED toward dry land: among near-water tries keep the one with the
+				# most grass around it, so the patch roots on solid margin not out over water.
+				var ax := 0.0
+				var az := 0.0
+				var found := false
+				var best_land := -1
+				for _try in range(24):
+					var tx := cx + rng.randf() * CHUNK
+					var tz := cz + rng.randf() * CHUNK
+					var tpx := int((tx + _atlas_half) * _atlas_scale)
+					var tpz := int((tz + _atlas_half) * _atlas_scale)
+					if not _near_water(tpx, tpz): continue
+					var land := 0
+					for ddx in range(-6, 7, 3):
+						for ddz in range(-6, 7, 3):
+							var nx := tpx + ddx
+							var nz := tpz + ddz
+							if nx >= 0 and nx < _atlas_res and nz >= 0 and nz < _atlas_res:
+								if _atlas_data[(nz * _atlas_res + nx) * 2] == 1:
+									land += 1
+					if land > best_land:
+						best_land = land
+						ax = tx
+						az = tz
+						found = true
+				if not found: continue
+				# clone-patch radius 1.5-2.5 m → 3-5 m diameter (FEIS); per-patch size varies
+				var radius: float = clampf(rng.randfn(2.0, 0.5), 1.5, 2.5)
+				var weight: float = clampf(rng.randfn(1.0, 0.4), 0.4, 2.0)
+				clusters.append([Vector2(ax, az), radius, weight])
+				weight_sum += weight
 			if clusters.is_empty(): continue  # no shoreline found in this chunk
 
 		for _attempt in int(target * 3):
@@ -825,9 +859,25 @@ func _build_chunk(ck: String) -> void:
 				bx = cx + rng.randf() * CHUNK
 				bz = cz + rng.randf() * CHUNK
 			else:
-				var kc: Vector2 = clusters[rng.randi() % clusters.size()]
-				bx = kc.x + rng.randfn(0.0, 0.9)  # ~3-4m clone-patch spread
-				bz = kc.y + rng.randfn(0.0, 0.9)
+				# Weighted pick — bigger-weight patches get proportionally more clumps
+				var r := rng.randf() * weight_sum
+				var kc: Vector2 = clusters[0][0]
+				var krad: float = clusters[0][1]
+				for c in clusters:
+					r -= c[2]
+					if r <= 0.0:
+						kc = c[0]
+						krad = c[1]
+						break
+				# sd = radius/2 → ~95% of clumps fall within the clone-patch radius. BOUND the
+				# offset to the patch edge: real clone patches have a defined edge (rhizomes
+				# expand as a front), so no far-flung singleton clumps — the unbounded Gaussian
+				# tail produced lone clumps 2-3× the radius out (user 2026-06-19).
+				var off := Vector2(rng.randfn(0.0, krad * 0.5), rng.randfn(0.0, krad * 0.5))
+				if off.length() > krad * 1.15:
+					off = off.normalized() * krad * 1.15
+				bx = kc.x + off.x
+				bz = kc.y + off.y
 
 			# Atlas check — must be grass, with 1.5m buffer from paths
 			var apx: int = int((bx + _atlas_half) * _atlas_scale)
@@ -1030,6 +1080,7 @@ func _load_model(sp_name: String) -> Mesh:
 		mat.set_shader_parameter("roughness_base", sp_cfg.get("rough", 0.82))
 		mat.set_shader_parameter("specular_base", sp_cfg.get("spec", 0.04))
 		mat.set_shader_parameter("translucency", sp_cfg.get("trans", 0.5))
+		mat.set_shader_parameter("leaf_senescence", sp_cfg.get("sen", 0.0))
 		var sc: Array = sp_cfg.get("sc", [0.30, 0.25, 0.15])
 		mat.set_shader_parameter("stem_color", Color(sc[0], sc[1], sc[2]))
 		mat.set_shader_parameter("stem_roughness", sp_cfg.get("sr", 0.92))
