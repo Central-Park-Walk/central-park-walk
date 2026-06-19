@@ -202,9 +202,10 @@ const WOODLAND_SPECIES: Array = [
 # woodland overlay so the thin shoreline fringe is placed despite the coarse
 # dominant-zone map dropping it.
 const WATERSIDE_SPECIES: Array = [
-	[25, 14.0],  # cattail — DENSE water's-edge colony wall (BRIEF §2/§8). Bumped from 6
-	             # (user: too sparse 2026-06-18). User confirmed >50fps headroom; the
-	             # undergrowth overlay measured ~0.01ms in-engine, so density is cheap.
+	[25, 20.0],  # cattail — DENSE clone-patch colony (BRIEF §2/§8). Tuned to real Typha
+	             # density (FEIS ~15-21 shoots/m² sheltered); placed in discrete 3-5m
+	             # clone patches (see clustering in _build_chunk). User confirmed >50fps
+	             # headroom; the undergrowth overlay measured ~0.01ms in-engine.
 ]
 const WATER_EDGE_CELLS: int = 10  # atlas cells (~6m @ 0.61m/cell) max dist to water —
                                   # widened from 6 so the shoreline fringe is a band,
@@ -798,10 +799,35 @@ func _build_chunk(ck: String) -> void:
 		var s_lo: float = sp.s[0]
 		var s_hi: float = sp.s[1]
 
+		# Waterside emergents grow in TIGHT rhizome clusters, not even scatter (user
+		# 2026-06-18: "more tightly clustered, many more in a cluster"). Seed a few
+		# near-water centres and pack all the shoots tightly around them.
+		# Sized to real Typha clone patches: 3-5m diameter, ~15-21 shoots/m² (FEIS:
+		# 21 ramets/m² sheltered, 10 open), discrete patches with gaps between them.
+		var clusters: Array = []
+		if entry_require_water:
+			var n_clusters := clampi(int(round(target / 22.0)), 1, 4)
+			for _ci in range(n_clusters):
+				for _try in range(20):
+					var klx := cx + rng.randf() * CHUNK
+					var klz := cz + rng.randf() * CHUNK
+					if _near_water(int((klx + _atlas_half) * _atlas_scale),
+							int((klz + _atlas_half) * _atlas_scale)):
+						clusters.append(Vector2(klx, klz))
+						break
+			if clusters.is_empty(): continue  # no shoreline found in this chunk
+
 		for _attempt in int(target * 3):
 			if placed >= target: break
-			var bx: float = cx + rng.randf() * CHUNK
-			var bz: float = cz + rng.randf() * CHUNK
+			var bx: float
+			var bz: float
+			if clusters.is_empty():
+				bx = cx + rng.randf() * CHUNK
+				bz = cz + rng.randf() * CHUNK
+			else:
+				var kc: Vector2 = clusters[rng.randi() % clusters.size()]
+				bx = kc.x + rng.randfn(0.0, 0.9)  # ~3-4m clone-patch spread
+				bz = kc.y + rng.randfn(0.0, 0.9)
 
 			# Atlas check — must be grass, with 1.5m buffer from paths
 			var apx: int = int((bx + _atlas_half) * _atlas_scale)

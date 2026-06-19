@@ -54,8 +54,16 @@ dense vertical-strap stand that is the whole identity.
 
 ## 3. Density
 - **Bucket:** opaque as a colony (the stand is a wall); each shoot is a few wide blades.
-- **Real number:** 15–30 shoots/m² in dense patches; clones spread 0.5–0.7 m/yr,
-  3–5 m diameter ([[reference-cp-botany-full]] / wetland doc §1).
+- **Real number:** **~21 ramets/m² in sheltered monotypic stands, ~10 ramets/m² in open
+  wind-exposed marsh** (USDA FEIS *Typha latifolia*, Lawrence Lake MI; mixed stands ~32%
+  lower than monoculture). Project prior figure 15–30 shoots/m² is consistent. Clones
+  spread 0.5–0.7 m/yr into **discrete 3–5 m-diameter patches** with gaps between them —
+  NOT a continuous even fringe. CP's sheltered pond/lake edges → the dense end (~15–21/m²).
+  No CP-specific count published (2026-06-18 web search); use the FEIS figures.
+- **Placement model (in-engine):** discrete **clone patches** — seed a few near-water
+  cluster centres per shoreline chunk, pack shoots in a ~3–4 m spread (each model instance
+  ≈ 3–4 real shoots: it carries 3–4 spikes + ~22–28 blades). See `undergrowth_builder.gd`
+  WATERSIDE_SPECIES + `_build_chunk` clustering.
 - **Light transmission:** very low through a mature stand — you cannot see through it.
 
 ## 4. Detail
