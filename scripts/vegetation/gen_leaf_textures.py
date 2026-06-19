@@ -380,8 +380,8 @@ SPECIES = {
     # ── WETLAND ──
     "Wetland_Cattail": {
         "size": (96, 512),                  # very narrow sword blade
-        "base_color": (92, 134, 88),        # GLAUCOUS grey-SAGE green (FNA + photos) —
-                                            # neutral grey-green, not teal/blue, not flat
+        "base_color": (90, 146, 80),        # fresh-to-glaucous green (aquatic ref shows
+                                            # lively greens; glaucous banding adds grey zones)
         "widest_pos": 0.15,                 # widest near base
         "max_w": 0.42,
         "base_w": 0.38,                     # nearly as wide at base
@@ -392,7 +392,7 @@ SPECIES = {
         "vein_count": 4,                    # parallel veins
         "vein_angle": 8,                    # nearly parallel
         "gloss": 0.07,                      # matte-waxy, not glossy plastic
-        "noise_std": 6,                     # more tonal mottle (was 3 — read flat)
+        "noise_std": 8,                     # tonal mottle (was 3 — read flat)
         "striations": 18,                   # fine longitudinal venation (de-plastics)
         "glaucous_amt": 0.40,               # waxy grey-blue banding
     },

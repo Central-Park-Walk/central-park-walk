@@ -179,6 +179,15 @@ void fragment() {
 	float broad = vnoise(v_world_pos.xz / 10.0);
 	col *= mix(0.88, 1.12, broad);
 
+	// Blade-scale shade variation (LEAVES only): a dense clump shows many shades —
+	// bright sunlit, mid, dark-shadowed, glaucous. World-pos noise at ~30 cm so
+	// neighbouring blades differ in value + warmth, instead of one flat uniform shade.
+	if (is_stem < 0.5) {
+		float blade_n = vnoise(v_world_pos.xz * 3.3 + vec2(7.0, 3.0));
+		col *= mix(0.76, 1.20, blade_n);
+		col = mix(col, col * vec3(1.12, 1.05, 0.80), blade_n * 0.35);
+	}
+
 	// ---- AO from vertex height ----
 	// Gentle darkening at ground contact to anchor plants without making small
 	// species invisible. Raised floor from 0.30→0.55 so lawn accent plants

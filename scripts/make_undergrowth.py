@@ -2147,8 +2147,9 @@ def make_cattail(seed=901, spike_stage="brown", height=2.0):
             tip = (0.42 + val, 0.42 + val, 0.20)            # older blade — yellowing tip
         else:
             tip = (0.26 + val + glauc, 0.43 + val, 0.24 + glauc)
+        bw = rng.uniform(0.038, 0.062)              # per-blade width — varied sizes
         make_frond(bm, Vector((bx, by, 0.0)),
-                   length=blade_h, width=0.05, segments=6,
+                   length=blade_h, width=bw, segments=6,
                    arch=arch, droop=droop, angle_y=az,
                    color_base=base, color_tip=tip,
                    uv_layer=uv, col_layer=co)
