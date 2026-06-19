@@ -82,10 +82,19 @@ dense vertical-strap stand that is the whole identity.
 - **Leaf / cluster:** flat, linear, strap-like, **very wide 10–25 mm** (broadest of any
   grass-like wetland plant — the broadleaf ID); matte green above, glaucous gray-green
   below; D-shaped cross-section; tapers to a point.
-- **Summer color:** true medium grass-green · **Fall:** straw-yellow → brown (Oct);
-  dead leaves persist upright then shred. · **Bloom:** `fc=[0,0,0]` — the showy feature is
-  the **brown cylindrical spike** (10–20 cm, no gap male/female), green June → dark
-  chocolate-brown Jul–Aug, persisting and bursting to cotton fluff through winter.
+- **Summer color:** glaucous grey/blue-green (FNA + photos — NOT flat grass-green; see
+  verification header) · **Fall:** straw-yellow → brown (Oct); dead leaves persist upright
+  then shred.
+- **Catkin lifecycle (PLANNED phenology, refs in `reference_photos/cattail/`):** the spike
+  is `fc=[0,0,0]` (not a shader "flower" — it's the brown cylinder via `stem_color`).
+  States: **green** (immature, June) → **dark chocolate-brown velvety/fuzzy** (mature,
+  Jul–Aug; `the-catkin…`, `serene-topdown…`) → **progressively white & cottony** as it
+  bursts, brown cylinder with cream cotton erupting from sections (`the-catkin-on-a-cattail-
+  plant-going-to-seed`) → **fully white/fluffy** (`cattail.jpg` has one whited catkin in a
+  cluster) → **seeds fly off one at a time** → spent bare spike. Build: Layer 1 = textured
+  catkin + season_t blend through these states (rides the textured-stem path); Layer 2 =
+  ambient wind-borne white seed-fluff particles near stands in late season (reuse rain/snow
+  particle system). De-plastic the **stalk + catkin** via the same textured-stem path.
 
 ## 5. Behavior
 - **Wind character:** **rigid vertical sway, stiffness 7/10** (`flex=0.30` — consistent;

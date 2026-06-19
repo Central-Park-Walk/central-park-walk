@@ -380,8 +380,8 @@ SPECIES = {
     # ── WETLAND ──
     "Wetland_Cattail": {
         "size": (96, 512),                  # very narrow sword blade
-        "base_color": (78, 128, 86),        # GLAUCOUS grey/blue-green (FNA + photos),
-                                            # not a flat saturated grass-green
+        "base_color": (92, 134, 88),        # GLAUCOUS grey-SAGE green (FNA + photos) —
+                                            # neutral grey-green, not teal/blue, not flat
         "widest_pos": 0.15,                 # widest near base
         "max_w": 0.42,
         "base_w": 0.38,                     # nearly as wide at base
@@ -756,10 +756,13 @@ def generate_leaf(species_name, sp):
                 gl = (((math.sin((x / W) * 6.3 + t_along * 9.0) * 0.5 + 0.5)) * glaucous_amt) \
                     if glaucous_amt else 0.0
 
-                mod = highlight - edge_dark + tip_grad + stri
-                r2 = int(min(255, max(0, r + nx + mod * 45 + gl * 34)))
-                g2 = int(min(255, max(0, g + ny + mod * 60 + gl * 16)))
-                b2 = int(min(255, max(0, b + nx * 0.4 - edge_dark * 15 + gl * 40)))
+                # broad low-freq value banding for depth (light/shadow along the blade)
+                vband = math.sin(t_along * 5.0 + (x / W) * 1.5) * 0.05
+                mod = highlight - edge_dark + tip_grad + stri + vband
+                # glaucous adds a balanced grey (R≈B), only slightly cool — NOT teal
+                r2 = int(min(255, max(0, r + nx + mod * 50 + gl * 28)))
+                g2 = int(min(255, max(0, g + ny + mod * 64 + gl * 20)))
+                b2 = int(min(255, max(0, b + nx * 0.4 - edge_dark * 15 + gl * 24)))
 
                 pixels[x, y] = (r2, g2, b2, a)
 

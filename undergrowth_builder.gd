@@ -122,7 +122,7 @@ const SPECIES := [
 	# geometry is painted with stem_color (vertex color is ignored for stems), and the
 	# spike is stem-tagged — so this IS the spike color. The thin culms read tan/brown
 	# too, which is correct. The blades are leaf-tagged (textured), so they stay green.
-	{name="Wetland_Cattail", v=3, s=[0.8, 1.25], flex=0.30, green=0, fall=[0.55, 0.45, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.40, 0.24, 0.12], sr=0.80},
+	{name="Wetland_Cattail", v=3, s=[0.8, 1.25], flex=0.30, green=0, fall=[0.55, 0.45, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.40, 0.24, 0.12], sr=0.80, trans=0.82},
 	# 26: Yellow Iris (Iris pseudacorus) — 1.2m, bright yellow flowers, wet meadow
 	{name="Wetland_YellowIris", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.55, 0.48, 0.10], fc=[0.88, 0.82, 0.10], bl=[0.6, 1.2], sc=[0.20, 0.30, 0.10], sr=0.76},
 	# 27: Lizard's Tail (Saururus cernuus) — 0.9m, drooping white spikes, stream edge
