@@ -314,6 +314,8 @@ func _parse_cli_args() -> void:
 			_diag_shadow_census = true
 		elif arg == "--screenshot":
 			_auto_screenshot = true
+		elif arg == "--park":
+			_force_park = true  # force the plain park (skip the default eval garden)
 	# Legacy trigger: sniffing --quit-after stopped working when the engine
 	# began stripping recognized flags from OS.get_cmdline_args() (found
 	# 2026-06-10 on 4.6.1 — loop never matches). Use `-- --screenshot`.
@@ -321,6 +323,20 @@ func _parse_cli_args() -> void:
 		if earg.begins_with("--quit-after"):
 			_auto_screenshot = true
 			break
+	# Default dev launch: a no-flag run drops into the single-species eval garden
+	# in the Great Lawn (user 2026-06-19). Suppressed by any explicit mode —
+	# --pos, --walk, --tour/--shots, --terrain-only, --screenshot, or --park
+	# (the escape hatch back to the plain park walk).
+	if _eval_plot == "" and not _force_park and not _cli_pos_set and not _walk_bot \
+			and not _terrain_only and not _auto_screenshot and _cli_shots_spec == "":
+		var _has_tour := false
+		for a in OS.get_cmdline_user_args():
+			if a in ["--tour", "--tour-showcase", "--readme-shots"]:
+				_has_tour = true
+				break
+		if not _has_tour:
+			_eval_plot = preload("res://eval_plot_builder.gd").DEFAULT_EVAL_SPECIES
+			print("No mode flag → default eval garden: %s (use --park for the plain park)" % _eval_plot)
 	# Eval plot: unless --pos was given, spawn at the plot's south edge
 	# facing north up the specimen rows (SPAWN is x, yaw_degrees, z).
 	if _eval_plot != "" and not _cli_pos_set:
@@ -507,6 +523,7 @@ var _hide_nodes_done := false
 var _labels_hidden_for_screenshot := false
 var _screenshot_counter := 0  # incrementing counter for F12 screenshots
 var _auto_screenshot := false  # only auto-capture when --quit-after is used
+var _force_park := false  # --park: skip the default eval garden, load the plain park
 var _screenshot_file := "/tmp/godot_screenshot.png"  # --screenshot-file=path overrides
 var _lt_screenshot_pending := false  # debounce for gamepad left trigger screenshots
 

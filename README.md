@@ -82,8 +82,12 @@ git clone --depth 1 --branch 4.5 https://github.com/godotengine/godot-cpp.git
 scons custom_api_file=extension_api.json -j$(nproc)
 cd ..
 
-/path/to/Godot_v4.6.1-stable_linux.x86_64 --path .
+/path/to/Godot_v4.6.1-stable_linux.x86_64 --path . -- --park
 ```
+
+> A bare launch (no flags) currently opens the **model evaluation garden** on the
+> Great Lawn (a labelled specimen plot used during the vegetation modeling pass).
+> Pass `-- --park` to walk the park itself.
 
 ### Controls
 
@@ -118,6 +122,7 @@ cd ..
 -- --tree-species=oak,maple  # Only place specific species (debug)
 -- --eval-plot         # Model evaluation plot on the Great Lawn (labelled specimen garden)
 -- --eval-plot=spicebush  # Single species → size-graded row + natural-density stand
+-- --park              # Walk the park (a bare no-flag launch defaults to the eval garden)
 ```
 
 ## What's In It

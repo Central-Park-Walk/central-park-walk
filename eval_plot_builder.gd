@@ -30,6 +30,11 @@ const UndergrowthScript := preload("res://undergrowth_builder.gd")
 # use; in grid (--eval-plot=all) mode this puts the camera mid-lineup.
 const SPAWN := Vector3(-99.0, 360.0, 213.0)  # x, yaw_degrees, z
 
+# Species a no-flag launch drops into (main.gd defaults --eval-plot to this when
+# no mode/pos flag is given; user 2026-06-19). Update per session to the species
+# under review. --park forces the plain park instead.
+const DEFAULT_EVAL_SPECIES := "london_plane"
+
 # Grid-mode layout
 const TREE_ROW_Z0 := 50.0      # northernmost tree row
 const TREE_ROW_DZ := 21.0
@@ -123,13 +128,23 @@ func inject_trees(trees: Array) -> int:
 	if _stand_mode:
 		var entry: Array = _sel_trees[0]
 		var hr: Array = TreeBuilderScript.HEIGHT_RANGES.get(entry[1], [10.0, 22.0])
-		# Size-graded row: 5 specimens spanning the species' height envelope
+		var tb: Array = TreeBuilderScript.TIER_BOUNDS.get(entry[1], [12.0, 20.0])
+		# Size-graded row: 5 specimens spanning the species' height envelope.
+		# Each specimen gets its own plaque (species + tier + height) like a
+		# botanical-garden label (user 2026-06-19: "label each model").
 		for i in 5:
 			var h: float = lerpf(float(hr[0]), float(hr[1]), float(i) / 4.0)
-			trees.append(_rec(STAND_X + (float(i) - 2.0) * 18.0, STAND_TREE_ROW_Z, entry[1], h))
+			var sx: float = STAND_X + (float(i) - 2.0) * 18.0
+			trees.append(_rec(sx, STAND_TREE_ROW_Z, entry[1], h))
 			added += 1
-		_labels.append(["%s — %d…%dm" % [entry[0], int(hr[0]), int(hr[1])],
-			Vector2(STAND_X, STAND_TREE_ROW_Z + 12.0), 6.0, 0.015])
+			# Short per-specimen plaque (tier · height); species name is the title.
+			# Alternate height a little so adjacent plaques don't visually collide.
+			var tier: String = "_s" if h <= float(tb[0]) else ("_m" if h <= float(tb[1]) else "_l")
+			_labels.append(["%s · %dm" % [tier, int(round(h))],
+				Vector2(sx, STAND_TREE_ROW_Z + 6.0), 3.0 + float(i % 2) * 1.6, 0.018])
+		# Big species title, raised above the row
+		_labels.append([entry[0],
+			Vector2(STAND_X, STAND_TREE_ROW_Z + 13.0), 11.0, 0.028])
 		# 3×3 grove at near-natural spacing — forest-coherence check
 		for gx in 3:
 			for gz in 3:
