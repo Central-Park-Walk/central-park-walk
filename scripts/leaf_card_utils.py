@@ -34,6 +34,7 @@ LEAF_SHAPES = {
     "elliptic":   (0.40, "smooth"),       # elm, linden, birch, cherry
     "lobed":      (0.75, "oak_lobes"),     # oak
     "palmate":    (0.85, "maple_lobes"),   # maple
+    "plane":      (1.05, "plane_lobes"),   # london plane: broad, wider than tall, shallow lobes
     "fan":        (0.90, "ginkgo_fan"),    # ginkgo
     "compound":   (0.20, "narrow"),        # honeylocust leaflets
     "ovate":      (0.50, "smooth"),        # magnolia, callery pear
@@ -59,6 +60,14 @@ def _leaf_edge_maple_lobes(angle, phase):
     return 0.55 + 0.45 * max(lobe, 0.0) ** 0.5
 
 
+def _leaf_edge_plane_lobes(angle, phase):
+    """London plane: broad palmate leaf, 5 SHALLOW lobes — maple-like but
+    coarser and shallower (wider than tall, blunt lobe tips). Shallower
+    cuts (0.70 base vs maple's 0.55) and broader plateaus (**0.8 vs **0.5)."""
+    lobe = math.sin(angle * 2.5 + phase)
+    return 0.70 + 0.30 * max(lobe, 0.0) ** 0.8
+
+
 def _leaf_edge_ginkgo_fan(angle, phase):
     """Fan-shaped ginkgo with notch."""
     fan = max(0.0, math.cos(angle * 0.5 + phase))
@@ -75,6 +84,7 @@ EDGE_FNS = {
     "smooth":      _leaf_edge_smooth,
     "oak_lobes":   _leaf_edge_oak_lobes,
     "maple_lobes": _leaf_edge_maple_lobes,
+    "plane_lobes": _leaf_edge_plane_lobes,
     "ginkgo_fan":  _leaf_edge_ginkgo_fan,
     "narrow":      _leaf_edge_narrow,
 }

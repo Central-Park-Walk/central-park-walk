@@ -1104,21 +1104,22 @@ SPECIES = {
         "sub_resolution": 1.0,
         "bark_color": (0.48, 0.45, 0.36),
         "bark_roughness": 0.75,
-        "leaf_shape": "lobed",
+        "leaf_shape": "plane",  # broad palmate, wider-than-tall, shallow 5-lobe (was "lobed"=oak edge fn — wrong, 2026-06-19)
         "leaf_n": 48,
         "leaf_tex_size": 1024,
         "leaf_seed": 447,
         "leaf_scale": 1.4,  # London plane ~15cm x 18 wide, palmate
         "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.45, 0.65),
-        "leaf_density": 0.8,  # canopy density (0-1, from real-world LAI)
-        "target_cluster_count_l": 900,  # LAI 5-6; major shade canopy, was dramatically undersized
+        "leaf_density": 0.85,  # LAI 4-6, "largest leaf area of any inner-London tree" — heavy shade (BRIEF §3)
+        "target_cluster_count_l": 1080,  # fuller crown — baseline read too open/airy vs dense-shade BRIEF (2026-06-19 eval)
+        "trunk_radius_factor": 1.12,  # stout, heavy plane bole (BRIEF §1)
         "base_seed": 200,
         "seed_step": 31,
         # High census (~1.7k, formal rows) → tiling visible; widen to 7. Variants span
         # crown width + bole height (free-form ↔ pollarded-knuckled span, BRIEF §7).
-        # NOTE: the camouflage bark — london_plane's hero identity — is a tree_bark.gdshader
-        # style, DEFERRED to wire-in (Fable ground rule: no tree-shader edits mid-flight).
+        # Camouflage bark = the hero identity, wired as tree_bark.gdshader Style 2
+        # (london_plane→bstyle 2 in tree_builder.gd); patch scale/coverage tuned 2026-06-19.
         "n_variants": 7,
         "variant_spans": {
             "branch_angle": [54, 66],     # crown spread
@@ -1126,7 +1127,7 @@ SPECIES = {
         },
         "tiers": {
             "m": {"target_h": 22, "height_range": [15, 25], "skeleton_overrides": {
-                "branch_density": 0.9, "branch_split_prob": 0.45, "sub_density": 0.7}},
+                "branch_density": 1.0, "branch_split_prob": 0.5, "sub_density": 0.85}},
             "l": {"target_h": 30, "height_range": [25, 35]},
         },
     },
@@ -1386,8 +1387,11 @@ def _build_mtree(sp, height, seed):
     trunk = m_tree.TrunkFunction()
     trunk.seed = seed
     trunk.length = height
-    trunk.start_radius = height * 0.018
-    trunk.end_radius = height * 0.005
+    # Per-species bole stoutness (default 1.0). London plane reads as a stout,
+    # heavy bole; thin-trunk species leave it at 1.0.
+    trunk_rf = sp.get("trunk_radius_factor", 1.0)
+    trunk.start_radius = height * 0.018 * trunk_rf
+    trunk.end_radius = height * 0.005 * trunk_rf
     trunk.shape = sp["trunk_shape"]
     trunk.up_attraction = sp["up_attraction"]
     trunk.resolution = sp["branch_resolution"]
