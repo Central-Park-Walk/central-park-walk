@@ -380,7 +380,8 @@ SPECIES = {
     # ── WETLAND ──
     "Wetland_Cattail": {
         "size": (96, 512),                  # very narrow sword blade
-        "base_color": (55, 130, 35),        # medium green
+        "base_color": (78, 128, 86),        # GLAUCOUS grey/blue-green (FNA + photos),
+                                            # not a flat saturated grass-green
         "widest_pos": 0.15,                 # widest near base
         "max_w": 0.42,
         "base_w": 0.38,                     # nearly as wide at base
@@ -390,8 +391,10 @@ SPECIES = {
         "wave": None,
         "vein_count": 4,                    # parallel veins
         "vein_angle": 8,                    # nearly parallel
-        "gloss": 0.10,
-        "noise_std": 3,
+        "gloss": 0.07,                      # matte-waxy, not glossy plastic
+        "noise_std": 6,                     # more tonal mottle (was 3 — read flat)
+        "striations": 18,                   # fine longitudinal venation (de-plastics)
+        "glaucous_amt": 0.40,               # waxy grey-blue banding
     },
     "Wetland_YellowIris": {
         "size": (96, 512),
@@ -723,6 +726,8 @@ def generate_leaf(species_name, sp):
     gloss = sp.get("gloss", 0.08)
     noise_std = sp.get("noise_std", 4)
 
+    striations = sp.get("striations", 0)       # fine longitudinal veins (linear blades)
+    glaucous_amt = sp.get("glaucous_amt", 0.0)  # waxy grey-blue bloom banding
     for y in range(H):
         for x in range(W):
             r, g, b, a = pixels[x, y]
@@ -743,10 +748,18 @@ def generate_leaf(species_name, sp):
                 # Slight tip-to-base gradient (tips slightly lighter)
                 tip_grad = t_along * 0.04
 
-                mod = highlight - edge_dark + tip_grad
-                r2 = int(min(255, max(0, r + nx + mod * 45)))
-                g2 = int(min(255, max(0, g + ny + mod * 60)))
-                b2 = int(min(255, max(0, b + nx * 0.4 - edge_dark * 15)))
+                # Fine longitudinal striations (parallel venation of strap blades) —
+                # a flat fill reads plastic; these give the leaf real surface structure.
+                stri = (math.sin((x / W) * math.pi * striations) * 0.12) if striations else 0.0
+                # Broad glaucous banding: desaturate toward grey-blue in soft bands that
+                # drift along the blade (the waxy bloom catching light unevenly).
+                gl = (((math.sin((x / W) * 6.3 + t_along * 9.0) * 0.5 + 0.5)) * glaucous_amt) \
+                    if glaucous_amt else 0.0
+
+                mod = highlight - edge_dark + tip_grad + stri
+                r2 = int(min(255, max(0, r + nx + mod * 45 + gl * 34)))
+                g2 = int(min(255, max(0, g + ny + mod * 60 + gl * 16)))
+                b2 = int(min(255, max(0, b + nx * 0.4 - edge_dark * 15 + gl * 40)))
 
                 pixels[x, y] = (r2, g2, b2, a)
 
