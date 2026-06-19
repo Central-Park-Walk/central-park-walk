@@ -118,14 +118,27 @@ def finalize_and_export(bm, name, mat=None):
     mesh = bpy.data.meshes.new(name)
     bm.to_mesh(mesh)
 
-    # Custom normals: blend face normal toward up for softer shading
+    # Custom split normals. LEAVES (flat cards) get the face normal tilted toward up for
+    # soft hemisphere card shading. STEMS — the tube geometry: stalk + catkin, tagged by
+    # vertex-colour alpha < 0.5 — get SMOOTH per-vertex normals so the cylinders read ROUND
+    # instead of faceted; the flat facets read as vertical stripes on the catkin and the
+    # stalk (user 2026-06-19). Tubes are separate geometry from leaves, so a stem vertex's
+    # averaged normal only blends stem faces.
+    up = Vector((0, 0, 1))
+    col_attr = mesh.color_attributes[0] if mesh.color_attributes else None
     normals = [(0, 0, 0)] * len(mesh.loops)
     for poly in mesh.polygons:
-        fn = Vector(poly.normal)
-        up = Vector((0, 0, 1))
-        n = fn.lerp(up, 0.35).normalized()
-        for li in poly.loop_indices:
-            normals[li] = tuple(n)
+        is_stem_face = False
+        if col_attr is not None:
+            is_stem_face = col_attr.data[poly.loop_indices[0]].color[3] < 0.5
+        if is_stem_face:
+            for li in poly.loop_indices:
+                vi = mesh.loops[li].vertex_index
+                normals[li] = tuple(mesh.vertices[vi].normal)
+        else:
+            n = Vector(poly.normal).lerp(up, 0.35).normalized()
+            for li in poly.loop_indices:
+                normals[li] = tuple(n)
     mesh.normals_split_custom_set(normals)
 
     obj = bpy.data.objects.new(name, mesh)
@@ -228,10 +241,15 @@ def make_tube(bm, points, r_start, r_end, n_sides, color_start, color_end,
             ring.append((v, uv_y, col))
         rings.append(ring)
 
-    # Connect rings
+    # Connect rings. UV.x now WRAPS around the circumference (j/n_sides) so a texture can be
+    # mapped around the tube — e.g. the cattail catkin (UV.x was a constant 0.5, which made
+    # texturing impossible). UV.y runs along the length. Stems don't sample UV.x in the shader
+    # except the gated cattail catkin path, so this is safe for all other species.
     for i in range(len(rings) - 1):
         for j in range(n_sides):
             j2 = (j + 1) % n_sides
+            u_a = float(j) / n_sides
+            u_b = float(j + 1) / n_sides          # not j2/n_sides — keeps the seam at 1.0, not 0.0
             v0, uv0, c0 = rings[i][j]
             v1, uv1, c1 = rings[i][j2]
             v2, uv2, c2 = rings[i + 1][j2]
@@ -239,12 +257,14 @@ def make_tube(bm, points, r_start, r_end, n_sides, color_start, color_end,
             try:
                 f = bm.faces.new([v0, v1, v2, v3])
                 for loop in f.loops:
-                    if loop.vert in (v0, v1):
-                        loop[uv_layer].uv = (0.5, uv0)
-                        loop[col_layer] = c0
-                    else:
-                        loop[uv_layer].uv = (0.5, uv3)
-                        loop[col_layer] = c3
+                    if loop.vert == v0:
+                        loop[uv_layer].uv = (u_a, uv0); loop[col_layer] = c0
+                    elif loop.vert == v1:
+                        loop[uv_layer].uv = (u_b, uv0); loop[col_layer] = c0
+                    elif loop.vert == v2:
+                        loop[uv_layer].uv = (u_b, uv3); loop[col_layer] = c3
+                    else:  # v3
+                        loop[uv_layer].uv = (u_a, uv3); loop[col_layer] = c3
             except ValueError:
                 pass
 
@@ -2268,19 +2288,23 @@ def make_cattail(seed=901, spike_stage="brown", height=2.0):
                            uv_layer=uv, col_layer=co, segments=9)
 
     # --- Spike colors by maturity stage ---
+    # fem_r = female-spike RADIUS, DATA-DERIVED: GoBotany/FNA female spike is 20-30mm wide
+    # → radius ~0.010-0.015 on a 2.5m model. Prior 0.024 (48mm) was ~1.6× too fat; the new
+    # 3D-model refs (reference_photos/cattail/cattail-3d-model-*.jpg) confirm a SLENDER cigar
+    # on a thin stalk with a thin GREEN male tip above. Colors now ride the vertex color
+    # (stem_use_vtx) so the green stalk / brown female / green male all read true in-engine.
     if spike_stage == "green":
         fem0, fem1 = (0.26, 0.38, 0.13), (0.32, 0.44, 0.16)   # immature green
         mal0, mal1 = (0.34, 0.46, 0.18), (0.46, 0.56, 0.24)
-        fem_r = 0.021
+        fem_r = 0.012
     elif spike_stage == "bursting":
         fem0, fem1 = (0.46, 0.36, 0.22), (0.62, 0.52, 0.40)   # paler, cottony burst
         mal0, mal1 = (0.50, 0.42, 0.28), (0.34, 0.28, 0.22)
-        fem_r = 0.028
-    else:  # brown (mature) — WARM cinnamon-brown (reads brown not black at range;
-           # the dark-chocolate value went near-black in-engine), fat enough to read
+        fem_r = 0.016
+    else:  # brown (mature) — WARM cinnamon-brown female; GREEN bare male tip above (refs)
         fem0, fem1 = (0.44, 0.27, 0.13), (0.52, 0.34, 0.18)
-        mal0, mal1 = (0.56, 0.44, 0.24), (0.66, 0.56, 0.34)
-        fem_r = 0.024
+        mal0, mal1 = (0.30, 0.42, 0.16), (0.38, 0.50, 0.22)   # green staminate tip
+        fem_r = 0.014
 
     # --- Catkins ride a SUBSET of the ramets — not every shoot flowers (many are vegetative;
     # the 3D-model refs show 2-4 catkins among many leaf shoots). One culm per flowering
@@ -2310,29 +2334,31 @@ def make_cattail(seed=901, spike_stage="brown", height=2.0):
                   (0.34, 0.52, 0.18), (0.40, 0.56, 0.20), uv, co, 0.0, 0.45)
 
         tx, ty = ox + lx, oy + ly                     # culm top (leaned) XY
-        # female cylinder ("hot-dog"): 18-sided with a ROUNDED radius profile (tapered
-        # round bottom into the stalk, full body, gently rounded top) so it reads as a
-        # smooth cigar, not a faceted hollow tube. (finalize flat-shades faces, so
-        # roundness comes from the side count + this profile, not smooth normals.)
-        nf = 9
+        # female cylinder ("hot-dog"): 18-sided with a ROUNDED radius profile — round bottom
+        # into the stalk, full body, and a proper rounded DOME closing the top (was a flat
+        # 0.5r cap that read as a recessed cup you could "see down into" — user 2026-06-19).
+        # finalize now gives the tube SMOOTH per-vertex normals, so it reads as a round cigar.
+        nf = 12
         fpts = [Vector((tx, ty, fem_base + (fem_top - fem_base) * (i / (nf - 1.0))))
                 for i in range(nf)]
         f_rad = []
         for i in range(nf):
             ft = i / (nf - 1.0)
-            if ft <= 0.16:        # rounded bottom: 0 -> full
-                rf = math.sin(ft / 0.16 * math.pi * 0.5)
-            elif ft >= 0.86:      # gently rounded top: full -> ~0.5 (male emerges here)
-                rf = 0.5 + 0.5 * math.sin((1.0 - ft) / 0.14 * math.pi * 0.5)
+            if ft <= 0.13:        # rounded bottom: 0 -> full
+                rf = math.sin(ft / 0.13 * math.pi * 0.5)
+            elif ft >= 0.74:      # rounded DOME: full -> ~0 (solid closed top, no cup)
+                rf = math.cos((ft - 0.74) / 0.26 * math.pi * 0.5)
             else:
                 rf = 1.0
-            f_rad.append(fem_r * rf)
+            f_rad.append(fem_r * max(rf, 0.03))
         make_tube(bm, fpts, fem_r, fem_r, 18, fem0, fem1, uv, co, 0.55, 0.80,
                   cap=True, radii=f_rad)
 
-        # male section directly on top — NO gap (the T. latifolia ID), tapering to a point
-        mpts = [Vector((tx, ty, fem_top + (mal_top - fem_top) * (i / 4.0))) for i in range(5)]
-        make_tube(bm, mpts, fem_r * 0.5, 0.003, 14, mal0, mal1, uv, co, 0.80, 0.95, cap=True)
+        # male: a thin tapering spike emerging from the rounded female top (base tucked just
+        # inside the dome so there's no flare/step), pointing up. NO gap (the T. latifolia ID).
+        m_base_z = fem_top - 0.015
+        mpts = [Vector((tx, ty, m_base_z + (mal_top - m_base_z) * (i / 4.0))) for i in range(5)]
+        make_tube(bm, mpts, fem_r * 0.30, 0.001, 12, mal0, mal1, uv, co, 0.80, 0.95, cap=True)
 
     return bm
 

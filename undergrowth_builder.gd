@@ -38,6 +38,7 @@ var _canopy_cell_m: float = 0.0
 # Zone type data from ground_cover_instances
 var _zone_map: Dictionary = {}  # "cx|cz" (grass chunk) -> dominant zone type
 var _waterside_chunks: Dictionary = {}  # "cx|cz" -> true if it contains zone-7 cells
+var _catkin_tex: Texture2D = null       # cattail female-spike velvety texture (lazy-loaded)
 var _scenario: RID               # cached world scenario for RS instance creation
 
 const CHUNK := 20.0
@@ -122,7 +123,7 @@ const SPECIES := [
 	# geometry is painted with stem_color (vertex color is ignored for stems), and the
 	# spike is stem-tagged — so this IS the spike color. The thin culms read tan/brown
 	# too, which is correct. The blades are leaf-tagged (textured), so they stay green.
-	{name="Wetland_Cattail", v=3, s=[0.8, 1.25], flex=0.30, green=0, fall=[0.55, 0.45, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.52, 0.36, 0.24], sr=0.80, trans=0.82, sen=0.55},
+	{name="Wetland_Cattail", v=3, s=[0.8, 1.25], flex=0.30, green=0, fall=[0.55, 0.45, 0.12], fc=[0.0, 0.0, 0.0], bl=[1.0, 2.0], sc=[0.52, 0.36, 0.24], sr=0.80, trans=0.82, sen=0.55, stem_vtx=1.0},
 	# 26: Yellow Iris (Iris pseudacorus) — 1.2m, bright yellow flowers, wet meadow
 	{name="Wetland_YellowIris", s=[0.7, 1.2], flex=0.30, green=0, fall=[0.55, 0.48, 0.10], fc=[0.88, 0.82, 0.10], bl=[0.6, 1.2], sc=[0.20, 0.30, 0.10], sr=0.76},
 	# 27: Lizard's Tail (Saururus cernuus) — 0.9m, drooping white spikes, stream edge
@@ -202,16 +203,19 @@ const WOODLAND_SPECIES: Array = [
 # woodland overlay so the thin shoreline fringe is placed despite the coarse
 # dominant-zone map dropping it.
 const WATERSIDE_SPECIES: Array = [
-	[25, 44.0],  # cattail — DENSE clone-patch colony (BRIEF §2/§8). Data-fit to real Typha:
-	             # discrete 3-5m clone patches (CLUSTERS) at ~15-21 ramets/m² (FEIS sheltered).
-	             # density 44 → ~3 clusters/shoreline-chunk × ~59 clumps → ~16 ramets/m² in-patch
-	             # (derivation in _build_chunk). Confirmed perf headroom (low-30s fps with trees,
-	             # 50s without); the clump model is parsimonious at ~1.5k tris.
+	[25, 12.0],  # cattail — clone-patch colony (BRIEF §2/§8). Data-fit to real Typha at the
+	             # OPEN-marsh density ~10 ramets/m² (FEIS) — CP's lake/pond edges are open &
+	             # wind-exposed, NOT the sheltered 15-21/m² (user 2026-06-19: clusters too dense).
+	             # Each clump model ≈ 4-6 ramets, so ~2 clumps/m² → ~10 ramets/m². density 12 →
+	             # ~48 clumps/chunk across 2-3 clusters (derivation in _build_chunk).
 ]
-const WATER_EDGE_CELLS: int = 12  # atlas cells (~7m @ 0.61m/cell) max dist to water — the
-                                  # fringe still has INLAND DEPTH (not a 1D line) but groups are
-                                  # pulled back toward dry land via the land-biased anchor below
-                                  # (user 2026-06-19: "the group is a bit too far from dry land").
+# Cattails are EMERGENT AQUATICS: they root AT and just INTO the water's edge, with only ~1m
+# of saturated land behind (user 2026-06-19, authoritative — Typha roots in 15-75cm of water,
+# the stand straddles the waterline). So the band is TIGHT to the shore and the stand straddles
+# it (grass fringe + shallow-water cells), NOT pulled inland.
+const WATER_EDGE_CELLS: int = 4   # ~2.4m: a grass cell qualifies only if water is this close
+const LAND_EDGE_CELLS: int = 2    # ~1.2m: a water cell qualifies only if land is this close
+                                  # (the shallow fringe — don't wade out into deep water)
 # Waterside emergents are tall transparent cards and a lakeshore can ring the whole
 # visible water, so cull them before the general undergrowth range as a precaution
 # against shoreline-panorama overdraw. PRECAUTIONARY/untuned — the real cost must be
@@ -575,6 +579,21 @@ func _near_water(apx: int, apz: int) -> bool:
 	return false
 
 
+func _near_land(apx: int, apz: int) -> bool:
+	# True if any world-atlas cell within LAND_EDGE_CELLS is grass (type 1). Keeps cattails
+	# placed ON water to the SHALLOW fringe right at the bank, not out in open/deep water.
+	var r := LAND_EDGE_CELLS
+	for dz in range(-r, r + 1):
+		var nz := apz + dz
+		if nz < 0 or nz >= _atlas_res: continue
+		for dx in range(-r, r + 1):
+			var nx := apx + dx
+			if nx < 0 or nx >= _atlas_res: continue
+			if _atlas_data[(nz * _atlas_res + nx) * 2] == 1:
+				return true
+	return false
+
+
 # ── Ecology-driven density modulation ──────────────────────────────────
 # Real understory density varies with microsite conditions. Instead of
 # uniform placement, modulate per-chunk density based on what drives
@@ -816,36 +835,39 @@ func _build_chunk(ck: String) -> void:
 		var clusters: Array = []
 		var weight_sum := 0.0
 		if entry_require_water:
-			var n_clusters := clampi(int(round(target / 60.0)), 1, 3)
+			var n_clusters := rng.randi_range(2, 3)  # a few discrete patches per shoreline chunk
 			for _c in range(n_clusters):
-				# Anchor BIASED toward dry land: among near-water tries keep the one with the
-				# most grass around it, so the patch roots on solid margin not out over water.
+				# Anchor sits ON the WATERLINE: among the (already edge-tight) tries keep the
+				# one with the most WATER around it, so the clone patch roots AT the shore and
+				# straddles into the shallows — emergent aquatics stand in the water, not behind
+				# it (user 2026-06-19). (Reverses the earlier mistaken land-bias.)
 				var ax := 0.0
 				var az := 0.0
 				var found := false
-				var best_land := -1
+				var best_water := -1
 				for _try in range(24):
 					var tx := cx + rng.randf() * CHUNK
 					var tz := cz + rng.randf() * CHUNK
 					var tpx := int((tx + _atlas_half) * _atlas_scale)
 					var tpz := int((tz + _atlas_half) * _atlas_scale)
 					if not _near_water(tpx, tpz): continue
-					var land := 0
-					for ddx in range(-6, 7, 3):
-						for ddz in range(-6, 7, 3):
+					var water := 0
+					for ddx in range(-4, 5, 2):
+						for ddz in range(-4, 5, 2):
 							var nx := tpx + ddx
 							var nz := tpz + ddz
 							if nx >= 0 and nx < _atlas_res and nz >= 0 and nz < _atlas_res:
-								if _atlas_data[(nz * _atlas_res + nx) * 2] == 1:
-									land += 1
-					if land > best_land:
-						best_land = land
+								if _atlas_data[(nz * _atlas_res + nx) * 2] == 4:
+									water += 1
+					if water > best_water:
+						best_water = water
 						ax = tx
 						az = tz
 						found = true
 				if not found: continue
-				# clone-patch radius 1.5-2.5 m → 3-5 m diameter (FEIS); per-patch size varies
-				var radius: float = clampf(rng.randfn(2.0, 0.5), 1.5, 2.5)
+				# clone-patch radius 1.2-2.0 m → straddles the waterline (~1-2m into the shallows
+				# + ~1m of saturated bank); tighter than the old 3-5m to hug the edge band.
+				var radius: float = clampf(rng.randfn(1.6, 0.4), 1.2, 2.0)
 				var weight: float = clampf(rng.randfn(1.0, 0.4), 0.4, 2.0)
 				clusters.append([Vector2(ax, az), radius, weight])
 				weight_sum += weight
@@ -874,8 +896,8 @@ func _build_chunk(ck: String) -> void:
 				# expand as a front), so no far-flung singleton clumps — the unbounded Gaussian
 				# tail produced lone clumps 2-3× the radius out (user 2026-06-19).
 				var off := Vector2(rng.randfn(0.0, krad * 0.5), rng.randfn(0.0, krad * 0.5))
-				if off.length() > krad * 1.15:
-					off = off.normalized() * krad * 1.15
+				if off.length() > krad:
+					off = off.normalized() * krad  # hard patch edge — no clump strays past it
 				bx = kc.x + off.x
 				bz = kc.y + off.y
 
@@ -884,13 +906,23 @@ func _build_chunk(ck: String) -> void:
 			var apz: int = int((bz + _atlas_half) * _atlas_scale)
 			if apx < 0 or apx >= _atlas_res or apz < 0 or apz >= _atlas_res: continue
 			var ai: int = (apz * _atlas_res + apx) * 2
-			if _atlas_data[ai] != 1: continue
+			var cell: int = _atlas_data[ai]
+			if entry_require_water:
+				# Cattail straddles the waterline: GRASS cells at the immediate edge (saturated
+				# fringe) AND shallow-WATER cells right at the bank — emergent aquatics root in
+				# the water, not on dry land behind it (user 2026-06-19).
+				if cell == 1:
+					if not _near_water(apx, apz): continue
+				elif cell == 4:
+					if not _near_land(apx, apz): continue
+				else:
+					continue
+			elif cell != 1:
+				continue
 			# Check occupancy — avoid trees, benches, etc.
 			if _atlas_data[ai + 1] != 0: continue
 			# Canopy check — the woodland overlay requires tree cover overhead
 			if entry_require_canopy and _canopy_at(bx, bz) < 30: continue
-			# Water-edge gate — waterside emergents only within a few metres of water
-			if entry_require_water and not _near_water(apx, apz): continue
 			# Path proximity buffer (~1.5m = ~2.5 atlas cells at 0.6m/cell)
 			var near_path := false
 			for dxy in [[-2,0],[2,0],[0,-2],[0,2],[-2,-2],[2,2],[-2,2],[2,-2]]:
@@ -1081,6 +1113,12 @@ func _load_model(sp_name: String) -> Mesh:
 		mat.set_shader_parameter("specular_base", sp_cfg.get("spec", 0.04))
 		mat.set_shader_parameter("translucency", sp_cfg.get("trans", 0.5))
 		mat.set_shader_parameter("leaf_senescence", sp_cfg.get("sen", 0.0))
+		mat.set_shader_parameter("stem_use_vtx", sp_cfg.get("stem_vtx", 0.0))
+		if sp_cfg.get("stem_vtx", 0.0) > 0.0:
+			if _catkin_tex == null:
+				_catkin_tex = load("res://models/vegetation/tex_catkin_Wetland_Cattail.png")
+			if _catkin_tex:
+				mat.set_shader_parameter("catkin_tex", _catkin_tex)
 		var sc: Array = sp_cfg.get("sc", [0.30, 0.25, 0.15])
 		mat.set_shader_parameter("stem_color", Color(sc[0], sc[1], sc[2]))
 		mat.set_shader_parameter("stem_roughness", sp_cfg.get("sr", 0.92))

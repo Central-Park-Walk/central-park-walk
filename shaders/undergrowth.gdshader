@@ -37,6 +37,8 @@ uniform float roughness_base : hint_range(0.3, 1.0) = 0.82;
 uniform float specular_base : hint_range(0.0, 0.5) = 0.04;
 uniform float translucency : hint_range(0.0, 1.5) = 0.5;
 uniform float leaf_senescence : hint_range(0.0, 1.0) = 0.0;  // per-blade tan-brown variation (cattail)
+uniform float stem_use_vtx = 0.0;  // 1.0 = stems use per-vertex colour (green stalk / brown catkin) + catkin fuzz
+uniform sampler2D catkin_tex : source_color, filter_linear;  // velvety female-spike albedo (cattail)
 
 // Stem rendering — procedural bark when COLOR.a < 0.5 (stem vertex)
 uniform vec3 stem_color : source_color = vec3(0.30, 0.25, 0.15);
@@ -136,13 +138,33 @@ void fragment() {
 
 	if (is_stem > 0.5) {
 		// Stems: keep mesh normals (tubes have real geometry normals).
-		// Bark-like normal perturbation: longitudinal ridges + fine grain.
-		float bark_ridge = vnoise(frag_world.xz * 18.0 + vec2(0.0, frag_world.y * 40.0));
-		float bark_grain = vnoise(frag_world.xz * 80.0);
-		bump_h = bark_ridge * 0.6 + bark_grain * 0.4;
-		NORMAL = normalize(NORMAL + vec3(dFdx(bump_h), dFdy(bump_h), 0.0) * 0.6);
-		bump_coarse = bark_ridge;
-		bump_fine = bark_grain;
+		if (stem_use_vtx > 0.5 && UV.y > 0.5) {
+			// CATKIN (cattail spike, UV.y 0.55-0.95): dense granular FUZZ — the velvety
+			// pile of the female cylinder + bristly male, NOT longitudinal bark ridges
+			// (de-plastic, user 2026-06-19). Isotropic high-freq noise over the cylinder.
+			float fuzz1 = vnoise(vec2(frag_world.x * 130.0 + frag_world.y * 80.0,
+			                          frag_world.z * 130.0 + frag_world.y * 95.0));
+			float fuzz2 = vnoise(vec2(frag_world.x * 300.0 - frag_world.y * 190.0,
+			                          frag_world.z * 300.0 + frag_world.y * 230.0));
+			bump_h = fuzz1 * 0.55 + fuzz2 * 0.45;
+			NORMAL = normalize(NORMAL + vec3(dFdx(bump_h), dFdy(bump_h), 0.0) * 1.5);
+			bump_coarse = fuzz1;
+			bump_fine = fuzz2;
+		} else if (stem_use_vtx > 0.5) {
+			// Cattail STALK: a smooth round green culm — keep the (now smooth) mesh normal,
+			// NO bark ridges or banded grain (both read as stripes on a thin stalk, user
+			// 2026-06-19). The geometry's smooth normals carry the roundness.
+			bump_coarse = 0.5;
+			bump_fine = 0.5;
+		} else {
+			// Bark-like / woody stalk: longitudinal ridges + fine grain.
+			float bark_ridge = vnoise(frag_world.xz * 18.0 + vec2(0.0, frag_world.y * 40.0));
+			float bark_grain = vnoise(frag_world.xz * 80.0);
+			bump_h = bark_ridge * 0.6 + bark_grain * 0.4;
+			NORMAL = normalize(NORMAL + vec3(dFdx(bump_h), dFdy(bump_h), 0.0) * 0.6);
+			bump_coarse = bark_ridge;
+			bump_fine = bark_grain;
+		}
 	} else {
 		// Leaves: flat-card meshes need hemisphere blend
 		if (use_texture < 0.5) {
@@ -167,7 +189,19 @@ void fragment() {
 
 
 	// ---- COLOR ----
-	vec3 col = is_stem > 0.5 ? stem_color : tex_color;
+	// Stems normally paint with the flat stem_color uniform; cattail (stem_use_vtx=1) instead
+	// uses its per-vertex colours so the GREEN stalk, BROWN female cylinder and GREEN male tip
+	// all read true (the generator already sets them) instead of one flat brown.
+	vec3 stemcol = mix(stem_color, COLOR.rgb, stem_use_vtx);
+	vec3 col = is_stem > 0.5 ? stemcol : tex_color;
+	// FEMALE catkin (cattail, UV.y 0.55-0.80): the velvety packed-floret texture wrapped round
+	// the cylinder (UV.x = circumference) — de-plastics the spike far better than procedural
+	// noise could. Per-catkin brightness so neighbouring spikes differ. The green MALE tip
+	// (UV.y > 0.80) and green stalk keep their vertex colour.
+	if (is_stem > 0.5 && stem_use_vtx > 0.5 && UV.y > 0.5 && UV.y <= 0.80) {
+		vec3 ctex = texture(catkin_tex, vec2(UV.x, UV.y * 4.0)).rgb;
+		col = ctex * (1.0 + (v_seed - 0.5) * 0.25);
+	}
 
 	// Per-instance color variation: brightness ±12%, warm/cool hue shift
 	// (matches tree_leaf.gdshader so undergrowth blends into the canopy palette)
@@ -315,6 +349,7 @@ void fragment() {
 		// Stems: bark-like — high roughness, very low specular
 		rough = stem_roughness;
 		spec = 0.02;
+		if (stem_use_vtx > 0.5 && UV.y > 0.5) { rough = 0.97; spec = 0.015; }  // fuzzy catkin = ultra-matte
 	} else if (use_texture > 0.5) {
 		// Textured leaf species: per-species uniforms with height gradient
 		rough = mix(roughness_base, roughness_base - 0.15, height_frac);
