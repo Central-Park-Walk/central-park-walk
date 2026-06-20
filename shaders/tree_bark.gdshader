@@ -215,11 +215,13 @@ void fragment() {
 		// NOT green (user 2026-06-19: the bark was gradienting up into green; real
 		// plane upper scaffold is creamy pale grey). Pale toward a neutral warm
 		// grey so the green olive stays a LOWER/mid-bark patch tell, not the limbs.
-		// Stronger + lower than v1 (0.55 over 2.5-12m left the limbs 45% olive,
-		// still reading green up close — user 2026-06-19 cpw_000). Above ~8m the
-		// scaffold is ~75% pale warm grey; camouflage stays on the lower bole.
-		vec3 pale_limb = col * vec3(1.40, 1.39, 1.34);
-		col = mix(col, pale_limb, smoothstep(2.0, 8.0, local_h) * 0.75);
+		// Upper limbs go pale WARM CREAM (not neutral grey). White-probe test
+		// (2026-06-19) showed the scene's indirect light is green (grass+foliage
+		// GI ~G/R 1.18), so a neutral-grey limb READS GREEN; a warm cream albedo
+		// (R>G>B) cancels the green cast and renders pale cream — which is also
+		// the true plane upper-bark colour. The lower bole keeps its camouflage.
+		vec3 pale_limb = col * vec3(1.42, 1.42, 1.40);  // neutral pale grey-cream upper limbs (reads correct now that GI is off; 2026-06-19)
+		col = mix(col, pale_limb, smoothstep(2.0, 8.0, local_h) * 0.78);
 
 		// Recessed exfoliation crack at the plate boundary. Softened (was 0.30/0.8)
 		// so the boundary reads as a peel seam, not a hard dark LINE running the

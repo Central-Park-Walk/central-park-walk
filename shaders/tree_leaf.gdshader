@@ -440,16 +440,19 @@ void fragment() {
 	sss_strength += spring_boost;
 	if (sp == 5) sss_strength *= 0.25;   // conifer needles: thick, minimal SSS
 	if (sp == 13) sss_strength *= 0.55;  // magnolia: thick waxy leaves
+	if (sp == 9) sss_strength *= 0.6;    // london plane: large but thick/leathery leaves
 	if (v_blossom > 0.01) {
 		vec3 petal_sss = BLOSSOM_COLORS[sp] * 0.7;
 		backlight_col = mix(backlight_col, petal_sss, v_blossom);
 		sss_strength = mix(sss_strength, 0.9, v_blossom);  // petals translucent but still capped
 	}
-	// Cap BACKLIGHT at 70% of ALBEDO so SSS reads as a glow, never exceeds
-	// the diffuse term. Prevents the backlit-card pixel from out-shouting
-	// the front-lit one (which is what made rotation visibly toggle leaves
-	// between "lit" and "see-through").
-	BACKLIGHT = min(backlight_col * sss_strength, ALBEDO * 0.7);
+	// Cap BACKLIGHT to real leaf transmittance: 5-15% of incident (the comment
+	// above). The old 0.7 cap let backlit leaves transmit ~70% — ~5x the data —
+	// and that over-bright green glow bounced (SSIL/GI) onto the bark, turning
+	// the canopy-embedded limbs green while the bare lower trunk stayed pale
+	// (user 2026-06-19, diagnosed via a forced-red-bark test). 0.15 = data high
+	// end; thick/leathery species pull further down via sss_strength below.
+	BACKLIGHT = min(backlight_col * sss_strength, ALBEDO * 0.15);
 
 	// NO shader-level aerial haze on leaves (removed 2026-06-11): the
 	// calibrated volumetric fog owns the distance veil (rendering.md §6c).
