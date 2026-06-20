@@ -1131,7 +1131,11 @@ SPECIES = {
             # crown, juvenile pyramidal habit, fewer/shorter limbs.
             "s": {"target_h": 9, "height_range": [7, 13], "skeleton_overrides": {
                 "branch_density": 0.7, "branch_split_prob": 0.30, "sub_density": 0.35,
-                "branch_start": 0.40}},
+                "branch_start": 0.40,
+                # Saplings are proportionally SLENDER (trunk dia scales faster than
+                # height): a 9m young plane is ~6-8" DBH, not the ~14" the 1.12
+                # mature factor gives. 0.55 → ~7" DBH at 9m (user 2026-06-19).
+                "trunk_radius_factor": 0.55}},
             "m": {"target_h": 22, "height_range": [15, 25], "skeleton_overrides": {
                 "branch_density": 1.0, "branch_split_prob": 0.5, "sub_density": 0.85}},
             "l": {"target_h": 30, "height_range": [25, 35]},
@@ -1693,6 +1697,23 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
                 rng.uniform(cmin[2], cmax[2]),
             ))
             candidates.append(pos)
+
+    # Apical cap — never leave the crown apex bare. The top of a live tree is
+    # prime sunlight real estate; a bare leader twig poking above the canopy only
+    # happens in winter/dead, not high summer (user 2026-06-19). Add clusters at
+    # the topmost branch points so foliage caps the crown. Applies to all species.
+    if len(eligible_idx) > 0:
+        z_elig = coords[eligible_idx, 2]
+        top_z = float(z_elig.max())
+        apex_band = eligible_idx[z_elig > top_z - target_height * 0.07]
+        if len(apex_band) > 0:
+            n_apex = max(3, int(round(target_height * 0.5)))
+            for _ in range(n_apex):
+                vi = int(apex_band[rng.randint(0, len(apex_band) - 1)])
+                candidates.append(Vector((
+                    coords[vi, 0] + rng.uniform(-0.25, 0.25),
+                    coords[vi, 1] + rng.uniform(-0.25, 0.25),
+                    coords[vi, 2] + rng.uniform(-0.05, 0.25))))
 
     # Build placements with size and flatten
     lo, hi = sp["leaf_cluster_size_range"]
