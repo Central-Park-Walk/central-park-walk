@@ -1112,6 +1112,7 @@ SPECIES = {
         "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.45, 0.65),
         "leaf_density": 0.85,  # LAI 4-6, "largest leaf area of any inner-London tree" — heavy shade (BRIEF §3)
+        "foliage_continuous": True,  # clad branches as a continuous sheath (ref: pro Platanus model), not discrete scattered blobs — 2026-06-20
         "target_cluster_count_l": 1080,  # fuller crown — baseline read too open/airy vs dense-shade BRIEF (2026-06-19 eval)
         "trunk_radius_factor": 1.12,  # stout, heavy plane bole (BRIEF §1)
         "base_seed": 200,
@@ -1129,9 +1130,15 @@ SPECIES = {
             # Young street/lawn planes are ~1/3 of the census (327 <6" DBH, 222
             # 6-12"; 2026-06-19). Sapling: dominant straight leader, sparse open
             # crown, juvenile pyramidal habit, fewer/shorter limbs.
+            # A young plane is NOT a sparse whip — the reference 3D model
+            # (reference_photos/london planetree/) shows juveniles as DENSE
+            # conical crowns clad with twigs from low trunk to a leafy apex. The
+            # old sparse settings (sub_density 0.35) gave too few branches for the
+            # continuous cladding to read as a crown, so it looked clumpy/gappy.
+            # Fuller branch + twig density → a proper dense young cone (2026-06-20).
             "s": {"target_h": 9, "height_range": [7, 13], "skeleton_overrides": {
-                "branch_density": 0.7, "branch_split_prob": 0.30, "sub_density": 0.35,
-                "branch_start": 0.40,
+                "branch_density": 1.05, "branch_split_prob": 0.48, "sub_density": 0.9,
+                "branch_start": 0.34,
                 # Saplings are proportionally SLENDER (trunk dia scales faster than
                 # height): a 9m young plane is ~6-8" DBH, not the ~14" the 1.12
                 # mature factor gives. 0.55 → ~7" DBH at 9m (user 2026-06-19).
@@ -1616,49 +1623,81 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
         print(f"    No eligible vertices for branch-walk, falling back to tips")
         return _extract_leaf_positions_tips(mesh_obj, sp, target_height, rng, tier)
 
-    # Group eligible vertices by stem_id
-    stem_ids_arr = stems[eligible_idx].astype(int)
-    unique_stems = np.unique(stem_ids_arr)
+    # Cluster card size in metres (mesh is in metres here) — also drives the
+    # continuous-cladding spacing and the isolation prune below.
+    _clo, _chi = sp["leaf_cluster_size_range"]
+    csize = 0.5 * (_clo + _chi) * (target_height / 25.0) * 1.4
 
-    # Walk each stem and collect candidate positions
     candidates = []
-    for sid in unique_stems:
-        mask = eligible & (stems.astype(int) == sid)
-        idx = np.where(mask)[0]
-        if len(idx) == 0:
-            continue
+    if sp.get("foliage_continuous"):
+        # --- Continuous branch cladding ---
+        # Learned from a professional Platanus acerifolia model (ref images in
+        # reference_photos/london planetree/): foliage is a DENSE SHEATH running
+        # the whole length of every twig, packed so the crown reads as one solid
+        # mass that tapers to a leafy apex — not discrete blobs scattered at
+        # sampled points (my old probabilistic walk, which gapped badly: it used
+        # ~7 of 470 eligible branch verts on a sapling, then padded the rest with
+        # floating fill). Here we greedily clad ALL eligible thin-branch verts at
+        # a fixed minimum spacing (clusters overlap → continuous), tips first so
+        # density rises slightly toward branch ends as in the reference. Because
+        # every cluster sits on a twig and neighbours another, there are no gaps
+        # and no isolated islands by construction. A spatial-hash grid keeps the
+        # min-distance test O(n) for the dense large tier.
+        ec = coords[eligible_idx]
+        order = np.argsort(-extents[eligible_idx])      # high extent (tips) first
+        spacing = csize * 0.9
+        sp2 = spacing * spacing
+        cell = spacing
+        grid = {}
 
-        # Sort by extent (base → tip)
-        ext_vals = extents[idx]
-        sort_order = np.argsort(ext_vals)
-        idx = idx[sort_order]
-        ext_sorted = ext_vals[sort_order]
+        def _too_close(p):
+            gx, gy, gz = int(p[0] // cell), int(p[1] // cell), int(p[2] // cell)
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    for dz in (-1, 0, 1):
+                        for q in grid.get((gx + dx, gy + dy, gz + dz), ()):
+                            if ((q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2
+                                    + (q[2] - p[2]) ** 2) <= sp2:
+                                return True
+            return False
 
-        # Walk at interval_frac spacing in extent-space
-        next_extent = ext_start
-        for ii in range(len(idx)):
-            e = ext_sorted[ii]
-            if e < next_extent:
+        for k in order:
+            p = ec[k]
+            if not _too_close(p):
+                grid.setdefault((int(p[0] // cell), int(p[1] // cell),
+                                 int(p[2] // cell)), []).append(p)
+                candidates.append(Vector((p[0], p[1],
+                                  p[2] - droop * target_height * 0.05)))
+    else:
+        # --- Legacy per-stem probabilistic walk (unreviewed species) ---
+        stem_ids_arr = stems[eligible_idx].astype(int)
+        unique_stems = np.unique(stem_ids_arr)
+        for sid in unique_stems:
+            mask = eligible & (stems.astype(int) == sid)
+            idx = np.where(mask)[0]
+            if len(idx) == 0:
                 continue
-            next_extent = e + interval_frac
-
-            # Smoothstep probability based on extent position
-            t = (e - ext_start) / max(ext_end - ext_start, 0.001)
-            t = max(0.0, min(1.0, t))
-            prob = t * t * (3.0 - 2.0 * t) * boost
-
-            if rng.random() < prob:
-                # Average nearby vertices at similar extent (centroid of
-                # the tube ring) for a position inside the branch volume
-                nearby = idx[np.abs(ext_sorted - e) < interval_frac * 0.3]
-                if len(nearby) > 0:
-                    centroid = coords[nearby].mean(axis=0)
-                else:
-                    centroid = coords[idx[ii]]
-
-                pos = Vector((centroid[0], centroid[1],
-                              centroid[2] - droop * target_height * 0.05))
-                candidates.append(pos)
+            ext_vals = extents[idx]
+            sort_order = np.argsort(ext_vals)
+            idx = idx[sort_order]
+            ext_sorted = ext_vals[sort_order]
+            next_extent = ext_start
+            for ii in range(len(idx)):
+                e = ext_sorted[ii]
+                if e < next_extent:
+                    continue
+                next_extent = e + interval_frac
+                t = (e - ext_start) / max(ext_end - ext_start, 0.001)
+                t = max(0.0, min(1.0, t))
+                prob = t * t * (3.0 - 2.0 * t) * boost
+                if rng.random() < prob:
+                    nearby = idx[np.abs(ext_sorted - e) < interval_frac * 0.3]
+                    if len(nearby) > 0:
+                        centroid = coords[nearby].mean(axis=0)
+                    else:
+                        centroid = coords[idx[ii]]
+                    candidates.append(Vector((centroid[0], centroid[1],
+                                  centroid[2] - droop * target_height * 0.05)))
 
     # Trim to target count if over
     if len(candidates) > int(target_count * 1.2):
@@ -1738,6 +1777,52 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
                     coords[vi, 0] + rng.uniform(-0.22, 0.22),
                     coords[vi, 1] + rng.uniform(-0.22, 0.22),
                     coords[vi, 2] + rng.uniform(0.0, 0.35))))   # sit ON/above the wood
+
+    # --- Prune isolated foliage islands ---
+    # A clump of cluster(s) alone on a thin outlying twig reads as foliage
+    # floating in open sky, even though it is technically attached to a
+    # (near-invisible) branch (user 2026-06-20: lone clump on a hair-thin twig
+    # against the sky). Real crowns hold foliage as one CONTIGUOUS canopy, so
+    # proximity-to-bark is not enough and a simple neighbour count misses small
+    # islands that are dense within themselves. Build the connectivity graph of
+    # clusters (edge = within ~2.6 cluster sizes) and drop any connected
+    # component too small to be part of the canopy. Coordinates are in metres.
+    if len(candidates) > 24:
+        pts = np.array([[p.x, p.y, p.z] for p in candidates], dtype=float)
+        clo, chi = sp["leaf_cluster_size_range"]
+        csize = 0.5 * (clo + chi) * (target_height / 25.0) * 1.4
+        nb_r = csize * 2.6
+        d2 = ((pts[:, None, :] - pts[None, :, :]) ** 2).sum(-1)
+        adj = d2 < nb_r * nb_r
+        # Connected components via union-find over the adjacency edges.
+        nC = len(candidates)
+        parent = list(range(nC))
+
+        def _find(x):
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        ii, jj = np.where(np.triu(adj, 1))
+        for a, b in zip(ii.tolist(), jj.tolist()):
+            ra, rb = _find(a), _find(b)
+            if ra != rb:
+                parent[ra] = rb
+        roots = np.array([_find(i) for i in range(nC)])
+        uniq, cnts = np.unique(roots, return_counts=True)
+        size_of = dict(zip(uniq.tolist(), cnts.tolist()))
+        comp_size = np.array([size_of[r] for r in roots])
+        # Keep the main canopy + any substantial lobe; drop small floating islands.
+        min_comp = max(12, int(0.05 * nC))
+        keep = comp_size >= min_comp
+        # Always keep the largest component (safety against an over-strict floor).
+        keep |= (comp_size == comp_size.max())
+        n_pruned = int((~keep).sum())
+        if n_pruned:
+            candidates = [c for c, k in zip(candidates, keep) if k]
+            print(f"    Pruned {n_pruned} clusters in isolated islands "
+                  f"(< {min_comp}-cluster components, edge {nb_r:.2f}m)")
 
     # Build placements with size and flatten
     lo, hi = sp["leaf_cluster_size_range"]
