@@ -3007,9 +3007,12 @@ func _setup_player() -> CharacterBody3D:
 		if _cli_height > 5.0:
 			p.set_physics_process(false)  # disable gravity for elevated shots
 	else:
-		p.position = Vector3(-480.0, _terrain_height(-480.0, 1020.0) + 1.9, 1020.0)
+		# Default spawn: central Great Lawn (ellipse centre ≈ X-99 Z173), facing
+		# north up the eval garden. Was Bethesda (-480,1020); user 2026-06-19
+		# wants the Great Lawn as the default spawn area.
+		p.position = Vector3(-99.0, _terrain_height(-99.0, 213.0) + 1.9, 213.0)
 	if not _cli_pos_set:
-		p.rotation_degrees.y = 30.0
+		p.rotation_degrees.y = 360.0  # face north toward the specimen row
 	p.terrain_height_fn = Callable(self, "_terrain_height")
 	add_child(p)
 	if _terrain_only and p.head:
