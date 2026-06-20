@@ -1665,38 +1665,32 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
         rng.shuffle(candidates)
         candidates = candidates[:target_count]
 
-    # Supplement with tip placement if branch-walk found too few
-    if len(candidates) < target_count * 0.3:
-        print(f"    Branch-walk found {len(candidates)} candidates "
-              f"(target {target_count}), supplementing with tip placement")
-        tip_placements = _extract_leaf_positions_tips(
-            mesh_obj, sp, target_height, rng, tier)
-        for pos, _sz, _fl in tip_placements:
-            if len(candidates) >= target_count:
-                break
-            candidates.append(pos)
-
-    # Crown-fill fallback: if branch-walk + tips still can't reach target,
-    # sample random positions within the convex hull of existing placements.
-    # Represents canopy volume on species with sparse branch geometry.
-    if len(candidates) > 0 and len(candidates) < target_count * 0.5:
-        existing = np.array([[p.x, p.y, p.z] for p in candidates])
-        cmin = existing.min(axis=0)
-        cmax = existing.max(axis=0)
-        # Slight inward padding so clusters sit inside the crown, not on edges
-        pad = (cmax - cmin) * 0.08
-        cmin += pad
-        cmax -= pad
-        n_fill = target_count - len(candidates)
-        print(f"    Crown-fill: adding {n_fill} synthetic placements "
-              f"(had {len(candidates)}/{target_count})")
-        for _ in range(n_fill):
-            pos = Vector((
-                rng.uniform(cmin[0], cmax[0]),
-                rng.uniform(cmin[1], cmax[1]),
-                rng.uniform(cmin[2], cmax[2]),
-            ))
-            candidates.append(pos)
+    # Branch-anchored supplement — if the probabilistic walk under-fills (it is
+    # very conservative on young/open crowns: measured 7 of 162 on london_plane
+    # _s despite 470 eligible branch verts across 22 stems), top up by sampling
+    # the REAL eligible branch verts, weighted toward branch tips where leaves
+    # concentrate. Every cluster therefore sits on an actual twig.
+    #
+    # This REPLACES the old convex-hull "crown-fill", which scattered points in
+    # the crown's bounding BOX — on sparse saplings that put ~70% of clusters in
+    # empty space, so leaves rendered as blobs floating with no visible branch
+    # (user 2026-06-19; sanity check measured 16-30% of _s leaf verts >1.8m from
+    # any bark vert, max ~6m). Foliage must attach to geometry; a young plane's
+    # crown is simply more open, not padded with floaters.
+    if len(candidates) < target_count:
+        need = target_count - len(candidates)
+        ext_e = extents[eligible_idx]
+        w = np.clip((ext_e - ext_start) / max(ext_end - ext_start, 1e-3),
+                    0.03, 1.0) ** 1.5
+        w = w / w.sum()
+        nrng = np.random.default_rng(rng.randint(0, 2**31 - 1))
+        pick = nrng.choice(eligible_idx, size=need, p=w)
+        for vidx in pick:
+            c = coords[vidx]
+            candidates.append(Vector((
+                c[0] + rng.uniform(-0.10, 0.10),
+                c[1] + rng.uniform(-0.10, 0.10),
+                c[2] - droop * target_height * 0.05)))
 
     # --- Upper-crown envelope (replaces the old single-tip apical cap) ---
     # Clothe the woody crown TOP so no bare leader spike or scaffold limb pokes
@@ -1741,9 +1735,9 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
             sel = nrng.choice(band, size=n_env, p=w)
             for vi in sel:
                 candidates.append(Vector((
-                    coords[vi, 0] + rng.uniform(-0.35, 0.35),
-                    coords[vi, 1] + rng.uniform(-0.35, 0.35),
-                    coords[vi, 2] + rng.uniform(0.0, 0.45))))   # sit ON/above the wood
+                    coords[vi, 0] + rng.uniform(-0.22, 0.22),
+                    coords[vi, 1] + rng.uniform(-0.22, 0.22),
+                    coords[vi, 2] + rng.uniform(0.0, 0.35))))   # sit ON/above the wood
 
     # Build placements with size and flatten
     lo, hi = sp["leaf_cluster_size_range"]
