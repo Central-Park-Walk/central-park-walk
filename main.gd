@@ -1997,12 +1997,18 @@ func _setup_environment() -> void:
 	_env.glow_hdr_luminance_cap = 8.0
 	_env.ssao_enabled          = true
 	_env.ssao_detail           = 0.5
-	_env.ssil_enabled          = true
+	# GI (SDFGI + SSIL) OFF (user decision 2026-06-19). The all-green scene fed
+	# SDFGI/SSIL a uniform green indirect light that tinted pale surfaces (bark,
+	# paths) green — diagnosed via a forced-white-bark probe (neutral surface
+	# rendered G/R 1.18). Trade accepted: slightly weaker depth/shade gradient,
+	# but brighter under-canopy and a big frame-rate win. Re-enable both to
+	# restore GI (and revisit the green tint via reduced energy/bounce_feedback).
+	_env.ssil_enabled          = false
 	_env.ssil_radius           = 3.0    # meters — moderate reach for under-canopy bounce
 	_env.ssil_intensity        = 0.6    # conservative — was causing yellow shield artifacts pre-overhaul
 	_env.ssil_normal_rejection = 1.2
 	_env.ssr_enabled           = false   # causes multi-colored artifacts on water from aerial view
-	_env.sdfgi_enabled         = true
+	_env.sdfgi_enabled         = false  # OFF — see the SSIL note above (user decision 2026-06-19)
 	_env.sdfgi_cascades        = 6      # large outdoor scene needs range
 	_env.sdfgi_min_cell_size   = 0.5    # ~0.5m matches our atlas resolution
 	_env.sdfgi_energy          = 1.0    # full GI bounce for natural lighting
