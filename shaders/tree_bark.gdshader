@@ -195,7 +195,7 @@ void fragment() {
 		// High-contrast plane palette (col base ~cream-gray). fresh_cream warmed
 		// (less green) so fresh patches read cream, not lime (user 2026-06-19).
 		vec3 fresh_cream = col * vec3(1.52, 1.50, 1.38);  // pale warm cream (freshest)
-		vec3 olive_green = col * vec3(0.80, 0.83, 0.60);  // olive-green mid bark
+		vec3 olive_green = col * vec3(0.87, 0.82, 0.60);  // DRAB grey-olive (R>=G, not lime — 2026-06-19 v2)
 		vec3 gray_brown  = col * vec3(0.82, 0.76, 0.68);  // gray-brown older bark
 		vec3 dark_old    = col * vec3(0.50, 0.50, 0.46);  // darkest retained outer bark
 
@@ -215,8 +215,11 @@ void fragment() {
 		// NOT green (user 2026-06-19: the bark was gradienting up into green; real
 		// plane upper scaffold is creamy pale grey). Pale toward a neutral warm
 		// grey so the green olive stays a LOWER/mid-bark patch tell, not the limbs.
-		vec3 pale_limb = col * vec3(1.42, 1.42, 1.40);
-		col = mix(col, pale_limb, smoothstep(2.5, 12.0, local_h) * 0.55);
+		// Stronger + lower than v1 (0.55 over 2.5-12m left the limbs 45% olive,
+		// still reading green up close — user 2026-06-19 cpw_000). Above ~8m the
+		// scaffold is ~75% pale warm grey; camouflage stays on the lower bole.
+		vec3 pale_limb = col * vec3(1.40, 1.39, 1.34);
+		col = mix(col, pale_limb, smoothstep(2.0, 8.0, local_h) * 0.75);
 
 		// Recessed exfoliation crack at the plate boundary. Softened (was 0.30/0.8)
 		// so the boundary reads as a peel seam, not a hard dark LINE running the
