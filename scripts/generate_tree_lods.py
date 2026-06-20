@@ -42,7 +42,11 @@ MODEL_DIR = os.path.join(PROJECT_DIR, "models", "trees")
 # (2026-06-10) range 12k–245k tris per variant, so flat ratios can't hit the
 # ~12k budget — leaf and bark trade against each other per variant instead.
 LOD_SPECS = {
-    "lod2": {"adaptive": True},
+    # "lod1" = the single mid mesh between lod0 (base) and the impostor. Renamed
+    # from the legacy "lod2" 2026-06-19 (the old 4-tier lod1 was retired; this
+    # surviving mid tier kept the lod2 name). Convention now: lod0 (base) /
+    # lod1 (this) / impostor.
+    "lod1": {"adaptive": True},
 }
 
 LOD2_TOTAL_BUDGET = 12000   # docs/trees.md §4d: lod2 ≤ ~12k incl. cards
