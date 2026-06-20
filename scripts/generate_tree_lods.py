@@ -495,6 +495,14 @@ def main():
         if filter_model and model_name != filter_model:
             continue
 
+        # LOD policy (user 2026-06-19): m-class and up get lod0 + lod1 + impostor;
+        # anything smaller than m (the _s sapling tier) gets lod0 + impostor only —
+        # no lod1/_lod2. tree_builder.gd already renders the _s lod0 straight to the
+        # impostor handoff when no _s_lod2 mesh exists (mid_mesh == null path).
+        if model_name.endswith("_s"):
+            print(f"  (skip {model_name}: sapling tier — lod0 + impostor only, no lod1)")
+            continue
+
         print(f"\n{'─'*40}")
         print(f"  {model_name}")
         print(f"{'─'*40}")

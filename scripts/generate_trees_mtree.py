@@ -1706,16 +1706,30 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
     # the WHOLE skeleton (coords, all verts incl. the leader) and bias clusters
     # at/below the tip so cards rise to bury it. Applies to all species.
     if n > 0:
-        all_top_z = float(coords[:, 2].max())
-        apex_band = np.where(coords[:, 2] > all_top_z - target_height * 0.12)[0]
+        zc = coords[:, 2]
+        all_top_z = float(zc.max())
+        # v3 (2026-06-19): v2 biased clusters BELOW the tip (z+[-0.4,+0.05]), so on
+        # ~2 of 7 variants the leaf top stopped below the bark top (measured: v0
+        # leaf 4.91, v4 4.79 vs bark 5.00) and the leader poked through. Fix:
+        # explicitly bury the single highest vertex (the leader tip) with a tight
+        # bunch of clusters that STRADDLE and rise ABOVE it, so the bark apex is
+        # always inside the foliage. Then a broader band clothes the upper crown.
+        tip = coords[int(np.argmax(zc))]
+        n_tip = max(4, int(round(target_height * 0.45)))
+        for _ in range(n_tip):
+            candidates.append(Vector((
+                tip[0] + rng.uniform(-0.22, 0.22),
+                tip[1] + rng.uniform(-0.22, 0.22),
+                tip[2] + rng.uniform(-0.20, 0.40))))   # rise ABOVE the leader tip
+        apex_band = np.where(zc > all_top_z - target_height * 0.14)[0]
         if len(apex_band) > 0:
-            n_apex = max(5, int(round(target_height * 0.7)))
+            n_apex = max(5, int(round(target_height * 0.6)))
             for _ in range(n_apex):
                 vi = int(apex_band[rng.randint(0, len(apex_band) - 1)])
                 candidates.append(Vector((
                     coords[vi, 0] + rng.uniform(-0.3, 0.3),
                     coords[vi, 1] + rng.uniform(-0.3, 0.3),
-                    coords[vi, 2] + rng.uniform(-0.4, 0.05))))
+                    coords[vi, 2] + rng.uniform(-0.2, 0.3))))
 
     # Build placements with size and flatten
     lo, hi = sp["leaf_cluster_size_range"]
