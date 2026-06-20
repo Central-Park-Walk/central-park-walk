@@ -1698,38 +1698,52 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
             ))
             candidates.append(pos)
 
-    # Apical cap — never leave the crown apex bare. The top of a live tree is
-    # prime sunlight real estate; a bare leader twig poking above the canopy only
-    # happens in winter/dead, not high summer (user 2026-06-19). v1 used only
-    # foliage-eligible branches (depth>=1), but the LEADER is depth 0 and gets
-    # excluded — so the leader still poked up bare. v2: band the topmost ~12% of
-    # the WHOLE skeleton (coords, all verts incl. the leader) and bias clusters
-    # at/below the tip so cards rise to bury it. Applies to all species.
+    # --- Upper-crown envelope (replaces the old single-tip apical cap) ---
+    # Clothe the woody crown TOP so no bare leader spike or scaffold limb pokes
+    # above/through the foliage. The top of a live tree is prime sunlight real
+    # estate; bare wood at the apex only reads as winter/dead, not high summer
+    # (user 2026-06-19).
+    #
+    # EVIDENCE (2026-06-19, london_plane _s, instrumented regen): branch-walk
+    # finds only ~6 of 162 foliage candidates on sparse young crowns, so the
+    # crown is built almost entirely from the synthetic crown-fill above — and
+    # that fill samples the convex hull of those few candidates, which tops out
+    # at the highest *foliated* branch (eligBranchZmax). That leaves a 0.6-1.3m
+    # bare LEADER SPIKE (16-32 bark verts) above the foliage line. Prior apical
+    # caps (v1-v3) added only ~5 clusters at the single top vertex and never
+    # filled this spike — which is why the bare stick survived every time.
+    #
+    # FIX: place clusters directly ON the upper-crown bark verts (incl. the
+    # depth-0 leader, which the foliage filter excludes), weighted toward the top
+    # and biased to sit on/above the wood. Foliage then tracks the real woody
+    # envelope, buries the spike, and tapers to the apex. General to all tiers.
     if n > 0:
         zc = coords[:, 2]
-        all_top_z = float(zc.max())
-        # v3 (2026-06-19): v2 biased clusters BELOW the tip (z+[-0.4,+0.05]), so on
-        # ~2 of 7 variants the leaf top stopped below the bark top (measured: v0
-        # leaf 4.91, v4 4.79 vs bark 5.00) and the leader poked through. Fix:
-        # explicitly bury the single highest vertex (the leader tip) with a tight
-        # bunch of clusters that STRADDLE and rise ABOVE it, so the bark apex is
-        # always inside the foliage. Then a broader band clothes the upper crown.
-        tip = coords[int(np.argmax(zc))]
-        n_tip = max(4, int(round(target_height * 0.45)))
-        for _ in range(n_tip):
-            candidates.append(Vector((
-                tip[0] + rng.uniform(-0.22, 0.22),
-                tip[1] + rng.uniform(-0.22, 0.22),
-                tip[2] + rng.uniform(-0.20, 0.40))))   # rise ABOVE the leader tip
-        apex_band = np.where(zc > all_top_z - target_height * 0.14)[0]
-        if len(apex_band) > 0:
-            n_apex = max(5, int(round(target_height * 0.6)))
-            for _ in range(n_apex):
-                vi = int(apex_band[rng.randint(0, len(apex_band) - 1)])
+        wood_top = float(zc.max())
+        wood_bot = float(zc.min())
+        crown_h = max(wood_top - wood_bot, 0.5)
+        # Band = upper ~40% of the crown's woody height: overlaps the existing
+        # foliage line and extends up over the bare leader spike.
+        band_lo = wood_top - 0.40 * crown_h
+        band = np.where(zc >= band_lo)[0]
+        if len(band) > 0:
+            # numpy RNG seeded from the python rng → vectorized weighted sampling,
+            # still deterministic per variant.
+            nrng = np.random.default_rng(rng.randint(0, 2**31 - 1))
+            band_z = zc[band]
+            # Weight verts toward the top: the leader spike is the sparsest wood
+            # and must be fully buried; the lower band only needs touch-up since
+            # the branch-walk/crown-fill already covers it.
+            w = (band_z - band_lo) ** 1.5 + 0.06 * crown_h
+            w = w / w.sum()
+            # Count scales with crown height → opaque cap at every tier.
+            n_env = max(28, int(round(crown_h * 8)))
+            sel = nrng.choice(band, size=n_env, p=w)
+            for vi in sel:
                 candidates.append(Vector((
-                    coords[vi, 0] + rng.uniform(-0.3, 0.3),
-                    coords[vi, 1] + rng.uniform(-0.3, 0.3),
-                    coords[vi, 2] + rng.uniform(-0.2, 0.3))))
+                    coords[vi, 0] + rng.uniform(-0.35, 0.35),
+                    coords[vi, 1] + rng.uniform(-0.35, 0.35),
+                    coords[vi, 2] + rng.uniform(0.0, 0.45))))   # sit ON/above the wood
 
     # Build placements with size and flatten
     lo, hi = sp["leaf_cluster_size_range"]
