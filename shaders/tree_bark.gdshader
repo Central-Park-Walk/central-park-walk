@@ -192,9 +192,10 @@ void fragment() {
 		float pm_xy = fbm((puv_xy + w_xy) * 5.5 + vec2(31.0, 7.0), 3);
 		float patchm = pm_yz * tri_w.x + pm_xz * tri_w.y + pm_xy * tri_w.z;
 
-		// High-contrast plane palette (col base ~cream-gray).
-		vec3 fresh_cream = col * vec3(1.52, 1.58, 1.42);  // pale greenish-cream (freshest)
-		vec3 olive_green = col * vec3(0.74, 0.84, 0.56);  // olive-green mid bark
+		// High-contrast plane palette (col base ~cream-gray). fresh_cream warmed
+		// (less green) so fresh patches read cream, not lime (user 2026-06-19).
+		vec3 fresh_cream = col * vec3(1.52, 1.50, 1.38);  // pale warm cream (freshest)
+		vec3 olive_green = col * vec3(0.80, 0.83, 0.60);  // olive-green mid bark
 		vec3 gray_brown  = col * vec3(0.82, 0.76, 0.68);  // gray-brown older bark
 		vec3 dark_old    = col * vec3(0.50, 0.50, 0.46);  // darkest retained outer bark
 
@@ -210,8 +211,12 @@ void fragment() {
 		col = mix(col, olive_green, zolive * 0.85);
 		col = mix(col, fresh_cream, zfresh);
 
-		// Upper trunk/branches read smoother and paler on a real plane.
-		col = mix(col, fresh_cream, smoothstep(3.0, 11.0, local_h) * 0.35);
+		// Upper trunk + main limbs go smooth PALE GREY-CREAM on a real plane —
+		// NOT green (user 2026-06-19: the bark was gradienting up into green; real
+		// plane upper scaffold is creamy pale grey). Pale toward a neutral warm
+		// grey so the green olive stays a LOWER/mid-bark patch tell, not the limbs.
+		vec3 pale_limb = col * vec3(1.42, 1.42, 1.40);
+		col = mix(col, pale_limb, smoothstep(2.5, 12.0, local_h) * 0.55);
 
 		// Recessed exfoliation crack at the plate boundary. Softened (was 0.30/0.8)
 		// so the boundary reads as a peel seam, not a hard dark LINE running the
