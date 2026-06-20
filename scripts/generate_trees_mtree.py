@@ -1700,20 +1700,22 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
 
     # Apical cap — never leave the crown apex bare. The top of a live tree is
     # prime sunlight real estate; a bare leader twig poking above the canopy only
-    # happens in winter/dead, not high summer (user 2026-06-19). Add clusters at
-    # the topmost branch points so foliage caps the crown. Applies to all species.
-    if len(eligible_idx) > 0:
-        z_elig = coords[eligible_idx, 2]
-        top_z = float(z_elig.max())
-        apex_band = eligible_idx[z_elig > top_z - target_height * 0.07]
+    # happens in winter/dead, not high summer (user 2026-06-19). v1 used only
+    # foliage-eligible branches (depth>=1), but the LEADER is depth 0 and gets
+    # excluded — so the leader still poked up bare. v2: band the topmost ~12% of
+    # the WHOLE skeleton (coords, all verts incl. the leader) and bias clusters
+    # at/below the tip so cards rise to bury it. Applies to all species.
+    if n > 0:
+        all_top_z = float(coords[:, 2].max())
+        apex_band = np.where(coords[:, 2] > all_top_z - target_height * 0.12)[0]
         if len(apex_band) > 0:
-            n_apex = max(3, int(round(target_height * 0.5)))
+            n_apex = max(5, int(round(target_height * 0.7)))
             for _ in range(n_apex):
                 vi = int(apex_band[rng.randint(0, len(apex_band) - 1)])
                 candidates.append(Vector((
-                    coords[vi, 0] + rng.uniform(-0.25, 0.25),
-                    coords[vi, 1] + rng.uniform(-0.25, 0.25),
-                    coords[vi, 2] + rng.uniform(-0.05, 0.25))))
+                    coords[vi, 0] + rng.uniform(-0.3, 0.3),
+                    coords[vi, 1] + rng.uniform(-0.3, 0.3),
+                    coords[vi, 2] + rng.uniform(-0.4, 0.05))))
 
     # Build placements with size and flatten
     lo, hi = sp["leaf_cluster_size_range"]
