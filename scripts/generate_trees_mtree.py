@@ -1119,40 +1119,23 @@ SPECIES = {
         "leaf_flatten_range": (0.45, 0.65),
         "leaf_density": 0.85,  # LAI 4-6, "largest leaf area of any inner-London tree" — heavy shade (BRIEF §3)
         "foliage_continuous": True,  # clad branches as a continuous sheath (ref: pro Platanus model), not discrete scattered blobs — 2026-06-20
-        # TRUE-3D leaf distribution (user-approved full switch, 2026-06-20): real
-        # lobed leaf geometry instanced phyllotactically on the branches via
-        # Mtree's native distribute_leaves, opaque single-leaf surface texture.
-        # Replaces card scatter entirely — coherent by construction (no floaters/
-        # holes/shards). Per-tier density/scale tuned to the crown fullness +
-        # real ~15-18cm palmate leaf; max_radius gates leaves onto twigs only
-        # (off the thick bole). The fountain of leaves up to a leafy apex.
-        "foliage_distribute": True,
-        # True-3D leaves on EVERY tier's LOD0 base mesh (s/m/l) — real leaves up
-        # close at any size. The "card mass far" is the baked IMPOSTOR billboard,
-        # not a card tier; per-LOD split, not per-tree-size (user, 2026-06-20).
-        "distribute_tiers": ["s", "m", "l"],
-        # Deterministic palmate outline (NOT the MAPLE superformula, which gave a
-        # rounded blob). base_len matches the prior approved leaf bbox height so
-        # the tuned tier scales keep their leaf size; palmate defaults to the
-        # PIL-verified plane silhouette (see _palmate_leaf_outline).
-        "leaf_cfg": {"base_len": 2.93},
-        # ARTISTIC LICENSE for density at feasible polys (user, 2026-06-20):
-        # real LAI 4-6 = ~2k/26k/59k leaves (reference_tree_canopy_data §11) is
-        # unrenderable as individual leaves on m/l. Data-true SIZE (scale 0.062 ≈
-        # 18cm) at a feasible COUNT reads SPARSE. So we deliberately OVERSIZE the
-        # leaf (each instance stands in for a small clump) — crown density ∝
-        # count × scale², and polys scale only with COUNT, so bigger leaves buy
-        # density cheaply. Leaves run ~2-3× real blade size; this is intentional
-        # tech-accommodation, NOT a data error — do not "correct" to 0.062.
-        # max_radius gates leaves onto twigs, off the bole. Density stays LOW
-        # (poly-cheap, ~feasible count); the OVERSIZED leaf does the covering —
-        # bumping count too would just double polys for the same density (user,
-        # 2026-06-20). Tune COVERAGE via scale, not count.
-        "tier_distribute": {
-            "s": {"density": 380.0, "scale": 0.12, "max_radius": 0.05},
-            "m": {"density": 40.0,  "scale": 0.15, "max_radius": 0.08},
-            "l": {"density": 12.0,  "scale": 0.17, "max_radius": 0.11},
-        },
+        # LEAF PATH = REAL-PHOTO CLUSTER CARDS (reverted from distribute_leaves,
+        # 2026-06-20 PM). The 2026-06-20 AM "true-3D distribute" switch was
+        # disproved by the render-budget analysis: at Ramble density ~200-250
+        # trees carry full near-tier leaves at once (park_data.json, lod0≤80m),
+        # so a near "leaf" can afford only ~2-12 tris — the 664-vert structural
+        # leaf is ~460M tris/frame, impossible on a 3060 Ti. Both the recovered
+        # AAA/SpeedTree research and the Godot/Blender community converge on
+        # 50-200 cluster CARDS per canopy, leaves distinguished by the card's
+        # alpha SILHOUETTE + COLOR (which is all that resolves past ~30m anyway),
+        # not by geometry (docs/research-game-ready-leaves.md §1). So: keep the
+        # continuous-cladding branch-walk placement (structural, on-twig — NOT
+        # scattered/floating), but feed it a cluster card composited from the
+        # REAL london-plane cutout (real veins/teeth/palmate outline/drab fall),
+        # distinct from maple/sweetgum. distribute_leaves stays available for a
+        # future hero/closeup tier only.
+        "foliage_distribute": False,
+        "leaf_real_texture": "textures/leaves/london_plane_cluster.png",
         "target_cluster_count_l": 1080,  # fuller crown — baseline read too open/airy vs dense-shade BRIEF (2026-06-19 eval)
         "trunk_radius_factor": 1.12,  # stout, heavy plane bole (BRIEF §1)
         "base_seed": 200,
@@ -2885,6 +2868,12 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
         print(f"  Leaf (true-3D distribute): {png_path}")
 
     if leaf_proto is None:
+        # Real-photo cluster card (leaf_real_texture): a pre-composited RGBA
+        # cluster built from the species' real-leaf cutout
+        # (make_leaf_cluster_texture.py) replaces the procedural edge-fn painting
+        # — real veins/teeth/silhouette/color, distinct per species. London plane.
+        real_tex = sp.get("leaf_real_texture")
+        real_tex_path = os.path.join(PROJ, real_tex) if real_tex else None
         leaf_mat = create_leaf_material(
             f"{species_name}_leaf",
             leaf_shape=sp["leaf_shape"],
@@ -2895,6 +2884,7 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
             compound_mode=compound,
             leaf_scale=sp.get("leaf_scale", 1.0),  # per-species real leaf size (blade-length
                                                    # normalised, oak≈1.0; canopy data §each)
+            real_texture=real_tex_path,
         )
         # Viewport display color for Workbench thumbnail renderer
         if fascicle:
@@ -2907,7 +2897,13 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
         png_dir = os.path.join(MODEL_DIR, "leaf_textures")
         os.makedirs(png_dir, exist_ok=True)
         png_path = os.path.join(png_dir, f"{species_name}_leaf.png")
-        if not os.path.exists(png_path) or tier_name == "l":
+        if real_tex_path:
+            # Real-photo cluster: the source PNG IS the DDS-pipeline texture —
+            # copy it deterministically (bpy image.save on a loaded file is
+            # unreliable across tiers), so generate_leaf_dds picks it up.
+            shutil.copy(real_tex_path, png_path)
+            print(f"  Leaf texture (real cluster): {png_path}")
+        elif not os.path.exists(png_path) or tier_name == "l":
             leaf_img = leaf_mat.node_tree.nodes["Image Texture"].image
             leaf_img.filepath_raw = png_path
             leaf_img.file_format = 'PNG'

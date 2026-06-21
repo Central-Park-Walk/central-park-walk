@@ -25,27 +25,19 @@ for o in list(bpy.data.objects):
 
 
 def make_plane_leaf():
-    """Broad palmate Platanus acerifolia leaf (maple-leaved): 3-5 shallow lobes,
-    coarse teeth, ~as wide as long."""
-    gen = m_tree.LeafShapeGenerator()
-    apply_preset_to_generator(gen, "MAPLE", _m_tree=m_tree)
-    # Plane tweaks vs maple: slightly wider than long, shallower broader lobes.
-    gen.aspect_ratio = 1.08
-    gen.n1 = 1.7
-    gen.seed = 7
-    gen.asymmetry_seed = 3
-    cpp = gen.generate()
-    me = bpy.data.meshes.new("plane_leaf")
-    create_leaf_mesh_from_cpp(me, cpp)
-    ob = bpy.data.objects.new("plane_leaf", me)
-    bpy.context.collection.objects.link(ob)
-    # Green leaf material with translucency (stand-in for the project SSS shader).
-    m = bpy.data.materials.new("plane_leaf_mat"); m.use_nodes = True
-    b = m.node_tree.nodes.get("Principled BSDF")
-    b.inputs["Base Color"].default_value = (0.13, 0.32, 0.08, 1)
-    b.inputs["Roughness"].default_value = 0.6
-    me.materials.append(m)
-    return ob, len(me.vertices)
+    """Load the REAL-silhouette plane leaf model (models/leaves/london_plane_leaf.glb,
+    Gate-1 approved) and normalize to ~1u so distribute_leaves' scale applies.
+    Replaces the old LeafShapeGenerator superformula leaf (read as a star)."""
+    glb = os.path.abspath(os.path.join(HERE, "..", "models", "leaves", "london_plane_leaf.glb"))
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=glb)
+    ob = next(o for o in bpy.data.objects if o not in before and o.type == "MESH")
+    h = max(ob.dimensions) or 1.0                      # GLB authored ~3u -> 1u
+    ob.scale = (1.0 / h, 1.0 / h, 1.0 / h)
+    bpy.ops.object.select_all(action="DESELECT"); ob.select_set(True)
+    bpy.context.view_layer.objects.active = ob
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    return ob, len(ob.data.vertices)
 
 
 leaf, leaf_v = make_plane_leaf()

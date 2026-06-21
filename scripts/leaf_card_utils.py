@@ -366,13 +366,26 @@ def generate_leaf_texture(name, tex_size=512, n_leaves=22, leaf_shape="elliptic"
 def create_leaf_material(name, leaf_shape="elliptic", n_leaves=22,
                          tex_size=512, seed=42, draw_twigs=True,
                          fascicle_mode=False, compound_mode=False,
-                         spread=None, size_scale=1.0, leaf_scale=1.0):
-    """Create a leaf material with a multi-leaf cluster texture."""
-    leaf_img = generate_leaf_texture(
-        f"{name}Tex", tex_size=tex_size, n_leaves=n_leaves,
-        leaf_shape=leaf_shape, seed=seed, draw_twigs=draw_twigs,
-        fascicle_mode=fascicle_mode, compound_mode=compound_mode,
-        spread=spread, size_scale=size_scale, leaf_scale=leaf_scale)
+                         spread=None, size_scale=1.0, leaf_scale=1.0,
+                         real_texture=None):
+    """Create a leaf material with a multi-leaf cluster texture.
+
+    If real_texture is a path to a pre-composited RGBA cluster PNG (built from
+    a real-leaf cutout by scripts/vegetation/make_leaf_cluster_texture.py),
+    that photo cluster is loaded directly and the procedural painting is
+    skipped — real veins/teeth/silhouette/color instead of the polar edge fn.
+    The image node is still named "Image Texture" so the downstream DDS export
+    in generate_trees_mtree picks it up unchanged.
+    """
+    if real_texture:
+        leaf_img = bpy.data.images.load(real_texture, check_existing=True)
+        leaf_img.name = f"{name}Tex"
+    else:
+        leaf_img = generate_leaf_texture(
+            f"{name}Tex", tex_size=tex_size, n_leaves=n_leaves,
+            leaf_shape=leaf_shape, seed=seed, draw_twigs=draw_twigs,
+            fascicle_mode=fascicle_mode, compound_mode=compound_mode,
+            spread=spread, size_scale=size_scale, leaf_scale=leaf_scale)
 
     mat = bpy.data.materials.new(name=name)
     mat.use_nodes = True
