@@ -57,8 +57,9 @@ var proxy_instances: int = 0
 # the mid mesh, each across the whole mesh range (for the 60m handoff comparison).
 var _tier_isolate: String = ""
 # --tree-mesh-range=N: mesh→impostor handoff distance (fade END, metres).
-# The 20m dither band, mesh chunk visibility (+40m = half chunk), impostor
-# fade-in and impostor chunk visibility (-60m) all derive from this. Shadow
+# The dither band (LOD_FADE_RATIO of this = 20m at 200m), mesh chunk visibility
+# (+40m = half chunk), impostor fade-in and impostor chunk visibility (-60m) all
+# derive from this. Shadow
 # proxies are NOT tied to it — they keep casting to 290m regardless, so the
 # camera-tier A/B does not perturb shadows.
 #
@@ -75,11 +76,19 @@ var _tier_isolate: String = ""
 # visible and the wash is gone. Removing the 200-400m mesh band is also a perf win.
 var _mesh_fade_end: float = 200.0
 # --tree-lod1-range=N: lod0 (full base) → lod1 (mid mesh) handoff (fade END,
-# metres). 10m dither band; near chunk visibility extends +40m past it.
-# Default 100 since 2026-06-20 (was 60): lod0's full-detail base model is only
-# needed at close range (<100m); lod1 then carries 100–200m with ~equal screen
-# time. Keeps lod0 cheap (near-field only) and gives lod1 a real range to serve.
-var _lod1_end: float = 100.0
+# metres). Dither band = LOD_FADE_RATIO of the handoff (8m at 80m); near chunk
+# visibility extends +40m past it.
+# Default 80 since 2026-06-21 (was 100, was 60): lod0's full-detail base model
+# is only needed at close range (<80m); lod1 then carries 80–200m. The 80/200
+# split is the user's spec; the dither band is the Godot HLOD convention.
+var _lod1_end: float = 80.0
+# Crossfade dither band as a fraction of each tier's handoff distance. Godot's
+# official HLOD tutorial sizes End Margin at 10% of the visibility range
+# (End=10 → Margin=1); SpeedTree/AAA guidance is to keep the dither band SHORT
+# because overdraw cost scales with dithered area. 10% satisfies both → 8m at
+# the 80m handoff, 20m at the 200m handoff. Computed inline at each fade site so
+# CLI range overrides (--tree-lod1-range / --tree-mesh-range) track automatically.
+const LOD_FADE_RATIO: float = 0.10
 # --simple-leaf / --simple-bark (diagnostic): swap tree surface shaders for
 # minimal ones with identical render modes, splitting the camera-raster cost
 # into shader complexity vs raster structure (overdraw, quad efficiency).
@@ -135,10 +144,10 @@ func _init(loader) -> void:
 			print("TreeBuilder: TIER ISOLATE '%s' — single tier, no crossfade (diagnostic)" % _tier_isolate)
 		elif arg.begins_with("--tree-mesh-range="):
 			_mesh_fade_end = clampf(float(arg.substr("--tree-mesh-range=".length())), 60.0, 1000.0)
-			print("TreeBuilder: mesh tier fade end = %.0fm (default 400) — impostors take over there" % _mesh_fade_end)
+			print("TreeBuilder: mesh tier fade end = %.0fm (default 200) — impostors take over there" % _mesh_fade_end)
 		elif arg.begins_with("--tree-lod1-range="):
 			_lod1_end = clampf(float(arg.substr("--tree-lod1-range=".length())), 20.0, 250.0)
-			print("TreeBuilder: near mesh (_lod1) fade end = %.0fm (default 60) — _lod1 takes over there" % _lod1_end)
+			print("TreeBuilder: near mesh (_lod1) fade end = %.0fm (default 80) — _lod1 takes over there" % _lod1_end)
 		elif arg == "--simple-leaf":
 			_simple_leaf = true
 			print("TreeBuilder: SIMPLE LEAF shader (diagnostic) — isolates leaf shader complexity cost")
@@ -905,14 +914,14 @@ func _build_trees(trees: Array) -> void:
 	# Per-tier dither fade ranges. Shader dithering replaces Godot's
 	# VISIBILITY_RANGE_FADE_SELF (known bug #88854 with alpha_to_coverage).
 	# Three-tier system (docs/trees.md §4c):
-	#   Base near mesh: full model 0 → _lod1_end, fades out over the 10m
-	#                   band ending at _lod1_end → _lod1.
-	#   _lod1 mid mesh: fades in over that band, out over the 20m band ending
-	#                   at _mesh_fade_end → impostor.
+	#   Base near mesh: full model 0 → _lod1_end, fades out over the LOD_FADE_RATIO
+	#                   band (8m at 80m) ending at _lod1_end → _lod1.
+	#   _lod1 mid mesh: fades in over that band, out over the LOD_FADE_RATIO band
+	#                   (20m at 200m) ending at _mesh_fade_end → impostor.
 	#   No _lod1 (dead): near mesh covers the whole range, fades at the far band.
 	#   Impostor:    fades in over the far band (set in _build_canopy_shells).
-	var mesh_fade_out := Vector2(_mesh_fade_end - 20.0, _mesh_fade_end)
-	var lod1_fade := Vector2(_lod1_end - 10.0, _lod1_end)
+	var mesh_fade_out := Vector2(_mesh_fade_end * (1.0 - LOD_FADE_RATIO), _mesh_fade_end)
+	var lod1_fade := Vector2(_lod1_end * (1.0 - LOD_FADE_RATIO), _lod1_end)
 	const NO_FADE := Vector2(0.0, 0.0)
 	for sp_key in _species_meshes:
 		var fade_in := NO_FADE
@@ -1306,8 +1315,9 @@ func _build_canopy_shells() -> void:
 			_load_impostor_mat.call("%s_%s" % [model_name, tier])
 		_load_impostor_mat.call(model_name)  # generic fallback
 
-	# Impostors fade in over the mesh tier's fade-out band (default 380-400m).
-	var imp_fade_in := Vector2(_mesh_fade_end - 20.0, _mesh_fade_end)
+	# Impostors fade in over the mesh tier's fade-out band (180-200m at default).
+	# Must equal mesh_fade_out (line ~914) so the crossfade is water-tight.
+	var imp_fade_in := Vector2(_mesh_fade_end * (1.0 - LOD_FADE_RATIO), _mesh_fade_end)
 	if _tier_isolate == "impostor":
 		imp_fade_in = Vector2(0.0, 0.0)   # pure tier at any distance
 	for mat_key in impostor_mats:
@@ -1416,7 +1426,7 @@ func _build_canopy_shells() -> void:
 		var imp_chunk_r := 0.0
 		for tf: Transform3D in xf_list:
 			imp_chunk_r = maxf(imp_chunk_r, (tf.origin - origin).length())
-		var imp_fade_begin: float = _mesh_fade_end - 20.0
+		var imp_fade_begin: float = _mesh_fade_end * (1.0 - LOD_FADE_RATIO)
 		mmi.visibility_range_begin = 0.0 if _tier_isolate == "impostor" \
 			else maxf(imp_fade_begin - imp_chunk_r - 5.0, 0.0)
 		mmi.visibility_range_end = 2500.0
@@ -1437,4 +1447,4 @@ func _build_canopy_shells() -> void:
 		imp_chunks += 1
 
 	print("Trees Impostor: %d billboard impostors (fade in %.0f-%.0fm, per-chunk cull) in %d chunks (%d species)" % [
-		impostor_count, _mesh_fade_end - 20.0, _mesh_fade_end, chunks.size(), impostor_mats.size()])
+		impostor_count, _mesh_fade_end * (1.0 - LOD_FADE_RATIO), _mesh_fade_end, chunks.size(), impostor_mats.size()])
