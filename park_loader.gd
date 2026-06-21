@@ -1078,23 +1078,34 @@ func _ready() -> void:
 	if eval_plot != "":
 		_eval_builder = preload("res://eval_plot_builder.gd").new(self)
 		_eval_builder.resolve(eval_plot)
+		# Eval garden = ONLY eval specimens. Drop the real park census so the
+		# specimen comparison isn't confounded by background park trees (user
+		# 2026-06-21: a dark background park tree was misread as an impostor
+		# defect on the centred eval london_plane, which actually matched).
+		trees.clear()
 		var _eval_n: int = _eval_builder.inject_trees(trees)
-		print("  eval plot: %d tree specimens injected" % _eval_n)
+		print("  eval plot: %d tree specimens injected (real park trees suppressed)" % _eval_n)
 	_tree_builder._build_trees(trees)
 	print("  trees: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	_canopy_texture = _generate_canopy_map(_tree_builder.canopy_data)
 	print("  canopy map: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	# Grass handled by Terrain3D GPU particle system in main.gd
 	_tp = Time.get_ticks_msec()
-	_undergrowth_builder._build_undergrowth()
-	if _eval_builder:
+	# Eval garden suppresses the real park vegetation (undergrowth / ground
+	# cover / vines) — only the eval specimens populate. Eval undergrowth is
+	# built separately by _eval_builder.build() below.
+	if not _eval_builder:
+		_undergrowth_builder._build_undergrowth()
+	else:
 		_eval_builder.build(_undergrowth_builder)
 	print("  undergrowth: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
-	_ground_cover_builder._build_ground_cover()
+	if not _eval_builder:
+		_ground_cover_builder._build_ground_cover()
 	print("  ground cover: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	# grass accents now handled by Terrain3D particle system (8 biome layers)
 	_tp = Time.get_ticks_msec()
-	_vine_builder._build_vines(trees)
+	if not _eval_builder:
+		_vine_builder._build_vines(trees)
 	print("  vines: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	_furniture_builder._build_furniture(benches, lampposts, paths)
 	_furniture_builder._build_trash_cans(trash_cans, paths)
