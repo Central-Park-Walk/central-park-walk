@@ -2013,10 +2013,10 @@ func _setup_environment() -> void:
 	_env.sdfgi_cascades        = 6                                   # large outdoor scene needs range (4 = default)
 	_env.sdfgi_min_cell_size   = 0.5                                 # ~0.5m cascade-0 detail, matches atlas resolution
 	_env.sdfgi_y_scale         = Environment.SDFGI_Y_SCALE_75_PERCENT # Godot default; balanced for tree-height verticality
-	_env.sdfgi_energy          = 1.0                                 # standard full-strength indirect light
+	_env.sdfgi_energy          = 0.7                                 # dialed back from 1.0 — tame green bounce from the all-green scene (user 2026-06-21)
 	_env.sdfgi_normal_bias     = 1.1                                 # Godot default
 	_env.sdfgi_probe_bias      = 1.1                                 # Godot default
-	_env.sdfgi_bounce_feedback = 0.5                                 # Godot default multi-bounce (>0.5 risks runaway)
+	_env.sdfgi_bounce_feedback = 0.3                                 # dialed back from 0.5 — less multi-bounce accumulation = less green tint on pale bark/paths
 	_env.sdfgi_read_sky_light  = true                               # outdoor ambient from sky
 	_env.sdfgi_use_occlusion   = true                               # higher-quality contact occlusion
 	# SSIL (screen-space indirect light) left OFF: it is a separate near-field
