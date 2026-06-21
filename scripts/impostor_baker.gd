@@ -337,9 +337,9 @@ func _assign_bake_materials(mesh: Mesh, info: Dictionary, species: String) -> Ar
 			mesh.surface_set_material(si, leaf_mat)
 			mats.append(leaf_mat)
 		else:
-			# Bark: restored for silhouette parity with LOD2 mesh. The previous
+			# Bark: restored for silhouette parity with lod1 mesh. The previous
 			# canopy-only approach made distant birch less washed-out but
-			# introduced a universal trunk-pop at the LOD2↔impostor transition
+			# introduced a universal trunk-pop at the lod1↔impostor transition
 			# boundary (verified via silhouette comparison across all species).
 			# Mipmap bark-bleed is now mitigated by post-bake alpha dilation
 			# (scripts/dilate_impostors.py) + aerial perspective fog at distance.

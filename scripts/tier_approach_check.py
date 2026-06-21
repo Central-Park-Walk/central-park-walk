@@ -8,7 +8,7 @@ from smooth approach trends.
 
 The user-visible defect: distant tree line reads PALE/washed, then turns
 greener/saturated and gains shape in discrete steps on approach
-(impostor→lod2 at ~230-250 m, lod2→near at ~50-60 m, fog veil on top).
+(impostor→lod1 at ~230-250 m, lod1→near at ~50-60 m, fog veil on top).
 
 Protocol (same family as the crossfade-walk DoD in trees.md §7): compare
 per-frame canopy STATISTICS, never raw pixel deltas — a walking camera

@@ -142,7 +142,7 @@ func update(player: CharacterBody3D, time_of_day: float,
 	if not player or not _coord_label:
 		return
 	var pos := player.position
-	_coord_label.text = "X: %7.1f      Z: %7.1f" % [pos.x, pos.z]
+	_coord_label.text = "X: %7.1f   Z: %7.1f   Alt: %6.1f" % [pos.x, pos.z, pos.y]
 	var bearing := fmod(fmod(-player.rotation_degrees.y, 360.0) + 360.0, 360.0)
 	_heading_label.text = "Heading: %5.1f°  %s" % [bearing, _compass_label(bearing)]
 	var lat :=  REF_LAT + (-pos.z / METRES_PER_DEG_LAT)

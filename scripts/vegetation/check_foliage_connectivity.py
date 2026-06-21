@@ -118,16 +118,26 @@ def main():
         sc = trimesh.load(path, process=False)
         if not isinstance(sc, trimesh.Scene):
             continue
-        bark = {n: g for n, g in sc.geometry.items() if not n.endswith("_1")}
         model = os.path.basename(path)
+        # Classify leaf vs bark by MATERIAL NAME, not primitive suffix: the GLB
+        # primitive order ('_v0' vs '_v0_1') flips between the card path (bark
+        # first) and the true-3D distribute path (leaf first), so a suffix test
+        # silently inverts the analysis. Group the two primitives of each variant
+        # by their shared base name (strip a trailing '_1').
+        def _is_leaf(g):
+            m = getattr(getattr(g, "visual", None), "material", None)
+            return bool(m and "leaf" in (getattr(m, "name", "") or "").lower())
+        variants = {}
+        for n, g in sc.geometry.items():
+            base = n[:-2] if n.endswith("_1") else n
+            variants.setdefault(base, {})["leaf" if _is_leaf(g) else "bark"] = g
         rows = []
-        for name, g in sc.geometry.items():
-            if not name.endswith("_1"):
+        for base, pair in variants.items():
+            bg = pair.get("bark")
+            lg = pair.get("leaf")
+            if bg is None or lg is None:
                 continue
-            bg = bark.get(name[:-2])
-            if bg is None:
-                continue
-            r = check_variant(np.asarray(bg.vertices), np.asarray(g.vertices),
+            r = check_variant(np.asarray(bg.vertices), np.asarray(lg.vertices),
                               np.asarray(bg.faces))
             if r:
                 rows.append(r)

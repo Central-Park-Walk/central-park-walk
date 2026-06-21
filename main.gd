@@ -528,11 +528,11 @@ var _screenshot_file := "/tmp/godot_screenshot.png"  # --screenshot-file=path ov
 var _lt_screenshot_pending := false  # debounce for gamepad left trigger screenshots
 
 # Distance overlay (F1) — floating Label3Ds on nearest trees, color-coded by LOD band.
-# LOD bands match docs/trees.md §1: near mesh 0–60m, lod2 60–400m, impostor 400m+.
+# LOD bands match docs/trees.md §1: lod0 0–100m, lod1 100–200m, impostor 200m+.
 var _dist_overlay_visible := false
 var _dist_labels: Array = []  # Array[Label3D] — pool, reused each frame
 const _DIST_POOL_SIZE := 40
-const _DIST_MAX_RANGE := 350.0
+const _DIST_MAX_RANGE := 500.0
 var _dist_tree_positions: PackedVector3Array = PackedVector3Array()  # cached once
 
 # ---------------------------------------------------------------------------
@@ -568,6 +568,10 @@ func _build_cli_shots() -> void:
 			"hour": float(p[4]) if p.size() > 4 and p[4] != "" else _time_of_day,
 			"filename": "shot_%02d_x%s_z%s" % [i, p[0], p[1]],
 		}
+		# Optional 6th field: camera height above terrain (metres). Lets a shot
+		# pose a high top-down camera (with pitch=-90) for LOD-handoff diagnostics.
+		if p.size() > 5 and p[5] != "":
+			shot["height"] = float(p[5])
 		_tour_shots.append(shot)
 		i += 1
 
@@ -1313,7 +1317,7 @@ func _diag_toggle_terrain() -> void:
 
 func _diag_toggle_trees() -> void:
 	if _diag_tree_mmis.is_empty() and _park_loader:
-		var patterns := ["Tree_*", "TreeL1_*", "TreeL2_*", "TreeImp_*"]
+		var patterns := ["Tree_*", "TreeLod1_*", "TreeImp_*"]
 		for pat: String in patterns:
 			for n: Node in _park_loader.find_children(pat, "MultiMeshInstance3D", true, false):
 				_diag_tree_mmis.append(n)
@@ -1404,7 +1408,7 @@ func _diag_apply_hides() -> void:
 					_terrain3d.visible = false
 			"trees":
 				if _diag_tree_mmis.is_empty() and _park_loader:
-					for pat: String in ["Tree_*", "TreeL1_*", "TreeL2_*", "TreeImp_*"]:
+					for pat: String in ["Tree_*", "TreeLod1_*", "TreeImp_*"]:
 						for n: Node in _park_loader.find_children(pat, "MultiMeshInstance3D", true, false):
 							_diag_tree_mmis.append(n)
 				for n: Node in _diag_tree_mmis:
@@ -1422,7 +1426,7 @@ func _diag_apply_hides() -> void:
 							(n as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			"treeshadows":
 				if _diag_tree_mmis.is_empty() and _park_loader:
-					for pat: String in ["Tree_*", "TreeL1_*", "TreeL2_*", "TreeImp_*"]:
+					for pat: String in ["Tree_*", "TreeLod1_*", "TreeImp_*"]:
 						for n: Node in _park_loader.find_children(pat, "MultiMeshInstance3D", true, false):
 							_diag_tree_mmis.append(n)
 				for n: Node in _diag_tree_mmis:
@@ -1508,13 +1512,13 @@ func _dist_build_label_pool() -> void:
 		var lbl := Label3D.new()
 		lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		lbl.fixed_size = true
-		lbl.pixel_size = 0.0008  # constant on-screen size regardless of distance
+		lbl.pixel_size = 0.0005  # constant on-screen size regardless of distance
 		lbl.no_depth_test = true
 		lbl.alpha_cut = Label3D.ALPHA_CUT_DISCARD  # render with opaque-pass discard so depth-test-off actually wins over leaf transparency
 		lbl.render_priority = 127  # draw last
-		lbl.outline_size = 8
+		lbl.outline_size = 4
 		lbl.outline_modulate = Color(0, 0, 0, 0.9)
-		lbl.font_size = 32
+		lbl.font_size = 20
 		lbl.visible = false
 		add_child(lbl)
 		_dist_labels.append(lbl)
@@ -1550,12 +1554,12 @@ func _dist_overlay_update() -> void:
 		var lbl: Label3D = _dist_labels[k]
 		lbl.global_position = p + Vector3(0.0, 4.0, 0.0)  # float above trunk
 		lbl.text = "%.0fm" % dist
-		# Color-code by tier band (docs/trees.md §1: near 0-60, lod2 60-400,
-		# impostor 400+)
-		if dist < 60.0:
-			lbl.modulate = Color(0.5, 1.0, 0.5)  # near mesh — green
-		elif dist < 400.0:
-			lbl.modulate = Color(1.0, 1.0, 0.4)  # lod2 — yellow
+		# Color-code by tier band (docs/trees.md §1: lod0 0-100, lod1 100-200,
+		# impostor 200+)
+		if dist < 100.0:
+			lbl.modulate = Color(0.5, 1.0, 0.5)  # lod0 base mesh — green
+		elif dist < 200.0:
+			lbl.modulate = Color(1.0, 1.0, 0.4)  # lod1 mid mesh — yellow
 		else:
 			lbl.modulate = Color(1.0, 0.5, 0.5)  # impostor — red
 		lbl.visible = true

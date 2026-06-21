@@ -50,11 +50,11 @@ var _shadow_proxy: bool = false
 var _proxy_solid: bool = false
 var _proxy_mesh_cache: Dictionary = {}  # mesh_key -> ArrayMesh
 var proxy_instances: int = 0
-# --tier-isolate=mesh|impostor|lod1|lod2 (diagnostic): render ONLY that tree
+# --tier-isolate=mesh|impostor|lod0|lod1 (diagnostic): render ONLY that tree
 # tier with the relevant crossfade dither disabled, so DoD captures can
 # compare pure tiers at the same distance (docs/trees.md §2/§4d validation).
-# mesh = both mesh LODs without the impostor fade; lod1/lod2 = a single mesh
-# LOD across the whole mesh range (for the 60m handoff comparison).
+# mesh = both mesh tiers without the impostor fade; lod0 = base mesh, lod1 =
+# the mid mesh, each across the whole mesh range (for the 60m handoff comparison).
 var _tier_isolate: String = ""
 # --tree-mesh-range=N: mesh→impostor handoff distance (fade END, metres).
 # The 20m dither band, mesh chunk visibility (+40m = half chunk), impostor
@@ -62,18 +62,24 @@ var _tier_isolate: String = ""
 # proxies are NOT tied to it — they keep casting to 290m regardless, so the
 # camera-tier A/B does not perturb shadows.
 #
-# Default 400 since 2026-06-11 (was 250): the tier-approach continuity pass
-# measured the 250m handoff color-matched (|Δ| 0.2 luma) but VISUALLY the
-# impostor reads flat/speckled vs lod2's shaped crowns at 250-350m — the
-# user's "trees gain shape in steps" walk-around defect. Extending lod2 to
-# 1000m measured FREE at the approach pose (63-64 fps vs 57-59; frame is
-# fragment-bound, rendering.md §3e) — 400m puts the billboard swap where a
-# crown is sub-45px and the flattening is invisible. Perf gate ×5 validated
-# (docs/trees.md §8).
-var _mesh_fade_end: float = 400.0
-# --tree-lod1-range=N: near-mesh (base) → mid-mesh (_lod1) handoff (fade
-# END, metres). 10m dither band; near chunk visibility extends +40m past it.
-var _lod1_end: float = 60.0
+# Default 200 since 2026-06-20 (was 400). Two independent reasons the impostor
+# must take over by ~200m: (1) in CP, trees are not seen unobstructed beyond
+# ~200m (dense, hilly sightlines — user observation), so running meshes farther
+# is wasted; (2) the DISCRETE-CARD FLOOR — beyond ~300m a leaf-card canopy goes
+# sub-pixel and mip-diluted alpha discards the cards, so NO geometry tier holds
+# coverage there regardless of card count (measured: full-coverage lod1 still
+# washes pale at 360m top-down). Only the contiguous-raster impostor stays
+# solid. The old 400 value chased the impostor's flat/speckled read at 250-350m
+# by extending the mesh — but that exposed the lod1 distant-thinning wash; with
+# impostors starting at 200m (mostly obstructed past there) the speckle is rarely
+# visible and the wash is gone. Removing the 200-400m mesh band is also a perf win.
+var _mesh_fade_end: float = 200.0
+# --tree-lod1-range=N: lod0 (full base) → lod1 (mid mesh) handoff (fade END,
+# metres). 10m dither band; near chunk visibility extends +40m past it.
+# Default 100 since 2026-06-20 (was 60): lod0's full-detail base model is only
+# needed at close range (<100m); lod1 then carries 100–200m with ~equal screen
+# time. Keeps lod0 cheap (near-field only) and gives lod1 a real range to serve.
+var _lod1_end: float = 100.0
 # --simple-leaf / --simple-bark (diagnostic): swap tree surface shaders for
 # minimal ones with identical render modes, splitting the camera-raster cost
 # into shader complexity vs raster structure (overdraw, quad efficiency).
@@ -441,8 +447,14 @@ func _build_trees(trees: Array) -> void:
 							var leaf_mat := ShaderMaterial.new()
 							leaf_mat.shader = leaf_shader
 							leaf_mat.set_shader_parameter("albedo_tint", leaf_tint)
-							# Prefer DDS with coverage-preserving mipmaps over GLB-embedded texture
-							var dds_path := "res://textures/leaves/%s_leaf.dds" % model_base
+							# Prefer DDS with coverage-preserving mipmaps over GLB-embedded texture.
+							# Per-tier DDS first (e.g. london_plane_s_leaf.dds = opaque single-leaf
+							# for the true-3D distributed sapling) then the species cluster DDS
+							# (e.g. london_plane_leaf.dds = alpha card mass for m/l). This is the
+							# hybrid: real leaves near/small, card mass on big crowns (2026-06-20).
+							var dds_path := "res://textures/leaves/%s_leaf.dds" % model_key
+							if not ResourceLoader.exists(dds_path):
+								dds_path = "res://textures/leaves/%s_leaf.dds" % model_base
 							if ResourceLoader.exists(dds_path):
 								leaf_mat.set_shader_parameter("albedo_tex", load(dds_path))
 							elif ltexs[mi]:
@@ -625,7 +637,7 @@ func _build_trees(trees: Array) -> void:
 		# sx scales crown width (XZ), sy scales height (Y)
 		# --- §5b per-instance coherence: break same-species clone tiling ---
 		# Derived from world XZ (NOT the sequential rng) so the basis is identical
-		# across near/lod2/impostor tiers; a leaning, slightly stretched tree must
+		# across lod0/lod1/impostor tiers; a leaning, slightly stretched tree must
 		# not pop or change shape at a tier handoff.
 		var h1 := fmod(abs(sin(tx * 12.9898 + tz * 78.233) * 43758.5453), 1.0)
 		var h2 := fmod(abs(sin(tx * 39.346 + tz * 11.135) * 24634.6345), 1.0)
@@ -797,16 +809,16 @@ func _build_trees(trees: Array) -> void:
 		match _tier_isolate:
 			"impostor":
 				pass  # no mesh tiers
-			"lod1":
+			"lod0":
 				tier_specs.append([near_mesh, "Tree", mesh_vis_end])
-			"lod2":
+			"lod1":
 				var iso_mesh: Mesh = mid_mesh if mid_mesh != null else near_mesh
-				tier_specs.append([iso_mesh, "TreeL2", mesh_vis_end])
+				tier_specs.append([iso_mesh, "TreeLod1", mesh_vis_end])
 			_:
 				var near_end: float = (_lod1_end + chunk_r + 5.0) if mid_mesh != null else mesh_vis_end
 				tier_specs.append([near_mesh, "Tree", near_end])
 				if mid_mesh != null:
-					tier_specs.append([mid_mesh, "TreeL2", mesh_vis_end])
+					tier_specs.append([mid_mesh, "TreeLod1", mesh_vis_end])
 		for spec: Array in tier_specs:
 			var mm := MultiMesh.new()
 			mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -830,7 +842,7 @@ func _build_trees(trees: Array) -> void:
 			if _shadow_proxy:
 				mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			_loader.add_child(mmi)
-			if spec[1] == "TreeL2":
+			if spec[1] == "TreeLod1":
 				lod1_instances += xf_list.size()
 				lod1_chunks += 1
 			else:
@@ -909,7 +921,7 @@ func _build_trees(trees: Array) -> void:
 		# full model (less self-shadowing) — keep a small knock-down on _lod1.
 		# The near tier IS the full base model (lod0): 1.0 by construction.
 		var tier_brightness: float = 0.95 if "_lod1" in sp_key else 1.0
-		if _tier_isolate == "lod1" or _tier_isolate == "lod2":
+		if _tier_isolate == "lod0" or _tier_isolate == "lod1":
 			pass  # pure single-LOD render for the 60m handoff DoD — no crossfade
 		elif "_lod1" in sp_key:
 			fade_in = lod1_fade
@@ -1344,7 +1356,7 @@ func _build_canopy_shells() -> void:
 		var sy: float = sd.h / maxf(model_height, 0.1)
 		var sx: float = sy * (1.50 if sd.archetype == "cathedral_elm" else 1.0)
 		# §5b per-instance coherence — SAME world-XZ hash as the mesh path so the
-		# impostor matches its near/lod2 mesh (no lean/width pop at the handoff).
+		# impostor matches its lod0/lod1 mesh (no lean/width pop at the handoff).
 		var h2 := fmod(abs(sin(sd.x * 39.346 + sd.z * 11.135) * 24634.6345), 1.0)
 		var h3 := fmod(abs(sin(sd.x * 73.156 + sd.z * 52.235) * 13793.4537), 1.0)
 		var sj := 1.0

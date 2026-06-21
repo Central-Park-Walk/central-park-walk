@@ -1,22 +1,34 @@
-"""Generate leaf-aware LOD variants of tree models (SpeedTree approach).
+"""Generate the lod1 mid mesh from a tree base model — COVERAGE-FIRST.
 
-Instead of generic mesh decimation (which destroys leaf card UVs and creates
-canopy holes), this script:
+The mid tier's only job is to reproduce the lod0/impostor canopy SILHOUETTE at
+mid range (100-200m). So this script:
   1. Separates leaf geometry from bark by material name ("leaf")
-  2. Randomly removes entire leaf card quads (not edge-collapse)
-  3. Scales surviving cards UP to maintain constant canopy coverage density
-  4. (lod2 only) Decimates bark to a triangle budget — bark is opaque tube
-     geometry and collapses cleanly, and it dominates the heavy species
-     (cathedral_elm_l: 84% bark, 203k tris; see docs/trees.md §4b)
+  2. KEEPS ALL leaf cards — the canopy silhouette is the invariant to preserve.
+  3. Decimates BARK to a triangle budget — bark is opaque tube geometry that
+     collapses cleanly and is hidden behind canopy at mid range, and it
+     dominates the heavy species (cathedral_elm_l: 84% bark, 203k tris; §4b).
 
-The card scale factor is 1/sqrt(keep_ratio), preserving total leaf area.
+WHY NOT prune leaf cards (the old approach, removed 2026-06-20): it randomly
+dropped 60-85% of cards and area-scaled survivors by 1/sqrt(keep) "to conserve
+coverage." But conserving leaf AREA is not conserving projected COVERAGE for
+the structured continuous cladding these canopies use — random removal punches
+holes that scaling around each card's own centroid can't refill. Measured
+result: lod1 covered only ~69% of the impostor and the crown thinned to a pale
+ghost beyond ~300m (the "wash"; docs/trees.md §5/§6). Coverage parity is now
+validated with scripts/tier_fit_check.py, not assumed from a triangle budget.
+The card-pruning machinery below is retained for coverage-aware future use
+(keep=1.0 makes it a no-op today).
 
 Tier spec (docs/trees.md §4c lever 3, near tier revised Jun 11):
   near (0–60m):         the FULL base model — rendered directly by the
                         runtime, nothing generated here. A card-pruned
                         _lod1 tier visibly thinned crowns at the closest
                         viewing distances (Jun 11 walk-around defect #1).
-  lod2 (mid, 60–250m):  40% cards × 1.58, bark ≤ 8k tris (budget ≤ ~12k total)
+  lod1 (mid, 60–400m):  40% cards × 1.58, bark ≤ 8k tris (budget ≤ ~12k total)
+                        NOTE: card-prune+area-scale loses ~31% projected
+                        coverage (measured 69% of impostor cover) → distant
+                        thinning/wash. See docs/trees.md §4c — fix is coverage-
+                        targeted, not budget-targeted.
 
 For bark-only models (e.g., dead trees), falls back to Blender Decimate.
 
@@ -38,7 +50,7 @@ MODEL_DIR = os.path.join(PROJECT_DIR, "models", "trees")
 
 # Per-tier recipe. card_keep = fraction of leaf cards kept (survivors scale
 # by 1/sqrt(card_keep)); bark_target = bark triangle budget for collapse
-# decimation (None = bark untouched). lod2 is adaptive: measured base models
+# decimation (None = bark untouched). lod1 is adaptive: measured base models
 # (2026-06-10) range 12k–245k tris per variant, so flat ratios can't hit the
 # ~12k budget — leaf and bark trade against each other per variant instead.
 LOD_SPECS = {
@@ -49,34 +61,32 @@ LOD_SPECS = {
     "lod1": {"adaptive": True},
 }
 
-LOD2_TOTAL_BUDGET = 12000   # docs/trees.md §4d: lod2 ≤ ~12k incl. cards
-LOD2_LEAF_BUDGET = 9000     # leaf tris before card_keep floors/caps apply
-LOD2_KEEP_MIN = 0.15        # below this, card scale (2.6×+) turns crowns to blobs
-LOD2_KEEP_MAX = 0.40
-LOD2_BARK_MIN = 3000        # trunk silhouette floor
-LOD2_BARK_MAX = 8000
+LOD1_TOTAL_BUDGET = 12000   # docs/trees.md §4d: lod1 ≤ ~12k incl. cards
+LOD1_LEAF_BUDGET = 9000     # leaf tris before card_keep floors/caps apply
+LOD1_KEEP_MIN = 0.15        # below this, card scale (2.6×+) turns crowns to blobs
+LOD1_KEEP_MAX = 0.40
+LOD1_BARK_MIN = 3000        # trunk silhouette floor
+LOD1_BARK_MAX = 8000
 # Collapse decimation has a per-island floor: Mtree bark is tens of
 # thousands of separate micro-islands (measured cathedral_elm_l: 31,069
 # islands, ~3 tris each — terminal twig stubs, sub-pixel beyond 60m).
-# Islands smaller than this bbox diagonal may be deleted outright at lod2,
+# Islands smaller than this bbox diagonal may be deleted outright at lod1,
 # smallest first, until the remainder is within collapse range of target.
 BARK_TWIG_PRUNE_DIAG = 0.5  # metres
 BARK_PRUNE_HEADROOM = 3.0   # prune until remaining <= target × headroom
 
 
-def lod2_recipe(leaf_tris, bark_tris):
-    """Per-variant (card_keep, bark_target) hitting LOD2_TOTAL_BUDGET.
-
-    Leaf gets first claim up to LOD2_LEAF_BUDGET (cards carry the canopy
-    look that the 60m handoff DoD compares); bark absorbs the remainder —
-    it's mostly hidden behind canopy at mid range. Willow (64.8k strand
-    cards) rides the KEEP_MIN floor and lands ~12.7k.
+def lod1_recipe(leaf_tris, bark_tris):
+    """Coverage-first (card_keep, bark_target). Keep ALL leaf cards so the
+    canopy silhouette matches lod0/impostor (no distant thinning); take the
+    cost saving from bark only. Heavy-bark species drop hard; light-bark
+    species are already under LOD1_BARK_MAX and pass through untouched
+    (decimate_bark_to_target is a no-op when bark_tris <= target). Leaf tris
+    are whatever the canopy needs — validate the real budget/perf with the
+    tier-handoff + perf gate, don't cap coverage to hit a tri number.
     """
-    keep = max(LOD2_KEEP_MIN,
-               min(LOD2_KEEP_MAX, LOD2_LEAF_BUDGET / max(leaf_tris, 1)))
-    leaf_after = leaf_tris * keep
-    bark_target = int(min(max(LOD2_TOTAL_BUDGET - leaf_after, LOD2_BARK_MIN),
-                          LOD2_BARK_MAX))
+    keep = 1.0                   # no leaf-card removal — coverage over tri budget
+    bark_target = LOD1_BARK_MAX  # collapse heavy bark; canopy silhouette intact
     return keep, bark_target
 
 SPECIES_TIERS = []
@@ -173,7 +183,7 @@ def leaf_aware_lod(obj, keep_ratio, seed):
     each an independent mesh island. We randomly remove whole quads and
     scale survivors up by 1/sqrt(keep_ratio) to maintain coverage density.
 
-    - Bark geometry: untouched here (lod2 decimates it separately)
+    - Bark geometry: untouched here (lod1 decimates it separately)
     - Leaf geometry: random quad removal + survivor scaling
     """
     mesh = obj.data
@@ -433,7 +443,7 @@ def process_model(model_name, lod_name, spec):
         leaf_mat_idx = find_leaf_material_index(obj.data)
         leaf, bark = count_tris(obj.data, leaf_mat_idx)
         if adaptive:
-            ratio, bark_target = lod2_recipe(leaf, bark)
+            ratio, bark_target = lod1_recipe(leaf, bark)
         else:
             ratio, bark_target = spec["card_keep"], spec["bark_target"]
         if leaf_mat_idx == -1:
@@ -449,13 +459,15 @@ def process_model(model_name, lod_name, spec):
         obj.select_set(False)
         final_objs.append(obj)
 
-    # Per-variant budget report (docs/trees.md §4d: lod2 ≤ ~12k incl. cards;
-    # +1000 slack covers the KEEP_MIN floor on extreme-card species)
+    # Per-variant tri report. Coverage-first lod1 keeps all leaf cards, so leaf
+    # tris track the canopy (the old ~12k cap is informational now, NOT a
+    # constraint — coverage parity wins; bark is what's decimated). The flag
+    # just surfaces unusually heavy variants worth a perf-gate glance.
     for obj in final_objs:
         leaf, bark = count_tris(obj.data, find_leaf_material_index(obj.data))
         flag = ""
-        if adaptive and leaf + bark > LOD2_TOTAL_BUDGET + 1000:
-            flag = "  ** OVER 12k BUDGET **"
+        if adaptive and leaf + bark > 60000:
+            flag = "  (heavy — check perf gate)"
         print(f"    [{lod_name}] {obj.name}: {leaf} leaf + {bark} bark "
               f"= {leaf + bark} tris{flag}")
 
@@ -501,8 +513,8 @@ def main():
 
         # LOD policy (user 2026-06-19): m-class and up get lod0 + lod1 + impostor;
         # anything smaller than m (the _s sapling tier) gets lod0 + impostor only —
-        # no lod1/_lod2. tree_builder.gd already renders the _s lod0 straight to the
-        # impostor handoff when no _s_lod2 mesh exists (mid_mesh == null path).
+        # no lod1. tree_builder.gd already renders the _s lod0 straight to the
+        # impostor handoff when no _s_lod1 mesh exists (mid_mesh == null path).
         if model_name.endswith("_s"):
             print(f"  (skip {model_name}: sapling tier — lod0 + impostor only, no lod1)")
             continue

@@ -7,7 +7,7 @@
 #   walk_default — shipped rendering
 #   walk_nofog   — volumetric fog density zeroed (--fog-cal=:::0:)
 # Analysis: scripts/tier_approach_check.py <dir> --compare <dir>
-#   steps in BOTH runs   = tier handoff (impostor→lod2 ~250 m, lod2→near ~60 m)
+#   steps in BOTH runs   = tier handoff (impostor→lod1 ~250 m, lod1→near ~60 m)
 #   trend/steps only in default = fog veil
 #
 # NOTE: windowed run — do not touch the game windows (headless is a dummy

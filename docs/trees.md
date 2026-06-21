@@ -12,26 +12,47 @@ at the worst test location. Measured today: ~25 ms camera (Ramble), 18–28 ms s
 
 ## 1. Tier architecture (target state)
 
+> **CANONICAL TIER NAMING (3-tier, since 2026-06-19): `lod0` (full base) →
+> `lod1` (mid mesh, file `{species}_{s,m,l}_lod1.glb`) → `impostor`. There is NO
+> lod2 tier.** The old 4-tier system (lod0/lod1/lod2/impostor) was collapsed by
+> renaming the mid GLBs to `_lod1`, but legacy `lod2`/`LOD2_*`/`TreeL2` tokens
+> linger in older prose **below** — read any "lod2" in §4–§6 as today's `lod1`
+> mid mesh, and any "50 %-card `_lod1`" as the *retired* near tier. Runtime code,
+> the loader, and `--tier-isolate=lod0|lod1` use the canonical names.
+
 | tier | range | fade | representation | casts shadow | lit |
 |---|---|---|---|---|---|
-| near mesh | 0–60 m | dither out 50–60 m | `{species}_{s,m,l}` — the **full base model** (revised Jun 11, §7: the 50 %-card `_lod1` tier visibly thinned close crowns), MMI per species-size × 80 m chunk | **never** (proxy does) | runtime sun + ambient |
-| mid mesh | 50–400 m | dither in 50–60 m, out 380–400 m | `{species}_{s,m,l}_lod2` (≤ ~12 k tris: adaptive card prune + bark decimation, §4c) | never | runtime sun + ambient |
+| lod0 (near) | 0–100 m | dither out 90–100 m | `{species}_{s,m,l}` — the **full base model** (revised Jun 11, §7: a card-pruned near tier visibly thinned close crowns), MMI per species-size × 80 m chunk | **never** (proxy does) | runtime sun + ambient |
+| lod1 (mid) | 90–200 m | dither in 90–100 m, out 180–200 m | `{species}_{s,m,l}_lod1` (**coverage-first, rewritten 2026-06-20, §4c**: keep ALL leaf cards for silhouette parity, decimate BARK only — the old card-prune+area-scale lost ~31 % coverage → distant wash) | never | runtime sun + ambient |
 | shadow proxy | 0–290 m | none (pops with cascade distance, invisible; shadow distance is 150 m so the 290 m cap is never the binding limit) | trunk cylinder + crown hull ≤ ~300 tris, alpha-test dapple mask, MMI `SHADOWS_ONLY` | is the shadow | n/a |
-| impostor | 340–2500 m | dither in 380–400 m | 8×8 hemisphere octahedral, 2048² atlas per species-size (56 atlases) | never | **runtime sun + ambient (NEW)** |
+| impostor | 180–2500 m | dither in 180–200 m | 8×8 hemisphere octahedral, 2048² atlas per species-size (56 atlases) | never | **runtime sun + ambient (NEW)** |
 
-Mesh fade end moved 250 → 400 m on 2026-06-11 (§8): the 250 m handoff was
-color-matched but the billboard's flat/speckled read vs lod2's shaped
-crowns at 250–350 m was the user's "trees gain shape in discrete steps"
-walk-around defect; the frame is fragment-bound, so the extra mesh-tier
-range measured free.
+Mesh fade end moved **400 → 200 m on 2026-06-20** (was 250→400 on Jun 11). Two
+independent reasons impostors must take over by ~200 m: (1) CP trees are not seen
+unobstructed past ~200 m (dense, hilly sightlines — user observation); (2) the
+**discrete-card floor** — beyond ~300 m a leaf-card canopy goes sub-pixel and
+mip-diluted alpha discards cards, so NO geometry tier holds coverage there
+regardless of card count (measured: full-coverage lod1 still washes pale at 360 m
+top-down); only the contiguous-raster impostor stays solid. The Jun-11 extension to
+400 m chased the impostor's flat/speckled read at 250–350 m, but that exposed the
+lod1 distant-thinning wash; impostors from 200 m (mostly obstructed past there)
+make the speckle rarely visible and remove the wash. lod0→lod1 also moved 60→100 m
+(lod0's full detail is only needed <100 m; lod1 then carries 100–200 m). Dropping
+the 200–400 m mesh band is a perf win that offsets the heavier coverage-first lod1.
+
+**lod0.1 (planned, build-time only):** the coverage-first lod1 keeps all leaf cards
+(~50–74 k tris). The cheaper production path is to bake lod1 from an intermediate
+`lod0.1` model with FEWER, LARGER leaf primitives at equal projected coverage
+(coverage = leaf area × arrangement, independent of card count; oversized leaves are
+invisible at 100–200 m). lod0.1 never ships — it is a generation source only.
 
 Both mesh tiers spawn from the same per-chunk buckets (transforms + custom
 data identical, crossfade water-tight); chunk visibility ends derive from
 each chunk's actual max instance-to-centroid radius (the old fixed +40 m
-margin could under-cover skewed chunks). Species without a `_lod2` (dead
-snags) run the near mesh across the whole 0–400 m band. Diagnostics:
-`--tree-lod1-range=N` moves the 60 m handoff; `--tier-isolate=lod1|lod2`
-renders one mesh LOD across the full range (60 m handoff DoD);
+margin could under-cover skewed chunks). Species without a `_lod1` (dead
+snags) run the base mesh across the whole 0–400 m band. Diagnostics:
+`--tree-lod1-range=N` moves the 60 m handoff; `--tier-isolate=lod0|lod1`
+renders one mesh tier across the full range (60 m handoff DoD);
 `TIER_A`/`TIER_B` env vars on `tier_handoff_check.sh` pick the compared pair.
 
 ## 2. Runtime-lit impostors (kills the bake-mismatch bug class)

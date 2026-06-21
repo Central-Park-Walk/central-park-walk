@@ -22,6 +22,7 @@ import sys
 import os
 import math
 import random
+import shutil
 import time
 import numpy as np
 from mathutils import Vector, Matrix
@@ -40,7 +41,12 @@ ADDON_DIR = os.path.expanduser(
 )
 sys.path.insert(0, ADDON_DIR)
 from python_classes.m_tree_wrapper import lazy_m_tree as m_tree
-from python_classes.mesh_utils import create_mesh_from_cpp
+from python_classes.mesh_utils import create_mesh_from_cpp, create_leaf_mesh_from_cpp
+from python_classes.resources.node_groups import distribute_leaves
+from python_classes.presets.leaf_presets import apply_preset_to_generator
+# NOTE: the single-leaf texture is painted with PIL, which is NOT in Blender's
+# bundled Python — so it is generated via a subprocess to system python3
+# (see build_distribute_leaf), never imported here.
 
 MODEL_DIR = os.path.join(PROJ, "models", "trees")
 MODEL_H = 5.0       # Normalized model height for Godot pipeline
@@ -1113,6 +1119,40 @@ SPECIES = {
         "leaf_flatten_range": (0.45, 0.65),
         "leaf_density": 0.85,  # LAI 4-6, "largest leaf area of any inner-London tree" — heavy shade (BRIEF §3)
         "foliage_continuous": True,  # clad branches as a continuous sheath (ref: pro Platanus model), not discrete scattered blobs — 2026-06-20
+        # TRUE-3D leaf distribution (user-approved full switch, 2026-06-20): real
+        # lobed leaf geometry instanced phyllotactically on the branches via
+        # Mtree's native distribute_leaves, opaque single-leaf surface texture.
+        # Replaces card scatter entirely — coherent by construction (no floaters/
+        # holes/shards). Per-tier density/scale tuned to the crown fullness +
+        # real ~15-18cm palmate leaf; max_radius gates leaves onto twigs only
+        # (off the thick bole). The fountain of leaves up to a leafy apex.
+        "foliage_distribute": True,
+        # True-3D leaves on EVERY tier's LOD0 base mesh (s/m/l) — real leaves up
+        # close at any size. The "card mass far" is the baked IMPOSTOR billboard,
+        # not a card tier; per-LOD split, not per-tree-size (user, 2026-06-20).
+        "distribute_tiers": ["s", "m", "l"],
+        # Deterministic palmate outline (NOT the MAPLE superformula, which gave a
+        # rounded blob). base_len matches the prior approved leaf bbox height so
+        # the tuned tier scales keep their leaf size; palmate defaults to the
+        # PIL-verified plane silhouette (see _palmate_leaf_outline).
+        "leaf_cfg": {"base_len": 2.93},
+        # ARTISTIC LICENSE for density at feasible polys (user, 2026-06-20):
+        # real LAI 4-6 = ~2k/26k/59k leaves (reference_tree_canopy_data §11) is
+        # unrenderable as individual leaves on m/l. Data-true SIZE (scale 0.062 ≈
+        # 18cm) at a feasible COUNT reads SPARSE. So we deliberately OVERSIZE the
+        # leaf (each instance stands in for a small clump) — crown density ∝
+        # count × scale², and polys scale only with COUNT, so bigger leaves buy
+        # density cheaply. Leaves run ~2-3× real blade size; this is intentional
+        # tech-accommodation, NOT a data error — do not "correct" to 0.062.
+        # max_radius gates leaves onto twigs, off the bole. Density stays LOW
+        # (poly-cheap, ~feasible count); the OVERSIZED leaf does the covering —
+        # bumping count too would just double polys for the same density (user,
+        # 2026-06-20). Tune COVERAGE via scale, not count.
+        "tier_distribute": {
+            "s": {"density": 380.0, "scale": 0.12, "max_radius": 0.05},
+            "m": {"density": 40.0,  "scale": 0.15, "max_radius": 0.08},
+            "l": {"density": 12.0,  "scale": 0.17, "max_radius": 0.11},
+        },
         "target_cluster_count_l": 1080,  # fuller crown — baseline read too open/airy vs dense-shade BRIEF (2026-06-19 eval)
         "trunk_radius_factor": 1.12,  # stout, heavy plane bole (BRIEF §1)
         "base_seed": 200,
@@ -1645,7 +1685,9 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
         # min-distance test O(n) for the dense large tier.
         ec = coords[eligible_idx]
         order = np.argsort(-extents[eligible_idx])      # high extent (tips) first
-        spacing = csize * 0.9
+        # Clusters are kept tight to the twig (scatter 0.5), so clad densely
+        # enough that the tighter blobs still overlap into a continuous canopy.
+        spacing = csize * 0.55
         sp2 = spacing * spacing
         cell = spacing
         grid = {}
@@ -1774,9 +1816,9 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
             sel = nrng.choice(band, size=n_env, p=w)
             for vi in sel:
                 candidates.append(Vector((
-                    coords[vi, 0] + rng.uniform(-0.22, 0.22),
-                    coords[vi, 1] + rng.uniform(-0.22, 0.22),
-                    coords[vi, 2] + rng.uniform(0.0, 0.35))))   # sit ON/above the wood
+                    coords[vi, 0] + rng.uniform(-0.12, 0.12),
+                    coords[vi, 1] + rng.uniform(-0.12, 0.12),
+                    coords[vi, 2] + rng.uniform(0.0, 0.18))))   # sit ON/above the wood, tight
 
     # --- Prune isolated foliage islands ---
     # A clump of cluster(s) alone on a thin outlying twig reads as foliage
@@ -1841,7 +1883,8 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
     return placements
 
 
-def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=6):
+def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=6,
+                                   cluster_scatter=1.0):
     """Create dense leaf card clusters using AAA scatter approach.
 
     Instead of a few large crossed-quads, each cluster gets many small quads
@@ -1862,7 +1905,7 @@ def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=
 
     all_objects = []
     for pos, size, flatten in placements:
-        cluster_radius = size * 1.0  # scatter radius
+        cluster_radius = size * cluster_scatter  # scatter radius (tight for cladding)
         card_size = size * 0.55      # individual card ~55% of cluster size
 
         bm = bmesh.new()
@@ -2630,6 +2673,176 @@ def create_crossed_billboard_cards(placements, leaf_mat, rng, target_height):
     return all_objects
 
 
+def _palmate_leaf_outline(leaf_cfg):
+    """Parametric palmate (Platanus) leaf outline + planar UVs.
+
+    Returns (boundary_xy, boundary_uv): a single ordered boundary loop walked
+    clockwise from the right base corner, over the apex, to the left base corner,
+    in normalised coords (base attachment at (0,0), tip toward +Y, height ~1.06).
+    Five broad triangular lobes (central/lateral/basal) with moderate sinuses and
+    coarse outward marginal teeth — verified as a plane-leaf silhouette via PIL
+    before use (user 2026-06-20). Tunable via leaf_cfg["palmate"].
+    """
+    p = leaf_cfg.get("palmate", {})
+    lobe_angles = p.get("lobe_angles_deg", (0.0, 38.0, 68.0))
+    lobe_radius = p.get("lobe_radius", (1.06, 0.96, 0.78))
+    sinus_frac = p.get("sinus_frac", 0.63)
+    base_width = p.get("base_width", 0.20)
+    width_scale = p.get("width_scale", 0.97)
+    teeth_per_edge = p.get("teeth_per_edge", 2)
+    tooth_amp = p.get("tooth_amp", 0.028)
+
+    lobes = []
+    for a, r in zip(lobe_angles, lobe_radius):
+        lobes.append((a, r))
+        if a != 0.0:
+            lobes.append((-a, r))
+    lobes.sort(key=lambda t: -t[0])  # clockwise: right base -> apex -> left base
+
+    def polar(a_deg, r):
+        a = math.radians(a_deg)
+        return (math.sin(a) * r * width_scale, math.cos(a) * r)
+
+    pts = [(base_width, 0.0)]
+    for i, (a, r) in enumerate(lobes):
+        tip = polar(a, r)
+        prev = pts[-1]
+        for k in range(1, teeth_per_edge + 1):
+            t = k / (teeth_per_edge + 1)
+            x = prev[0] + (tip[0] - prev[0]) * t
+            y = prev[1] + (tip[1] - prev[1]) * t
+            ox, oy = x - 0.0, y - 0.40  # bump away from leaf centroid -> tooth
+            L = math.hypot(ox, oy) or 1.0
+            pts.append((x + ox / L * tooth_amp, y + oy / L * tooth_amp))
+        pts.append(tip)
+        if i < len(lobes) - 1:
+            na, nr = lobes[i + 1]
+            pts.append(polar((a + na) / 2.0, sinus_frac * min(r, nr)))
+    pts.append((-base_width, 0.0))
+
+    xs = [q[0] for q in pts]
+    ys = [q[1] for q in pts]
+    half_w = max(abs(min(xs)), abs(max(xs))) or 1.0
+    ymin, ymax = min(ys), max(ys)
+    span = (ymax - ymin) or 1.0
+    uvs = [(0.5 + x / (2.0 * half_w), 1.0 - (y - ymin) / span) for (x, y) in pts]
+    return pts, uvs
+
+
+def build_distribute_leaf(species_name, png_path, leaf_cfg):
+    """Build the true-3D leaf object used by Mtree's native leaf distribution.
+
+    The leaf IS its own silhouette (real lobed geometry from LeafShapeGenerator),
+    so it carries a FULLY-OPAQUE single-leaf surface texture — NOT an alpha-cutout
+    cluster card. (Cluster cards punched their transparent gaps as holes through
+    solid leaves and showed white shards; user 2026-06-20.) Geometry venation is
+    OFF — veins live in the texture, saving polys. Returns the leaf object; its
+    first material is named `{species}_leaf` so tree_builder.gd maps it to the
+    leaf shader + per-species DDS by name and bake_wind_vertex_colors tags it.
+    """
+    # Paint the opaque single-leaf surface texture via system python3 (PIL is
+    # absent from Blender's bundled Python). Idempotent — skip if it exists.
+    if not os.path.exists(png_path):
+        import subprocess
+        gen_script = os.path.join(PROJ, "scripts", "vegetation", "gen_single_leaf_tex.py")
+        py3 = shutil.which("python3") or "/usr/bin/python3"
+        subprocess.run([py3, gen_script, "--species", species_name, "--out", png_path],
+                       check=True)
+    # Deterministic palmate (Platanus) silhouette — the leaf IS its own outline.
+    # The MAPLE superformula contour produced a rounded pentagonal BLOB (m=5 gives
+    # shallow bumps, never the deep sinuses of a plane leaf); a parametric
+    # star-shaped outline gives true broad triangular lobes. The silhouette was
+    # tuned and verified as a plane leaf via PIL plot before porting (W/L 1.32,
+    # 5 pointed lobes, moderate sinuses; user 2026-06-20). ~21 boundary verts —
+    # cheaper than the old 36-vert decimated proto, so the wind bake stays fast.
+    bxy, buv = _palmate_leaf_outline(leaf_cfg)
+    base_len = leaf_cfg.get("base_len", 2.93)  # match the prior approved leaf size
+    ys = [p[1] for p in bxy]
+    span = (max(ys) - min(ys)) or 1.0
+    sc = base_len / span
+    # Base at origin, tip toward -Y (matches the Mtree leaf-proto convention so
+    # distribute_leaves attaches petiole-end to the branch).
+    # Gentle cross-midrib V-fold: z rises with distance from the midrib (x=0) so
+    # the leaf is NOT a dead-flat plane. A flat plane lights as one hard facet →
+    # the "shard"/chunky-clump look that made our canopy read like the flawed
+    # 3D-model refs (user 2026-06-20). A slight fold + smooth normals (below) give
+    # graded, soft shading per leaf. fold_amp is a fraction of leaf scale; tunable.
+    fold = leaf_cfg.get("fold_amp", 0.15)
+    coords = [(x * sc, -y * sc, fold * abs(x * sc)) for (x, y) in bxy]
+    # Guarantee a +Z face normal (CCW winding) via the shoelace signed area.
+    area2 = sum(coords[i][0] * coords[(i + 1) % len(coords)][1]
+                - coords[(i + 1) % len(coords)][0] * coords[i][1]
+                for i in range(len(coords)))
+    if area2 < 0:
+        coords = list(reversed(coords))
+        buv = list(reversed(buv))
+    me = bpy.data.meshes.new(f"{species_name}_leafproto")
+    me.from_pydata(coords, [], [list(range(len(coords)))])  # single n-gon face
+    me.update()
+    uv_layer = me.uv_layers.new(name="UVMap")
+    for poly in me.polygons:
+        for li in poly.loop_indices:
+            vi = me.loops[li].vertex_index
+            uv_layer.data[li].uv = buv[vi]
+    ob = bpy.data.objects.new(f"{species_name}_leafproto", me)
+    bpy.context.collection.objects.link(ob)
+    bpy.context.view_layer.objects.active = ob
+    bpy.ops.object.select_all(action='DESELECT')
+    ob.select_set(True)
+    # Triangulate the concave n-gon deterministically (don't rely on the glTF
+    # exporter's tessellation of a lobed concave polygon).
+    tri = ob.modifiers.new("tri", type='TRIANGULATE')
+    tri.ngon_method = 'BEAUTY'
+    bpy.ops.object.modifier_apply(modifier="tri")
+    # Smooth (per-vertex) normals so the V-fold reads as a soft curve, not facets
+    # — the graded normal across the leaf is what kills the flat-shard lighting.
+    bpy.ops.object.shade_smooth()
+    print(f"  palmate leaf {len(me.vertices)} verts {len(me.polygons)} tris (fold={fold})")
+    mat = bpy.data.materials.new(f"{species_name}_leaf")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    bsdf = nt.nodes.get("Principled BSDF")
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = bpy.data.images.load(png_path)
+    nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+    nt.links.new(tex.outputs["Alpha"], bsdf.inputs["Alpha"])
+    bsdf.inputs["Roughness"].default_value = 0.6
+    # Alpha-CLIP so the glTF exports alphaMode=MASK → Godot import enables
+    # transparency → tree_builder.gd classifies the surface as LEAF (it keys on
+    # transparency) and applies the leaf shader (wind/SSS/seasonal). The texture
+    # is opaque (alpha=1) so the clip is a no-op; the geometry is the silhouette.
+    mat.blend_method = 'CLIP'
+    mat.alpha_threshold = 0.5
+    mat.diffuse_color = (0.30, 0.46, 0.20, 1.0)  # Workbench thumbnail green
+    me.materials.append(mat)
+    return ob
+
+
+def distribute_foliage(trunk_obj, leaf_proto, sp, tier_name):
+    """Instance the true-3D leaf phyllotactically onto the branch skeleton via
+    Mtree's native distribute_leaves, then realize it into trunk_obj.
+
+    Coherent BY CONSTRUCTION — every leaf sits on the branch mesh via the
+    radius/direction attributes, so there are no floating clusters (the whole
+    reason for the card→distribution switch, user-approved 2026-06-20). Must run
+    AFTER clean_degenerate_geometry (bark only) and BEFORE join/normalise so the
+    scale param stays in metres like the validated prototype.
+    """
+    td = sp.get("tier_distribute", {}).get(tier_name, sp.get("distribute_defaults", {}))
+    density = td.get("density", 150.0)
+    scale = td.get("scale", 0.14)
+    max_radius = td.get("max_radius", 0.06)
+    bpy.ops.object.select_all(action='DESELECT')
+    trunk_obj.select_set(True)
+    bpy.context.view_layer.objects.active = trunk_obj
+    distribute_leaves(
+        trunk_obj, leaf_object=leaf_proto,
+        distribution_mode=1, phyllotaxis_angle=137.5,
+        density=density, scale=scale, max_radius=max_radius,
+        billboard_mode="OFF", enable_normal_transfer=True)
+    bpy.ops.object.modifier_apply(modifier="leaves")
+
+
 def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=False):
     """Generate all variants for one species at one size tier.
 
@@ -2649,34 +2862,57 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
     # Industry standard: high coverage works at all distances.
     fascicle = sp["leaf_shape"] == "needle"
     compound = sp["leaf_shape"] == "compound"  # lacy/ferny pinnate frond (honeylocust)
-    leaf_mat = create_leaf_material(
-        f"{species_name}_leaf",
-        leaf_shape=sp["leaf_shape"],
-        n_leaves=sp["leaf_n"],
-        tex_size=sp["leaf_tex_size"],
-        seed=sp["leaf_seed"],
-        fascicle_mode=fascicle,
-        compound_mode=compound,
-        leaf_scale=sp.get("leaf_scale", 1.0),  # per-species real leaf size (blade-length
-                                               # normalised, oak≈1.0; canopy data §each)
-    )
-    # Viewport display color for Workbench thumbnail renderer
-    if fascicle:
-        leaf_mat.diffuse_color = (0.17, 0.35, 0.20, 1.0)  # Austrian pine: very dark needle green
-    else:
-        leaf_mat.diffuse_color = (0.38, 0.62, 0.30, 1.0)  # deciduous green
 
-    # Export leaf texture as PNG for DDS pipeline (coverage-preserving mipmaps).
-    # Only needs to happen once per species (all tiers share the same texture).
-    png_dir = os.path.join(MODEL_DIR, "leaf_textures")
-    os.makedirs(png_dir, exist_ok=True)
-    png_path = os.path.join(png_dir, f"{species_name}_leaf.png")
-    if not os.path.exists(png_path) or tier_name == "l":
-        leaf_img = leaf_mat.node_tree.nodes["Image Texture"].image
-        leaf_img.filepath_raw = png_path
-        leaf_img.file_format = 'PNG'
-        leaf_img.save()
-        print(f"  Leaf texture: {png_path}")
+    # --- True-3D Mtree-distributed leaves (foliage_distribute) ---
+    # Replaces the volumetric card scatter entirely: real lobed leaf geometry
+    # instanced phyllotactically on the branches, opaque single-leaf surface
+    # texture (no alpha-cutout cluster card). Built once per tier, reused across
+    # variants. (User-approved full switch, 2026-06-20.)
+    # HYBRID (user-approved 2026-06-20): true-3D distributed leaves on the tiers
+    # in `distribute_tiers` (small/near trees, where you SEE individual leaves);
+    # the card path (poly-cheap dense cluster mass) on the rest (big crowns seen
+    # high/far). Per-tier so the sapling can be data-true while m/l stay dense.
+    leaf_proto = None
+    use_distribute = (sp.get("foliage_distribute")
+                      and tier_name in sp.get("distribute_tiers", ["s", "m", "l"]))
+    if use_distribute:
+        png_dir = os.path.join(MODEL_DIR, "leaf_textures")
+        os.makedirs(png_dir, exist_ok=True)
+        # All tiers share one opaque single-leaf texture/DDS (london_plane_leaf).
+        png_path = os.path.join(png_dir, f"{species_name}_leaf.png")
+        leaf_proto = build_distribute_leaf(species_name, png_path, sp.get("leaf_cfg", {}))
+        leaf_mat = leaf_proto.data.materials[0]
+        print(f"  Leaf (true-3D distribute): {png_path}")
+
+    if leaf_proto is None:
+        leaf_mat = create_leaf_material(
+            f"{species_name}_leaf",
+            leaf_shape=sp["leaf_shape"],
+            n_leaves=sp["leaf_n"],
+            tex_size=sp["leaf_tex_size"],
+            seed=sp["leaf_seed"],
+            fascicle_mode=fascicle,
+            compound_mode=compound,
+            leaf_scale=sp.get("leaf_scale", 1.0),  # per-species real leaf size (blade-length
+                                                   # normalised, oak≈1.0; canopy data §each)
+        )
+        # Viewport display color for Workbench thumbnail renderer
+        if fascicle:
+            leaf_mat.diffuse_color = (0.17, 0.35, 0.20, 1.0)  # Austrian pine: very dark needle green
+        else:
+            leaf_mat.diffuse_color = (0.38, 0.62, 0.30, 1.0)  # deciduous green
+
+        # Export leaf texture as PNG for DDS pipeline (coverage-preserving mipmaps).
+        # Only needs to happen once per species (all tiers share the same texture).
+        png_dir = os.path.join(MODEL_DIR, "leaf_textures")
+        os.makedirs(png_dir, exist_ok=True)
+        png_path = os.path.join(png_dir, f"{species_name}_leaf.png")
+        if not os.path.exists(png_path) or tier_name == "l":
+            leaf_img = leaf_mat.node_tree.nodes["Image Texture"].image
+            leaf_img.filepath_raw = png_path
+            leaf_img.file_format = 'PNG'
+            leaf_img.save()
+            print(f"  Leaf texture: {png_path}")
 
     # Create bark material
     bark_mat = bpy.data.materials.new(f"{species_name}_bark")
@@ -2751,21 +2987,41 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
         # --- Clean NaN vertices and get bbox ---
         actual_h, actual_w = clean_nan_vertices(trunk_obj)
 
-        # --- Place leaf cards ---
-        placements = extract_leaf_positions(trunk_obj, sp_variant, target_h, rng, tier=tier_name)
+        # --- True-3D Mtree-distributed foliage (foliage_distribute) ---
+        # Coherent by construction; bypasses card scatter entirely. Clean the
+        # bark first (removes degenerate tip slivers), then instance leaves onto
+        # the remaining branches and realise them into trunk_obj.
+        if leaf_proto is not None:
+            clean_degenerate_geometry(trunk_obj)
+            distribute_foliage(trunk_obj, leaf_proto, sp, tier_name)
+            placements = []
+            leaf_objs = []
+            n_leaf_verts = sum(
+                1 for p in trunk_obj.data.polygons
+                if p.material_index < len(trunk_obj.material_slots)
+                and "leaf" in trunk_obj.material_slots[p.material_index].material.name.lower())
+            _do_foliage = False
+        else:
+            _do_foliage = True
 
-        # --- Clean degenerate branch-tip geometry ---
-        # Must run after leaf position extraction (uses Mtree vertex attributes)
-        # but before join (so only bark mesh is affected).
-        clean_degenerate_geometry(trunk_obj)
+        # --- Place leaf cards ---
+        if _do_foliage:
+            placements = extract_leaf_positions(trunk_obj, sp_variant, target_h, rng, tier=tier_name)
+
+            # --- Clean degenerate branch-tip geometry ---
+            # Must run after leaf position extraction (uses Mtree vertex attributes)
+            # but before join (so only bark mesh is affected).
+            clean_degenerate_geometry(trunk_obj)
 
         # --- Create foliage geometry (same strategy for all tiers) ---
+
         # All tiers use AAA scatter — the _s/_m/_l are age/size variants
         # that render simultaneously, not LOD tiers. Each needs full-quality
         # leaf cards. Smaller trees naturally get fewer clusters (fewer
         # branch tips), but each cluster gets the same detail level.
-        n_cards = sp.get("cards_per_cluster", FOLIAGE_DEFAULTS["cards_per_cluster"])
-        if sp.get("branchlet_foliage"):
+        if _do_foliage:
+          n_cards = sp.get("cards_per_cluster", FOLIAGE_DEFAULTS["cards_per_cluster"])
+          if sp.get("branchlet_foliage"):
             # Willow: the data-driven fountain (create_willow_branchlets) supplies
             # ALL foliage — a dense crown shell over the upper dome plus the
             # cascading whip skirt. No Mtree cluster cards: they formed a central
@@ -2774,9 +3030,15 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
             age01 = {"s": 0.12, "m": 0.70, "l": 1.0}.get(tier_name, 0.5)
             leaf_objs = create_willow_branchlets(
                 trunk_obj, placements, leaf_mat, bark_mat, rng, target_h, age01)
-        else:
+          else:
+            # Continuous-cladding species keep foliage TIGHT to the twigs (small
+            # scatter) so every leaf traces a continuous line to the trunk — a
+            # sprawling cluster floats free of its branch (check_foliage_
+            # connectivity.py; user 2026-06-20). Others keep the legacy spread.
+            _scatter = 0.5 if sp.get("foliage_continuous") else 1.0
             leaf_objs = create_leaf_cards_at_positions(
-                placements, leaf_mat, rng, tier=tier_name, n_cards=n_cards)
+                placements, leaf_mat, rng, tier=tier_name, n_cards=n_cards,
+                cluster_scatter=_scatter)
             # Legacy hanging-card curtain (superseded by branchlet geometry).
             if sp.get("strand_foliage"):
                 leaf_objs += create_strand_cards_at_positions(
@@ -2812,11 +3074,12 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
         bake_wind_vertex_colors(trunk_obj)
 
         dt = time.time() - t0
-        n_leaves = len(placements)
+        n_leaves = (n_leaf_verts // 2) if leaf_proto is not None else len(placements)
         n_verts = len(trunk_obj.data.vertices)
         n_faces = len(trunk_obj.data.polygons)
+        label = "leaves" if leaf_proto is not None else "leaf clusters"
         print(f"  v{vi} seed={seed}: {n_verts:,} verts, {n_faces:,} faces, "
-              f"{n_leaves} leaf clusters, h={actual_h:.1f}m w={actual_w:.1f}m ({dt:.1f}s)")
+              f"{n_leaves} {label}, h={actual_h:.1f}m w={actual_w:.1f}m ({dt:.1f}s)")
 
         variant_objects.append(trunk_obj)
 

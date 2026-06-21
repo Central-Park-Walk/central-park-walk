@@ -74,13 +74,14 @@ Generation chain, in order. Touch these; do not replace them.
 | Leaf textures | `scripts/vegetation/gen_leaf_textures.py` (14 species, parametric), `scripts/gen_cluster_textures.py` | leaf/cluster PNGs |
 | → DDS | `scripts/generate_leaf_dds.py` | runtime leaf atlases (binary-alpha at mip 0 — see trees.md §7) |
 | Crown interior AO | `scripts/bake_crown_ao.py` | per-vertex `rho` in COLOR_0.alpha (direct GLB surgery; glTF export drops vertex alpha) |
-| LOD2 | `scripts/generate_tree_lods.py` | `{species}_{s,m,l}_lod2.glb` (adaptive card prune + bark decimation; ≤ ~12 k tris) |
+| lod1 | `scripts/generate_tree_lods.py` | `{species}_{s,m,l}_lod1.glb` (adaptive card prune + bark decimation; ≤ ~12 k tris) |
 | Impostor atlases | `scripts/impostor_baker.gd` (Godot) + `scripts/premultiply_impostors.py` | runtime-lit octahedral albedo/normal/depth atlases, 2048² |
 | Thumbnails (review) | `scripts/render_tree_thumbnails.py` | one PNG per variant per tier → `models/trees/thumbnails/` |
 | Orchestrator | `scripts/regen_all_trees.sh` | one Blender process per species×tier (Mtree mesher segfaults if batched) |
 
-Runtime: `tree_builder.gd` (`SPECIES`/`TIER_BOUNDS` @ ln 111; near tier = full base
-model since trees.md §7, `_lod1` retired). Shaders: `tree_leaf.gdshader`,
+Runtime: `tree_builder.gd` (`SPECIES`/`TIER_BOUNDS` @ ln 111; near tier (lod0) = full
+base model since trees.md §7; the old 4-tier 50 %-card near mesh was retired — NOT to
+be confused with today's `_lod1`, which is the *mid* tier). Shaders: `tree_leaf.gdshader`,
 `tree_bark.gdshader`, `tree_impostor.gdshader`, `tree_shadow_proxy.gdshader`,
 `tree_species.gdshaderinc`.
 
@@ -105,7 +106,7 @@ encode workarounds; when re-tuning, keep one Blender process per species×tier a
 
 Realism here is **silhouette + branch architecture + canopy density + bark + seasonal
 color matching the reference board**, at three scales: distant silhouette (impostor),
-mid crown mass (lod2), and near branch/leaf detail (base model). The current LOD0 trees
+mid crown mass (lod1), and near branch/leaf detail (base model). The current LOD0 trees
 are the project's best assets ([[project-asset-quality-ground-truth]]) and the user
 called them "really good" on 2026-06-11 — so this is a *lift to "very realistic,"* not a
 rescue. The biggest realism wins, in priority order:
@@ -136,7 +137,7 @@ rescue. The biggest realism wins, in priority order:
 | Tier | Budget per variant | Notes |
 |---|---|---|
 | Base (near, 0–60 m) | leaf cards are the cost driver; **keep card count at/near the current May-19 LAI-tuned counts** | post-opaque, tree cost is *canopy fragment shading*, not vertex count (trees.md §4f) — so don't inflate card overlap/overdraw. Geometry tri count is NOT the lever; **card area × overlap is.** |
-| lod2 (60–250 m) | ≤ ~12 k tris (+1 k slack) | `generate_tree_lods.py` enforces adaptively; re-run after any base change |
+| lod1 (60–250 m) | ≤ ~12 k tris (+1 k slack) | `generate_tree_lods.py` enforces adaptively; re-run after any base change |
 | impostor (190 m+) | 2048² atlas, baked from base | re-bake after any base change (per-species wrapper, §8) |
 
 **The single most important budget rule:** trees are **fragment-shading-bound**, not
@@ -417,7 +418,7 @@ order and the gotchas are non-negotiable (each cost a debugging session before):
    COLOR_0.alpha (direct GLB surgery; **Blender glTF export drops vertex alpha**, hence
    the surgery — do not "fix" it by re-exporting). Back up models first
    (`~/cpw_backups/`).
-2. `scripts/generate_tree_lods.py` for the species — regenerates `_lod2` from the new
+2. `scripts/generate_tree_lods.py` for the species — regenerates `_lod1` from the new
    base (adaptive recipe; Blender 4.5 `--background` hangs at teardown → the script
    `os._exit(0)`s, expected).
 3. **Reimport in Godot** — `godot --headless --import`. **Game runs never reimport**;
@@ -427,8 +428,9 @@ order and the gotchas are non-negotiable (each cost a debugging session before):
    (~12 s; all-at-once hangs, [[lessons-impostor-bake]]), then
    `premultiply_impostors.py`, then **reimport the atlases again**.
 
-`_lod1` is retired (trees.md §7) — do **not** regenerate it. Near tier = full base
-model.
+The old 4-tier 50 %-card **near** mesh is retired (trees.md §7) — do **not** add a
+card-pruned near tier; near tier (lod0) = full base model. (Today's `_lod1` is the
+*mid* tier and IS regenerated — step 2 above.)
 
 ---
 
@@ -448,7 +450,7 @@ Use the harness that already exists — don't invent new validation
   sparsity regression (trees.md §7 mechanism — discard threshold follows
   `textureQueryLod`, not camera distance; don't reintroduce distance-ramped discard).
 - **Tier handoff** (`scripts/tier_handoff_check.sh`, env `TIER_A`/`TIER_B`,
-  `EXTRA_ARGS`): base↔lod2 at 60 m and mesh↔impostor at 240 m, mean |ΔRGB| < 0.05, no
+  `EXTRA_ARGS`): base↔lod1 at 60 m and mesh↔impostor at 240 m, mean |ΔRGB| < 0.05, no
   hue flip (mind the documented backdrop artifact that inflates the raw 240 m metric —
   trees.md §4f/§5).
 - **Crossfade walk**: slow walk across the boundary, compare per-frame canopy
