@@ -21,6 +21,13 @@ uniform float depth_scale : hint_range(0, 1) = 0.3;
 uniform float scale = 1.0;
 uniform float aabb_max = 1.0;
 uniform vec3 position_offset = vec3(0.0);
+// Crown-interior AO compensation: the flat billboard has no per-leaf AO, so it
+// receives full sky ambient and reads brighter than the mesh tiers (whose leaf
+// shader applies canopy_ao — without it "distant canopy reads ~2.5× too bright").
+// This flat factor restores parity. Per-species, set from tree_builder; 1.0 =
+// no change for tiers not yet calibrated. London plane = 0.77 (measured mesh/
+// impostor luminance ratio at equal distance, 2026-06-21).
+uniform float canopy_dim = 1.0;
 
 // --- Global uniforms ---
 global uniform vec2 wind_vec;
@@ -480,6 +487,10 @@ void fragment() {
 	// crossfade value-steps): the calibrated volumetric fog owns the
 	// distance veil (rendering.md §6c). Reference: distant canopy stays
 	// saturated and DARK.
+
+	// Crown-interior AO compensation (see uniform): flat billboard lacks the
+	// mesh's per-leaf canopy AO, so dim to match the mesh tiers.
+	color *= canopy_dim;
 
 	// Re-premultiply for blend_premul_alpha output. ALPHA controls the
 	// destination factor (1 - alpha); ALBEDO is added directly without a

@@ -1288,6 +1288,12 @@ func _build_canopy_shells() -> void:
 		# the discard test and then get lifted by mip_level * 0.45 so distant
 		# impostor silhouettes read solid instead of as a sparse ghost.
 		mat.set_shader_parameter("alpha_clamp", 0.05)
+		# Crown-interior AO compensation: the billboard has no per-leaf AO so it
+		# reads ~30% brighter than the mesh tiers at equal distance (measured
+		# 2026-06-21: london_plane impostor lum 102 vs mesh 78). Dim to match.
+		# Per-species — only calibrated species get <1.0; others stay status quo.
+		mat.set_shader_parameter("canopy_dim",
+			0.65 if label.begins_with("london_plane") else 1.0)
 		impostor_mats[label] = mat
 		impostor_meta[label] = meta
 		return true
