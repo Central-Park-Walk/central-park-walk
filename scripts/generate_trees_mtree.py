@@ -1778,7 +1778,7 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
         # small trees — on a 9m sapling ±0.10m is ~3x larger in MODEL_H-normalised
         # units than on a 30m tree, throwing supplemental cards off-bark (the
         # connectivity gate is normalised, so saplings failed worst). 2026-06-21.
-        jit = 0.10 * (target_height / 25.0)
+        jit = 0.06 * (target_height / 25.0)  # was 0.10 — jittered centers' outer card corners still cleared the connectivity gate on saplings (2026-06-21)
         for vidx in pick:
             c = coords[vidx]
             candidates.append(Vector((
@@ -1831,8 +1831,8 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
             # those fixed metres pushed envelope cards well above the apex bark
             # (off the connectivity gate). Scale with tree size; keep the small
             # upward bias so the leader spike still gets buried. 2026-06-21.
-            ejit = 0.12 * (target_height / 25.0)
-            ezup = 0.12 * (target_height / 25.0)
+            ejit = 0.06 * (target_height / 25.0)  # was 0.12 — keep envelope cards tight to apex bark (sapling connectivity)
+            ezup = 0.07 * (target_height / 25.0)  # was 0.12 — small upward bias still buries the leader, without floating off it
             for vi in sel:
                 candidates.append(Vector((
                     coords[vi, 0] + rng.uniform(-ejit, ejit),
@@ -3038,12 +3038,19 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
 
         # --- Place leaf cards ---
         if _do_foliage:
-            placements = extract_leaf_positions(trunk_obj, sp_variant, target_h, rng, tier=tier_name)
-
-            # --- Clean degenerate branch-tip geometry ---
-            # Must run after leaf position extraction (uses Mtree vertex attributes)
-            # but before join (so only bark mesh is affected).
+            # CLEAN FIRST, then place (user 2026-06-21). Previously foliage was
+            # extracted from the RAW mesh and clean_degenerate_geometry ran AFTER
+            # — but the cleanup removes thin branch-tip geometry, orphaning every
+            # cluster anchored to a tip that no longer existed. On thin saplings
+            # this deleted whole twigs and left big foliage masses floating
+            # 0.3-0.7m from bark (check_foliage_connectivity: saplings 5/7 FAIL,
+            # l/m fine). Cleaning the bark BEFORE extraction means clusters can
+            # only anchor to surviving branches → coherent by construction. The
+            # Mtree per-vertex attributes (radius/hierarchy_depth/branch_extent/
+            # stem_id) that extract_leaf_positions reads survive the bmesh
+            # round-trip (custom point-attribute layers are preserved).
             clean_degenerate_geometry(trunk_obj)
+            placements = extract_leaf_positions(trunk_obj, sp_variant, target_h, rng, tier=tier_name)
 
         # --- Create foliage geometry (same strategy for all tiers) ---
 
@@ -3067,7 +3074,7 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
             # scatter) so every leaf traces a continuous line to the trunk — a
             # sprawling cluster floats free of its branch (check_foliage_
             # connectivity.py; user 2026-06-20). Others keep the legacy spread.
-            _scatter = 0.25 if sp.get("foliage_continuous") else 1.0  # tighter (was 0.5): outer cards of each cluster were sprawling past the connectivity gate (2026-06-21)
+            _scatter = 0.20 if sp.get("foliage_continuous") else 1.0  # tighter (was 0.5→0.25): outer cards of each cluster were sprawling past the connectivity gate (2026-06-21)
             leaf_objs = create_leaf_cards_at_positions(
                 placements, leaf_mat, rng, tier=tier_name, n_cards=n_cards,
                 cluster_scatter=_scatter)
