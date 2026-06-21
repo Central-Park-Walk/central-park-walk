@@ -21,29 +21,30 @@ im = Image.open(SRC).convert("RGB")
 a = np.asarray(im).astype(np.float32) / 255.0
 R, G, B = a[..., 0], a[..., 1], a[..., 2]
 
-# Leaf is green: G clearly exceeds R and B. Paper (white) and shadow (gray) have
-# R~=G~=B, so greenness ~ 0 there. Petiole is brown/tan (low greenness) -> recovered
-# below via a darkness term so we don't drop the stalk.
-greenness = G - 0.5 * (R + B)
-brightness = (R + G + B) / 3.0
-# leaf = sufficiently green OR (dark enough AND not bright paper)
-leaf = (greenness > 0.045) | ((brightness < 0.45) & (greenness > -0.02))
+# Measured (IMG_4070): background paper is BLUISH (B is max, B>G; greenness G-B<0);
+# leaf is GREEN (G max, G-B ~ +0.29). greenness = G-B cleanly separates them.
+# Pale midrib/veins have G~=B (greenness~0) -> the morphological CLOSE below bridges
+# those gaps so the blade stays ONE component (fixes the earlier half-leaf bug).
+greenness = G - B
+leaf = greenness > 0.06
 alpha = (leaf.astype(np.uint8) * 255)
 
-# Clean: median filter to remove speckle, then keep the largest blob region only.
+# Clean: median despeckle, morphological CLOSE to bridge thin vein gaps, fill holes,
+# THEN keep the largest component (now the whole blade, veins re-bridged).
 amask = Image.fromarray(alpha, "L").filter(ImageFilter.MedianFilter(size=5))
 alpha = np.asarray(amask)
-
-# Keep largest connected component (drops stray text/specks on the paper)
 try:
     from scipy import ndimage
-    lbl, n = ndimage.label(alpha > 127)
+    m = alpha > 127
+    m = ndimage.binary_closing(m, iterations=6)   # bridge pale-vein gaps
+    m = ndimage.binary_fill_holes(m)
+    lbl, n = ndimage.label(m)
     if n > 1:
         sizes = ndimage.sum(np.ones_like(lbl), lbl, range(1, n + 1))
-        biggest = int(np.argmax(sizes)) + 1
-        alpha = np.where(lbl == biggest, 255, 0).astype(np.uint8)
+        m = lbl == (int(np.argmax(sizes)) + 1)
+    alpha = (m.astype(np.uint8) * 255)
 except Exception as e:
-    print("scipy unavailable, skipping component filter:", e)
+    print("scipy unavailable, skipping morphology:", e)
 
 # Feather edge by 1px so the alpha-scissor edge isn't jagged
 alpha_img = Image.fromarray(alpha, "L").filter(ImageFilter.GaussianBlur(0.8))

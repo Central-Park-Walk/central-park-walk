@@ -20,19 +20,20 @@ vein_tip_uv order: central, +lateral, -lateral, +basal, -basal.
 import math
 
 DEFAULTS = {
-    # Botanical morphology (towerlandscapedesign plane-vs-maple, user 2026-06-20):
-    # plane = "3-5 SHALLOW lobes with angular sinuses", "more triangular", and
-    # "7in long x up to 10in wide" => WIDER than tall (W/L ~1.47). The maple
-    # distinction is DEEP rounded sinuses — so shallow cuts here are what stops it
-    # reading as a maple. Central lobe longest, lobes taper to a broad basal pair
-    # (widest low => triangular). Coarse pointed marginal teeth.
+    # Morphology MEASURED from real flat refs (reference_photos/london planetree/:
+    # IMG_4070, ref_leaf_single2, london-plane...on-white-2WX2HGD, london-plane-vs-
+    # sycamore2) cross-checked vs the verified dossier. London plane (vs the trio):
+    # 5 lobes, central longest, lobes ~as long as wide; sinuses MODERATELY-DEEP and
+    # ANGULAR (~1/3-2/5 of blade — deeper than sycamore, shallower than maple/oriental);
+    # broad blade ~as wide as long to slightly wider; COARSE PROMINENT pointed forward
+    # teeth (the dominant signature, ~3-4 per lobe margin). NOT the old "shallow/W~1.47".
     "lobe_angles_deg": (0.0, 38.0, 72.0),   # central / upper-lateral / basal, from +Y
-    "lobe_radius": (1.0, 0.86, 0.66),       # all prominent; central longest (triangular)
-    "sinus_frac": 0.80,                     # SHALLOW angular cuts (broad lobes, not maple)
-    "base_width": 0.16,                     # truncate base half-width
-    "width_scale": 1.18,                    # broad: W/L ~1.45-1.5, widest at basal lobes
-    "tooth_spacing": 0.20,                  # gap between marginal teeth (coarse plane teeth)
-    "tooth_amp": 0.055,                     # tooth height ⊥ margin — prominent triangular spikes
+    "lobe_radius": (1.0, 0.88, 0.66),       # all prominent; central longest (triangular)
+    "sinus_frac": 0.64,                     # MODERATE-DEEP angular cuts (~0.36 of blade in)
+    "base_width": 0.15,                     # truncate base half-width
+    "width_scale": 0.95,                    # broad: W/H ~1.15 (slightly wider than tall)
+    "tooth_spacing": 0.17,                  # gap between marginal teeth (coarse, sparse)
+    "tooth_amp": 0.072,                     # tooth height ⊥ margin — PROMINENT triangular spikes
 }
 
 
@@ -116,3 +117,22 @@ def palmate_outline(cfg=None):
         tip_uv.append(to_uv(*polar(-a, r)))
     base_uv = to_uv(0.0, 0.0)
     return pts, uvs, tip_uv, base_uv
+
+
+if __name__ == "__main__":
+    # Viz the symmetric parametric outline for eyeball verification (system python3).
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    pts, uvs, tip_uv, base_uv = palmate_outline()
+    xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
+    W = max(xs) - min(xs); H = max(ys) - min(ys)
+    fig, ax = plt.subplots(figsize=(5, 5))
+    poly = pts + [pts[0]]
+    ax.fill([p[0] for p in poly], [p[1] for p in poly], color=(0.30, 0.46, 0.18), alpha=0.55)
+    ax.plot([p[0] for p in poly], [p[1] for p in poly], color=(0.10, 0.25, 0.06), lw=1.4)
+    ax.plot(0, 0, "ro")
+    ax.set_aspect("equal"); ax.grid(True, alpha=0.3)
+    ax.set_title(f"parametric  W/H={W/H:.3f}  n={len(pts)}")
+    fig.savefig("/tmp/leaf_param.png", dpi=90)
+    print(f"wrote /tmp/leaf_param.png  W/H={W/H:.3f}  n_verts={len(pts)}")
