@@ -2959,7 +2959,7 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
     # Per-tier seed offset avoids Mtree mesher crash seeds that only
     # trigger at specific height+seed combinations (since all tiers now
     # generate independently instead of deriving from _l).
-    tier_seed_offset = {"s": 0, "m": 37, "l": 7}
+    tier_seed_offset = {"s": 3, "m": 37, "l": 7}  # s:0 produced a disconnected-branch skeleton on v2 (seed 262); nudge to dodge it (2026-06-21)
 
     # Per-species variant count: high-census species (oak ~2.6k, etc.) widen the
     # seed envelope to 6-8 to kill stand tiling (tree_model_redesign.md §4). The
