@@ -17,13 +17,19 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.dirname(os.path.dirname(HERE))
 JSON = os.path.join(HERE, "london_plane_outline_v2.json")
-TEX = os.path.join(PROJ, "textures/leaves/london_plane_real_albedo.png")
+TEX = os.environ.get("LEAF_TEX", os.path.join(PROJ, "textures/leaves/london_plane_real_albedo.png"))
+TAG = os.environ.get("LEAF_TAG", "")                # "" summer, "_fall" etc.
 OUT = "/tmp/leaf_mesh"
 os.makedirs(OUT, exist_ok=True)
 LEAF_H = 3.0
 
 d = json.load(open(JSON))
 XY = np.array(d["boundary_xy"], float)            # canonical: petiole(0,0)->apex(~,1)
+# zero the residual tilt: rotate about petiole(origin) so petiole->apex is +Y
+_apex = XY[int(np.argmax(np.hypot(XY[:, 0], XY[:, 1])))]
+_th = math.pi / 2 - math.atan2(_apex[1], _apex[0])
+_c, _s = math.cos(_th), math.sin(_th)
+XY = XY @ np.array([[_c, _s], [-_s, _c]])
 Wimg, Himg = d["image_size"]
 UV = np.array([[c / Wimg, 1.0 - r / Himg] for c, r in d["boundary_img"]], float)
 # affine fit  UV ~ [x, y, 1] @ A   (A: 3x2); exact since extract was a similarity
@@ -87,7 +93,7 @@ bpy.context.view_layer.objects.active = ob
 bpy.ops.object.modifier_apply(modifier="dec")
 print(f"  after decimate: {len(me.vertices)}v {len(me.polygons)}f")
 
-glb = os.path.join(PROJ, "models", "leaves", "london_plane_leaf.glb")
+glb = os.path.join(PROJ, "models", "leaves", f"london_plane_leaf{TAG}.glb")
 os.makedirs(os.path.dirname(glb), exist_ok=True)
 bpy.ops.object.select_all(action='DESELECT'); ob.select_set(True)
 bpy.context.view_layer.objects.active = ob
@@ -121,7 +127,7 @@ def render(tag, offset, rot):
     bpy.data.objects.remove(cam); bpy.data.objects.remove(s)
 
 
-render("leaf_face.png", (0, 0, 6), (0, 0, 0))
-render("leaf_3q.png", (ext * 0.5, -ext * 0.5, ext * 0.5), (math.radians(52), 0, math.radians(45)))
+render(f"leaf{TAG}_face.png", (0, 0, 6), (0, 0, 0))
+render(f"leaf{TAG}_3q.png", (ext * 0.5, -ext * 0.5, ext * 0.5), (math.radians(52), 0, math.radians(45)))
 print("wrote", OUT)
 sys.stdout.flush(); os._exit(0)
