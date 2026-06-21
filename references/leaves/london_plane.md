@@ -63,6 +63,24 @@ Palmate-lobed archetype (with maple = deep/rounded, sweetgum = star-sharp). Plan
 - **Secondary:** Missouri Botanical Garden, NC State Extension, OSU, Virginia Tech dendrology, Trees & Shrubs Online (Bean/Kew), Wikipedia.
 - **Discounted by adversarial verification (note for the future):** NC State Extension's **"rounded lobes"** phrasing was refuted 0–3 (not the dominant tip shape), and its leaf-proportion figure **"6–7 in long × 8–10 in wide" (W/L≈1.4) was refuted 1–2 as too wide.** NC State's "deeper sinuses than sycamore" *did* hold up. So: trust NC State on sinus-depth-vs-sycamore, discount its rounded-tip and over-wide-proportion claims.
 
+## LEAF MODEL — build approach + session log (2026-06-20 PM)
+
+**Goal:** a STRUCTURAL 3D leaf model (real geometry that becomes part of the tree via Mtree `distribute_leaves`), built FIRST and gated, THEN attached to the tree. NOT a billboard card. Must read DISTINCT from maple & sweetgum.
+
+**Approach (per `reference_how_to_make_trees` §1c + §0b + §0c — the proven method):**
+1. **Measure** the real flat leaf (`reference_photos/london planetree/IMG_4070`, validated representative; also `ref_leaf_single2.jpg`). Targets: 5 broad lobes; angular V-sinuses ~1/3 of blade; W/L ≈ 1.0–1.1 (about as wide as long); ~23 silhouette spikes (5 lobe apices + ~18 coarse forward teeth); broadly truncate/cuneate base; pointed-acuminate tips. `cut_leaf_texture.py` already isolates the real outline (`textures/leaves/london_plane_real_albedo.png`) → use it to measure and as the opaque albedo.
+2. **Build a clean SYMMETRIC parametric leaf-silhouette MESH** to those numbers (stem/petiole at origin (0,0), apex +Y, symmetric about x=0). Do NOT ship the raw asymmetric trace (self-intersects into spikes — §1c). Teeth = perpendicular SHALLOW sawtooth (coarse, not fine serration, not radial scallops).
+3. **Opaque single-leaf surface texture** (real photo albedo + derived vein normal). Veins painted stem→tip, central + symmetric pairs, tapered thick→thin, secondaries leaning FORWARD. NOT an alpha cluster-card (that punched holes/shards — §0b).
+4. **Slight 3D V-fold + smooth normals** so leaves aren't flat shards.
+5. Decimate (planar DISSOLVE ~18°, delimit UV) to budget; size from canopy DATA (blade ≈18 cm → distribute scale ≈0.062, constant across tiers — §0b).
+
+**What FAILED this session (do not repeat):**
+- ❌ Driving Mtree `LeafShapeGenerator` superformula to GENERATE the blade → produced sweetgum-like **stars/asterisks**. Verified its own MAPLE/OAK presets also produce radial-disc/asterisk leaves → the tool is not the blade-shape source (`inspect_mtree_leaves.py`). It is for *distribution*, not blade.
+- ❌ Pivoting to a scattered alpha **card** — rejected by user: leaves are structural geometry.
+- Net: the §1c measured-symmetric-parametric mesh is the path; the cutout feeds outline + albedo.
+
+**Distinctiveness (build maple/sweetgum to THEIR own numbers later — never reuse this blade):** plane = broad lobes + angular sinuses + coarse sparse teeth + **drab yellow-brown** fall; maple = rounded U-sinuses + vivid red/orange fall (`reference_photos/Red Maple/fa29…jpg`); sweetgum = deep narrow star + fine serration + crimson fall (`reference_photos/sweet gum/sweetgum-leaf.jpg`).
+
 ## Remaining open (quantitative) questions — not blocking the build
 1. A primary-flora base descriptor specifically for the hybrid (currently inferred).
 2. A source-backed numeric L:W range (only qualitative consensus exists).
