@@ -30,6 +30,7 @@ def setup():
     sc.render.resolution_y = SIZE
     sc.render.film_transparent = False
     sc.render.engine = 'BLENDER_EEVEE_NEXT'
+    sc.eevee.taa_render_samples = 8   # bark-only habit view — 64 is wasteful (~1min/variant CPU)
     sc.world = bpy.data.worlds.new("w")
     sc.world.use_nodes = True
     sc.world.node_tree.nodes["Background"].inputs[0].default_value = (1, 1, 1, 1)

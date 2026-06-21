@@ -1077,28 +1077,39 @@ SPECIES = {
     "london_plane": {
         "name": "London Plane (Platanus x acerifolia)",
         "crown_shape": "Spherical",
-        "trunk_frac": 0.30,
+        # DECURRENT CANDELABRA habit (2026-06-21, skeleton sweep lp_candelabra vs
+        # the wireframe refs london-plane-tree-01-02/09-02.jpg + Lincoln's Inn
+        # bare-winter). The old params made a single-leader BOTTLEBRUSH — a
+        # dominant central whip (up_attraction 0.6) with a confusion of short
+        # equal sticks (length 0.38, angle_var 0.25, flatness 0.25) all the way up
+        # the leader (branch_end 0.95). Real open-grown plane: stout trunk forks
+        # into a FEW thick scaffold limbs → broad rounded crown, clear
+        # trunk≫limb≫twig taper. Levers: kill leader dominance + long spreading
+        # limbs + vase arch + fewer/heavier primaries (user: "branches should make
+        # sense, not a confusion of sticks").
+        "trunk_frac": 0.28,
         "trunk_shape": 0.6,
-        "up_attraction": 0.6,
-        "trunk_randomness": 0.5,
-        "branch_start": 0.28,
-        "branch_end": 0.95,
-        "branch_density": 1.1,
-        "branch_length_ratio": 0.38,
-        "branch_start_radius": 0.52,   # STOUT crooked plane limbs (BRIEF §1)
-        "branch_angle_variation": 0.25,  # mostly horizontal-to-ascending (not a steep vase)
-        "branch_angle": 60,            # London plane: notably horizontal (50-70°, Silvics)
+        "up_attraction": 0.35,         # was 0.6 — let the trunk give way to spreading limbs (decurrent)
+        "trunk_randomness": 0.32,      # was 0.5 — straighter, stouter bole
+        "branch_start": 0.26,
+        "branch_end": 0.78,            # was 0.95 — crown rounds; leader does not run as a pole to the top
+        "branch_density": 0.70,        # was 1.1 — FEWER but heavier primary scaffold limbs
+        "branch_length_ratio": 0.52,   # was 0.38; 0.60 sprawled (l.glb→428MB). Broad crown, less geometry
+        "branch_start_radius": 0.72,   # was 0.52 — THICK scaffold limbs (clear hierarchy vs twigs)
+        "branch_angle_variation": 0.55,  # was 0.25 — limbs sweep up/out into a vase arch
+        "branch_angle": 58,            # London plane: notably horizontal (50-70°, Silvics)
         "branch_gravity": 8.0,
         "branch_stiffness": 0.2,
         "branch_up_attraction": 0.35,
-        "radial_pts": 16,              # size lever (stout limbs pushed _l to 101MB); bark is
-                                       # shader-painted so mesh roundness can drop w/o bark loss
-        "branch_split_prob": 0.55,
-        "branch_split_angle": 40.0,
-        "branch_flatness": 0.25,
+        "radial_pts": 11,              # was 16 — DECIMATE lod0: candelabra's longer/thicker limbs
+                                       # ×7 variants blew l.glb to 428MB; bark is shader-painted
+                                       # (triplanar) so cross-section roundness can drop w/o bark loss
+        "branch_split_prob": 0.58,
+        "branch_split_angle": 46.0,    # was 40 — wider secondary splits build the candelabra spread
+        "branch_flatness": 0.48,       # was 0.25 — strong lateral spread (broad crown, not a plume)
         "branch_break_chance": 0.02,
-        "branch_resolution": 1.0,      # was 1.4 — size lever (with radial_pts 16) for <100MB
-        "sub_density": 1.1,            # Reduced: full resolution at 1.6 → 102MB
+        "branch_resolution": 0.78,     # was 1.0 — size lever (fewer segments along each limb)
+        "sub_density": 0.7,            # was 1.1 — finer twig haze so the thick limbs read clearly + size
         "sub_length_ratio": 0.14,
         "sub_angle": 50,
         "sub_gravity": 10.0,
@@ -1107,7 +1118,7 @@ SPECIES = {
         "sub_split_prob": 0.3,
         "sub_split_angle": 35.0,
         "sub_flatness": 0.3,
-        "sub_resolution": 1.0,
+        "sub_resolution": 0.72,        # was 1.0 — size lever (sub-branch detail) for lod0 budget
         "bark_color": (0.48, 0.45, 0.36),
         "bark_roughness": 0.75,
         "leaf_shape": "plane",  # broad palmate, wider-than-tall, shallow 5-lobe (was "lobed"=oak edge fn — wrong, 2026-06-19)
@@ -1136,7 +1147,7 @@ SPECIES = {
         # future hero/closeup tier only.
         "foliage_distribute": False,
         "leaf_real_texture": "textures/leaves/london_plane_cluster.png",
-        "target_cluster_count_l": 1080,  # fuller crown — baseline read too open/airy vs dense-shade BRIEF (2026-06-19 eval)
+        "target_cluster_count_l": 850,  # was 1080; on the sparser candelabra crown the high target forced the supplemental fill to add clusters OFF the bark (floaters) — lowered so most clusters ride the continuous-clad branches (2026-06-21)
         "trunk_radius_factor": 1.12,  # stout, heavy plane bole (BRIEF §1)
         "base_seed": 200,
         "seed_step": 31,
@@ -1145,30 +1156,44 @@ SPECIES = {
         # Camouflage bark = the hero identity, wired as tree_bark.gdshader Style 2
         # (london_plane→bstyle 2 in tree_builder.gd); patch scale/coverage tuned 2026-06-19.
         "n_variants": 7,
+        # Span the candelabra FORM, not just angle: fork height (bole), crown
+        # spread, limb reach, and leader-dominance (more-upright individuals ↔
+        # wider-spreading old vases). Centred on the new decurrent base.
         "variant_spans": {
-            "branch_angle": [54, 66],     # crown spread
-            "branch_start": [0.24, 0.34],  # bole height
+            "branch_angle": [52, 64],            # crown spread
+            "branch_start": [0.22, 0.32],        # fork/bole height
+            "branch_length_ratio": [0.46, 0.58], # limb reach → crown width
+            "up_attraction": [0.30, 0.45],       # upright ↔ spreading scaffold
         },
         "tiers": {
             # Young street/lawn planes are ~1/3 of the census (327 <6" DBH, 222
-            # 6-12"; 2026-06-19). Sapling: dominant straight leader, sparse open
-            # crown, juvenile pyramidal habit, fewer/shorter limbs.
-            # A young plane is NOT a sparse whip — the reference 3D model
-            # (reference_photos/london planetree/) shows juveniles as DENSE
-            # conical crowns clad with twigs from low trunk to a leafy apex. The
-            # old sparse settings (sub_density 0.35) gave too few branches for the
-            # continuous cladding to read as a crown, so it looked clumpy/gappy.
-            # Fuller branch + twig density → a proper dense young cone (2026-06-20).
+            # 6-12"; 2026-06-19). A young plane is UPRIGHT PYRAMIDAL/CONICAL with a
+            # still-dominant leader that forks HIGHER and spreads into the broad
+            # decurrent candelabra only with age (size-chart ref 6e6cb11fdc). So
+            # the sapling override pulls the new spreading base BACK toward an
+            # upright conical young habit — but DENSE (not a sparse whip): the ref
+            # 3D model shows juveniles clad with twigs from low trunk to a leafy
+            # apex. Tier ramps leader-dominance down + spread up s→m→l.
             "s": {"target_h": 9, "height_range": [7, 13], "skeleton_overrides": {
-                "branch_density": 1.05, "branch_split_prob": 0.48, "sub_density": 0.9,
-                "branch_start": 0.34,
+                "crown_shape": "Conical",
+                "up_attraction": 0.55,         # young leader still dominant (upright)
+                "branch_start": 0.32,          # forks higher than the mature vase
+                "branch_end": 0.88,
+                "branch_length_ratio": 0.42,   # shorter limbs (narrow young cone)
+                "branch_angle_variation": 0.35,
+                "branch_flatness": 0.30,
+                "branch_start_radius": 0.50,   # finer young limbs
+                "branch_density": 0.95, "branch_split_prob": 0.5, "sub_density": 0.95,
                 # Saplings are proportionally SLENDER (trunk dia scales faster than
                 # height): a 9m young plane is ~6-8" DBH, not the ~14" the 1.12
                 # mature factor gives. 0.55 → ~7" DBH at 9m (user 2026-06-19).
                 "trunk_radius_factor": 0.55}},
+            # Young-adult: transitional — leader giving way, crown opening to the vase.
             "m": {"target_h": 22, "height_range": [15, 25], "skeleton_overrides": {
-                "branch_density": 1.0, "branch_split_prob": 0.5, "sub_density": 0.85}},
-            "l": {"target_h": 30, "height_range": [25, 35]},
+                "up_attraction": 0.42, "branch_start": 0.28,
+                "branch_length_ratio": 0.48, "branch_density": 0.78,
+                "branch_split_prob": 0.55, "sub_density": 0.68}},
+            "l": {"target_h": 30, "height_range": [25, 35]},  # full decurrent candelabra (base)
         },
     },
 
@@ -1749,11 +1774,16 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
         w = w / w.sum()
         nrng = np.random.default_rng(rng.randint(0, 2**31 - 1))
         pick = nrng.choice(eligible_idx, size=need, p=w)
+        # Jitter is SIZE-RELATIVE (was a fixed ±0.10m): fixed metres over-jitter
+        # small trees — on a 9m sapling ±0.10m is ~3x larger in MODEL_H-normalised
+        # units than on a 30m tree, throwing supplemental cards off-bark (the
+        # connectivity gate is normalised, so saplings failed worst). 2026-06-21.
+        jit = 0.10 * (target_height / 25.0)
         for vidx in pick:
             c = coords[vidx]
             candidates.append(Vector((
-                c[0] + rng.uniform(-0.10, 0.10),
-                c[1] + rng.uniform(-0.10, 0.10),
+                c[0] + rng.uniform(-jit, jit),
+                c[1] + rng.uniform(-jit, jit),
                 c[2] - droop * target_height * 0.05)))
 
     # --- Upper-crown envelope (replaces the old single-tip apical cap) ---
@@ -1797,11 +1827,17 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
             # Count scales with crown height → opaque cap at every tier.
             n_env = max(28, int(round(crown_h * 8)))
             sel = nrng.choice(band, size=n_env, p=w)
+            # Size-relative jitter (was fixed ±0.12m xy, +0.18m z): on a sapling
+            # those fixed metres pushed envelope cards well above the apex bark
+            # (off the connectivity gate). Scale with tree size; keep the small
+            # upward bias so the leader spike still gets buried. 2026-06-21.
+            ejit = 0.12 * (target_height / 25.0)
+            ezup = 0.12 * (target_height / 25.0)
             for vi in sel:
                 candidates.append(Vector((
-                    coords[vi, 0] + rng.uniform(-0.12, 0.12),
-                    coords[vi, 1] + rng.uniform(-0.12, 0.12),
-                    coords[vi, 2] + rng.uniform(0.0, 0.18))))   # sit ON/above the wood, tight
+                    coords[vi, 0] + rng.uniform(-ejit, ejit),
+                    coords[vi, 1] + rng.uniform(-ejit, ejit),
+                    coords[vi, 2] + rng.uniform(0.0, ezup))))   # sit ON/above the wood, tight
 
     # --- Prune isolated foliage islands ---
     # A clump of cluster(s) alone on a thin outlying twig reads as foliage
@@ -3031,7 +3067,7 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
             # scatter) so every leaf traces a continuous line to the trunk — a
             # sprawling cluster floats free of its branch (check_foliage_
             # connectivity.py; user 2026-06-20). Others keep the legacy spread.
-            _scatter = 0.5 if sp.get("foliage_continuous") else 1.0
+            _scatter = 0.25 if sp.get("foliage_continuous") else 1.0  # tighter (was 0.5): outer cards of each cluster were sprawling past the connectivity gate (2026-06-21)
             leaf_objs = create_leaf_cards_at_positions(
                 placements, leaf_mat, rng, tier=tier_name, n_cards=n_cards,
                 cluster_scatter=_scatter)
