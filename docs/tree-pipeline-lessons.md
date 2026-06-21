@@ -7,6 +7,10 @@ Promote *systematic* lessons into the archetype library, the attach contract, or
 
 ## Cross-cutting lessons (not species-specific)
 
+- **REALISM PATH = real-leaf alpha-cutout CARDS, not procedural 3D geometry.** (2026-06-20, hard lesson) Per the deep-research report (`docs/research-game-ready-leaves.md` §1–2): industry-standard realistic leaves are alpha cards textured from a **photographed/scanned real leaf on white**, or CC0 leaf atlases (ambientCG). SpeedTree's primary leaf representation is cards with 1-bit alpha. A flat reference photo like `IMG_4070` *is* a finished leaf texture — cut it to RGBA (`scripts/vegetation/cut_leaf_texture.py`) and you have a real, correctly-veined, correctly-toothed, species-distinct leaf in one pass. **Do this before reaching for any generator.** Trying to procedurally generate the leaf shape with Mtree's superformula produced sweetgum-stars and burned a session. See [[feedback_do_the_research]] — we researched the method then ignored it.
+- **Mtree veins are a `vein_distance` per-vertex attribute, not geometry.** They drive a shader / bake into the card texture. A plain BSDF on the raw mesh shows only `vein_displacement` ridges → reads as an "asterisk". If Mtree is used at all, it is a secondary VARIATION tool whose output bakes to the leaf atlas.
+
+
 - **Use Mtree's `LeafShapeGenerator`, not hand-rolled outlines.** (2026-06-20) The project spent effort on a PIL parametric outline + scattered-card leaf system while Mtree already shipped a full procedural leaf creator: superformula contour (`m,a,b,n1,n2,n3,aspect_ratio`), `margin_type` + `tooth_count/depth/sharpness`, space-colonization **venation as real 3D geometry**, and **deformation** (`midrib_curvature, cross_curvature, vein_displacement, edge_curl`), with `seed`/`asymmetry_seed`. It is fully headless-scriptable:
   ```python
   gen = m_tree.LeafShapeGenerator()
