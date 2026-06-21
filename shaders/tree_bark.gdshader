@@ -196,7 +196,7 @@ void fragment() {
 		// (less green) so fresh patches read cream, not lime (user 2026-06-19).
 		vec3 fresh_cream = col * vec3(1.52, 1.50, 1.38);  // pale warm cream (freshest)
 		vec3 olive_green = col * vec3(0.87, 0.82, 0.60);  // DRAB grey-olive (R>=G, not lime — 2026-06-19 v2)
-		vec3 gray_brown  = col * vec3(0.82, 0.76, 0.68);  // gray-brown older bark
+		vec3 gray_brown  = col * vec3(0.84, 0.76, 0.66);  // gray-brown older bark (warmer/tanner per HRPK close-up, 2026-06-20)
 		vec3 dark_old    = col * vec3(0.50, 0.50, 0.46);  // darkest retained outer bark
 
 		// Crisp patch zones (narrow transitions = peeling-plate edges).
@@ -236,6 +236,17 @@ void fragment() {
 		micro = (mi_yz * tri_w.x + mi_xz * tri_w.y + mi_xy * tri_w.z) * 0.10;
 		col *= (0.95 + micro);
 		rough = mix(0.52, 0.80, zfresh);  // fresh patches smoother/waxier
+
+		// Mature-trunk BASE: the lower ~0-4m holds DARKER, ROUGHER old retained
+		// bark — on a real plane the pale camouflage develops UP the bole while
+		// the base stays gray-brown and coarse (refs 2026-06-20: HRPK trunk
+		// close-up + the avenue of planes 2619305). Complements the upper
+		// pale-cream limb gradient above. Fades out by ~4m so the mid/upper bole
+		// keeps its full camouflage read.
+		float base_zone = 1.0 - smoothstep(0.4, 4.0, local_h);   // 1 at ground → 0 by 4m
+		vec3 base_bark = col * vec3(0.64, 0.61, 0.55);           // darker, slightly desaturated gray-brown
+		col = mix(col, base_bark, base_zone * 0.55);
+		rough = mix(rough, 0.93, base_zone * 0.6);               // coarser at the base
 	} else if (bark_style == 3) {
 		// --- Style 3: Thick scaled plates (pine / conifer) ---
 		float sn_yz = vnoise(puv_yz * vec2(0.5, 0.3));
