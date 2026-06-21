@@ -2001,26 +2001,32 @@ func _setup_environment() -> void:
 	_env.glow_hdr_luminance_cap = 8.0
 	_env.ssao_enabled          = true
 	_env.ssao_detail           = 0.5
-	# GI (SDFGI + SSIL) OFF (user decision 2026-06-19). The all-green scene fed
-	# SDFGI/SSIL a uniform green indirect light that tinted pale surfaces (bark,
-	# paths) green — diagnosed via a forced-white-bark probe (neutral surface
-	# rendered G/R 1.18). Trade accepted: slightly weaker depth/shade gradient,
-	# but brighter under-canopy and a big frame-rate win. Re-enable both to
-	# restore GI (and revisit the green tint via reduced energy/bounce_feedback).
+	# GI = SDFGI, ON at Godot/AAA standard settings (user decision 2026-06-21).
+	# SDFGI is the correct GI system for a large, fully-dynamic open world with a
+	# day/night cycle (VoxelGI is small-scene only; LightmapGI can't bake
+	# procedural/streamed content). Forward+ renderer required — confirmed in
+	# project.godot. HISTORICAL CAVEAT (2026-06-19): the all-green scene once fed
+	# SDFGI a uniform green indirect bounce that tinted pale surfaces (bark,
+	# paths) green (forced-white-bark probe read G/R 1.18). If that returns, dial
+	# it back via sdfgi_energy / sdfgi_bounce_feedback rather than disabling GI.
+	_env.sdfgi_enabled         = true
+	_env.sdfgi_cascades        = 6                                   # large outdoor scene needs range (4 = default)
+	_env.sdfgi_min_cell_size   = 0.5                                 # ~0.5m cascade-0 detail, matches atlas resolution
+	_env.sdfgi_y_scale         = Environment.SDFGI_Y_SCALE_75_PERCENT # Godot default; balanced for tree-height verticality
+	_env.sdfgi_energy          = 1.0                                 # standard full-strength indirect light
+	_env.sdfgi_normal_bias     = 1.1                                 # Godot default
+	_env.sdfgi_probe_bias      = 1.1                                 # Godot default
+	_env.sdfgi_bounce_feedback = 0.5                                 # Godot default multi-bounce (>0.5 risks runaway)
+	_env.sdfgi_read_sky_light  = true                               # outdoor ambient from sky
+	_env.sdfgi_use_occlusion   = true                               # higher-quality contact occlusion
+	# SSIL (screen-space indirect light) left OFF: it is a separate near-field
+	# effect from GI, and produced yellow-shield artifacts here pre-overhaul.
+	# Enable separately if you want SDFGI complemented with screen-space bounce.
 	_env.ssil_enabled          = false
 	_env.ssil_radius           = 3.0    # meters — moderate reach for under-canopy bounce
 	_env.ssil_intensity        = 0.6    # conservative — was causing yellow shield artifacts pre-overhaul
 	_env.ssil_normal_rejection = 1.2
 	_env.ssr_enabled           = false   # causes multi-colored artifacts on water from aerial view
-	_env.sdfgi_enabled         = false  # OFF — see the SSIL note above (user decision 2026-06-19)
-	_env.sdfgi_cascades        = 6      # large outdoor scene needs range
-	_env.sdfgi_min_cell_size   = 0.5    # ~0.5m matches our atlas resolution
-	_env.sdfgi_energy          = 1.0    # full GI bounce for natural lighting
-	_env.sdfgi_normal_bias     = 1.1
-	_env.sdfgi_probe_bias      = 1.1
-	_env.sdfgi_bounce_feedback = 0.3    # subtle multi-bounce
-	_env.sdfgi_read_sky_light  = true
-	_env.sdfgi_use_occlusion   = true
 	_env.adjustment_enabled    = true
 	_env.adjustment_brightness = 1.06
 	_env.fog_enabled           = false  # volumetric fog handles aerial perspective
