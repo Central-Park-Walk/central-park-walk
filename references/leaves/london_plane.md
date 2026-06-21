@@ -74,6 +74,16 @@ Palmate-lobed archetype (with maple = deep/rounded, sweetgum = star-sharp). Plan
 4. **Slight 3D V-fold + smooth normals** so leaves aren't flat shards.
 5. Decimate (planar DISSOLVE ~18°, delimit UV) to budget; size from canopy DATA (blade ≈18 cm → distribute scale ≈0.062, constant across tiers — §0b).
 
+**RESULT (2026-06-20 PM) — Gate 1 PASSED.** Leaf model built and approved by Chris.
+Pipeline (all in `scripts/vegetation/`): `cut_leaf_texture.py` (real IMG_4070 → RGBA;
+mask = greenness G−B from measured pixels + morphological close to bridge pale midrib —
+fixed a half-leaf bug) → `extract_leaf_outline.py` (marching-squares contour, robust on
+concave lobes; arc-length resample — Douglas-Peucker collapsed the closed loop) →
+`build_leaf_mesh.py` (canonical-frame geometry from boundary_xy, photo UV via affine fit,
+V-fold + tip droop, vein bump, COLLAPSE-decimate). Asset: **`models/leaves/london_plane_leaf.glb`**,
+**666 v / 1046 f**, real veins+teeth+color. Renders: `notes/london_plane_leaf/GATE1_v3_mesh_*`.
+Open polish: ~15° residual tilt off +Y; drab-yellow-brown FALL recolor variant; then distribute on the tree.
+
 **What FAILED this session (do not repeat):**
 - ❌ Driving Mtree `LeafShapeGenerator` superformula to GENERATE the blade → produced sweetgum-like **stars/asterisks**. Verified its own MAPLE/OAK presets also produce radial-disc/asterisk leaves → the tool is not the blade-shape source (`inspect_mtree_leaves.py`). It is for *distribution*, not blade.
 - ❌ Pivoting to a scattered alpha **card** — rejected by user: leaves are structural geometry.
