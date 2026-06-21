@@ -1297,12 +1297,18 @@ func _build_canopy_shells() -> void:
 		# the discard test and then get lifted by mip_level * 0.45 so distant
 		# impostor silhouettes read solid instead of as a sparse ghost.
 		mat.set_shader_parameter("alpha_clamp", 0.05)
-		# Crown-interior AO compensation: the billboard has no per-leaf AO so it
-		# reads ~30% brighter than the mesh tiers at equal distance (measured
-		# 2026-06-21: london_plane impostor lum 102 vs mesh 78). Dim to match.
-		# Per-species — only calibrated species get <1.0; others stay status quo.
+		# Crown-interior AO compensation: the flat billboard lacks the mesh's
+		# per-leaf canopy AO. canopy_dim was set to 0.65 (2026-06-21 AM) off an
+		# EVAL-GARDEN close-up where the impostor read ~15% bright — but a
+		# controlled 200m capture (the real handoff distance) REVERSED that: the
+		# card-based london_plane atlas erodes at distance and reads DARKER and
+		# sparser than the mesh (lum 73 vs 100), so 0.65 over-darkened it. The
+		# brightness-match value at 200m is ~0.9. Held here as a light touch only;
+		# the real issue is silhouette erosion of the card atlas at distance —
+		# fix is a denser/alpha-dilated re-bake + mip-alpha retune (NEXT SESSION,
+		# see [[project-leaf-pipeline-mtree]]), not this multiply.
 		mat.set_shader_parameter("canopy_dim",
-			0.65 if label.begins_with("london_plane") else 1.0)
+			0.9 if label.begins_with("london_plane") else 1.0)
 		impostor_mats[label] = mat
 		impostor_meta[label] = meta
 		return true
