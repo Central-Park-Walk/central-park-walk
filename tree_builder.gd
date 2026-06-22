@@ -82,6 +82,20 @@ var _mesh_fade_end: float = 200.0
 # is only needed at close range (<80m); lod1 then carries 80–200m. The 80/200
 # split is the user's spec; the dither band is the Godot HLOD convention.
 var _lod1_end: float = 80.0
+# SCREEN-SIZE LOD (AAA / Godot community best practice, user 2026-06-22): a tree's
+# on-screen pixel height is (world_height / distance) × const, so to make EVERY
+# tree switch tiers at the same APPARENT size — not the same world distance — the
+# handoff distance must scale linearly with the model's height. _lod1_end (80m)
+# and _mesh_fade_end (200m) are the REFERENCE distances for a REF_TREE_HEIGHT-tall
+# canopy tree; a 30m london_plane_l then holds mesh ~36% farther and a 10m sapling
+# switches ~55% sooner, all at the same ~77px switch size. This also SUBSUMES the
+# old hardcoded _sapling_mesh_end=90 (≈ 200 × 10/22): saplings are short, so the
+# unified formula hands them off early on its own — no special case. Sources:
+# PulseGeek "prefer screen-size thresholds for LOD switches"; Godot HLOD tutorial.
+const REF_TREE_HEIGHT: float = 22.0  # m — height the 80/200m defaults were tuned for
+# Min/max clamp keeps extreme variants sane (tiny shrubs don't pop at 30m; giant
+# elms don't carry full mesh past ~320m where the impostor is indistinguishable).
+const LOD_SCALE_RANGE := Vector2(0.40, 1.60)
 # Crossfade dither band as a fraction of each tier's handoff distance. Godot's
 # official HLOD tutorial sizes End Margin at 10% of the visibility range
 # (End=10 → Margin=1); SpeedTree/AAA guidance is to keep the dither band SHORT
@@ -144,10 +158,10 @@ func _init(loader) -> void:
 			print("TreeBuilder: TIER ISOLATE '%s' — single tier, no crossfade (diagnostic)" % _tier_isolate)
 		elif arg.begins_with("--tree-mesh-range="):
 			_mesh_fade_end = clampf(float(arg.substr("--tree-mesh-range=".length())), 60.0, 1000.0)
-			print("TreeBuilder: mesh tier fade end = %.0fm (default 200) — impostors take over there" % _mesh_fade_end)
+			print("TreeBuilder: mesh tier reference fade end = %.0fm (default 200, scaled per tree height) — impostors take over there" % _mesh_fade_end)
 		elif arg.begins_with("--tree-lod1-range="):
 			_lod1_end = clampf(float(arg.substr("--tree-lod1-range=".length())), 20.0, 250.0)
-			print("TreeBuilder: near mesh (_lod1) fade end = %.0fm (default 80) — _lod1 takes over there" % _lod1_end)
+			print("TreeBuilder: near mesh (_lod1) reference fade end = %.0fm (default 80, scaled per tree height) — _lod1 takes over there" % _lod1_end)
 		elif arg == "--simple-leaf":
 			_simple_leaf = true
 			print("TreeBuilder: SIMPLE LEAF shader (diagnostic) — isolates leaf shader complexity cost")
@@ -182,8 +196,21 @@ const TIER_BOUNDS := {
 }
 const TIERS := ["s", "m", "l"]
 
+func _lod_scale(species_tier: String) -> float:
+	## Screen-size LOD multiplier: handoff distances scale with the model's height
+	## so every tree switches tiers at the same APPARENT on-screen size (AAA / Godot
+	## best practice). Strip any "_lod1" suffix — the mid mesh shares its base height.
+	## Returns 1.0 for the reference-height tree, so the fixed defaults are unchanged
+	## for a typical canopy tree and only the size-relative spread is added.
+	var base_key: String = species_tier.trim_suffix("_lod1")
+	var h: float = _species_heights.get(base_key, REF_TREE_HEIGHT)
+	return clampf(h / REF_TREE_HEIGHT, LOD_SCALE_RANGE.x, LOD_SCALE_RANGE.y)
+
 func _get_tier(species: String, desired_h: float) -> String:
 	## Return size tier suffix based on species and desired height.
+	# NOTE (2026-06-21): the force-_s assessment hack was REVERTED — it made every
+	# m/l-sized london plane render the heavy STRUCTURAL-leaf _s model (3D sprigs),
+	# which tanked fps to ~7-8 (user diagnosis). Real m/l use cheap cluster CARDS.
 	var bounds: Array = TIER_BOUNDS.get(species, [12.0, 20.0])
 	if desired_h < bounds[0]:
 		return "s"
@@ -200,17 +227,20 @@ func _try_load_cached_tree(model_name: String) -> Dictionary:
 	var meta_path := CACHE_DIR + model_name + ".cfg"
 	if not FileAccess.file_exists(meta_path):
 		return {}
-	# Invalidate cache if source GLB is newer than cached .cfg
-	var glb_path := ProjectSettings.globalize_path("res://models/trees/%s.glb" % model_name)
-	var cfg_abs := ProjectSettings.globalize_path(meta_path)
-	if FileAccess.file_exists(glb_path):
-		var glb_time := FileAccess.get_modified_time(glb_path)
-		var cfg_time := FileAccess.get_modified_time(cfg_abs)
-		if glb_time > cfg_time:
-			return {}  # source is newer — force re-parse
 	var cfg := ConfigFile.new()
 	if cfg.load(meta_path) != OK:
 		return {}
+	# Invalidate when the source GLB's mtime differs from the one stamped into the
+	# cache at build time. Using != on the STAMPED mtime (not file-mtime > on the
+	# .cfg, which races — see _save_tree_cache) means any GLB regen forces a
+	# re-parse, even if the stale cache file is newer than the GLB. A cache with
+	# no stamp (pre-2026-06-21) is treated as stale so it rebuilds once.
+	var glb_path := ProjectSettings.globalize_path("res://models/trees/%s.glb" % model_name)
+	if FileAccess.file_exists(glb_path):
+		var glb_time := FileAccess.get_modified_time(glb_path)
+		var stamped: int = cfg.get_value("model", "glb_mtime", -1)
+		if stamped != glb_time:
+			return {}  # source changed (or unstamped) — force re-parse
 	var n_v: int = cfg.get_value("model", "n_variants", 0)
 	var height: float = cfg.get_value("model", "height", 0.0)
 	if n_v == 0:
@@ -245,6 +275,14 @@ func _save_tree_cache(model_name: String, meshes: Array, height: float) -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("model", "n_variants", meshes.size())
 	cfg.set_value("model", "height", height)
+	# Stamp the SOURCE GLB's mtime so the cache invalidates on != (not file-mtime
+	# >, which races: a render that rebuilds the cache writes it NEWER than the
+	# GLB, after which glb_time > cfg_time is forever false and a stale mesh is
+	# served even after the GLB is regenerated. Comparing the stamped source mtime
+	# is robust to that. (2026-06-21: cost a session of "identical" eval shots.)
+	var src_glb := ProjectSettings.globalize_path("res://models/trees/%s.glb" % model_name)
+	if FileAccess.file_exists(src_glb):
+		cfg.set_value("model", "glb_mtime", FileAccess.get_modified_time(src_glb))
 	cfg.save(CACHE_DIR + model_name + ".cfg")
 
 
@@ -611,15 +649,11 @@ func _build_trees(trees: Array) -> void:
 		if n_variants == 0:
 			continue
 
-		# Pick variant deterministically per (species_tier, 80m-cell) so all
-		# same-species trees in one MMI chunk share a mesh. Without this, the
-		# per-tree `i % n_variants` fragments every 80m cell into one MMI per
-		# variant — turning 6808 LOD0 instances into 4315 tiny MMIs (avg 1.6
-		# instances each). Per-cell variants collapse that to ~1500 chunks.
-		# 80.0 here MUST match CHUNK used in the spawning loop below.
-		var cx_var := int(floorf(tx / 80.0))
-		var cz_var := int(floorf(tz / 80.0))
-		var variant_idx: int = int(abs(hash("%s|%d|%d" % [species_tier, cx_var, cz_var]))) % n_variants
+		var variant_idx: int = int(abs(hash("%s|%.1f|%.1f" % [species_tier, tx, tz]))) % n_variants  # PER-TREE variant (local diversity, user 2026-06-22; was per-80m-cell which tiled). Position-derived → identical across lod0/lod1 (no handoff pop). COST: ~3x tree MMIs (mixed variants per chunk) — frame is fragment-bound (trees.md §4a) so likely cheap, but PERF-GATE before commit.
+		# Eval-only: a specimen may force a specific variant (eval_plot_builder
+		# VARIANT_ROW — show every lod0 variant side by side). No effect on the park.
+		if is_eval and typeof(tree_entry) == TYPE_DICTIONARY and tree_entry.has("variant"):
+			variant_idx = clampi(int(tree_entry["variant"]), 0, n_variants - 1)
 
 		# Scale factor: desired_height / mesh_height_in_raw_units
 		var mesh_h: float = _species_heights[species_tier]
@@ -805,7 +839,13 @@ func _build_trees(trees: Array) -> void:
 		var chunk_r := 0.0
 		for tf: Transform3D in xf_list:
 			chunk_r = maxf(chunk_r, (tf.origin - chunk_origin).length())
-		var mesh_vis_end: float = _mesh_fade_end + chunk_r + 5.0
+		# Screen-size LOD: handoff distances scale with this species_tier's height
+		# (a 30m _l holds mesh farther; a ~10m _s switches sooner — same on-screen
+		# size). The scale also subsumes the old sapling special-case: short _s trees
+		# get a near impostor handoff (≈90m) on their own, no separate constant.
+		var lscale: float = _lod_scale(sp_name)
+		var eff_mesh_end: float = _mesh_fade_end * lscale
+		var mesh_vis_end: float = eff_mesh_end + chunk_r + 5.0
 		if _tier_isolate != "":
 			# Isolate captures render a tier pure with the dither disabled, so
 			# the tight per-chunk bound (correct in normal play, where trees
@@ -824,7 +864,7 @@ func _build_trees(trees: Array) -> void:
 				var iso_mesh: Mesh = mid_mesh if mid_mesh != null else near_mesh
 				tier_specs.append([iso_mesh, "TreeLod1", mesh_vis_end])
 			_:
-				var near_end: float = (_lod1_end + chunk_r + 5.0) if mid_mesh != null else mesh_vis_end
+				var near_end: float = (_lod1_end * lscale + chunk_r + 5.0) if mid_mesh != null else mesh_vis_end
 				tier_specs.append([near_mesh, "Tree", near_end])
 				if mid_mesh != null:
 					tier_specs.append([mid_mesh, "TreeLod1", mesh_vis_end])
@@ -920,10 +960,14 @@ func _build_trees(trees: Array) -> void:
 	#                   (20m at 200m) ending at _mesh_fade_end → impostor.
 	#   No _lod1 (dead): near mesh covers the whole range, fades at the far band.
 	#   Impostor:    fades in over the far band (set in _build_canopy_shells).
-	var mesh_fade_out := Vector2(_mesh_fade_end * (1.0 - LOD_FADE_RATIO), _mesh_fade_end)
-	var lod1_fade := Vector2(_lod1_end * (1.0 - LOD_FADE_RATIO), _lod1_end)
 	const NO_FADE := Vector2(0.0, 0.0)
 	for sp_key in _species_meshes:
+		# Screen-size LOD: fade bands scale with this tier's model height so each
+		# tree crossfades at the same on-screen size. The impostor fade-in (set in
+		# _build_canopy_shells) scales identically, keeping the crossfade water-tight.
+		var s: float = _lod_scale(sp_key)
+		var lod1_fade := Vector2(_lod1_end * s * (1.0 - LOD_FADE_RATIO), _lod1_end * s)
+		var mesh_fade_out := Vector2(_mesh_fade_end * s * (1.0 - LOD_FADE_RATIO), _mesh_fade_end * s)
 		var fade_in := NO_FADE
 		var fade_out := NO_FADE
 		# tier_brightness: decimated tiers read slightly brighter than the
@@ -941,6 +985,11 @@ func _build_trees(trees: Array) -> void:
 			# _lod1_end; without one (saplings, dead snags) it covers the whole range.
 			if _species_meshes.has(sp_key + "_lod1"):
 				fade_out = lod1_fade
+			elif sp_key.ends_with("_s") and _tier_isolate != "mesh":
+				# Sapling: no _lod1, fades straight to impostor. Its handoff is the
+				# height-scaled mesh_fade_out (short tree → ~90m on its own); the _s
+				# impostor fade-in matches it for a water-tight crossfade.
+				fade_out = mesh_fade_out
 			elif _tier_isolate != "mesh":
 				fade_out = mesh_fade_out
 		for mesh: Mesh in _species_meshes[sp_key]:
@@ -1321,13 +1370,18 @@ func _build_canopy_shells() -> void:
 			_load_impostor_mat.call("%s_%s" % [model_name, tier])
 		_load_impostor_mat.call(model_name)  # generic fallback
 
-	# Impostors fade in over the mesh tier's fade-out band (180-200m at default).
-	# Must equal mesh_fade_out (line ~914) so the crossfade is water-tight.
-	var imp_fade_in := Vector2(_mesh_fade_end * (1.0 - LOD_FADE_RATIO), _mesh_fade_end)
-	if _tier_isolate == "impostor":
-		imp_fade_in = Vector2(0.0, 0.0)   # pure tier at any distance
+	# Impostors fade in over their mesh tier's fade-out band. Screen-size LOD: the
+	# band scales with each tier's model height (via _lod_scale on the mat_key), so
+	# it equals that tier's mesh_fade_out — and the _s sapling's direct fade-out —
+	# exactly, keeping the crossfade water-tight. Short _s trees scale to ~90m on
+	# their own (no separate sapling band); tall _l trees push the band out past 200m.
+	var imp_zero: bool = _tier_isolate == "impostor"  # pure tier at any distance
 	for mat_key in impostor_mats:
-		impostor_mats[mat_key].set_shader_parameter("lod_fade_in", imp_fade_in)
+		var fb := Vector2(0.0, 0.0)
+		if not imp_zero:
+			var s: float = _lod_scale(mat_key)
+			fb = Vector2(_mesh_fade_end * s * (1.0 - LOD_FADE_RATIO), _mesh_fade_end * s)
+		impostor_mats[mat_key].set_shader_parameter("lod_fade_in", fb)
 
 	if impostor_mats.is_empty():
 		print("Trees Impostor: no impostor atlases found — skipping")
@@ -1432,7 +1486,12 @@ func _build_canopy_shells() -> void:
 		var imp_chunk_r := 0.0
 		for tf: Transform3D in xf_list:
 			imp_chunk_r = maxf(imp_chunk_r, (tf.origin - origin).length())
-		var imp_fade_begin: float = _mesh_fade_end * (1.0 - LOD_FADE_RATIO)
+		# Screen-size LOD: this chunk's impostor begins where its tier's mesh fades
+		# out — _mesh_fade_end scaled by the tier's model height (model_name is the
+		# mat_key, e.g. london_plane_l / _s). Short _s saplings begin near (~90m),
+		# tall _l trees begin past 200m, each matching its own mesh fade-out band.
+		var eff_imp_end: float = _mesh_fade_end * _lod_scale(model_name)
+		var imp_fade_begin: float = eff_imp_end * (1.0 - LOD_FADE_RATIO)
 		mmi.visibility_range_begin = 0.0 if _tier_isolate == "impostor" \
 			else maxf(imp_fade_begin - imp_chunk_r - 5.0, 0.0)
 		mmi.visibility_range_end = 2500.0
@@ -1452,5 +1511,5 @@ func _build_canopy_shells() -> void:
 		imp_instances += xf_list.size()
 		imp_chunks += 1
 
-	print("Trees Impostor: %d billboard impostors (fade in %.0f-%.0fm, per-chunk cull) in %d chunks (%d species)" % [
-		impostor_count, _mesh_fade_end * (1.0 - LOD_FADE_RATIO), _mesh_fade_end, chunks.size(), impostor_mats.size()])
+	print("Trees Impostor: %d billboard impostors (fade in ~%.0f-%.0fm ref, ×height/%.0fm per tier, per-chunk cull) in %d chunks (%d species)" % [
+		impostor_count, _mesh_fade_end * (1.0 - LOD_FADE_RATIO), _mesh_fade_end, REF_TREE_HEIGHT, chunks.size(), impostor_mats.size()])
