@@ -15,15 +15,23 @@ Outputs: textures/leaves/london_plane_cluster.png  (summer)
 """
 import os
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.dirname(os.path.dirname(HERE))
 TEXDIR = os.path.join(PROJ, "textures", "leaves")
 
 TEX = 1024          # matches london_plane leaf_tex_size
-N_LEAVES = 18       # overlapping leaves per cluster card
+# TWIG SPRIG (user 2026-06-21 PM: "the cluster should only have 3 leaves, and twigs
+# should separate them, 2-4 leaves per cluster"). NOT a packed rosette/ball — a real
+# twig with a few leaves attached at spaced nodes, the twig segments visibly between
+# them, blades fanning out, tips OUTWARD. Shape guide: 2SA8J91 (a watermarked Alamy
+# stock photo — INSPIRATION ONLY, never shippable). Built from the clean single-leaf
+# cutout (london_plane_real_albedo.png).
+N_LEAVES = 3        # leaves per sprig card (2-4 range; 3 = canonical)
 SEED = 447          # london_plane leaf_seed
+TWIG_COL = (96, 84, 52)     # olive-brown london-plane twig
+PETIOLE_COL = (120, 116, 70)  # greener petiole
 
 
 def trim_to_alpha(im):
@@ -35,46 +43,76 @@ def trim_to_alpha(im):
     return im.crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))
 
 
+def _bezier(p0, p1, p2, t):
+    u = 1.0 - t
+    x = u * u * p0[0] + 2 * u * t * p1[0] + t * t * p2[0]
+    y = u * u * p0[1] + 2 * u * t * p1[1] + t * t * p2[1]
+    return x, y
+
+
+def _draw_taper(draw, p0, p1, p2, w0, w1, color, n=180):
+    """Draw a tapered (w0→w1) quadratic-bezier twig as overlapping discs."""
+    for i in range(n + 1):
+        t = i / n
+        x, y = _bezier(p0, p1, p2, t)
+        w = w0 + (w1 - w0) * t
+        draw.ellipse([x - w, y - w, x + w, y + w], fill=color)
+
+
 def build_cluster(src_png, out_png):
     leaf = trim_to_alpha(Image.open(src_png).convert("RGBA"))
     rng = np.random.default_rng(SEED)
     canvas = Image.new("RGBA", (TEX, TEX), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(canvas)
 
-    # base leaf size so several leaves overlap into a mass (~38% of canvas tall)
-    base_h = 0.38 * TEX
-    # spheroidal placement: center-weighted radius, full-circle angle
-    placements = []
-    for _ in range(N_LEAVES):
-        r = (rng.random() ** 0.65) * 0.40 * TEX          # center-dense
-        th = rng.random() * 2 * np.pi
-        cx = TEX / 2 + r * np.cos(th)
-        cy = TEX / 2 + r * np.sin(th) * 0.85             # slightly flattened
-        placements.append((r, cx, cy, th))
-    # paint far leaves first so near/central ones sit on top
-    placements.sort(key=lambda p: -p[0])
+    # --- Main twig: a gently curved, tapering stem rising from the base ---
+    # Image +y is DOWN. Base (thick) at bottom-center, tip (thin) upper area.
+    p0 = (TEX * 0.50, TEX * 0.95)            # base — attaches to the branch
+    p1 = (TEX * 0.40, TEX * 0.55)            # control → gentle S
+    p2 = (TEX * 0.57, TEX * 0.18)            # apex (thin)
+    _draw_taper(draw, p0, p1, p2, w0=11, w1=3, color=TWIG_COL)
 
-    for r, cx, cy, th in placements:
-        scale = base_h * rng.uniform(0.80, 1.20) / leaf.height
+    # --- Leaf nodes spaced ALONG the twig (so twig segments separate the leaves) ---
+    # Each: (t along twig, outward petiole angle [screen coords, -y is up], leaf
+    # height frac, petiole length frac). Alternating sides → natural fan; lower leaf
+    # largest. Angles fan up-and-out.
+    nodes = [
+        (0.34, np.radians(168), 0.42, 0.11),   # lower — out to the LEFT, big
+        (0.60, np.radians(-22), 0.39, 0.10),   # mid   — out to the RIGHT
+        (0.82, np.radians(-92), 0.33, 0.09),   # upper — UP, smaller
+    ][:N_LEAVES]
+
+    for t, phi, hfrac, pet in nodes:
+        nx, ny = _bezier(p0, p1, p2, t)
+        dx, dy = np.cos(phi), np.sin(phi)
+        # Petiole: short stem from the twig node outward to the leaf base.
+        pet_len = pet * TEX
+        bx, by = nx + dx * pet_len, ny + dy * pet_len
+        draw.line([(nx, ny), (bx, by)], fill=PETIOLE_COL, width=6)
+
+        # Leaf: base (petiole end, top of source image) sits at (bx,by); blade and
+        # TIP extend further outward along phi. Rotate the source leaf (petiole up,
+        # tip down = +y) so its tip points along phi.
+        h = hfrac * TEX
+        scale = h / leaf.height
         w = max(8, int(leaf.width * scale))
-        h = max(8, int(leaf.height * scale))
-        lf = leaf.resize((w, h), Image.LANCZOS)
-        # rotate: petiole roughly points back toward cluster center + jitter
-        ang = -np.degrees(th) + 90 + rng.uniform(-55, 55)
+        hh = max(8, int(leaf.height * scale))
+        lf = leaf.resize((w, hh), Image.LANCZOS)
+        ang = -np.degrees(phi) + 90 + rng.uniform(-8, 8)   # tip → outward along phi
         lf = lf.rotate(ang, expand=True, resample=Image.BICUBIC)
-        # gentle per-leaf brightness/tint jitter for natural variation
+        # subtle per-leaf tint variation
         arr = np.asarray(lf).astype(np.float32)
-        bright = rng.uniform(0.82, 1.10)
-        arr[..., :3] *= bright
-        arr[..., 1] *= rng.uniform(0.97, 1.04)           # green wobble
-        arr = np.clip(arr, 0, 255).astype(np.uint8)
-        lf = Image.fromarray(arr, "RGBA")
-        px = int(cx - lf.width / 2)
-        py = int(cy - lf.height / 2)
-        canvas.alpha_composite(lf, (px, py))
+        arr[..., :3] *= rng.uniform(0.88, 1.08)
+        arr[..., 1] *= rng.uniform(0.97, 1.03)
+        lf = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "RGBA")
+        # Place leaf CENTER a bit beyond the base along phi (blade reaches outward).
+        cx = bx + dx * (0.42 * h)
+        cy = by + dy * (0.42 * h)
+        canvas.alpha_composite(lf, (int(cx - lf.width / 2), int(cy - lf.height / 2)))
 
     canvas.save(out_png)
     cov = (np.asarray(canvas)[..., 3] > 30).mean()
-    print(f"wrote {out_png}  ({TEX}x{TEX}, coverage {cov*100:.1f}%, {N_LEAVES} leaves)")
+    print(f"wrote {out_png}  ({TEX}x{TEX}, coverage {cov*100:.1f}%, {N_LEAVES}-leaf sprig)")
 
     # preview over neutral gray
     bg = Image.new("RGBA", (TEX, TEX), (130, 132, 135, 255))
