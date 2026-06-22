@@ -228,6 +228,12 @@ func update_perf(delta: float, prof: Dictionary = {}) -> void:
 		"  Buffers:   %d MB\n" % (vram_buf / 1_048_576)
 	)
 
+	# SDFGI strength readout (F2 = on/off, ; / ' = energy -/+ 0.02)
+	if prof.has("sdfgi_energy"):
+		var sdfgi_state: String = "ON" if prof.get("sdfgi_on", false) else "OFF"
+		text += "\nSDFGI: %s  energy %.2f  fb %.2f\n" % [
+			sdfgi_state, prof["sdfgi_energy"], prof.get("sdfgi_feedback", 0.0)]
+
 	# Per-subsystem profiling breakdown
 	if not prof.is_empty():
 		# Separate timing entries from metadata (chunk counts etc.)

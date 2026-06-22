@@ -1116,6 +1116,12 @@ func _get_prof_data() -> Dictionary:
 		"misc": _prof_misc_us,
 		"player_phy": _prof_player_phy_us,
 	}
+	# SDFGI strength readout (user 2026-06-21 PM) — live energy/feedback so the
+	# ; / ' dial can be read off the F9 HUD while tuning to "less powerful".
+	if _env:
+		data["sdfgi_on"] = _env.sdfgi_enabled
+		data["sdfgi_energy"] = _env.sdfgi_energy
+		data["sdfgi_feedback"] = _env.sdfgi_bounce_feedback
 	# Tree LOD instance counts (populated at build time by tree_builder)
 	if _park_loader and _park_loader._tree_builder:
 		var tb = _park_loader._tree_builder
@@ -1769,6 +1775,25 @@ func _unhandled_input(event: InputEvent) -> void:
 		_diag_toggle_undergrowth()
 	elif event.keycode == KEY_F8:
 		_diag_toggle_grass()
+	elif event.keycode == KEY_F2:
+		# SDFGI on/off A/B (F10 is the screenshot bot) — isolate the green
+		# indirect-bounce cast on pale surfaces (bark/paths/buildings) from
+		# material albedo (2026-06-21).
+		if _env:
+			_env.sdfgi_enabled = not _env.sdfgi_enabled
+			print("SDFGI: %s" % ("ON" if _env.sdfgi_enabled else "OFF"))
+	elif event.keycode == KEY_SEMICOLON or event.keycode == KEY_SLASH:
+		# Live SDFGI strength dial. DOWN = ; or / , UP = ' (user 2026-06-21 PM
+		# pressed / for down — bound both ; and / to lower so it works either way).
+		# Nudges sdfgi_energy +/-0.02; value shown live in the F9 perf HUD. (Brackets
+		# are time, comma/period are gamma.)
+		if _env:
+			_env.sdfgi_energy = max(0.0, _env.sdfgi_energy - 0.02)
+			print("SDFGI energy: %.2f" % _env.sdfgi_energy)
+	elif event.keycode == KEY_APOSTROPHE:
+		if _env:
+			_env.sdfgi_energy = min(1.0, _env.sdfgi_energy + 0.02)
+			print("SDFGI energy: %.2f" % _env.sdfgi_energy)
 	elif event.keycode == KEY_F11:
 		if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
@@ -2013,10 +2038,10 @@ func _setup_environment() -> void:
 	_env.sdfgi_cascades        = 6                                   # large outdoor scene needs range (4 = default)
 	_env.sdfgi_min_cell_size   = 0.5                                 # ~0.5m cascade-0 detail, matches atlas resolution
 	_env.sdfgi_y_scale         = Environment.SDFGI_Y_SCALE_75_PERCENT # Godot default; balanced for tree-height verticality
-	_env.sdfgi_energy          = 0.7                                 # dialed back from 1.0 — tame green bounce from the all-green scene (user 2026-06-21)
+	_env.sdfgi_energy          = 1.0                                 # GODOT DEFAULT / community SOP (user 2026-06-21 PM: "even at 1.00 it doesn't look bad, when watching the whole day pass by... lighter at night with more, so that's good. set sdfgi to the industry standard"). The earlier 1.0->0.18 cuts were chasing a "green glow" that turned out to be fine across the day cycle. Live-tunable with ; / / / ' (see _input).
 	_env.sdfgi_normal_bias     = 1.1                                 # Godot default
 	_env.sdfgi_probe_bias      = 1.1                                 # Godot default
-	_env.sdfgi_bounce_feedback = 0.3                                 # dialed back from 0.5 — less multi-bounce accumulation = less green tint on pale bark/paths
+	_env.sdfgi_bounce_feedback = 0.5                                 # GODOT DEFAULT / community SOP (restored from 0.1; user 2026-06-21 PM set SDFGI to standard)
 	_env.sdfgi_read_sky_light  = true                               # outdoor ambient from sky
 	_env.sdfgi_use_occlusion   = true                               # higher-quality contact occlusion
 	# SSIL (screen-space indirect light) left OFF: it is a separate near-field
