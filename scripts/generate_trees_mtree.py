@@ -2585,7 +2585,7 @@ def _sprig_cards(bm, uv_layer, pos, size, pdir, n_quads, rng, gidx):
     GA = math.radians(137.5)
     d = pdir if pdir.length > 1e-6 else mathutils.Vector((0.0, 0.0, 1.0))
     track = d.normalized().to_track_quat('Z', 'Y').to_matrix().to_4x4()
-    half = size * 1.60     # EVAL 2026-06-22: 2x the prior 0.80 (user wants to see 2x-size clusters)
+    half = size * 1.20     # EVAL 2026-06-22: backed off from 1.60 — l-tier leaf density read too heavy (user); 1.20 thins the cluster cover
     zoff = -half * 0.10    # anchor INBOARD so the card body OVERLAPS the twig (no floating); leaves still extend modestly outward (user 2026-06-22: "floating clusters")
     for q in range(max(1, n_quads)):
         roll = GA * (gidx * n_quads + q) + rng.uniform(-0.25, 0.25)
