@@ -3,6 +3,17 @@
 **Status:** canonical working agreement. Suggested home: `docs/tree-leaf-pipeline-brief.md`.
 **Owner of all design calls:** Chris. This brief defines *how* to work; Chris decides *whether* a result is acceptable.
 
+> **⮕ GEOMETRY-SOURCE DECISION SETTLED (2026-06-22).** This brief's *process* — dossier
+> first, two hard human gates, evidence-over-assertion, the gameplay-distance bar, the
+> lessons loop — stands unchanged and is canonical. But the leaf **representation** is
+> settled and is NOT the parametric leaf *mesh* this brief originally assumed:
+> **leaves = real-photo CLUSTER CARDS** (see `tree-pipeline-lessons.md` top banner and
+> [[project-leaf-pipeline-mtree]]). Read "archetype leaf" in Phase 2 below as *a
+> real-photo cluster card per leaf-type + the attach/placement contract*, not a
+> parametric base mesh. Render budget killed the mesh path (~460 M tris/frame for
+> structural leaves on a 3060 Ti); leaf shape only resolves <30 m, so a card's alpha
+> silhouette carries identity and the shader carries seasonal color.
+
 ---
 
 ## Purpose
@@ -66,6 +77,12 @@ Claude cannot measure a physical leaf, and arbitrary web photos carry no scale. 
 ---
 
 ## Phase 2 — Build the archetype leaf library
+
+> **Superseded representation (see top banner):** an archetype's leaf is a **real-photo
+> cluster card** (e.g. a 4-leaf twig sprig cut to RGBA), not a parametric base *mesh*.
+> The parametric-mesh framing below is retained for the *attach/placement contract* it
+> defines (still load-bearing), but item 1 ("parametric base mesh") is replaced by "a
+> real-photo cluster-card texture per leaf-type, with seasonal variants".
 
 An **archetype** is not one leaf. It is:
 
@@ -165,5 +182,5 @@ Only then does the next species begin.
 
 ## Working-agreement addenda (Chris, 2026-06-20)
 
-- **Best tool over improvisation.** Use the best tool available rather than hand-rolling a worse version; if a good tool exists but we don't have it, get it. "No need to bite through the tough parts when we have saws and knives scattered around." (This is why leaves are now built with Mtree's `LeafShapeGenerator`, not a hand-rolled PIL outline.)
+- **Best tool over improvisation.** Use the best tool available rather than hand-rolling a worse version; if a good tool exists but we don't have it, get it. "No need to bite through the tough parts when we have saws and knives scattered around." (Originally cited as the reason to use Mtree's `LeafShapeGenerator` over a hand-rolled PIL outline — **but that path was later rejected too**: leaves are now real-photo cluster cards, see top banner. The principle stands; the example is stale.)
 - **Every species starts with its dossier, then a blindspot audit.** Before any geometry, write the dossier (Phase 1) and then explicitly examine it for **blindspots, incomplete data, and contradictions**. The firmer the data foundation, the lower the chance of building the wrong thing. Flagged gaps are resolved (more research) before modeling begins.

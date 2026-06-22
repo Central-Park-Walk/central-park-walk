@@ -1,5 +1,22 @@
 # Research — Realistic, game-ready tree leaves (Blender → Godot 4)
 
+> **RETROSPECTIVE (2026-06-21): low visual ROI — do not over-trust this.** This run cost
+> millions of tokens and changed essentially nothing that shipped. Its headline ("architecture
+> is already right") was confirmation, not direction. The one decision it drove (pivot to
+> alpha-cards) was reversed by the user 6 minutes later; the shipped leaf came from reference
+> photos + in-engine perf iteration. The synthesis step crashed, and its "verified" refutations
+> were WRONG (read Mtree v4.x, not installed 5.5.0) — the real API answer came from a local grep.
+> Lesson: CPW's bottleneck is perception/craft, not web-knowledge. Decline broad deep-research
+> offers; reserve research for discrete external facts (licensing/API-version) and try one
+> WebSearch or a local grep first. See memory `feedback_deep_research_low_roi`.
+>
+> **SETTLED OUTCOME (2026-06-22):** the leaf path landed on **real-photo CLUSTER CARDS**
+> (not the procedural-Mtree or single-leaf-mesh routes this report explores). The body's
+> "Bottom line" §1–5 below is superseded on the geometry-source question — see the top
+> banner of `docs/tree-pipeline-lessons.md` and [[project-leaf-pipeline-mtree]]. What
+> *does* still hold from this report: the §1 LOD architecture (3D/card-near → impostor-far
+> is the SpeedTree shape) and the §5 Godot material settings (Alpha Scissor + A2C + MSAA).
+
 **Recovered & synthesized 2026-06-20.** This is the report from deep-research workflow
 `wf_928de905` (question: best proven way to produce realistic game-ready broadleaf leaves
 for a Godot 4 game built in Blender, free/local tools preferred). The workflow's own

@@ -71,7 +71,7 @@ Generation chain, in order. Touch these; do not replace them.
 |---|---|---|
 | Skeleton + leaf cards | `scripts/generate_trees_mtree.py` (2181 ln, `SPECIES` dict @ ln 330) | `models/trees/{species}_{s,m,l}.glb`, 5 variants each, normalized 5 m height, wind vertex colors baked |
 | Leaf-card geometry/material helper | `scripts/leaf_card_utils.py` (`make_leaf_cards`, `create_leaf_material`) | branch-walk card placement used by the generator |
-| Leaf textures | `scripts/vegetation/gen_leaf_textures.py` (14 species, parametric), `scripts/gen_cluster_textures.py` | leaf/cluster PNGs |
+| Leaf textures | **(SETTLED 2026-06-22: real-photo CLUSTER CARDS — `make_leaf_cluster_from_photo.py` / `make_leaf_cluster_texture.py` → DDS; see `tree-pipeline-lessons.md` banner.)** Old parametric path `scripts/vegetation/gen_leaf_textures.py` (14 species), `scripts/gen_cluster_textures.py` | leaf/cluster PNGs |
 | → DDS | `scripts/generate_leaf_dds.py` | runtime leaf atlases (binary-alpha at mip 0 — see trees.md §7) |
 | Crown interior AO | `scripts/bake_crown_ao.py` | per-vertex `rho` in COLOR_0.alpha (direct GLB surgery; glTF export drops vertex alpha) |
 | lod1 | `scripts/generate_tree_lods.py` | `{species}_{s,m,l}_lod1.glb` (adaptive card prune + bark decimation; ≤ ~12 k tris) |
@@ -327,8 +327,10 @@ see §10):
    trunk fraction, sub-branch params) toward the board's branch architecture. One
    Blender process per species×tier; watch for mesher crashes.
 3. **Tune foliage**: `leaf_density`, cluster counts, card size/placement
-   (`leaf_card_utils.py`), and the **leaf texture** (`gen_leaf_textures.py` →
-   `generate_leaf_dds.py`) toward the board's density bucket and leaf shape. Keep card
+   (`leaf_card_utils.py`), and the **leaf texture** — now a **real-photo cluster card**
+   (`make_leaf_cluster_from_photo.py`/`make_leaf_cluster_texture.py` → `generate_leaf_dds.py`;
+   the old parametric `gen_leaf_textures.py` is superseded) toward the board's density
+   bucket and leaf shape. Keep card
    *count/overlap* within the perf budget (§2) — gain density from texture/placement,
    not raw overdraw.
 4. **Tune bark**: assign/adjust the `tree_bark.gdshader` style and bark color/texture
