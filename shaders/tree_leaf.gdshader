@@ -184,9 +184,16 @@ void vertex() {
 	float crown = smoothstep(1.5, 4.0, h);
 	v_crown_rho = COLOR.a;
 
+	// Thin, higher-order branches whip far more than the thick limb base. COLOR.r
+	// = hierarchy depth (trunk 0 -> branch tip 1), COLOR.g = branch extent (branch
+	// base 0 -> tip 1); both rise toward the flexible extremities (leaf cards
+	// inherit their parent twig's values). Weighting the secondary sway by them
+	// decouples twig/leaf flutter from absolute height.
+	float branch_flex_w = branch_flex * (1.0 + COLOR.r * 1.8) * (0.6 + 0.4 * COLOR.g);
+
 	// Cantilever trunk + branch sway + wind push (leaves: higher amplitudes than bark)
 	vec2 trunk_d = wind_cantilever_trunk(h, sway_freq, trunk_flex, rustle, phase);
-	vec2 branch_d = wind_branch_sway(h, crown, sway_freq, branch_flex, branch_phase, rustle, 0.08, 0.05);
+	vec2 branch_d = wind_branch_sway(h, crown, sway_freq, branch_flex_w, branch_phase, rustle, 0.08, 0.05);
 	vec2 push_d = wind_push(wind_vec, h, 0.18, trunk_flex);
 	VERTEX.x += trunk_d.x + branch_d.x + push_d.x;
 	VERTEX.z += trunk_d.y + branch_d.y + push_d.y;
