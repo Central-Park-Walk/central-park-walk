@@ -5,13 +5,53 @@ Promote *systematic* lessons into the archetype library, the attach contract, or
 
 ---
 
+## ⮕ CURRENT SETTLED DIRECTION (2026-06-22) — read this first
+
+Tree leaves = **REAL-PHOTO CLUSTER CARDS at every tier.** Not procedural 3D leaf
+geometry (Mtree superformula), not structural single-leaf meshes, not hand-rolled PIL
+outlines — all three were tried and rejected (the dated lessons below are kept as the
+historical record of *why*). The chain, as shipped for london_plane:
+
+1. **Card texture** = a real leaf photo cut to RGBA. For london_plane this is Chris's
+   own chroma-keyed **4-leaf twig sprig** (`reference_photos/london planetree/london-plane-tree-leaf.jpg`
+   → `scripts/vegetation/make_leaf_cluster_from_photo.py` → `textures/leaves/london_plane_cluster.png`,
+   plus an auto fall variant). This REPLACED the procedurally-scattered fan in
+   `make_leaf_cluster_texture.py`, which is now superseded (both write the same output
+   file; the hand-built card is the one that ships). The single-leaf cutout
+   (`cut_leaf_texture.py` / `london_plane_real_albedo.png`) survives only as a *source*.
+2. **Placement** = continuous-cladding branch-walk + the deterministic per-branch
+   **leaf rule** (`_card_placements_per_branch` in `scripts/generate_trees_mtree.py`,
+   `card_leaf_rule: True`): ≥1 tip-most cluster guaranteed on every branch so foliage
+   reaches the ends. `cards_per_cluster: 1` — Chris's card already IS a 4-leaf sprig, so
+   stacking copies just remade a "tight green ball".
+3. **Generation** = `scripts/generate_trees_mtree.py` (NOT the old standalone
+   `make_london_plane.py`), with `distribute_tiers: []` — the 3D distribute path is
+   preserved in code but INACTIVE.
+4. **Why cards, not geometry — render budget.** ~200–250 near-tier trees load at once in
+   the Ramble (lod0 ≤ 80 m); a 664-vert structural leaf ⇒ ~460 M tris/frame, impossible
+   on a 3060 Ti. Leaf SHAPE only resolves within ~30 m anyway, so a card's alpha
+   silhouette distinguishes species, and COLOR comes from the shader's per-species
+   `SUMMER_COLORS`/`FALL_COLORS`.
+5. **Mtree's `LeafShapeGenerator` is at most a secondary VARIATION tool** whose output
+   would BAKE to a card atlas — never the primary realism path. Used to emit visible 3D
+   leaf geometry it produced asterisks/stars (its veins are a per-vertex `vein_distance`
+   shader attribute, not geometry) and was stopped.
+
+Memory: [[project-leaf-pipeline-mtree]], [[project-london-plane-sapling-sprig]],
+[[reference_how_to_make_trees]] §0aa. **Where a dated lesson below conflicts with this
+banner, the banner wins.**
+
+---
+
 ## Cross-cutting lessons (not species-specific)
 
-- **REALISM PATH = real-leaf alpha-cutout CARDS, not procedural 3D geometry.** (2026-06-20, hard lesson) Per the deep-research report (`docs/research-game-ready-leaves.md` §1–2): industry-standard realistic leaves are alpha cards textured from a **photographed/scanned real leaf on white**, or CC0 leaf atlases (ambientCG). SpeedTree's primary leaf representation is cards with 1-bit alpha. A flat reference photo like `IMG_4070` *is* a finished leaf texture — cut it to RGBA (`scripts/vegetation/cut_leaf_texture.py`) and you have a real, correctly-veined, correctly-toothed, species-distinct leaf in one pass. **Do this before reaching for any generator.** Trying to procedurally generate the leaf shape with Mtree's superformula produced sweetgum-stars and burned a session. See [[feedback_do_the_research]] — we researched the method then ignored it.
+- **RAMIFICATION DEPTH can't be bounded by split-probability at scale — prune by the `hierarchy_depth` attribute instead.** (2026-06-22 s4, london_plane m/l) Mtree forks per branch-SEGMENT, so ramification depth grows ~exponentially with limb length. MEASURED: a 22m tree (`_m`, ~10.6m limbs) caps cleanly at hierarchy_depth ~3 with `sub_split_prob` 0.22; a 30m tree (`_l`, ~16.5m limbs) still ramifies to **depth 11** even at `sub_split_prob` 0.10 — ~9.5k leaf clusters, 53MB GLB, essentially unchanged from no cap. The fix (the user's "stem/twig redundancy" insight — the leaf CARD is a twig sprig that already paints its own terminal twig, so geometry past it is redundant AND pokes out bare past the cards) is `cap_skeleton_depth(obj, max_depth)` in `generate_trees_mtree.py`: after meshing, delete verts whose raw-integer `hierarchy_depth` attribute exceeds `max_depth`; card placement then runs on the capped mesh so cards sit at the true terminal tips. Opt-in per tier via `skeleton_max_depth` in the tier's `skeleton_overrides`. The value is tier-scaled (l needs ~4; shorter m/s are already bounded by split-prob — don't cap what doesn't over-ramify). Height-independent, so it's the reusable lever for every big-tier tree. NOTE the **same trap is hidden in cluster COUNT**: the per-branch leaf RULE places ≥1 card per eligible branch, so over-ramification silently inflates the cluster count (and GPU cost) as much as the geometry — capping depth fixes both at once.
+- **BUILD WORKFLOW: ONE Blender variant/candidate per invocation — NO batch loops.** (user, 2026-06-22) Headless Blender on this box has a strong tendency to **hang on shutdown** (the EEVEE_NEXT GL context does not release; the process sits alive at ~0% CPU forever *after* the work is done and the file is written). In a shell `for`-loop that spawns one `blender4 …` per candidate, the first hang blocks every subsequent run — a whole sweep silently stalls (cost ~48 min unnoticed once). **RULE: run skeleton-explore / regen / lod / bake one variant at a time, as separate invocations, and confirm each process actually EXITED before starting the next.** Mitigations when scripting a single run: end the script with `sys.stdout.flush(); os._exit(0)` after writing output (force-exit past the shutdown hang — added to `explore_skeleton.py`), and/or wrap the call in `timeout 150 blender4 …`. (A full `generate_trees_mtree.py --tier X` run that meshes all 7 variants inside ONE process is fine — it exits cleanly; the rule is about not chaining multiple Blender *processes* in a loop.)
+- **REALISM PATH = real-leaf alpha-cutout CARDS, not procedural 3D geometry.** (2026-06-20, hard lesson) Per the deep-research report (`docs/research-game-ready-leaves.md` §1–2): industry-standard realistic leaves are alpha cards textured from a **photographed/scanned real leaf on white**, or CC0 leaf atlases (ambientCG). SpeedTree's primary leaf representation is cards with 1-bit alpha. A flat reference photo like `IMG_4070` *is* a finished leaf texture — cut it to RGBA (`scripts/vegetation/cut_leaf_texture.py`) and you have a real, correctly-veined, correctly-toothed, species-distinct leaf in one pass. **Do this before reaching for any generator.** Trying to procedurally generate the leaf shape with Mtree's superformula produced sweetgum-stars and burned a session. See [[feedback_do_the_research]] — we researched the method then ignored it. **Refinement (see banner):** "cards" finalized as real-photo **CLUSTER** cards (a 4-leaf twig sprig), not single-leaf cards; `cut_leaf_texture.py` is now only the *source* that feeds the cluster card.
 - **Mtree veins are a `vein_distance` per-vertex attribute, not geometry.** They drive a shader / bake into the card texture. A plain BSDF on the raw mesh shows only `vein_displacement` ridges → reads as an "asterisk". If Mtree is used at all, it is a secondary VARIATION tool whose output bakes to the leaf atlas.
 
 
-- **Use Mtree's `LeafShapeGenerator`, not hand-rolled outlines.** (2026-06-20) The project spent effort on a PIL parametric outline + scattered-card leaf system while Mtree already shipped a full procedural leaf creator: superformula contour (`m,a,b,n1,n2,n3,aspect_ratio`), `margin_type` + `tooth_count/depth/sharpness`, space-colonization **venation as real 3D geometry**, and **deformation** (`midrib_curvature, cross_curvature, vein_displacement, edge_curl`), with `seed`/`asymmetry_seed`. It is fully headless-scriptable:
+- **[SUPERSEDED as a realism path — see banner. Mtree is at most a secondary VARIATION tool whose output bakes to a card; it is NOT used to emit visible 3D leaf geometry, which produced asterisks. Kept for the API record only.]** **Use Mtree's `LeafShapeGenerator`, not hand-rolled outlines.** (2026-06-20) The project spent effort on a PIL parametric outline + scattered-card leaf system while Mtree already shipped a full procedural leaf creator: superformula contour (`m,a,b,n1,n2,n3,aspect_ratio`), `margin_type` + `tooth_count/depth/sharpness`, space-colonization **venation as real 3D geometry**, and **deformation** (`midrib_curvature, cross_curvature, vein_displacement, edge_curl`), with `seed`/`asymmetry_seed`. It is fully headless-scriptable:
   ```python
   gen = m_tree.LeafShapeGenerator()
   apply_preset_to_generator(gen, "MAPLE")   # or set params directly
@@ -33,7 +73,13 @@ Promote *systematic* lessons into the archetype library, the attach contract, or
 
 ## Per-species
 
-### London planetree (*Platanus × acerifolia*) — IN PROGRESS
+### London planetree (*Platanus × acerifolia*) — DONE (shipped as real-photo cluster cards)
+> **The leaf-BUILD bullet below documents the abandoned Mtree-superformula attempt
+> ("Gate-1 candidate"). That path was REJECTED.** The shipped leaf is the real-photo
+> cluster card in the banner at the top of this file (`london_plane_cluster.png`,
+> `card_leaf_rule`, `cards_per_cluster: 1`, `distribute_tiers: []`). The botany/dossier
+> notes (proportions, sinus depth, fall color, distinctiveness-vs-trio) below remain
+> valid; only the geometry-source conclusion is superseded.
 - Dossier: `references/leaves/london_plane.md`. Consensus target (deep-research, adversarially verified): 5 lobes, **moderately-deep angular sinuses (~1/3 of blade**, deeper than sycamore / shallower than Oriental plane), **pointed-acuminate tips**, coarse sparse forward teeth, **broad blade ~as wide as long to slightly wider (L/W ≈ 0.8–1.0)**, dull yellow-brown fall.
 - **Corrections to earlier single-source claims:** proportion is NOT W/L≈1.4 (refuted 1–2); sinuses are NOT "shallow" — they're moderate (deeper than sycamore). NC State's "rounded lobes" refuted 0–3; trust NC State only on sinus-depth-vs-sycamore.
 - **Lesson — single secondary sources mislead:** the whole shallow-vs-deep / rounded-vs-pointed muddle dissolved only under multi-source credibility weighting; the hybrid's leaf is *intrinsically polymorphic*, so any one photo/source is a sample, not the truth.

@@ -93,6 +93,100 @@ CANDS = {
                       "branch_split_prob": 0.7, "branch_split_angle": 52.0,
                       "trunk_randomness": 0.30, "branch_start": 0.20, "trunk_frac": 0.22,
                       "sub_density": 0.95},
+
+    # ===== 2026-06-22 s4: m & l redesign (skeletons-first) =====
+    # Render each at its tier height: --height 30 for l_*, --height 22 for m_*.
+    # l = MATURE DECURRENT CANDELABRA (ref A149-03 hero + nyc11 + wireframe 09-02):
+    #   broad rounded dome (aspect ~0.85-1.0), stout trunk forks low into a FEW heavy
+    #   scaffolds, fine twiggy shell at periphery, weak leader.
+    "lp_l_base": {},   # current species base (= l tier, no overrides) for A/B
+    # KEY FIX: species never set crown_base_size -> Mtree default 0.0 = narrow-cone
+    # clamp (reference_how_to_make_trees §8). Raise to open the broad mature dome.
+    "lp_l_dome": {"crown_base_size": 0.65},
+    # + RAMIFICATION CAP (stem/twig redundancy): MEASURED 2026-06-22 — current l
+    # ramifies to depth 11, vert mass peaks at depth 4-5, ~10-14k clusters & ~90-129k
+    # verts/variant (55MB GLB). The leaf card IS the terminal 4-leaf twiglet, so the
+    # skeleton must stop ~tertiary; depths 5-11 are bare filaments redundant with the
+    # card's painted twig. Cap = lower the split probabilities (per-segment fork chance)
+    # that drive the deep haze. Sweep to find where the candelabra still reads but the
+    # deep filaments are gone. face count printed = geometry-weight proxy.
+    "lp_l_dome_cap_soft": {"crown_base_size": 0.65,
+                           "sub_split_prob": 0.15, "branch_split_prob": 0.50},
+    "lp_l_dome_cap_med":  {"crown_base_size": 0.65,
+                           "sub_split_prob": 0.10, "branch_split_prob": 0.45},
+    "lp_l_dome_cap_hard": {"crown_base_size": 0.65,
+                           "sub_split_prob": 0.06, "branch_split_prob": 0.40},
+    # REFINED l: dome + ramification cap + STRAIGHTER STOUT BOLE (trunk_randomness
+    # 0.32->0.18 — the base skeletons leaned/S-curved with a one-sided crown; the
+    # leafed thumbnail hid it). _soft keeps a denser shell (more twig tips -> more
+    # cards), _med is lighter. Test both at 2 seeds for lean consistency.
+    "lp_l_v2_soft": {"crown_base_size": 0.65, "trunk_randomness": 0.18,
+                     "sub_split_prob": 0.15, "branch_split_prob": 0.50},
+    "lp_l_v2_med":  {"crown_base_size": 0.65, "trunk_randomness": 0.18,
+                     "sub_split_prob": 0.10, "branch_split_prob": 0.45},
+    # v2_med read as a tall oval (~0.55 aspect); the mature open-grown plane (A149-03
+    # hero) is a BROAD DOME (~0.85-1.0). Widen: bigger crown_base_size, longer limbs,
+    # lower fork, more horizontal lower limbs (angle_var rounds the dome top).
+    "lp_l_wide":    {"crown_base_size": 0.82, "trunk_randomness": 0.18,
+                     "sub_split_prob": 0.10, "branch_split_prob": 0.45,
+                     "branch_length_ratio": 0.56, "branch_start": 0.22,
+                     "branch_angle": 60, "branch_angle_variation": 0.55},
+    # CANDIDATE l recipe: broad dome (crown_base_size 0.75, length 0.55, low fork) with
+    # the top ROUNDED by raising branch_end 0.78->0.88 (branches reach near the apex and
+    # arch over, subsuming the bare leader spike) + cap + straight bole.
+    "lp_l_final":   {"crown_base_size": 0.75, "trunk_randomness": 0.18,
+                     "sub_split_prob": 0.10, "branch_split_prob": 0.45,
+                     "branch_length_ratio": 0.55, "branch_start": 0.24,
+                     "branch_end": 0.88, "branch_angle": 60,
+                     "branch_angle_variation": 0.55},
+
+    # m = YOUNG-ADULT TRANSITIONAL (ref size-chart middle + nyc11 oval): leader giving
+    #   way, crown opening to an oval/vase, higher cleaner bole, broader than s but
+    #   NARROWER/more upright than the mature l (aspect ~0.6-0.7). Fix the stale m:
+    #   too narrow (crown_base_size 0.0 clamp), sparse, S-curved leaning bole.
+    "lp_m_cur": {"up_attraction": 0.42, "branch_start": 0.28,
+                 "branch_length_ratio": 0.48, "branch_density": 0.78,
+                 "branch_split_prob": 0.55, "sub_density": 0.68},
+    "lp_m_new": {"up_attraction": 0.42, "branch_start": 0.30,
+                 "branch_length_ratio": 0.48, "branch_density": 0.78,
+                 "branch_split_prob": 0.55, "sub_density": 0.68,
+                 "crown_base_size": 0.50,      # open an oval crown (was 0.0 clamp)
+                 "trunk_randomness": 0.24,     # straighter bole (kill the S-curve; species 0.32 too curvy at 22m)
+                 "sub_gravity": 6.0},          # less one-sided lean (species 10.0 caused it on s)
+    "lp_m_new_cap": {"up_attraction": 0.42, "branch_start": 0.30,
+                     "branch_length_ratio": 0.48, "branch_density": 0.78,
+                     "branch_split_prob": 0.55, "sub_density": 0.68,
+                     "crown_base_size": 0.50, "trunk_randomness": 0.24,
+                     "sub_gravity": 6.0, "sub_split_prob": 0.18},
+    # CANDIDATE m recipe (young-adult): narrower/more upright than l (oval ~0.6-0.7),
+    # higher cleaner bole, leader still giving way (up_attraction 0.42 > l's 0.35).
+    # Same cap + straight-bole + rounded-top fixes as l, scaled younger.
+    "lp_m_final":   {"crown_base_size": 0.55, "trunk_randomness": 0.20,
+                     "sub_split_prob": 0.10, "branch_split_prob": 0.45,
+                     "branch_length_ratio": 0.48, "branch_start": 0.30,
+                     "branch_end": 0.85, "branch_angle": 56,
+                     "branch_angle_variation": 0.55, "up_attraction": 0.42,
+                     "branch_density": 0.78, "sub_density": 0.70,
+                     "sub_gravity": 6.0},
+    # lp_m_final was too SPARSE (~8k faces) — l's hard cap over-thins m's shorter limbs
+    # (ramification is exponential in limb length). Lighter cap + a touch more density
+    # for a full young-adult crown. Scale-appropriate cap: m softer than l, s softer yet.
+    "lp_m_final2":  {"crown_base_size": 0.55, "trunk_randomness": 0.20,
+                     "sub_split_prob": 0.20, "branch_split_prob": 0.52,
+                     "branch_length_ratio": 0.48, "branch_start": 0.30,
+                     "branch_end": 0.85, "branch_angle": 56,
+                     "branch_angle_variation": 0.55, "up_attraction": 0.42,
+                     "branch_density": 0.85, "sub_density": 0.80,
+                     "sub_gravity": 6.0},
+    # m still sparse — add structural BODY via more primaries (branch_density) + twigs
+    # + width, keeping a moderate cap. branch_density<=0.95 stays under the ~1.05 crash band.
+    "lp_m_full":    {"crown_base_size": 0.62, "trunk_randomness": 0.20,
+                     "sub_split_prob": 0.22, "branch_split_prob": 0.52,
+                     "branch_length_ratio": 0.50, "branch_start": 0.28,
+                     "branch_end": 0.86, "branch_angle": 56,
+                     "branch_angle_variation": 0.55, "up_attraction": 0.42,
+                     "branch_density": 0.95, "sub_density": 0.92,
+                     "sub_gravity": 6.0},
 }
 
 
@@ -141,6 +235,11 @@ def main():
     out = f"/tmp/explore_{cand}.png"
     render(obj, out)
     print(f"EXPLORE_OK {cand}: {nf:,} faces -> {out}")
+    sys.stdout.flush()
 
 
 main()
+# Headless EEVEE_NEXT does not release its GL context on this box, so Blender hangs
+# on shutdown AFTER the work is done (process sits at 0% CPU forever, blocking any
+# batch loop). Force-exit immediately once the png is written. 2026-06-22.
+os._exit(0)

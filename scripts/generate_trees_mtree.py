@@ -42,7 +42,7 @@ ADDON_DIR = os.path.expanduser(
 sys.path.insert(0, ADDON_DIR)
 from python_classes.m_tree_wrapper import lazy_m_tree as m_tree
 from python_classes.mesh_utils import create_mesh_from_cpp, create_leaf_mesh_from_cpp
-from python_classes.resources.node_groups import distribute_leaves
+from python_classes.resources.node_groups import distribute_leaves, LEAVES_MODIFIER_NAME
 from python_classes.presets.leaf_presets import apply_preset_to_generator
 # NOTE: the single-leaf texture is painted with PIL, which is NOT in Blender's
 # bundled Python — so it is generated via a subprocess to system python3
@@ -323,6 +323,204 @@ def clean_degenerate_geometry(obj, merge_dist=0.005, min_face_area=1e-5):
     if removed_v > 0 or removed_f > 0:
         print(f"    Mesh cleanup: {removed_v} verts, {removed_f} faces removed "
               f"({n_faces_before} → {n_faces_after})")
+
+
+def cap_skeleton_depth(obj, max_depth):
+    """Delete branch geometry beyond hierarchy_depth `max_depth` (the RAMIFICATION
+    CAP, user's stem/twig-redundancy insight 2026-06-22 s4).
+
+    WHY the split-prob cap alone is insufficient on big tiers (MEASURED): Mtree
+    forks per branch-SEGMENT, so ramification depth grows ~exponentially with limb
+    length. A 30m london_plane has ~16.5m primary limbs and still ramifies to
+    hierarchy_depth 11 even at sub_split_prob 0.10 — the same setting keeps a 22m
+    tree at depth ~3 (its limbs are ~10m). So lowering split probability cannot
+    bound depth at scale; pruning by the depth ATTRIBUTE is height-independent and
+    is the literal expression of "cap the skeleton at ~tertiary."
+
+    The leaf card is a 4-leaf twig SPRIG that already paints its own terminal twig,
+    so geometry past the card is doubly wrong: redundant with the painted twig AND
+    a bare filament poking past the cards. Capping removes it → big perf/size win +
+    the card sits at the true terminal tip. Card placement runs AFTER this on the
+    capped mesh, so cards land on the new (depth<=max_depth) tips.
+
+    Reads the raw integer `hierarchy_depth` vertex attribute (0=trunk, 1=primary,
+    2=secondary, 3=tertiary, ...). bmesh preserves the custom-data layers the
+    downstream card path reads (stem_id/radius/direction/branch_extent). Returns
+    the vert count deleted (reported for governance, like the min-twig floor).
+    """
+    mesh = obj.data
+    hd = mesh.attributes.get("hierarchy_depth")
+    if hd is None or max_depth is None:
+        return 0
+    depths = np.zeros(len(mesh.vertices))
+    hd.data.foreach_get("value", depths)
+    di = np.rint(depths).astype(int)
+    over = np.where(di > int(max_depth))[0]
+    if over.size == 0:
+        return 0
+    over_set = set(int(i) for i in over)
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bm.verts.ensure_lookup_table()
+    to_del = [v for v in bm.verts if v.index in over_set]
+    bmesh.ops.delete(bm, geom=to_del, context='VERTS')
+    bm.to_mesh(mesh)
+    bm.free()
+    mesh.update()
+    return len(to_del)
+
+
+# Minimum twig DIAMETER (metres, real-world) below which a branch tube is
+# inflated so it still READS on-screen. WHY (user, 2026-06-21): Mtree tapers
+# every twig to ~0 radius, so a leaf cluster can be perfectly CONNECTED in the
+# data (check_foliage_connectivity passes) yet sit on a twig too thin to render
+# — it reads as a FLOATING clump (the london_plane sapling defect). The pixel
+# floor is unforgiving: at 1080p/70° a feature subtends ~1px only at diameter
+# ≈ 0.0011 × distance, so a load-bearing twig must read at the tier's review
+# distance (s≈15-25m, m≈20-50m, l up to the 80m impostor handoff). These are a
+# DELIBERATE thickening past botanical reality (real plane twig ~3-6mm) — the
+# price of a visible trunk->branch->leaf line. Per-species override via
+# sp["min_twig_diameter"] (scalar metres or {tier: metres}).
+MIN_TWIG_DIAMETER = {"s": 0.022, "m": 0.032, "l": 0.050}
+
+# Absolute last-resort floor. Enforcing a min twig diameter is an UNSKIPPABLE
+# part of every tree build (user 2026-06-21): a build must NEVER ship a twig at
+# ~0 radius. If a tier has no table entry and no species override, we fall back
+# to this floor with a loud warning rather than silently skipping. The resolver
+# is therefore guaranteed to return a positive diameter for any tier.
+MIN_TWIG_DIAMETER_ABS_FLOOR = 0.020  # 2cm
+
+MIN_TWIG_RATIONALE_DEFAULT = (
+    "pixel-visibility floor — a load-bearing twig must subtend ~2px at its tier "
+    "review distance (s 15-25m, m 20-50m, l up to the 80m impostor handoff); "
+    "diameter ~= 0.0011 x distance per px at 1080p/70deg FOV. Deliberately past "
+    "botanical reality to keep the trunk->branch->leaf line solid, not floating.")
+
+
+def _min_twig_diameter(sp, tier_name):
+    """Resolve (diameter_m, rationale) for this species + tier.
+
+    NEVER returns 0: a min twig diameter is unskippable (user 2026-06-21). A
+    missing per-species value falls back to the MIN_TWIG_DIAMETER table, then to
+    MIN_TWIG_DIAMETER_ABS_FLOOR with a warning. The rationale travels with the
+    value so every build report can state WHY this floor was chosen.
+    """
+    rationale = sp.get("min_twig_rationale", MIN_TWIG_RATIONALE_DEFAULT)
+    ov = sp.get("min_twig_diameter")
+    val = None
+    if isinstance(ov, dict):
+        val = ov.get(tier_name)
+    elif ov is not None:
+        val = ov
+    if val is None:
+        val = MIN_TWIG_DIAMETER.get(tier_name)
+    if val is None or float(val) <= 0.0:
+        print(f"  WARNING: no min twig diameter configured for tier "
+              f"'{tier_name}' — falling back to absolute floor "
+              f"{MIN_TWIG_DIAMETER_ABS_FLOOR * 100:.1f}cm")
+        val = MIN_TWIG_DIAMETER_ABS_FLOOR
+    return float(val), rationale
+
+
+def enforce_min_twig_diameter(obj, min_diam_m, actual_h):
+    """Inflate sub-floor branch tubes to a minimum DIAMETER so thin twigs read.
+
+    Mesher-agnostic: the ManifoldMesher writes a per-vertex 'radius' attribute
+    and tube-surface vertex normals point radially OUTWARD from the branch axis,
+    so any vertex with radius < floor is pushed out along its own normal by
+    (floor - radius). This fattens the thinnest twigs to the floor without
+    needing ring/centerline topology, and leaves every above-floor branch
+    untouched (trunk>>limb>>twig hierarchy preserved). Run AFTER
+    clean_degenerate_geometry (so collapsed tips are already merged) and BEFORE
+    foliage placement (so clusters anchor to the thickened twig).
+
+    Mesh is in real metres at this stage (built at target_h, normalized to
+    MODEL_H only later), so min_diam_m is a real-world diameter that survives
+    end-to-end and rescales back to the same metres in-game.
+
+    JUNCTION SAFETY (2026-06-21): Mtree exports each branch as a SEPARATE tube
+    that only GEOMETRICALLY OVERLAPS its parent (no welded edges) — connectivity
+    relies on those overlaps being within ~WELD_EPS (0.01u in MODEL_H space).
+    A blind normal-push separates the two tubes at a junction (opposing pushes
+    can open the gap past WELD_EPS), disconnecting whole branches → floating
+    foliage (observed: 1/7 saplings went 0%→10.9%). So we NEVER inflate a vertex
+    that sits in an overlap region: a vert is a junction vert if another vert in
+    a DIFFERENT mesh ISLAND lies within the weld distance. Those stay put; only
+    free twig SPANS (the part that reads as an invisible thread) inflate.
+    """
+    if min_diam_m <= 0.0:
+        return {"min_diam_m": min_diam_m, "inflated": 0, "skipped_junction": 0}
+    import mathutils
+    min_r = min_diam_m * 0.5
+    # Weld distance in REAL metres: the checker welds at 0.01u in MODEL_H(5u)
+    # space, so 0.01u == 0.01 * actual_h / MODEL_H metres here. A junction vert
+    # has a different-island neighbour within ~1.5x that (margin for the push).
+    weld_real = 0.01 * actual_h / MODEL_H
+    junction_eps = weld_real * 1.5
+    mesh = obj.data
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    radius_layer = bm.verts.layers.float.get("radius")
+    if radius_layer is None:
+        bm.free()
+        # No radius attribute → cannot floor. Report it loudly: an unskippable
+        # step that found nothing to act on is a data problem, not a silent pass.
+        print("    WARNING: mesh has no 'radius' attribute — min twig diameter "
+              "could NOT be enforced")
+        return {"min_diam_m": min_diam_m, "inflated": 0, "skipped_junction": 0,
+                "no_radius": True}
+    bm.verts.ensure_lookup_table()
+    bm.normal_update()
+
+    # --- Island id per vertex (union-find over the mesh edges) ---
+    # Separate Mtree tubes are separate islands; ring neighbours share an island.
+    parent = list(range(len(bm.verts)))
+
+    def _find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    for e in bm.edges:
+        a, b = _find(e.verts[0].index), _find(e.verts[1].index)
+        if a != b:
+            parent[a] = b
+    island = [_find(i) for i in range(len(bm.verts))]
+
+    # --- KD-tree over all verts to find cross-island (junction) neighbours ---
+    kd = mathutils.kdtree.KDTree(len(bm.verts))
+    for i, v in enumerate(bm.verts):
+        kd.insert(v.co, i)
+    kd.balance()
+
+    inflated = 0
+    skipped_junction = 0
+    for v in bm.verts:
+        r = v[radius_layer]
+        # r > 0 guard: skip caps/degenerate verts that report 0 radius; only
+        # inflate genuine thin tube surface (a positive radius below the floor).
+        if not (0.0 < r < min_r):
+            continue
+        my_island = island[v.index]
+        is_junction = any(
+            idx != v.index and island[idx] != my_island
+            for (_co, idx, _d) in kd.find_range(v.co, junction_eps)
+        )
+        if is_junction:
+            skipped_junction += 1
+            continue
+        v.co += v.normal * (min_r - r)
+        v[radius_layer] = min_r
+        inflated += 1
+    bm.to_mesh(mesh)
+    bm.free()
+    mesh.update()
+    if inflated or skipped_junction:
+        print(f"    Min twig Ø {min_diam_m * 100:.1f}cm: inflated {inflated} "
+              f"sub-floor verts ({skipped_junction} junction verts preserved)")
+    return {"min_diam_m": min_diam_m, "inflated": inflated,
+            "skipped_junction": skipped_junction}
 
 
 # ===========================================================================
@@ -1090,21 +1288,32 @@ SPECIES = {
         "trunk_frac": 0.28,
         "trunk_shape": 0.6,
         "up_attraction": 0.35,         # was 0.6 — let the trunk give way to spreading limbs (decurrent)
-        "trunk_randomness": 0.32,      # was 0.5 — straighter, stouter bole
-        "branch_start": 0.26,
-        "branch_end": 0.78,            # was 0.95 — crown rounds; leader does not run as a pole to the top
+        "trunk_randomness": 0.18,      # was 0.32 — the bare l skeleton LEANED/S-curved at some seeds (the leafed thumbnail hid it; explore lp_l_* seed 108/300, 2026-06-22 s4). 0.18 = a clean stout bole consistently across seeds (matches the approved _s value).
+        "branch_start": 0.24,          # scalar fallback; m/l actually take branch_start from variant_spans
+        "branch_end": 0.95,            # was 0.78→0.88→0.95. Branches must EMERGE near the apex (95% of trunk) or the top ~12% is a bare leader spike (the s4b "top-stick" — 0.88 left too much bare leader on m/l). At 0.95 the apex branches exist and the apex-cladding gate (card_rule_apex_band) leafs them → rounded, clad dome top (A149-03/nyc11), only a tiny apex nub bare. branch_length_top_factor 0.4 keeps these apex branches short so they clad tightly to the leader.
         "branch_density": 0.70,        # was 1.1 — FEWER but heavier primary scaffold limbs
-        "branch_length_ratio": 0.52,   # was 0.38; 0.60 sprawled (l.glb→428MB). Broad crown, less geometry
+        "branch_length_ratio": 0.55,   # scalar fallback; m/l take it from variant_spans. 0.55 = broad mature dome (A149-03); 0.60 sprawled (old l.glb→428MB)
+        # NATURAL-GROWTH LENGTH GRADIENT (user 2026-06-21 PM: "longer branches come from
+        # lower on the trunk... the larger the heavier, the heavier the less upward, thus
+        # creating the teardrop"). Lower branches are older→longer→heavier→droop (less
+        # upward); upper are younger→shorter→lighter→ascend. branch_length_top_factor =
+        # the TOP branch length as a fraction of the BASE (long) length; power>1 keeps the
+        # lower-middle long and tapers only near the apex. The droop itself comes from
+        # gravity acting on the now-longer lower branches (longer lever = more sag).
+        "branch_length_top_factor": 0.4,
+        "branch_length_power": 1.5,
         "branch_start_radius": 0.72,   # was 0.52 — THICK scaffold limbs (clear hierarchy vs twigs)
+        "crown_base_size": 0.75,       # was UNSET (Mtree default 0.0 = a narrow-cone clamp that pulls tips inward — reference_how_to_make_trees §8). This was the hidden reason the bare l crown read as a tall oval and m as a narrow pole. 0.75 opens the broad mature dome (A149-03); m overrides it down to ~0.62 for a narrower young-adult oval.
+        "min_twig_diameter": {"s": 0.04},  # 4cm sapling-twig floor: the 12cm diagnostic (2026-06-21) proved the sapling floater is a THIN connecting twig (fattening it attached the clusters to visible wood), not off-bark placement. 4cm reads at the ~15-25m sapling review distance (~2-3px) without the cartoon look of 12cm.
         "branch_angle_variation": 0.55,  # was 0.25 — limbs sweep up/out into a vase arch
-        "branch_angle": 58,            # London plane: notably horizontal (50-70°, Silvics)
+        "branch_angle": 60,            # scalar fallback; m/l take it from variant_spans. London plane: notably horizontal (50-70°, Silvics)
         "branch_gravity": 8.0,
         "branch_stiffness": 0.2,
         "branch_up_attraction": 0.35,
         "radial_pts": 11,              # was 16 — DECIMATE lod0: candelabra's longer/thicker limbs
                                        # ×7 variants blew l.glb to 428MB; bark is shader-painted
                                        # (triplanar) so cross-section roundness can drop w/o bark loss
-        "branch_split_prob": 0.58,
+        "branch_split_prob": 0.45,     # RAMIFICATION CAP (2026-06-22 s4): was 0.58. MEASURED — the l skeleton ramified to hierarchy_depth 11, vert mass peaking at depth 4-5, ~10-14k clusters & 90-129k verts/variant (55MB GLB). The leaf card IS the terminal 4-leaf twiglet, so depths 5-11 are bare filaments redundant with the card's painted twig. Lowering the per-segment fork chance caps primary over-forking. (m/s override this higher — the cap value is scale-appropriate: l's long limbs ramify exponentially more than m's/s's shorter ones, so l needs the hardest cap.)
         "branch_split_angle": 46.0,    # was 40 — wider secondary splits build the candelabra spread
         "branch_flatness": 0.48,       # was 0.25 — strong lateral spread (broad crown, not a plume)
         "branch_break_chance": 0.02,
@@ -1115,7 +1324,7 @@ SPECIES = {
         "sub_gravity": 10.0,
         "sub_stiffness": 0.12,
         "sub_up_attraction": 0.2,
-        "sub_split_prob": 0.3,
+        "sub_split_prob": 0.10,        # RAMIFICATION CAP (2026-06-22 s4): was 0.30. This is the MAIN driver of the redundant deep-filament haze (depth 5-11) measured on l — twig sub-sub-sub division. 0.10 stops the twig ramification ~tertiary so the card sits at the terminal tip and there are no bare filaments poking past the cards. Big perf + size win (the deep haze was most of the 55MB). m overrides to 0.22, s to 0.24 (shorter limbs ramify far less, so they need a lighter cap or they go sparse).
         "sub_split_angle": 35.0,
         "sub_flatness": 0.3,
         "sub_resolution": 0.72,        # was 1.0 — size lever (sub-branch detail) for lod0 budget
@@ -1129,6 +1338,11 @@ SPECIES = {
         "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.45, 0.65),
         "leaf_density": 0.85,  # LAI 4-6, "largest leaf area of any inner-London tree" — heavy shade (BRIEF §3)
+        # Structural-leaf SPRIG (foliage_distribute path, _s tier): the distributed
+        # proto is a 4-leaf twig (ref close-up-...-2SA8J91), not a single leaf, so the
+        # canopy reads as natural leaf CLUSTERS instead of fur on the branches. Leaves
+        # stagger 0.62·base_len along the twig, golden-angle splay, ~52° outward tilt.
+        "leaf_cfg": {"cluster_n": 3, "cluster_stem": 0.62, "cluster_tilt": 38.0},  # 3 leaves/cluster (user 2026-06-21 PM: "only 2 or 3 leaves per cluster") — 4 read CLUMPY; fewer leaves per sprig de-clumps each cluster. Paired with ~1.15x more clusters (spacing 0.26 below). Leaf SIZE right (scale 0.13). cluster_tilt = forward sweep of each blade toward the branch tip (twig runs +Z = outward)
         "foliage_continuous": True,  # clad branches as a continuous sheath (ref: pro Platanus model), not discrete scattered blobs — 2026-06-20
         # LEAF PATH = REAL-PHOTO CLUSTER CARDS (reverted from distribute_leaves,
         # 2026-06-20 PM). The 2026-06-20 AM "true-3D distribute" switch was
@@ -1145,9 +1359,113 @@ SPECIES = {
         # REAL london-plane cutout (real veins/teeth/palmate outline/drab fall),
         # distinct from maple/sweetgum. distribute_leaves stays available for a
         # future hero/closeup tier only.
-        "foliage_distribute": False,
+        # HYBRID FOLIAGE (user rule 2026-06-21: "real 3D leaves when within
+        # budget"). The _s SAPLING uses STRUCTURAL 3D leaves (foliage_distribute):
+        # flat cluster cards go see-through on a small crown and every densify
+        # lever hit a wall (connectivity gate / mesher crash / cluster cap) — but
+        # a sapling's crown is small enough (~1.7k leaves) to afford real geometry,
+        # which fills densely like the nursery ref (exclamation-...-morton-circle)
+        # and is coherent BY CONSTRUCTION (leaves instanced on bark → no floaters).
+        # m/l keep cluster cards (a 30m crown's ~59k leaves would melt the 3060 Ti).
+        # The 90m sapling LOD handoff bounds the structural-leaf cost to near-field.
+        # CARDS AT EVERY TIER (user 2026-06-21 PM: "we're going to have to give up
+        # the 3d leaves. the cards just look better.") — the structural 3D-leaf _s
+        # was the GROUND-TRUTH "what right looks like" reference, but in-game the
+        # real-photo cluster cards read better than the geometry even up close, AND
+        # the heavy structural _s tanked fps when m/l-sized trees fell on it. So _s
+        # now uses the same continuous-clad cluster-CARD path as m/l (tuned via
+        # card_size_floor 0.42 + tier_fraction.s 0.18 below, set for the sapling).
+        # foliage_distribute stays True but distribute_tiers is empty: the 3D path
+        # is preserved (symmetric — "we can switch back if we absolutely must") but
+        # inactive. The leaf RULE (every branch >=1 tip cluster, no bare branches)
+        # is carried by the continuous-clad branch-walk, which clads ALL eligible
+        # thin-branch verts tips-first (extract_leaf_positions, foliage_continuous).
+        "foliage_distribute": True,
+        "distribute_tiers": [],
+        "tier_distribute": {
+            # Dense small crown: high leaf density, ~16cm plane leaf, clad twigs
+            # up to 9cm (the min-twig floor leaves twigs >=4cm). Tune to the ref.
+            # LESSON (2026-06-21, user: "covered in leaves — trunk, branches, everything,
+            # green fuzz"): max_radius is NOT a leaf-sheath thickness — it is a branch-RADIUS
+            # THRESHOLD. The leaf geom-nodes modifier deletes leaf points where the sampled
+            # branch radius >= max_radius ("remove points on thick branches", node_groups.py
+            # L297). So BIG max_radius = leaves creep onto thick limbs + the trunk = fuzz on a
+            # stick; SMALL max_radius = leaves only on the fine periphery, bare trunk + inner
+            # limbs (the natural look). Measured radius on this skeleton: median 4.2mm, p95
+            # 38mm, trunk base 99mm. 0.035 keeps leaves on twigs/sub-branch tips only.
+            #
+            # SIZE×COUNT (user 2026-06-21: "leaves must not interfere — spaced apart, on twigs;
+            # appropriate size for coverage + realism, compromised with 3060ti"). The engineer's
+            # compromise: FEWER, BIGGER, SPACED leaves — a plane leaf is large (15-25cm), so a
+            # few big cards cover the crown with natural spacing AND far fewer instances than a
+            # haze of tiny ones (450 density made ~40k leaves/tree — a GPU sink). scale 0.24
+            # makes a realistically large, coverage-efficient leaf. proto base_len=2.93, so
+            # on-tree leaf ≈ 2.93·0.24·(runtime height scale) — judged against the specimen
+            # in-render, not in the abstract.
+            # CLUSTER SPRIG (leaf_cfg.cluster_n=4): each distributed instance is now a 4-leaf
+            # twig, so density is per-SPRIG. 95→26 keeps a similar total leaf count (~8k) but
+            # CLUSTERED — natural spacing between sprigs, far fewer distribution points.
+            # TIP BIAS + APEX (user 2026-06-21): max_radius 0.028 keeps clusters on the finest
+            # twigs (so they gather at branch ENDS) while still catching the leader apex tip
+            # (radius ~0.0275) so the TOP carries clusters. density 12 = "slightly sparser
+            # leaves on more branches" — the richer branch/twig skeleton shows through.
+            "s": {"density": 12.0, "scale": 0.13, "max_radius": 0.05, "spacing": 0.7, "leaves_per_branch_min": 1},  # THE LEAF RULE (user 2026-06-21 PM): every branch gets >=1 cluster at its TIP (no bare branches), placed deterministically per stem_id. "Too many leaves" at spacing 0.4 → 0.7 (near-zero extras, essentially just the guaranteed 1/branch). Each cluster = 3 leaves. If still dense, the floor is the BRANCH COUNT (reduce sub_density), since 1/branch is the rule's minimum.  # spacing = Poisson Distance Min (m): widened 0.35->0.45 (2026-06-21) — the smoother high-res skeleton exposed more fine-twig surface under max_radius, which inflated cluster count ~60% (a GPU cost the user did NOT ask for); 0.45 holds total leaves back at the prior ~6-7k while the WOOD carries the extra smoothness. Clusters stay even, not clumped.
+        },
         "leaf_real_texture": "textures/leaves/london_plane_cluster.png",
         "target_cluster_count_l": 850,  # was 1080; on the sparser candelabra crown the high target forced the supplemental fill to add clusters OFF the bark (floaters) — lowered so most clusters ride the continuous-clad branches (2026-06-21)
+        # SAPLING FILL (2026-06-21): two coupled levers. (1) card_size_floor lifts
+        # the h/25≈0.36× card shrink so a small crown isn't see-through — but 0.52
+        # pushed leaf-card corners past the connectivity gate (3-4% floaters), so
+        # capped at a gate-safe 0.42. (2) tier_fraction s 0.15→0.18 (~128→153) for
+        # a modest budget bump. The DOMINANT fix is the skeleton override below:
+        # the size-chart ref (6e6cb11fdc) shows a young plane as a BROAD DENSE cone
+        # with foliage from ~1.5m — not the narrow bare-trunked pole the old
+        # override produced (aspect 0.16). m/l fractions unchanged.
+        "card_size_floor": 0.42,
+        "tier_fraction": {"l": 1.0, "m": 0.40, "s": 0.18},
+        # THE LEAF RULE on cards (user 2026-06-21 PM: clusters "are not all the way
+        # out to the tips... remember what we learned with the 3d model"). Place a
+        # cluster card at every branch's tip-most vertex (guaranteed, tip-weighted)
+        # via _card_placements_per_branch, instead of the continuous-clad walk that
+        # bunched clusters inboard. max_radius 0.05 = thin twigs only; spacing 0.4
+        # adds a few extras down each branch for fullness.
+        "card_leaf_rule": True,
+        "card_rule_max_radius": 0.05,
+        "card_rule_min_per_branch": 1,
+        "card_rule_spacing": 0.55,   # was 0.40 — extras 0.40m apart overlapped at 2x card size ("clumps"); widen so the guaranteed tip dominates and inboard extras de-clump
+        # ISOLATION PRUNE OFF (user 2026-06-22, cpw_004/007/010: "leaves but not at
+        # or near the tip"). The prune dropped any cluster with <2 neighbours within
+        # 0.72m — which is exactly a twig-TIP sprig out at the crown periphery, so it
+        # was stripping the outermost foliage (12-30 clusters/variant, mostly tips).
+        # Its original job (kill lone floaters on low laterals) is now done by the
+        # branch-order gate — those laterals are primary/secondary, mostly gated.
+        "card_rule_isolation_prune": False,
+        # BRANCH-ORDER GRADIENT (user 2026-06-22, cpw_000-002: "leaves should very
+        # rarely emerge from primary branches, more from secondary, more yet from
+        # tertiary"). hierarchy_depth is the true branch order (verified by the
+        # in-code [diag]: 0=trunk, 1=primary, 2=secondary, 3+=tertiary & finer — it
+        # increments on every fork, NOT just the trunk→br→sub function levels). This
+        # maps a branch's order to the probability it bears ANY leaf; orders above
+        # the max key inherit it (all tertiary+ = 1.0). Soft gradient keeps a few
+        # leaves low while massing foliage on the outer crown shell (canopy data §11
+        # "concentrated in outer crown shell / layered parasol effect"). Replaces the
+        # radius gate as the order discriminator — the 4cm min_twig_diameter floor
+        # clamps every branch ≥depth1 to 20mm radius, so radius cannot tell a primary
+        # from a twig; depth can.
+        "card_rule_depth_keep": {1: 0.05, 2: 0.60, 3: 1.0},  # secondary 0.35→0.60 (user 2026-06-22: "many bare or nearly bare", "some variants more evenly leafed than others") — 0.35 left too many secondaries bare and made variant coverage uneven; 0.60 fills + evens while keeping primaries rare
+        # APEX CLADDING (user 2026-06-22 s4b: "top-sticks rising above their canopies").
+        # Force-keep any depth>=1 branch whose tip is in the top 18% of the crown, so
+        # the leafy growing apex isn't gated bare by the branch-order rule (which would
+        # otherwise leave a bare leader spike). Paired with a higher branch_end so
+        # branches actually REACH the apex to be clad (see tiers). Applies to all tiers.
+        "card_rule_apex_band": 0.18,
+        # ONE SPRIG per cluster (user 2026-06-22: "2-4 leaves per cluster"). Chris's
+        # hand-built card IS a 4-leaf twig sprig (london_plane_cluster.png), so a
+        # single card per placement = his 2-4 leaves. Stacking N cards (default 35,
+        # or even 4) re-creates the "tight green ball". The leaf RULE already puts a
+        # sprig at every branch tip, so the crown fills from many single sprigs at
+        # varied orientations, not from packing each placement into a sphere.
+        "cards_per_cluster": 1,
         "trunk_radius_factor": 1.12,  # stout, heavy plane bole (BRIEF §1)
         "base_seed": 200,
         "seed_step": 31,
@@ -1156,14 +1474,15 @@ SPECIES = {
         # Camouflage bark = the hero identity, wired as tree_bark.gdshader Style 2
         # (london_plane→bstyle 2 in tree_builder.gd); patch scale/coverage tuned 2026-06-19.
         "n_variants": 7,
-        # Span the candelabra FORM, not just angle: fork height (bole), crown
-        # spread, limb reach, and leader-dominance (more-upright individuals ↔
-        # wider-spreading old vases). Centred on the new decurrent base.
+        # SPECIES variant_spans = the MATURE (l) ranges (s and m define their OWN
+        # tier variant_spans; only l falls through to these). Span the mature
+        # decurrent candelabra FORM: low fork, broad spreading crown, weak leader.
+        # Centred on the verified lp_l_final recipe (explore_skeleton, 2026-06-22 s4).
         "variant_spans": {
-            "branch_angle": [52, 64],            # crown spread
-            "branch_start": [0.22, 0.32],        # fork/bole height
-            "branch_length_ratio": [0.46, 0.58], # limb reach → crown width
-            "up_attraction": [0.30, 0.45],       # upright ↔ spreading scaffold
+            "branch_angle": [56, 64],            # crown spread (mature = horizontal)
+            "branch_start": [0.20, 0.28],        # fork/bole height — mature forks LOW
+            "branch_length_ratio": [0.50, 0.60], # limb reach → broad mature crown width
+            "up_attraction": [0.30, 0.40],       # weak leader ↔ spreading scaffold (decurrent)
         },
         "tiers": {
             # Young street/lawn planes are ~1/3 of the census (327 <6" DBH, 222
@@ -1174,26 +1493,144 @@ SPECIES = {
             # upright conical young habit — but DENSE (not a sparse whip): the ref
             # 3D model shows juveniles clad with twigs from low trunk to a leafy
             # apex. Tier ramps leader-dominance down + spread up s→m→l.
-            "s": {"target_h": 9, "height_range": [7, 13], "skeleton_overrides": {
-                "crown_shape": "Conical",
-                "up_attraction": 0.55,         # young leader still dominant (upright)
-                "branch_start": 0.32,          # forks higher than the mature vase
-                "branch_end": 0.88,
-                "branch_length_ratio": 0.42,   # shorter limbs (narrow young cone)
-                "branch_angle_variation": 0.35,
-                "branch_flatness": 0.30,
-                "branch_start_radius": 0.50,   # finer young limbs
-                "branch_density": 0.95, "branch_split_prob": 0.5, "sub_density": 0.95,
-                # Saplings are proportionally SLENDER (trunk dia scales faster than
-                # height): a 9m young plane is ~6-8" DBH, not the ~14" the 1.12
-                # mature factor gives. 0.55 → ~7" DBH at 9m (user 2026-06-19).
-                "trunk_radius_factor": 0.55}},
-            # Young-adult: transitional — leader giving way, crown opening to the vase.
-            "m": {"target_h": 22, "height_range": [15, 25], "skeleton_overrides": {
-                "up_attraction": 0.42, "branch_start": 0.28,
-                "branch_length_ratio": 0.48, "branch_density": 0.78,
-                "branch_split_prob": 0.55, "sub_density": 0.68}},
-            "l": {"target_h": 30, "height_range": [25, 35]},  # full decurrent candelabra (base)
+            "s": {"target_h": 9, "height_range": [7, 13],
+                # REFERENCE-GROUNDED PROPORTION (2026-06-21, size-chart 6e6cb11fdc):
+                # a real young plane is a BROAD DENSE cone (aspect ~0.4-0.45) clad
+                # from ~1.5-2m, trunk mostly hidden — NOT the narrow (aspect 0.16)
+                # bare-trunked pole the old override built. The broadening params
+                # (branch_start/length_ratio/up_attraction/angle) MUST live in a
+                # tier variant_spans, not skeleton_overrides: the species spans
+                # otherwise clobber them back to the mature ranges (the bug found
+                # this session). None touch sub_density → no mesher-crash risk.
+                "variant_spans": {
+                    # REFERENCE-MEASURED RETUNE (2026-06-21). Trustworthy renders (post
+                    # --import fix) + a leaf-mass histogram on london_plane_s.glb proved
+                    # the old spans made a NARROW LEANING COLUMN: 71-93% of leaf mass sat
+                    # inside a 1m radius, foliage skirted to the ground (Y 0.00), and the
+                    # crown leaned to one side. Refs (size-chart 6e6cb11fdc + nursery
+                    # morton-circle) want a BROAD upright-conical young crown on a CLEAR
+                    # BOLE. Fix = firmer leader (kill lean) + longer/flatter laterals
+                    # (push mass into the 1-3m rings) + higher branch_start (bare bole).
+                    "branch_start": [0.16, 0.26],        # bole ~16-26% (refs show foliage from ~1.5m on a 9m young tree); [0.24,0.34] read TOO top-heavy
+                    "branch_length_ratio": [0.60, 0.74], # KEEP length (user 2026-06-21 PM: "keep the branches about as long"); narrow the crown by WINDING UP, not shortening
+                    # NARROW UPRIGHT YOUNG HABIT (user 2026-06-21 PM, morton-circle 3-part
+                    # nursery ref): young planes wind their limbs STEEPLY UPWARD into a
+                    # narrow crown, not spread horizontally. The total-tree diameter was
+                    # reading too wide for that habit. Supersedes the older 6e6cb11fdc
+                    # size-chart "broad young cone" call. Steepen + wind up, same length:
+                    "up_attraction": [0.46, 0.58],       # moderate upward arc — enough to wind the limbs up into the teardrop, not so much it spikes into a narrow column (the [0.52,0.64] over-steepened to a sparse spike)
+                    "branch_angle": [50, 62],            # moderate (was [58,72] too wide, [44,56] too steep/spiky) — lower-middle limbs reach out to give the teardrop its BODY; the Flame crown + angle_variation taper the apex
+                },
+                "skeleton_overrides": {
+                    "crown_shape": "Conical",      # TEARDROP via Conical (user 2026-06-21 PM, refs 6e6cb11fdc + morton-circle): Conical = BROAD base tapering to apex = the teardrop's broad lower-middle + tapered top, foliage from low. (Tried "Flame" — it bulged top-heavy with a bare lower crown, the OPPOSITE of a teardrop. The teardrop fix is moderate WIDTH + DENSITY, not the crown-shape enum.)
+                    "branch_end": 0.97,            # branches almost to the apex so the TOP carries leaf clusters (user 2026-06-21: "the top of the tree must get clusters"); 0.92 left a bare leader spike
+                    "branch_angle_variation": 0.55,  # was 0.46 — stronger height envelope: top limbs steepen (taper the apex), lower limbs stay broad → the teardrop taper
+                    "branch_flatness": 0.45,       # was 0.30 — KEY breadth lever: laterals spread sideways into a full crown
+                    "crown_base_size": 0.5,        # moderate teardrop body (0.6 too wide, 0.35 too narrow/sparse) — gives the Flame crown a broad rounded lower-middle without the old horizontal sprawl
+                    "branch_gravity": 4.0,         # 2.5->4.0 (user 2026-06-21 PM weight model): the length gradient now makes the LOWER branches longer, so gravity sags THEM more (longer lever) → "heavier, less upward" droop that rounds the teardrop's broad lower-middle, while the short upper branches stay ascending. (Earlier the lean came from one-sided droop; the rounder radial spread of branch_angle_variation 0.55 + straight leader should keep this even — verify in winter.)
+                    "sub_gravity": 4.0,            # was species 10.0 — heavy sub-branch droop was the main source of the one-sided lean
+                    "trunk_randomness": 0.18,      # was species 0.32 — straighter young leader (less curve → less lean)
+                    "branch_start_radius": 0.50,   # finer young limbs
+                    # RICHER SKELETON, SPARSER LEAVES (user 2026-06-21: "more branches
+                    # running to more twigs, but not as many leaf clusters total"). Build out
+                    # the branch→twig hierarchy so the STRUCTURE shows (like the nursery ref),
+                    # then distribute fewer clusters on it. More forks (branch_split_prob
+                    # 0.5→0.62) + more twigs (sub_density 1.15→1.35, longer via sub_length_ratio
+                    # 0.18) + a touch more primaries (branch_density 0.95→1.0). Held below the
+                    # known crash band (sub_density 1.5 / branch_density 1.05 each crashed 2/7).
+                    # MORE BRANCHES fill the gaps (user 2026-06-21: "the gaps can get filled
+                    # in by more branches"; "same number of leaves on more branches"). Push the
+                    # skeleton denser — branch_density 1.0→1.1, branch_split_prob 0.62→0.70,
+                    # sub_density 1.35→1.45 (just under the 1.5 crash point) — and DROP leaf
+                    # density (below) so total clusters stay ~constant, just spread over more
+                    # branches. The fork-test auto-dodges any seed the denser skeleton crashes.
+                    # NATURAL DISTRIBUTION (user 2026-06-22, screenshots cpw_000-003 +
+                    # wireframe ref london-plane-tree-09-02): the prior 1.1/0.70/1.45
+                    # made "not many main branches, but the ones there have a confusion
+                    # of sub- and sub-sub-branches". The real plane (wireframe + size-
+                    # chart 6e6cb11fdc) = a FEW-to-MANY CLEAN scaffold limbs off the
+                    # trunk, each ramifying into fine twigs only toward the PERIPHERY —
+                    # clean main limbs, leafy shell at the ends. Fix = MORE primaries
+                    # off the trunk (branch_density 1.1→1.3), CLEANER primaries (split
+                    # 0.70→0.50 so a limb is a distinct limb, not a fork-tangle), and
+                    # FAR FEWER confused secondaries (sub_density 1.45→0.85, back near
+                    # the species "finer twig haze so the thick limbs read clearly" 0.7;
+                    # sub_split stays the species 0.3 = minimal sub-sub). The big
+                    # sub_density drop frees mesher headroom for the higher branch_density
+                    # (net topology ≈ lower), so crash risk does not rise.
+                    "branch_density": 1.3, "branch_split_prob": 0.50, "sub_density": 0.85,
+                    # RAMIFICATION CAP on _s (user 2026-06-22 s4 "all tiers incl. s"):
+                    # was inheriting species sub_split_prob (now the hard 0.10 l cap).
+                    # _s limbs are shortest (~9m × 0.6-0.7) so they ramify the least —
+                    # the hard cap would thin the APPROVED sapling crown to see-through
+                    # (the small-crown lesson). 0.24 (down from the old 0.30) is a LIGHT
+                    # cap: applies the principle species-wide while keeping _s close to
+                    # its approved density. Re-review _s after regen; push harder only if
+                    # the user wants more cap.
+                    "sub_split_prob": 0.24,
+                    "sub_length_ratio": 0.18,
+                    "sub_dist_start": 0.05,  # twigs emerge near the branch base/interior (user 2026-06-21: "twigs come off the branches closer to the interior"), not just the outer 80% (was 0.2)
+                    # Saplings are proportionally SLENDER (trunk dia scales faster than
+                    # height): a 9m young plane is ~6-8" DBH, not the ~14" the 1.12
+                    # mature factor gives. 0.55 → ~7" DBH at 9m (user 2026-06-19).
+                    "trunk_radius_factor": 0.55,
+                    # ORGANIC BRANCH CURVE (user 2026-06-21, in-game: "the branches
+                    # are all straight lines... need to look more organic"). resolution
+                    # = SEGMENTS PER METRE, so a sapling sub-branch (~2m) at the
+                    # species sub_resolution 0.72 gets only ~1-2 segments = a literal
+                    # straight line with nothing to bend. Raise resolution so short
+                    # limbs/twigs carry enough segments to curve, and lift the
+                    # per-segment randomness (now per-species, defaults 0.5/0.6) so
+                    # they wander organically instead of ruler-straight. _s is the
+                    # cheap tier (~11-20k verts) so the added segments are within
+                    # budget; resolution grows verts LINEARLY without the topological
+                    # mesher-crash risk of density/splits (the fork-test still dodges
+                    # any seed that crashes).
+                    # SMOOTHER (user 2026-06-21: "make them smoother if that doesn't
+                    # cost too much gpu"). The first pass (1.3/2.0) curved the limbs
+                    # but the curve read as a KINKED POLYLINE — too few segments per
+                    # arc. Push resolution higher (2.2/3.2) so each bend resolves as a
+                    # smooth arc; with the same per-segment randomness, more segments
+                    # means each takes a smaller step => smoother wander, not jitter.
+                    # _s stayed ~10-19k verts (the near-tier sapling), so even doubled
+                    # this is well within the 3060 Ti budget.
+                    "branch_resolution": 2.2, "sub_resolution": 3.2,
+                    "branch_randomness": 0.7, "sub_randomness": 0.85}},  # closes skeleton_overrides + "s" tier
+            # YOUNG-ADULT (~22m, transitional, 2026-06-22 s4 redesign): leader giving
+            # way, crown opening to an oval/vase, higher cleaner bole, NARROWER + more
+            # upright than the mature l (aspect ~0.6-0.7). The stale pre-s4 m read too
+            # narrow/sparse/leaning with an S-curved bole — root causes: crown_base_size
+            # was the unset-0.0 narrow-cone clamp, trunk_randomness 0.32 + sub_gravity
+            # 10 drove the lean, and the species (mature) variant_spans clobbered its
+            # skeleton_overrides. Fix: own variant_spans (younger ranges) + width/bole/
+            # density overrides. Form verified via explore lp_m_full.
+            "m": {"target_h": 22, "height_range": [15, 25],
+                "variant_spans": {
+                    "branch_angle": [52, 60],            # more upright than mature l
+                    "branch_start": [0.26, 0.34],        # higher, cleaner young-adult bole
+                    "branch_length_ratio": [0.44, 0.52], # narrower oval crown (vs l's 0.50-0.60)
+                    "up_attraction": [0.40, 0.50],       # leader still GIVING WAY (vs l's weak 0.30-0.40)
+                },
+                "skeleton_overrides": {
+                    "crown_base_size": 0.62,       # narrower oval than mature l's 0.75
+                    "branch_end": 0.94,            # branches reach near the apex so the apex-cladding gate can leaf the top (0.86 left a bare leader spike — the s4b top-stick)
+                    "branch_density": 0.95,        # denser young primaries (more body); under the ~1.05 mesher crash band
+                    "sub_density": 0.92,           # fuller young twig structure
+                    "sub_split_prob": 0.22,        # CAP, scale-appropriate: lighter than l's 0.10. m's shorter limbs ramify far less, so l's hard cap left m too sparse (explore lp_m_final ~8k faces); 0.22 keeps a full crown while still capping the deep haze.
+                    "branch_split_prob": 0.52,     # CAP, lighter than l's 0.45
+                    "trunk_randomness": 0.20,      # straight young bole (kill the old S-curve/lean)
+                    "sub_gravity": 6.0,            # less one-sided lean (species 10.0 drove it on the stale m)
+                }},
+            # full decurrent candelabra = species base + species variant_spans
+            # (verified lp_l_final). PLUS the hard RAMIFICATION CAP: at 30m the
+            # split-prob lever can't bound depth (MEASURED: still ramified to depth
+            # 11, ~9.5k clusters, 53MB even at sub_split 0.10 — forking is per-segment
+            # so depth grows exponentially with the 16.5m limb length). skeleton_max_depth
+            # prunes geometry past tertiary/quaternary directly (height-independent),
+            # so the card sits at the terminal tip with no bare filaments past it.
+            # m/s don't need it — their shorter limbs are already capped by split-prob.
+            "l": {"target_h": 30, "height_range": [25, 35],
+                  "skeleton_overrides": {"skeleton_max_depth": 4}},
         },
     },
 
@@ -1477,15 +1914,35 @@ def _build_mtree(sp, height, seed):
     br.flatness = sp["branch_flatness"]
     br.break_chance = sp["branch_break_chance"]
     br.resolution = sp["branch_resolution"]
-    br.length = m_tree.PropertyWrapper(
-        m_tree.ConstantProperty(height * sp["branch_length_ratio"])
-    )
+    # Branch LENGTH gradient up the trunk (user 2026-06-21 PM): lower branches are
+    # OLDER -> longer, upper branches are YOUNGER -> shorter. This is the signature of
+    # natural growth — the teardrop/conical taper should EMERGE from the length
+    # gradient, not be imposed by the crown envelope. SimpleCurveProperty maps the
+    # branch's attach-position along the trunk (t=0 base -> t=1 top) to a length:
+    # y_min at the base (long), y_max at the top (short), shaped by power (>1 keeps
+    # the lower-middle long and tapers only near the apex -> teardrop). Falls back to
+    # the legacy ConstantProperty when a species doesn't set branch_length_top_factor.
+    _blr = sp["branch_length_ratio"]
+    _bl_top = sp.get("branch_length_top_factor")
+    if _bl_top is not None:
+        _len_curve = m_tree.SimpleCurveProperty()
+        _len_curve.y_min = height * _blr                      # trunk base: full length (long, old)
+        _len_curve.y_max = height * _blr * float(_bl_top)     # trunk top: shortened (young)
+        _len_curve.power = float(sp.get("branch_length_power", 1.5))
+        _lw = m_tree.PropertyWrapper()
+        _lw.set_simple_curve_property(_len_curve)
+        br.length = _lw
+    else:
+        br.length = m_tree.PropertyWrapper(
+            m_tree.ConstantProperty(height * _blr)
+        )
     # Branch base radius RELATIVE TO PARENT (Mtree semantics). 0.4 = thin twigs
     # off a dominant central spire (the "pole + twigs" defect); higher reads as
     # major tapering limbs. Per-species via branch_start_radius (default 0.4).
     br.start_radius = m_tree.PropertyWrapper(
         m_tree.ConstantProperty(sp.get("branch_start_radius", 0.4)))
-    br.randomness = m_tree.PropertyWrapper(m_tree.ConstantProperty(0.5))
+    br.randomness = m_tree.PropertyWrapper(
+        m_tree.ConstantProperty(sp.get("branch_randomness", 0.5)))
     br.start_angle = m_tree.PropertyWrapper(
         m_tree.ConstantProperty(float(sp["branch_angle"]))
     )
@@ -1495,13 +1952,21 @@ def _build_mtree(sp, height, seed):
     # droop at the base (oak's tiered droop→horizontal→ascend; the elm vase's
     # ascending limbs). Default 0 = uniform (legacy behaviour, no regression).
     br.crown.angle_variation = sp.get("branch_angle_variation", 0.0)
+    # Crown WIDTH attractor. Mtree's crown.base_size defaults to 0.0 — a narrow
+    # cone that pulls branch tips inward regardless of branch_length/angle (this
+    # is why long horizontal limbs still produced a thin plume; measured 2026-06-21).
+    # Raising it widens the crown envelope: base_size 0.0→asp~0.50, ≥1.0→asp~0.80
+    # (saturates). Only set when a species opts in, so existing trees are unchanged.
+    _cbs = sp.get("crown_base_size")
+    if _cbs is not None:
+        br.crown.base_size = float(_cbs)
 
     sub_min_h = sp.get("sub_min_height", 0)
     if sp["sub_density"] > 0 and height >= sub_min_h:
         sub = m_tree.BranchFunction()
         sub.seed = seed + 2
-        sub.distribution.start = 0.2
-        sub.distribution.end = 0.95
+        sub.distribution.start = sp.get("sub_dist_start", 0.2)  # how far along the parent the twigs begin; low = twigs emerge near the interior/base
+        sub.distribution.end = sp.get("sub_dist_end", 0.95)
         sub.distribution.density = sp["sub_density"]
         sub.gravity.strength = sp["sub_gravity"]
         sub.gravity.stiffness = sp["sub_stiffness"]
@@ -1515,7 +1980,8 @@ def _build_mtree(sp, height, seed):
         )
         sub.start_radius = m_tree.PropertyWrapper(
             m_tree.ConstantProperty(sp.get("sub_start_radius", 0.25)))
-        sub.randomness = m_tree.PropertyWrapper(m_tree.ConstantProperty(0.6))
+        sub.randomness = m_tree.PropertyWrapper(
+            m_tree.ConstantProperty(sp.get("sub_randomness", 0.6)))
         sub.start_angle = m_tree.PropertyWrapper(
             m_tree.ConstantProperty(float(sp["sub_angle"]))
         )
@@ -1659,9 +2125,24 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
 
     # Target cluster count — fewer clusters on lower tiers since each card
     # is much larger (3× for _m, 7× for _s) and covers more canopy volume.
+    # Per-species `tier_fraction` override lets a species lift its sapling
+    # foliage budget (coverage-conserving sapling fill, 2026-06-21).
     target_l = sp.get("target_cluster_count_l", 600)
-    tier_fraction = {"l": 1.0, "m": 0.40, "s": 0.15}
+    tier_fraction = sp.get("tier_fraction", {"l": 1.0, "m": 0.40, "s": 0.15})
     target_count = int(target_l * tier_fraction.get(tier, 1.0))
+
+    # Card-size height factor. Cards scale with tree height (a big tree's leaf
+    # patch is physically bigger), but the linear (h/25) factor shrinks a 9m
+    # sapling's cards to ~0.36× — which, combined with the ~128-cluster cap,
+    # reads see-through. A per-species `card_size_floor` lifts that factor for
+    # small trees so the AAA "fewer-but-BIGGER cards" rule fills the crown
+    # without multiplying overdraw (2026-06-21). Drives cladding spacing, the
+    # isolation-prune radius, AND the card render size below so all three stay
+    # consistent (bigger cards must be spaced + pruned as bigger cards).
+    hscale = target_height / 25.0
+    _csfloor = sp.get("card_size_floor")
+    if _csfloor is not None:
+        hscale = max(hscale, float(_csfloor))
 
     # Eligible vertices: valid, thin branches, sufficient depth
     eligible = valid & (radii < r_thresh) & (depths >= min_depth)
@@ -1674,7 +2155,7 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
     # Cluster card size in metres (mesh is in metres here) — also drives the
     # continuous-cladding spacing and the isolation prune below.
     _clo, _chi = sp["leaf_cluster_size_range"]
-    csize = 0.5 * (_clo + _chi) * (target_height / 25.0) * 1.4
+    csize = 0.5 * (_clo + _chi) * hscale * 1.4
 
     candidates = []
     if sp.get("foliage_continuous"):
@@ -1851,7 +2332,7 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
     if len(candidates) > 24:
         pts = np.array([[p.x, p.y, p.z] for p in candidates], dtype=float)
         clo, chi = sp["leaf_cluster_size_range"]
-        csize = 0.5 * (clo + chi) * (target_height / 25.0) * 1.4
+        csize = 0.5 * (clo + chi) * hscale * 1.4
         nb_r = csize * 2.6
         d2 = ((pts[:, None, :] - pts[None, :, :]) ** 2).sum(-1)
         adj = d2 < nb_r * nb_r
@@ -1895,11 +2376,231 @@ def extract_leaf_positions(mesh_obj, sp, target_height, rng, tier="l"):
 
     placements = []
     for pos in candidates:
-        size = rng.uniform(lo, hi) * (target_height / 25.0) * size_mult
+        size = rng.uniform(lo, hi) * hscale * size_mult
         flatten = rng.uniform(flo, fhi)
         placements.append((pos, size, flatten))
 
     return placements
+
+
+def _card_placements_per_branch(mesh_obj, sp, target_height, rng, tier="l"):
+    """THE LEAF RULE, for CARDS (user 2026-06-21 PM: "the leaf clusters... are not
+    all the way out to the tips. we need to remember what we learned about leaf
+    placement with the 3d model").
+
+    Mirrors _distribute_foliage_per_branch's deterministic tip-weighted per-stem
+    selection — but emits cluster-CARD placements (pos, size, flatten) instead of
+    instancing 3D leaf protos. For each stem_id, sort its eligible (thin) verts
+    tip-first (branch_extent desc), GUARANTEE the min_per_branch tip-most clusters,
+    then add spaced extras down the branch. No branch tip can be bare, and the
+    guaranteed clusters are the tip-most → reaches the ends, tip-weighted. This
+    replaces extract_leaf_positions' continuous-clad walk, whose cap/shuffle +
+    crown-box supplement bunched clusters INBOARD (the "not out to the tips" read).
+    Returns None if the Mtree branch attributes are absent (caller falls back).
+    """
+    mesh = mesh_obj.data
+    n = len(mesh.vertices)
+    radius_attr = mesh.attributes.get("radius")
+    be_attr = mesh.attributes.get("branch_extent")
+    si_attr = mesh.attributes.get("stem_id")
+    if not (radius_attr and be_attr and si_attr) or n == 0:
+        return None
+    max_radius = sp.get("card_rule_max_radius", 0.05)
+    min_per_branch = int(sp.get("card_rule_min_per_branch", 1))
+    spacing = sp.get("card_rule_spacing", 0.4)
+    # CLUSTER PLACEMENT RULE (user 2026-06-22): clusters only on SECONDARY or later
+    # branches (no clusters crowding the primary scaffold limbs), and only where the
+    # twig is at least a minimum diameter (a sprig needs real wood to sit on, not a
+    # sub-pixel filament). min_depth gates hierarchy_depth (trunk=0, primary=1,
+    # secondary=2, …); min_tip_radius is the twig-radius floor (metres).
+    min_depth = int(sp.get("card_rule_min_depth", 0))
+    min_tip_radius = float(sp.get("card_rule_min_tip_radius", 0.0))
+    dir_attr = mesh.attributes.get("direction")  # branch growth dir → orient the sprig card's twig outward (same attr the distribute modifier uses)
+    depth_attr = mesh.attributes.get("hierarchy_depth")
+    radii = np.zeros(n); radius_attr.data.foreach_get("value", radii)
+    extents = np.zeros(n); be_attr.data.foreach_get("value", extents)
+    stems = np.zeros(n); si_attr.data.foreach_get("value", stems)
+    coords = np.zeros(n * 3); mesh.vertices.foreach_get("co", coords)
+    coords = coords.reshape(n, 3)
+    if dir_attr is not None:
+        dirs = np.zeros(n * 3); dir_attr.data.foreach_get("vector", dirs)
+        dirs = dirs.reshape(n, 3)
+    else:
+        dirs = None
+    if depth_attr is not None:
+        depths = np.zeros(n); depth_attr.data.foreach_get("value", depths)
+        depths_i = np.rint(depths).astype(int)
+    else:
+        depths_i = None
+    finite = np.all(np.isfinite(coords), axis=1)
+    # DIAGNOSTIC (user 2026-06-22): report the depth/radius structure so the gate
+    # thresholds are set from the actual skeleton, not a guess.
+    if sp.get("card_leaf_rule") and depths_i is not None:
+        print("    [diag] hierarchy_depth × radius (finite verts):")
+        for dl in np.unique(depths_i[finite]):
+            m = finite & (depths_i == dl)
+            rr = radii[m] * 1000.0
+            if rr.size:
+                print(f"      depth {dl}: {int(m.sum()):6d} verts | "
+                      f"r p10={np.percentile(rr,10):5.1f} med={np.percentile(rr,50):5.1f} "
+                      f"p90={np.percentile(rr,90):6.1f} mm")
+    eligible = finite & (radii < max_radius) & (radii >= min_tip_radius)
+    if depths_i is not None and min_depth > 0:
+        eligible &= (depths_i >= min_depth)
+    if not eligible.any():
+        print(f"    [warn] card rule: no eligible verts "
+              f"(min_depth={min_depth}, min_tip_radius={min_tip_radius}, max_radius={max_radius})")
+        return None
+    stems_i = stems.astype(int)
+    # DEPTH-GRADIENT BRANCH-ORDER GATE (user 2026-06-22): roll, per BRANCH, whether
+    # it bears any leaf at all, from card_rule_depth_keep[order]. A branch's order is
+    # the median hierarchy_depth of its strand (a stem_id is one fork-generation, so
+    # depth is ~constant along it). Trunk strands (depth 0) never bear leaves; orders
+    # above the max key inherit the max (all tertiary+ = 1.0). Deterministic via rng.
+    depth_keep = sp.get("card_rule_depth_keep")
+    stem_bears = None
+    if depth_keep is not None and depths_i is not None:
+        mk = max(depth_keep)
+        # APEX CLADDING (user 2026-06-22 s4b: "top-sticks rising above their canopies
+        # — weight towards ends not right yet"). The pure branch-ORDER gate strips the
+        # upper crown bare: the apex branches are low-order (depth-1, off the leader)
+        # so depth_keep[1]=0.05 gates them out, leaving a bare leader spike poking
+        # above the foliage. But the growing apex of a real tree is leafy regardless
+        # of branch order (foliage rides the OUTER/UPPER shell, which near the top is
+        # made of young low-order tips). So force-keep any depth>=1 branch whose tip
+        # reaches the top `card_rule_apex_band` fraction of the crown — clads the top.
+        apex_band = float(sp.get("card_rule_apex_band", 0.0))
+        apex_z = None
+        if apex_band > 0.0 and finite.any():
+            zf = coords[finite, 2]
+            apex_z = zf.max() - apex_band * (zf.max() - zf.min())
+        stem_bears = {}
+        for sid in np.unique(stems_i[finite]):
+            smask = finite & (stems_i == sid)
+            sd = depths_i[smask]
+            if sd.size == 0:
+                continue
+            d = int(round(float(np.median(sd))))
+            if d <= 0:
+                stem_bears[sid] = False     # trunk/leader strand: never leaf the bole
+                continue
+            if apex_z is not None and coords[smask, 2].max() >= apex_z:
+                stem_bears[sid] = True       # upper-crown growing tip → always clad
+                continue
+            stem_bears[sid] = (rng.random() < depth_keep.get(min(d, mk), 0.0))
+    uniq = np.unique(stems_i[eligible])
+    sp2 = spacing * spacing
+    chosen = []
+    n_gated = 0
+    for sid in uniq:
+        if stem_bears is not None and not stem_bears.get(sid, True):
+            n_gated += 1                               # branch order gated it bare
+            continue
+        idx = np.where(eligible & (stems_i == sid))[0]
+        if len(idx) == 0:
+            continue
+        idx = idx[np.argsort(-extents[idx])]          # tip (high branch_extent) first
+        placed = []
+        for vi in idx:
+            p = coords[vi]
+            if len(placed) < min_per_branch:           # GUARANTEED tip-most N
+                chosen.append(vi); placed.append(p)
+            elif all(((p - q) ** 2).sum() >= sp2 for q in placed):  # spaced extras
+                chosen.append(vi); placed.append(p)
+    if not chosen:
+        return None
+    # ISOLATION PRUNE (user 2026-06-22: "prune isolated tip clusters"). The leaf rule
+    # guarantees a tip cluster on EVERY branch, including thin short low laterals that
+    # reach into open space — those single sprigs read as floating (the connecting twig
+    # is sub-pixel at review distance). Drop any chosen cluster with too few sibling
+    # clusters within a small radius (local-density outlier = a sprig alone in space),
+    # keeping crown clusters (which are dense with neighbours) untouched. Capped so a
+    # legitimately sparse young crown is not gutted.
+    if sp.get("card_rule_isolation_prune", False) and len(chosen) > 12:
+        C = coords[np.array(chosen)]                       # (M,3)
+        M = len(chosen)
+        R = max(0.6, target_height * 0.08)                 # ~0.72 m on a 9 m sapling
+        d2 = ((C[:, None, :] - C[None, :, :]) ** 2).sum(-1)
+        neigh = (d2 <= R * R).sum(1) - 1                   # neighbours within R (exclude self)
+        min_nb = int(sp.get("card_rule_isolation_min_neighbors", 2))
+        floater = neigh < min_nb
+        n_flag = int(floater.sum())
+        cap = int(M * 0.15)                                # never drop > 15% (sparse-crown guard)
+        if n_flag > 0:
+            if n_flag <= cap:
+                drop = set(np.where(floater)[0].tolist())
+            else:                                          # too many flagged → drop only the most isolated
+                drop = set(np.argsort(neigh)[:cap].tolist())
+            chosen = [vi for j, vi in enumerate(chosen) if j not in drop]
+            print(f"    isolation prune: dropped {len(drop)} floating clusters "
+                  f"(<{min_nb} neighbours within {R:.2f}m)")
+    # Card size — same scheme as extract_leaf_positions (height-scaled, with the
+    # per-species sapling floor so a small crown is not see-through).
+    hscale = target_height / 25.0
+    csf = sp.get("card_size_floor")
+    if csf is not None:
+        hscale = max(hscale, float(csf))
+    lo, hi = sp["leaf_cluster_size_range"]
+    flo, fhi = sp["leaf_flatten_range"]
+    size_mult = 1.4
+    placements = []
+    for vi in chosen:
+        c = coords[vi]
+        pos = Vector((float(c[0]), float(c[1]), float(c[2])))
+        size = rng.uniform(lo, hi) * hscale * size_mult
+        flatten = rng.uniform(flo, fhi)
+        # Emit the branch growth direction so the card is built as a sprig riding
+        # the twig (twig along +Z = outward), not a free-floating randomly-rotated
+        # quad. 4-tuple → create_leaf_cards_at_positions takes the aligned path.
+        if dirs is not None:
+            d = dirs[vi]
+            dvec = Vector((float(d[0]), float(d[1]), float(d[2])))
+            placements.append((pos, size, flatten, dvec))
+        else:
+            placements.append((pos, size, flatten))
+    msg = (f"    card per-branch (RULE): {len(chosen)} clusters across {len(uniq)} "
+           f"branches (>= {min_per_branch}/branch, tip-weighted"
+           f"{', dir-aligned' if dirs is not None else ''})")
+    if stem_bears is not None and chosen and depths_i is not None:
+        cd = depths_i[np.array(chosen)]
+        hist = {int(d): int((cd == d).sum()) for d in np.unique(cd)}
+        msg += (f"\n    branch-order gate: {n_gated} branches left bare; "
+                f"clusters by order {hist}")
+    print(msg)
+    return placements
+
+
+def _sprig_cards(bm, uv_layer, pos, size, pdir, n_quads, rng, gidx):
+    """Build n_quads SPRIG cards riding a twig (london_plane card path).
+
+    Fixes the tiny / floating / randomly-rotated cards (user 2026-06-22, cpw_000-003):
+    each card is the 4-leaf sprig texture, so it is built BIG, anchored AT the branch
+    vertex (no positional scatter → never floats off the limb), with its +Z (texture-up
+    = twig base→tip) aligned to the branch growth 'direction' via to_track_quat('Z','Y')
+    — the identical orientation the 3D distribute path uses, so the twig runs outward and
+    the leaves open away from the trunk. A per-card golden-angle roll about the twig axis
+    gives crossed sprigs (n_quads>1) and crown-wide variation without detaching.
+    """
+    import mathutils
+    GA = math.radians(137.5)
+    d = pdir if pdir.length > 1e-6 else mathutils.Vector((0.0, 0.0, 1.0))
+    track = d.normalized().to_track_quat('Z', 'Y').to_matrix().to_4x4()
+    half = size * 1.60     # EVAL 2026-06-22: 2x the prior 0.80 (user wants to see 2x-size clusters)
+    zoff = -half * 0.10    # anchor INBOARD so the card body OVERLAPS the twig (no floating); leaves still extend modestly outward (user 2026-06-22: "floating clusters")
+    for q in range(max(1, n_quads)):
+        roll = GA * (gidx * n_quads + q) + rng.uniform(-0.25, 0.25)
+        tilt = (mathutils.Matrix.Rotation(rng.uniform(-0.3, 0.3), 4, 'X')
+                @ mathutils.Matrix.Rotation(rng.uniform(-0.3, 0.3), 4, 'Y'))
+        M = (mathutils.Matrix.Translation(pos) @ track
+             @ mathutils.Matrix.Rotation(roll, 4, 'Z') @ tilt)
+        hw = half * rng.uniform(0.9, 1.1)
+        hh = half * rng.uniform(0.9, 1.1)
+        local = [(-hw, 0.0, -hh + zoff), (hw, 0.0, -hh + zoff),
+                 (hw, 0.0,  hh + zoff), (-hw, 0.0,  hh + zoff)]
+        verts = [bm.verts.new(M @ mathutils.Vector(c)) for c in local]
+        face = bm.faces.new(verts)
+        for loop, uv in zip(face.loops, [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]):
+            loop[uv_layer].uv = uv
 
 
 def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=6,
@@ -1923,14 +2624,22 @@ def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=
     n_quads = n_cards
 
     all_objects = []
-    for pos, size, flatten in placements:
+    for _pi, _plc in enumerate(placements):
+        # 4-tuple (pos,size,flatten,dir) → sprig-on-twig aligned card (london_plane,
+        # _card_placements_per_branch); 3-tuple → legacy spheroidal scatter (other
+        # species / fallback). When aligned, the scatter loop below runs 0 times.
+        _aligned = len(_plc) >= 4
+        pos, size, flatten = _plc[0], _plc[1], _plc[2]
         cluster_radius = size * cluster_scatter  # scatter radius (tight for cladding)
         card_size = size * 0.55      # individual card ~55% of cluster size
 
         bm = bmesh.new()
         uv_layer = bm.loops.layers.uv.new("UVMap")
 
-        for q in range(n_quads):
+        if _aligned:
+            _sprig_cards(bm, uv_layer, pos, size, _plc[3], n_quads, rng, _pi)
+
+        for q in range(0 if _aligned else n_quads):
             # Random position within cluster sphere (bias toward surface)
             r = cluster_radius * (0.3 + 0.7 * rng.random() ** 0.5)
             theta = rng.uniform(0, math.pi * 2)
@@ -2787,22 +3496,66 @@ def build_distribute_leaf(species_name, png_path, leaf_cfg):
     # 3D-model refs (user 2026-06-20). A slight fold + smooth normals (below) give
     # graded, soft shading per leaf. fold_amp is a fraction of leaf scale; tunable.
     fold = leaf_cfg.get("fold_amp", 0.15)
-    coords = [(x * sc, -y * sc, fold * abs(x * sc)) for (x, y) in bxy]
-    # Guarantee a +Z face normal (CCW winding) via the shoelace signed area.
-    area2 = sum(coords[i][0] * coords[(i + 1) % len(coords)][1]
-                - coords[(i + 1) % len(coords)][0] * coords[i][1]
-                for i in range(len(coords)))
+    # Base blade with its LENGTH along +X (base at origin, tip at +X), width along Y,
+    # +Z normal. CRITICAL ORIENTATION (user 2026-06-21: "branches look placed backwards,
+    # the open part of the Y is toward the trunk" + "bare branch ends"): the leaf
+    # modifier aligns the proto's +Z axis to the branch growth 'direction'. The old proto
+    # ran its twig along -Y, so sprigs stuck out sideways/backward and never reached the
+    # tips. Building the sprig twig along +Z (below) makes it run OUTWARD along the branch
+    # toward the tip, leaves fanning forward — so clusters open away from the trunk and
+    # cover the branch ends. (bxy: x=width, y=0→1 base→tip.)
+    blade = [(y * sc, x * sc, fold * abs(x * sc)) for (x, y) in bxy]
+    # Guarantee a +Z face normal (CCW winding) via the shoelace signed area in XY.
+    area2 = sum(blade[i][0] * blade[(i + 1) % len(blade)][1]
+                - blade[(i + 1) % len(blade)][0] * blade[i][1]
+                for i in range(len(blade)))
     if area2 < 0:
-        coords = list(reversed(coords))
+        blade = list(reversed(blade))
         buv = list(reversed(buv))
+    n_blade = len(blade)
+
+    # LEAF-CLUSTER SPRIG (user 2026-06-21, ref close-up-...-2SA8J91): the atomic
+    # foliage unit is a TWIG bearing several palmate leaves spaced along it — NOT a
+    # single leaf. Distributing single leaves studs the branch surface like fur
+    # ("branches are furry with leaves"); distributing a sprig gives natural
+    # clustering with space BETWEEN clusters, covers more crown per instance (so
+    # density drops → far fewer instances → kinder to the 3060 Ti), and still reads
+    # as real 3D leaves. The twig runs along +Z (= branch direction after alignment);
+    # K leaves stagger ALONG it, each rolled by the golden angle (spiral) and swept
+    # forward toward the tip, so the cluster opens outward like the reference.
+    import mathutils
+    K = int(leaf_cfg.get("cluster_n", 1))
+    stem_len = leaf_cfg.get("cluster_stem", 0.62) * base_len
+    tilt = math.radians(leaf_cfg.get("cluster_tilt", 38.0))  # forward sweep of each blade toward the tip
+    if K <= 1:
+        xforms = [mathutils.Matrix.Rotation(-tilt, 4, 'Y')]
+    else:
+        xforms = []
+        for k in range(K):
+            t = (k + 1) / (K + 1)                 # position fraction along the twig (+Z)
+            roll = math.radians(137.5 * k)        # phyllotactic spiral around the twig
+            s = 1.0 - 0.14 * t                    # leaves taper slightly toward the tip
+            xforms.append(
+                mathutils.Matrix.Translation((0.0, 0.0, t * stem_len))  # stagger along the +Z twig
+                @ mathutils.Matrix.Rotation(roll, 4, 'Z')               # spiral around the twig
+                @ mathutils.Matrix.Rotation(-tilt, 4, 'Y')              # sweep blade up/out toward the tip
+                @ mathutils.Matrix.Scale(s, 4))
+    coords, faces, all_uv = [], [], []
+    for M in xforms:
+        off = len(coords)
+        for (vx, vy, vz) in blade:
+            co = M @ mathutils.Vector((vx, vy, vz))
+            coords.append((co.x, co.y, co.z))
+        faces.append([off + i for i in range(n_blade)])  # one n-gon per leaf
+        all_uv.extend(buv)
     me = bpy.data.meshes.new(f"{species_name}_leafproto")
-    me.from_pydata(coords, [], [list(range(len(coords)))])  # single n-gon face
+    me.from_pydata(coords, [], faces)
     me.update()
     uv_layer = me.uv_layers.new(name="UVMap")
     for poly in me.polygons:
         for li in poly.loop_indices:
             vi = me.loops[li].vertex_index
-            uv_layer.data[li].uv = buv[vi]
+            uv_layer.data[li].uv = all_uv[vi]
     ob = bpy.data.objects.new(f"{species_name}_leafproto", me)
     bpy.context.collection.objects.link(ob)
     bpy.context.view_layer.objects.active = ob
@@ -2837,6 +3590,107 @@ def build_distribute_leaf(species_name, png_path, leaf_cfg):
     return ob
 
 
+def _distribute_foliage_per_branch(trunk_obj, leaf_proto, max_radius, scale,
+                                   min_per_branch, spacing):
+    """THE LEAF RULE (user 2026-06-21 PM): "every branching of every branch must
+    have at least a certain number of leaves, weighted to the tip."
+
+    Poisson distribution (the legacy path below) is STOCHASTIC — it cannot
+    guarantee that any given branch, let alone its tip, receives a cluster, so
+    branch ends gap. This places clusters DETERMINISTICALLY per branch: for each
+    stem_id, sort its eligible (thin, radius<max_radius) vertices tip-first
+    (branch_extent desc), GUARANTEE the min_per_branch tip-most clusters, then add
+    spaced extras down the branch for fullness. No bare branch is possible by
+    construction, and the guaranteed clusters are the tip-most → tip-weighted.
+
+    Each sprig is oriented by aligning its +Z to the per-vertex 'direction'
+    attribute — identical to what the distribute_leaves modifier does — so the
+    twig runs outward along the branch and the leaves open away from the trunk.
+    """
+    import bmesh, mathutils
+    mesh = trunk_obj.data
+    n = len(mesh.vertices)
+    radius_attr = mesh.attributes.get("radius")
+    be_attr = mesh.attributes.get("branch_extent")
+    si_attr = mesh.attributes.get("stem_id")
+    dir_attr = mesh.attributes.get("direction")
+    if not (radius_attr and be_attr and si_attr and dir_attr) or n == 0:
+        print("    per-branch foliage: missing Mtree attrs — skipped")
+        return
+    radii = np.zeros(n); radius_attr.data.foreach_get("value", radii)
+    extents = np.zeros(n); be_attr.data.foreach_get("value", extents)
+    stems = np.zeros(n); si_attr.data.foreach_get("value", stems)
+    dirs = np.zeros(n * 3); dir_attr.data.foreach_get("vector", dirs)
+    dirs = dirs.reshape(n, 3)
+    coords = np.zeros(n * 3); mesh.vertices.foreach_get("co", coords)
+    coords = coords.reshape(n, 3)
+    finite = np.all(np.isfinite(coords), axis=1)
+    eligible = finite & (radii < max_radius)
+    stems_i = stems.astype(int)
+    uniq = np.unique(stems_i[eligible]) if eligible.any() else np.array([], dtype=int)
+
+    chosen = []
+    sp2 = spacing * spacing
+    for sid in uniq:
+        idx = np.where(eligible & (stems_i == sid))[0]
+        if len(idx) == 0:
+            continue
+        idx = idx[np.argsort(-extents[idx])]      # tip (high branch_extent) first
+        placed = []
+        for vi in idx:
+            p = coords[vi]
+            if len(placed) < min_per_branch:       # GUARANTEED tip-most N
+                chosen.append(vi); placed.append(p)
+            elif all(((p - q) ** 2).sum() >= sp2 for q in placed):  # spaced extras
+                chosen.append(vi); placed.append(p)
+    if not chosen:
+        print("    per-branch foliage: no eligible thin branches — skipped")
+        return
+
+    proto = leaf_proto.data
+    proto_uv = proto.uv_layers.active
+    proto_polys = [[(proto.loops[li].vertex_index, li) for li in poly.loop_indices]
+                   for poly in proto.polygons]
+    proto_co = [v.co.copy() for v in proto.vertices]
+
+    out_bm = bmesh.new()
+    uvl = out_bm.loops.layers.uv.new("UVMap")
+    GA = math.radians(137.5)                       # golden-angle roll → per-cluster variation
+    for k, vi in enumerate(chosen):
+        pos = mathutils.Vector((float(coords[vi][0]), float(coords[vi][1]), float(coords[vi][2])))
+        d = mathutils.Vector((float(dirs[vi][0]), float(dirs[vi][1]), float(dirs[vi][2])))
+        if d.length < 1e-6:
+            d = mathutils.Vector((0.0, 0.0, 1.0))
+        M = (mathutils.Matrix.Translation(pos)
+             @ d.normalized().to_track_quat('Z', 'Y').to_matrix().to_4x4()
+             @ mathutils.Matrix.Rotation(GA * k, 4, 'Z')
+             @ mathutils.Matrix.Scale(scale, 4))
+        # WELD: one out-vert per proto VERTEX per placement (faces reference by
+        # index), not one per loop — the proto is triangulated, so per-loop creation
+        # tripled the leaf vert count (~57 vs ~21 verts/leaf).
+        vmap = [out_bm.verts.new(M @ co) for co in proto_co]
+        for poly in proto_polys:
+            try:
+                face = out_bm.faces.new([vmap[pvi] for (pvi, _li) in poly])
+            except ValueError:
+                continue
+            if proto_uv:
+                for loop, (_pvi, li) in zip(face.loops, poly):
+                    loop[uvl].uv = proto_uv.data[li].uv
+
+    leaf_mesh = bpy.data.meshes.new("dist_leaves")
+    out_bm.to_mesh(leaf_mesh); out_bm.free()
+    leaf_obj = bpy.data.objects.new("dist_leaves", leaf_mesh)
+    leaf_obj.data.materials.append(proto.materials[0])
+    bpy.context.collection.objects.link(leaf_obj)
+    bpy.ops.object.select_all(action='DESELECT')
+    trunk_obj.select_set(True); leaf_obj.select_set(True)
+    bpy.context.view_layer.objects.active = trunk_obj
+    bpy.ops.object.join()
+    print(f"    per-branch foliage (RULE): {len(chosen)} clusters across "
+          f"{len(uniq)} branches (guaranteed >={min_per_branch}/branch, tip-weighted)")
+
+
 def distribute_foliage(trunk_obj, leaf_proto, sp, tier_name):
     """Instance the true-3D leaf phyllotactically onto the branch skeleton via
     Mtree's native distribute_leaves, then realize it into trunk_obj.
@@ -2851,6 +3705,16 @@ def distribute_foliage(trunk_obj, leaf_proto, sp, tier_name):
     density = td.get("density", 150.0)
     scale = td.get("scale", 0.14)
     max_radius = td.get("max_radius", 0.06)
+    spacing = td.get("spacing")  # Poisson Distance Min (m, skeleton space); None=legacy RANDOM
+    # THE LEAF RULE: when leaves_per_branch_min is set, place clusters
+    # deterministically per branch (guaranteed coverage, tip-weighted) instead of
+    # the stochastic Poisson below (which gaps branch ends).
+    min_per_branch = td.get("leaves_per_branch_min")
+    if min_per_branch is not None:
+        _distribute_foliage_per_branch(
+            trunk_obj, leaf_proto, max_radius=max_radius, scale=scale,
+            min_per_branch=int(min_per_branch), spacing=(spacing or 0.3))
+        return
     bpy.ops.object.select_all(action='DESELECT')
     trunk_obj.select_set(True)
     bpy.context.view_layer.objects.active = trunk_obj
@@ -2859,6 +3723,26 @@ def distribute_foliage(trunk_obj, leaf_proto, sp, tier_name):
         distribution_mode=1, phyllotaxis_angle=137.5,
         density=density, scale=scale, max_radius=max_radius,
         billboard_mode="OFF", enable_normal_transfer=True)
+    # EVEN SPACING (user 2026-06-21: "clusters more evenly spaced along the smaller
+    # sub-branches"). The addon distributes points with distribute_method=RANDOM
+    # (node_groups.py:269) — random sampling CLUMPS (Poisson-process gaps + knots);
+    # distribution_mode 0/1 only changes leaf ROTATION, not spacing. Switch the
+    # distribute node to POISSON-disk so clusters hold a minimum distance apart.
+    # Only london_plane _s uses this node group, so the in-place edit is contained.
+    if spacing:
+        mod = trunk_obj.modifiers.get(LEAVES_MODIFIER_NAME)
+        ng = mod.node_group if mod else None
+        if ng:
+            for n in ng.nodes:
+                if n.bl_idname == "GeometryNodeDistributePointsOnFaces":
+                    n.distribute_method = "POISSON"
+                    if "Distance Min" in n.inputs:
+                        n.inputs["Distance Min"].default_value = spacing
+                    # In POISSON mode the wrapper's "Density" link feeds Density Max;
+                    # set it as a generous cap so Distance Min governs the spacing.
+                    if "Density Max" in n.inputs:
+                        n.inputs["Density Max"].default_value = max(density, 50.0)
+                    break
     bpy.ops.object.modifier_apply(modifier="leaves")
 
 
@@ -2986,7 +3870,13 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
         # the SPECIES dict to ±~1 SD of the species' real form distribution.
         # Default: no spans → legacy seed-only variation.
         sp_variant = sp_tier
-        spans = sp.get("variant_spans")
+        # Tier-aware spans: a tier may define its OWN variant_spans, else the
+        # species-level spans apply. Without this, species spans (tuned for the
+        # mature form) silently CLOBBER a tier's skeleton_overrides for any
+        # spanned param — e.g. the young plane's low branch_start / broad limbs
+        # were overwritten by the mature [0.22,0.32]/[0.46,0.58] ranges, so the
+        # sapling stayed a narrow pole no matter the override (found 2026-06-21).
+        spans = tier_cfg.get("variant_spans", sp.get("variant_spans"))
         if spans and n_variants > 1:
             sp_variant = dict(sp_tier)
             for pi, (pname, (lo, hi)) in enumerate(spans.items()):
@@ -3019,12 +3909,31 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
         # --- Clean NaN vertices and get bbox ---
         actual_h, actual_w = clean_nan_vertices(trunk_obj)
 
+        # --- RAMIFICATION CAP (user 2026-06-22 s4 stem/twig redundancy) ---
+        # Delete branch geometry beyond `skeleton_max_depth` so the leaf card (the
+        # terminal twig sprig) sits at the real tip. Height-independent — the only
+        # lever that bounds depth on long-limbed tiers where split-prob can't (see
+        # cap_skeleton_depth). Opt-in per tier/species; no-op when unset.
+        _max_depth = sp_tier.get("skeleton_max_depth")
+        if _max_depth is not None:
+            _capped = cap_skeleton_depth(trunk_obj, _max_depth)
+            actual_h, actual_w = clean_nan_vertices(trunk_obj)  # bbox after the cut
+            if _capped:
+                print(f"    ramification cap: depth <= {_max_depth}, "
+                      f"{_capped} verts removed beyond tertiary")
+
+        # Min twig diameter is UNSKIPPABLE (user 2026-06-21): resolve it for this
+        # tier up front so it runs on EVERY foliage path and is reported below.
+        _twig_d, _twig_why = _min_twig_diameter(sp, tier_name)
+        _twig_stats = {}
+
         # --- True-3D Mtree-distributed foliage (foliage_distribute) ---
         # Coherent by construction; bypasses card scatter entirely. Clean the
         # bark first (removes degenerate tip slivers), then instance leaves onto
         # the remaining branches and realise them into trunk_obj.
         if leaf_proto is not None:
             clean_degenerate_geometry(trunk_obj)
+            _twig_stats = enforce_min_twig_diameter(trunk_obj, _twig_d, actual_h)
             distribute_foliage(trunk_obj, leaf_proto, sp, tier_name)
             placements = []
             leaf_objs = []
@@ -3050,7 +3959,16 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
             # stem_id) that extract_leaf_positions reads survive the bmesh
             # round-trip (custom point-attribute layers are preserved).
             clean_degenerate_geometry(trunk_obj)
-            placements = extract_leaf_positions(trunk_obj, sp_variant, target_h, rng, tier=tier_name)
+            _twig_stats = enforce_min_twig_diameter(trunk_obj, _twig_d, actual_h)
+            placements = None
+            if sp_variant.get("card_leaf_rule"):
+                # THE LEAF RULE on cards: deterministic tip-weighted per-branch
+                # placement (clusters reach every branch tip). Falls back to the
+                # continuous-clad walk if branch attrs are missing.
+                placements = _card_placements_per_branch(
+                    trunk_obj, sp_variant, target_h, rng, tier=tier_name)
+            if placements is None:
+                placements = extract_leaf_positions(trunk_obj, sp_variant, target_h, rng, tier=tier_name)
 
         # --- Create foliage geometry (same strategy for all tiers) ---
 
@@ -3119,6 +4037,14 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
         label = "leaves" if leaf_proto is not None else "leaf clusters"
         print(f"  v{vi} seed={seed}: {n_verts:,} verts, {n_faces:,} faces, "
               f"{n_leaves} {label}, h={actual_h:.1f}m w={actual_w:.1f}m ({dt:.1f}s)")
+        # UNSKIPPABLE build-report line: every built model states the min twig
+        # diameter it shipped with, how many verts it inflated, and WHY (user
+        # 2026-06-21). A 0-inflated report is still required — it proves the
+        # floor was checked and the model was already above it, not skipped.
+        print(f"    min twig Ø {_twig_d * 100:.2f}cm "
+              f"[inflated {_twig_stats.get('inflated', 0)} verts, "
+              f"{_twig_stats.get('skipped_junction', 0)} junctions preserved] "
+              f"— {_twig_why}")
 
         variant_objects.append(trunk_obj)
 
@@ -3230,6 +4156,14 @@ def generate_dead_tree():
         # Clean NaN, then remove degenerate branch-tip geometry
         actual_h, _ = clean_nan_vertices(obj)
         clean_degenerate_geometry(obj)
+        # Unskippable for dead snags too — bare branch stubs are exactly the
+        # thin-twig case the floor exists for. Explicit 3cm floor (snags read at
+        # mid distance; no foliage to hide a thin tip behind).
+        _dead_sp = {"min_twig_diameter": 0.03,
+                    "min_twig_rationale": "dead snag — bare stubs have no "
+                    "foliage to mask a thin tip; 3cm keeps every stub readable"}
+        _twig_d, _twig_why = _min_twig_diameter(_dead_sp, "dead")
+        _twig_stats = enforce_min_twig_diameter(obj, _twig_d, actual_h)
         if actual_h > 0.1:
             scale = MODEL_H / actual_h
             for v in obj.data.vertices:
@@ -3245,6 +4179,8 @@ def generate_dead_tree():
         bake_wind_vertex_colors(obj)
 
         print(f"  v{vi}: {len(obj.data.vertices):,} verts, h={actual_h:.1f}m")
+        print(f"    min twig Ø {_twig_d * 100:.2f}cm "
+              f"[inflated {_twig_stats.get('inflated', 0)} verts] — {_twig_why}")
         variant_objects.append(obj)
 
     bpy.ops.object.select_all(action='DESELECT')

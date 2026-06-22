@@ -55,6 +55,35 @@ const STAND_UG_ROW_Z := 196.0      # 5 size-graded specimens, near (17m from spa
 const STAND_UG_STAND_Z := 174.0    # natural-density stand behind them
 const STAND_X := -99.0
 
+# SOLO mode (user 2026-06-22): focus review on a SINGLE specimen — no size-graded
+# row, no grove. Used while iterating one tier in isolation. SOLO_HEIGHT 9.0 →
+# london_plane _s sapling (TIER_BOUNDS s/m bound = 13.0). Pair with the launch
+# flag --tier-isolate=lod0 to see ONLY that one sapling's lod0 mesh. Set false to
+# restore the full size-graded stand garden.
+const SOLO_SPECIMEN := false   # 2026-06-22 s4b: review m & l too → size-graded s/m/l stand + grove (was true = single _s sapling)
+const SOLO_HEIGHT := 9.0
+# VARIANT ROW (user 2026-06-22): show ALL lod0 variants of the matched species in a
+# single row at a fixed height, each forced to a distinct variant, so silhouettes can
+# be compared side-by-side. Concern being checked: variant silhouette spread becoming
+# visible at the ~80-90 m lod0→impostor handoff (the impostor is one shared bake, so
+# every variant pops to the same billboard). Takes precedence over SOLO_SPECIMEN.
+const VARIANT_ROW := false     # 2026-06-22 s4b: OFF so the size-graded s/m/l stand shows (was true = 7 _s variants only, hid m & l)
+const VARIANT_ROW_N := 7        # london_plane _s has 7 variants
+const VARIANT_ROW_DX := 8.0     # spacing (m) between specimens
+
+# VARIANT GRID (user 2026-06-22 s4b): ALL variants of ALL sizes, organized by SIZE —
+# one row per tier (s near the spawn → l furthest north), each row holding all N
+# variants forced to distinct indices. Takes precedence over VARIANT_ROW/SOLO. The
+# heights select the tier via TIER_BOUNDS (london_plane [13,25]); row Z + dx are spaced
+# so the bigger tiers don't overlap and the shorter front rows don't block the back.
+const VARIANT_GRID := true
+const GRID_TIERS := [
+	# [tier_label, height(m), row_z, variant_spacing(m)]
+	["_s", 10.0, 192.0, 8.0],
+	["_m", 22.0, 165.0, 12.0],
+	["_l", 30.0, 128.0, 18.0],
+]
+
 # Display name, census species key. Order = stature, tallest rows northmost
 # so no specimen hides behind a bigger neighbour when viewed from spawn.
 # (zelkova has HEIGHT_RANGES but no GLB — excluded until a model exists.)
@@ -125,6 +154,45 @@ func inject_trees(trees: Array) -> int:
 	if _sel_trees.is_empty():
 		return 0
 	var added := 0
+	if _stand_mode and VARIANT_GRID:
+		# All N variants of every tier, in size-organized rows (s near → l far).
+		var entry: Array = _sel_trees[0]
+		var n: int = VARIANT_ROW_N
+		for row in GRID_TIERS:
+			var tlabel: String = row[0]
+			var th: float = row[1]
+			var rz: float = row[2]
+			var dx: float = row[3]
+			for i in n:
+				var vx: float = STAND_X + (float(i) - float(n - 1) * 0.5) * dx
+				trees.append(_rec(vx, rz, entry[1], th, i))
+				added += 1
+				_labels.append(["v%d" % i, Vector2(vx, rz + dx * 0.45), 2.5, 0.015])
+			_labels.append(["%s · %s · all %d variants" % [entry[0], tlabel, n],
+				Vector2(STAND_X, rz + dx * 0.9), 6.0, 0.022])
+		return added
+	if _stand_mode and VARIANT_ROW:
+		# All N lod0 variants in a row, each forced to a distinct variant index
+		# (same-80m-cell trees otherwise share one variant — tree_builder hash).
+		var entry: Array = _sel_trees[0]
+		var n: int = VARIANT_ROW_N
+		for i in n:
+			var vx: float = STAND_X + (float(i) - float(n - 1) * 0.5) * VARIANT_ROW_DX
+			trees.append(_rec(vx, STAND_TREE_ROW_Z, entry[1], SOLO_HEIGHT, i))
+			added += 1
+			_labels.append(["v%d" % i, Vector2(vx, STAND_TREE_ROW_Z + 5.0), 3.0, 0.018])
+		_labels.append(["%s · _s · all %d variants" % [entry[0], n],
+			Vector2(STAND_X, STAND_TREE_ROW_Z + 9.0), 6.0, 0.024])
+		return added
+	if _stand_mode and SOLO_SPECIMEN:
+		# One specimen only — a single 9m sapling at the ellipse centre, nothing
+		# else in the garden (user 2026-06-22, focused _s lod0 review).
+		var entry: Array = _sel_trees[0]
+		trees.append(_rec(STAND_X, STAND_TREE_ROW_Z, entry[1], SOLO_HEIGHT))
+		added += 1
+		_labels.append(["%s · _s · %dm" % [entry[0], int(round(SOLO_HEIGHT))],
+			Vector2(STAND_X, STAND_TREE_ROW_Z + 8.0), 5.0, 0.02])
+		return added
 	if _stand_mode:
 		var entry: Array = _sel_trees[0]
 		var hr: Array = TreeBuilderScript.HEIGHT_RANGES.get(entry[1], [10.0, 22.0])
@@ -170,9 +238,12 @@ func inject_trees(trees: Array) -> int:
 	return added
 
 
-func _rec(x: float, z: float, species: String, h: float) -> Dictionary:
-	return {"pos": [x, 0.0, z], "species": species, "dbh": int(h), "lidar_h": h,
-		"crown_a": 0, "eval": true}
+func _rec(x: float, z: float, species: String, h: float, variant: int = -1) -> Dictionary:
+	var d: Dictionary = {"pos": [x, 0.0, z], "species": species, "dbh": int(h),
+		"lidar_h": h, "crown_a": 0, "eval": true}
+	if variant >= 0:
+		d["variant"] = variant   # eval-only: force this exact lod0 variant (tree_builder)
+	return d
 
 
 # Place undergrowth blocks + all labels — called by park_loader AFTER
@@ -227,8 +298,73 @@ func build(ug_builder) -> void:
 		print("EvalPlot: no mesh for %s — labels placed anyway" % str(missing))
 	for lb in _labels:
 		_make_label(lb[0], lb[1], lb[2], lb[3])
+	# Scale reference (user 2026-06-22): a 1.8 m humanoid beside the row so leaf
+	# size can be eyeballed against a real human head (~0.23 m tall). Stand mode
+	# only (single-species review).
+	if _stand_mode and SCALE_FIGURE:
+		_make_scale_figure(STAND_X + 4.0, STAND_TREE_ROW_Z)
 	print("EvalPlot: %d undergrowth blocks, %d labels placed" % [
 		_sel_ug.size(), _labels.size()])
+
+
+# 1.8 m human scale reference built from primitives. Proportioned ~7.7 heads
+# (head 0.23 m tall × 0.16 wide × 0.19 deep — real adult dimensions), feet on
+# the terrain, head top at 1.80 m. Purpose: compare in-sim leaf/cluster size to
+# a human head against a reference photo.
+const SCALE_FIGURE := true
+
+func _make_scale_figure(x: float, z: float) -> void:
+	var root := Node3D.new()
+	root.name = "ScaleFigure_1m8"
+	root.position = Vector3(x, _loader._terrain_y(x, z), z)
+	_loader.add_child(root)
+
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.62, 0.60, 0.58)   # neutral mannequin grey
+	mat.roughness = 0.85
+
+	# helper: add a mesh child at center y, optional x offset / per-axis scale
+	var add := func(mesh: Mesh, cy: float, cx: float = 0.0, sx: float = 1.0,
+			sy: float = 1.0, sz: float = 1.0) -> void:
+		var mi := MeshInstance3D.new()
+		mi.mesh = mesh
+		mi.material_override = mat
+		mi.position = Vector3(cx, cy, 0.0)
+		mi.scale = Vector3(sx, sy, sz)
+		root.add_child(mi)
+
+	# Legs — two capsules, ground (≈0.04) to hip (≈0.94)
+	var leg := CapsuleMesh.new(); leg.radius = 0.085; leg.height = 0.92
+	add.call(leg, 0.49, -0.10)
+	add.call(leg, 0.49, 0.10)
+	# Pelvis
+	var pelvis := BoxMesh.new(); pelvis.size = Vector3(0.30, 0.20, 0.20)
+	add.call(pelvis, 0.96)
+	# Torso — box, hips (≈0.93) to shoulders (≈1.45)
+	var torso := BoxMesh.new(); torso.size = Vector3(0.36, 0.54, 0.22)
+	add.call(torso, 1.19)
+	# Arms — capsules hanging from shoulder (≈1.44) to wrist (≈0.73)
+	var arm := CapsuleMesh.new(); arm.radius = 0.046; arm.height = 0.74
+	add.call(arm, 1.07, -0.245)
+	add.call(arm, 1.07, 0.245)
+	# Neck
+	var neck := CapsuleMesh.new(); neck.radius = 0.052; neck.height = 0.14
+	add.call(neck, 1.50)
+	# Head — sphere scaled to 0.16 W × 0.23 H × 0.19 D, top at 1.80 m
+	var head := SphereMesh.new(); head.radius = 0.10; head.height = 0.20
+	add.call(head, 1.685, 0.0, 0.80, 1.15, 0.95)
+
+	# Plaque
+	var lbl := Label3D.new()
+	lbl.text = "1.8 m human\n(head ≈ 0.23 m)"
+	lbl.font_size = 64
+	lbl.pixel_size = 0.004
+	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lbl.modulate = Color(1.0, 0.95, 0.7, 0.95)
+	lbl.outline_size = 10
+	lbl.outline_modulate = Color(0.05, 0.05, 0.05, 0.9)
+	lbl.position = Vector3(x, _loader._terrain_y(x, z) + 2.05, z)
+	_loader.add_child(lbl)
 
 
 func _ug_display(sp: Dictionary) -> String:
