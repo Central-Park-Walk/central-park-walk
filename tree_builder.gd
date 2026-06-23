@@ -109,6 +109,11 @@ var _simple_bark: bool = false
 # The prepass rasterizes all canopy geometry twice (alpha-tested depth, then
 # shade); whether it pays for itself depends on depth complexity — measure.
 var _leaf_no_prepass: bool = false
+# --all-london-plane (TEMP diagnostic): force EVERY tree to the london_plane
+# species so the whole park renders with just the london plane lod0/lod1
+# variants. Keeps each tree's real height (so s/m/l tiers still vary) and
+# suppresses the cathedral-elm and dead-snag reassignments.
+var _all_london_plane: bool = false
 var _noprepass_shader: Shader = null
 
 # Desired height ranges per species archetype (metres)
@@ -168,6 +173,9 @@ func _init(loader) -> void:
 		elif arg == "--leaf-no-prepass":
 			_leaf_no_prepass = true
 			print("TreeBuilder: LEAF NO-PREPASS (diagnostic) — depth_prepass_alpha stripped from tree_leaf")
+		elif arg == "--all-london-plane":
+			_all_london_plane = true
+			print("TreeBuilder: ALL-LONDON-PLANE (TEMP) — every tree forced to london_plane")
 
 # Size tier boundaries per species: [small_max, medium_max]
 # Trees below small_max use _s model, below medium_max use _m, else _l.
@@ -602,10 +610,16 @@ func _build_trees(trees: Array) -> void:
 		if (species == "elm" or species == "deciduous") and CATHEDRAL_ELM_ZONE.has_point(Vector2(tx, tz)):
 			species = "cathedral_elm"
 
+		# TEMP --all-london-plane: override every tree to london_plane, keeping its
+		# real height so the s/m/l tiers still vary. Done after the cathedral-elm
+		# block and before dead-snag so nothing else reassigns it.
+		if _all_london_plane:
+			species = "london_plane"
+
 		# Standing dead trees (snags): ~3% of non-conifer trees become dead snags
 		# (never eval-plot specimens — a labelled oak must stay an oak)
 		var is_eval: bool = typeof(tree_entry) == TYPE_DICTIONARY and tree_entry.get("eval", false)
-		if species != "conifer" and species != "dead" and not is_eval:
+		if not _all_london_plane and species != "conifer" and species != "dead" and not is_eval:
 			var dead_hash := fmod(abs(sin(float(i) * 127.1 + tx * 311.7 + tz * 183.3) * 43758.5453), 1.0)
 			if dead_hash < 0.03:
 				species = "dead"
