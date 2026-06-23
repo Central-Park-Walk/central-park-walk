@@ -1555,10 +1555,13 @@ func _dist_overlay_update() -> void:
 		return
 	var cam_pos := cam.global_position
 	var cam_fwd := -cam.global_transform.basis.z
-	# Score = squared distance; reject behind-camera trees via dot product.
+	# Bucket in-range, in-front trees by the tier the engine actually renders for
+	# each (band 0 lod0 / 1 lod1 / 2 impostor / 3 culled), using each tree's own
+	# scaled LOD handoffs. Then round-robin the label pool across bands so the far
+	# IMPOSTOR tier is always represented — a plain nearest-N pick fills entirely
+	# with near lod0/lod1 trees in a dense forest and the impostor band never shows.
 	var max_d2: float = _DIST_MAX_RANGE * _DIST_MAX_RANGE
-	# Reuse two parallel arrays — squared distance and tree index.
-	var picks: Array = []  # Array of [d2, idx]
+	var bands: Array = [[], [], [], []]  # per band: Array of [d2, idx]
 	for i in _dist_tree_positions.size():
 		var p: Vector3 = _dist_tree_positions[i]
 		var d: Vector3 = p - cam_pos
@@ -1567,34 +1570,55 @@ func _dist_overlay_update() -> void:
 			continue
 		if d.dot(cam_fwd) <= 0.0:
 			continue  # behind camera
-		picks.append([d2, i])
-	picks.sort_custom(func(a, b): return a[0] < b[0])
-	var n: int = mini(picks.size(), _DIST_POOL_SIZE)
+		# Saplings have no lod1 (lod1_end == mesh_end) so they go straight lod0→impostor.
+		var lod1_end: float = 100.0
+		var mesh_end: float = 200.0
+		if i < _dist_tree_bands.size():
+			lod1_end = _dist_tree_bands[i].x
+			mesh_end = _dist_tree_bands[i].y
+		var dist: float = sqrt(d2)
+		var band: int
+		if dist < lod1_end:
+			band = 0
+		elif dist < mesh_end:
+			band = 1
+		elif dist < _dist_impostor_far:
+			band = 2
+		else:
+			band = 3
+		bands[band].append([d2, i])
+	for b in bands:
+		b.sort_custom(func(a, c): return a[0] < c[0])
+	# Round-robin nearest-first across bands until the pool is full or all drained,
+	# so the far impostor band shows up instead of being crowded out by near trees.
+	var picks: Array = []  # Array of [idx, band]
+	var ptr := [0, 0, 0, 0]
+	var drained := false
+	while picks.size() < _DIST_POOL_SIZE and not drained:
+		drained = true
+		for bi in 4:
+			if picks.size() >= _DIST_POOL_SIZE:
+				break
+			if ptr[bi] < bands[bi].size():
+				picks.append([bands[bi][ptr[bi]][1], bi])
+				ptr[bi] += 1
+				drained = false
+	const _BAND_COLORS := [
+		Color(0.5, 1.0, 0.5),   # lod0 base mesh — green
+		Color(1.0, 1.0, 0.4),   # lod1 mid mesh — yellow
+		Color(0.5, 0.75, 1.0),  # impostor billboard — blue
+		Color(1.0, 0.5, 0.5),   # beyond IMPOSTOR_FAR — culled (red)
+	]
+	var n: int = picks.size()
 	for k in n:
-		var idx: int = picks[k][1]
+		var idx: int = picks[k][0]
+		var band: int = picks[k][1]
 		var p: Vector3 = _dist_tree_positions[idx]
-		var dist: float = sqrt(picks[k][0])
+		var dist: float = p.distance_to(cam_pos)
 		var lbl: Label3D = _dist_labels[k]
 		lbl.global_position = p + Vector3(0.0, 4.0, 0.0)  # float above trunk
 		lbl.text = "%.0fm" % dist
-		# Colour = the tier the engine actually renders for THIS tree, from its own
-		# scaled LOD handoffs (the lod_fade shader bands). Saplings have no lod1
-		# (lod1_end == mesh_end) so they go green→impostor. Fallback: fixed 100/200 bands.
-		# Past mesh_end the tree is an IMPOSTOR billboard (blue), not culled — it only
-		# truly culls beyond IMPOSTOR_FAR (red), which is far outside the overlay range.
-		var lod1_end: float = 100.0
-		var mesh_end: float = 200.0
-		if idx < _dist_tree_bands.size():
-			lod1_end = _dist_tree_bands[idx].x
-			mesh_end = _dist_tree_bands[idx].y
-		if dist < lod1_end:
-			lbl.modulate = Color(0.5, 1.0, 0.5)  # lod0 base mesh — green
-		elif dist < mesh_end:
-			lbl.modulate = Color(1.0, 1.0, 0.4)  # lod1 mid mesh — yellow
-		elif dist < _dist_impostor_far:
-			lbl.modulate = Color(0.5, 0.75, 1.0)  # impostor billboard — blue
-		else:
-			lbl.modulate = Color(1.0, 0.5, 0.5)  # beyond IMPOSTOR_FAR — culled (red)
+		lbl.modulate = _BAND_COLORS[band]
 		lbl.visible = true
 	for k in range(n, _DIST_POOL_SIZE):
 		_dist_labels[k].visible = false
