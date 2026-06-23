@@ -77,15 +77,15 @@ rebuilds, not retentions** — they must each satisfy the rebuild checklist in �
 
 | # | Skeleton | Trees | Foliage-order gate (species-specific!) | Leaf representation | Distinctiveness deltas (bark / fall color / bloom) |
 |---|----------|------:|----------------------------------------|---------------------|----------------------------------------------------|
-| 1 | **broad_dome** (oak) | 5,664 | **along-branch** for oak/linden; tip-biased for london_plane guest | `_s` structural, `_m`/`_l` cards | oak (furrowed bark, russet) · london_plane (exfoliating camo bark, drab yellow-brown) · linden (dense, yellow) · **generic deciduous** (neutral, heavy per-instance jitter) |
-| 2 | **rounded_oval** (maple) | 1,538 | intermediate (tip-clustered + along-branch) | `_s` struct, `_m`/`_l` cards | maple (U-sinus leaf, vivid red/orange) · sweetgum (star leaf, crimson) · ginkgo (fan leaf, gold) |
-| 3 | **small_ornamental** (cherry) | 1,327 | tip-biased | `_s` struct, `_m`/`_l` cards | cherry (pink bloom) · callery_pear (white bloom, dense teardrop) · magnolia (pink saucer, large leaf) |
-| 4 | **vase** (elm) | 883 | **along full branchlet** | `_s` struct, `_m`/`_l` cards, **`_xl` = cathedral elm** | elm / zelkova / hackberry / hornbeam — yellow fall, muscular bark. cathedral_elm folds in as the **XL size tier of elm** (see fold note) |
+| 1 | **broad_dome** (oak) | 5,664 | **along-branch** for oak/linden; tip-biased for london_plane guest | cluster cards, all tiers | oak (furrowed bark, russet) · london_plane (exfoliating camo bark, drab yellow-brown) · linden (dense, yellow) · **generic deciduous** (neutral, heavy per-instance jitter) |
+| 2 | **rounded_oval** (maple) | 1,538 | intermediate (tip-clustered + along-branch) | cluster cards, all tiers | maple (U-sinus leaf, vivid red/orange) · sweetgum (star leaf, crimson) · ginkgo (fan leaf, gold) |
+| 3 | **small_ornamental** (cherry) | 1,327 | tip-biased | cluster cards, all tiers | cherry (pink bloom) · callery_pear (white bloom, dense teardrop) · magnolia (pink saucer, large leaf) |
+| 4 | **vase** (elm) | 883 | **along full branchlet** | cluster cards, all tiers, **`_xl` = cathedral elm** | elm / zelkova / hackberry / hornbeam — yellow fall, muscular bark. cathedral_elm folds in as the **XL size tier of elm** (see fold note) |
 | 5 | **open_compound** (honeylocust) | 166 | along-branch, sparse | compound cluster card | airy see-through, dappled, yellow fall — hosts pagoda, locust, ash, coffeetree, goldenrain |
-| 6 | **slender** (birch) | 136 | tip-biased | `_s` struct, `_m`/`_l` cards | white-bark param; multi-stem / clump flag; poplar guest |
+| 6 | **slender** (birch) | 136 | tip-biased | cluster cards, all tiers | white-bark param; multi-stem / clump flag; poplar guest |
 | 7 | **conifer_spire** | 129 | needle sheath (own path) | needle cards | **near ground-up** — replaces the lumped junk conifer; spruce/fir/young-pine/baldcypress/dawn-redwood |
 | 8 | **weeping** (willow) | 9 | cascading whip (own data-driven path, not Mtree) | whip cards | finish the in-progress fountain redesign to the new spec |
-| 9 | **tall_excurrent** | (now in generic) | along-branch, high crown, central leader | `_s` struct, `_m`/`_l` cards | **net-new model** — tulip tree (biggest accuracy gap), sweetgum, pin oak |
+| 9 | **tall_excurrent** | (now in generic) | along-branch, high crown, central leader | cluster cards, all tiers | **net-new model** — tulip tree (biggest accuracy gap), sweetgum, pin oak |
 
 **Total placed trees accounted for: 9,852** (broad_dome 5,664 + rounded_oval 1,538 +
 small_ornamental 1,327 + vase 883 + open_compound 166 + slender 136 + conifer 129 +
@@ -147,11 +147,10 @@ war stories). Each item is a thing the *pre-london-plane* models get wrong.
 - [ ] apex-band force-keep (top ~18% leafy regardless of order) to kill the bare-leader spike
 
 **Leaf representation**
-- [ ] `_m`/`_l` = real-photo cluster cards; `_s` = structural 3D leaves (small crown can afford them)
-  — **[OPEN, flag 2026-06-22: laws 1–2 are card-centric ("perfect the leaf cards, then sculpt
-  the small model"), which reads as `_s` wearing cards too. But `tree-pipeline-lessons` §0aaa
-  made `_s` structural *because cards go see-through on a small crown*. Confirm with Chris
-  whether the 2–4-leaf sprig card now also clothes `_s`, or `_s` keeps the structural hybrid.]**
+- [ ] **all tiers = real-photo cluster cards, saplings included** (Chris, 2026-06-22: we learned
+  how to make cards work on saplings — the 2–4-leaf sprig card holds up on a small crown, as the
+  london plane `_s` lod0 already proved). Supersedes the structural-`_s` hybrid in
+  `reference_how_to_make_trees` §0aaa.
 - [ ] the card is a 2–4-leaf twig sprig (leaves + stems + joining twig) sitting at the tip (law 2)
 - [ ] rebuild the `_leaf.dds` after any card change (runtime prefers the DDS over the GLB-embedded texture)
 
