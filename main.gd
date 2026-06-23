@@ -528,13 +528,16 @@ var _screenshot_file := "/tmp/godot_screenshot.png"  # --screenshot-file=path ov
 var _lt_screenshot_pending := false  # debounce for gamepad left trigger screenshots
 
 # Distance overlay (F1) — floating Label3Ds on nearest trees, color-coded by LOD band.
-# LOD bands: lod0 (near) → lod1 (mid); beyond lod1's fade end the tree is culled.
+# LOD bands: lod0 (near) → lod1 (mid) → impostor (far billboard) → culled beyond
+# IMPOSTOR_FAR. The impostor tier is what renders past lod1's fade end — it is NOT
+# a cull, so labels in that band read blue (impostor), not red (truly culled).
 var _dist_overlay_visible := false
 var _dist_labels: Array = []  # Array[Label3D] — pool, reused each frame
 const _DIST_POOL_SIZE := 40
 const _DIST_MAX_RANGE := 500.0
 var _dist_tree_positions: PackedVector3Array = PackedVector3Array()  # cached once
 var _dist_tree_bands: PackedVector2Array = PackedVector2Array()  # parallel: (lod1_end, mesh_end) per tree, for tier-true label colour
+var _dist_impostor_far := 2500.0  # tree_builder.IMPOSTOR_FAR — impostor→cull handoff, cached on first toggle
 
 # ---------------------------------------------------------------------------
 # Tour mode — automated screenshot capture across 10 locations × 3 angles × 3 times
@@ -1508,6 +1511,9 @@ func _dist_cache_tree_positions() -> void:
 	# the SAME scaled handoffs the lod_fade shaders use — not a fixed distance band.
 	var tb = _park_loader._tree_builder if _park_loader else null
 	if tb and not tb.tree_lod_bands.is_empty():
+		# Impostor tier renders from ~mesh_end out to IMPOSTOR_FAR; cache that far
+		# edge so labels past mesh_end read as impostor (blue), culled only beyond it.
+		_dist_impostor_far = float(tb.IMPOSTOR_FAR)
 		for b in tb.tree_lod_bands:
 			_dist_tree_positions.append(b["pos"])
 			_dist_tree_bands.append(Vector2(b["lod1_end"], b["mesh_end"]))
@@ -1573,7 +1579,9 @@ func _dist_overlay_update() -> void:
 		lbl.text = "%.0fm" % dist
 		# Colour = the tier the engine actually renders for THIS tree, from its own
 		# scaled LOD handoffs (the lod_fade shader bands). Saplings have no lod1
-		# (lod1_end == mesh_end) so they go green→red. Fallback: fixed 100/200 bands.
+		# (lod1_end == mesh_end) so they go green→impostor. Fallback: fixed 100/200 bands.
+		# Past mesh_end the tree is an IMPOSTOR billboard (blue), not culled — it only
+		# truly culls beyond IMPOSTOR_FAR (red), which is far outside the overlay range.
 		var lod1_end: float = 100.0
 		var mesh_end: float = 200.0
 		if idx < _dist_tree_bands.size():
@@ -1583,8 +1591,10 @@ func _dist_overlay_update() -> void:
 			lbl.modulate = Color(0.5, 1.0, 0.5)  # lod0 base mesh — green
 		elif dist < mesh_end:
 			lbl.modulate = Color(1.0, 1.0, 0.4)  # lod1 mid mesh — yellow
+		elif dist < _dist_impostor_far:
+			lbl.modulate = Color(0.5, 0.75, 1.0)  # impostor billboard — blue
 		else:
-			lbl.modulate = Color(1.0, 0.5, 0.5)  # beyond lod1 — culled (red)
+			lbl.modulate = Color(1.0, 0.5, 0.5)  # beyond IMPOSTOR_FAR — culled (red)
 		lbl.visible = true
 	for k in range(n, _DIST_POOL_SIZE):
 		_dist_labels[k].visible = false
