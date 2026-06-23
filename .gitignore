@@ -40,6 +40,8 @@ models/
 textures/*
 !textures/terrain3d/
 !textures/leaves/
+# baked octahedral tree-impostor atlases (regen: --bake-impostors)
+!textures/impostors/
 sounds/
 
 # Terrain tiles and LiDAR source data (re-download via scripts)
@@ -129,3 +131,6 @@ hh_NYC_029.tif
 # (negations last so *.json/*.bin rules above cannot re-ignore them)
 !lidar_data/lawn_mound_verdicts.json
 !lidar_data/lawn_mound_mask.png
+# baked octahedral tree-impostor atlases + manifest (regen: --bake-impostors)
+!textures/impostors/*.png
+!textures/impostors/*.json
