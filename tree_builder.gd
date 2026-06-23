@@ -47,7 +47,17 @@ var lod0_instances: int = 0
 var lod0_chunks: int = 0
 var lod1_instances: int = 0
 var lod1_chunks: int = 0
-# Far LOD tier removed 2026-06-22 (full reset). Trees render lod0 -> lod1 only.
+# Far LOD tier: runtime-lit octahedral impostors (rebuilt 2026-06-23, Godot-community
+# /AAA SOP; scripts/bake_impostors.gd + shaders/tree_impostor.gdshader). Billboard
+# quad per species-tier, dithers in where _lod1 dithers out, out to IMPOSTOR_FAR.
+var impostor_instances: int = 0
+var impostor_chunks: int = 0
+# sp_tier -> billboard QuadMesh carrying the tree_impostor material (atlases + octa
+# params from textures/impostors/<species>_manifest.json). Empty until bakes exist.
+var _impostor_meshes: Dictionary = {}
+# Far cull for the impostor tier (m). Beyond this even contiguous billboards are
+# sub-pixel / fog-veiled; CP sightlines rarely reach it anyway.
+const IMPOSTOR_FAR: float = 2500.0
 
 # Shadow proxies (docs/trees.md §3): visible trees cast nothing; a ~220-tri
 # trunk cylinder + leaf-vertex-fit crown lathe per species-size-variant casts
@@ -61,6 +71,9 @@ var proxy_instances: int = 0
 # distance. mesh = both mesh tiers together; lod0 = base mesh; lod1 = the mid
 # mesh, each across the whole mesh range (for the handoff comparison).
 var _tier_isolate: String = ""
+# --bake-impostors[=species]: offline octahedral atlas bake (scripts/bake_impostors.gd).
+# Non-empty => after materialising _species_meshes, bake that species' tiers and quit.
+var _bake_impostors_species: String = ""
 # --tree-mesh-range=N: lod1 (mid mesh) fade-out END distance (metres) — the far
 # edge of the mesh LOD chain. The dither band (LOD_FADE_RATIO of this = 20m at
 # 200m) and mesh chunk visibility (+40m = half chunk) derive from it. Shadow
@@ -176,6 +189,13 @@ func _init(loader) -> void:
 		elif arg == "--all-london-plane":
 			_all_london_plane = true
 			print("TreeBuilder: ALL-LONDON-PLANE (TEMP) — every tree forced to london_plane")
+		elif arg.begins_with("--bake-impostors"):
+			# --bake-impostors  or  --bake-impostors=<species>  (default london_plane).
+			# Bakes octahedral atlases for that species' size tiers, then quits — runs
+			# right after the meshes are materialised, before placement.
+			var eq := arg.find("=")
+			_bake_impostors_species = arg.substr(eq + 1) if eq >= 0 else "london_plane"
+			print("TreeBuilder: IMPOSTOR BAKE mode — species '%s', will quit after baking" % _bake_impostors_species)
 
 # Size tier boundaries per species: [small_max, medium_max]
 # Trees below small_max use _s model, below medium_max use _m, else _l.
@@ -535,6 +555,18 @@ func _build_trees(trees: Array) -> void:
 			_species_meshes[arch_key] = arch_meshes
 			_species_heights[arch_key] = base_heights[model_key]
 	print("Trees: %d archetype×tier combos from %d model files" % [_species_meshes.size(), base_meshes.size()])
+
+	# Offline impostor bake: meshes are now fully materialised (exact in-game
+	# leaf/bark ShaderMaterials). Bake the requested species' tiers and quit
+	# before any placement — no terrain or full park build needed.
+	if _bake_impostors_species != "":
+		await _run_impostor_bake()
+		_loader.get_tree().quit()
+		return
+
+	# Build the far impostor tier assets (billboard quad + material per baked
+	# species-tier). No-op for species without a manifest on disk.
+	_build_impostor_assets()
 
 	if _species_meshes.is_empty():
 		print("WARNING: no tree GLB models loaded, falling back skipped")
@@ -901,6 +933,8 @@ func _build_trees(trees: Array) -> void:
 			"lod1":
 				var iso_mesh: Mesh = mid_mesh if mid_mesh != null else near_mesh
 				tier_specs.append([iso_mesh, "TreeLod1", mesh_vis_end])
+			"impostor":
+				pass  # impostor-only isolate: no mesh tiers, just the billboards below
 			_:
 				var near_end: float = (_lod1_end * lscale + chunk_r + 5.0) if mid_mesh != null else mesh_vis_end
 				tier_specs.append([near_mesh, "Tree", near_end])
@@ -986,9 +1020,12 @@ func _build_trees(trees: Array) -> void:
 	print("Trees mesh tiers: %d near (base) MMIs / %d instances, %d mid (_lod1) MMIs / %d instances" % [
 		lod0_chunks, lod0_instances, lod1_chunks, lod1_instances])
 
-	# --- Far LOD tier removed 2026-06-22 (full reset). Trees render lod0 ->
-	# lod1 only; lod1 dithers out at its fade end (distant trees disappear past
-	# that range until the far tier is rebuilt). ---
+	# --- Far LOD tier: runtime-lit octahedral impostors (rebuilt 2026-06-23). For
+	# every chunk whose species-tier has a baked atlas, spawn a billboard MMI that
+	# dithers in where _lod1 dithers out (shader lod_fade_in), out to IMPOSTOR_FAR. ---
+	_spawn_impostor_chunks(lod0_buckets)
+	if not _impostor_meshes.is_empty():
+		print("Trees impostor tier: %d MMIs / %d instances" % [impostor_chunks, impostor_instances])
 
 	# Per-tier dither fade ranges. Shader dithering replaces Godot's
 	# VISIBILITY_RANGE_FADE_SELF (known bug #88854 with alpha_to_coverage).
@@ -1274,3 +1311,152 @@ func _build_tree_collision(trunk_xf: Array) -> void:
 
 func _tree_glb_leaf_shader_code() -> String:
 	return "res://shaders/tree_leaf.gdshader"
+
+
+# Spawn the far impostor tier from the same per-chunk buckets the mesh tiers use,
+# so transforms/custom-data match and the crossfade is water-tight. One billboard
+# MMI per chunk whose species-tier has a baked atlas (_impostor_meshes). Skipped in
+# mesh-only --tier-isolate modes; --tier-isolate=impostor renders it from 0m.
+func _spawn_impostor_chunks(buckets: Dictionary) -> void:
+	if _impostor_meshes.is_empty():
+		return
+	if _tier_isolate != "" and _tier_isolate != "impostor":
+		return
+	for ckey in buckets:
+		var info: Dictionary = buckets[ckey]
+		var mesh_key: String = info["mesh_key"]
+		var xf_list: Array = info["xf"]
+		var cd_list: Array = info["cd"]
+		if xf_list.is_empty():
+			continue
+		var sp_name: String = mesh_key.substr(0, mesh_key.rfind("_"))
+		if not _impostor_meshes.has(sp_name):
+			continue
+		# Centroid + spread (mirror the mesh-tier chunk math for matching culling).
+		var c := Vector3.ZERO
+		for tf: Transform3D in xf_list:
+			c += tf.origin
+		var chunk_origin: Vector3 = c / float(xf_list.size())
+		var chunk_r := 0.0
+		for tf: Transform3D in xf_list:
+			chunk_r = maxf(chunk_r, (tf.origin - chunk_origin).length())
+		var lscale: float = _lod_scale(sp_name)
+		var eff_mesh_end: float = _mesh_fade_end * lscale
+
+		var imm := MultiMesh.new()
+		imm.transform_format = MultiMesh.TRANSFORM_3D
+		imm.use_custom_data = true
+		imm.mesh = _impostor_meshes[sp_name]
+		imm.instance_count = xf_list.size()
+		for i in xf_list.size():
+			var tf: Transform3D = xf_list[i]
+			imm.set_instance_transform(i, Transform3D(tf.basis, tf.origin - chunk_origin))
+			imm.set_instance_custom_data(i, cd_list[i])
+		var immi := MultiMeshInstance3D.new()
+		immi.multimesh = imm
+		immi.position = chunk_origin
+		immi.name = "TreeImpostor_%s" % ckey.replace("|", "_")
+		var imp_begin: float = eff_mesh_end * (1.0 - LOD_FADE_RATIO) - chunk_r - 5.0
+		if _tier_isolate == "impostor":
+			imp_begin = 0.0
+		immi.visibility_range_begin = maxf(imp_begin, 0.0)
+		immi.visibility_range_end = IMPOSTOR_FAR + chunk_r
+		immi.visibility_range_begin_margin = 0.0
+		immi.visibility_range_end_margin = 0.0
+		immi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+		immi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_loader.add_child(immi)
+		impostor_instances += xf_list.size()
+		impostor_chunks += 1
+
+
+# Build the far impostor tier: for every <species>_manifest.json under
+# textures/impostors/, make one billboard QuadMesh per tier carrying the
+# tree_impostor material (atlases + octahedral params). The crossfade-in band is
+# baked into the material's lod_fade_in (per-tier, height-scaled) so it dithers in
+# exactly where _lod1 dithers out. Instances reuse the mesh tiers' transforms, so
+# positionOffset/scale (mesh-units) scale to world per-tree automatically.
+func _build_impostor_assets() -> void:
+	_impostor_meshes.clear()
+	var imp_shader: Shader = load("res://shaders/tree_impostor.gdshader")
+	var dir_path := "res://textures/impostors/"
+	var da := DirAccess.open(dir_path)
+	if da == null:
+		return
+	for fname in da.get_files():
+		if not fname.ends_with("_manifest.json"):
+			continue
+		var f := FileAccess.open(dir_path + fname, FileAccess.READ)
+		if f == null:
+			continue
+		var data = JSON.parse_string(f.get_as_text())
+		f.close()
+		if typeof(data) != TYPE_DICTIONARY:
+			continue
+		for tier in data:
+			var meta: Dictionary = data[tier]
+			var alb_path: String = meta.get("albedo", "")
+			var nrm_path: String = meta.get("normal", "")
+			if not ResourceLoader.exists(alb_path) or not ResourceLoader.exists(nrm_path):
+				push_warning("Impostor: missing atlas for %s" % tier)
+				continue
+			var scale_v: float = meta.get("scale", 1.0)
+			var po: Array = meta.get("position_offset", [0.0, 0.0, 0.0])
+			var offset := Vector3(po[0], po[1], po[2])
+			# Crossfade-in band = where this tier's _lod1 dithers out (height-scaled,
+			# matches the mesh-tier mesh_fade_out at tree_builder placement).
+			var lscale: float = _lod_scale(tier)
+			var band_end: float = _mesh_fade_end * lscale
+			var band_begin: float = band_end * (1.0 - LOD_FADE_RATIO)
+			# Impostor-only isolate: render solid from 0m, no crossfade dither.
+			if _tier_isolate == "impostor":
+				band_begin = 0.0
+				band_end = 0.0
+
+			var mat := ShaderMaterial.new()
+			mat.shader = imp_shader
+			mat.set_shader_parameter("imposterTextureAlbedo", load(alb_path))
+			mat.set_shader_parameter("imposterTextureNormal", load(nrm_path))
+			mat.set_shader_parameter("imposterFrames", Vector2(meta.get("frames", 16), meta.get("frames", 16)))
+			mat.set_shader_parameter("isFullSphere", meta.get("is_full_sphere", false))
+			mat.set_shader_parameter("scale", scale_v)
+			mat.set_shader_parameter("aabb_max", meta.get("aabb_max", scale_v * 0.5))
+			mat.set_shader_parameter("positionOffset", offset)
+			mat.set_shader_parameter("lod_fade_in", Vector2(band_begin, band_end))
+
+			var quad := QuadMesh.new()
+			quad.size = Vector2(2.0, 2.0)  # actual extent comes from the shader (scale/aabb_max)
+			# Generous custom AABB so the camera-expanded billboard never frustum-culls early.
+			var ext: float = scale_v * 2.0
+			quad.custom_aabb = AABB(offset - Vector3(ext, ext, ext), Vector3(ext, ext, ext) * 2.0)
+			quad.surface_set_material(0, mat)
+			_impostor_meshes[tier] = quad
+	if not _impostor_meshes.is_empty():
+		print("Trees: impostor tier ready for %d species-tiers: %s" % [
+			_impostor_meshes.size(), ", ".join(_impostor_meshes.keys())])
+
+
+# Offline octahedral impostor bake (--bake-impostors). Bakes each size tier of
+# _bake_impostors_species via ImpostorBaker and writes a manifest JSON the runtime
+# impostor tier reads back. Reuses the materialised _species_meshes so the atlas
+# matches the in-game tree exactly.
+func _run_impostor_bake() -> void:
+	var baker_script := preload("res://scripts/bake_impostors.gd")
+	var out_abs := ProjectSettings.globalize_path(baker_script.OUT_DIR)
+	DirAccess.make_dir_recursive_absolute(out_abs)
+	var baker = baker_script.new(_loader)
+	var sp := _bake_impostors_species
+	var manifest := {}
+	for tier in ["_s", "_m", "_l"]:
+		var key: String = sp + tier
+		if not _species_meshes.has(key):
+			print("Impostor bake: no mesh for %s, skipping" % key)
+			continue
+		print("Impostor bake: %s (%d surfaces)…" % [key, _species_meshes[key].size()])
+		var meta: Dictionary = await baker.bake_tier(key, _species_meshes[key], _species_heights.get(key, 0.0))
+		manifest[key] = meta
+	var mpath: String = baker_script.OUT_DIR + "%s_manifest.json" % sp
+	var f := FileAccess.open(mpath, FileAccess.WRITE)
+	f.store_string(JSON.stringify(manifest, "\t"))
+	f.close()
+	print("Impostor bake complete: %s tiers -> %s" % [manifest.size(), mpath])

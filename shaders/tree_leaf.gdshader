@@ -35,6 +35,16 @@ uniform vec2 lod_fade_in = vec2(0.0, 0.0);
 // Set to ~0.82 on LOD1 materials to match LOD0 perceived brightness.
 uniform float tier_brightness : hint_range(0.4, 1.5) = 1.0;
 
+// IMPOSTOR BAKE MODE (scripts/bake_impostors.gd). 0 = normal render. When set,
+// the fragment outputs one octahedral-atlas channel UNSHADED via EMISSION so the
+// runtime-lit impostor (shaders/tree_impostor.gdshader) re-lights it at distance —
+// NOT a baked-lit atlas (the double-lit bug class). 1 = albedo (pure leaf colour,
+// BEFORE the top-lit/dapple/fresnel directional fakes — runtime normal lighting
+// supplies directionality); 2 = camera-space normal (0.5+0.5 packed); 3 = depth is
+// handled by the baker's postprocess plane, not here. Discard/coverage is the SAME
+// code path as a normal render so the atlas alpha matches the mesh silhouette.
+uniform int bake_mode = 0;
+
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/aerial_perspective.gdshaderinc"
 #include "res://shaders/include/tree_species.gdshaderinc"
@@ -283,6 +293,12 @@ void fragment() {
 	col = mix(vec3(leaf_lum), col, 0.80);  // 20% desaturation (keeps green vibrancy)
 	col *= vec3(0.96, 0.94, 0.88);  // subtle warm darken (lighter than before)
 
+	// Impostor albedo snapshot: pure leaf colour (species hue + texture luminance +
+	// per-tree/leaf variation + within-leaf gradient) BEFORE the top-lit gradient,
+	// dapple and fresnel directional fakes below. The runtime-lit impostor supplies
+	// directionality from the normal atlas, so baking those fakes in would double-light.
+	vec3 bake_albedo = col;
+
 	// --- Top-lit canopy gradient: world-space normal creates 3D depth ---
 	// Sunlit top = bright, shaded underside = darker blue-shifted.
 	// This is the single biggest cue for 3D canopy shape.
@@ -452,6 +468,19 @@ void fragment() {
 	// (user 2026-06-19, diagnosed via a forced-red-bark test). 0.15 = data high
 	// end; thick/leathery species pull further down via sss_strength below.
 	BACKLIGHT = min(backlight_col * sss_strength, ALBEDO * 0.15);
+
+	// --- Impostor bake override (coverage/discard already applied above) ---
+	// Emit ONE octahedral-atlas channel unshaded so the runtime-lit impostor
+	// re-lights it. Placed last so it cleanly supersedes the lit-render outputs.
+	if (bake_mode == 1) {            // albedo
+		EMISSION = bake_albedo;
+		ALBEDO = vec3(0.0); ROUGHNESS = 1.0; SPECULAR = 0.0;
+		METALLIC = 0.0; BACKLIGHT = vec3(0.0); AO = 1.0;
+	} else if (bake_mode == 2) {     // camera-space normal, packed [0,1]
+		EMISSION = NORMAL * 0.5 + 0.5;
+		ALBEDO = vec3(0.0); ROUGHNESS = 1.0; SPECULAR = 0.0;
+		METALLIC = 0.0; BACKLIGHT = vec3(0.0); AO = 1.0;
+	}
 
 	// NO shader-level aerial haze on leaves (removed 2026-06-11): the
 	// calibrated volumetric fog owns the distance veil (rendering.md §6c).

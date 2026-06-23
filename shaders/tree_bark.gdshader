@@ -23,6 +23,11 @@ uniform float tex_uv_scale = 0.7;      // world-space tiling frequency
 uniform vec2 lod_fade_out = vec2(0.0, 0.0);
 uniform vec2 lod_fade_in = vec2(0.0, 0.0);
 
+// IMPOSTOR BAKE MODE (see tree_leaf.gdshader). 0 = normal. 1 = albedo (unshaded
+// EMISSION, incl. lichen/moss but before rain/snow/aerial); 2 = camera-space
+// normal packed [0,1]. Lets the runtime-lit impostor re-light the bark atlas.
+uniform int bake_mode = 0;
+
 varying vec3 world_pos;
 varying vec3 world_nrm;
 
@@ -391,6 +396,10 @@ void fragment() {
 		ROUGHNESS = mix(ROUGHNESS, 0.95, moss * 0.3);
 	}
 
+	// Impostor albedo snapshot: full procedural bark colour incl. lichen/moss,
+	// before the transient rain/snow and distance aerial passes below.
+	vec3 bake_albedo = ALBEDO;
+
 	// --- Rain: wet bark darkens, gets glossy ---
 	if (rain_wetness > 0.01) {
 		ALBEDO *= mix(1.0, 0.62, rain_wetness);
@@ -438,4 +447,13 @@ void fragment() {
 	float bark_dist = length(tree_base - INV_VIEW_MATRIX[3].xyz);
 	float bark_aerial = smoothstep(60.0, 300.0, bark_dist);
 	ALBEDO = apply_aerial(ALBEDO, bark_aerial, 0.30, 0.30, sky_reflect_color);
+
+	// --- Impostor bake override (last, supersedes lit-render outputs) ---
+	if (bake_mode == 1) {            // albedo
+		EMISSION = bake_albedo;
+		ALBEDO = vec3(0.0); ROUGHNESS = 1.0; SPECULAR = 0.0; METALLIC = 0.0;
+	} else if (bake_mode == 2) {     // camera-space normal, packed [0,1]
+		EMISSION = NORMAL * 0.5 + 0.5;
+		ALBEDO = vec3(0.0); ROUGHNESS = 1.0; SPECULAR = 0.0; METALLIC = 0.0;
+	}
 }
