@@ -55,9 +55,13 @@ var impostor_chunks: int = 0
 # sp_tier -> billboard QuadMesh carrying the tree_impostor material (atlases + octa
 # params from textures/impostors/<species>_manifest.json). Empty until bakes exist.
 var _impostor_meshes: Dictionary = {}
-# Far cull for the impostor tier (m). Beyond this even contiguous billboards are
-# sub-pixel / fog-veiled; CP sightlines rarely reach it anyway.
-const IMPOSTOR_FAR: float = 2500.0
+# Far cull for the impostor tier (m). Trees only need an impostor from the mesh
+# handoff (~200m) out to here; beyond this they're sub-pixel / fog-veiled and are
+# culled entirely (user 2026-06-23). Was 2500m — far past any useful range, which
+# kept ~2737 impostor MMIs drawing across the whole 2.5km park every frame and
+# regressed fps. 500m culls to the chunks that actually matter (the dominant fix
+# for the impostor draw-call regression; see [[project_impostor_system_rebuilt]]).
+const IMPOSTOR_FAR: float = 500.0
 
 # Shadow proxies (docs/trees.md §3): visible trees cast nothing; a ~220-tri
 # trunk cylinder + leaf-vertex-fit crown lathe per species-size-variant casts

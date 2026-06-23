@@ -537,7 +537,7 @@ const _DIST_POOL_SIZE := 40
 const _DIST_MAX_RANGE := 500.0
 var _dist_tree_positions: PackedVector3Array = PackedVector3Array()  # cached once
 var _dist_tree_bands: PackedVector2Array = PackedVector2Array()  # parallel: (lod1_end, mesh_end) per tree, for tier-true label colour
-var _dist_impostor_far := 2500.0  # tree_builder.IMPOSTOR_FAR — impostor→cull handoff, cached on first toggle
+var _dist_impostor_far := 500.0  # tree_builder.IMPOSTOR_FAR — impostor→cull handoff, cached on first toggle (overwritten from tb at runtime)
 
 # ---------------------------------------------------------------------------
 # Tour mode — automated screenshot capture across 10 locations × 3 angles × 3 times
