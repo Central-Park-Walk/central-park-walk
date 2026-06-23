@@ -25,7 +25,7 @@ at the worst test location. Measured today: ~25 ms camera (Ramble), 18–28 ms s
 | lod0 (near) | 0–100 m | dither out 90–100 m | `{species}_{s,m,l}` — the **full base model** (revised Jun 11, §7: a card-pruned near tier visibly thinned close crowns), MMI per species-size × 80 m chunk | **never** (proxy does) | runtime sun + ambient |
 | lod1 (mid) | 90–200 m | dither in 90–100 m, out 180–200 m | `{species}_{s,m,l}_lod1` (**coverage-first, rewritten 2026-06-20, §4c**: keep ALL leaf cards for silhouette parity, decimate BARK only — the old card-prune+area-scale lost ~31 % coverage → distant wash) | never | runtime sun + ambient |
 | shadow proxy | 0–290 m | none (pops with cascade distance, invisible; shadow distance is 150 m so the 290 m cap is never the binding limit) | trunk cylinder + crown hull ≤ ~300 tris, alpha-test dapple mask, MMI `SHADOWS_ONLY` | is the shadow | n/a |
-| impostor | 180–2500 m | dither in 180–200 m | 8×8 hemisphere octahedral, 2048² atlas per species-size (56 atlases) | never | **runtime sun + ambient (NEW)** |
+| impostor | 180–2500 m | dither in 180–200 m | **16×16** hemisphere octahedral, 2048² albedo+normal atlas per species-tier (§2, as-built 2026-06-23) | never | **runtime sun + ambient** |
 
 Mesh fade end moved **400 → 200 m on 2026-06-20** (was 250→400 on Jun 11). Two
 independent reasons impostors must take over by ~200 m: (1) CP trees are not seen
@@ -55,70 +55,74 @@ snags) run the base mesh across the whole 0–400 m band. Diagnostics:
 renders one mesh tier across the full range (60 m handoff DoD);
 `TIER_A`/`TIER_B` env vars on `tier_handoff_check.sh` pick the compared pair.
 
-## 2. Runtime-lit impostors (kills the bake-mismatch bug class)
+## 2. Runtime-lit octahedral impostors (as-built 2026-06-23)
 
-**Today's defect:** `tree_impostor.gdshader` is *shaded* (`diffuse_burley`, writes
-`NORMAL` from the normal atlas) but the albedo atlas is baked **lit** under a fixed
-sky (`impostor_baker.gd`: ambient 0.7, ground 0.55) — every impostor is lit twice,
-patched by the `impostor_brightness` global (day_night_cycle.gd:93) and a ×3.0
-luminance compensation in the fall recolor. Root cause of the May 19 dark-olive
-atlas failure and all time-of-day mismatch bugs.
+> **Rebuilt from scratch 2026-06-23** after the 2026-06-22 reset wiped the far
+> tier. Grounded in **Godot-community / AAA SOP** (Ryan Brucks octahedral
+> impostors; the `wojtekpil` / `zhangjt93` Godot ports), NOT the prior in-repo
+> spec — which this section used to describe. That spec's mistake was twofold:
+> it hand-rolled a bespoke `impostor_baker.gd` that reimplemented the installed
+> `addons/Imposter/` octahedral rig, AND it baked albedo **lit**, so every
+> impostor was lit twice and patched by an `impostor_brightness` global fudge —
+> the root cause of the dark-olive-atlas and time-of-day-mismatch bugs. The
+> as-built system keeps the addon's proven octahedral math and lights **at
+> runtime** from a normal atlas, so the fudge is gone.
 
-**Bake changes** (`impostor_baker.gd` + `bake_mode` uniform in
-`tree_leaf.gdshader` / `tree_bark.gdshader` — implemented 2026-06-10):
-- Albedo pass renders **unlit**: bake materials route the shader's final
-  ALBEDO through EMISSION (`bake_mode=1`) under a black, ambient-disabled
-  environment. The atlas stores the mesh tier's exact albedo output — all
-  albedo-level character (top-light gradient fakes excluded only where
-  view/light-dependent) — with zero lighting. Alpha from coverage as today.
-- Normal + depth now bake in the **same Godot pass set** (`bake_mode=2/3`):
-  the 2026-06-10 quality check found the Blender-baked atlases unusable —
-  AgX view-transform distortion (constant +0.3 xy bias) AND framing baked at
-  bounding-sphere radius while albedo uses AABB-diagonal radius (coverage
-  IoU 0.32 on birch). Godot bakes all three channels from one scene/framing/
-  alpha pipeline, aligned by construction. Normal = camera-space, flipped
-  toward viewer (leaves are double-sided); depth normalized over 0..4R so
-  tree center sits at the shader's 0.5 parallax reference. Normal/depth read
-  back via HDR viewport (linear; LDR readback is sRGB-encoded — probed) to
-  match their linear sampler hints. `scripts/bake_impostors.py` (Blender) is
-  superseded entirely.
-- Winter pass: same unlit rule; albedo only (normal/depth are season-independent).
-- Post chain: `premultiply_impostors.py` (albedo premultiply — replaced the
-  old dilate pass — plus neutral background fill for normal/depth so edge
-  bleed through bilinear/mip filtering is a no-op).
+**Parameters (research-grounded):** 16×16 hemisphere views, 2048² atlas, albedo +
+camera-space normal channels (depth/ORM default to neutral; parallax off for v1).
+These replace the old spec's 8×8 (under-sampled).
 
-**Shader changes** (`tree_impostor.gdshader`):
-- Delete `impostor_brightness` fudge (line ~430) and its global registration +
-  day_night writer once no shader reads it.
-- Keep `NORMAL` path; set foliage-appropriate response (roughness 1.0, specular ~0.1)
-  so burley diffuse dominates.
-- Re-derive the fall-recolor mix for true-albedo luminance (the ×3.0 factor
-  compensated baked-lit summer luminance ~0.33; with unlit atlases it's wrong).
-- Per-tree jitter, world tonal fBm, snow, aerial perspective stay (they operate on
-  albedo, which is now actually albedo).
+**Bake — `scripts/bake_impostors.gd` (run via `--bake-impostors[=species]`):**
+- Runs inside the normal app right after `tree_builder` materialises
+  `_species_meshes` (the exact in-game `tree_leaf`/`tree_bark` ShaderMaterials),
+  then quits — no placement, terrain, or editor needed. A SubViewport parented
+  under `park_loader` pumps `RenderingServer.frame_post_draw`.
+- Each of the 16×16 hemisphere views is rendered separately (4× supersampled →
+  128 px cell) with an ortho camera aimed by `OctaUtils.octa_uv_to_world` — the
+  same hemisphere mapping the addon decoder uses, so layout matches by
+  construction. The mesh is drawn via a 1-instance MultiMesh carrying
+  london_plane `INSTANCE_CUSTOM` (`Color(9/13, .5, 0, .5)`) so the leaf shader
+  picks the right species colour; globals forced to summer / no-wind / no-snow.
+- `bake_mode` uniform (`tree_leaf`/`tree_bark`): when set, the fragment emits ONE
+  channel UNSHADED via EMISSION with the identical discard — `1` = albedo
+  (captured *before* the top-lit/dapple/fresnel directional fakes; runtime
+  lighting supplies directionality), `2` = camera-space normal packed 0.5+0.5.
+- Writes `textures/impostors/<species>_<tier>_{albedo,normal}.png` + a
+  `<species>_manifest.json` (frames, `scale`, `aabb_max`, **`position_offset` =
+  +AABB-centre** so the billboard sits at canopy height — the sign that, inverted,
+  buried the whole far tier in the old system).
+- New PNGs need one editor import pass (`godot --headless --import`) before the
+  game can `load()` them.
 
-**Validation (Definition of Done) — run 2026-06-10:**
-1. Pixel-sample comparison mesh tier vs impostor at the 240 m handoff
-   (`--tier-isolate=mesh|impostor` renders one pure tier, no crossfade) at
-   8:00 / 12:00 / 17:00: mean |ΔRGB| over canopy pixels < 0.05, no hue flip.
-   **PASS: 0.038 / 0.047 / 0.018, G−R sign preserved, silhouette IoU 0.73-0.81.**
-2. Crossfade band shows no brightness step in a slow walk-through capture.
-   **PASS: 36-frame walk 280→196 m, median frame delta 0.002, max 0.011
-   (cloud drift, outside the band).**
-3. perf_gate at all 5 locations: no regression. (Caveat below — the tier was
-   not drawing at all before this date, so the honest baseline changed.)
-4. Re-bake all species via the per-species wrapper (~12 s each, one Godot process
-   per species — all-at-once hangs, see memory `lessons_impostor_bake.md`). **DONE.**
+**Runtime — `shaders/tree_impostor.gdshader`:** adapts the addon `ImpostorShader`
+(octahedral 3-nearest-frame blend + virtual-plane parallax). Drops
+`impostor_brightness`; `ALBEDO = atlas` and Godot lights it via the normal atlas +
+`diffuse_burley` (roughness 1, specular 0.1). Adds `lod_fade_in` dither so it
+crossfades into `_lod1` over the same band the mesh tier dithers out.
 
-**Discovery (2026-06-10): the impostor tier had been invisible since P1.7.**
-Commit `2c2334d` set the billboard `position_offset` to `-aabb.center` —
-Blender's sign convention in Godot space — which shifted every billboard its
-canopy-center height DOWN and buried the whole 190-2500 m tier under the
-terrain. Confirmed pre-existing at c95ef42 via checkout + capture; fixed by
-`+aabb.center` in tree_builder.gd. Consequences: every distant-canopy
-observation made between P1.7 and this fix (including the 2026-06-09 perf
-baseline) describes a world with NO impostor raster cost; perf numbers gain
-a tier of transparent-pass quads from here on.
+**Integration — `tree_builder.gd`:** `_build_impostor_assets()` builds one billboard
+QuadMesh + material per baked tier (params from the manifest, `lod_fade_in` band
+height-scaled per `_lod_scale`). `_spawn_impostor_chunks()` spawns an impostor MMI
+per chunk sharing the mesh tiers' transforms/custom-data, `visibility_range_begin`
+at the `_lod1` fade-out, out to `IMPOSTOR_FAR` (2500 m). `--tier-isolate=impostor`
+renders the tier pure from 0 m for comparison.
+
+**Validation (2026-06-23, london_plane, `--all-london-plane`):**
+1. `--tier-isolate=impostor`: billboards render at canopy height (not buried),
+   correct london_plane silhouette from all angles incl. top-down, with runtime
+   directional lighting (sunlit tops, shaded undersides). **PASS.**
+2. Normal mode: near mesh trees and the far impostor tree line share tone with no
+   visible step at the ~200 m handoff. **PASS.**
+3. Time-of-day consistency at 8:00 / 12:00 / 17:00 (same pose): impostors track the
+   sun with the mesh tiers — no double-lit darkness, no flat washout. The bug class
+   the old spec fought is gone. **PASS (visual).**
+4. perf_gate at the 5 locations — **TODO** (the tier adds a transparent-quad pass).
+5. Pixel-sample |ΔRGB| < 0.05 at the handoff — **TODO** (visual parity confirmed;
+   quantitative pass not yet run).
+
+**Scope:** london_plane (s/m/l) only — the one species rebuilt to the new skeleton
+method. Other species render mesh-only past `_lod1` until their rebuilds land, then
+`--bake-impostors=<species>` adds each atlas.
 
 ## 3. Shadow proxies (user decision 2026-06-09)
 
