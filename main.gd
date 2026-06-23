@@ -538,7 +538,6 @@ const _DIST_MAX_RANGE := 500.0
 var _dist_tree_positions: PackedVector3Array = PackedVector3Array()  # cached once
 var _dist_tree_bands: PackedVector2Array = PackedVector2Array()  # parallel: (lod1_end, mesh_end) per tree, for tier-true label colour
 var _dist_impostor_far := 2500.0  # tree_builder.IMPOSTOR_FAR — impostor→cull handoff, cached on first toggle
-var _dist_diag_t := 0  # frame counter to throttle the band-population diagnostic print
 
 # ---------------------------------------------------------------------------
 # Tour mode — automated screenshot capture across 10 locations × 3 angles × 3 times
@@ -1592,13 +1591,6 @@ func _dist_overlay_update() -> void:
 		bands[band].append([d2, i])
 	for b in bands:
 		b.sort_custom(func(a, c): return a[0] < c[0])
-	# Throttled diagnostic: report what each band actually holds as the camera moves,
-	# so we can see whether near (green/yellow) trees are being found at all.
-	_dist_diag_t += 1
-	if _dist_diag_t % 30 == 0:
-		var near_d: float = sqrt(bands[0][0][0]) if not bands[0].is_empty() else (sqrt(bands[1][0][0]) if not bands[1].is_empty() else (sqrt(bands[2][0][0]) if not bands[2].is_empty() else -1.0))
-		print("[DIAG dist] bands_loaded=%s  lod0(green)=%d  lod1(yellow)=%d  impostor(blue)=%d  nearest=%.0fm" % [
-			not _dist_tree_bands.is_empty(), bands[0].size(), bands[1].size(), bands[2].size(), near_d])
 	# Round-robin nearest-first across bands until the pool is full or all drained,
 	# so the far impostor band shows up instead of being crowded out by near trees.
 	var picks: Array = []  # Array of [idx, band]
