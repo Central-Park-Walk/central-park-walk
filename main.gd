@@ -528,12 +528,13 @@ var _screenshot_file := "/tmp/godot_screenshot.png"  # --screenshot-file=path ov
 var _lt_screenshot_pending := false  # debounce for gamepad left trigger screenshots
 
 # Distance overlay (F1) — floating Label3Ds on nearest trees, color-coded by LOD band.
-# LOD bands match docs/trees.md §1: lod0 0–100m, lod1 100–200m, impostor 200m+.
+# LOD bands: lod0 (near) → lod1 (mid); beyond lod1's fade end the tree is culled.
 var _dist_overlay_visible := false
 var _dist_labels: Array = []  # Array[Label3D] — pool, reused each frame
 const _DIST_POOL_SIZE := 40
 const _DIST_MAX_RANGE := 500.0
 var _dist_tree_positions: PackedVector3Array = PackedVector3Array()  # cached once
+var _dist_tree_bands: PackedVector2Array = PackedVector2Array()  # parallel: (lod1_end, mesh_end) per tree, for tier-true label colour
 
 # ---------------------------------------------------------------------------
 # Tour mode — automated screenshot capture across 10 locations × 3 angles × 3 times
@@ -1501,11 +1502,22 @@ func _toggle_dist_overlay() -> void:
 
 func _dist_cache_tree_positions() -> void:
 	_dist_tree_positions.clear()
+	_dist_tree_bands.clear()
+	# Prefer tree_builder's per-tree LOD bands so the label colour reflects the
+	# actual rendered tier (lod0 green / lod1 yellow / culled red), derived from
+	# the SAME scaled handoffs the lod_fade shaders use — not a fixed distance band.
+	var tb = _park_loader._tree_builder if _park_loader else null
+	if tb and not tb.tree_lod_bands.is_empty():
+		for b in tb.tree_lod_bands:
+			_dist_tree_positions.append(b["pos"])
+			_dist_tree_bands.append(Vector2(b["lod1_end"], b["mesh_end"]))
+		return
+	# Fallback (no bands, e.g. legacy build): positions only, colour-by-tier off.
 	var body: Node = null
 	if _park_loader:
 		body = _park_loader.get_node_or_null("TreeTrunkCollision")
 	if body == null:
-		print("[DIAG] Distance overlay: TreeTrunkCollision not found")
+		print("[DIAG] Distance overlay: tree LOD bands + TreeTrunkCollision both missing")
 		return
 	for child in body.get_children():
 		if child is CollisionShape3D:
@@ -1559,14 +1571,20 @@ func _dist_overlay_update() -> void:
 		var lbl: Label3D = _dist_labels[k]
 		lbl.global_position = p + Vector3(0.0, 4.0, 0.0)  # float above trunk
 		lbl.text = "%.0fm" % dist
-		# Color-code by tier band (docs/trees.md §1: lod0 0-100, lod1 100-200,
-		# impostor 200+)
-		if dist < 100.0:
+		# Colour = the tier the engine actually renders for THIS tree, from its own
+		# scaled LOD handoffs (the lod_fade shader bands). Saplings have no lod1
+		# (lod1_end == mesh_end) so they go green→red. Fallback: fixed 100/200 bands.
+		var lod1_end: float = 100.0
+		var mesh_end: float = 200.0
+		if idx < _dist_tree_bands.size():
+			lod1_end = _dist_tree_bands[idx].x
+			mesh_end = _dist_tree_bands[idx].y
+		if dist < lod1_end:
 			lbl.modulate = Color(0.5, 1.0, 0.5)  # lod0 base mesh — green
-		elif dist < 200.0:
+		elif dist < mesh_end:
 			lbl.modulate = Color(1.0, 1.0, 0.4)  # lod1 mid mesh — yellow
 		else:
-			lbl.modulate = Color(1.0, 0.5, 0.5)  # impostor — red
+			lbl.modulate = Color(1.0, 0.5, 0.5)  # beyond lod1 — culled (red)
 		lbl.visible = true
 	for k in range(n, _DIST_POOL_SIZE):
 		_dist_labels[k].visible = false

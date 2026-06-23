@@ -32,15 +32,22 @@ const CATHEDRAL_ELM_ZONE := Rect2(-720.0, 1180.0, 90.0, 340.0)  # x, z, w, h
 
 var canopy_data: Array = []  # [{x, z, radius}] for canopy map generation
 var _species_meshes: Dictionary = {}  # archetype_name -> Array[Mesh]
-var _species_heights: Dictionary = {} # archetype_name -> float (mesh height)
+var _species_heights: Dictionary = {} # archetype_name -> float (RAW mesh-unit height; divisor for placement scale)
+var _species_real_h: Dictionary = {} # species_tier -> float (mean PLACED real-world height, metres) for screen-size LOD
+# Per-tree LOD handoff distances (metres) for the F1 distance overlay, so its
+# colour reflects the ACTUAL tier the engine renders (not a fixed distance band).
+# Each entry: {"pos": Vector3, "lod1_end": float, "mesh_end": float}. dist < lod1_end
+# → lod0 (green); < mesh_end → lod1 (yellow); else culled (red). Saplings have no
+# lod1 so lod1_end == mesh_end (green straight to red). These are the SAME scaled
+# bands the lod_fade shaders dither at (_lod1_end/_mesh_fade_end × _lod_scale).
+var tree_lod_bands: Array = []
 
 # MMI / instance counts per LOD tier — read by HUD perf overlay
 var lod0_instances: int = 0
 var lod0_chunks: int = 0
 var lod1_instances: int = 0
 var lod1_chunks: int = 0
-var imp_instances: int = 0
-var imp_chunks: int = 0
+# Far LOD tier removed 2026-06-22 (full reset). Trees render lod0 -> lod1 only.
 
 # Shadow proxies (docs/trees.md §3): visible trees cast nothing; a ~220-tri
 # trunk cylinder + leaf-vertex-fit crown lathe per species-size-variant casts
@@ -187,13 +194,16 @@ const TIER_BOUNDS := {
 const TIERS := ["s", "m", "l"]
 
 func _lod_scale(species_tier: String) -> float:
-	## Screen-size LOD multiplier: handoff distances scale with the model's height
-	## so every tree switches tiers at the same APPARENT on-screen size (AAA / Godot
-	## best practice). Strip any "_lod1" suffix — the mid mesh shares its base height.
-	## Returns 1.0 for the reference-height tree, so the fixed defaults are unchanged
-	## for a typical canopy tree and only the size-relative spread is added.
+	## Screen-size LOD multiplier: handoff distances scale with the tree's REAL-WORLD
+	## height so every tree switches tiers at the same APPARENT on-screen size (AAA /
+	## Godot best practice). Strip any "_lod1" suffix — the mid mesh shares its base
+	## height. Returns 1.0 for a REF_TREE_HEIGHT-tall canopy tree, so the 80/200m
+	## defaults are unchanged for a typical tree and only the size-relative spread is
+	## added. MUST use the placed metres height (_species_real_h), NOT _species_heights
+	## — the latter is RAW mesh units (~5) and dividing it by 22m clamped every tree to
+	## the 0.40 floor, collapsing the far LOD handoff to ~80m (2026-06-22 LOD bug).
 	var base_key: String = species_tier.trim_suffix("_lod1")
-	var h: float = _species_heights.get(base_key, REF_TREE_HEIGHT)
+	var h: float = _species_real_h.get(base_key, REF_TREE_HEIGHT)
 	return clampf(h / REF_TREE_HEIGHT, LOD_SCALE_RANGE.x, LOD_SCALE_RANGE.y)
 
 func _get_tier(species: String, desired_h: float) -> String:
@@ -529,6 +539,11 @@ func _build_trees(trees: Array) -> void:
 	var xf_by_key: Dictionary = {}
 	var cd_by_key: Dictionary = {}  # parallel Color arrays for custom_data (season info)
 	var all_trunk_xf: Array = []  # for collision
+	# Screen-size LOD: accumulate placed real-world height (metres) per species_tier
+	# so _lod_scale can size handoffs by apparent on-screen size. {tier: [sum, count]}.
+	var real_h_accum: Dictionary = {}
+	_species_real_h.clear()
+	tree_lod_bands.clear()
 	var _skip_surface := 0
 	var _nudged := 0
 	for i in trees.size():
@@ -650,6 +665,13 @@ func _build_trees(trees: Array) -> void:
 			mesh_h = 0.06
 		var sy := desired_h / mesh_h
 
+		# Screen-size LOD: track this tier's placed real-world height (metres). The
+		# mean feeds _lod_scale so handoffs scale with apparent on-screen size.
+		var acc: Array = real_h_accum.get(species_tier, [0.0, 0])
+		acc[0] += desired_h
+		acc[1] += 1
+		real_h_accum[species_tier] = acc
+
 		# Crown width: uniform scaling (sx = sy) preserves model proportions.
 		# LiDAR crown_area measures only the dense inner canopy (~10-30m²
 		# for a 20m tree) which compressed sx to 0.72×sy for nearly every
@@ -716,6 +738,10 @@ func _build_trees(trees: Array) -> void:
 		var crown_r: float = desired_h * (0.25 if species == "conifer" else 0.35)
 		canopy_data.append({"x": tx, "z": tz, "r": crown_r, "ev": species == "conifer"})
 
+		# F1 distance-overlay tier bands — finalised after _species_real_h below
+		# (needs the per-tier mean height). Store the inputs now, one per placed tree.
+		tree_lod_bands.append({"pos": Vector3(tx, ty, tz), "_tier": species_tier,
+			"_lod1": _species_meshes.has(species_tier + "_lod1")})
 
 		# Collision: trunk cylinder from actual DBH data (census measurement)
 		var trunk_r: float
@@ -729,6 +755,24 @@ func _build_trees(trees: Array) -> void:
 			Vector3(0.0,     desired_h, 0.0),
 			Vector3(0.0,     0.0,      trunk_r))
 		all_trunk_xf.append(Transform3D(col_basis, Vector3(tx, ty + desired_h * 0.5, tz)))
+
+	# Finalise screen-size-LOD reference heights: mean placed metres per species_tier.
+	# Read by _lod_scale at every handoff/fade site below.
+	for tier_key in real_h_accum:
+		var racc: Array = real_h_accum[tier_key]
+		if racc[1] > 0:
+			_species_real_h[tier_key] = racc[0] / float(racc[1])
+
+	# Resolve each tree's LOD bands now that per-tier mean heights exist. Uses the
+	# exact scaled handoffs the lod_fade shaders dither at, so the F1 overlay colour
+	# matches the rendered tier. No lod1 (saplings/dead) → lod1_end == mesh_end.
+	for band in tree_lod_bands:
+		var lsc: float = _lod_scale(band["_tier"])
+		var me: float = _mesh_fade_end * lsc
+		band["mesh_end"] = me
+		band["lod1_end"] = (_lod1_end * lsc) if band["_lod1"] else me
+		band.erase("_tier")
+		band.erase("_lod1")
 
 	# --- Spatial chunking for culling ---
 	# Each chunk's MMI is positioned at its spatial centre so that
