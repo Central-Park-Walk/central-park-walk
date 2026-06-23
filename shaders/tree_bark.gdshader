@@ -19,9 +19,6 @@ uniform sampler2D bark_normal_tex : hint_normal, filter_linear_mipmap_anisotropi
 uniform sampler2D bark_roughness_tex : filter_linear_mipmap_anisotropic;
 uniform float tex_blend = 0.45;        // 0=pure procedural, 1=pure texture
 uniform float tex_uv_scale = 0.7;      // world-space tiling frequency
-// Impostor bake modes — see tree_leaf.gdshader. 0 at runtime.
-uniform int bake_mode = 0;
-uniform vec2 bake_depth_range = vec2(0.0, 50.0);
 // LOD crossfade dither ranges (begin, end). Set per LOD tier.
 uniform vec2 lod_fade_out = vec2(0.0, 0.0);
 uniform vec2 lod_fade_in = vec2(0.0, 0.0);
@@ -441,23 +438,4 @@ void fragment() {
 	float bark_dist = length(tree_base - INV_VIEW_MATRIX[3].xyz);
 	float bark_aerial = smoothstep(60.0, 300.0, bark_dist);
 	ALBEDO = apply_aerial(ALBEDO, bark_aerial, 0.30, 0.30, sky_reflect_color);
-
-	// Impostor bake output — see tree_leaf.gdshader for the convention.
-	if (bake_mode != 0) {
-		if (bake_mode == 1) {
-			EMISSION = ALBEDO;
-		} else if (bake_mode == 2) {
-			vec3 bn = NORMAL.z < 0.0 ? -NORMAL : NORMAL;
-			EMISSION = bn * 0.5 + 0.5;
-		} else {
-			// G = crown rho 1.0: bark is unoccluded by the canopy-AO
-			// convention (matches mesh-tier COLOR.a on bark vertices).
-			float bd = (-VERTEX.z - bake_depth_range.x)
-				/ max(bake_depth_range.y - bake_depth_range.x, 0.001);
-			EMISSION = vec3(clamp(bd, 0.0, 1.0), 1.0, 0.0);
-		}
-		ALBEDO = vec3(0.0);
-		SPECULAR = 0.0;
-		ROUGHNESS = 1.0;
-	}
 }

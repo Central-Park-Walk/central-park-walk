@@ -35,14 +35,6 @@ uniform vec2 lod_fade_in = vec2(0.0, 0.0);
 // Set to ~0.82 on LOD1 materials to match LOD0 perceived brightness.
 uniform float tier_brightness : hint_range(0.4, 1.5) = 1.0;
 
-// Impostor bake modes (set by scripts/impostor_baker.gd only; 0 at runtime).
-// 1 = albedo: EMISSION carries the final ALBEDO so the atlas stores true
-//     unlit albedo — the impostor shader lights it at runtime with the same
-//     sun/ambient as the mesh tiers (docs/trees.md §2).
-// 2 = camera-space normal encoded *0.5+0.5.  3 = normalized ortho depth.
-uniform int bake_mode = 0;
-uniform vec2 bake_depth_range = vec2(0.0, 50.0);
-
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/aerial_perspective.gdshaderinc"
 #include "res://shaders/include/tree_species.gdshaderinc"
@@ -233,7 +225,7 @@ void fragment() {
 
 	// [DIAG-DISABLED 2026-05-18] Mip-level alpha compensation disabled — was
 	// causing visible color steps as mips shifted with distance. Left commented
-	// in case impostor handoff degrades and we need to bring this back targeted.
+	// in case the lod1 distance handoff degrades and we need it back, targeted.
 	// float delta_max = max(length(dFdx(UV)), length(dFdy(UV)));
 	// float mip_level = max(log2(max(delta_max * 1024.0, 1.0)), 0.0);
 	// alpha *= 1.0 + mip_level * 0.3;
@@ -470,32 +462,5 @@ void fragment() {
 	// DARK at distance.
 
 	// No ALPHA write: opaque pass, coverage is discard-only (see render_mode
-	// note at top). Atlas bakes get alpha from the MSAA viewport's coverage
-	// of the discard silhouette.
-
-	// Impostor bake output: EMISSION carries the data channel; ALBEDO zeroed
-	// so the black/unlit bake environment contributes nothing. The alpha and
-	// discard logic above ran unchanged, so all three atlas channels share
-	// identical coverage by construction.
-	if (bake_mode != 0) {
-		if (bake_mode == 1) {
-			EMISSION = ALBEDO;
-		} else if (bake_mode == 2) {
-			// Flip toward camera: leaves are double-sided and the runtime
-			// decode reconstructs z toward the viewer from xy alone.
-			vec3 bn = NORMAL.z < 0.0 ? -NORMAL : NORMAL;
-			EMISSION = bn * 0.5 + 0.5;
-		} else {
-			// R = parallax depth, G = raw crown rho (the impostor shader
-			// applies the same canopy_ao mapping at runtime — retuning
-			// the AO curve needs no re-bake).
-			float bd = (-VERTEX.z - bake_depth_range.x)
-				/ max(bake_depth_range.y - bake_depth_range.x, 0.001);
-			EMISSION = vec3(clamp(bd, 0.0, 1.0), v_crown_rho, 0.0);
-		}
-		ALBEDO = vec3(0.0);
-		BACKLIGHT = vec3(0.0);
-		SPECULAR = 0.0;
-		ROUGHNESS = 1.0;
-	}
+	// note at top).
 }
