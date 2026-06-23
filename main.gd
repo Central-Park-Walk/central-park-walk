@@ -527,10 +527,10 @@ var _force_park := false  # --park: skip the default eval garden, load the plain
 var _screenshot_file := "/tmp/godot_screenshot.png"  # --screenshot-file=path overrides
 var _lt_screenshot_pending := false  # debounce for gamepad left trigger screenshots
 
-# Distance overlay (F1) — floating Label3Ds on nearest trees, color-coded by LOD band.
-# LOD bands: lod0 (near) → lod1 (mid) → impostor (far billboard) → culled beyond
-# IMPOSTOR_FAR. The impostor tier is what renders past lod1's fade end — it is NOT
-# a cull, so labels in that band read blue (impostor), not red (truly culled).
+# Distance overlay (F1) — floating Label3Ds on nearest trees, color-coded by the
+# rendered LOD tier: green lod0 (near) → yellow lod1 (mid) → blue impostor (far
+# billboard). Only rendered tiers are labelled; trees past IMPOSTOR_FAR are culled
+# (not drawn) so they get no label.
 var _dist_overlay_visible := false
 var _dist_labels: Array = []  # Array[Label3D] — pool, reused each frame
 const _DIST_POOL_SIZE := 40
@@ -1556,12 +1556,14 @@ func _dist_overlay_update() -> void:
 	var cam_pos := cam.global_position
 	var cam_fwd := -cam.global_transform.basis.z
 	# Bucket in-range, in-front trees by the tier the engine actually renders for
-	# each (band 0 lod0 / 1 lod1 / 2 impostor / 3 culled), using each tree's own
-	# scaled LOD handoffs. Then round-robin the label pool across bands so the far
-	# IMPOSTOR tier is always represented — a plain nearest-N pick fills entirely
-	# with near lod0/lod1 trees in a dense forest and the impostor band never shows.
+	# each (band 0 lod0 / 1 lod1 / 2 impostor), using each tree's own scaled LOD
+	# handoffs. Only RENDERED tiers get a label — trees past IMPOSTOR_FAR are culled
+	# (not drawn), so they're skipped, not labelled. Then round-robin the label pool
+	# across bands so the far IMPOSTOR tier is always represented — a plain nearest-N
+	# pick fills entirely with near lod0/lod1 trees in a dense forest and impostors
+	# never show.
 	var max_d2: float = _DIST_MAX_RANGE * _DIST_MAX_RANGE
-	var bands: Array = [[], [], [], []]  # per band: Array of [d2, idx]
+	var bands: Array = [[], [], []]  # per band: Array of [d2, idx]
 	for i in _dist_tree_positions.size():
 		var p: Vector3 = _dist_tree_positions[i]
 		var d: Vector3 = p - cam_pos
@@ -1585,18 +1587,18 @@ func _dist_overlay_update() -> void:
 		elif dist < _dist_impostor_far:
 			band = 2
 		else:
-			band = 3
+			continue  # culled (not rendered) — don't label
 		bands[band].append([d2, i])
 	for b in bands:
 		b.sort_custom(func(a, c): return a[0] < c[0])
 	# Round-robin nearest-first across bands until the pool is full or all drained,
 	# so the far impostor band shows up instead of being crowded out by near trees.
 	var picks: Array = []  # Array of [idx, band]
-	var ptr := [0, 0, 0, 0]
+	var ptr := [0, 0, 0]
 	var drained := false
 	while picks.size() < _DIST_POOL_SIZE and not drained:
 		drained = true
-		for bi in 4:
+		for bi in 3:
 			if picks.size() >= _DIST_POOL_SIZE:
 				break
 			if ptr[bi] < bands[bi].size():
@@ -1607,7 +1609,6 @@ func _dist_overlay_update() -> void:
 		Color(0.5, 1.0, 0.5),   # lod0 base mesh — green
 		Color(1.0, 1.0, 0.4),   # lod1 mid mesh — yellow
 		Color(0.5, 0.75, 1.0),  # impostor billboard — blue
-		Color(1.0, 0.5, 0.5),   # beyond IMPOSTOR_FAR — culled (red)
 	]
 	var n: int = picks.size()
 	for k in n:
