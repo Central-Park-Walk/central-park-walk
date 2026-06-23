@@ -1535,7 +1535,7 @@ func _dist_build_label_pool() -> void:
 		lbl.render_priority = 127  # draw last
 		lbl.outline_size = 4
 		lbl.outline_modulate = Color(0, 0, 0, 0.9)
-		lbl.font_size = 20
+		lbl.font_size = 50
 		lbl.visible = false
 		add_child(lbl)
 		_dist_labels.append(lbl)
