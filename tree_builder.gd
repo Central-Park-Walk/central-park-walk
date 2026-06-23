@@ -564,9 +564,12 @@ func _build_trees(trees: Array) -> void:
 		_loader.get_tree().quit()
 		return
 
-	# Build the far impostor tier assets (billboard quad + material per baked
-	# species-tier). No-op for species without a manifest on disk.
-	_build_impostor_assets()
+	# NOTE: the impostor tier assets are built LATER (after _species_real_h is
+	# populated below), NOT here. Their lod_fade_in band is scaled by _lod_scale,
+	# which reads _species_real_h — empty at this point, so building here gave every
+	# tier the default scale 1.0 and faded impostors in at the unscaled ~200m while
+	# the mesh tiers faded OUT at the per-tier scaled distance. That desync opened a
+	# LOD hole (mesh gone, impostor not yet in), widest on short tiers. See below.
 
 	if _species_meshes.is_empty():
 		print("WARNING: no tree GLB models loaded, falling back skipped")
@@ -808,6 +811,13 @@ func _build_trees(trees: Array) -> void:
 		var racc: Array = real_h_accum[tier_key]
 		if racc[1] > 0:
 			_species_real_h[tier_key] = racc[0] / float(racc[1])
+
+	# Build the far impostor tier assets HERE — after _species_real_h exists — so each
+	# impostor's lod_fade_in band is scaled by the SAME per-tier _lod_scale the mesh
+	# fade-out bands use below. Building this before population (the old bug) gave every
+	# tier scale 1.0, faded impostors in at ~200m regardless of size, and opened a LOD
+	# hole vs the height-scaled mesh fade-out. Runs before _spawn_impostor_chunks.
+	_build_impostor_assets()
 
 	# Resolve each tree's LOD bands now that per-tier mean heights exist. Uses the
 	# exact scaled handoffs the lod_fade shaders dither at, so the F1 overlay colour
