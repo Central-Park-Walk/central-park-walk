@@ -256,13 +256,13 @@ func update_perf(delta: float, prof: Dictionary = {}) -> void:
 		text += "  %-14s %5.2f\n" % ["TOTAL", total_us / 1000.0]
 		var unaccounted_ms: float = process_ms - (total_us / 1000.0)
 		text += "  %-14s %5.2f  (engine + unprofiled)\n" % ["unaccounted", unaccounted_ms]
-		# Tree LOD instance counts — shadow casters are LOD0 only (LOD1/imp disabled)
+		# Tree LOD instance counts (lod0 near, lod1 mid; far tier removed 2026-06-22)
 		if prof.has("tree_lod0"):
-			text += "\nTrees: %d LOD0 / %d LOD1 / %d imp\n" % [
-				int(prof["tree_lod0"]), int(prof["tree_lod1"]), int(prof["tree_imp"])]
-			text += "  chunks: %d / %d / %d   (shadow casters: %d)\n" % [
+			text += "\nTrees: %d LOD0 / %d LOD1\n" % [
+				int(prof["tree_lod0"]), int(prof["tree_lod1"])]
+			text += "  chunks: %d / %d   (shadow casters: %d)\n" % [
 				int(prof["tree_lod0_chunks"]), int(prof["tree_lod1_chunks"]),
-				int(prof["tree_imp_chunks"]), int(prof["tree_lod0"])]
+				int(prof["tree_lod0"])]
 		# Chunk counts
 		if prof.has("ug_chunks"):
 			text += "\nUndergrowth: %d chunks, %d queued\n" % [

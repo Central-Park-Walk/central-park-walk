@@ -2,7 +2,7 @@
 # Vegetation model evaluation plot on the Great Lawn (--eval-plot CLI flag).
 # A fixed, walkable specimen garden so model review never means hunting the
 # park for wherever a species happened to crop up: every tree species runs
-# through the REAL census pipeline (LOD tiers, impostor handoff, wind, snag
+# through the REAL census pipeline (LOD tiers, wind, snag
 # guard via eval=true) and every undergrowth species renders through the REAL
 # chunk meshes/materials (undergrowth_builder.build_eval_block), each block
 # labelled with a Label3D.
@@ -64,9 +64,7 @@ const SOLO_SPECIMEN := false   # 2026-06-22 s4b: review m & l too → size-grade
 const SOLO_HEIGHT := 9.0
 # VARIANT ROW (user 2026-06-22): show ALL lod0 variants of the matched species in a
 # single row at a fixed height, each forced to a distinct variant, so silhouettes can
-# be compared side-by-side. Concern being checked: variant silhouette spread becoming
-# visible at the ~80-90 m lod0→impostor handoff (the impostor is one shared bake, so
-# every variant pops to the same billboard). Takes precedence over SOLO_SPECIMEN.
+# be compared side-by-side. Takes precedence over SOLO_SPECIMEN.
 const VARIANT_ROW := false     # 2026-06-22 s4b: OFF so the size-graded s/m/l stand shows (was true = 7 _s variants only, hid m & l)
 const VARIANT_ROW_N := 7        # london_plane _s has 7 variants
 const VARIANT_ROW_DX := 8.0     # spacing (m) between specimens

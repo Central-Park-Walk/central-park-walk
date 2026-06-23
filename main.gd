@@ -1129,8 +1129,7 @@ func _get_prof_data() -> Dictionary:
 		data["tree_lod0_chunks"] = tb.lod0_chunks
 		data["tree_lod1"] = tb.lod1_instances
 		data["tree_lod1_chunks"] = tb.lod1_chunks
-		data["tree_imp"] = tb.imp_instances
-		data["tree_imp_chunks"] = tb.imp_chunks
+		# Far LOD tier removed 2026-06-22 (full reset) — no far-tier counts.
 	# Chunk counts for context
 	if _park_loader and _park_loader._undergrowth_builder:
 		var ub = _park_loader._undergrowth_builder

@@ -1074,13 +1074,13 @@ func _ready() -> void:
 	_build_bridge_models()
 	print("  bridge models: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	# Eval plot (--eval-plot): inject synthetic census records BEFORE the tree
-	# build so specimens run the full pipeline (LOD tiers, impostors, wind).
+	# build so specimens run the full pipeline (LOD tiers, wind).
 	if eval_plot != "":
 		_eval_builder = preload("res://eval_plot_builder.gd").new(self)
 		_eval_builder.resolve(eval_plot)
 		# Eval garden = ONLY eval specimens. Drop the real park census so the
 		# specimen comparison isn't confounded by background park trees (user
-		# 2026-06-21: a dark background park tree was misread as an impostor
+		# 2026-06-21: a dark background park tree was misread as a distant-LOD
 		# defect on the centred eval london_plane, which actually matched).
 		trees.clear()
 		var _eval_n: int = _eval_builder.inject_trees(trees)
