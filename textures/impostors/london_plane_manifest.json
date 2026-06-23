@@ -7,6 +7,7 @@
 		"frames": 16,
 		"is_full_sphere": false,
 		"normal": "res://textures/impostors/london_plane_l_normal.png",
+		"orm": "res://textures/impostors/london_plane_l_orm.png",
 		"position_offset": [
 			-0.0203511714935303,
 			2.62882661819458,
@@ -24,6 +25,7 @@
 		"frames": 16,
 		"is_full_sphere": false,
 		"normal": "res://textures/impostors/london_plane_m_normal.png",
+		"orm": "res://textures/impostors/london_plane_m_orm.png",
 		"position_offset": [
 			0.0933195352554321,
 			2.68430495262146,
@@ -41,6 +43,7 @@
 		"frames": 16,
 		"is_full_sphere": false,
 		"normal": "res://textures/impostors/london_plane_s_normal.png",
+		"orm": "res://textures/impostors/london_plane_s_orm.png",
 		"position_offset": [
 			0.0351982116699219,
 			2.56653046607971,

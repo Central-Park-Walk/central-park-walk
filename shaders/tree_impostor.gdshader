@@ -23,7 +23,11 @@ uniform float roughness : hint_range(0.0f, 1.0f) = 1.0f;
 uniform sampler2D imposterTextureAlbedo : source_color;
 uniform sampler2D imposterTextureNormal : hint_normal;
 uniform sampler2D imposterTextureDepth : hint_default_white;
-uniform sampler2D imposterTextureOrm : hint_default_white;
+// source_color: the bake viewport sRGB-encodes EMISSION on readback (same as the
+// albedo atlas), so the linear AO/roughness the leaf shader emitted is stored sRGB.
+// Decoding it here recovers the linear AO the mesh actually applies (~0.42), not the
+// sRGB-inflated 0.71 a linear sampler would read (which would under-darken).
+uniform sampler2D imposterTextureOrm : source_color, hint_default_white;
 
 uniform vec2 imposterFrames = vec2(16.0f, 16.0f);
 uniform vec3 positionOffset = vec3(0.0f);
@@ -285,4 +289,12 @@ void fragment() {
 	METALLIC = ormTex.b * metallic;
 	SPECULAR = specular;
 	ROUGHNESS = ormTex.g * roughness;
+
+	// Crown-interior ambient occlusion, baked into the ORM red channel
+	// (bake_impostors.gd, bake_mode 3). Applied ambient-only — exactly as the
+	// mesh leaf shader does (AO_LIGHT_AFFECT = 0) — so the far tier stops reading
+	// ~1.5x too bright vs lod0/lod1 without dimming the direct-sun side. Defaults
+	// to 1.0 (no occlusion) when no ORM atlas is bound (hint_default_white).
+	AO = ormTex.r;
+	AO_LIGHT_AFFECT = 0.0;
 }

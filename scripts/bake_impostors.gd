@@ -91,7 +91,7 @@ func bake_tier(tier_key: String, meshes: Array, world_height: float) -> Dictiona
 	var saved := _push_bake_globals()
 
 	var atlases := {}
-	for ch in [["albedo", 1], ["normal", 2]]:
+	for ch in [["albedo", 1], ["normal", 2], ["orm", 3]]:
 		_set_bake_mode(meshes, int(ch[1]))
 		var atlas := Image.create(ATLAS_RES, ATLAS_RES, false, Image.FORMAT_RGBA8)
 		atlas.fill(Color(0, 0, 0, 0))
@@ -125,6 +125,7 @@ func bake_tier(tier_key: String, meshes: Array, world_height: float) -> Dictiona
 		"position_offset": [center.x, center.y, center.z],
 		"world_height": world_height, "diag": diag,
 		"albedo": atlases.get("albedo", ""), "normal": atlases.get("normal", ""),
+		"orm": atlases.get("orm", ""),
 	}
 
 func _combined_aabb(meshes: Array) -> AABB:

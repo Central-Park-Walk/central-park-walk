@@ -1415,8 +1415,25 @@ func _build_impostor_assets() -> void:
 
 			var mat := ShaderMaterial.new()
 			mat.shader = imp_shader
+			# Far-tier brightness/hue calibration (the impostor analog of the leaf
+			# shader's tier_brightness). After folding dapple + ambient-only AO into
+			# the bake, the runtime-lit impostor's residual vs lod0/lod1 is SUN-ANGLE
+			# dependent (diffuse_burley relight vs the leaf shader's top-lit/fresnel
+			# response): measured imp/mesh ~1.20x at noon but ~0.95x at 18h, since the
+			# ambient-only AO does more work when ambient dominates (evening). So this
+			# is a GENTLE, near-neutral knockdown that balances the day rather than a
+			# noon-tuned tint (which crashed 18h to 0.79x — too dark). Slight cool bias
+			# (B highest) emulates the mesh's underside sky-fill the impostor lacks.
+			# Lands ~1.12x noon / ~0.89x 18h (scripts/tier_handoff_check.sh, lp mode).
+			mat.set_shader_parameter("albedo", Color(0.93, 0.94, 0.96))
 			mat.set_shader_parameter("imposterTextureAlbedo", load(alb_path))
 			mat.set_shader_parameter("imposterTextureNormal", load(nrm_path))
+			# ORM atlas (R = crown-interior AO, applied ambient-only by the shader so
+			# the far tier isn't ~1.5x too bright). Optional — pre-AO bakes omit it,
+			# and the shader's hint_default_white falls back to AO=1 (no occlusion).
+			var orm_path: String = meta.get("orm", "")
+			if orm_path != "" and ResourceLoader.exists(orm_path):
+				mat.set_shader_parameter("imposterTextureOrm", load(orm_path))
 			mat.set_shader_parameter("imposterFrames", Vector2(meta.get("frames", 16), meta.get("frames", 16)))
 			mat.set_shader_parameter("isFullSphere", meta.get("is_full_sphere", false))
 			mat.set_shader_parameter("scale", scale_v)

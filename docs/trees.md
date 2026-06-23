@@ -69,7 +69,7 @@ renders one mesh tier across the full range (60 m handoff DoD);
 > runtime** from a normal atlas, so the fudge is gone.
 
 **Parameters (research-grounded):** 16×16 hemisphere views, 2048² atlas, albedo +
-camera-space normal channels (depth/ORM default to neutral; parallax off for v1).
+camera-space normal + ORM channels (depth default neutral; parallax off for v1).
 These replace the old spec's 8×8 (under-sampled).
 
 **Bake — `scripts/bake_impostors.gd` (run via `--bake-impostors[=species]`):**
@@ -84,10 +84,14 @@ These replace the old spec's 8×8 (under-sampled).
   london_plane `INSTANCE_CUSTOM` (`Color(9/13, .5, 0, .5)`) so the leaf shader
   picks the right species colour; globals forced to summer / no-wind / no-snow.
 - `bake_mode` uniform (`tree_leaf`/`tree_bark`): when set, the fragment emits ONE
-  channel UNSHADED via EMISSION with the identical discard — `1` = albedo
-  (captured *before* the top-lit/dapple/fresnel directional fakes; runtime
-  lighting supplies directionality), `2` = camera-space normal packed 0.5+0.5.
-- Writes `textures/impostors/<species>_<tier>_{albedo,normal}.png` + a
+  channel UNSHADED via EMISSION with the identical discard — `1` = albedo (leaf
+  colour with the **dapple self-shadow folded in** but before the top-lit/fresnel
+  directional fakes; runtime lighting supplies directionality), `2` = camera-space
+  normal packed 0.5+0.5, `3` = ORM (**R = crown-interior AO**, G = roughness,
+  B = metallic). The AO and dapple are the two darkening terms the live canopy
+  applies that a naive albedo bake omits — leaving them out made the far tier read
+  **1.56× too bright** vs lod0/lod1 (measured 2026-06-23, noon, Bethesda handoff).
+- Writes `textures/impostors/<species>_<tier>_{albedo,normal,orm}.png` + a
   `<species>_manifest.json` (frames, `scale`, `aabb_max`, **`position_offset` =
   +AABB-centre** so the billboard sits at canopy height — the sign that, inverted,
   buried the whole far tier in the old system).
@@ -97,8 +101,16 @@ These replace the old spec's 8×8 (under-sampled).
 **Runtime — `shaders/tree_impostor.gdshader`:** adapts the addon `ImpostorShader`
 (octahedral 3-nearest-frame blend + virtual-plane parallax). Drops
 `impostor_brightness`; `ALBEDO = atlas` and Godot lights it via the normal atlas +
-`diffuse_burley` (roughness 1, specular 0.1). Adds `lod_fade_in` dither so it
-crossfades into `_lod1` over the same band the mesh tier dithers out.
+`diffuse_burley` (roughness 1, specular 0.1). The ORM atlas is sampled
+`source_color` (the bake viewport sRGB-encodes EMISSION on readback, like the
+albedo atlas) and its **R drives `AO` with `AO_LIGHT_AFFECT = 0`** — ambient-only,
+exactly as the mesh leaf shader, so the far tier darkens by canopy occlusion across
+all sun angles instead of reading ~1.5× too bright. A residual sun-angle-dependent
+gap (diffuse_burley vs the leaf shader's directional response: ~1.20× at noon but
+~0.95× at 18h) is closed by a gentle near-neutral `albedo` calibration tint
+`(0.93,0.94,0.96)` in `_build_impostor_assets` (the far-tier analog of the leaf
+shader's `tier_brightness`). Adds `lod_fade_in` dither so it crossfades into `_lod1`
+over the same band the mesh tier dithers out.
 
 **Integration — `tree_builder.gd`:** `_build_impostor_assets()` builds one billboard
 QuadMesh + material per baked tier (params from the manifest, `lod_fade_in` band
@@ -111,14 +123,21 @@ renders the tier pure from 0 m for comparison.
 1. `--tier-isolate=impostor`: billboards render at canopy height (not buried),
    correct london_plane silhouette from all angles incl. top-down, with runtime
    directional lighting (sunlit tops, shaded undersides). **PASS.**
-2. Normal mode: near mesh trees and the far impostor tree line share tone with no
-   visible step at the ~200 m handoff. **PASS.**
-3. Time-of-day consistency at 8:00 / 12:00 / 17:00 (same pose): impostors track the
-   sun with the mesh tiers — no double-lit darkness, no flat washout. The bug class
-   the old spec fought is gone. **PASS (visual).**
+2. Normal mode: a london_plane clump crosses the impostor↔`_lod1` handoff
+   continuously on a clean Great-Lawn approach (snapshot bot, `--shots`) — no
+   pop/vanish. Code confirms why: complementary per-tree dither + overlapping
+   mesh/impostor MMI visibility ranges = no geometric cull gap. **PASS.**
+3. **Quantitative brightness (`scripts/tier_handoff_check.sh`, Bethesda 240 m):** the
+   pre-AO bake read the impostor **1.56× brighter** than lod0/lod1 (the earlier
+   "shares tone — PASS" was a visual miss; measure, don't eyeball). Folding dapple +
+   ambient-only AO + the calibration tint lands **1.10× at noon / 0.86× at 18h**
+   (balanced, leaning slightly dark). **PASS (brightness).** Residual: evening hue
+   skews warm (B≈0.75 — impostor lacks the mesh's underside sky-fill); a flat tint
+   can't track it without skewing noon. Open.
 4. perf_gate at the 5 locations — **TODO** (the tier adds a transparent-quad pass).
-5. Pixel-sample |ΔRGB| < 0.05 at the handoff — **TODO** (visual parity confirmed;
-   quantitative pass not yet run).
+5. Pixel-sample mean|ΔRGB| < 0.05 at the handoff — still ~0.12, but inflated by the
+   header's backdrop-bleed caveat + soft-card-vs-crisp-leaf silhouette edges; the
+   luma ratio (item 3) is the actionable brightness metric and now matches. **Open.**
 
 **Scope:** london_plane (s/m/l) only — the one species rebuilt to the new skeleton
 method. Other species render mesh-only past `_lod1` until their rebuilds land, then

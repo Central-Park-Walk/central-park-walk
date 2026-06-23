@@ -38,11 +38,13 @@ uniform float tier_brightness : hint_range(0.4, 1.5) = 1.0;
 // IMPOSTOR BAKE MODE (scripts/bake_impostors.gd). 0 = normal render. When set,
 // the fragment outputs one octahedral-atlas channel UNSHADED via EMISSION so the
 // runtime-lit impostor (shaders/tree_impostor.gdshader) re-lights it at distance —
-// NOT a baked-lit atlas (the double-lit bug class). 1 = albedo (pure leaf colour,
-// BEFORE the top-lit/dapple/fresnel directional fakes — runtime normal lighting
-// supplies directionality); 2 = camera-space normal (0.5+0.5 packed); 3 = depth is
-// handled by the baker's postprocess plane, not here. Discard/coverage is the SAME
-// code path as a normal render so the atlas alpha matches the mesh silhouette.
+// NOT a baked-lit atlas (the double-lit bug class). 1 = albedo (leaf colour with
+// the dapple self-shadow folded in, but BEFORE the top-lit/fresnel directional fakes
+// — runtime normal lighting supplies directionality); 2 = camera-space normal
+// (0.5+0.5 packed); 3 = ORM (R = crown-interior AO re-applied ambient-only by the
+// impostor so the far tier isn't ~1.5x too bright, G = roughness, B = metallic).
+// Discard/coverage is the SAME code path as a normal render so the atlas alpha
+// matches the mesh silhouette.
 uniform int bake_mode = 0;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
@@ -427,7 +429,8 @@ void fragment() {
 	// full calibrated sky ambient and distant canopy reads ~2.5× too
 	// bright (ambient owned ~70% of the excess by measurement).
 	// AO_LIGHT_AFFECT stays 0: direct sun and SSS untouched.
-	AO = mix(canopy_ao.x, canopy_ao.z, pow(v_crown_rho, canopy_ao.y));
+	float canopy_occ = mix(canopy_ao.x, canopy_ao.z, pow(v_crown_rho, canopy_ao.y));
+	AO = canopy_occ;
 	AO_LIGHT_AFFECT = 0.0;
 
 	// Rain: wet leaves darken and get glossier (water film on surface)
@@ -473,11 +476,24 @@ void fragment() {
 	// Emit ONE octahedral-atlas channel unshaded so the runtime-lit impostor
 	// re-lights it. Placed last so it cleanly supersedes the lit-render outputs.
 	if (bake_mode == 1) {            // albedo
-		EMISSION = bake_albedo;
+		// Fold the dapple canopy self-shadow (an ALBEDO multiply on the mesh,
+		// line ~366) into the baked albedo so the far impostor carries the same
+		// large-scale mottling. The crown-interior AO is NOT folded here — it is
+		// ambient-only on the mesh, so it rides the ORM atlas (bake_mode 3) and is
+		// re-applied ambient-only by the impostor shader (matches all sun angles).
+		EMISSION = bake_albedo * mix(0.72, 1.12, dapple);
 		ALBEDO = vec3(0.0); ROUGHNESS = 1.0; SPECULAR = 0.0;
 		METALLIC = 0.0; BACKLIGHT = vec3(0.0); AO = 1.0;
 	} else if (bake_mode == 2) {     // camera-space normal, packed [0,1]
 		EMISSION = NORMAL * 0.5 + 0.5;
+		ALBEDO = vec3(0.0); ROUGHNESS = 1.0; SPECULAR = 0.0;
+		METALLIC = 0.0; BACKLIGHT = vec3(0.0); AO = 1.0;
+	} else if (bake_mode == 3) {     // ORM: R=crown-interior occlusion, G=rough(matte), B=metallic
+		// Ambient-only AO for the impostor, identical to the mesh's AO channel
+		// (the dominant "impostor too bright" term — crown interior reads ~0.12,
+		// outer shell ~0.55 of sky ambient). Roughness kept 1.0 (matte foliage,
+		// as the prior white-ORM default); metallic 0.
+		EMISSION = vec3(canopy_occ, 1.0, 0.0);
 		ALBEDO = vec3(0.0); ROUGHNESS = 1.0; SPECULAR = 0.0;
 		METALLIC = 0.0; BACKLIGHT = vec3(0.0); AO = 1.0;
 	}
