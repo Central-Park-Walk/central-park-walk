@@ -79,7 +79,8 @@ Claude cannot measure a physical leaf, and arbitrary web photos carry no scale. 
 ## Phase 2 — Build the archetype leaf library
 
 > **Superseded representation (see top banner):** an archetype's leaf is a **real-photo
-> cluster card** (e.g. a 4-leaf twig sprig cut to RGBA), not a parametric base *mesh*.
+> cluster card** (a 2–4-leaf twig sprig — leaves + stems + a joining twig — cut to RGBA;
+> hard law 2), not a parametric base *mesh*.
 > The parametric-mesh framing below is retained for the *attach/placement contract* it
 > defines (still load-bearing), but item 1 ("parametric base mesh") is replaced by "a
 > real-photo cluster-card texture per leaf-type, with seasonal variants".
@@ -118,7 +119,10 @@ One species per session, in roster tier order. The loop:
 3. **Build the leaf.** Tweak the archetype to the species. Honor the attach contract — no exceptions.
 4. **Self-critique the leaf against reference.** Render side-by-side with the dossier imagery at matched orientation. Check silhouette, proportion (L:W, lobe depth ratio), margin read at near distance, venation only where it reads, and color across every seasonal state. Iterate until it cannot be improved further. Record what was hard.
 5. **▣ GATE 1 — Chris reviews the leaf.** Stop. Present the leaf and the side-by-side. Do not put it on a tree until Chris approves. Address feedback, re-present if needed.
-6. **Assemble the tree** and build the LOD chain to spec (table below).
+6. **Assemble the tree** and build the LOD chain to spec (table below). Skeleton = trunk +
+   primary + secondary only (no tertiary; hard law 4). **After every Blender regen, run
+   `godot --headless --import` and delete the cached `cache/trees/<species>_*.res` + `.cfg`
+   before viewing — a stale cache silently serves the old model (hard law 8).**
 7. **Place in the eval area and self-critique the tree.** Verify at gameplay distances, instanced at density, across LOD0 → LOD1 → impostor transitions, under AgX, day and night, on the real terrain. A clean LOD swap (no popping, silhouette and color hold across the transition) is part of the bar. Iterate until satisfied.
 8. **▣ GATE 2 — Chris reviews the tree in the eval area.** Stop. Do not start the next species until Chris approves.
 9. **Record lessons-learned** and, if a systematic improvement emerged, fold it back into the archetype or the skill (see below).
@@ -184,3 +188,15 @@ Only then does the next species begin.
 
 - **Best tool over improvisation.** Use the best tool available rather than hand-rolling a worse version; if a good tool exists but we don't have it, get it. "No need to bite through the tough parts when we have saws and knives scattered around." (Originally cited as the reason to use Mtree's `LeafShapeGenerator` over a hand-rolled PIL outline — **but that path was later rejected too**: leaves are now real-photo cluster cards, see top banner. The principle stands; the example is stale.)
 - **Every species starts with its dossier, then a blindspot audit.** Before any geometry, write the dossier (Phase 1) and then explicitly examine it for **blindspots, incomplete data, and contradictions**. The firmer the data foundation, the lower the chance of building the wrong thing. Flagged gaps are resolved (more research) before modeling begins.
+
+## Hard build laws (Chris, 2026-06-22) — see `docs/tree_skeleton_plan.md` §1b
+
+Absolute, every model. Reproduced here as a pointer; the canonical text is §1b.
+1. Leaf card first (Gate 1), then sculpt the small (`_s`) model first; `_m`/`_l` derive from it.
+2. Leaf card = a real twig sprig of **2–4 leaves + stems + a joining twig** — never a bare leaf.
+3. Branch diameter floor **≥ 0.05** on every skeleton (`min_twig_diameter`).
+4. Skeleton orders = **trunk + primary + secondary only — no tertiary** (`cap_skeleton_depth` max_depth = 2); the card's twig is the visual tertiary.
+5. Card twigs attach to the branches in **real-data patterns** (tip-concentrated vs along-branch, per species).
+6. **Trunk apex never bare** unless the data says a bare apex is a real feature.
+7. **Every leaf connects to the trunk through branches** (`check_foliage_connectivity.py`) unless the data says otherwise.
+8. **Clear the tree cache + reimport after every Blender redesign** (a stale cache serves the old model).

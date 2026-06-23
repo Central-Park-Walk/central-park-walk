@@ -31,6 +31,44 @@ and keep its phenology + bark. The london plane fold is a one-line change.
 
 ---
 
+## 1b. Hard build laws (Chris, 2026-06-22) — non-negotiable, apply to EVERY model
+
+Absolute. Where **any** older guidance conflicts — including the §4 checklist below, the
+dated lessons in `docs/tree-pipeline-lessons.md`, or the london plane build that predates
+these — **these win.**
+
+1. **Build order: leaf card first, then the small model.** Perfect the leaf card and clear
+   Gate 1 before any skeleton exists. Then sculpt the `_s` (small) model first; `_m`/`_l`
+   derive from it. No skeleton work begins on an unapproved leaf.
+2. **Leaf card = a real twig sprig: 2–4 leaves + their stems + a joining twig.** Never a
+   bare single leaf, never leaves without a twig. The card's twig **is** the terminal
+   ramification (see law 4).
+3. **Branch diameter floor ≥ 0.05** on every skeleton (`min_twig_diameter`). No twig thinner
+   than the floor — a sub-floor twig reads as a floating clump even when graph-connected.
+   *Reconcile the existing per-tier table up to this floor* — `MIN_TWIG_DIAMETER` s 2.2 cm /
+   m 3.2 cm currently sit below the l-tier's 5 cm (= 0.05) and must rise to meet it. (Confirm
+   the unit matches the generator's `min_twig_diameter` convention when implementing.)
+4. **Skeleton branch orders = trunk + primary + secondary ONLY. No tertiary or beyond.**
+   Cap ramification at secondary: `cap_skeleton_depth()` `max_depth = 2` (was 4); prune every
+   mesh vert with `hierarchy_depth > 2`. The leaf-card twig supplies the *visual* tertiary, so
+   skeleton geometry past secondary is redundant and pokes out bare past the cards. Crown
+   density therefore comes from **more secondaries + cards distributed along them**, not from
+   deeper forks. (This supersedes the `_l = max_depth 4` / `depth_keep{1,2,3}` rule.)
+5. **Leaf-card twigs attach directly to the primary/secondary branches, in patterns
+   consistent with real-world data** — concentrated toward branch tips for tip-bearing
+   species (plane, cherry, birch); spread along the branch for along-branch species
+   (oak, elm). The per-species pattern is data-driven, never uniform.
+6. **The trunk apex must not be left bare** — clad the growing apex (apex-band force-keep) —
+   **unless the species data says a bare/exposed apex is a real feature** of that tree.
+7. **Every leaf must connect to the trunk through branches** (the coherence law; validate with
+   `check_foliage_connectivity.py`) — **unless the data says otherwise** for that species.
+8. **Clear the tree cache + reimport after EVERY Blender redesign.** After any GLB regen:
+   run `godot --headless --import`, then delete the cached `cache/trees/<species>_*.res` +
+   `.cfg`, before any walk/eval. A stale `.scn`/`.res` silently serves the OLD model — this
+   has cost whole sessions of "my change did nothing".
+
+---
+
 ## 2. The roster — nine skeletons, all full rebuilds
 
 Every current model predates the london plane method, so **all nine are ground-up
@@ -42,7 +80,7 @@ rebuilds, not retentions** — they must each satisfy the rebuild checklist in �
 | 1 | **broad_dome** (oak) | 5,664 | **along-branch** for oak/linden; tip-biased for london_plane guest | `_s` structural, `_m`/`_l` cards | oak (furrowed bark, russet) · london_plane (exfoliating camo bark, drab yellow-brown) · linden (dense, yellow) · **generic deciduous** (neutral, heavy per-instance jitter) |
 | 2 | **rounded_oval** (maple) | 1,538 | intermediate (tip-clustered + along-branch) | `_s` struct, `_m`/`_l` cards | maple (U-sinus leaf, vivid red/orange) · sweetgum (star leaf, crimson) · ginkgo (fan leaf, gold) |
 | 3 | **small_ornamental** (cherry) | 1,327 | tip-biased | `_s` struct, `_m`/`_l` cards | cherry (pink bloom) · callery_pear (white bloom, dense teardrop) · magnolia (pink saucer, large leaf) |
-| 4 | **vase** (elm / cathedral) | 883 | **along full branchlet** | `_s` struct, `_m`/`_l` cards | elm / zelkova / hackberry / hornbeam — yellow fall, muscular bark |
+| 4 | **vase** (elm) | 883 | **along full branchlet** | `_s` struct, `_m`/`_l` cards, **`_xl` = cathedral elm** | elm / zelkova / hackberry / hornbeam — yellow fall, muscular bark. cathedral_elm folds in as the **XL size tier of elm** (see fold note) |
 | 5 | **open_compound** (honeylocust) | 166 | along-branch, sparse | compound cluster card | airy see-through, dappled, yellow fall — hosts pagoda, locust, ash, coffeetree, goldenrain |
 | 6 | **slender** (birch) | 136 | tip-biased | `_s` struct, `_m`/`_l` cards | white-bark param; multi-stem / clump flag; poplar guest |
 | 7 | **conifer_spire** | 129 | needle sheath (own path) | needle cards | **near ground-up** — replaces the lumped junk conifer; spruce/fir/young-pine/baldcypress/dawn-redwood |
@@ -61,6 +99,14 @@ weeping 9; the folds below are already counted in their host's total).
 - `ginkgo` → **rounded_oval** (fan cutout, gold fall) — caveat: young ginkgos are columnar;
   first Tier-2 promotion if that reads wrong
 - generic `deciduous` → **broad_dome** (neutral tint + heavy jitter; no own model)
+- `cathedral_elm` → **elm as an `_xl` size tier**, not a separate model (Chris, 2026-06-22).
+  *Why (record it, per "understand why later"):* the Mall / Literary Walk "cathedral elms"
+  are American elms historically given a wide, high-arching vase — that's the **same vase
+  skeleton at XL scale + age**, not a different silhouette. Fold = add an `_xl` tier to the
+  elm rebuild, repoint `ARCHETYPE_MODEL["cathedral_elm"] → "elm"` (currently its own model),
+  and have `CATHEDRAL_ELM_ZONE` (tree_builder.gd) force the `_xl` tier for the Mall rows.
+  Phenology already shares elm (index 2). Do the code repoint during the elm rebuild, not
+  before (no elm `_xl` model exists yet).
 
 ---
 
@@ -84,24 +130,29 @@ and `bark_set` are existing dictionaries; the rest are cheap per-species data.
 
 Condensed from `docs/tree-pipeline-lessons.md` (read it for the detail + the wrong-diagnosis
 war stories). Each item is a thing the *pre-london-plane* models get wrong.
+**The Hard build laws (§1b) are absolute and override any item here.**
 
 **Skeleton (Mtree levers)**
 - [ ] `crown_base_size` set (default 0.0 is a narrow-cone clamp → poles/plumes)
 - [ ] `trunk_randomness` low (~0.18) for a clean stout bole, not an S-curve lean
 - [ ] `branch_end` high (~0.94–0.97) so branches reach + round the apex and clad the bare leader
-- [ ] ramification capped ~tertiary — `sub_split_prob` for short tiers, `cap_skeleton_depth()` for long-limbed `_l` (the card sprig *is* the terminal twig; deeper filaments are redundant + poke bare). Halves GLB size.
+- [ ] ramification capped at **secondary** (law 4): orders = trunk + primary + secondary only, `cap_skeleton_depth()` `max_depth = 2`. The card twig is the terminal ramification; deeper forks are redundant + poke bare. Density = more secondaries, not deeper forks.
 - [ ] per-tier `variant_spans` (age differentiation) — they outrank `skeleton_overrides`; without them the mature spans clobber `_s`/`_m`
 
 **Foliage placement**
 - [ ] continuous sheath on real branch verts — no scattered blobs / box-fill / floaters
 - [ ] coherence law: unbroken trunk→branch→leaf line for every leaf; validate with `check_foliage_connectivity.py`
-- [ ] min-twig-diameter floor, self-reporting (thin twig reads as a floating clump even when connected)
+- [ ] min-twig-diameter floor **≥ 0.05** (law 3), self-reporting (thin twig reads as a floating clump even when connected)
 - [ ] placement by branch order (`hierarchy_depth`), with the **per-species gate** from §2 (oak/elm along-branch; plane/cherry/birch tip-biased; maple intermediate)
 - [ ] apex-band force-keep (top ~18% leafy regardless of order) to kill the bare-leader spike
 
 **Leaf representation**
 - [ ] `_m`/`_l` = real-photo cluster cards; `_s` = structural 3D leaves (small crown can afford them)
-- [ ] the card is a 4-leaf twig sprig sitting at the tip
+  — **[OPEN, flag 2026-06-22: laws 1–2 are card-centric ("perfect the leaf cards, then sculpt
+  the small model"), which reads as `_s` wearing cards too. But `tree-pipeline-lessons` §0aaa
+  made `_s` structural *because cards go see-through on a small crown*. Confirm with Chris
+  whether the 2–4-leaf sprig card now also clothes `_s`, or `_s` keeps the structural hybrid.]**
+- [ ] the card is a 2–4-leaf twig sprig (leaves + stems + joining twig) sitting at the tip (law 2)
 - [ ] rebuild the `_leaf.dds` after any card change (runtime prefers the DDS over the GLB-embedded texture)
 
 **LOD / perf**
