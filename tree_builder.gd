@@ -1521,13 +1521,17 @@ func _run_impostor_bake() -> void:
 		# the park now pinned to one variant the impostor must be that same single mesh
 		# so the lod1→impostor handoff matches. -1 keeps the all-variants behaviour.
 		var src_meshes: Array = _species_meshes[src_key]
+		# bake_density: -1 (no drop) for the single-variant bake — the crown is ONE
+		# variant, not 7 superimposed, so the default 90%-drop would empty it.
+		var card_keep: float = baker_script.BAKE_DENSITY
 		if sp == "london_plane" and LP_SINGLE_VARIANT >= 0:
 			var vi: int = clampi(LP_SINGLE_VARIANT, 0, src_meshes.size() - 1)
 			src_meshes = [src_meshes[vi]]
-			print("Impostor bake: %s from %s variant v%d (single, %d surfaces)…" % [key, src_key, vi, src_meshes[0].get_surface_count()])
+			card_keep = -1.0
+			print("Impostor bake: %s from %s variant v%d (single, no card-drop, %d surfaces)…" % [key, src_key, vi, src_meshes[0].get_surface_count()])
 		else:
 			print("Impostor bake: %s from %s (%d meshes)…" % [key, src_key, src_meshes.size()])
-		var meta: Dictionary = await baker.bake_tier(key, src_meshes, _species_heights.get(key, 0.0))
+		var meta: Dictionary = await baker.bake_tier(key, src_meshes, _species_heights.get(key, 0.0), card_keep)
 		manifest[key] = meta
 	var mpath: String = baker_script.OUT_DIR + "%s_manifest.json" % sp
 	var f := FileAccess.open(mpath, FileAccess.WRITE)

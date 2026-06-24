@@ -44,7 +44,11 @@ func _init(loader) -> void:
 	_loader = loader
 
 # Bake one species-size tier. Returns a metadata dict for the manifest.
-func bake_tier(tier_key: String, meshes: Array, world_height: float) -> Dictionary:
+# card_keep overrides BAKE_DENSITY per call: the default thins a SUPERIMPOSED
+# all-variants crown, but a SINGLE-variant bake has no superposition to undo, so
+# the caller passes -1 (no drop) there — else the 90%-drop empties the crown to a
+# near-invisible 2-6% atlas (the cpw_000 decimated/invisible impostors, 2026-06-24).
+func bake_tier(tier_key: String, meshes: Array, world_height: float, card_keep: float = BAKE_DENSITY) -> Dictionary:
 	var aabb := _combined_aabb(meshes)
 	var center := aabb.get_center()
 	var diag: float = aabb.size.length()
@@ -108,9 +112,9 @@ func bake_tier(tier_key: String, meshes: Array, world_height: float) -> Dictiona
 				var sm := mt as ShaderMaterial
 				var is_leaf: bool = sm.shader != null and "leaf" in sm.shader.resource_path
 				if is_leaf:
-					sm.set_shader_parameter("bake_density", BAKE_DENSITY)
+					sm.set_shader_parameter("bake_density", card_keep)
 					_set_n += 1
-	print("  bake_density=%.2f applied to %d leaf surfaces" % [BAKE_DENSITY, _set_n])
+	print("  bake_density=%.2f applied to %d leaf surfaces" % [card_keep, _set_n])
 
 	var atlases := {}
 	for ch in [["albedo", 1], ["normal", 2], ["orm", 3]]:
