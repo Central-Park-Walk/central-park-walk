@@ -1,55 +1,55 @@
 {
 	"london_plane_l": {
-		"aabb_max": 2.0684757232666,
+		"aabb_max": 1.89586532115936,
 		"albedo": "res://textures/impostors/london_plane_l_albedo.png",
 		"atlas_res": 2048,
-		"diag": 8.27390289306641,
+		"diag": 7.58346128463745,
 		"frames": 16,
 		"is_full_sphere": false,
 		"normal": "res://textures/impostors/london_plane_l_normal.png",
 		"orm": "res://textures/impostors/london_plane_l_orm.png",
 		"position_offset": [
-			-0.0203511714935303,
-			2.62879180908203,
-			0.190823554992676
+			0.00219547748565674,
+			2.62880992889404,
+			-0.115912675857544
 		],
-		"scale": 4.1369514465332,
+		"scale": 3.79173064231873,
 		"tier": "london_plane_l",
 		"world_height": 5.257653
 	},
 	"london_plane_m": {
-		"aabb_max": 1.90847742557526,
+		"aabb_max": 1.77670466899872,
 		"albedo": "res://textures/impostors/london_plane_m_albedo.png",
 		"atlas_res": 2048,
-		"diag": 7.63390970230103,
+		"diag": 7.10681867599487,
 		"frames": 16,
 		"is_full_sphere": false,
 		"normal": "res://textures/impostors/london_plane_m_normal.png",
 		"orm": "res://textures/impostors/london_plane_m_orm.png",
 		"position_offset": [
-			0.0933195352554321,
-			2.68429493904114,
-			0.0269461870193481
+			0.0372706651687622,
+			2.61737275123596,
+			0.0364784002304077
 		],
-		"scale": 3.81695485115051,
+		"scale": 3.55340933799744,
 		"tier": "london_plane_m",
 		"world_height": 5.36861
 	},
 	"london_plane_s": {
-		"aabb_max": 2.23485231399536,
+		"aabb_max": 2.01079988479614,
 		"albedo": "res://textures/impostors/london_plane_s_albedo.png",
 		"atlas_res": 2048,
-		"diag": 8.93940925598145,
+		"diag": 8.04319953918457,
 		"frames": 16,
 		"is_full_sphere": false,
 		"normal": "res://textures/impostors/london_plane_s_normal.png",
 		"orm": "res://textures/impostors/london_plane_s_orm.png",
 		"position_offset": [
-			0.0351982116699219,
-			2.56653046607971,
-			0.160033464431763
+			-0.00845575332641602,
+			2.45297026634216,
+			-0.0214357376098633
 		],
-		"scale": 4.46970462799072,
+		"scale": 4.02159976959229,
 		"tier": "london_plane_s",
 		"world_height": 5.133061
 	}

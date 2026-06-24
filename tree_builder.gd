@@ -131,6 +131,14 @@ var _leaf_no_prepass: bool = false
 # variants. Keeps each tree's real height (so s/m/l tiers still vary) and
 # suppresses the cathedral-elm and dead-snag reassignments.
 var _all_london_plane: bool = false
+# TEST ROUND 2026-06-24 (user): when --all-london-plane forces the whole park to
+# london_plane, also pin every tree — and the impostor bake — to a SINGLE variant
+# per size tier instead of the per-tree hash spread, so the assessment walk sees
+# exactly one chosen specimen everywhere. v3 = the strongest specimen in each tier
+# (_s/_m/_l) from the variant-grid review. -1 disables the pin (full 7-variant
+# spread). The bake at _run_impostor_bake sources the SAME index so lod0/_lod1/
+# impostor are all the one variant.
+const LP_SINGLE_VARIANT := 3
 var _noprepass_shader: Shader = null
 
 # Desired height ranges per species archetype (metres)
@@ -707,6 +715,11 @@ func _build_trees(trees: Array) -> void:
 			continue
 
 		var variant_idx: int = int(abs(hash("%s|%.1f|%.1f" % [species_tier, tx, tz]))) % n_variants  # PER-TREE variant (local diversity, user 2026-06-22; was per-80m-cell which tiled). Position-derived → identical across lod0/lod1 (no handoff pop). COST: ~3x tree MMIs (mixed variants per chunk) — frame is fragment-bound (trees.md §4a) so likely cheap, but PERF-GATE before commit.
+		# TEST ROUND: pin to ONE london_plane variant when --all-london-plane (see
+		# LP_SINGLE_VARIANT). vi flows into the bucket key, so lod0 AND _lod1 both pick
+		# this index (near_mesh/mid_mesh share vi at chunk-build time).
+		if _all_london_plane and species == "london_plane" and LP_SINGLE_VARIANT >= 0:
+			variant_idx = clampi(LP_SINGLE_VARIANT, 0, n_variants - 1)
 		# Eval-only: a specimen may force a specific variant (eval_plot_builder
 		# VARIANT_ROW — show every lod0 variant side by side). No effect on the park.
 		if is_eval and typeof(tree_entry) == TYPE_DICTIONARY and tree_entry.has("variant"):
@@ -1502,8 +1515,19 @@ func _run_impostor_bake() -> void:
 		# runtime impostor loader is unaffected; only the SOURCE mesh changes.
 		var lod1_key: String = key + "_lod1"
 		var src_key: String = lod1_key if _species_meshes.has(lod1_key) else key
-		print("Impostor bake: %s from %s (%d surfaces)…" % [key, src_key, _species_meshes[src_key].size()])
-		var meta: Dictionary = await baker.bake_tier(key, _species_meshes[src_key], _species_heights.get(key, 0.0))
+		# TEST ROUND: bake from the ONE pinned variant (LP_SINGLE_VARIANT), not all
+		# variants stacked at the origin. The old all-variants bake superimposed every
+		# variant crown → a denser/fuller silhouette than any single placed tree; with
+		# the park now pinned to one variant the impostor must be that same single mesh
+		# so the lod1→impostor handoff matches. -1 keeps the all-variants behaviour.
+		var src_meshes: Array = _species_meshes[src_key]
+		if sp == "london_plane" and LP_SINGLE_VARIANT >= 0:
+			var vi: int = clampi(LP_SINGLE_VARIANT, 0, src_meshes.size() - 1)
+			src_meshes = [src_meshes[vi]]
+			print("Impostor bake: %s from %s variant v%d (single, %d surfaces)…" % [key, src_key, vi, src_meshes[0].get_surface_count()])
+		else:
+			print("Impostor bake: %s from %s (%d meshes)…" % [key, src_key, src_meshes.size()])
+		var meta: Dictionary = await baker.bake_tier(key, src_meshes, _species_heights.get(key, 0.0))
 		manifest[key] = meta
 	var mpath: String = baker_script.OUT_DIR + "%s_manifest.json" % sp
 	var f := FileAccess.open(mpath, FileAccess.WRITE)
