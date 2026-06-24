@@ -1451,7 +1451,19 @@ func _build_impostor_assets() -> void:
 			mat.set_shader_parameter("imposterFrames", Vector2(meta.get("frames", 16), meta.get("frames", 16)))
 			mat.set_shader_parameter("isFullSphere", meta.get("is_full_sphere", false))
 			mat.set_shader_parameter("scale", scale_v)
-			mat.set_shader_parameter("aabb_max", meta.get("aabb_max", scale_v * 0.5))
+			# aabb_max = forward depth-push: the shader does
+			# `VERTEX.xyz += pivotToCameraDir * aabb_max`, shoving the billboard
+			# toward the camera by aabb_max * (per-tree instance scale) world-metres.
+			# The addon ships aabb_max = diag/4 (= scale/2), which for a ~22m london
+			# plane is a ~9m push → the card renders at D/(D-9) of true size: +9% at
+			# 110m, +4% at 250m, and worse up close (measured 2026-06-23: impostor
+			# 7-10% TALLER than lod0/lod1 at the eval row, oversize scaling with tree
+			# height = the push fingerprint). The orthographic bake already captures
+			# the true silhouette AT THE PIVOT, so the size-correct push is ZERO — any
+			# forward offset only inflates. Atlases are unaffected (size is a runtime
+			# placement bug, NOT a bake bug — no rebake needed). With 0 the impostor
+			# matches lod0 to within ~2% (residual = off-axis billboard perspective).
+			mat.set_shader_parameter("aabb_max", 0.0)
 			mat.set_shader_parameter("positionOffset", offset)
 			mat.set_shader_parameter("lod_fade_in", Vector2(band_begin, band_end))
 

@@ -119,6 +119,21 @@ per chunk sharing the mesh tiers' transforms/custom-data, `visibility_range_begi
 at the `_lod1` fade-out, out to `IMPOSTOR_FAR` (2500 m). `--tier-isolate=impostor`
 renders the tier pure from 0 m for comparison.
 
+> **`aabb_max` forced to 0 (size fix, 2026-06-23 PM).** The addon ships
+> `aabb_max = diag/4` (= `scale/2`) and the shader does
+> `VERTEX.xyz += pivotToCameraDir * aabb_max` — a forward depth-push toward the
+> camera by `aabb_max × per-tree-scale` world-metres (~9 m for a ~22 m london
+> plane). Under perspective that renders the card at `D/(D−push)` of true size:
+> measured **7–10 % TALLER than lod0/lod1** at the eval row, the oversize scaling
+> with tree height (the push fingerprint — short specimens ~1.00×, tall ~1.10×).
+> The orthographic bake already frames the silhouette AT THE PIVOT, so the
+> size-correct push is **zero**; any forward offset only inflates. `_build_impostor_assets`
+> now sets `aabb_max = 0.0` (atlases unaffected — this was a runtime placement bug,
+> **NOT a bake bug, no rebake**). Post-fix the impostor matches lod0 to within ~2 %
+> (residual = off-axis billboard perspective). Method: `--tier-isolate=lod0|lod1|impostor`
+> from one `--pos` at the eval `=london_plane` row, foliage-silhouette top-edge per
+> x-bin; lod0≡lod1 confirmed lod1 was never the culprit.
+
 **Validation (2026-06-23, london_plane, `--all-london-plane`):**
 1. `--tier-isolate=impostor`: billboards render at canopy height (not buried),
    correct london_plane silhouette from all angles incl. top-down, with runtime
