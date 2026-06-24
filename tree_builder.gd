@@ -1383,7 +1383,12 @@ func _spawn_impostor_chunks(buckets: Dictionary) -> void:
 		immi.multimesh = imm
 		immi.position = chunk_origin
 		immi.name = "TreeImpostor_%s" % ckey.replace("|", "_")
-		var imp_begin: float = eff_mesh_end * (1.0 - LOD_FADE_RATIO) - chunk_r - 5.0
+		# Match the impostor's shader fade-in begin (mesh_begin - fade_w =
+		# eff_mesh_end*(1-2*RATIO)) so the MMI is already rendering when it starts
+		# to dither in under the solid mesh — minus chunk spread so far-side-of-chunk
+		# members (centroid-distance culling vs per-instance shader dither) turn on
+		# in time. This pull-in is what closes the impostor-late-vs-mesh-early gap.
+		var imp_begin: float = eff_mesh_end * (1.0 - 2.0 * LOD_FADE_RATIO) - chunk_r - 5.0
 		if _tier_isolate == "impostor":
 			imp_begin = 0.0
 		immi.visibility_range_begin = maxf(imp_begin, 0.0)
@@ -1430,11 +1435,22 @@ func _build_impostor_assets() -> void:
 			var scale_v: float = meta.get("scale", 1.0)
 			var po: Array = meta.get("position_offset", [0.0, 0.0, 0.0])
 			var offset := Vector3(po[0], po[1], po[2])
-			# Crossfade-in band = where this tier's _lod1 dithers out (height-scaled,
-			# matches the mesh-tier mesh_fade_out at tree_builder placement).
+			# Crossfade-in band. AAA/Godot SOP: the incoming impostor must be FULLY
+			# SOLID *before* the outgoing mesh begins to dither out, so the mesh
+			# dissolves over a solid backdrop (never the sky). Its own dither-in
+			# happens ONE band-width EARLIER, hidden behind the still-solid mesh.
+			# OLD code dithered impostor IN over the SAME band the mesh dithered OUT
+			# ([F0,F1]); the two tiers have mismatched silhouettes (airy leaf-card
+			# mesh vs flat billboard) and the impostor was only ~50% present mid-band,
+			# so the mesh's faded-out pixels (and its own card-gaps) had NO solid
+			# impostor behind them → skyline showed through = the tall-outlier-against-
+			# sky "disappearance band" (GPU-diagnosed 2026-06-24, red-impostor test).
+			# Now: impostor solid by F0 (mesh fade START); mesh fades F0→F1 over it.
 			var lscale: float = _lod_scale(tier)
-			var band_end: float = _mesh_fade_end * lscale
-			var band_begin: float = band_end * (1.0 - LOD_FADE_RATIO)
+			var mesh_begin: float = _mesh_fade_end * lscale * (1.0 - LOD_FADE_RATIO)  # F0: mesh starts fading
+			var fade_w: float = _mesh_fade_end * lscale * LOD_FADE_RATIO              # dither band width
+			var band_end: float = mesh_begin             # impostor reaches FULL where the mesh fade begins
+			var band_begin: float = mesh_begin - fade_w  # ...dithering in one band-width earlier, under the solid mesh
 			# Impostor-only isolate: render solid from 0m, no crossfade dither.
 			if _tier_isolate == "impostor":
 				band_begin = 0.0
@@ -1452,7 +1468,7 @@ func _build_impostor_assets() -> void:
 			# noon-tuned tint (which crashed 18h to 0.79x — too dark). Slight cool bias
 			# (B highest) emulates the mesh's underside sky-fill the impostor lacks.
 			# Lands ~1.12x noon / ~0.89x 18h (scripts/tier_handoff_check.sh, lp mode).
-			mat.set_shader_parameter("albedo", Color(0.93, 0.94, 0.96))
+			mat.set_shader_parameter("albedo", Color(1.0, 0.0, 0.0) if OS.has_environment("IMP_RED") else Color(0.93, 0.94, 0.96))  # TEMP diag: IMP_RED=1 tints impostor red to see tier coverage
 			mat.set_shader_parameter("imposterTextureAlbedo", load(alb_path))
 			mat.set_shader_parameter("imposterTextureNormal", load(nrm_path))
 			# ORM atlas (R = crown-interior AO, applied ambient-only by the shader so
