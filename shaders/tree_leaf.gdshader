@@ -43,9 +43,17 @@ uniform float tier_brightness : hint_range(0.4, 1.5) = 1.0;
 // — runtime normal lighting supplies directionality); 2 = camera-space normal
 // (0.5+0.5 packed); 3 = ORM (R = crown-interior AO re-applied ambient-only by the
 // impostor so the far tier isn't ~1.5x too bright, G = roughness, B = metallic).
-// Discard/coverage is the SAME code path as a normal render so the atlas alpha
-// matches the mesh silhouette.
+// Discard/coverage shares the normal render's code path EXCEPT it can drop a
+// fraction of cluster cards during the bake: a full-density (1.0) crown PROJECTS
+// solid at the bake's resolution (every card front+back covers the interior), so
+// the baked atlas read ~0.64-0.74 filled vs the live mesh's see-through ~0.38-0.58
+// at the handoff distance (the mesh loses small/far cards to sub-pixel rasterisation
+// the high-res bake doesn't) => the impostor was a solid blob, "fuller/bigger than
+// lod1" (measured 2026-06-24). bake_density (0..1) reuses the seasonal per-card drop
+// (v_card_seed) to punch matching card-scale holes so the atlas coverage matches the
+// mesh; -1 = no bake drop (live density).
 uniform int bake_mode = 0;
+uniform float bake_density = -1.0;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/aerial_perspective.gdshaderinc"
@@ -228,7 +236,11 @@ void fragment() {
 	// alpha *= density ghosting that an opaque threshold would cliff on.
 	// First statement so the depth prepass rejects dropped cards cheaply.
 	// 0.96 keeps the winter retention floor (density 0.08 → ~8% of cards).
-	if (v_card_seed * 0.96 > v_leaf_density) {
+	float drop_density = v_leaf_density;
+	// Impostor bake: thin cards to the handoff-distance coverage (a full-density
+	// crown projects solid at bake res; the live mesh is see-through at distance).
+	if (bake_mode > 0 && bake_density >= 0.0) drop_density = bake_density;
+	if (v_card_seed * 0.96 > drop_density) {
 		discard;
 	}
 	vec4 tex = texture(albedo_tex, UV);
@@ -475,13 +487,17 @@ void fragment() {
 	// --- Impostor bake override (coverage/discard already applied above) ---
 	// Emit ONE octahedral-atlas channel unshaded so the runtime-lit impostor
 	// re-lights it. Placed last so it cleanly supersedes the lit-render outputs.
-	if (bake_mode == 1) {            // albedo
-		// Fold the dapple canopy self-shadow (an ALBEDO multiply on the mesh,
-		// line ~366) into the baked albedo so the far impostor carries the same
-		// large-scale mottling. The crown-interior AO is NOT folded here — it is
-		// ambient-only on the mesh, so it rides the ORM atlas (bake_mode 3) and is
-		// re-applied ambient-only by the impostor shader (matches all sun angles).
-		EMISSION = bake_albedo * mix(0.72, 1.12, dapple);
+	if (bake_mode == 1) {            // NEUTRAL luminance/detail (hue applied at runtime)
+		// Bake a HUE-FREE grayscale: the impostor shader supplies the per-tree
+		// season colour at runtime (tree_impostor v_season_color) and uses this only
+		// for luminance/detail. So baked hue can't fight the runtime tint — where the
+		// density-thinning (bake_density) drops cards and bark shows through, it bakes
+		// as neutral gray and recolours to darker-green canopy, never brown (user
+		// 2026-06-24: "bake neutral rather than compensate"). Dapple self-shadow
+		// (an ALBEDO multiply on the mesh) is folded in as luminance mottling; the
+		// crown-interior AO rides the ORM atlas (bake_mode 3), re-applied ambient-only.
+		float bake_lum = dot(bake_albedo, vec3(0.2126, 0.7152, 0.0722));
+		EMISSION = vec3(bake_lum) * mix(0.72, 1.12, dapple);
 		ALBEDO = vec3(0.0); ROUGHNESS = 1.0; SPECULAR = 0.0;
 		METALLIC = 0.0; BACKLIGHT = vec3(0.0); AO = 1.0;
 	} else if (bake_mode == 2) {     // camera-space normal, packed [0,1]

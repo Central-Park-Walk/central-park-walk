@@ -46,7 +46,20 @@ uniform vec2 lod_fade_in = vec2(0.0, 0.0);
 global uniform vec3 player_world_pos;
 
 #include "res://shaders/include/lod_dither.gdshaderinc"
+#include "res://shaders/include/tree_species.gdshaderinc"
 
+// Season/foliage HUE applied at RUNTIME (option 2, 2026-06-24): the atlas is used as
+// a LUMINANCE/detail map and the colour comes from the per-tree season tint (decoded
+// from INSTANCE_CUSTOM, exactly as tree_leaf does). So the baked albedo HUE no longer
+// matters: where the density-thinning (bake_density) drops cards and the bark shows
+// through, it reads as darker-GREEN canopy variation instead of brown, and the far
+// tier now tracks season (summer green / fall colour) per tree.
+global uniform float season_t;
+// Linear luminance of a full leaf atlas pixel — leaf areas map to ~v_season_color,
+// darker (bark/dapple) areas to proportionally darker green. (measured 2026-06-24.)
+uniform float detail_ref_lum = 0.28;
+
+varying vec3 v_season_color;
 varying vec2 uv_frame1;
 varying vec2 xy_frame1;
 varying flat vec2 frame1;
@@ -170,6 +183,24 @@ vec3 projectOnPlaneBasis(vec3 ray, vec3 plane_normal, vec3 plane_x, vec3 plane_y
 
 void vertex() {
 	v_inst_pos = MODEL_MATRIX[3].xyz;
+
+	// Per-tree seasonal foliage colour (hue source; the atlas supplies luminance/
+	// detail in fragment). Decode matches tree_leaf: INSTANCE_CUSTOM r=species/13,
+	// g=timing+0.5, a=jitter. Blossom + per-leaf hash are omitted (negligible far).
+	int sp_idx = int(INSTANCE_CUSTOM.r * 13.0 + 0.5);
+	float timing_off = INSTANCE_CUSTOM.g - 0.5;
+	float s = mod(season_t + timing_off, 4.0);
+	vec3 species_green = SUMMER_COLORS[sp_idx];
+	vec4 ph = PHENOLOGY[sp_idx];
+	vec3 fall_col = FALL_COLORS[sp_idx];
+	vec3 spring_tint = species_green * vec3(1.15, 1.2, 0.7);
+	vec3 col = mix(spring_tint, species_green, smoothstep(ph.w, ph.w + 0.4, s));
+	col = mix(col, fall_col, smoothstep(ph.x, ph.y, s));
+	col = mix(col, fall_col * 0.5, smoothstep(ph.y, ph.z, s) * 0.6);
+	float jitter = INSTANCE_CUSTOM.a;
+	col *= 1.0 + (jitter - 0.5) * 0.25;
+	col += (fract(jitter * 7.37) - 0.5) * vec3(0.025, -0.008, -0.03);
+	v_season_color = col;
 	vec2 framesMinusOne = imposterFrames - vec2(1);
 	vec3 cameraPos_WS = (INV_VIEW_MATRIX * vec4(vec3(0), 1.0)).xyz;
 	vec3 cameraPos_OS = (inverse(MODEL_MATRIX) * vec4(cameraPos_WS, 1.0)).xyz;
@@ -278,8 +309,12 @@ void fragment() {
 	vec3 normalTex = blendedNormals(uv_f1, frame1_normal, uv_f2, frame2_normal, uv_f3, frame3_normal,
 			TANGENT, BINORMAL, quad_blend_weights, imposterTextureNormal);
 
-	// Runtime-lit: albedo is true (unlit) albedo; Godot lights it via NORMAL below.
-	ALBEDO = baseTex.rgb * albedo.rgb;
+	// Runtime-lit: HUE from the per-tree season colour, LUMINANCE/detail from the
+	// atlas (dapple, leaf texture, bark-through-gaps). Recolours baked brown bark to
+	// darker-green canopy variation and lets the far tier track season. Godot still
+	// lights it directionally via NORMAL below (atlas is unlit → no double-lit).
+	float atlas_lum = dot(baseTex.rgb, vec3(0.2126, 0.7152, 0.0722));
+	ALBEDO = v_season_color * clamp(atlas_lum / detail_ref_lum, 0.0, 1.6) * albedo.rgb;
 	NORMAL = normalTex.xyz;
 
 	// Coverage as an opaque scissor (foliage at distance reads solid).

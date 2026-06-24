@@ -29,6 +29,14 @@ const OUT_DIR := "res://textures/impostors/"
 # Summer phase for a full-canopy albedo bake (season_t cycles 0..4). Verified
 # visually against the in-game summer canopy at validation time.
 const SUMMER_SEASON := 2.0
+# Per-card keep-fraction used DURING the bake (tree_leaf bake_density): a full
+# crown projects SOLID at bake resolution, so without thinning the atlas read
+# ~0.64-0.74 filled vs the live mesh's see-through ~0.38-0.58 at the handoff =>
+# impostor solid-blob "fuller/bigger than lod1". This drops (1-value) of the
+# cluster cards (reusing the seasonal v_card_seed drop) to punch matching
+# card-scale holes. Calibrated 2026-06-24 so the impostor silhouette matches the
+# mesh at the lod1->impostor handoff. -1 = no drop (full crown).
+const BAKE_DENSITY := 0.1
 
 var _loader  # park_loader — in the scene tree; bake viewport parents here
 
@@ -89,6 +97,20 @@ func bake_tier(tier_key: String, meshes: Array, world_height: float) -> Dictiona
 	vp.add_child(cam)
 
 	var saved := _push_bake_globals()
+	# Thin cluster cards so the baked coverage matches the see-through live mesh at
+	# the handoff distance (a full crown projects solid at bake res). Harmless on
+	# bark (no such uniform).
+	var _set_n := 0
+	for m: Mesh in meshes:
+		for si in m.get_surface_count():
+			var mt := m.surface_get_material(si)
+			if mt is ShaderMaterial:
+				var sm := mt as ShaderMaterial
+				var is_leaf: bool = sm.shader != null and "leaf" in sm.shader.resource_path
+				if is_leaf:
+					sm.set_shader_parameter("bake_density", BAKE_DENSITY)
+					_set_n += 1
+	print("  bake_density=%.2f applied to %d leaf surfaces" % [BAKE_DENSITY, _set_n])
 
 	var atlases := {}
 	for ch in [["albedo", 1], ["normal", 2], ["orm", 3]]:

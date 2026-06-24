@@ -77,9 +77,12 @@ const VARIANT_ROW_DX := 8.0     # spacing (m) between specimens
 const VARIANT_GRID := true
 const GRID_TIERS := [
 	# [tier_label, height(m), row_z, variant_spacing(m)]
-	["_s", 10.0, 192.0, 8.0],
-	["_m", 22.0, 165.0, 12.0],
-	["_l", 30.0, 128.0, 18.0],
+	# Spacing widened 2026-06-24 (user) so crowns don't merge into a "wall" — a
+	# clean per-specimen silhouette is needed to diagnose the impostor↔lod1 size/
+	# density handoff (each gap ≳ one crown width at that tier's stature).
+	["_s", 10.0, 200.0, 16.0],
+	["_m", 22.0, 160.0, 30.0],
+	["_l", 30.0, 110.0, 44.0],
 ]
 
 # Display name, census species key. Order = stature, tallest rows northmost
