@@ -158,6 +158,24 @@ renders the tier pure from 0 m for comparison.
 method. Other species render mesh-only past `_lod1` until their rebuilds land, then
 `--bake-impostors=<species>` adds each atlas.
 
+> **⚠ KNOWN BUG — UNDIAGNOSED TECH DEBT (2026-06-24): `_lod1` fades to zero on a
+> handful of trees before the impostor arrives. Trees are NOT "done" until resolved.**
+> On a few specific trees (observed: a LiDAR-tall london_plane), the `_lod1` mid mesh
+> fades out PROGRESSIVELY as the camera backs away — visibly thinning from ~135 m to
+> effectively invisible by ~152 m — even though its configured `lod_fade_out` band is
+> `[152,169]`, so it *should* stay fully opaque until 152. The impostor then comes in
+> around the band midpoint, so the tree progressively disappears across ~135–152 m and
+> only the impostor's arrival restores it. Only a handful of trees; hard to find; NOT
+> in the eval garden. Repro is **GPU-only** (`DISPLAY=:0`; xvfb/lavapipe renders solid).
+> **Open question: WHY does `_lod1` thin from ~135 m on just these few trees** when its
+> fade band starts at 152? A solid-backstop experiment (removing the impostor's
+> dither-IN so it pops fully opaque at `band_begin`) was tried and **reverted** — it
+> only changed *when* the tree returns (~170 m → ~153 m) and is a DIAGNOSIS aid, not a
+> solution: **impostors with no fade-in are unplayable.** Do NOT re-attempt fixes
+> without a real diagnosis (prior screenshot reads of "it's solid now" were wrong —
+> the tree was actually fading then popping). Full notes: assistant memory
+> `project_tree_lod_disappearance_bug`.
+
 ## 3. Shadow proxies (user decision 2026-06-09)
 
 "The entire tree casts a shadow, instead of each leaf. Most shadows are too far
