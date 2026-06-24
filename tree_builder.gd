@@ -1495,8 +1495,15 @@ func _run_impostor_bake() -> void:
 		if not _species_meshes.has(key):
 			print("Impostor bake: no mesh for %s, skipping" % key)
 			continue
-		print("Impostor bake: %s (%d surfaces)…" % [key, _species_meshes[key].size()])
-		var meta: Dictionary = await baker.bake_tier(key, _species_meshes[key], _species_heights.get(key, 0.0))
+		# Bake from the _lod1 mid mesh when it exists so the impostor's silhouette
+		# and foliage density match the tier it hands off FROM (lod1 → impostor),
+		# minimising the crossfade pop. Saplings (_s) have no _lod1 → bake lod0.
+		# The atlas/manifest key stays the species_tier (e.g. london_plane_m) so the
+		# runtime impostor loader is unaffected; only the SOURCE mesh changes.
+		var lod1_key: String = key + "_lod1"
+		var src_key: String = lod1_key if _species_meshes.has(lod1_key) else key
+		print("Impostor bake: %s from %s (%d surfaces)…" % [key, src_key, _species_meshes[src_key].size()])
+		var meta: Dictionary = await baker.bake_tier(key, _species_meshes[src_key], _species_heights.get(key, 0.0))
 		manifest[key] = meta
 	var mpath: String = baker_script.OUT_DIR + "%s_manifest.json" % sp
 	var f := FileAccess.open(mpath, FileAccess.WRITE)
