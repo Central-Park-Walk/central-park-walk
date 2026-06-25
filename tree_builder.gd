@@ -970,21 +970,23 @@ func _build_trees(trees: Array) -> void:
 				print("[DIAG]   impostor MMI begin=%.1f  shader fade_in [%.1f,%.1f]  per-tree origin.y=%.1f" % [
 					eff_mesh_end*(1.0-LOD_FADE_RATIO) - chunk_r - 5.0,
 					_mesh_fade_end*lscale*(1.0-LOD_FADE_RATIO), _mesh_fade_end*lscale, xf_list[0].origin.y])
-		# [mesh, name prefix, visibility end] per mesh tier this chunk spawns
+		# [mesh, name prefix, FADE-TARGET distance] per mesh tier this chunk spawns.
+		# The visibility_range_end is target + this MMI's AABB half-diagonal + margin,
+		# computed in the loop below once the multimesh AABB is known (see cull note).
 		var tier_specs: Array = []
 		match _tier_isolate:
 			"lod0":
-				tier_specs.append([near_mesh, "Tree", mesh_vis_end])
+				tier_specs.append([near_mesh, "Tree", eff_mesh_end])
 			"lod1":
 				var iso_mesh: Mesh = mid_mesh if mid_mesh != null else near_mesh
-				tier_specs.append([iso_mesh, "TreeLod1", mesh_vis_end])
+				tier_specs.append([iso_mesh, "TreeLod1", eff_mesh_end])
 			"impostor":
 				pass  # impostor-only isolate: no mesh tiers, just the billboards below
 			_:
-				var near_end: float = (_lod1_end * lscale + chunk_r + 5.0) if mid_mesh != null else mesh_vis_end
-				tier_specs.append([near_mesh, "Tree", near_end])
+				var near_target: float = (_lod1_end * lscale) if mid_mesh != null else eff_mesh_end
+				tier_specs.append([near_mesh, "Tree", near_target])
 				if mid_mesh != null:
-					tier_specs.append([mid_mesh, "TreeLod1", mesh_vis_end])
+					tier_specs.append([mid_mesh, "TreeLod1", eff_mesh_end])
 		for spec: Array in tier_specs:
 			var mm := MultiMesh.new()
 			mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -996,25 +998,30 @@ func _build_trees(trees: Array) -> void:
 				var local_tf := Transform3D(tf.basis, tf.origin - chunk_origin)
 				mm.set_instance_transform(i, local_tf)
 				mm.set_instance_custom_data(i, cd_list[i])
+			# Visibility cull pad — the real fix for the see-through band. Godot 4.6
+			# (#113486, in 4.6.1; also #102799/#79573) culls a MultiMeshInstance by the
+			# camera distance to the CENTRE of the AABB encompassing its instances — NOT
+			# the node origin, and a node custom_aabb is ignored (recomputed from the
+			# multimesh). That centre sits above/aside the tree bases by the crown extent
+			# + instance spread, so the per-MMI cull desynced from the per-tree shader
+			# fade (true tf.origin distance) and culled the mesh mid-handoff for some
+			# chunks while their impostor had not yet spawned — a near-total coverage gap
+			# (the "shadow stays, canopy vanishes" Godot signature). Pad the range by THIS
+			# multimesh's AABB half-diagonal, which bounds |camera→AABB-centre −
+			# camera→any tree|, so every in-band tree stays drawn; the shader dither still
+			# owns the visible crossfade. chunk_r (origin spread only) undercounted it —
+			# it missed the crown height/width and per-tree scale. The mesh and impostor
+			# MMIs carry different meshes → different AABBs → each pads by its own.
+			var hd: float = mm.get_aabb().size.length() * 0.5
+			var vend: float = spec[2] + hd + 5.0
+			if _tier_isolate != "":
+				vend = _mesh_fade_end + 60.0
 			var mmi := MultiMeshInstance3D.new()
 			mmi.multimesh = mm
 			mmi.position = chunk_origin
 			mmi.name = "%s_%s" % [spec[1], ckey.replace("|", "_")]
-			# Pin the cull reference to chunk_origin. Godot 4.6 (#113486, in 4.6.1)
-			# changed visibility_range to measure camera distance to the AABB CENTER,
-			# not the node origin. The auto AABB centre sits ~½ tree-height above
-			# chunk_origin and skews toward spatial-outlier members — an offset the
-			# chunk_r pad (a base-level origin-spread metric) does NOT bound. That
-			# desynced the per-MMI cull from the per-tree shader fade (which uses true
-			# tf.origin distance), culling the mesh mid-handoff for trees in skewed
-			# chunks → the see-through band. A symmetric custom AABB recentres the box
-			# on the node origin so AABB centre == chunk_origin and the chunk_r math
-			# is valid again. Oversized for frustum safety; only the centre drives the
-			# visibility distance. See [[project_tree_lod_disappearance_bug]].
-			var cull_r: float = chunk_r + 50.0
-			mmi.custom_aabb = AABB(Vector3(-cull_r, -cull_r, -cull_r), Vector3(cull_r, cull_r, cull_r) * 2.0)
 			mmi.visibility_range_begin = 0.0
-			mmi.visibility_range_end = spec[2]
+			mmi.visibility_range_end = vend
 			mmi.visibility_range_begin_margin = 0.0
 			mmi.visibility_range_end_margin = 0.0
 			mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
@@ -1042,8 +1049,6 @@ func _build_trees(trees: Array) -> void:
 			pmmi.multimesh = pmm
 			pmmi.position = chunk_origin
 			pmmi.name = "ShdwProxy_%s" % ckey.replace("|", "_")
-			var proxy_r: float = chunk_r + 50.0  # AABB-centre cull pin (see Tree MMI note above)
-			pmmi.custom_aabb = AABB(Vector3(-proxy_r, -proxy_r, -proxy_r), Vector3(proxy_r, proxy_r, proxy_r) * 2.0)
 			pmmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 			pmmi.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 			pmmi.visibility_range_begin = 0.0
@@ -1392,14 +1397,12 @@ func _spawn_impostor_chunks(buckets: Dictionary) -> void:
 		var sp_name: String = mesh_key.substr(0, mesh_key.rfind("_"))
 		if not _impostor_meshes.has(sp_name):
 			continue
-		# Centroid + spread (mirror the mesh-tier chunk math for matching culling).
+		# Centroid for node placement; the cull pad uses the billboard multimesh's
+		# own AABB half-diagonal below (not origin spread — see the begin-distance note).
 		var c := Vector3.ZERO
 		for tf: Transform3D in xf_list:
 			c += tf.origin
 		var chunk_origin: Vector3 = c / float(xf_list.size())
-		var chunk_r := 0.0
-		for tf: Transform3D in xf_list:
-			chunk_r = maxf(chunk_r, (tf.origin - chunk_origin).length())
 		var lscale: float = _lod_scale(sp_name)
 		var eff_mesh_end: float = _mesh_fade_end * lscale
 
@@ -1416,17 +1419,18 @@ func _spawn_impostor_chunks(buckets: Dictionary) -> void:
 		immi.multimesh = imm
 		immi.position = chunk_origin
 		immi.name = "TreeImpostor_%s" % ckey.replace("|", "_")
-		# AABB-centre cull pin (Godot 4.6 #113486) — same fix as the mesh MMIs: the
-		# impostor's auto AABB centre is pushed up (billboard extent) and skewed by
-		# member spread, so without this the impostor spawns LATE for outlier trees
-		# vs their per-tree fade-in — the other half of the see-through band.
-		var imp_cull_r: float = chunk_r + 50.0
-		immi.custom_aabb = AABB(Vector3(-imp_cull_r, -imp_cull_r, -imp_cull_r), Vector3(imp_cull_r, imp_cull_r, imp_cull_r) * 2.0)
-		var imp_begin: float = eff_mesh_end * (1.0 - LOD_FADE_RATIO) - chunk_r - 5.0
+		# Spawn the impostor EARLY enough that it is already drawn when each tree's
+		# per-tree shader fade-in begins. Godot culls this MMI by camera distance to its
+		# billboard-AABB centre (#113486/#102799), which differs from the mesh AABB centre
+		# and from the tree bases — pad the begin distance back by this multimesh's AABB
+		# half-diagonal (mirrors the mesh-tier fix). Without it the impostor spawned LATE
+		# while the mesh had already culled → the coverage gap.
+		var imp_hd: float = imm.get_aabb().size.length() * 0.5
+		var imp_begin: float = eff_mesh_end * (1.0 - LOD_FADE_RATIO) - imp_hd - 5.0
 		if _tier_isolate == "impostor":
 			imp_begin = 0.0
 		immi.visibility_range_begin = maxf(imp_begin, 0.0)
-		immi.visibility_range_end = IMPOSTOR_FAR + chunk_r
+		immi.visibility_range_end = IMPOSTOR_FAR + imp_hd
 		immi.visibility_range_begin_margin = 0.0
 		immi.visibility_range_end_margin = 0.0
 		immi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
