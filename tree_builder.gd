@@ -1000,6 +1000,19 @@ func _build_trees(trees: Array) -> void:
 			mmi.multimesh = mm
 			mmi.position = chunk_origin
 			mmi.name = "%s_%s" % [spec[1], ckey.replace("|", "_")]
+			# Pin the cull reference to chunk_origin. Godot 4.6 (#113486, in 4.6.1)
+			# changed visibility_range to measure camera distance to the AABB CENTER,
+			# not the node origin. The auto AABB centre sits ~½ tree-height above
+			# chunk_origin and skews toward spatial-outlier members — an offset the
+			# chunk_r pad (a base-level origin-spread metric) does NOT bound. That
+			# desynced the per-MMI cull from the per-tree shader fade (which uses true
+			# tf.origin distance), culling the mesh mid-handoff for trees in skewed
+			# chunks → the see-through band. A symmetric custom AABB recentres the box
+			# on the node origin so AABB centre == chunk_origin and the chunk_r math
+			# is valid again. Oversized for frustum safety; only the centre drives the
+			# visibility distance. See [[project_tree_lod_disappearance_bug]].
+			var cull_r: float = chunk_r + 50.0
+			mmi.custom_aabb = AABB(Vector3(-cull_r, -cull_r, -cull_r), Vector3(cull_r, cull_r, cull_r) * 2.0)
 			mmi.visibility_range_begin = 0.0
 			mmi.visibility_range_end = spec[2]
 			mmi.visibility_range_begin_margin = 0.0
@@ -1029,6 +1042,8 @@ func _build_trees(trees: Array) -> void:
 			pmmi.multimesh = pmm
 			pmmi.position = chunk_origin
 			pmmi.name = "ShdwProxy_%s" % ckey.replace("|", "_")
+			var proxy_r: float = chunk_r + 50.0  # AABB-centre cull pin (see Tree MMI note above)
+			pmmi.custom_aabb = AABB(Vector3(-proxy_r, -proxy_r, -proxy_r), Vector3(proxy_r, proxy_r, proxy_r) * 2.0)
 			pmmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 			pmmi.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 			pmmi.visibility_range_begin = 0.0
@@ -1401,6 +1416,12 @@ func _spawn_impostor_chunks(buckets: Dictionary) -> void:
 		immi.multimesh = imm
 		immi.position = chunk_origin
 		immi.name = "TreeImpostor_%s" % ckey.replace("|", "_")
+		# AABB-centre cull pin (Godot 4.6 #113486) — same fix as the mesh MMIs: the
+		# impostor's auto AABB centre is pushed up (billboard extent) and skewed by
+		# member spread, so without this the impostor spawns LATE for outlier trees
+		# vs their per-tree fade-in — the other half of the see-through band.
+		var imp_cull_r: float = chunk_r + 50.0
+		immi.custom_aabb = AABB(Vector3(-imp_cull_r, -imp_cull_r, -imp_cull_r), Vector3(imp_cull_r, imp_cull_r, imp_cull_r) * 2.0)
 		var imp_begin: float = eff_mesh_end * (1.0 - LOD_FADE_RATIO) - chunk_r - 5.0
 		if _tier_isolate == "impostor":
 			imp_begin = 0.0
