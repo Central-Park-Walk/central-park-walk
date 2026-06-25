@@ -1,0 +1,90 @@
+# Turkey oak — section CERRIS, DELTAS vs oak_sawtooth.yaml. Schema: SCHEMA.yaml (frozen).
+# ▲ PIN: Turkey oak = Quercus CERRIS (European, section Cerris). NOT Q. laevis (American
+#   scrub/turkey oak). Added by Chris as a research variant — NOT in the NYC census.
+
+taxon:
+  common_name: Turkey oak (Turkish oak)
+  binomial: Quercus cerris
+  section: Cerris
+  archetype_key: oak
+  in_census: false                 # ▲ ADDED — not in NYC census data
+  census_basis: "added (art target / accent); may double as the in-census Sawtooth oak model"
+
+abundance:
+  genus_total: 2613
+  species_count: 0 (not in data)
+  scatter_weight: null
+  prominence: accent (a few specimens at most) — OR re-skin of sawtooth
+  park_locations: "none confirmed; CP has occasional European-oak specimens. Decide placement in Phase 3."
+
+form:                              # ▲ DELTA vs sawtooth: LARGER, conical-young → dense-rounded
+  mature_height_m: [25, 40]        # 82-131 ft — much larger than sawtooth
+  mature_spread_m: [18, 30]
+  height_to_spread: ~1.3
+  dbh_range_cm: [60, 200]
+  branching_habit: decurrent (conical at first, later broad rounded; dense crown)
+  crown_silhouette: "dense, broad rounded crown (conical when young); big — reads as a large rounded oak at distance"
+  crown_density_bucket: dense
+  lai: 4-6
+
+bark:                              # ▲ DELTA: distinctive deep fissures with ORANGE in the cracks
+  near_L0: "dark gray-brown, thick, with deep fissures and rough plates; ORANGE-tan colour shows in the fissures near the base — the one bark genuinely worth a per-species tint"
+  shader_style: "furrowed/plate with orange fissure tint"
+  distinctive: true
+
+leaf:                              # ▲ DELTA vs sawtooth: shallowly LOBED-toothed (not pure serrate)
+  archetype: toothed-narrow        # shares the Cerris card (slightly more lobed than sawtooth)
+  reference_image: "reference_photos/pin oak/Austrian_oak_Quercus_cerris_1_1000_0002.jpg (a 3D-model wireframe labelled cerris — silhouette/branch cross-check only, NOT a leaf ref)"
+  length_cm: [5, 12]
+  width_cm: [1.5, 3]
+  length_to_width: ~3.5            # narrow oblong
+  lobe_or_tooth_count: "margin shallowly LOBED, lobes ending in triangular bristle teeth (between sawtooth-serrate and Lobatae-lobed)"
+  sinus_depth_frac: 0.2            # shallow lobing — more cut than sawtooth (0.05), far less than Lobatae
+  lobe_tip: triangular bristle-toothed
+  bristle_tips: y
+  margin: "shallow-lobed with triangular bristle teeth; variable/polymorphic"
+  phyllotaxy: alternate
+  shape_resolves_at_m: ~30
+
+color:
+  summer: dark green above, gray-felted paler below
+  fall_curve: "green → pale YELLOW-GOLD (little colour); drops late"
+  fall_signature: "pale yellow-gold, muted; MARCESCENT on young trees"
+  winter_marcescence: yes (young trees hold leaves into spring)
+  winter_retention_frac: 0.50      # high (young) — like sawtooth
+
+fruit:
+  acorn: "to 35 mm, ellipsoid, olive-brown; cup ⅓-½ with spreading/reflexed mossy scales ('moss-cupped oak')"
+  cupule: "mossy/whiskered (Cerris signature); buds surrounded by long twisted whisker-stipules"
+  note:
+
+representation:
+  discriminators:
+    near_L0: "narrow shallow-lobed bristle-toothed leaf + ORANGE-fissured bark + whiskered mossy acorn cup"
+    mid_lod1: "large dense rounded crown + pale gold fall + winter retention"
+    far_impostor: "large rounded silhouette + gold color mass — NOT separable from sawtooth at distance"
+  legible_to_m: { leaf: 30, crown_form: 0, fall_color: 400 }
+  shared_skeleton_candidates: [sawtooth, red, scarlet, white, swamp_white]   # Skeleton A
+  shared_leaf_card_candidates: [sawtooth]                                     # Cerris toothed card
+  tiers_needed: "m/l (large tree) — OR none if it just re-skins sawtooth"
+  consolidation_note: "STRONGEST consolidation candidate: Turkey oak and Sawtooth oak share section, leaf card, gold fall, marcescence, and rounded crown. ONE Cerris model (Skeleton A + toothed card) at two size tiers, with the orange-fissured bark tint as Turkey's near-only distinctive, likely serves BOTH. Only build a distinct Turkey model if a placement need (large accent specimen) justifies it."
+
+mtree_hints:
+  branch_angle: ~55
+  trunk_frac: 0.28
+  sub_density: 1.7 (dense)
+  gravity: low
+  leaf_scale: 0.9 (narrow leaf)
+  leaf_density: 0.7
+  known_mesher_crashes: "see memory mtree_pipeline; dense large crown — watch sub_density at _l scale"
+  notes: "= sawtooth skeleton at a larger size tier; the orange-fissured bark + slightly-more-lobed card are the only Turkey-specific assets."
+
+sources:
+  - { claim: "25-40 m tall, conical-young→rounded dense crown; oblong leaf 5-12cm × 1.5-3cm shallow-lobed with triangular bristle teeth; pale yellow-gold late fall, marcescent young; mossy/whiskered acorn cup ⅓-½; bark deep-fissured grey-brown with orange in fissures", value: see-above, source: "Wikipedia Quercus cerris; Woodland Trust; NC State Extension; Trees & Shrubs Online; Oregon State Landscape Plants", confidence: high }
+conflicts:
+  - "Section-Cerris PIN confirmed across all sources — Q. cerris is the European Turkey oak, distinct from American Q. laevis. No on-disk doc implied otherwise."
+provenance:
+  filled_by: Claude (Phase 2)
+  date: 2026-06-24
+  baseline_deltas_only: true
+</content>

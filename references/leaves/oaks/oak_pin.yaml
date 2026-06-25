@@ -1,0 +1,88 @@
+# Pin oak — Lobatae, DELTAS vs oak_red.yaml baseline. Schema: SCHEMA.yaml (frozen).
+# The one Lobatae oak with a genuinely distinct HABIT (excurrent) → own skeleton.
+
+taxon:
+  common_name: Pin oak
+  binomial: Quercus palustris
+  section: Lobatae
+  archetype_key: oak
+  in_census: true
+  census_basis: zone-list (North Woods, Ramble, Hallett & The Pond) + scatter (0.10–0.15)
+
+abundance:
+  genus_total: 2613
+  species_count: null
+  scatter_weight: 0.10-0.15
+  prominence: stood-under
+  park_locations: [North Woods, Ramble, Hallett & The Pond, street/lawn specimens]
+
+form:                            # ▲ THE DELTA: excurrent, narrow, drooping lower limbs
+  mature_height_m: [18, 22]      # smaller than red
+  mature_spread_m: [8, 14]       # NARROW — much less than red's ~equal-to-height
+  height_to_spread: ~1.6         # distinctly taller-than-wide (vs red ~1.0)
+  dbh_range_cm: [30, 80]
+  branching_habit: excurrent     # STRONG CENTRAL LEADER (persists into maturity)
+  crown_silhouette: "narrow pyramidal-to-oval with a central leader; LOWER branches DROOP downward, middle horizontal, upper ascending — the signature tiered/drooping skirt"
+  crown_density_bucket: moderate-dappled    # LAI 3.0-4.5 (current param) — lacier than red
+  lai: 3.0-4.5
+
+bark:
+  near_L0: "smoother gray-brown when young; shallow ridges with age; greyer/less reddish than red oak"
+  shader_style: furrowed
+  distinctive: false
+
+leaf:                            # ▲ DELTA: DEEP U-sinuses (lacier than red's moderate)
+  archetype: lobed-bristle
+  reference_image: null          # gather American-Lobatae flat-leaf ref (iNat CP)
+  length_cm: [7, 14]
+  width_cm: [6, 12]
+  length_to_width: ~1.2          # broader outline but deeply cut
+  lobe_or_tooth_count: 5-7
+  sinus_depth_frac: 0.75         # DEEP U-shaped — "~as much sinus area as blade area"; vs red 0.5
+  lobe_tip: bristle-pointed
+  bristle_tips: y
+  margin: deeply bristle-lobed
+  phyllotaxy: alternate
+  shape_resolves_at_m: ~30
+
+color:
+  summer: glossy medium-dark green, paler below; tan vein-axil tufts
+  fall_curve: "green → russet-red → bronze-crimson; mid-late autumn"
+  fall_signature: "russet-to-crimson red; marcescent on young trees"
+  winter_marcescence: yes (young trees hold brown leaves into winter)
+  winter_retention_frac: 0.18
+
+fruit:
+  acorn: "10-15 mm, small, hemispherical, often striped"
+  cupule: "very shallow thin saucer cap (only the base)"
+  note: "drops Sep-Nov; matures 2nd year"
+
+representation:
+  discriminators:
+    near_L0: "deep-lacy bristle-lobed leaf + drooping lower limbs visible overhead"
+    mid_lod1: "NARROW taller-than-wide crown + central leader + drooping lower skirt — distinct from all other oaks at this range"
+    far_impostor: "narrow excurrent silhouette (the ONE oak silhouette that survives as an impostor distinct from the rounded mass)"
+  legible_to_m: { leaf: 30, crown_form: 300, fall_color: 400 }
+  shared_skeleton_candidates: []          # ▲ NEEDS ITS OWN SKELETON (Skeleton B, excurrent)
+  shared_leaf_card_candidates: [red, scarlet]   # shares the Lobatae card
+  tiers_needed: "s/m/l, full LOD0+LOD1+impostor"
+
+mtree_hints:
+  branch_angle: ">60 upper, ~90 middle, drooping lower — needs angle-by-height"
+  trunk_frac: 0.18               # very low first branches (USDA Silvics)
+  sub_density: 1.2               # lacier than red
+  gravity: "POSITIVE on lower branches (droop) — the hard part; central leader on trunk"
+  leaf_scale: 1.0                # ~11 cm blade
+  leaf_density: 0.55
+  known_mesher_crashes: "see memory mtree_pipeline"
+  notes: "Excurrent + drooping-lower-limb skeleton ~= tree_skeleton_plan §9 `tall_excurrent` intent. The drooping lower skirt is the modeling challenge; central leader must persist (don't let Mtree fork it into a dome)."
+
+sources:
+  - { claim: "18-22 m H, 8-14 m spread, strong central leader, drooping lower / horizontal mid / ascending upper branches", value: see-above, source: "Wikipedia Quercus palustris; UFL EDIS ST555; Morton Arboretum", confidence: high }
+  - { claim: "5-7 lobes, deep U-shaped sinuses ~= blade area; russet-red fall, marcescent young; small ½-¾in acorn shallow saucer cap", value: see-above, source: "NC State Extension; Ohio DNR; USDA NRCS factsheet", confidence: high }
+conflicts: []
+provenance:
+  filled_by: Claude (Phase 2)
+  date: 2026-06-24
+  baseline_deltas_only: true
+</content>

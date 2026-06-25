@@ -1,0 +1,88 @@
+# Scarlet oak — Lobatae, DELTAS vs oak_red.yaml. Schema: SCHEMA.yaml (frozen).
+# Habit ~= red (rounded/open); identity is FALL COLOR (vivid scarlet) + deep sinuses.
+
+taxon:
+  common_name: Scarlet oak
+  binomial: Quercus coccinea
+  section: Lobatae
+  archetype_key: oak
+  in_census: true
+  census_basis: zone-list (North Woods) + scatter (~0.08)
+
+abundance:
+  genus_total: 2613
+  species_count: null
+  scatter_weight: ~0.08
+  prominence: stood-under / passed-at-distance
+  park_locations: [North Woods, dry upland slopes]
+
+form:
+  mature_height_m: [15, 23]
+  mature_spread_m: [12, 15]
+  height_to_spread: ~1.2          # slightly narrower & more open than red, NOT distinct at distance
+  dbh_range_cm: [30, 80]
+  branching_habit: decurrent
+  crown_silhouette: "rounded, open, somewhat irregular — reads the same as red oak at >50 m"
+  crown_density_bucket: moderate (open, lets light through)
+  lai: 3-4
+
+bark:
+  near_L0: "dark gray, ridged; inner bark reddish; pale stripes on upper-branch bark"
+  shader_style: furrowed
+  distinctive: false
+
+leaf:                             # ▲ DELTA: DEEP C-sinuses (like pin) — lacier than red
+  archetype: lobed-bristle
+  reference_image: null
+  length_cm: [8, 18]              # 3-7"
+  width_cm: [8, 13]               # 3-5"
+  length_to_width: ~1.3
+  lobe_or_tooth_count: 7
+  sinus_depth_frac: 0.7           # deep C-shaped — close to pin; vs red 0.5
+  lobe_tip: bristle-pointed
+  bristle_tips: y
+  margin: deeply bristle-lobed
+  phyllotaxy: alternate
+  shape_resolves_at_m: ~30
+
+color:                            # ▲ THE DELTA: vivid, late, long-lasting scarlet
+  summer: lustrous dark green above, paler below
+  fall_curve: "green → brilliant SCARLET (late, 3-4 week display)"
+  fall_signature: "the most vivid scarlet of the trio — THE differentiator vs red/pin"
+  winter_marcescence: partial
+  winter_retention_frac: 0.18
+
+fruit:
+  acorn: "12-25 mm; often concentric rings near tip"
+  cupule: "deep bowl-like cap covering ~½ (deeper than red/pin)"
+  note: "single or paired"
+
+representation:
+  discriminators:
+    near_L0: "deep-lacy leaf (≈pin) + concentric-ringed acorn"
+    mid_lod1: "vivid scarlet fall — the ONLY reliable separator from red oak (same crown form)"
+    far_impostor: "rounded silhouette (=red) + scarlet color mass"
+  legible_to_m: { leaf: 30, crown_form: 0, fall_color: 400 }   # crown form NOT separable from red
+  shared_skeleton_candidates: [red, white, swamp_white, sawtooth, cerris]   # Skeleton A (= red)
+  shared_leaf_card_candidates: [red, pin]
+  tiers_needed: "s/m/l"
+  consolidation_note: "CONSOLIDATE skeleton with red oak; differentiate by FALL COLOR (scarlet) + a deeper-sinus leaf card only if Gate-1 shows it reads."
+
+mtree_hints:
+  branch_angle: ~50
+  trunk_frac: 0.30
+  sub_density: 1.3                # slightly more open than red
+  gravity: low-moderate
+  leaf_scale: 1.0
+  leaf_density: 0.5
+  known_mesher_crashes: "see memory mtree_pipeline"
+  notes: "= red-oak skeleton, recolored. Scarlet's only build-distinct asset is the fall texture/tint."
+
+sources:
+  - { claim: "50-70 ft H, 40-50 ft spread, rounded open crown; 7 bristle-tipped lobes deep C-sinuses; scarlet fall lasting 3-4 wk; ½-1in acorn deep cup with concentric rings", value: see-above, source: "NC State Extension; Missouri Botanical Garden; Morton Arboretum; UConn plant DB", confidence: high }
+conflicts: []
+provenance:
+  filled_by: Claude (Phase 2)
+  date: 2026-06-24
+  baseline_deltas_only: true
+</content>

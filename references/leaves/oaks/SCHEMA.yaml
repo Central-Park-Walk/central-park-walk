@@ -1,0 +1,94 @@
+// FROZEN 2026-06-24 (Chris approved, Phase 1 gate passed). Every oak fills this
+// structure identically as oak_<key>.yaml. Rules (from the pipeline
+// brief): proportions over absolutes, cite every measurement, FLAG conflicts — never
+// average blindly. Phase 2 establishes the Lobatae baseline once, then each file
+// records DELTAS against it (provenance.baseline_deltas_only).
+//
+// (YAML body below; this header is comment-style for readability only.)
+
+taxon:
+  common_name:          # e.g. Pin oak
+  binomial:             # e.g. Quercus palustris
+  section:              # Lobatae | Quercus(white) | Cerris
+  archetype_key: oak    # current runtime SPECIES_MAP slot (all oaks today)
+  in_census:            # true | false
+  census_basis:         # zone-list | scatter-weight | genus-comment | added(not-in-data)
+
+abundance:
+  genus_total: 2613             # shared — NYC census aggregates Quercus to genus
+  species_count:                # true count if known, else null
+  scatter_weight:               # per-zone weights (convert_to_godot.py) or null
+  prominence:                   # stood-under | passed-at-distance | accent (sets fidelity tier)
+  park_locations:               # zones it lives in
+
+form:
+  mature_height_m:    [ , ]
+  mature_spread_m:    [ , ]
+  height_to_spread:             # ratio — the silhouette proportion that reads at distance
+  dbh_range_cm:       [ , ]
+  branching_habit:              # excurrent(central leader) | decurrent(rounded/spreading)
+  crown_silhouette:             # one falsifiable sentence
+  crown_density_bucket:         # opaque | moderate/dappled | open (tie to LAI)
+  lai:                          # leaf area index if known
+
+bark:
+  near_L0:                      # character + color, stood-under distance
+  shader_style:                 # furrowed | smooth | exfoliating | plate (tree_bark.gdshader)
+  distinctive:                  # bool — does bark separate this oak near?
+
+leaf:
+  archetype:                    # lobed-bristle(Lobatae) | lobed-rounded(white) | toothed(Cerris)
+  reference_image:              # path to flat-on-white / wire-mesh ref it's measured from
+  length_cm:          [ , ]
+  width_cm:           [ , ]
+  length_to_width:              # proportion (transfers to any target size)
+  lobe_or_tooth_count:          # lobes/side (Lobatae,white) or teeth/side (Cerris)
+  sinus_depth_frac:             # sinus depth / half-blade-width (0 entire .. ~0.9 deep)
+  lobe_tip:                     # bristle-pointed | rounded | toothed
+  bristle_tips:                 # y | n
+  margin:                       # bristle-lobed | rounded-lobed | triangular-toothed
+  phyllotaxy: alternate         # confirm per species
+  shape_resolves_at_m:          # distance beyond which leaf SHAPE stops resolving (~30 m)
+
+color:
+  summer:                       # mass color (hex or descriptor)
+  fall_curve:                   # ordered states + timing (e.g. green→russet→brown, late-Oct–Nov)
+  fall_signature:               # the color that says "this species"
+  winter_marcescence:           # bool — holds dead leaves? (some oaks do)
+  winter_retention_frac:        # literal card fraction held (feeds WINTER_RETENTION)
+
+fruit:
+  acorn:                        # size, cap coverage
+  cupule:                       # scaly | mossy/whiskered(Cerris) — near-only recognition cue
+  note:
+
+# THE RESEARCH DELIVERABLE — per-LOD-tier discriminability vs the OTHER oaks.
+# Drives the "distinct geometry vs shared+texture vs consolidate" call in Phase 2.
+representation:
+  discriminators:
+    near_L0:                    # what separates this oak < ~30 m (leaf / bark / acorn)
+    mid_lod1:                   # what separates it ~30–200 m (crown shape, density, fall color)
+    far_impostor:               # what separates it > ~200 m (silhouette, color mass)
+  legible_to_m:                 # distance each discriminator stops being legible
+  shared_skeleton_candidates:   # taxa it could share a SKELETON with (consolidation)
+  shared_leaf_card_candidates:  # taxa it could share a LEAF CARD with
+  tiers_needed:                 # s/m/l + which LODs per existing TIER_BOUNDS
+
+mtree_hints:
+  branch_angle:
+  trunk_frac:
+  sub_density:
+  gravity:
+  leaf_scale:
+  leaf_density:
+  known_mesher_crashes:         # ceilings to respect (memory mtree_pipeline)
+  notes:
+
+sources:                        # cited, credibility-ranked; conflicts flagged not averaged
+  - { claim: , value: , source: , confidence: }
+conflicts:                      # ambiguous/contradictory data — list, do NOT average
+provenance:
+  filled_by:
+  date:
+  baseline_deltas_only: true    # Lobatae baseline set once; this file = deltas vs it
+</content>

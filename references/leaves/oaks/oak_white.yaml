@@ -1,0 +1,89 @@
+# White oak — section Quercus (white group). Distinct LEAF archetype (rounded, no bristle).
+# Schema: SCHEMA.yaml (frozen). NOT a Lobatae delta — its own leaf family.
+
+taxon:
+  common_name: White oak
+  binomial: Quercus alba
+  section: Quercus (white group)
+  archetype_key: oak
+  in_census: true
+  census_basis: SPECIES_MAP common-name list (convert_to_godot.py:1664)
+
+abundance:
+  genus_total: 2613
+  species_count: null
+  scatter_weight: null            # in name-map but not a heavily-weighted scatter entry
+  prominence: stood-under (where present) — a massive specimen tree
+  park_locations: [scattered specimens; upland woods]
+
+form:                             # broadest, most architectural oak
+  mature_height_m: [20, 30]
+  mature_spread_m: [20, 30]       # ~= or > height; huge low HORIZONTAL limbs
+  height_to_spread: ~1.0 (often <1, wider than tall when open-grown)
+  dbh_range_cm: [60, 120]
+  branching_habit: decurrent (massive, low, far-reaching horizontal limbs)
+  crown_silhouette: "very broad rounded crown; heavy low horizontal limbs reaching laterally — the widest, most muscular oak silhouette (pyramidal only when young)"
+  crown_density_bucket: dense
+  lai: 4-6
+
+bark:                             # ▲ distinct: light, flaky/scaly — NOT furrowed
+  near_L0: "light ASHY-GRAY, flaky/scaly in loose plates and vertical strips; pale overall"
+  shader_style: "exfoliating/plate (paler than the furrowed red-oak bark)"
+  distinctive: true               # the pale flaky bark separates white oak near
+
+leaf:                             # ▲ DISTINCT ARCHETYPE: rounded lobes, NO bristle
+  archetype: lobed-rounded
+  reference_image: "reference_photos/pin oak/colored-fall-autumn-oak-leaves-BG0537.jpg (robur-type rounded-lobe leaves — closest on-disk match to the white-oak archetype + fall palette)"
+  length_cm: [10, 23]             # 4-9"
+  width_cm: [5, 12]               # 2-4"
+  length_to_width: ~1.9
+  lobe_or_tooth_count: 5-9        # rounded, finger-like, fairly even
+  sinus_depth_frac: 0.4-0.7       # variable, ROUNDED sinuses (not bristle-cut)
+  lobe_tip: rounded
+  bristle_tips: n                 # ← the key separator from all Lobatae
+  margin: rounded-lobed (entire between lobes)
+  phyllotaxy: alternate
+  shape_resolves_at_m: ~30
+
+color:
+  summer: medium-green above, paler/glaucous below
+  fall_curve: "green → wine/burgundy → purplish-brown; develops LATE"
+  fall_signature: "wine-red / burgundy-brown (muted, not vivid) + marcescent"
+  winter_marcescence: yes (young trees hold leaves)
+  winter_retention_frac: 0.20
+
+fruit:
+  acorn: "20-25 mm, oblong, light brown shiny"
+  cupule: "warty/bumpy cap covering ~¼; matures 1st year (sweet)"
+  note:
+
+representation:
+  discriminators:
+    near_L0: "ROUNDED-lobe leaf (no bristle) + PALE FLAKY BARK — both distinct from Lobatae"
+    mid_lod1: "very broad crown + heavy low horizontal limbs + wine-brown fall"
+    far_impostor: "broadest rounded silhouette + wine-brown color mass"
+  legible_to_m: { leaf: 30, crown_form: 200, fall_color: 400 }
+  shared_skeleton_candidates: [red, scarlet, swamp_white, sawtooth, cerris]  # Skeleton A, tuned WIDER
+  shared_leaf_card_candidates: [swamp_white]    # rounded-lobe card
+  tiers_needed: "s/m/l"
+  consolidation_note: "Skeleton A tuned wider/lower-limbed; OR own skeleton if mid-tier review shows the horizontal-limb habit reads (the strongest candidate for a 3rd skeleton). Distinct leaf card + bark."
+
+mtree_hints:
+  branch_angle: ~60 (wide, low)
+  trunk_frac: 0.25
+  sub_density: 1.6
+  gravity: low (limbs reach out, hold horizontal)
+  leaf_scale: 1.2
+  leaf_density: 0.65
+  known_mesher_crashes: "see memory mtree_pipeline"
+  notes: "Widest-crown oak; needs the rounded-lobe leaf card and the pale flaky bark style."
+
+sources:
+  - { claim: "80-100 ft, spread = or > height, broad horizontal limbs; 5-9 rounded lobes NO bristles, 4-9in; wine/purplish-brown late fall; ¾-1in acorn warty cup ¼", value: see-above, source: "Wikipedia Quercus alba; NC State Extension; Iowa State; Go Botany", confidence: high }
+conflicts:
+  - "Fall color reported both 'wine-red' and 'purplish/red-brown' — both muted; treat as burgundy-brown mass, not vivid."
+provenance:
+  filled_by: Claude (Phase 2)
+  date: 2026-06-24
+  baseline_deltas_only: true       # vs the WHITE-group sub-baseline (this is its anchor)
+</content>

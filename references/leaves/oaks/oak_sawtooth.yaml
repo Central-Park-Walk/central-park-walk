@@ -1,0 +1,89 @@
+# Sawtooth oak — section CERRIS. Distinct LEAF archetype (narrow, bristle-TOOTHED, non-lobed).
+# Schema: SCHEMA.yaml (frozen). The in-census section-Cerris oak; pairs with Turkey oak.
+
+taxon:
+  common_name: Sawtooth oak
+  binomial: Quercus acutissima
+  section: Cerris
+  archetype_key: oak
+  in_census: true
+  census_basis: zone-list (Hallett & The Pond) + scatter (~0.05)
+
+abundance:
+  genus_total: 2613
+  species_count: null
+  scatter_weight: ~0.05
+  prominence: passed-at-distance / accent
+  park_locations: [Hallett & The Pond; ornamental plantings]
+
+form:
+  mature_height_m: [12, 18]        # 40-60 ft
+  mature_spread_m: [9, 15]         # 30-50 ft
+  height_to_spread: ~1.2
+  dbh_range_cm: [30, 70]
+  branching_habit: decurrent (pyramidal young → broadly oval/rounded with age)
+  crown_silhouette: "dense, broadly oval-to-rounded; pyramidal when young — NOT distinct in form from the rounded American oaks at distance"
+  crown_density_bucket: dense
+  lai: 4-5
+
+bark:
+  near_L0: "gray-brown, becoming corky/ridged-furrowed with age"
+  shader_style: furrowed
+  distinctive: false
+
+leaf:                              # ▲ DISTINCT ARCHETYPE: chestnut-like, NON-LOBED, bristle-serrate
+  archetype: toothed-narrow        # Cerris card
+  reference_image: null            # gather (the on-disk cerris wireframe is a 3D render, not a leaf)
+  length_cm: [8, 20]
+  width_cm: [3, 5]
+  length_to_width: ~3.0            # NARROW oblong (vs all the lobed oaks ~1.2-1.9)
+  lobe_or_tooth_count: "many (15-40) fine marginal teeth, each ending in a BRISTLE"
+  sinus_depth_frac: 0.05           # essentially unlobed — teeth only
+  lobe_tip: bristle-toothed
+  bristle_tips: y (on the teeth)
+  margin: "evenly bristle-SERRATE (sawtooth), slightly wavy"
+  phyllotaxy: alternate
+  shape_resolves_at_m: ~30
+  note: "Reads like a sweet-chestnut leaf; the narrow serrate silhouette is unmistakable up close vs the lobed oaks."
+
+color:
+  summer: lustrous dark green above, paler below
+  fall_curve: "green → yellow → COPPER-BROWN; holds"
+  fall_signature: "yellow-to-copper-brown + STRONG MARCESCENCE (most leaves held all winter, dropping at spring bud-swell)"
+  winter_marcescence: yes (strong — defining trait)
+  winter_retention_frac: 0.55      # high — a winter-distinct oak (vs Lobatae ~0.18)
+
+fruit:
+  acorn: "~25 mm; cup covers ⅔ with long spreading recurved 'mossy/bird's-nest' scales"
+  cupule: "spiny mossy cup (whiskered) — the Cerris signature, near-only"
+  note: "heavy mast; matures 2nd year"
+
+representation:
+  discriminators:
+    near_L0: "NARROW bristle-serrate (chestnut-like) leaf + mossy whiskered acorn cup"
+    mid_lod1: "rounded crown (≈ red/white) BUT distinct dense fine-textured canopy + yellow-copper fall + still-leafed in winter"
+    far_impostor: "rounded silhouette; identity = fall/winter color (gold-copper) + winter retention"
+  legible_to_m: { leaf: 30, crown_form: 0, fall_color: 400, winter_retention: 400 }
+  shared_skeleton_candidates: [cerris, red, scarlet, white, swamp_white]   # Skeleton A
+  shared_leaf_card_candidates: [cerris]                                    # Cerris toothed card
+  tiers_needed: "s/m"
+  consolidation_note: "CONSOLIDATE skeleton with Skeleton A AND share the Cerris leaf card + skeleton with Turkey oak. Differentiators are the toothed card, the gold-copper fall, and HIGH winter marcescence."
+
+mtree_hints:
+  branch_angle: ~55
+  trunk_frac: 0.25
+  sub_density: 1.6
+  gravity: low
+  leaf_scale: 1.0
+  leaf_density: 0.65
+  known_mesher_crashes: "see memory mtree_pipeline"
+  notes: "Same skeleton as Turkey oak (smaller size tier). The narrow toothed card + high WINTER_RETENTION are the build-distinct assets."
+
+sources:
+  - { claim: "40-60 ft H, 30-50 ft spread, pyramidal→oval; chestnut-like oblong non-lobed leaf with bristle-serrate teeth; yellow-copper fall, marcescent all winter; 1in acorn mossy cup covering ⅔ with recurved scales", value: see-above, source: "Wikipedia Quercus acutissima; NC State Extension; UFL IFAS; Ohio DNR; Oregon State Landscape Plants", confidence: high }
+conflicts: []
+provenance:
+  filled_by: Claude (Phase 2)
+  date: 2026-06-24
+  baseline_deltas_only: true       # vs the CERRIS sub-baseline (Turkey is the other member)
+</content>

@@ -1,0 +1,90 @@
+# Swamp white oak — section Quercus (white group), DELTAS vs oak_white.yaml.
+# Schema: SCHEMA.yaml (frozen). Presence in CP data is WEAK — confirm before building.
+
+taxon:
+  common_name: Swamp white oak
+  binomial: Quercus bicolor
+  section: Quercus (white group)
+  archetype_key: oak
+  in_census: weak                  # ▲ only the genus comment (convert_to_godot.py:1453) names it
+  census_basis: genus-comment only — NOT in any zone list or scatter weight
+
+abundance:
+  genus_total: 2613
+  species_count: null
+  scatter_weight: null
+  prominence: passed-at-distance (if present at all) — likely lake/pond margins
+  park_locations: "unconfirmed; ecologically a wet-margin tree (Pond/Lake edges plausible)"
+
+form:
+  mature_height_m: [15, 18]        # 50-60 ft — smaller than white oak
+  mature_spread_m: [15, 18]        # ~= height
+  height_to_spread: ~1.0
+  dbh_range_cm: [40, 90]
+  branching_habit: decurrent (short trunk, broad-oval crown; pyramidal young)
+  crown_silhouette: "broad-oval to rounded crown on a short trunk; somewhat ragged/open with age"
+  crown_density_bucket: moderate
+  lai: 3.5-5
+
+bark:
+  near_L0: "younger branches flaky/curling (papery scales); trunk dark gray, ridged & flat-topped with age"
+  shader_style: "exfoliating/plate (like white oak)"
+  distinctive: true (peeling young-branch bark)
+
+leaf:                              # ▲ DELTA vs white: SHALLOW lobes/coarse teeth + bicolor
+  archetype: lobed-rounded         # shares the white-group rounded card (shallower variant)
+  reference_image: "reference_photos/pin oak/colored-fall-autumn-oak-leaves-BG0537.jpg (rounded-lobe proxy)"
+  length_cm: [10, 18]
+  width_cm: [6, 11]
+  length_to_width: ~1.8
+  lobe_or_tooth_count: "shallow lobes / coarse dentate teeth, wavy margin (between lobed and toothed)"
+  sinus_depth_frac: 0.2-0.35       # SHALLOW — much less cut than white oak
+  lobe_tip: rounded
+  bristle_tips: n
+  margin: "wavy, coarse-toothed / shallow-lobed"
+  phyllotaxy: alternate
+  shape_resolves_at_m: ~30
+  note: "BICOLOR: glossy dark green above, SILVERY-WHITE below — a material/underside tint, not a silhouette cue; flashes pale when wind shows the underside."
+
+color:
+  summer: dark green above, silvery-white below (bicolor)
+  fall_curve: "green → golden / orange-brown"
+  fall_signature: "golden-to-orange-brown (warmer/yellower than white oak's wine)"
+  winter_marcescence: partial
+  winter_retention_frac: 0.18
+
+fruit:
+  acorn: "12-20 mm, in 2-4, on LONG stalks (peduncles ½-4in) — the species' signature"
+  cupule: "cup ~⅓, slightly fringed"
+  note: "long-stalked paired acorns distinguish it near, not at distance"
+
+representation:
+  discriminators:
+    near_L0: "rounded shallow-lobed leaf + silvery underside flash + peeling bark + long-stalked acorns"
+    mid_lod1: "broad-oval crown + golden-brown fall + underside-flash shimmer in wind"
+    far_impostor: "rounded silhouette + golden-brown mass (≈ white-oak family)"
+  legible_to_m: { leaf: 30, crown_form: 200, fall_color: 400 }
+  shared_skeleton_candidates: [white, red, scarlet, sawtooth, cerris]   # Skeleton A
+  shared_leaf_card_candidates: [white]                                  # rounded-lobe card
+  tiers_needed: "s/m (smaller tree; likely no _l)"
+  consolidation_note: "CONSOLIDATE with white oak (skeleton + rounded card); differentiate by golden fall + the bicolor silvery-underside material tint. Only build if Phase-3 confirms it's actually in the park."
+
+mtree_hints:
+  branch_angle: ~55
+  trunk_frac: 0.22 (short trunk)
+  sub_density: 1.4
+  gravity: low-moderate
+  leaf_scale: 1.0
+  leaf_density: 0.55
+  known_mesher_crashes: "see memory mtree_pipeline"
+  notes: "Bicolor underside = a per-species leaf-card/material backside tint (silvery), the one cheap distinctive cue."
+
+sources:
+  - { claim: "50-60 ft H&W, broad-oval crown short trunk; shallow rounded lobes/coarse teeth wavy margin, silvery-white underside; golden/orange-brown fall; long-peduncled acorns in 2-4", value: see-above, source: "NC State Extension; Morton Arboretum; Minnesota Wildflowers; Wikipedia Quercus bicolor", confidence: high }
+conflicts:
+  - "Park presence UNCONFIRMED in the zone data — flagged; resolve in Phase 3 before authoring."
+provenance:
+  filled_by: Claude (Phase 2)
+  date: 2026-06-24
+  baseline_deltas_only: true
+</content>

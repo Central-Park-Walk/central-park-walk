@@ -1,0 +1,89 @@
+# Red oak — LOBATAE BASELINE (the shared ~80% the other Lobatae oaks delta against).
+# Schema: SCHEMA.yaml (frozen 2026-06-24). Proportions over absolutes; sources cited.
+
+taxon:
+  common_name: Northern red oak
+  binomial: Quercus rubra
+  section: Lobatae
+  archetype_key: oak
+  in_census: true
+  census_basis: zone-list (North Woods, Ramble) + scatter (highest oak weight 0.15–0.22)
+
+abundance:
+  genus_total: 2613
+  species_count: null            # NYC census aggregates to genus; no per-species count
+  scatter_weight: 0.15-0.22      # the dominant oak in the scatter mix
+  prominence: stood-under        # woodland mass (North Woods/Ramble) — full LOD0 detail
+  park_locations: [North Woods, Ramble, successional oak-hickory zones]
+
+form:
+  mature_height_m: [18, 28]      # native 20-30 m; landscape 15-23 m
+  mature_spread_m: [15, 25]      # ~= height; rounded, open, spreading
+  height_to_spread: ~1.0
+  dbh_range_cm: [30, 100]        # to ~1 m
+  branching_habit: decurrent     # rounded, somewhat irregular, open spreading crown
+  crown_silhouette: "broad rounded dome, open and slightly irregular; no central leader"
+  crown_density_bucket: moderate-to-dense   # dense foliage, good shade
+  lai: 3.5-5
+
+bark:
+  near_L0: "dark gray-brown, shallow furrows into broad flat-topped scaly ridges; smooth pale 'ski-trail' stripes down ridge centres; inner bark reddish-pink"
+  shader_style: furrowed
+  distinctive: false             # generic furrowed oak bark; shared across Lobatae
+
+leaf:
+  archetype: lobed-bristle       # Lobatae base card
+  reference_image: null          # NO good American-Lobatae flat-leaf ref on disk — gather (iNat)
+  length_cm: [12, 23]            # 5-9"
+  width_cm: [10, 15]
+  length_to_width: ~1.5
+  lobe_or_tooth_count: 7-9       # lobes total, each coarsely toothed
+  sinus_depth_frac: 0.5          # lobes extend ~halfway to midrib — MODERATE (baseline)
+  lobe_tip: bristle-pointed
+  bristle_tips: y
+  margin: bristle-lobed (lobes coarsely toothed)
+  phyllotaxy: alternate
+  shape_resolves_at_m: ~30
+
+color:
+  summer: dull-to-medium green above, paler below
+  fall_curve: "green → brick/brownish-red → russet; mid-to-late autumn"
+  fall_signature: "brick-red / russet (less vivid than scarlet oak)"
+  winter_marcescence: partial (young trees hold some)
+  winter_retention_frac: 0.18    # current oak WINTER_RETENTION — recalibrate after card change
+
+fruit:
+  acorn: "20-25 mm, blunt, flat base"
+  cupule: "very shallow saucer cup (~¼), scaly, dark brown"
+  note: "matures 2nd year; bitter"
+
+representation:                  # see FIDELITY_CALL.md for the cross-oak per-tier decision
+  discriminators:
+    near_L0: "bristle-lobed leaf card (moderate sinus) + furrowed bark; vs white(rounded)/cerris(toothed)"
+    mid_lod1: "broad rounded crown + brick-red fall — vs scarlet's vivid scarlet, pin's narrow drooping form"
+    far_impostor: "rounded silhouette + red-russet color mass"
+  legible_to_m: { leaf: 30, crown_form: 200, fall_color: 400 }
+  shared_skeleton_candidates: [scarlet, white, swamp_white, sawtooth, cerris]   # Skeleton A
+  shared_leaf_card_candidates: [pin, scarlet]                                   # Lobatae card
+  tiers_needed: "s/m/l, full LOD0+LOD1+impostor (stood-under woodland mass)"
+
+mtree_hints:
+  branch_angle: ~50
+  trunk_frac: 0.30               # broader/higher fork than compact pin (0.18)
+  sub_density: 1.6               # dense rounded crown (current oak value)
+  gravity: low-moderate
+  leaf_scale: 1.1
+  leaf_density: 0.6
+  known_mesher_crashes: "see memory mtree_pipeline; keep 1 Blender proc/tier + timeout"
+  notes: "This IS today's `oak` archetype (named 'Pin Oak' in generate_trees_mtree.py:537 but parameterized red — fix the label to red oak)."
+
+sources:
+  - { claim: "height 20-30 m native; leaf 5-9in 7-9 lobes halfway to midrib bristle-tipped; fall brilliant red; acorn ¾-2in shallow cup", value: see-above, source: "USDA Southern Research Station Silvics (srs.fs.usda.gov ag_654) + FEIS querub", confidence: high }
+  - { claim: "rounded irregular open spreading crown; 50-75 ft H&W", value: see-above, source: "Missouri Botanical Garden Plant Finder; UMN UFOR", confidence: high }
+conflicts:
+  - "Landscape sources say 'brilliant red' fall; CP/native red oak often reads duller brick-red/russet — trust the duller native read for the mass, vivid for hero individuals."
+provenance:
+  filled_by: Claude (Phase 2)
+  date: 2026-06-24
+  baseline_deltas_only: false    # this file IS the baseline
+</content>

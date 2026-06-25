@@ -33,7 +33,7 @@ const SPAWN := Vector3(-99.0, 360.0, 213.0)  # x, yaw_degrees, z
 # Species a no-flag launch drops into (main.gd defaults --eval-plot to this when
 # no mode/pos flag is given; user 2026-06-19). Update per session to the species
 # under review. --park forces the plain park instead.
-const DEFAULT_EVAL_SPECIES := "london_plane"
+const DEFAULT_EVAL_SPECIES := "oak"  # 2026-06-24: oak _s review (was london_plane)
 
 # Grid-mode layout
 const TREE_ROW_Z0 := 50.0      # northernmost tree row
@@ -55,6 +55,16 @@ const STAND_UG_ROW_Z := 196.0      # 5 size-graded specimens, near (17m from spa
 const STAND_UG_STAND_Z := 174.0    # natural-density stand behind them
 const STAND_X := -99.0
 
+# STAND single-tier pin (user 2026-06-24): when > 0, the size-graded stand row AND
+# the 3×3 grove are ALL placed at this height instead of spanning the species'
+# HEIGHT_RANGES, so every specimen resolves to ONE tier (tree_builder._get_tier).
+# < oak's 12 m _s/_m bound → the whole garden is oak _s saplings. Set to 0.0
+# to restore the size-graded s→l stand. (No effect outside stand mode.)
+# 11.5 = oak_s.glb's NATIVE built height, so the model renders 1:1 with no runtime
+# rescale — the 5 cm min branch diameter then reads at exactly 5 cm (at a smaller
+# forced height the whole model, twigs included, scales down) (2026-06-24).
+const STAND_FORCE_TIER_H := 11.5
+
 # SOLO mode (user 2026-06-22): focus review on a SINGLE specimen — no size-graded
 # row, no grove. Used while iterating one tier in isolation. SOLO_HEIGHT 9.0 →
 # london_plane _s sapling (TIER_BOUNDS s/m bound = 13.0). Pair with the launch
@@ -74,7 +84,10 @@ const VARIANT_ROW_DX := 8.0     # spacing (m) between specimens
 # variants forced to distinct indices. Takes precedence over VARIANT_ROW/SOLO. The
 # heights select the tier via TIER_BOUNDS (london_plane [13,25]); row Z + dx are spaced
 # so the bigger tiers don't overlap and the shorter front rows don't block the back.
-const VARIANT_GRID := true
+# 2026-06-24: OFF for oak _s review — the size-graded STAND branch (below) runs
+# instead, pinned to one tier by STAND_FORCE_TIER_H. Flip back to true to compare
+# london_plane's s/m/l variants for the impostor handoff.
+const VARIANT_GRID := false
 const GRID_TIERS := [
 	# [tier_label, height(m), row_z, variant_spacing(m)]
 	# Spacing widened 2026-06-24 (user) so crowns don't merge into a "wall" — a
@@ -203,6 +216,8 @@ func inject_trees(trees: Array) -> int:
 		# botanical-garden label (user 2026-06-19: "label each model").
 		for i in 5:
 			var h: float = lerpf(float(hr[0]), float(hr[1]), float(i) / 4.0)
+			if STAND_FORCE_TIER_H > 0.0:
+				h = STAND_FORCE_TIER_H   # pin every specimen to one tier (oak _s)
 			var sx: float = STAND_X + (float(i) - 2.0) * 18.0
 			trees.append(_rec(sx, STAND_TREE_ROW_Z, entry[1], h))
 			added += 1
@@ -219,6 +234,8 @@ func inject_trees(trees: Array) -> int:
 			for gz in 3:
 				var h: float = lerpf(float(hr[0]), float(hr[1]),
 					0.35 + 0.3 * fmod(float(gx * 3 + gz) * 0.37, 1.0))
+				if STAND_FORCE_TIER_H > 0.0:
+					h = STAND_FORCE_TIER_H   # grove also pinned to one tier (oak _s)
 				trees.append(_rec(STAND_X + (float(gx) - 1.0) * 9.0,
 					STAND_TREE_GROVE_Z + (float(gz) - 1.0) * 9.0, entry[1], h))
 				added += 1

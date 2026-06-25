@@ -534,18 +534,20 @@ def enforce_min_twig_diameter(obj, min_diam_m, actual_h):
 SPECIES = {
     # ----- Deciduous broad-crowned -----
     "oak": {
-        "name": "Pin Oak (Quercus palustris)",
+        "name": "Red Oak (Quercus rubra)",
+        # SKELETON A — rounded DECURRENT broadleaf oak (oak_red.yaml; FIDELITY_CALL.md).
+        # Red oak: broad, open, somewhat irregular ROUNDED dome, NO persistent central
+        # leader (decurrent), stout heavy limbs, fork at moderate height. This is the
+        # shared oak skeleton (red/scarlet/white/swamp-white/sawtooth/Turkey differ by
+        # leaf card + fall color, not geometry). Pin oak's EXCURRENT central-leader form
+        # is a separate Skeleton B, added later. (Was mislabeled "Pin Oak" + tuned
+        # excurrent — corrected 2026-06-24.)
         "crown_shape": "Spherical",
-        # Oak is EXCURRENT (opposite of the elm vase): a strong central leader
-        # carried HIGH into the crown, with branches in TIERS — lower droop, mid
-        # horizontal, upper ascend (BRIEF §1). The old trunk_randomness 0.8 made a
-        # wandering snake-trunk (skeleton re-baseline 2026-06-11); a real oak leader
-        # is stout and roughly straight.
-        "trunk_frac": 0.18,        # Pin oak: very low first branches (USDA Silvics)
+        "trunk_frac": 0.28,        # red oak: moderate fork height (broad open crown), not pin's 0.18
         "trunk_shape": 0.5,       # Radius falloff curve
-        "up_attraction": 0.6,     # carry the central leader high into the crown (excurrent)
-        "trunk_randomness": 0.35,  # stout straight-ish leader (was 0.8 — wandering spire)
-        "branch_start": 0.16,     # low persistent fork, but the leader continues THROUGH
+        "up_attraction": 0.40,    # WEAK leader — decurrent rounded crown (was 0.6 excurrent)
+        "trunk_randomness": 0.35,  # stout straight-ish bole
+        "branch_start": 0.24,     # fork at moderate height (decurrent), not the low pin fork
         "branch_end": 0.95,
         "branch_density": 1.2,
         "branch_length_ratio": 0.37,  # broad oval/rounded crown — aspect 0.6-0.8 (BRIEF §1);
@@ -578,16 +580,37 @@ SPECIES = {
         "leaf_n": 50,
         "leaf_tex_size": 1024,
         "leaf_seed": 881,
-        "leaf_scale": 1.0,  # Pin oak ~11cm blade (ref)
+        "leaf_scale": 1.3,  # red oak ~12-23cm blade (oak_red.yaml)
         "leaf_cluster_size_range": (0.38, 0.83),
         "leaf_flatten_range": (0.40, 0.70),
-        "leaf_density": 0.55,  # Pin oak LAI 3.0-4.5 → moderate (dappled, not dense like elm)
+        "leaf_density": 0.6,  # red oak LAI 3.5-5 → moderate-dense
+        "crown_base_size": 0.75,   # broad rounded mature dome (Mtree default 0.0 clamps to a narrow cone)
+        "min_twig_diameter": 0.05,  # 5cm MINIMUM branch diameter, EVERY tier (Chris 2026-06-24: every branch of every tree must read as solid wood, not a thread). Scalar → s/m/l all get 5cm (was {"s":0.04}, which floored ONLY _s at 4cm and let _m/_l fall through to the 0.032/0.050 table).
+        # ---- LEAF PATH = REAL-PHOTO CLUSTER CARDS (london-plane method; hard laws 1-2,
+        #      tree-pipeline-lessons.md banner). The Lobatae card is Chris's GIMP-assembled
+        #      red-oak sprig → textures/leaves/oak_lobatae_cluster.png. Serves pin/red/
+        #      scarlet; per-species fall HUE is shader-side (FALL_COLORS). ----
+        "leaf_real_texture": "textures/leaves/oak_lobatae_cluster.png",
+        "card_stem_anchor": (0.25, 0.12),  # UV of the DRAWN stem base in oak_lobatae_cluster.png (measured: bottom band centroid px(260,891)/1024 → u0.25,v0.12). NOT the texture corner — the sprig is centred with a 5% margin, so pinning (0,0) left the stem (and all leaves) floating ~0.3m off the twig (Chris 2026-06-24 "disjointed pieces floating"). Pinning the real stem base puts leaf→stem→twig→branch→trunk on one unbroken line.
+        "foliage_distribute": True,
+        "distribute_tiers": [],            # CARD path (NOT the 3D distribute path); [] is critical — default is ["s","m","l"]
+        "card_leaf_rule": True,            # >=1 tip cluster per branch, no bare branches
+        "cards_per_cluster": 1,            # the card already IS a 4-leaf sprig — 1 (default 35 = green ball)
+        "card_rule_max_radius": 0.05,      # thin twigs only
+        "card_rule_min_per_branch": 1,
+        "card_rule_spacing": 0.55,
+        "card_rule_isolation_prune": False,
+        "card_rule_apex_band": 0.18,       # clad the leafy apex (no bare leader spike; hard law 6)
+        "card_rule_depth_keep": {1: 0.05, 2: 0.60, 3: 1.0},  # london-plane-proven distribution: rare on primary, partial on secondary, FULL on the thin depth-3 twig order (the terminal, card-bearing order). Restored depth-3 2026-06-24 — the depth-2 cap left long bare secondaries (see-through crown); a SUB-VISIBLE thin-twig order (radius<=card_rule_max_radius 0.05, masked by its own cards) fills the crown volume the way LP does, distinct from the heavy depth-5 forks Chris banned.
+        "card_size_floor": 0.42,           # sapling crown not see-through (gate-safe)
+        "tier_fraction": {"l": 1.0, "m": 0.40, "s": 0.24},  # _s bumped 0.18→0.24 (~122→163 cards) to fill the young crown without enlarging leaves (2026-06-24)
         "target_cluster_count_l": 680,
         "base_seed": 105,   # shifted from 100 to avoid Mtree mesher crash at _m tier
         "seed_step": 23,
-        # Highest-census species (~2.6k) → tiling is most visible; widen the seed
-        # envelope to 7 (free downstream, tree_model_redesign.md §4).
-        "n_variants": 7,
+        # ONE variant per skeleton/size tier (Chris 2026-06-24) until london plane's
+        # impostor path is settled. (Reopen toward 7 — highest census ~2.6k, tiling
+        # most visible — once the impostor work lands; see project_oak_pipeline.)
+        "n_variants": 1,
         # Variants span the real oak form (±~1 SD): woodland gap-reach narrow ↔
         # open-grown round, and weak ↔ strong central-leader prominence (BRIEF §7).
         "variant_spans": {
@@ -595,8 +618,33 @@ SPECIES = {
             "up_attraction": [0.45, 0.72],  # central-leader prominence
         },
         "tiers": {
+            # YOUNG red oak (sapling): broad DENSE upright-conical crown on a clear bole,
+            # straight leader (no lean). Mirrors the london-plane _s lesson — the card rule
+            # needs a RICH skeleton (many branches/twigs) to clad, so build the structure UP
+            # then let ~1 cluster/branch fill it. (First _s was a sparse leaning whip: the old
+            # override LOWERED density to 0.7/0.30/0.4 → only 32 branches/56 clusters.)
             "s": {"target_h": 10, "height_range": [8, 12], "skeleton_overrides": {
-                "branch_density": 0.7, "branch_split_prob": 0.30, "sub_density": 0.4}},
+                "branch_density": 1.0,         # richer primary count (was 0.7)
+                "branch_split_prob": 0.55,     # more forks → more tips to clad (was 0.30)
+                "sub_density": 1.2,            # more twigs (was 0.4; held below the ~1.5 crash band)
+                "branch_end": 0.95,            # branches reach near the apex (clad the top)
+                "branch_angle_variation": 0.50,
+                "branch_flatness": 0.40,       # baseline (reset 2026-06-24 single-var test)
+                "branch_start_radius": 0.45,   # finer young limbs
+                "crown_base_size": 0.55,       # baseline (crown.base_size proven a NO-OP on measured width in this config 2026-06-24)
+                "branch_gravity": 4.0,         # gentle (was species 8.0)
+                "sub_gravity": 4.0,            # was species 12.0 — heavy droop caused the lean
+                "trunk_randomness": 0.18,      # straight young leader (kill the lean)
+                "up_attraction": 0.38,         # baseline. NOTE 2026-06-24: crown width is clamped ~3.3m (asp~0.29) by Mtree crown/gravity internals — crown_base_size, up_attraction, branch_angle & length all proved ~no-op on measured width in single-var tests. Skeleton bbox under-reads the VISUAL crown (leaf cards extend ~0.5-1m past tips). Revisit via Mtree C++ crown control if foliated crown still too narrow vs ref.
+                "branch_length_ratio": 0.52,   # baseline (reset)
+                "branch_angle": 55,            # baseline (reset)
+                "branch_up_attraction": 0.12,  # baseline (reset)
+                # DEPTH (Chris 2026-06-24, revised): NO heavy tertiary forks — but a
+                # thin depth-3 TWIG order (sub-visible, radius<=0.05, masked by its own
+                # cards) is restored to fill the crown the way london_plane does. The
+                # depth-2 cap left long bare secondaries (see-through young crown). 3, not
+                # the old uncapped depth-5 chunky ramification.
+                "skeleton_max_depth": 3}},
             "m": {"target_h": 18, "height_range": [12, 20], "skeleton_overrides": {
                 "branch_density": 1.0, "branch_split_prob": 0.45, "sub_density": 1.0}},
             "l": {"target_h": 25, "height_range": [20, 30]},
@@ -2570,7 +2618,7 @@ def _card_placements_per_branch(mesh_obj, sp, target_height, rng, tier="l"):
     return placements
 
 
-def _sprig_cards(bm, uv_layer, pos, size, pdir, n_quads, rng, gidx):
+def _sprig_cards(bm, uv_layer, pos, size, pdir, n_quads, rng, gidx, stem_anchor=None):
     """Build n_quads SPRIG cards riding a twig (london_plane card path).
 
     Fixes the tiny / floating / randomly-rotated cards (user 2026-06-22, cpw_000-003):
@@ -2587,6 +2635,14 @@ def _sprig_cards(bm, uv_layer, pos, size, pdir, n_quads, rng, gidx):
     track = d.normalized().to_track_quat('Z', 'Y').to_matrix().to_4x4()
     half = size * 1.20     # EVAL 2026-06-22: backed off from 1.60 — l-tier leaf density read too heavy (user); 1.20 thins the cluster cover
     zoff = -half * 0.10    # anchor INBOARD so the card body OVERLAPS the twig (no floating); leaves still extend modestly outward (user 2026-06-22: "floating clusters")
+    # STEM ANCHOR (user 2026-06-24): when the card art has its stem in a known spot
+    # (e.g. oak's bottom-left, card_stem_anchor=(0.0,0.0)), pin THAT texture point to
+    # the branch vertex so the sprig grows FROM the twig — instead of the twig passing
+    # through the card centre with the drawn stem dangling in open space ("ensure the
+    # leaf cards are attaching at the stem"). UV→local: u→X (0→-hw,1→+hw), v→Z (0→-hh
+    # base,1→+hh tip; +Z is twig base→tip, aligned outward). None = legacy centred card
+    # (london_plane unchanged). A small inboard tuck embeds the stem in the wood.
+    tuck = half * 0.06
     for q in range(max(1, n_quads)):
         roll = GA * (gidx * n_quads + q) + rng.uniform(-0.25, 0.25)
         tilt = (mathutils.Matrix.Rotation(rng.uniform(-0.3, 0.3), 4, 'X')
@@ -2595,8 +2651,14 @@ def _sprig_cards(bm, uv_layer, pos, size, pdir, n_quads, rng, gidx):
              @ mathutils.Matrix.Rotation(roll, 4, 'Z') @ tilt)
         hw = half * rng.uniform(0.9, 1.1)
         hh = half * rng.uniform(0.9, 1.1)
-        local = [(-hw, 0.0, -hh + zoff), (hw, 0.0, -hh + zoff),
-                 (hw, 0.0,  hh + zoff), (-hw, 0.0,  hh + zoff)]
+        if stem_anchor is None:
+            ox, oz = 0.0, zoff
+        else:
+            su, sv = stem_anchor
+            ox = (1.0 - 2.0 * su) * hw          # shift so texture-u=su lands on the twig axis
+            oz = (1.0 - 2.0 * sv) * hh - tuck   # shift so texture-v=sv lands at the branch vertex (tucked in)
+        local = [(-hw + ox, 0.0, -hh + oz), (hw + ox, 0.0, -hh + oz),
+                 (hw + ox, 0.0,  hh + oz), (-hw + ox, 0.0,  hh + oz)]
         verts = [bm.verts.new(M @ mathutils.Vector(c)) for c in local]
         face = bm.faces.new(verts)
         for loop, uv in zip(face.loops, [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]):
@@ -2604,7 +2666,7 @@ def _sprig_cards(bm, uv_layer, pos, size, pdir, n_quads, rng, gidx):
 
 
 def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=6,
-                                   cluster_scatter=1.0):
+                                   cluster_scatter=1.0, stem_anchor=None):
     """Create dense leaf card clusters using AAA scatter approach.
 
     Instead of a few large crossed-quads, each cluster gets many small quads
@@ -2637,7 +2699,7 @@ def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=
         uv_layer = bm.loops.layers.uv.new("UVMap")
 
         if _aligned:
-            _sprig_cards(bm, uv_layer, pos, size, _plc[3], n_quads, rng, _pi)
+            _sprig_cards(bm, uv_layer, pos, size, _plc[3], n_quads, rng, _pi, stem_anchor)
 
         for q in range(0 if _aligned else n_quads):
             # Random position within cluster sphere (bias toward surface)
@@ -3995,7 +4057,7 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
             _scatter = 0.20 if sp.get("foliage_continuous") else 1.0  # tighter (was 0.5→0.25): outer cards of each cluster were sprawling past the connectivity gate (2026-06-21)
             leaf_objs = create_leaf_cards_at_positions(
                 placements, leaf_mat, rng, tier=tier_name, n_cards=n_cards,
-                cluster_scatter=_scatter)
+                cluster_scatter=_scatter, stem_anchor=sp.get("card_stem_anchor"))
             # Legacy hanging-card curtain (superseded by branchlet geometry).
             if sp.get("strand_foliage"):
                 leaf_objs += create_strand_cards_at_positions(
