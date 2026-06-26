@@ -76,7 +76,15 @@ func _create_uniform_set_for_sampling() -> RID:
 	uniform.add_id(sampler)
 	uniform.add_id(transmittance_tex.texture_rd)
 	uniforms.push_back(uniform)
-	
+
+	# Hillaire multiple-scattering LUT (co-computed in transmittance_lut.gd).
+	var ms_uniform := RDUniform.new()
+	ms_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE
+	ms_uniform.binding = 1
+	ms_uniform.add_id(sampler)
+	ms_uniform.add_id(transmittance_tex.ms_texture_rd)
+	uniforms.push_back(ms_uniform)
+
 	return rd.uniform_set_create(uniforms, shader, 1)
 
 func _initialize_texture():

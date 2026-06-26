@@ -365,6 +365,14 @@ void sky() {
 		clouds.rgb += vec3(0.32, 0.10, 0.14) * deep * clamp(golden * 2.0, 0.0, 1.0) * clouds.a * 0.40;
 	}
 
+	// Aerial perspective on the cloud deck: distant clouds (low EYEDIR.y => long
+	// air path) lose contrast toward the sky haze colour. Flat-layer distance
+	// approximation (cloud base ~1.5 km / sin elevation); the sky LUT in this
+	// direction IS the airlight the cloud is seen against.
+	float cloud_dist = 1500.0 / max(EYEDIR.y, 0.02);
+	float cloud_ap = 1.0 - exp(-cloud_dist * 2.0e-5);
+	clouds.rgb = mix(clouds.rgb, getValFromSkyLUT(EYEDIR), cloud_ap);
+
 	COLOR = background * (1.0-clouds.a) + clouds.xyz;
 	COLOR = mix(clamp(COLOR, vec3(0.0), vec3(100.0)), clamp(background, vec3(0.0), vec3(100.0)), smoothstep(0.6, 1.0, 1.0 - EYEDIR.y));
 }

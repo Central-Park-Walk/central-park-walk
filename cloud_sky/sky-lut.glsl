@@ -8,6 +8,7 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 layout(rgba16f, set = 0, binding = 0) uniform restrict writeonly image2D current_image;
 
 layout(set = 1, binding = 0) uniform sampler2D transmittance_lut;
+layout(set = 1, binding = 1) uniform sampler2D multiscatter_lut;
 
 layout(push_constant, std430) uniform Params {
 	vec2 texture_size;
@@ -141,26 +142,16 @@ vec4 transmittance_from_lut(sampler2D lut, float cos_theta, float normalized_alt
     return texture(lut, vec2(u, v));
 }
 
-vec4 get_multiple_scattering(sampler2D transmittance_lut, float cos_theta, float normalized_height, float d)
+vec4 get_multiple_scattering(float cos_theta, float normalized_height)
 {
-    // Solid angle subtended by the planet from a point at d distance
-    // from the planet center.
-    float omega = 2.0 * PI * (1.0 - sqrt(d*d - EARTH_RADIUS*EARTH_RADIUS) / d);
-
-    vec4 T_to_ground = transmittance_from_lut(transmittance_lut, cos_theta, 0.0);
-
-    vec4 T_ground_to_sample =
-        transmittance_from_lut(transmittance_lut, 1.0, 0.0) /
-        transmittance_from_lut(transmittance_lut, 1.0, normalized_height);
-
-    // 2nd order scattering from the ground
-    vec4 L_ground = PHASE_ISOTROPIC * omega * (GROUND_ALBEDO / PI) * T_to_ground * T_ground_to_sample * cos_theta;
-
-    // Fit of Earth's multiple scattering coming from other points in the atmosphere
-    vec4 L_ms = 0.02 * vec4(0.217, 0.347, 0.594, 1.0) * (1.0 / (1.0 + 5.0 * exp(-17.92 * cos_theta)));
-
-    return L_ms + L_ground;
-
+    // Hillaire multiple-scattering LUT (replaces the old empirical fit): it
+    // bakes the higher-order in-atmosphere scattering AND the ground bounce
+    // (see multiscatter-lut.glsl), parameterised identically to the
+    // transmittance LUT. NOTE: physically scaled, so it shifts sky
+    // brightness/colour vs the old fit — SKY_CAL may want a re-tune.
+    float u = clamp(cos_theta * 0.5 + 0.5, 0.0, 1.0);
+    float v = clamp(normalized_height, 0.0, 1.0);
+    return texture(multiscatter_lut, vec2(u, v));
 }
 
 /*
@@ -254,9 +245,7 @@ vec4 compute_inscattering(vec3 ray_origin, vec3 ray_dir, float t_d, out vec4 tra
         vec4 transmittance_to_sun = transmittance_from_lut(
             transmittance_lut, sample_cos_theta, normalized_altitude);
 
-        vec4 ms = get_multiple_scattering(
-            transmittance_lut, sample_cos_theta, normalized_altitude,
-            distance_to_earth_center);
+        vec4 ms = get_multiple_scattering(sample_cos_theta, normalized_altitude);
 
         vec4 S = sun_spectral_irradiance *
             (molecular_scattering * (molecular_phase * transmittance_to_sun + ms) +
