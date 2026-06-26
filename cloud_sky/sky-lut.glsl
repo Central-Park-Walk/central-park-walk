@@ -141,13 +141,33 @@ vec4 transmittance_from_lut(sampler2D lut, float cos_theta, float normalized_alt
     return texture(lut, vec2(u, v));
 }
 
-vec4 get_multiple_scattering(float cos_theta, float normalized_height)
+vec4 get_multiple_scattering(sampler2D transmittance_lut, float cos_theta, float normalized_height, float d)
 {
-    // Empirical multiple-scattering fit (García Liñán). The from-scratch
-    // Hillaire MS LUT regressed the day cycle — sky brightest at twilight then
-    // DARKENING into morning (verified: empirical 77->189 across dawn vs the
-    // LUT's 169->144) — so we keep the proven standard fit.
-    return 0.02 * vec4(0.217, 0.347, 0.594, 1.0) * (1.0 / (1.0 + 5.0 * exp(-17.92 * cos_theta)));
+    // UPSTREAM ORIGINAL (García Liñán). 2026-06-26: when the from-scratch
+    // Hillaire MS LUT was reverted, only the L_ms term was kept and L_ground
+    // was dropped — which dimmed the DAYTIME sky and daytime cloud lighting
+    // (L_ground scales with cos_theta, so it lifts the high-sun sky and barely
+    // touches dusk). That left "dark, featureless sky except at dawn/dusk."
+    // Restored in full; this is the proven standard model SKY_CAL_BG was
+    // calibrated against. (Do NOT replace with a novel MS subsystem.)
+
+    // Solid angle subtended by the planet from a point at d distance
+    // from the planet center.
+    float omega = 2.0 * PI * (1.0 - sqrt(d*d - EARTH_RADIUS*EARTH_RADIUS) / d);
+
+    vec4 T_to_ground = transmittance_from_lut(transmittance_lut, cos_theta, 0.0);
+
+    vec4 T_ground_to_sample =
+        transmittance_from_lut(transmittance_lut, 1.0, 0.0) /
+        transmittance_from_lut(transmittance_lut, 1.0, normalized_height);
+
+    // 2nd order scattering from the ground
+    vec4 L_ground = PHASE_ISOTROPIC * omega * (GROUND_ALBEDO / PI) * T_to_ground * T_ground_to_sample * cos_theta;
+
+    // Fit of Earth's multiple scattering coming from other points in the atmosphere
+    vec4 L_ms = 0.02 * vec4(0.217, 0.347, 0.594, 1.0) * (1.0 / (1.0 + 5.0 * exp(-17.92 * cos_theta)));
+
+    return L_ms + L_ground;
 }
 
 /*
@@ -241,7 +261,9 @@ vec4 compute_inscattering(vec3 ray_origin, vec3 ray_dir, float t_d, out vec4 tra
         vec4 transmittance_to_sun = transmittance_from_lut(
             transmittance_lut, sample_cos_theta, normalized_altitude);
 
-        vec4 ms = get_multiple_scattering(sample_cos_theta, normalized_altitude);
+        vec4 ms = get_multiple_scattering(
+            transmittance_lut, sample_cos_theta, normalized_altitude,
+            distance_to_earth_center);
 
         vec4 S = sun_spectral_irradiance *
             (molecular_scattering * (molecular_phase * transmittance_to_sun + ms) +
