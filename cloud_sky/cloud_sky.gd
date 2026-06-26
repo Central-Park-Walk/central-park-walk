@@ -145,6 +145,7 @@ var sky_lut := load(get_script().resource_path.get_base_dir() + "/sky_lut.tres")
 var transmittance_tex := load(get_script().resource_path.get_base_dir() + "/transmittance_lut.tres")
 
 var frame = 0
+var _dither_index : int = 0  # advances per texture build; animates the IGN raymarch dither
 
 var can_run = false
 var needs_full_sky_init = true
@@ -243,6 +244,7 @@ func update_sky():
 		texture_to_update = (texture_to_update + 1) % 3
 		texture_to_blend_from = (texture_to_blend_from + 1) % 3
 		texture_to_blend_to = (texture_to_blend_to + 1) % 3
+		_dither_index += 1  # advance the blue-noise dither once per texture build
 		_update_per_frame_data() # Only call once per update otherwise quads get out of sync
 
 		sky_material.set_shader_parameter("blend_from_texture", textures[texture_to_blend_from])
@@ -426,7 +428,7 @@ func _fill_push_constant():
 	push_constant.push_back(sun_scale)
 	push_constant.push_back(ambient_scale)
 	push_constant.push_back(frame_data._weather_mix)
-	push_constant.push_back(0.0)  # pad3
+	push_constant.push_back(float(_dither_index))  # dither_index (temporal blue-noise)
 
 	return push_constant
 

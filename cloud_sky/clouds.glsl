@@ -45,7 +45,7 @@ layout(push_constant, std430) uniform Params {
 	float sun_scale;      // calibration: direct-sun term multiplier
 	float ambient_scale;  // calibration: sky/ground ambient multiplier
 	float weather_mix;    // 0 = weather_noise, 1 = weather_noise_b
-	float pad3;           // keep push-constant size 16-byte aligned
+	float dither_index;   // temporal index for the blue-noise raymarch dither (was pad3)
 } params;
 
 // Approximately earth sizes
@@ -70,6 +70,16 @@ float hash(vec3 p) {
 	p  = fract( p * 0.3183099 + 0.1 );
 	p *= 17.0;
 	return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+
+// Interleaved Gradient Noise (Jimenez) — a blue-noise-like dither for the
+// raymarch start offset. Distributes the step pattern across neighbouring
+// pixels far better than a white-noise hash, so the slab no longer bands.
+// The dither_index term (advanced once per sky-texture build) animates it so
+// the 3-texture temporal blend averages residual structure out.
+float interleaved_gradient_noise(vec2 px) {
+	px += 5.588238 * params.dither_index;
+	return fract(52.9829189 * fract(0.06711056 * px.x + 0.00583715 * px.y));
 }
 
 // Utility function that maps a value from one range to another. 
@@ -187,6 +197,15 @@ float density(vec3 pip, vec3 weather, float mip) {
 	// scale — the old 40 m/s churned a cloud's whole texture in seconds.
 	p.y -= params.time * 5.0;
 
+	// Curl-style flow distortion of the detail lookup (Schneider): a coarse,
+	// slowly-varying noise vector swirls the high-frequency erosion off-axis
+	// so cloud edges tear into wisps instead of staying rounded. Weighted by
+	// hf so it is strongest near the top, where real cumulus shears into
+	// cauliflower/wisps; the flat condensation base stays crisp. (Approximate
+	// curl — reuses the bound Perlin-Worley volume, no extra texture binding.)
+	vec3 curl = textureLod(large_scale_noise, p * 0.00002, 0.0).rgb * 2.0 - 1.0;
+	p += curl * 90.0 * hf;
+
 	// Detailed texture.
 	vec3 hn = textureLod(small_scale_noise, p * 0.001, mip).rgb;
 	float hfbm = hn.r * 0.625 + hn.g * 0.25 + hn.b * 0.125;
@@ -195,13 +214,13 @@ float density(vec3 pip, vec3 weather, float mip) {
 	return pow(clamp(base_cloud, 0.0, 1.0), (1.0 - hf) * 0.8 + 0.5);
 }
 
-vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
+vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth, float jitter) {
 	const vec3 RANDOM_VECTORS[6] = {vec3( 0.38051305f,  0.92453449f, -0.02111345f),vec3(-0.50625799f, -0.03590792f, -0.86163418f),vec3(-0.32509218f, -0.94557439f,  0.01428793f),vec3( 0.09026238f, -0.27376545f,  0.95755165f),vec3( 0.28128598f,  0.42443639f, -0.86065785f),vec3(-0.16852403f,  0.14748697f,  0.97460106f)};
 
 	// Initialize ray length, direction, and position.
 	float ss = length(dir);
 	dir = normalize(dir);
-	vec3 p = pos + dir * hash(pos * 10.0) * ss;
+	vec3 p = pos + dir * jitter * ss;
 
 	// Initialize light ray.
 	const float t_dist = sky_t_radius - sky_b_radius;
@@ -314,7 +333,7 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 }
 
 // Take a direction as input and draw the sky.
-vec4 sky(vec3 dir) {
+vec4 sky(vec3 dir, float jitter) {
 	vec4 col = vec4(0.0);
 
 	if (dir.y > 0.0) {
@@ -323,11 +342,14 @@ vec4 sky(vec3 dir) {
 		vec3 start = camPos + dir * intersectSphere(camPos, dir, sky_b_radius);
 		vec3 end = camPos + dir * intersectSphere(camPos, dir, sky_t_radius);
 		float shelldist = (length(end - start));
-		// Take fewer steps towards horizon
-		float steps = 128.0;
+		// Step COUNT scales with the slab path length so the step SIZE stays
+		// ~constant: grazing/horizon rays (long path through the 2.5 km slab)
+		// get more steps instead of undersampling and banding, while
+		// near-vertical rays keep ~128. Capped at 256 for the worst grazing.
+		float steps = clamp(shelldist / 20.0, 128.0, 256.0);
 
 		vec3 raystep = dir * shelldist / steps;
-		col = march(start, end, raystep, int(steps));
+		col = march(start, end, raystep, int(steps), jitter);
 	} else {
 		col = vec4(0.0);
 	}
@@ -359,8 +381,10 @@ void main() {
 	ivec2 pos = ivec2(gl_GlobalInvocationID.xy) + ivec2(params.update_position);
 	vec2 uv = vec2(pos) / params.texture_size;
 	vec3 dir = oct_to_vec3(uv).xzy;
-	
-	imageStore(current_image, pos, sky(dir));
+
+	// Blue-noise raymarch jitter, keyed on the absolute texel + temporal index.
+	float jitter = interleaved_gradient_noise(vec2(pos));
+	imageStore(current_image, pos, sky(dir, jitter));
 
 }
 
