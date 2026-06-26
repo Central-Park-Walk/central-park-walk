@@ -24,8 +24,6 @@ var _keyframes: Array = []
 var _last_applied_tod: float = -999.0
 var _last_night_factor: float = -1.0
 
-const _KF_HOURS: Array = [5.0, 5.75, 6.5, 12.0, 19.0, 20.2, 21.0]
-
 
 func _ready() -> void:
 	_build_keyframes()
@@ -413,7 +411,7 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 	# Monthly cloud coverage from NOAA data
 	var monthly_cover: Array = [0.47, 0.45, 0.44, 0.36, 0.31, 0.30,
 		0.34, 0.41, 0.37, 0.47, 0.43, 0.47]
-	var month_idx: int = int(season_t * 3.0) % 12
+	var month_idx: int = int(season_t * 3.0 + 2.0) % 12  # season_t=0 is March (almanac); array is Jan-first
 	var month_next: int = (month_idx + 1) % 12
 	var month_frac: float = fmod(season_t * 3.0, 1.0)
 	var data_cover: float = lerpf(monthly_cover[month_idx], monthly_cover[month_next], month_frac)
@@ -553,13 +551,13 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 	sky_mat.set_shader_parameter("true_sun_dir", sun_dir3)
 	sky_mat.set_shader_parameter("moon_dir", moon_dir3)
 	var moon_vis: float = smoothstep(-1.5, 2.0, moon_h.x)
-	var moon_scale: float = (1.0 + 0.6 * smoothstep(10.0, 0.0, moon_h.x)) \
+	var moon_scale: float = 1.8 * (1.0 + 0.6 * smoothstep(10.0, 0.0, moon_h.x)) \
 			* (1.0 - 0.12 * smoothstep(30.0, 60.0, moon_h.x))
 	var moon_squash: float = 1.0 - 0.22 * smoothstep(4.0, -0.5, moon_h.x)
 	sky_mat.set_shader_parameter("moon_params",
 			Vector4(moon_k, moon_scale, moon_vis, moon_squash))
 	if vol_sky:
-		vol_sky.sun_disk_scale = 1.5 * (1.0 + 0.5 * smoothstep(10.0, 0.0, sun_h.x)) \
+		vol_sky.sun_disk_scale = 2.5 * (1.0 + 0.5 * smoothstep(10.0, 0.0, sun_h.x)) \
 				* (1.0 - 0.15 * smoothstep(40.0, 70.0, sun_h.x))
 	sky_mat.set_shader_parameter("sun_disk_squash",
 			1.0 - 0.22 * smoothstep(4.0, -0.5, sun_h.x))

@@ -278,10 +278,10 @@ vec4 compute_inscattering(vec3 ray_origin, vec3 ray_dir, float t_d, out vec4 tra
 void main()
 {
     ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
-    if (pos.x > params.texture_size.x || pos.y > params.texture_size.y) {
+    if (pos.x >= params.texture_size.x || pos.y >= params.texture_size.y) {
         return;
     }
-	vec2 uv = vec2(pos) / params.texture_size;
+	vec2 uv = (vec2(pos) + 0.5) / params.texture_size;  // texel centre (half-texel fix)
 
     float azimuth = 2.0 * PI * uv.x;
 

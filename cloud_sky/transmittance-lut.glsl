@@ -156,10 +156,10 @@ const mat4x3 M = mat4x3(
 
 void main() {
     ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
-    if (pos.x > params.texture_size.x || pos.y > params.texture_size.y) {
+    if (pos.x >= params.texture_size.x || pos.y >= params.texture_size.y) {
         return;
     }
-	vec2 uv = vec2(pos) / params.texture_size;
+	vec2 uv = (vec2(pos) + 0.5) / params.texture_size;  // texel centre (half-texel fix)
 
     float sun_cos_theta = uv.x * 2.0 - 1.0;
     vec3 sun_dir = vec3(-sqrt(1.0 - sun_cos_theta*sun_cos_theta), 0.0, sun_cos_theta);

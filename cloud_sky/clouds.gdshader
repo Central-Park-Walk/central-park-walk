@@ -171,7 +171,7 @@ vec3 moon_body(vec3 dir, vec3 bg) {
 	float lit = dot(n, normalize(disk_sun_dir()));
 	float shade = smoothstep(-0.06, 0.18, lit);
 	// Limb darkening + a touch of large-scale maria mottling
-	float limb = 0.78 + 0.22 * z;
+	float limb = 0.95 + 0.05 * z;  // real moon is near-flat (regolith backscatter), not solar limb-darkened
 	float maria = 0.88 + 0.12 * sin(px * 7.1 + 2.3) * sin(pv * 6.3 - 1.7);
 	// Day washes the disk toward the sky (contrast collapses; the in-
 	// scatter term below does the rest).
@@ -203,7 +203,12 @@ vec3 get_atmo(vec3 dir) {
 
 // --- High ice layer noise (cheap value-noise fBm + Worley cells) ---
 float h21(vec2 p) {
-	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+	// Precision-safe hash (Dave Hoskins) — the sin-based hash loses precision
+	// at the large coordinates the flat-sheet projection reaches near the
+	// horizon, which banded the cirrus/altocumulus into scratchy lattices.
+	vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+	p3 += dot(p3, p3.yzx + 33.33);
+	return fract((p3.x + p3.y) * p3.z);
 }
 float vnoise(vec2 p) {
 	vec2 i = floor(p);
@@ -252,6 +257,7 @@ vec4 high_clouds(vec3 rayDir, vec3 sdir) {
 	// crosses the deck. As rayDir.y -> 0 the sheet compresses toward the
 	// horizon (natural perspective foreshortening of distant cloud).
 	vec2 p = rayDir.xz / rayDir.y * 8.0 + high_cloud_offset * 0.0004;
+	p = clamp(p, vec2(-160.0), vec2(160.0));  // cap horizon blow-up (only the already-faded band)
 
 	float cover = 0.0;
 	float shade = 1.0;   // per-cell shading multiplier (altocumulus undersides)
@@ -277,7 +283,7 @@ vec4 high_clouds(vec3 rayDir, vec3 sdir) {
 	if (altocumulus_amount > 0.001) {
 		// Domain warp breaks the regular Worley lattice into organic shapes
 		// with cell-to-cell size variation.
-		vec2 wp = p * 1.7 + 0.45 * vec2(fbm(p * 0.8 + 3.0), fbm(p * 0.8 + 8.0));
+		vec2 wp = p * 1.7 + 0.9 * vec2(fbm(p * 0.8 + 3.0), fbm(p * 0.8 + 8.0));
 		float w = worley(wp);
 		float cell = smoothstep(0.70, 0.10, w);
 		// Mackerel rows: a directional ripple (cloud streets) wobbled by
@@ -348,7 +354,7 @@ void sky() {
 		float anti_face = pow(max(-sun_dot_c, 0.0), 2.0);
 		clouds.rgb += vec3(0.55, 0.28, 0.38) * anti_face * golden * clouds.a * 0.40;
 		// Overall warm shift on all clouds at golden hour
-		clouds.rgb *= mix(vec3(1.0), vec3(1.20, 0.90, 0.72), golden * 0.40);
+		clouds.rgb *= mix(vec3(1.0), vec3(1.20, 0.90, 0.72), golden * 0.22);  // toned: clouds are already sun-tinted in compute
 		// Bright rim on backlit cloud edges
 		float rim = pow(max(sun_dot_c, 0.0), 4.0);
 		clouds.rgb += LIGHT0_COLOR * rim * golden * 0.25;

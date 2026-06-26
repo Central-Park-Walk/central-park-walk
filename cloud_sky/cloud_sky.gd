@@ -150,7 +150,7 @@ var texture_to_blend_to : int = 2
 var sky_lut := load(get_script().resource_path.get_base_dir() + "/sky_lut.tres")
 var transmittance_tex := load(get_script().resource_path.get_base_dir() + "/transmittance_lut.tres")
 
-var frame = 0
+var frame : int = 0
 var _dither_index : int = 0  # advances per texture build; animates the IGN raymarch dither
 
 var can_run = false
@@ -274,7 +274,11 @@ func update_sky():
 				* frame_data.wind_speed * HIGH_WIND_FACTOR * hdt
 	sky_material.set_shader_parameter("high_cloud_offset", _high_pos)
 
-	RenderingServer.call_on_render_thread(_render_process.bind(texture_to_update))
+	# Snapshot the push constant on the MAIN thread (captures frame_data,
+	# update_position and dither_index at queue time) so the render thread
+	# can't read them mid-mutation — and so the region matches update_position
+	# before it advances below.
+	RenderingServer.call_on_render_thread(_render_process.bind(texture_to_update, _fill_push_constant()))
 	
 	update_position.x += update_region_size
 	if update_position.x >= texture_size:
@@ -302,14 +306,12 @@ func _update_per_frame_data():
 	# Before we can push those constants, there's a bit of math we need to do
 	var time = Time.get_ticks_msec() / 1000.0
 	var delta = time - frame_data._time
-	var delta2 = delta * 0.001 + 0.005 * frame_data.time_offset;
 	var wind_direction_normalized = frame_data.wind_direction.normalized()
 
-	# Which involves keeping some state and integrating positions over the latest time step
+	# Integrate cloud drift. (_detailed_pos/_weather_pos were integrated here too
+	# but neither is read by the shader — the weather map rides _weather_origin.)
 	frame_data._time = time
-	frame_data._detailed_pos += delta * wind_direction_normalized * frame_data.wind_speed
 	frame_data._cloud_pos += delta * wind_direction_normalized * frame_data.wind_speed
-	frame_data._weather_pos += delta2 * wind_direction_normalized * frame_data.wind_speed
 
 	# Advance the weather-map crossfade (sky.md P1)
 	if _weather_fade_rate > 0.0:
@@ -378,10 +380,8 @@ var sky_uniform_set : Array = [ RID(), RID(), RID() ]
 var noise_sampler
 var sky_sampler
 
-func _render_process(p_texture_to_update):
+func _render_process(p_texture_to_update, push_constant):
 	textures[p_texture_to_update].texture_rd_rid = texture_rd[p_texture_to_update]
-
-	var push_constant = _fill_push_constant()
 
 	# Run our compute shader.
 	var compute_list := rd.compute_list_begin()
@@ -458,6 +458,8 @@ func _create_noise_uniform_set() -> RID:
 	sampler_state.min_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
 	sampler_state.mip_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
 
+	if noise_sampler:
+		rd.free_rid(noise_sampler)  # was leaked on every weather-map switch
 	noise_sampler = rd.sampler_create(sampler_state)
 
 	var large_scale_noise = preload("perlworlnoise.tga")
@@ -550,13 +552,12 @@ func _initialize_compute_code(p_texture_size):
 	tf.depth = 1
 	tf.array_layers = 1
 	tf.mipmaps = 1
-	tf.usage_bits = RenderingDevice.TEXTURE_USAGE_SAMPLING_BIT + RenderingDevice.TEXTURE_USAGE_COLOR_ATTACHMENT_BIT + RenderingDevice.TEXTURE_USAGE_STORAGE_BIT + RenderingDevice.TEXTURE_USAGE_CAN_UPDATE_BIT + RenderingDevice.TEXTURE_USAGE_CAN_COPY_TO_BIT
+	tf.usage_bits = RenderingDevice.TEXTURE_USAGE_SAMPLING_BIT + RenderingDevice.TEXTURE_USAGE_STORAGE_BIT + RenderingDevice.TEXTURE_USAGE_CAN_UPDATE_BIT + RenderingDevice.TEXTURE_USAGE_CAN_COPY_TO_BIT
 	if Engine.is_editor_hint():
 		tf.usage_bits += RenderingDevice.TEXTURE_USAGE_CAN_COPY_FROM_BIT
 	noise_uniform_set = _create_noise_uniform_set()
 
 	var sampler_state = RDSamplerState.new()
-	sampler_state = RDSamplerState.new()
 	sampler_state.repeat_u = RenderingDevice.SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE
 	sampler_state.repeat_v = RenderingDevice.SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE
 	sampler_state.repeat_w = RenderingDevice.SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE

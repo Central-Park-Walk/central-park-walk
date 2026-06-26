@@ -65,13 +65,6 @@ vec3 getValFromSkyLUT(vec3 rayDir) {
     return texture(sky_lut, uv).rgb;
 }
 
-// From: https://www.shadertoy.com/view/4sfGzS credit to iq
-float hash(vec3 p) {
-	p  = fract( p * 0.3183099 + 0.1 );
-	p *= 17.0;
-	return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
-}
-
 // Interleaved Gradient Noise (Jimenez) — a blue-noise-like dither for the
 // raymarch start offset. Distributes the step pattern across neighbouring
 // pixels far better than a white-noise hash, so the slab no longer bands.
@@ -241,9 +234,9 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth, float jitter) {
 	float pc = 1.0;
 	for (int k = 0; k < 3; k++) {
 		ms_phase[k] = max(max(
-			henyey_greenstein(costheta, 0.6 * pc),
-			henyey_greenstein(costheta, (0.4 - 1.4 * ldir.y) * pc)),
-			henyey_greenstein(costheta, -0.2 * pc));
+			henyey_greenstein(costheta, clamp(0.6 * pc, -0.99, 0.99)),
+			henyey_greenstein(costheta, clamp((0.4 - 1.4 * ldir.y) * pc, -0.99, 0.99))),
+			henyey_greenstein(costheta, clamp(-0.2 * pc, -0.99, 0.99)));
 		pc *= 0.7;
 	}
 
@@ -287,7 +280,7 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth, float jitter) {
 			lp = p + ldir * 18.0 * lss;
 			lheight_fraction = GetHeightFractionForPoint(length(lp));
 			vec3 lweather = weather_at(lp);
-			lt = pow(density(lp, lweather, 5.0), (1.0 - lheight_fraction) * 0.8 + 0.5);
+			lt = density(lp, lweather, 5.0);
 			cd += lt;
 			
 			// Direct sun via multi-scattering octaves (Wrenninge/Schneider,
@@ -308,9 +301,11 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth, float jitter) {
 			// Powder (dark in-shadow crevices) belongs on front-lit views
 			// only — applying it everywhere is what erased the backlit
 			// translucent rim.
+			// Powder weight peaks front-lit (sun behind viewer, costheta<0) and
+			// vanishes back-lit (costheta>0) so the silver-lining rim survives.
 			float powder_sugar_effect = 1.0 - exp(-tau * 2.0);
 			beers_total *= 2.0 * mix(1.0, powder_sugar_effect,
-					clamp(costheta * 0.5 + 0.5, 0.0, 1.0));
+					clamp(0.5 - 0.5 * costheta, 0.0, 1.0));
 
 			// Ambient mixes ground->sky by position within the CLOUD, not
 			// absolute layer height: with tower-capped shallow cumulus the
@@ -326,6 +321,7 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth, float jitter) {
 			vec3 radiance = (ambient + beers_total * atmosphere_sun) * t;
 			L += T * (radiance - radiance * dt) / max(0.0000001, t);
 			T *= dt;
+			if (T < 0.01) { T = 0.0; break; }  // early ray termination once opaque
 		}
 	}
 	alpha = clamp(alpha, 0.0, 1.0);
@@ -346,14 +342,17 @@ vec4 sky(vec3 dir, float jitter) {
 		// ~constant: grazing/horizon rays (long path through the 2.5 km slab)
 		// get more steps instead of undersampling and banding, while
 		// near-vertical rays keep ~128. Capped at 256 for the worst grazing.
-		float steps = clamp(shelldist / 20.0, 128.0, 256.0);
+		float steps = clamp(shelldist / 20.0, 128.0, 320.0);
 
 		vec3 raystep = dir * shelldist / steps;
 		col = march(start, end, raystep, int(steps), jitter);
+		// Soft horizon fade: the deck dissolves into the distance instead of
+		// terminating abruptly at dir.y==0 (also masks grazing-ray undersample).
+		col *= smoothstep(0.0, 0.05, dir.y);
 	} else {
 		col = vec4(0.0);
 	}
-	
+
     return col;
 }
 
@@ -379,7 +378,9 @@ vec3 oct_to_vec3(vec2 e) {
 void main() {
 	// Calculate direction from pixel position.
 	ivec2 pos = ivec2(gl_GlobalInvocationID.xy) + ivec2(params.update_position);
-	vec2 uv = vec2(pos) / params.texture_size;
+	// Guard the ceil()-rounded dispatch against over-running the texture.
+	if (pos.x >= int(params.texture_size.x) || pos.y >= int(params.texture_size.y)) return;
+	vec2 uv = (vec2(pos) + 0.5) / params.texture_size;   // texel centre (half-texel fix)
 	vec3 dir = oct_to_vec3(uv).xzy;
 
 	// Blue-noise raymarch jitter, keyed on the absolute texel + temporal index.
