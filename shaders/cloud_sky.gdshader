@@ -24,11 +24,13 @@ float sky_hash(vec2 p) {
 	p += dot(p, p + 43.21);
 	return fract(p.x * p.y);
 }
-// Gradient hash — returns 2D direction per lattice point
+// Gradient hash — returns 2D direction per lattice point.
+// Precision-safe (Dave Hoskins); the old sin()-based hash lost precision and
+// banded at the large coordinates the horizon projection reaches.
 vec2 sky_grad(vec2 p) {
-	p = vec2(dot(p, vec2(127.1, 311.7)),
-	         dot(p, vec2(269.5, 183.3)));
-	return -1.0 + 2.0 * fract(sin(p) * 43758.5453);
+	vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+	p3 += dot(p3, p3.yzx + 33.33);
+	return -1.0 + 2.0 * fract((p3.xx + p3.yz) * p3.zy);
 }
 // Gradient (Perlin-style) noise — no grid artifacts
 float sky_gnoise(vec2 p) {
