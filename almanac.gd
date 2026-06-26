@@ -11,7 +11,11 @@ class_name Almanac
 ## - hour: local clock time 0-24 (DST applied by day-of-year).
 ## - Horizontal coords: elevation deg above horizon, azimuth deg from
 ##   north going east (0 N, 90 E, 180 S, 270 W).
-## - World axes (verified against park data): east = -X, north = -Z.
+## - World axes: east = +X, north = -Z (matches the park projection in
+##   convert_to_godot.py project(): x = (lon-REF_LON)*m_per_deg_lon makes
+##   higher longitude / further EAST land at +X). The old "east = -X"
+##   convention here mirrored the sky against the world, so the sun rose
+##   in the park's west and SET IN THE EAST (Chris 2026-06-26).
 ## - Light euler: pitch = -elevation, yaw = 180 + azimuth (Godot
 ##   DirectionalLight basis*+Z points TOWARD the body).
 ##
@@ -110,11 +114,13 @@ static func moon_horizontal(season_t: float, hour: float) -> Vector2:
 	return _equatorial_to_horizontal(ra, dec, n)
 
 
-## World-space unit direction TOWARD a body (east = -X, north = -Z, up = +Y).
+## World-space unit direction TOWARD a body (east = +X, north = -Z, up = +Y).
+## East = +X matches the park geometry (convert_to_godot.py project()); the
+## previous -X mirrored the celestial sphere, flipping sunrise/sunset E<->W.
 static func dir_from_horizontal(h: Vector2) -> Vector3:
 	var e: float = deg_to_rad(h.x)
 	var a: float = deg_to_rad(h.y)
-	return Vector3(-cos(e) * sin(a), sin(e), -cos(e) * cos(a))
+	return Vector3(cos(e) * sin(a), sin(e), -cos(e) * cos(a))
 
 
 ## Illuminated fraction of the moon from the two body directions:
