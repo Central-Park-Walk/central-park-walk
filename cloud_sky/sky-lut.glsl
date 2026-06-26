@@ -8,7 +8,6 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 layout(rgba16f, set = 0, binding = 0) uniform restrict writeonly image2D current_image;
 
 layout(set = 1, binding = 0) uniform sampler2D transmittance_lut;
-layout(set = 1, binding = 1) uniform sampler2D multiscatter_lut;
 
 layout(push_constant, std430) uniform Params {
 	vec2 texture_size;
@@ -144,14 +143,11 @@ vec4 transmittance_from_lut(sampler2D lut, float cos_theta, float normalized_alt
 
 vec4 get_multiple_scattering(float cos_theta, float normalized_height)
 {
-    // Hillaire multiple-scattering LUT (replaces the old empirical fit): it
-    // bakes the higher-order in-atmosphere scattering AND the ground bounce
-    // (see multiscatter-lut.glsl), parameterised identically to the
-    // transmittance LUT. NOTE: physically scaled, so it shifts sky
-    // brightness/colour vs the old fit — SKY_CAL may want a re-tune.
-    float u = clamp(cos_theta * 0.5 + 0.5, 0.0, 1.0);
-    float v = clamp(normalized_height, 0.0, 1.0);
-    return texture(multiscatter_lut, vec2(u, v));
+    // Empirical multiple-scattering fit (García Liñán). The from-scratch
+    // Hillaire MS LUT regressed the day cycle — sky brightest at twilight then
+    // DARKENING into morning (verified: empirical 77->189 across dawn vs the
+    // LUT's 169->144) — so we keep the proven standard fit.
+    return 0.02 * vec4(0.217, 0.347, 0.594, 1.0) * (1.0 / (1.0 + 5.0 * exp(-17.92 * cos_theta)));
 }
 
 /*
