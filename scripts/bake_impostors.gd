@@ -29,13 +29,13 @@ const OUT_DIR := "res://textures/impostors/"
 # Summer phase for a full-canopy albedo bake (season_t cycles 0..4). Verified
 # visually against the in-game summer canopy at validation time.
 const SUMMER_SEASON := 2.0
-# Per-card keep-fraction used DURING the bake (tree_leaf bake_density): a full
-# crown projects SOLID at bake resolution, so without thinning the atlas read
-# ~0.64-0.74 filled vs the live mesh's see-through ~0.38-0.58 at the handoff =>
-# impostor solid-blob "fuller/bigger than lod1". This drops (1-value) of the
-# cluster cards (reusing the seasonal v_card_seed drop) to punch matching
-# card-scale holes. Calibrated 2026-06-24 so the impostor silhouette matches the
-# mesh at the lod1->impostor handoff. -1 = no drop (full crown).
+# Per-card keep-fraction used DURING the bake (tree_leaf bake_density). 0.1 drops
+# ~90% of cards so the baked atlas coverage MATCHES the see-through live lod1 mesh at
+# the handoff (a full crown projects solid at bake res). Matching lod1 is the design:
+# the impostor is derived from lod1 and must read identically so the lod1->impostor
+# handoff is seamless. -1 = no drop (full crown). DO NOT raise to solid — a fuller
+# impostor pops against the lod1 it replaces (the per-tier match the bug is NOT about;
+# see [[project_tree_lod_disappearance_bug]] — the residual is per-INSTANCE).
 const BAKE_DENSITY := 0.1
 
 var _loader  # park_loader — in the scene tree; bake viewport parents here
@@ -145,9 +145,13 @@ func bake_tier(tier_key: String, meshes: Array, world_height: float, card_keep: 
 	# position_offset = +center lifts the billboard to canopy height — the SIGN that,
 	# inverted, buried the whole far tier under the terrain in the prior system.
 	var scale_instance := diag / 2.0
+	# aabb_max = 0: the ORTHOGRAPHIC bake already captures the true silhouette AT THE
+	# PIVOT, so the addon's forward depth-push (diag/4) only inflates the card (+7-10%
+	# size at the handoff). The runtime also pins this to 0 defensively; emit 0 here so
+	# the manifest matches what is actually used.
 	return {
 		"tier": tier_key, "frames": FRAMES, "atlas_res": ATLAS_RES, "is_full_sphere": false,
-		"scale": scale_instance, "aabb_max": scale_instance / 2.0,
+		"scale": scale_instance, "aabb_max": 0.0,
 		"position_offset": [center.x, center.y, center.z],
 		"world_height": world_height, "diag": diag,
 		"albedo": atlases.get("albedo", ""), "normal": atlases.get("normal", ""),

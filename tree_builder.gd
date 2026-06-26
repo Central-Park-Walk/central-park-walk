@@ -715,10 +715,21 @@ func _build_trees(trees: Array) -> void:
 			continue
 
 		var variant_idx: int = int(abs(hash("%s|%.1f|%.1f" % [species_tier, tx, tz]))) % n_variants  # PER-TREE variant (local diversity, user 2026-06-22; was per-80m-cell which tiled). Position-derived → identical across lod0/lod1 (no handoff pop). COST: ~3x tree MMIs (mixed variants per chunk) — frame is fragment-bound (trees.md §4a) so likely cheap, but PERF-GATE before commit.
-		# TEST ROUND: pin to ONE london_plane variant when --all-london-plane (see
-		# LP_SINGLE_VARIANT). vi flows into the bucket key, so lod0 AND _lod1 both pick
-		# this index (near_mesh/mid_mesh share vi at chunk-build time).
-		if _all_london_plane and species == "london_plane" and LP_SINGLE_VARIANT >= 0:
+		# Pin london_plane to ONE variant in EVERY mode (not just --all-london-plane).
+		# The impostor tier is baked from a SINGLE variant (LP_SINGLE_VARIANT; see
+		# _run_impostor_bake) and is looked up per-TIER, ignoring each tree's variant. So
+		# if the mesh used the per-tree hash above, a tree whose variant != the baked one
+		# would hand off to a mismatched-silhouette impostor → the complementary dither
+		# cross-fades two DIFFERENT shapes and the crown guts out at the handoff (the
+		# "see-through band" — tree-dependent, all sizes, every angle/time, only where
+		# lod1 and the impostor overlap). Pinning the mesh to the SAME variant the
+		# impostor was baked from makes lod0/lod1/impostor one coherent silhouette. This
+		# also realises the "one mesh per tier + shader-driven variety" direction; only
+		# london_plane has an impostor today, so only it needs the pin (other species
+		# keep the per-tree hash harmlessly until their impostors are baked, at which
+		# point they get the same single-variant treatment). vi flows into the bucket
+		# key so lod0 AND _lod1 share it (no handoff pop between the mesh tiers either).
+		if species == "london_plane" and LP_SINGLE_VARIANT >= 0:
 			variant_idx = clampi(LP_SINGLE_VARIANT, 0, n_variants - 1)
 		# Eval-only: a specimen may force a specific variant (eval_plot_builder
 		# VARIANT_ROW — show every lod0 variant side by side). No effect on the park.
@@ -852,17 +863,6 @@ func _build_trees(trees: Array) -> void:
 	# visibility_range works per-chunk (distance from camera to node).
 	const CHUNK := 80.0
 
-	# Woodland Z ranges where canopy is dense enough for occlusion culling
-	const WOODLAND_Z := [
-		[-1800.0, -1050.0],  # North Woods + The Pool
-		[375.0, 975.0],      # The Ramble
-		[1650.0, 2050.0],    # Hallett & The Pond
-	]
-
-	# Per-spatial-chunk canopy bounds for occluder generation
-	# Key: "cx|cz" → {y_min, y_max, x_min, x_max, z_min, z_max, count}
-	var chunk_bounds: Dictionary = {}
-
 	# Bucket transforms by spatial chunk per-species-variant
 	var lod0_buckets: Dictionary = {}
 
@@ -878,26 +878,6 @@ func _build_trees(trees: Array) -> void:
 				lod0_buckets[ck0] = {"mesh_key": key, "cx": cx, "cz": cz, "xf": [], "cd": []}
 			lod0_buckets[ck0]["xf"].append(tf)
 			lod0_buckets[ck0]["cd"].append(cd_arr[j])
-			# Accumulate per-spatial-chunk canopy bounds for occluders
-			var bk := "%d|%d" % [cx, cz]
-			var px := tf.origin.x
-			var py := tf.origin.y
-			var pz := tf.origin.z
-			var tree_h: float = tf.basis.y.length() * float(_species_heights.get(key.substr(0, key.rfind("_")), 15.0))
-			var crown_top: float = py + tree_h
-			var crown_base: float = py + tree_h * 0.4
-			if not chunk_bounds.has(bk):
-				chunk_bounds[bk] = {"x0": px, "x1": px, "z0": pz, "z1": pz,
-					"yb": crown_base, "yt": crown_top, "n": 1}
-			else:
-				var b: Dictionary = chunk_bounds[bk]
-				b["x0"] = minf(b["x0"], px)
-				b["x1"] = maxf(b["x1"], px)
-				b["z0"] = minf(b["z0"], pz)
-				b["z1"] = maxf(b["z1"], pz)
-				b["yb"] = minf(b["yb"], crown_base)
-				b["yt"] = maxf(b["yt"], crown_top)
-				b["n"] += 1
 
 	# Spawn LOD0 chunks — position MMI at instance centroid for accurate culling
 	for ckey in lod0_buckets:
@@ -1052,7 +1032,12 @@ func _build_trees(trees: Array) -> void:
 			pmmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 			pmmi.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 			pmmi.visibility_range_begin = 0.0
-			pmmi.visibility_range_end = 290.0
+			# Screen-size LOD: a tall tier's mesh hands off to its impostor farther out
+			# (eff_mesh_end scales with height), so its shadow must persist at least that
+			# far or the canopy keeps casting while the crown LOD is gone. 290m floor for
+			# short tiers (the old fixed cap); the per-chunk spread (chunk_r) is added so
+			# skewed chunks don't drop a member's shadow early.
+			pmmi.visibility_range_end = maxf(290.0, eff_mesh_end + chunk_r + 5.0)
 			pmmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 			_loader.add_child(pmmi)
 			proxy_instances += xf_list.size()
@@ -1075,7 +1060,7 @@ func _build_trees(trees: Array) -> void:
 		if xfs.size() > 0:
 			var tf: Transform3D = xfs[0]
 			var sy := tf.basis.y.length()  # Y basis length = scale factor
-			var mesh_h_val: float = _species_heights.get(key.split("_")[0], 5.0)
+			var mesh_h_val: float = _species_heights.get(key.substr(0, key.rfind("_")), 5.0)
 			var actual_h := sy * mesh_h_val  # true world height in metres
 			print("  Tree '%s': mesh=%.1fm × sy=%.2f = %.1fm tall, at y=%.1f" % [
 				key, mesh_h_val, sy, actual_h, tf.origin.y])
@@ -1481,6 +1466,8 @@ func _build_impostor_assets() -> void:
 			# normal shows see-through stipple). Reverted to baseline pending a real
 			# diagnosis of WHY the mesh leaves early. See [[project_tree_lod_disappearance_bug]].
 			var lscale: float = _lod_scale(tier)
+			# Crossfade-in band = where this tier's mesh dithers out (height-scaled), so
+			# the impostor dithers IN exactly as _lod1 dithers OUT (complementary).
 			var band_end: float = _mesh_fade_end * lscale
 			var band_begin: float = band_end * (1.0 - LOD_FADE_RATIO)
 			# Impostor-only isolate: render solid from 0m, no crossfade dither.

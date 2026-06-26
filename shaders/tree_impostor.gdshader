@@ -201,6 +201,7 @@ void vertex() {
 	col *= 1.0 + (jitter - 0.5) * 0.25;
 	col += (fract(jitter * 7.37) - 0.5) * vec3(0.025, -0.008, -0.03);
 	v_season_color = col;
+
 	vec2 framesMinusOne = imposterFrames - vec2(1);
 	vec3 cameraPos_WS = (INV_VIEW_MATRIX * vec4(vec3(0), 1.0)).xyz;
 	vec3 cameraPos_OS = (inverse(MODEL_MATRIX) * vec4(cameraPos_WS, 1.0)).xyz;
@@ -282,6 +283,13 @@ vec3 blendedNormals(vec2 uv_1, vec3 f1_n, vec2 uv_2, vec3 f2_n, vec2 uv_3, vec3 
 
 vec2 recalculateUV(vec2 uv_f, vec2 frame, vec2 xy_f, vec2 frame_size, float d_scale, sampler2D depthTexture) {
 	uv_f = clamp(uv_f, vec2(0), vec2(1));
+	// No depth atlas is baked (foliage; depth_scale stays 0), so the virtual-plane
+	// parallax offset is a no-op. Skip it and its 3-per-fragment depth fetches; map
+	// straight to the atlas cell. (Restore-ready: a non-zero depth_scale + a bound
+	// depth atlas re-enables full parallax below.)
+	if (d_scale <= 0.0) {
+		return clamp(frame_size * (frame + uv_f), vec2(0), vec2(1));
+	}
 	vec2 uv_quad = frame_size * (frame + uv_f);
 	vec4 n_depth = (textureLod(depthTexture, uv_quad, 0));
 	uv_f = xy_f * (0.5 - n_depth.r) * d_scale + uv_f;

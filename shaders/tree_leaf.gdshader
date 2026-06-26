@@ -189,7 +189,12 @@ void vertex() {
 	vec3 tree_origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	float h = max(VERTEX.y, 0.0);
 	float wind_str = length(wind_vec);
-	float rustle = (0.3 + wind_str * 0.7) * mix(0.3, 1.0, leaf_density);
+	// Distance LOD on the wind (AAA SOP): canopy sway/flutter is sub-pixel on the far
+	// mesh tiers, so fade wind amplitude to zero past viewing range instead of
+	// animating every distant vertex. player_world_pos is the same source the fragment
+	// dither uses. Folded into rustle/push/gust below so every displacement scales.
+	float wind_lod = 1.0 - smoothstep(140.0, 220.0, length(tree_origin - player_world_pos));
+	float rustle = (0.3 + wind_str * 0.7) * mix(0.3, 1.0, leaf_density) * wind_lod;
 	float phase = wind_phase(tree_origin);
 
 	float branch_phase = COLOR.b * 6.283 + phase;
@@ -206,13 +211,13 @@ void vertex() {
 	// Cantilever trunk + branch sway + wind push (leaves: higher amplitudes than bark)
 	vec2 trunk_d = wind_cantilever_trunk(h, sway_freq, trunk_flex, rustle, phase);
 	vec2 branch_d = wind_branch_sway(h, crown, sway_freq, branch_flex_w, branch_phase, rustle, 0.08, 0.05);
-	vec2 push_d = wind_push(wind_vec, h, 0.18, trunk_flex);
+	vec2 push_d = wind_push(wind_vec, h, 0.18, trunk_flex) * wind_lod;
 	VERTEX.x += trunk_d.x + branch_d.x + push_d.x;
 	VERTEX.z += trunk_d.y + branch_d.y + push_d.y;
 
 	// Gusts (leaves catch more wind than bark)
 	float gust = wind_gust(tree_origin, 0.3, 3.0);
-	float gust_strength = gust * wind_str * 0.25 * gust_resp;
+	float gust_strength = gust * wind_str * 0.25 * gust_resp * wind_lod;
 	VERTEX.x += wind_vec.x * h * gust_strength;
 	VERTEX.z += wind_vec.y * h * gust_strength;
 
@@ -243,6 +248,26 @@ void fragment() {
 	if (v_card_seed * 0.96 > drop_density) {
 		discard;
 	}
+
+	// LOD crossfade dither — distance/screen-space only (needs no texture), so it runs
+	// BEFORE the albedo fetch: dithered-out fragments skip the texture sample and all
+	// shading below. player_world_pos (not INV_VIEW_MATRIX[3]) keeps the discards
+	// consistent across shadow/reflection passes. Complementary dither: each tier
+	// dithers out as the next dithers in over the same band; coherent now that all
+	// tiers share one variant silhouette (see tree_builder variant pin).
+	// [DIAG-DISABLED 2026-05-18] Second LOD system (distance-adaptive alpha threshold
+	// ramping discard 0.15→0.02 over 60-180m) disabled for A/B comparison.
+	vec3 frag_tree_pos = MODEL_MATRIX[3].xyz;
+	float frag_cam_dist = length(frag_tree_pos - player_world_pos);
+	if (lod_fade_out.y > 0.0 && frag_cam_dist > lod_fade_out.x) {
+		if (lod_dither_discard(frag_cam_dist, lod_fade_out.x, lod_fade_out.y,
+		                       FRAGCOORD.xy, false)) discard;
+	}
+	if (lod_fade_in.y > 0.0 && frag_cam_dist < lod_fade_in.y) {
+		if (lod_dither_discard(frag_cam_dist, lod_fade_in.x, lod_fade_in.y,
+		                       FRAGCOORD.xy, true)) discard;
+	}
+
 	vec4 tex = texture(albedo_tex, UV);
 	float lum = dot(tex.rgb, vec3(0.3, 0.6, 0.1));
 	float alpha = tex.a;
@@ -254,13 +279,6 @@ void fragment() {
 	// float mip_level = max(log2(max(delta_max * 1024.0, 1.0)), 0.0);
 	// alpha *= 1.0 + mip_level * 0.3;
 	// alpha = min(alpha, 1.0);
-
-	// [DIAG-DISABLED 2026-05-18] Second LOD system disabled for A/B comparison.
-	// Was: distance-adaptive alpha threshold ramping discard 0.15→0.02 over 60-180m.
-	vec3 frag_tree_pos = MODEL_MATRIX[3].xyz;
-	// player_world_pos (not INV_VIEW_MATRIX[3]) so the dither discards
-	// correctly in shadow/reflection passes.
-	float frag_cam_dist = length(frag_tree_pos - player_world_pos);
 
 	// Coverage-preserving discard threshold, driven by the SAMPLED MIP —
 	// not camera distance. Box-filtered mips dilute alpha (binary at mip 0,
@@ -276,19 +294,6 @@ void fragment() {
 	// fragments shade identically.
 	float alpha_lod = textureQueryLod(albedo_tex, UV).y;
 	if (alpha < mix(0.5, 0.10, clamp(alpha_lod * 0.25, 0.0, 1.0))) discard;
-
-	// LOD crossfade: complementary dithering at tier boundaries.
-	// Outgoing: this tier dissolves away as camera moves beyond its range.
-	// Incoming: this tier dissolves in as camera enters from the previous tier.
-	// TAA smooths the dither pattern across frames.
-	if (lod_fade_out.y > 0.0 && frag_cam_dist > lod_fade_out.x) {
-		if (lod_dither_discard(frag_cam_dist, lod_fade_out.x, lod_fade_out.y,
-		                       FRAGCOORD.xy, false)) discard;
-	}
-	if (lod_fade_in.y > 0.0 && frag_cam_dist < lod_fade_in.y) {
-		if (lod_dither_discard(frag_cam_dist, lod_fade_in.x, lod_fade_in.y,
-		                       FRAGCOORD.xy, true)) discard;
-	}
 
 	vec3 col = v_leaf_color * (0.50 + lum * 0.50);  // texture luminance modulation (raised floor for denser canopy read)
 
