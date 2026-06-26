@@ -88,6 +88,12 @@ class FrameData:
 	# Latched once per texture swap — the sky texture renders region-by-
 	# region over frames_to_update frames, so a live value would tear.
 	var _weather_mix : float = 0.0
+	# Same latching requirement: day_night_cycle sets sun_scale/ambient_scale
+	# every frame from day_f(sun_energy). Read live they varied across the
+	# region-by-region build during dawn/dusk and baked hard seams at the
+	# update-region boundaries (the zenith "grid" over thin cloud).
+	var sun_scale : float = 1.0
+	var ambient_scale : float = 1.0
 
 	# Properties updated by the light
 	var LIGHT_DIRECTION : Vector3 = Vector3(0.0, -1.0, 0.0)
@@ -290,6 +296,8 @@ func _update_per_frame_data():
 	frame_data.cloud_coverage = cloud_coverage
 	frame_data.time_offset = time_offset
 	frame_data.ground_color = ground_color
+	frame_data.sun_scale = sun_scale
+	frame_data.ambient_scale = ambient_scale
 
 	# Before we can push those constants, there's a bit of math we need to do
 	var time = Time.get_ticks_msec() / 1000.0
@@ -425,8 +433,8 @@ func _fill_push_constant():
 	push_constant.push_back(frame_data.cloud_coverage)
 	push_constant.push_back(frame_data.time_offset)
 
-	push_constant.push_back(sun_scale)
-	push_constant.push_back(ambient_scale)
+	push_constant.push_back(frame_data.sun_scale)
+	push_constant.push_back(frame_data.ambient_scale)
 	push_constant.push_back(frame_data._weather_mix)
 	push_constant.push_back(float(_dither_index))  # dither_index (temporal blue-noise)
 
