@@ -1521,7 +1521,13 @@ SPECIES = {
         # crown width + bole height (free-form ↔ pollarded-knuckled span, BRIEF §7).
         # Camouflage bark = the hero identity, wired as tree_bark.gdshader Style 2
         # (london_plane→bstyle 2 in tree_builder.gd); patch scale/coverage tuned 2026-06-19.
+        # n_variants kept at 7 as the SPANNING DENOMINATOR; pin_variant ships only the
+        # approved v3 form so each tier's GLB is single-mesh → runtime n_variants=1 →
+        # no second variant can populate (fixes the LOD see-through band at the asset
+        # level; [[project_tree_lod_disappearance_bug]]). v3 = the user-confirmed good
+        # model (the new design, not the older bare-apex variants 0-2).
         "n_variants": 7,
+        "pin_variant": 3,
         # SPECIES variant_spans = the MATURE (l) ranges (s and m define their OWN
         # tier variant_spans; only l falls through to these). Span the mature
         # decurrent candelabra FORM: low fork, broad spreading crown, weak leader.
@@ -3913,7 +3919,23 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
     # are per species-tier, so >5 is free downstream.
     n_variants = sp.get("n_variants", N_VARIANTS)
 
-    for vi in range(n_variants):
+    # ASSET-LEVEL SINGLE-VARIANT PIN (user 2026-06-26, "go to extremes"). A species
+    # may declare `pin_variant: <idx>` to ship ONLY its one approved variant. We then
+    # iterate just that index but KEEP n_variants as the spanning denominator, so the
+    # emitted mesh reproduces the pinned variant's EXACT form: identical seed
+    # (base_seed + idx*seed_step + tier_offset, deterministic fork-test) AND identical
+    # variant_spans interpolation. The GLB therefore holds ONE mesh, so the runtime
+    # (tree_builder.gd:713 `n_variants = meshes.size()`) computes variant_idx =
+    # hash % 1 = 0 for EVERY tree — it is physically impossible to populate a second
+    # variant. This kills the LOD "see-through band" at its source (variant mismatch
+    # between mesh and the single-variant impostor), belt-and-suspenders over the
+    # runtime LP_SINGLE_VARIANT pin. NOTE: a naive n_variants:1 does NOT do this — it
+    # trips the `n_variants > 1` spanning gate OFF and shifts the seed, yielding an
+    # untuned scalar-fallback tree instead of the approved variant.
+    _pin = sp.get("pin_variant")
+    _gen_indices = [_pin] if _pin is not None else list(range(n_variants))
+
+    for _out_idx, vi in enumerate(_gen_indices):
         base_seed = sp["base_seed"] + vi * sp["seed_step"] + tier_seed_offset.get(tier_name, 0)
 
         # Tier-specific skeleton overrides
@@ -3962,8 +3984,10 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
         t0 = time.time()
         cpp_mesh = generate_tree_skeleton(sp_variant, target_h, seed)
 
-        mesh = bpy.data.meshes.new(f"{species_name}_{tier_name}_v{vi}")
-        trunk_obj = bpy.data.objects.new(f"{species_name}_{tier_name}_v{vi}", mesh)
+        # Name by OUTPUT index (not the source `vi`): a pinned single variant ships
+        # as `_v0` so the GLB's lone mesh is index 0, matching the runtime picker.
+        mesh = bpy.data.meshes.new(f"{species_name}_{tier_name}_v{_out_idx}")
+        trunk_obj = bpy.data.objects.new(f"{species_name}_{tier_name}_v{_out_idx}", mesh)
         bpy.context.collection.objects.link(trunk_obj)
         create_mesh_from_cpp(mesh, cpp_mesh)
         trunk_obj.data.materials.append(bark_mat)
