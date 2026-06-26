@@ -458,7 +458,7 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 				# catch the low sun (the salmon-pink-on-periwinkle reference).
 				# Kept moderate — a full-strength mackerel deck reads busy.
 				cs = 0.40
-				ac = 0.45
+				ac = 0.0  # altocumulus "pill" clouds disabled for now (Chris 2026-06-26); was 0.45
 				cir = maxf(cir, 0.35)
 		elif weather == Weather.SNOW:
 			cs = 0.60          # cirrostratus ahead of/with snow fronts
