@@ -48,6 +48,11 @@ var _tones: Array = []
 # ============================== FIREFLIES (near) =============================
 const FF_COUNT := 220
 const FF_RANGE := 30.0
+# Max drift per frame. Kept low so fireflies hover-and-blink roughly in place
+# (like a real Photinus J-stroke flash) — a faster drift smears the bright additive
+# sprite under TAA into a "pixie dust" comet trail. Bump this back up (~0.05) to
+# bring those trails back for a more magical / RPG setting later.
+const FF_DRIFT := 0.006
 var _ff: Array = []                              # agent dicts {pos, target, vel, phase, ...}
 var _ff_mm: MultiMesh
 var _ff_mat: ShaderMaterial
@@ -691,9 +696,9 @@ func _update_fireflies(delta: float, intensity: float) -> void:
 
 		vel *= 0.85
 		var spd := vel.length()
-		if spd > 0.05:
-			vel = vel / spd * 0.05
-		vel += Vector3(_rng.randf_range(-0.04, 0.04), _rng.randf_range(-0.06, 0.06), _rng.randf_range(-0.04, 0.04)) * delta
+		if spd > FF_DRIFT:
+			vel = vel / spd * FF_DRIFT
+		vel += Vector3(_rng.randf_range(-0.02, 0.02), _rng.randf_range(-0.03, 0.03), _rng.randf_range(-0.02, 0.02)) * delta
 		ff["vel"] = vel
 		pos += vel
 		ff["pos"] = pos
