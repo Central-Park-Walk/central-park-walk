@@ -98,6 +98,25 @@ These replace the old spec's 8×8 (under-sampled).
 - New PNGs need one editor import pass (`godot --headless --import`) before the
   game can `load()` them.
 
+**Seasonal shape — TWO atlas sets per tier (2026-06-27).** A single summer atlas
+read *too full in summer* (a full crown projects solid at bake res — a blob, not the
+see-through live mesh) and *very too full in winter* (the runtime only recoloured the
+summer silhouette brown; it never thinned). The far tier's SHAPE must track season, so
+each tier is now baked TWICE (`bake_tier(season_t, file_suffix)`):
+- **SUMMER** (`SUMMER_SEASON=2.0`, suffix `""`): for london_plane's single-variant
+  bake, `LP_SUMMER_CARD_KEEP=0.5` thins the crown via the leaf shader's `bake_density`
+  per-card drop so the projected crown reads as see-through as the lod1 it replaces
+  (`-1`/full = the old blob). Tuning lever for distant summer density.
+- **WINTER** (`WINTER_SEASON=3.5` = Jan, suffix `"_winter"`, `card_keep=-1`): at
+  `season_t=3.5` london_plane's phenology `canopy=min(grow,shed)=0`, so the leaf
+  shader's own `v_leaf_density` collapses to `WINTER_RETENTION` (0.05). With no fixed
+  `bake_density` override, that drives a per-card drop to a near-bare branch skeleton +
+  a few marcescent sprigs — REAL geometry, baked. (This replaces the 2026-06-27 runtime
+  per-fragment stochastic discard, which crawled in motion and was reverted.)
+- Winter atlas paths are grafted onto the summer tier's manifest entry under
+  `winter_{albedo,normal,orm}` keys (geometry — scale/offset/diag — is shared). Atlas
+  coverage drops ~4-5× summer→winter (l 16%→4%, m 12%→4%, s 7%→1%).
+
 **Runtime — `shaders/tree_impostor.gdshader`:** adapts the addon `ImpostorShader`
 (octahedral 3-nearest-frame blend + virtual-plane parallax). Drops
 `impostor_brightness`; `ALBEDO = atlas` and Godot lights it via the normal atlas +
@@ -111,6 +130,16 @@ gap (diffuse_burley vs the leaf shader's directional response: ~1.20× at noon b
 `(0.93,0.94,0.96)` in `_build_impostor_assets` (the far-tier analog of the leaf
 shader's `tier_brightness`). Adds `lod_fade_in` dither so it crossfades into `_lod1`
 over the same band the mesh tier dithers out.
+
+When a winter atlas set is bound (`has_winter_atlas`), the shader samples BOTH sets
+and blends `mix(winter, summer, v_leaf_frac)` per fragment, where `v_leaf_frac` is the
+per-tree seasonal canopy fraction computed in vertex with the SAME `min(grow,shed)`
+phenology curve as `tree_leaf` — so the far crown thins in lockstep with the mesh and
+the winter hue comes from the existing `v_season_color` (brown). The blend branch is
+gated on `v_leaf_frac < 0.999` and is coherent (season-driven), so the extra atlas
+fetches are skipped outright in full summer and only paid through the fall/spring
+transition bands. Season presets: `summer=1.5`→frac 1.0 (pure summer atlas),
+`winter=3.5`→frac 0.0 (pure winter atlas, matching `WINTER_SEASON`).
 
 **Integration — `tree_builder.gd`:** `_build_impostor_assets()` builds one billboard
 QuadMesh + material per baked tier (params from the manifest, `lod_fade_in` band
