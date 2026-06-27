@@ -48,15 +48,10 @@ var _tones: Array = []
 # ============================== FIREFLIES (near) =============================
 const FF_COUNT := 220
 const FF_RANGE := 30.0
-# Max drift per frame (~1.8 m/s) — fireflies genuinely fly between flashes. The
-# trail problem is handled by FF_FLASH_MOVE instead: a fast-moving bright additive
-# sprite smears under TAA, so we hold each firefly nearly still *while it is lit* and
-# let it relocate while dark (when the sprite is discarded and leaves no smear).
+# Max drift per frame (~1.8 m/s) — fireflies genuinely fly. No trail-suppression
+# motion hack: the sprite is rendered opaque (see ambient_firefly.gdshader) so it writes
+# motion vectors and the temporal upscaler (FSR2/TAA) tracks it cleanly at any speed.
 const FF_DRIFT := 0.03
-# Fraction of normal drift allowed while a firefly is at full flash brightness. Low so
-# the lit sprite barely moves (no "pixie dust" trail); raise toward 1.0 to bring the
-# trails back for a magical / RPG setting later.
-const FF_FLASH_MOVE := 0.12
 var _ff: Array = []                              # agent dicts {pos, target, vel, phase, ...}
 var _ff_mm: MultiMesh
 var _ff_mat: ShaderMaterial
@@ -652,6 +647,7 @@ func _update_fireflies(delta: float, intensity: float) -> void:
 	# Edge-dim the whole swarm at the start/end of the display window.
 	_ff_mat.set_shader_parameter("ff_bright", lerpf(0.55, 1.0, clampf(intensity, 0.0, 1.0)))
 	var ppos := player.global_position
+	var cam_pos: Vector3 = camera.global_position if camera != null else ppos
 	var vis := 0
 	for ff in _ff:
 		# Each firefly joins the swarm once the display intensity clears its random
@@ -704,21 +700,31 @@ func _update_fireflies(delta: float, intensity: float) -> void:
 			vel = vel / spd * FF_DRIFT
 		vel += Vector3(_rng.randf_range(-0.04, 0.04), _rng.randf_range(-0.06, 0.06), _rng.randf_range(-0.04, 0.04)) * delta
 		ff["vel"] = vel
+		pos += vel                                  # full free flight — no trail damping
+		ff["pos"] = pos
 
-		# Flash pulse (computed here, on the CPU, so it matches what the shader reads):
-		# ~1.8 s glow within the firefly's period. We hold the firefly nearly still while
-		# it is lit (move_scale -> FF_FLASH_MOVE) so the bright sprite doesn't smear under
-		# TAA, and let it fly freely while dark — that's the trail-free "flying" look.
+		# Flash pulse (computed CPU-side, handed to the shader via INSTANCE_CUSTOM.r):
+		# ~1.8 s glow within the firefly's period.
 		var period: float = ff["period"]
 		var ct := fmod(_t + float(ff["phase"]) * period, maxf(period, 0.5))
 		var glow := sin(ct / 1.8 * PI) if ct < 1.8 else 0.0
-		var move_scale := lerpf(1.0, FF_FLASH_MOVE, clampf(glow, 0.0, 1.0))
-		pos += vel * move_scale
-		ff["pos"] = pos
 
-		# write instance: transform (scaled spark) + flash brightness for the shader
+		# Camera-facing billboard built on the CPU (not in the shader) so the quad uses
+		# the default vertex transform — that lets the engine derive per-instance motion
+		# vectors from the transform delta, which is what keeps the opaque sprite from
+		# ghosting under the temporal upscaler.
 		var sz2: float = ff["size"]
-		_ff_mm.set_instance_transform(vis, Transform3D(Basis().scaled(Vector3(sz2, sz2, sz2)), pos))
+		var dir := cam_pos - pos
+		if dir.length_squared() < 0.000001:
+			dir = Vector3(0.0, 0.0, 1.0)
+		dir = dir.normalized()
+		var rgt := Vector3.UP.cross(dir)
+		if rgt.length_squared() < 0.000001:
+			rgt = Vector3.RIGHT
+		rgt = rgt.normalized()
+		var upv := dir.cross(rgt)
+		var basis := Basis(rgt * sz2, upv * sz2, dir * sz2)
+		_ff_mm.set_instance_transform(vis, Transform3D(basis, pos))
 		_ff_mm.set_instance_custom_data(vis, Color(glow, 0.0, 0.0, 0.0))
 		vis += 1
 	_ff_mm.visible_instance_count = vis
