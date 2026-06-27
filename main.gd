@@ -18,6 +18,11 @@ var _hm_width:         int     = 0
 var _hm_depth:         int     = 0
 var _hm_world_size:    float   = 5000.0
 
+const ALM := preload("res://almanac.gd")
+
+var _ambient_life = null    # ambient_life.gd — near fireflies + distant vague figures
+var _ambient_life_off := false
+
 var _player:        CharacterBody3D
 var _hud = null     # HudManager instance (hud_manager.gd)
 var _cloud_debug = null  # CloudDebug panel (cloud_debug.gd), toggle with C
@@ -173,6 +178,8 @@ func _parse_cli_args() -> void:
 			# =name[,name] = matching species (single match → stand mode).
 			_eval_plot = eq_val if has_eq and eq_val != "" else "all"
 			print("Eval plot: %s" % _eval_plot)
+		elif arg == "--no-life":
+			_ambient_life_off = true
 		elif arg == "--walk":
 			_walk_bot = true
 		elif key == "--walk-duration" and val != "":
@@ -394,6 +401,7 @@ func _ready() -> void:
 	RenderingServer.global_shader_parameter_add("lightning_flash", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	RenderingServer.global_shader_parameter_add("dew_amount", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
 	RenderingServer.global_shader_parameter_add("lamp_glow", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
+	RenderingServer.global_shader_parameter_add("ambient_life_light", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 1.0)
 	RenderingServer.global_shader_parameter_add("cloud_coverage_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.5)
 	RenderingServer.global_shader_parameter_add("cloud_speed_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.00004)
 	# Turf sheen blend (grass.md §6 calibration; --turf-sheen overrides)
@@ -465,6 +473,18 @@ func _ready() -> void:
 	_day_night.force_apply(_time_of_day, _weather_mode, _wind_vec,
 		_lightning_flash, _user_gamma, _season_t)
 	_weather_mgr.mode = _weather_mode
+	# Ambient life — opt-in QoL liveliness for testers (fireflies + distant figures).
+	# Off in terrain-only / capture; disable with --no-life; toggle in-game with L.
+	if not _terrain_only and not _ambient_life_off and _player:
+		_ambient_life = preload("res://ambient_life.gd").new()
+		_ambient_life.name = "AmbientLife"
+		_ambient_life.player = _player
+		_ambient_life.camera = _player_camera
+		_ambient_life.terrain_height_fn = Callable(self, "_terrain_height")
+		_ambient_life.park_loader = _park_loader
+		_ambient_life.lamp_positions = _lamp_positions
+		add_child(_ambient_life)
+		_ambient_life.setup()
 	# Ambient audio — disabled for now
 	#if not _terrain_only and _park_loader and _player:
 	#	_audio_manager = preload("res://audio_manager.gd").new(_park_loader)
@@ -852,6 +872,16 @@ func _process(delta: float) -> void:
 	if _player and _park_loader and _park_loader._ground_cover_builder:
 		_park_loader._ground_cover_builder.season_t = _season_t
 		_park_loader._ground_cover_builder.update_camera(_player.global_position)
+
+	if _ambient_life:
+		var _sun_elev: float = ALM.sun_horizontal(_season_t, _time_of_day).x
+		RenderingServer.global_shader_parameter_set("ambient_life_light",
+			clampf(0.12 + 0.95 * smoothstep(-6.0, 12.0, _sun_elev), 0.1, 1.05))
+		_ambient_life.time_of_day = _time_of_day
+		_ambient_life.season_t = _season_t
+		_ambient_life.weather_mode = _weather_mode
+		_ambient_life.sun_elevation_deg = _sun_elev
+		_ambient_life.update(delta)
 	_prof_ground_cover_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_ground_cover_us, PROF_SMOOTH)
 
 	# --- Tour mode state machine ---
@@ -1888,6 +1918,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.keycode == KEY_M:
 		if _audio_manager:
 			_audio_manager.toggle_mute()
+	elif event.keycode == KEY_L:
+		if _ambient_life:
+			_ambient_life.set_enabled(not _ambient_life.enabled)
+			print("Ambient life: %s" % ("ON" if _ambient_life.enabled else "OFF"))
 
 
 func _season_name(t: float) -> String:
