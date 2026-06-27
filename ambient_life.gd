@@ -183,7 +183,7 @@ func _make_agents(n: int) -> Array:
 	for i in n:
 		arr.append({
 			"pos": Vector3.ZERO, "anchor": Vector3.ZERO,
-			"heading": 0.0, "speed": 1.0, "phase": 0.0,
+			"heading": 0.0, "speed": 1.0, "phase": 0.0, "cadence": 3.0,
 			"tone": Color.WHITE, "size": 1.7, "alt": 0.0, "active": false,
 		})
 	return arr
@@ -385,9 +385,18 @@ func _step_agent(a: Dictionary, kind: int, px: float, pz: float, delta: float) -
 		heading = lerp_angle(heading, atan2(az, ax), clampf(0.06 + urg * 0.12, 0.0, 0.5))
 		speed_mult = 1.0 + urg * 1.4
 
+	# Speed jitter so they don't glide like rollerskaters: a per-stride surge
+	# (faster mid-step, slower at foot-plant) plus a slow per-agent amble drift that
+	# occasionally eases them to a near-stop. Flyers get only the smooth amble.
+	var ph: float = a["phase"]
+	var gait := 1.0 + 0.20 * sin(_t * 0.45 + ph * 17.0)
+	if kind != K_FLY:
+		gait += 0.34 * sin(_t * a["cadence"] + ph * TAU)
+	gait = maxf(gait, 0.12)
+
 	# advance, respecting valid surface
 	var dir := Vector2(cos(heading), sin(heading))
-	var step: float = a["speed"] * speed_mult * delta
+	var step: float = a["speed"] * speed_mult * gait * delta
 	var nx := pos.x + dir.x * step
 	var nz := pos.z + dir.y * step
 	if _valid(kind, nx, nz):
@@ -442,6 +451,7 @@ func _spawn_agent(a: Dictionary, kind: int) -> void:
 		a["heading"] = _rng.randf() * TAU
 		a["speed"] = _pick_speed(kind)
 		a["phase"] = _rng.randf()
+		a["cadence"] = _rng.randf_range(2.3, 3.7)     # per-agent stride frequency
 		a["tone"] = _tones[_rng.randi() % _tones.size()]
 		a["size"] = size
 		a["alt"] = alt
@@ -505,7 +515,7 @@ func _pick_speed(kind: int) -> float:
 		K_FLY:
 			return _rng.randf_range(2.0, 5.0)
 		_:
-			return _rng.randf_range(0.9, 1.5)
+			return _rng.randf_range(0.7, 1.7)
 
 
 # ===========================================================================
