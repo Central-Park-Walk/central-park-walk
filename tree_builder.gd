@@ -57,11 +57,13 @@ var impostor_chunks: int = 0
 var _impostor_meshes: Dictionary = {}
 # Far cull for the impostor tier (m). Trees only need an impostor from the mesh
 # handoff (~200m) out to here; beyond this they're sub-pixel / fog-veiled and are
-# culled entirely (user 2026-06-23). Was 2500m — far past any useful range, which
-# kept ~2737 impostor MMIs drawing across the whole 2.5km park every frame and
-# regressed fps. 500m culls to the chunks that actually matter (the dominant fix
-# for the impostor draw-call regression; see [[project_impostor_system_rebuilt]]).
-const IMPOSTOR_FAR: float = 500.0
+# culled entirely. Was 2500m — far past any useful range, which kept ~2737
+# impostor MMIs drawing across the whole 2.5km park every frame and regressed fps;
+# 500m (user 2026-06-23) culled to the chunks that mattered and was the dominant
+# fix for the impostor draw-call regression (see [[project_impostor_system_rebuilt]]).
+# Raised to 800m (user 2026-06-26) for a deeper visible tree line — re-check fps,
+# since impostor MMI count grows ~quadratically with this radius.
+const IMPOSTOR_FAR: float = 800.0
 
 # Shadow proxies (docs/trees.md §3): visible trees cast nothing; a ~220-tri
 # trunk cylinder + leaf-vertex-fit crown lathe per species-size-variant casts
