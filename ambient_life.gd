@@ -48,11 +48,15 @@ var _tones: Array = []
 # ============================== FIREFLIES (near) =============================
 const FF_COUNT := 220
 const FF_RANGE := 30.0
-# Max drift per frame. Kept low so fireflies hover-and-blink roughly in place
-# (like a real Photinus J-stroke flash) — a faster drift smears the bright additive
-# sprite under TAA into a "pixie dust" comet trail. Bump this back up (~0.05) to
-# bring those trails back for a more magical / RPG setting later.
-const FF_DRIFT := 0.006
+# Max drift per frame (~1.8 m/s) — fireflies genuinely fly between flashes. The
+# trail problem is handled by FF_FLASH_MOVE instead: a fast-moving bright additive
+# sprite smears under TAA, so we hold each firefly nearly still *while it is lit* and
+# let it relocate while dark (when the sprite is discarded and leaves no smear).
+const FF_DRIFT := 0.03
+# Fraction of normal drift allowed while a firefly is at full flash brightness. Low so
+# the lit sprite barely moves (no "pixie dust" trail); raise toward 1.0 to bring the
+# trails back for a magical / RPG setting later.
+const FF_FLASH_MOVE := 0.12
 var _ff: Array = []                              # agent dicts {pos, target, vel, phase, ...}
 var _ff_mm: MultiMesh
 var _ff_mat: ShaderMaterial
@@ -698,15 +702,24 @@ func _update_fireflies(delta: float, intensity: float) -> void:
 		var spd := vel.length()
 		if spd > FF_DRIFT:
 			vel = vel / spd * FF_DRIFT
-		vel += Vector3(_rng.randf_range(-0.02, 0.02), _rng.randf_range(-0.03, 0.03), _rng.randf_range(-0.02, 0.02)) * delta
+		vel += Vector3(_rng.randf_range(-0.04, 0.04), _rng.randf_range(-0.06, 0.06), _rng.randf_range(-0.04, 0.04)) * delta
 		ff["vel"] = vel
-		pos += vel
+
+		# Flash pulse (computed here, on the CPU, so it matches what the shader reads):
+		# ~1.8 s glow within the firefly's period. We hold the firefly nearly still while
+		# it is lit (move_scale -> FF_FLASH_MOVE) so the bright sprite doesn't smear under
+		# TAA, and let it fly freely while dark — that's the trail-free "flying" look.
+		var period: float = ff["period"]
+		var ct := fmod(_t + float(ff["phase"]) * period, maxf(period, 0.5))
+		var glow := sin(ct / 1.8 * PI) if ct < 1.8 else 0.0
+		var move_scale := lerpf(1.0, FF_FLASH_MOVE, clampf(glow, 0.0, 1.0))
+		pos += vel * move_scale
 		ff["pos"] = pos
 
-		# write instance: transform (scaled spark) + pulse data (phase, period) for the GPU
+		# write instance: transform (scaled spark) + flash brightness for the shader
 		var sz2: float = ff["size"]
 		_ff_mm.set_instance_transform(vis, Transform3D(Basis().scaled(Vector3(sz2, sz2, sz2)), pos))
-		_ff_mm.set_instance_custom_data(vis, Color(ff["phase"], ff["period"], 0.0, 0.0))
+		_ff_mm.set_instance_custom_data(vis, Color(glow, 0.0, 0.0, 0.0))
 		vis += 1
 	_ff_mm.visible_instance_count = vis
 	_ff_vis = vis
