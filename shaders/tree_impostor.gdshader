@@ -70,6 +70,17 @@ global uniform float season_t;
 // darker (bark/dapple) areas to proportionally darker green. (measured 2026-06-24.)
 uniform float detail_ref_lum = 0.28;
 
+// On-screen-size mip LOD. The atlas now carries mipmaps; the impostor selects a mip
+// from the billboard's apparent size (real height vs camera distance) rather than
+// fetching mip0 always. Without this, a far crown's sub-pixel holes + shading can't
+// downsample and the binary scissor fills them solid → a flat dark-green blob past
+// ~500m (measured 2026-06-27). world_height = the tree's real height (m, manifest);
+// cell_px = atlas pixels per octa view; LOD is capped so mips stay within a cell
+// (cells are packed gutterless, so deep mips would bleed neighbouring views).
+uniform float world_height = 22.0;
+const float IMPOSTOR_CELL_PX = 128.0;   // ATLAS_RES/FRAMES = 2048/16 (bake_impostors.gd)
+const float IMPOSTOR_LOD_MAX = 3.0;     // mip3 = 16px/cell — bleed-safe floor
+
 varying vec3 v_season_color;
 varying vec2 uv_frame1;
 varying vec2 xy_frame1;
@@ -276,10 +287,15 @@ void vertex() {
 	BINORMAL = normalize(cross(TANGENT, NORMAL));
 }
 
-vec4 blenderColors(vec2 uv_1, vec2 uv_2, vec2 uv_3, vec4 grid_weights, sampler2D atlasTexture) {
-	vec4 quad_a = textureLod(atlasTexture, uv_1, 0.0f);
-	vec4 quad_b = textureLod(atlasTexture, uv_2, 0.0f);
-	vec4 quad_c = textureLod(atlasTexture, uv_3, 0.0f);
+vec4 blenderColors(vec2 uv_1, vec2 uv_2, vec2 uv_3, vec4 grid_weights, sampler2D atlasTexture, float lod) {
+	// Explicit LOD (not auto-derivatives): the atlas UV jumps between octa cells, so
+	// auto-mip would spike the derivative at cell seams and bleed across cells. The
+	// caller computes lod from the billboard's on-screen size instead (continuous,
+	// per-instance) — so far crowns downsample to a correctly-averaged mini-crown
+	// instead of the no-mip mip0 fetch binarizing into a flat dark blob.
+	vec4 quad_a = textureLod(atlasTexture, uv_1, lod);
+	vec4 quad_b = textureLod(atlasTexture, uv_2, lod);
+	vec4 quad_c = textureLod(atlasTexture, uv_3, lod);
 	return quad_a * grid_weights.x + quad_b * grid_weights.y + quad_c * grid_weights.z;
 }
 
@@ -292,10 +308,10 @@ vec3 normal_from_normalmap(vec4 normalTex, vec3 tangent, vec3 binormal, vec3 f_n
 }
 
 vec3 blendedNormals(vec2 uv_1, vec3 f1_n, vec2 uv_2, vec3 f2_n, vec2 uv_3, vec3 f3_n,
-		vec3 tangent, vec3 binormal, vec4 grid_weights, sampler2D atlasTexture) {
-	vec4 quad_a = textureLod(atlasTexture, uv_1, 0.0f);
-	vec4 quad_b = textureLod(atlasTexture, uv_2, 0.0f);
-	vec4 quad_c = textureLod(atlasTexture, uv_3, 0.0f);
+		vec3 tangent, vec3 binormal, vec4 grid_weights, sampler2D atlasTexture, float lod) {
+	vec4 quad_a = textureLod(atlasTexture, uv_1, lod);
+	vec4 quad_b = textureLod(atlasTexture, uv_2, lod);
+	vec4 quad_c = textureLod(atlasTexture, uv_3, lod);
 	vec3 norm1 = normal_from_normalmap(quad_a, tangent, binormal, f1_n);
 	vec3 norm2 = normal_from_normalmap(quad_b, tangent, binormal, f2_n);
 	vec3 norm3 = normal_from_normalmap(quad_c, tangent, binormal, f3_n);
@@ -333,20 +349,29 @@ void fragment() {
 	vec2 uv_f2 = recalculateUV(uv_frame2, frame2, xy_frame2, quad_size, depth_scale, imposterTextureDepth);
 	vec2 uv_f3 = recalculateUV(uv_frame3, frame3, xy_frame3, quad_size, depth_scale, imposterTextureDepth);
 
-	vec4 baseTex = blenderColors(uv_f1, uv_f2, uv_f3, quad_blend_weights, imposterTextureAlbedo);
-	vec4 ormTex = blenderColors(uv_f1, uv_f2, uv_f3, quad_blend_weights, imposterTextureOrm);
+	// Atlas mip from the billboard's on-screen height (perspective): a world_height-tall
+	// tree at distance d projects to ~ P[1][1]*world_height/d * VIEWPORT.y/2 pixels; the
+	// atlas spends IMPOSTOR_CELL_PX on that height, so texels-per-pixel = cell/px and the
+	// mip is log2 of that. Continuous in distance (no cell-seam derivative spike), capped
+	// to keep mips within a cell.
+	float d_cam = length(v_inst_pos - player_world_pos);
+	float screen_px = max(1.0, PROJECTION_MATRIX[1][1] * world_height / max(d_cam, 1.0) * VIEWPORT_SIZE.y * 0.5);
+	float atlas_lod = clamp(log2(max(IMPOSTOR_CELL_PX / screen_px, 1.0)), 0.0, IMPOSTOR_LOD_MAX);
+
+	vec4 baseTex = blenderColors(uv_f1, uv_f2, uv_f3, quad_blend_weights, imposterTextureAlbedo, atlas_lod);
+	vec4 ormTex = blenderColors(uv_f1, uv_f2, uv_f3, quad_blend_weights, imposterTextureOrm, atlas_lod);
 	vec3 normalTex = blendedNormals(uv_f1, frame1_normal, uv_f2, frame2_normal, uv_f3, frame3_normal,
-			TANGENT, BINORMAL, quad_blend_weights, imposterTextureNormal);
+			TANGENT, BINORMAL, quad_blend_weights, imposterTextureNormal, atlas_lod);
 
 	// Seasonal SHAPE: blend toward the near-bare winter atlas as the canopy sheds. The
 	// branch is coherent across all impostor fragments in a frame (v_leaf_frac is
 	// season-driven, ~uniform per neighbourhood), so the extra fetches are skipped
 	// outright in full summer / deep winter and only paid during the transition bands.
 	if (has_winter_atlas && v_leaf_frac < 0.999) {
-		vec4 wBase = blenderColors(uv_f1, uv_f2, uv_f3, quad_blend_weights, imposterTextureAlbedoWinter);
-		vec4 wOrm = blenderColors(uv_f1, uv_f2, uv_f3, quad_blend_weights, imposterTextureOrmWinter);
+		vec4 wBase = blenderColors(uv_f1, uv_f2, uv_f3, quad_blend_weights, imposterTextureAlbedoWinter, atlas_lod);
+		vec4 wOrm = blenderColors(uv_f1, uv_f2, uv_f3, quad_blend_weights, imposterTextureOrmWinter, atlas_lod);
 		vec3 wNormal = blendedNormals(uv_f1, frame1_normal, uv_f2, frame2_normal, uv_f3, frame3_normal,
-				TANGENT, BINORMAL, quad_blend_weights, imposterTextureNormalWinter);
+				TANGENT, BINORMAL, quad_blend_weights, imposterTextureNormalWinter, atlas_lod);
 		baseTex = mix(wBase, baseTex, v_leaf_frac);
 		ormTex = mix(wOrm, ormTex, v_leaf_frac);
 		normalTex = normalize(mix(wNormal, normalTex, v_leaf_frac));

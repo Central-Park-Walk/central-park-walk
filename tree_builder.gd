@@ -1561,6 +1561,13 @@ func _build_impostor_assets() -> void:
 			mat.set_shader_parameter("imposterFrames", Vector2(meta.get("frames", 16), meta.get("frames", 16)))
 			mat.set_shader_parameter("isFullSphere", meta.get("is_full_sphere", false))
 			mat.set_shader_parameter("scale", scale_v)
+			# Real tree height (m) drives the on-screen-size mip LOD in the shader, so far
+			# crowns downsample correctly instead of fetching mip0 and binarizing to a flat
+			# blob. Fall back to the bake diag if world_height is missing/zero.
+			var wh: float = float(meta.get("world_height", 0.0))
+			if wh <= 0.0:
+				wh = maxf(scale_v * 2.0, 1.0)
+			mat.set_shader_parameter("world_height", wh)
 			# aabb_max = forward depth-push: the shader does
 			# `VERTEX.xyz += pivotToCameraDir * aabb_max`, shoving the billboard
 			# toward the camera by aabb_max * (per-tree instance scale) world-metres.
