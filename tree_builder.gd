@@ -131,6 +131,24 @@ var _leaf_no_prepass: bool = false
 # variants. Keeps each tree's real height (so s/m/l tiers still vary) and
 # suppresses the cathedral-elm and dead-snag reassignments.
 var _all_london_plane: bool = false
+# SPECIES PLACEMENT POLICY (user 2026-06-26). While only london_plane is redesigned, the
+# park is populated from the source data's GENERIC catch-all alone:
+#   • "deciduous" (the unidentified-genus catch-all, ~35% of the data) → rendered as the one
+#     ready model, london_plane. A deep all-london-plane forest already passed evaluation, so
+#     this beats showing the old sparse models.
+#   • Every NAMED species (oak, maple, cherry, elm, …) → skipped → BARE PATCH until its own
+#     model is redesigned. This is NOT substitution (that is --all-london-plane) — the gaps
+#     are intentional and fill in per-species later.
+#   • The ~95 explicitly london_plane-tagged trees are ALSO treated as a named species and
+#     skipped: their areas are already covered by the converted generics, so placing them
+#     would add a second, redundant source of london_plane — needless bug surface (user). The
+#     tags stay in park_data.bin, just unused by placement.
+# GENERIC_SPECIES is the only data tag rendered; GENERIC_MODEL is what it renders as.
+# REDESIGNED_SPECIES = named species to place AS THEMSELVES (empty now; add as they ship —
+# "dead" snags are absent from it too, so no tree is converted to a snag).
+const GENERIC_SPECIES := "deciduous"
+const GENERIC_MODEL := "london_plane"
+const REDESIGNED_SPECIES: Array = []
 # TEST ROUND 2026-06-24 (user): when --all-london-plane forces the whole park to
 # london_plane, also pin every tree — and the impostor bake — to a SINGLE variant
 # per size tier instead of the per-tree hash spread, so the assessment walk sees
@@ -652,6 +670,17 @@ func _build_trees(trees: Array) -> void:
 
 		# Use the species from data as-is (census or OSM archetype)
 		var species: String = tree_species
+		# SPECIES PLACEMENT POLICY (see the const block): in the normal park, place ONLY the
+		# generic catch-all (rendered as london_plane) plus any named species already
+		# redesigned; skip everything else → bare patch. Runs BEFORE the cathedral-elm /
+		# dead-snag reassignments so nothing un-redesigned is synthesised. Exempt eval plots
+		# (review specific species on purpose) and --all-london-plane (substitutes instead).
+		var _is_eval_tree: bool = typeof(tree_entry) == TYPE_DICTIONARY and tree_entry.get("eval", false)
+		if not _all_london_plane and not _is_eval_tree:
+			if species == GENERIC_SPECIES:
+				species = GENERIC_MODEL          # generic catch-all → the one ready model
+			elif species not in REDESIGNED_SPECIES:
+				continue                          # named, not-yet-redesigned (incl. the 95 london_plane tags) → bare patch
 		# Literary Walk/Mall: mature elms AND deciduous trees get cathedral elm
 		# (OSM tags most Mall trees as generic "deciduous" — they're American Elms)
 		if (species == "elm" or species == "deciduous") and CATHEDRAL_ELM_ZONE.has_point(Vector2(tx, tz)):
@@ -666,7 +695,10 @@ func _build_trees(trees: Array) -> void:
 		# Standing dead trees (snags): ~3% of non-conifer trees become dead snags
 		# (never eval-plot specimens — a labelled oak must stay an oak)
 		var is_eval: bool = typeof(tree_entry) == TYPE_DICTIONARY and tree_entry.get("eval", false)
-		if not _all_london_plane and species != "conifer" and species != "dead" and not is_eval:
+		# "dead" snag model is not redesigned → gate it: no london_plane becomes a snag
+		# until "dead" is added to REDESIGNED_SPECIES (matches the proven all-london-plane
+		# forest, which also suppressed snags).
+		if not _all_london_plane and "dead" in REDESIGNED_SPECIES and species != "conifer" and species != "dead" and not is_eval:
 			var dead_hash := fmod(abs(sin(float(i) * 127.1 + tx * 311.7 + tz * 183.3) * 43758.5453), 1.0)
 			if dead_hash < 0.03:
 				species = "dead"
