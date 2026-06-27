@@ -1028,6 +1028,14 @@ func _build_trees(trees: Array) -> void:
 			var vend: float = spec[2] + hd + 5.0
 			if _tier_isolate != "":
 				vend = _mesh_fade_end + 60.0
+			# DIAGNOSTIC (TREE_NOCULL=1): remove the per-MMI visibility_range cull on the
+			# MESH tiers only (impostor untouched). Discriminates the per-instance
+			# disappear/reappear dead-band: if the wink-out is GONE with the cull removed,
+			# the cause is Godot's AABB-distance MMI cull (#113486) desyncing from the
+			# per-tree shader fade; if it PERSISTS, the cause is the shader fade itself.
+			# See [[project_tree_lod_disappearance_bug]]. Not a shipping fix.
+			if OS.has_environment("TREE_NOCULL"):
+				vend = 1.0e6
 			var mmi := MultiMeshInstance3D.new()
 			mmi.multimesh = mm
 			mmi.position = chunk_origin
