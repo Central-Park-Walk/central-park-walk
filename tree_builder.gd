@@ -159,6 +159,13 @@ const REDESIGNED_SPECIES: Array = []
 # spread). The bake at _run_impostor_bake sources the SAME index so lod0/_lod1/
 # impostor are all the one variant.
 const LP_SINGLE_VARIANT := 3
+# Summer impostor card-keep for the single-variant london_plane bake. A FULL crown
+# (-1, the old value) projects solid at bake res → the "too full in summer" blob.
+# Dropping ~half the cards punches cluster-scale holes so the far crown reads as
+# see-through as the live lod1 mesh it replaces. Tuning lever (raise → denser summer
+# crown). The WINTER atlas is baked separately at card_keep=-1 + season=winter so its
+# OWN retention floor (0.05) drives the bare shape (see _run_impostor_bake).
+const LP_SUMMER_CARD_KEEP := 0.5
 var _noprepass_shader: Shader = null
 
 # Desired height ranges per species archetype (metres)
@@ -1538,6 +1545,19 @@ func _build_impostor_assets() -> void:
 			var orm_path: String = meta.get("orm", "")
 			if orm_path != "" and ResourceLoader.exists(orm_path):
 				mat.set_shader_parameter("imposterTextureOrm", load(orm_path))
+			# WINTER atlas set: a near-bare crown baked at season=winter. Blended
+			# against summer by the per-tree phenology fraction in the shader so the
+			# far tier's SHAPE tracks season. Only bound when all three winter atlases
+			# exist; otherwise has_winter_atlas stays false → summer-only fallback.
+			var w_alb: String = meta.get("winter_albedo", "")
+			var w_nrm: String = meta.get("winter_normal", "")
+			var w_orm: String = meta.get("winter_orm", "")
+			if w_alb != "" and w_nrm != "" and ResourceLoader.exists(w_alb) and ResourceLoader.exists(w_nrm):
+				mat.set_shader_parameter("imposterTextureAlbedoWinter", load(w_alb))
+				mat.set_shader_parameter("imposterTextureNormalWinter", load(w_nrm))
+				if w_orm != "" and ResourceLoader.exists(w_orm):
+					mat.set_shader_parameter("imposterTextureOrmWinter", load(w_orm))
+				mat.set_shader_parameter("has_winter_atlas", true)
 			mat.set_shader_parameter("imposterFrames", Vector2(meta.get("frames", 16), meta.get("frames", 16)))
 			mat.set_shader_parameter("isFullSphere", meta.get("is_full_sphere", false))
 			mat.set_shader_parameter("scale", scale_v)
@@ -1604,11 +1624,23 @@ func _run_impostor_bake() -> void:
 		if sp == "london_plane" and LP_SINGLE_VARIANT >= 0:
 			var vi: int = clampi(LP_SINGLE_VARIANT, 0, src_meshes.size() - 1)
 			src_meshes = [src_meshes[vi]]
-			card_keep = -1.0
-			print("Impostor bake: %s from %s variant v%d (single, no card-drop, %d surfaces)…" % [key, src_key, vi, src_meshes[0].get_surface_count()])
+			# Summer: thin the single-variant crown so it reads see-through (not the
+			# solid blob -1 produced). Winter gets its OWN bake below.
+			card_keep = LP_SUMMER_CARD_KEEP
+			print("Impostor bake: %s from %s variant v%d (single, summer keep=%.2f, %d surfaces)…" % [key, src_key, vi, card_keep, src_meshes[0].get_surface_count()])
 		else:
 			print("Impostor bake: %s from %s (%d meshes)…" % [key, src_key, src_meshes.size()])
-		var meta: Dictionary = await baker.bake_tier(key, src_meshes, _species_heights.get(key, 0.0), card_keep)
+		var hgt: float = _species_heights.get(key, 0.0)
+		# SUMMER atlas (default season + suffix). Full-canopy silhouette, thinned.
+		var meta: Dictionary = await baker.bake_tier(key, src_meshes, hgt, card_keep, baker_script.SUMMER_SEASON, "")
+		# WINTER atlas: same meshes, season=winter, card_keep=-1 so the leaf shader's
+		# own WINTER_RETENTION drop drives a near-bare crown. Geometry (scale/offset/
+		# diag) is identical to summer, so we keep summer's meta and only graft the
+		# winter atlas paths in under winter_* keys for the runtime to bind + blend.
+		var wmeta: Dictionary = await baker.bake_tier(key, src_meshes, hgt, -1.0, baker_script.WINTER_SEASON, "_winter")
+		meta["winter_albedo"] = wmeta.get("albedo", "")
+		meta["winter_normal"] = wmeta.get("normal", "")
+		meta["winter_orm"] = wmeta.get("orm", "")
 		manifest[key] = meta
 	var mpath: String = baker_script.OUT_DIR + "%s_manifest.json" % sp
 	var f := FileAccess.open(mpath, FileAccess.WRITE)

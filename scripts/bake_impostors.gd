@@ -29,6 +29,13 @@ const OUT_DIR := "res://textures/impostors/"
 # Summer phase for a full-canopy albedo bake (season_t cycles 0..4). Verified
 # visually against the in-game summer canopy at validation time.
 const SUMMER_SEASON := 2.0
+# Winter (Jan) phase for the bare-crown bake. At 3.5 london_plane's phenology
+# canopy = min(grow,shed) = 0, so leaf_density collapses to WINTER_RETENTION (0.05):
+# baking with card_keep=-1 lets the live leaf shader's own per-card drop thin the
+# crown to a near-bare skeleton + a few marcescent sprigs (no stochastic runtime
+# discard — the SHAPE is real geometry, which is why this replaces the reverted
+# per-fragment thinning that crawled in motion). See [[project_impostor_system_rebuilt]].
+const WINTER_SEASON := 3.5
 # Per-card keep-fraction used DURING the bake (tree_leaf bake_density). 0.1 drops
 # ~90% of cards so the baked atlas coverage MATCHES the see-through live lod1 mesh at
 # the handoff (a full crown projects solid at bake res). Matching lod1 is the design:
@@ -48,7 +55,7 @@ func _init(loader) -> void:
 # all-variants crown, but a SINGLE-variant bake has no superposition to undo, so
 # the caller passes -1 (no drop) there — else the 90%-drop empties the crown to a
 # near-invisible 2-6% atlas (the cpw_000 decimated/invisible impostors, 2026-06-24).
-func bake_tier(tier_key: String, meshes: Array, world_height: float, card_keep: float = BAKE_DENSITY) -> Dictionary:
+func bake_tier(tier_key: String, meshes: Array, world_height: float, card_keep: float = BAKE_DENSITY, season_t: float = SUMMER_SEASON, file_suffix: String = "") -> Dictionary:
 	var aabb := _combined_aabb(meshes)
 	var center := aabb.get_center()
 	var diag: float = aabb.size.length()
@@ -100,7 +107,7 @@ func bake_tier(tier_key: String, meshes: Array, world_height: float, card_keep: 
 	cam.current = true
 	vp.add_child(cam)
 
-	var saved := _push_bake_globals()
+	var saved := _push_bake_globals(season_t)
 	# Thin cluster cards so the baked coverage matches the see-through live mesh at
 	# the handoff distance (a full crown projects solid at bake res). Harmless on
 	# bark (no such uniform).
@@ -132,7 +139,7 @@ func bake_tier(tier_key: String, meshes: Array, world_height: float, card_keep: 
 				if SS > 1:
 					cell_img.resize(CELL, CELL, Image.INTERPOLATE_LANCZOS)
 				atlas.blit_rect(cell_img, Rect2i(0, 0, CELL, CELL), Vector2i(fx * CELL, fy * CELL))
-		var path: String = OUT_DIR + "%s_%s.png" % [tier_key, ch[0]]
+		var path: String = OUT_DIR + "%s%s_%s.png" % [tier_key, file_suffix, ch[0]]
 		atlas.save_png(ProjectSettings.globalize_path(path))
 		atlases[ch[0]] = path
 		print("  Impostor bake: %s %s -> %s" % [tier_key, ch[0], path])
@@ -185,19 +192,20 @@ func _set_bake_mode(meshes: Array, mode: int) -> void:
 			if mat is ShaderMaterial:
 				(mat as ShaderMaterial).set_shader_parameter("bake_mode", mode)
 
-# Force a clean summer, windless, snowless, haze-free bake regardless of the
-# app's current time-of-day; restore afterwards so a non-quitting caller is safe.
+# Force a clean, windless, snowless, haze-free bake at the requested SEASON
+# regardless of the app's current time-of-day; restore afterwards so a non-quitting
+# caller is safe. season_t is supplied per-call (summer = full crown, winter = bare).
 const _BAKE_GLOBALS := {
-	"season_t": SUMMER_SEASON,
 	"snow_cover": 0.0,
 	"rain_wetness": 0.0,
 	"wind_vec": Vector2.ZERO,
 	"player_world_pos": Vector3(0, 1000, 0),
 }
 
-func _push_bake_globals() -> Dictionary:
+func _push_bake_globals(season_t: float) -> Dictionary:
 	# global_shader_parameter_get is editor-only, and this bake run quits afterwards,
 	# so we just SET the bake conditions and skip save/restore.
+	RenderingServer.global_shader_parameter_set("season_t", season_t)
 	for k in _BAKE_GLOBALS:
 		RenderingServer.global_shader_parameter_set(k, _BAKE_GLOBALS[k])
 	return {}

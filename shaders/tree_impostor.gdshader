@@ -29,6 +29,17 @@ uniform sampler2D imposterTextureDepth : hint_default_white;
 // sRGB-inflated 0.71 a linear sampler would read (which would under-darken).
 uniform sampler2D imposterTextureOrm : source_color, hint_default_white;
 
+// WINTER atlas set (baked at season_t=winter, card_keep=-1 → the leaf shader's own
+// WINTER_RETENTION floor thins the crown to a near-bare skeleton + a few marcescent
+// sprigs). Blended against the summer set by the per-tree phenology fraction
+// (v_leaf_frac) so the far tier's SHAPE tracks season — summer airy, winter near-gone
+// — instead of the old single summer blob merely recoloured. Gated by has_winter_atlas
+// so tiers/species without a winter bake fall back to summer-only (no behaviour change).
+uniform bool has_winter_atlas = false;
+uniform sampler2D imposterTextureAlbedoWinter : source_color;
+uniform sampler2D imposterTextureNormalWinter : hint_normal;
+uniform sampler2D imposterTextureOrmWinter : source_color, hint_default_white;
+
 uniform vec2 imposterFrames = vec2(16.0f, 16.0f);
 uniform vec3 positionOffset = vec3(0.0f);
 uniform bool isFullSphere = false;             // foliage = hemisphere
@@ -74,6 +85,10 @@ varying flat vec2 frame3;
 varying flat vec3 frame3_normal;
 varying vec4 quad_blend_weights;
 varying vec3 v_inst_pos;
+// Per-tree seasonal leaf fraction (1=full canopy, 0=bare). Same phenology curve as
+// tree_leaf (min(spring-grow, fall-shed)); blends the winter↔summer atlas sets so
+// the far crown thins with the season instead of staying a fixed summer silhouette.
+varying float v_leaf_frac;
 
 vec2 VecToSphereOct(vec3 pivotToCamera) {
 	vec3 octant = sign(pivotToCamera);
@@ -192,6 +207,12 @@ void vertex() {
 	float s = mod(season_t + timing_off, 4.0);
 	vec3 species_green = SUMMER_COLORS[sp_idx];
 	vec4 ph = PHENOLOGY[sp_idx];
+
+	// Seasonal canopy fraction — IDENTICAL curve to tree_leaf (grow ∧ shed), so the
+	// impostor thins in lockstep with the mesh it hands off from. Evergreens stay full.
+	float grow = smoothstep(ph.w - 0.1, ph.w + 0.3, s);
+	float shed = 1.0 - smoothstep(ph.z - 0.2, ph.z + 0.3, s);
+	v_leaf_frac = (INSTANCE_CUSTOM.b > 0.5) ? 1.0 : clamp(min(grow, shed), 0.0, 1.0);
 	vec3 fall_col = FALL_COLORS[sp_idx];
 	vec3 spring_tint = species_green * vec3(1.15, 1.2, 0.7);
 	vec3 col = mix(spring_tint, species_green, smoothstep(ph.w, ph.w + 0.4, s));
@@ -316,6 +337,20 @@ void fragment() {
 	vec4 ormTex = blenderColors(uv_f1, uv_f2, uv_f3, quad_blend_weights, imposterTextureOrm);
 	vec3 normalTex = blendedNormals(uv_f1, frame1_normal, uv_f2, frame2_normal, uv_f3, frame3_normal,
 			TANGENT, BINORMAL, quad_blend_weights, imposterTextureNormal);
+
+	// Seasonal SHAPE: blend toward the near-bare winter atlas as the canopy sheds. The
+	// branch is coherent across all impostor fragments in a frame (v_leaf_frac is
+	// season-driven, ~uniform per neighbourhood), so the extra fetches are skipped
+	// outright in full summer / deep winter and only paid during the transition bands.
+	if (has_winter_atlas && v_leaf_frac < 0.999) {
+		vec4 wBase = blenderColors(uv_f1, uv_f2, uv_f3, quad_blend_weights, imposterTextureAlbedoWinter);
+		vec4 wOrm = blenderColors(uv_f1, uv_f2, uv_f3, quad_blend_weights, imposterTextureOrmWinter);
+		vec3 wNormal = blendedNormals(uv_f1, frame1_normal, uv_f2, frame2_normal, uv_f3, frame3_normal,
+				TANGENT, BINORMAL, quad_blend_weights, imposterTextureNormalWinter);
+		baseTex = mix(wBase, baseTex, v_leaf_frac);
+		ormTex = mix(wOrm, ormTex, v_leaf_frac);
+		normalTex = normalize(mix(wNormal, normalTex, v_leaf_frac));
+	}
 
 	// Runtime-lit: HUE from the per-tree season colour, LUMINANCE/detail from the
 	// atlas (dapple, leaf texture, bark-through-gaps). Recolours baked brown bark to
