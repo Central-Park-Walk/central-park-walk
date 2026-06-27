@@ -383,7 +383,7 @@ func _step_agent(a: Dictionary, kind: int, px: float, pz: float, delta: float) -
 	if d < FIG_SOFT and d > 0.001:
 		var urg := clampf((FIG_SOFT - d) / (FIG_SOFT - FIG_MIN), 0.0, 1.3)
 		heading = lerp_angle(heading, atan2(az, ax), clampf(0.06 + urg * 0.12, 0.0, 0.5))
-		speed_mult = 1.0 + urg * 1.4
+		speed_mult = 1.0 + urg * 0.5                  # drift away calmly, don't scurry
 
 	# Speed jitter so they don't glide like rollerskaters: a per-stride surge
 	# (faster mid-step, slower at foot-plant) plus a slow per-agent amble drift that
@@ -451,7 +451,7 @@ func _spawn_agent(a: Dictionary, kind: int) -> void:
 		a["heading"] = _rng.randf() * TAU
 		a["speed"] = _pick_speed(kind)
 		a["phase"] = _rng.randf()
-		a["cadence"] = _rng.randf_range(2.3, 3.7)     # per-agent stride frequency
+		a["cadence"] = _rng.randf_range(1.5, 2.5)     # per-agent stride frequency (slow walk)
 		a["tone"] = _tones[_rng.randi() % _tones.size()]
 		a["size"] = size
 		a["alt"] = alt
@@ -509,13 +509,15 @@ func _pick_size(kind: int) -> float:
 
 
 func _pick_speed(kind: int) -> float:
+	# Deliberately slow: tiny figures drifting slowly across a vast green read as
+	# FAR away, which is the whole point — they exist to convey the park's true size.
 	match kind:
 		K_SWIM:
-			return _rng.randf_range(0.2, 0.5)
+			return _rng.randf_range(0.07, 0.20)       # barely-moving, idle paddling
 		K_FLY:
-			return _rng.randf_range(2.0, 5.0)
+			return _rng.randf_range(0.8, 2.0)         # slow gliding drift
 		_:
-			return _rng.randf_range(0.7, 1.7)
+			return _rng.randf_range(0.28, 0.72)       # slow stroll / amble
 
 
 # ===========================================================================

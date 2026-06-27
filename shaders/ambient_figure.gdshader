@@ -17,8 +17,8 @@ global uniform float ambient_life_light;
 uniform float fade_start = 52.0;
 uniform float fade_end   = 44.0;
 // Bob amplitude (metres) for the walk/idle motion.
-uniform float bob_amp = 0.05;
-uniform float bob_rate = 3.4;
+uniform float bob_amp = 0.045;
+uniform float bob_rate = 2.0;
 
 varying vec3 v_tone;
 varying float v_fade;
