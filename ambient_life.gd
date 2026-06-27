@@ -19,6 +19,8 @@ extends Node3D
 ## Toggle at runtime with L. Disable at launch with --no-life. Off respects the
 ## project's data-first default; testers turn it on.
 
+const ALM := preload("res://almanac.gd")          # for true sunset time per date
+
 # ---- external refs (assigned by main before setup()) ----
 var player: CharacterBody3D
 var camera: Camera3D
@@ -37,6 +39,8 @@ var debug: bool = false                          # dev: ignore out-of-view spawn
 
 var _t: float = 0.0
 var _dbg_t: float = 0.0
+var _ff_intensity: float = 0.0
+var _ff_vis: int = 0
 var _rng := RandomNumberGenerator.new()
 var _respawn_budget: int = 0
 var _tones: Array = []
@@ -292,11 +296,23 @@ func update(delta: float) -> void:
 	_t += delta
 	_respawn_budget = 5
 
-	var dark: bool = sun_elevation_deg < -1.0
-	var summery: bool = season_t >= 0.9 and season_t <= 2.15
+	# Firefly display window (Photinus pyralis, the common eastern firefly): begins
+	# ~20 min before sunset, peaks through the first hour of twilight, thins out and
+	# is gone by ~2.8 h after sunset (before midnight) — NOT an all-night glow.
+	# Emergence late May–early Sept, peak June–July. Off in rain/snow.
 	var bad_weather: bool = weather_mode == 1 or weather_mode == 2 or weather_mode == 3
-	var ff_active: bool = dark and summery and not bad_weather
-	_update_fireflies(delta, ff_active)
+	var sunset: float = ALM.sun_events(season_t).sunset
+	var tphase := time_of_day - sunset             # hours after sunset
+	if tphase < -6.0:
+		tphase += 24.0                             # wrap post-midnight into "after sunset"
+	var dusk_in := smoothstep(-0.4, 0.4, tphase)   # fade in from 24 min before sunset
+	var dusk_out := 1.0 - smoothstep(1.2, 2.8, tphase)  # thin out, gone ~2.8 h after
+	var season_w := smoothstep(0.8, 1.0, season_t) * (1.0 - smoothstep(1.8, 2.2, season_t))
+	var ff_intensity := dusk_in * dusk_out * season_w
+	if bad_weather:
+		ff_intensity = 0.0
+	_ff_intensity = ff_intensity
+	_update_fireflies(delta, ff_intensity)
 
 	# People: daylight; swimmers only warm summer midday; flyers day + twilight.
 	var walk_active: bool = sun_elevation_deg > 1.0
@@ -310,10 +326,9 @@ func update(delta: float) -> void:
 		_dbg_t += delta
 		if _dbg_t > 1.0:
 			_dbg_t = 0.0
-			print("AmbientLife[dbg]: visible walk=%d swim=%d fly=%d  sun=%.1f season=%.2f light=%.2f" % [
+			print("AmbientLife[dbg]: walk=%d swim=%d fly=%d  firefly=%d (intensity %.2f)  time=%.1f season=%.2f" % [
 				_walk_mm.visible_instance_count, _swim_mm.visible_instance_count,
-				_fly_mm.visible_instance_count, sun_elevation_deg, season_t,
-				clampf(0.12 + 0.95 * smoothstep(-6.0, 12.0, sun_elevation_deg), 0.1, 1.05)])
+				_fly_mm.visible_instance_count, _ff_vis, _ff_intensity, time_of_day, season_t])
 
 
 func set_enabled(v: bool) -> void:
@@ -552,7 +567,9 @@ func _build_fireflies() -> void:
 		var mi := MeshInstance3D.new()
 		var s := _rng.randf_range(0.7, 1.4)
 		var qm := QuadMesh.new()
-		qm.size = Vector2(0.07 * s, 0.05 * s)
+		# Scale-correct: a real firefly's glowing abdomen is ~1 cm; with the soft
+		# emissive falloff a ~2-3 cm quad reads as a tiny spark, not a fairy orb.
+		qm.size = Vector2(0.025 * s, 0.02 * s)
 		mi.mesh = qm
 		mi.material_override = mat.duplicate()
 		mi.visible = false
@@ -562,6 +579,7 @@ func _build_fireflies() -> void:
 			"node": mi, "target": Vector3.ZERO, "vel": Vector3.ZERO,
 			"pulse_timer": _rng.randf_range(0.0, 4.0),
 			"pulse_period": _rng.randf_range(4.0, 5.5),
+			"thresh": _rng.randf(),               # joins the swarm once intensity exceeds this
 			"spawned": false,
 		})
 
@@ -588,15 +606,19 @@ func _find_near_tree(pos: Vector3) -> Vector3:
 		pick.y + _rng.randf_range(-2.5, 2.5))
 
 
-func _update_fireflies(delta: float, active: bool) -> void:
+func _update_fireflies(delta: float, intensity: float) -> void:
 	var ppos := player.global_position
+	_ff_vis = 0
 	for ff in _ff:
 		var node: MeshInstance3D = ff["node"]
-		if not active:
+		# Each firefly joins the swarm once the display intensity clears its random
+		# threshold, so the swarm thickens into peak twilight and thins at the edges.
+		if float(ff["thresh"]) >= intensity:
 			if node.visible:
 				node.visible = false
 			ff["spawned"] = false
 			continue
+		_ff_vis += 1
 
 		var dist_to_player := node.global_position.distance_to(ppos)
 		if not ff["spawned"] or dist_to_player > FF_RANGE:
@@ -668,6 +690,7 @@ func _update_fireflies(delta: float, active: bool) -> void:
 		var glow := 0.0
 		if cycle_t < 1.8:
 			glow = sin(cycle_t / 1.8 * PI)
+		var bright := lerpf(0.55, 1.0, clampf(intensity, 0.0, 1.0))
 		var m: StandardMaterial3D = node.material_override
-		m.albedo_color.a = glow * 0.9
-		m.emission_energy_multiplier = glow * 6.0
+		m.albedo_color.a = glow * 0.9 * bright
+		m.emission_energy_multiplier = glow * 6.0 * bright
