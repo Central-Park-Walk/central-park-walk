@@ -47,6 +47,19 @@ global uniform vec3 player_world_pos;
 
 #include "res://shaders/include/lod_dither.gdshaderinc"
 #include "res://shaders/include/tree_species.gdshaderinc"
+#include "res://shaders/include/hash_noise.gdshaderinc"
+
+// Runtime canopy coverage. The albedo atlas is baked once at FULL SUMMER density
+// (a solid projected blob) and never changes shape, which caused two faults the
+// thinning below fixes WITHOUT a rebake:
+//   * SUMMER: the impostor read too FULL vs the see-through live mesh. impostor_fill
+//     (<1) stochastically drops cluster-scale atlas texels so the far crown matches
+//     the mesh's openness at the handoff.
+//   * WINTER: a deciduous crown should be ~bare, but the atlas stayed a full summer
+//     silhouette merely recoloured brown. v_density (phenology, identical math to
+//     tree_leaf) drives coverage toward the marcescent retention floor so distant
+//     winter trees thin to a few brown sprigs.
+uniform float impostor_fill : hint_range(0.2, 1.0) = 0.7;
 
 // Season/foliage HUE applied at RUNTIME (option 2, 2026-06-24): the atlas is used as
 // a LUMINANCE/detail map and the colour comes from the per-tree season tint (decoded
@@ -60,6 +73,7 @@ global uniform float season_t;
 uniform float detail_ref_lum = 0.28;
 
 varying vec3 v_season_color;
+varying float v_density;      // phenology leaf density (1 summer → retention floor winter)
 varying vec2 uv_frame1;
 varying vec2 xy_frame1;
 varying flat vec2 frame1;
@@ -202,6 +216,18 @@ void vertex() {
 	col += (fract(jitter * 7.37) - 0.5) * vec3(0.025, -0.008, -0.03);
 	v_season_color = col;
 
+	// Phenology leaf density — SAME curve as tree_leaf so the far tier thins in step
+	// with the mesh it hands off from (full summer → retention floor in winter).
+	// Evergreens (INSTANCE_CUSTOM.b) stay full.
+	float leaf_density = 1.0;
+	if (INSTANCE_CUSTOM.b < 0.5) {
+		float retention = WINTER_RETENTION[sp_idx];
+		float grow = smoothstep(ph.w - 0.1, ph.w + 0.3, s);
+		float shed = 1.0 - smoothstep(ph.z - 0.2, ph.z + 0.3, s);
+		leaf_density = mix(retention, 1.0, min(grow, shed));
+	}
+	v_density = leaf_density;
+
 	vec2 framesMinusOne = imposterFrames - vec2(1);
 	vec3 cameraPos_WS = (INV_VIEW_MATRIX * vec4(vec3(0), 1.0)).xyz;
 	vec3 cameraPos_OS = (inverse(MODEL_MATRIX) * vec4(cameraPos_WS, 1.0)).xyz;
@@ -325,8 +351,15 @@ void fragment() {
 	ALBEDO = v_season_color * clamp(atlas_lum / detail_ref_lum, 0.0, 1.6) * albedo.rgb;
 	NORMAL = normalTex.xyz;
 
-	// Coverage as an opaque scissor (foliage at distance reads solid).
-	ALPHA = float(baseTex.a > alpha_clamp);
+	// Coverage as an opaque scissor (foliage at distance reads solid), with the
+	// seasonal/summer thinning folded in. keep<1 punches cluster-scale holes: summer
+	// opens the baked solid blob to match the see-through mesh; winter thins toward
+	// the marcescent floor so distant trees go ~bare. Seed = per-tree (v_inst_pos) ×
+	// atlas texel — stable under camera motion (a screen-space hash would crawl);
+	// the ×220 cell scale keeps the holes leaf-cluster sized, not pixel noise.
+	float keep = clamp(v_density * impostor_fill, 0.0, 1.0);
+	float thin_seed = hash2(floor(uv_f1 * 220.0) + floor(v_inst_pos.xz * 0.5));
+	ALPHA = float(baseTex.a > alpha_clamp) * step(thin_seed, keep);
 	ALPHA_SCISSOR_THRESHOLD = 0.5;
 
 	METALLIC = ormTex.b * metallic;

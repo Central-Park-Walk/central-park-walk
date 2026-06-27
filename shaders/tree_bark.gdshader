@@ -48,43 +48,19 @@ varying vec3 v_inst_pos;
 float fbm(vec2 p, int oct) { return fbm_n(p, oct, 2.17, 0.49); }
 
 void vertex() {
-	// --- Per-species wind sway (shared wind include) ---
+	// --- Per-species wind sway (shared structural model — wind_tree_sway) ---
 	int sp_idx = int(INSTANCE_CUSTOM.r * 13.0 + 0.5);
 	vec4 wp = WIND_PARAMS[sp_idx];
-	float trunk_flex = wp.x;
-	float branch_flex = wp.y;
-	float sway_freq = wp.z;
-	float gust_resp = wp.w;
 
 	vec3 tree_origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	v_inst_pos = tree_origin;  // per-instance; fragment MODEL_MATRIX[3] is the node/chunk origin (#76292)
-	float h = max(VERTEX.y, 0.0);
-	float wind_str = length(wind_vec);
-	float rustle = 0.3 + wind_str * 0.7;
-	float phase = wind_phase(tree_origin);
-
-	float branch_phase = COLOR.b * 6.283 + phase;
-	float crown = smoothstep(1.5, 4.0, h);
-
-	// Thin, higher-order branches whip far more than the thick limb base. COLOR.r
-	// = hierarchy depth (trunk 0 -> branch tip 1), COLOR.g = branch extent (branch
-	// base 0 -> tip 1); both rise toward the flexible extremities. Weighting the
-	// secondary sway by them decouples twig flutter from absolute height, so the
-	// small branches deep/low in the crown stop reading as rigid.
-	float branch_flex_w = branch_flex * (1.0 + COLOR.r * 1.8) * (0.6 + 0.4 * COLOR.g);
-
-	// Cantilever trunk + branch sway + wind push
-	vec2 trunk_d = wind_cantilever_trunk(h, sway_freq, trunk_flex, rustle, phase);
-	vec2 branch_d = wind_branch_sway(h, crown, sway_freq, branch_flex_w, branch_phase, rustle, 0.06, 0.04);
-	vec2 push_d = wind_push(wind_vec, h, 0.10, trunk_flex);
-	VERTEX.x += trunk_d.x + branch_d.x + push_d.x;
-	VERTEX.z += trunk_d.y + branch_d.y + push_d.y;
-
-	// Gusts
-	float gust = wind_gust(tree_origin, 0.3, 3.0);
-	float gust_strength = gust * wind_str * 0.20 * gust_resp;
-	VERTEX.x += wind_vec.x * h * gust_strength;
-	VERTEX.z += wind_vec.y * h * gust_strength;
+	// Distance amplitude fade (perf + sub-pixel). MUST match tree_leaf's wind_lod so
+	// the bark branches and the leaf cards riding on them displace together — a
+	// mismatch here would let the cards drift off the limbs at 140-220m.
+	float wind_lod = 1.0 - smoothstep(140.0, 220.0, length(tree_origin - player_world_pos));
+	// Shared structural sway: IDENTICAL call in tree_leaf (single source of truth) so
+	// leaf clusters stay glued to their branches in wind.
+	VERTEX += wind_tree_sway(VERTEX, COLOR, tree_origin, wp, wind_vec, wind_lod);
 
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_nrm = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);

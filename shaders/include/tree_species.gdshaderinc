@@ -73,7 +73,7 @@ const float WINTER_RETENTION[14] = float[14](
 	0.0,   // 6 honeylocust: tiny leaflets drop early/fast, bare by late Oct
 	0.18,  // 7 callery_pear: holds dark red-purple leaves into Dec
 	0.0,   // 8 ginkgo: drops ALL leaves in 1-3 days after first hard frost
-	0.12,  // 9 london_plane: partially marcescent, some brown leaves into Jan
+	0.05,  // 9 london_plane: only weakly marcescent — NYC planes are near-bare by Jan, a few stubborn brown sprigs (was 0.12, read too leafy in Jan; user 2026-06-27)
 	0.0,   // 10 linden: clean drop mid-Nov
 	0.0,   // 11 cherry: clean drop by early Nov
 	0.0,   // 12 willow: early dropper, bare by late Oct

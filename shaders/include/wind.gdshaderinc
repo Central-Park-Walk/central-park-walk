@@ -46,3 +46,38 @@ vec2 wind_push(vec2 wv, float h, float coeff, float trunk_flex) {
 float wind_phase(vec3 origin) {
 	return origin.x * 0.04 + origin.z * 0.06;
 }
+
+// --- Combined structural tree sway (trunk + branch + push + gust) ---
+// SINGLE SOURCE OF TRUTH for the displacement that moves the woody skeleton.
+// BOTH tree_bark and tree_leaf MUST call this with identical arguments so the leaf
+// cluster cards stay glued to the branch tips they sit on. Divergent constants in
+// the two shaders (leaf had bigger branch amp / push / gust than bark) made the
+// cards translate off the limbs as the wind swung and snap back at the zero
+// crossing — "limbs that split apart and rejoin" (user 2026-06-27). Any
+// leaf-specific motion (the high-frequency blade flutter) is added by the leaf
+// shader ON TOP of this shared base, never by changing these terms.
+//   vertex      = local VERTEX (y = height up the model)
+//   color       = per-vertex COLOR (r=hierarchy depth, g=branch extent, b=phase seed)
+//   tree_origin = per-instance world origin (MODEL_MATRIX * 0)
+//   wp          = WIND_PARAMS row (x=trunk_flex, y=branch_flex, z=sway_freq, w=gust_resp)
+//   wv          = wind_vec (global)
+//   wind_lod    = distance amplitude fade (1 near → 0 far); must match across shaders
+vec3 wind_tree_sway(vec3 vertex, vec4 color, vec3 tree_origin, vec4 wp,
+                    vec2 wv, float wind_lod) {
+	float h = max(vertex.y, 0.0);
+	float wind_str = length(wv);
+	float rustle = (0.3 + wind_str * 0.7) * wind_lod;
+	float phase = wind_phase(tree_origin);
+	float branch_phase = color.b * 6.283 + phase;
+	float crown = smoothstep(1.5, 4.0, h);
+	// Thin, higher-order branches whip far more than the thick limb base.
+	float branch_flex_w = wp.y * (1.0 + color.r * 1.8) * (0.6 + 0.4 * color.g);
+	vec2 trunk_d  = wind_cantilever_trunk(h, wp.z, wp.x, rustle, phase);
+	vec2 branch_d = wind_branch_sway(h, crown, wp.z, branch_flex_w, branch_phase, rustle, 0.06, 0.04);
+	vec2 push_d   = wind_push(wv, h, 0.10, wp.x) * wind_lod;
+	float gust = wind_gust(tree_origin, 0.3, 3.0);
+	float gust_strength = gust * wind_str * 0.20 * wp.w * wind_lod;
+	return vec3(trunk_d.x + branch_d.x + push_d.x + wv.x * h * gust_strength,
+	            0.0,
+	            trunk_d.y + branch_d.y + push_d.y + wv.y * h * gust_strength);
+}

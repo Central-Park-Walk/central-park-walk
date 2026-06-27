@@ -190,52 +190,28 @@ void vertex() {
 
 	v_leaf_color = leaf_color;
 
-	// --- Per-species wind biomechanics (shared wind include) ---
+	// --- Per-species wind: shared structural model + leaf-only flutter ---
 	vec4 wp = WIND_PARAMS[sp_idx];
-	float trunk_flex = wp.x;
-	float branch_flex = wp.y;
-	float sway_freq = wp.z;
-	float gust_resp = wp.w;
-
 	vec3 tree_origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	v_inst_pos = tree_origin;  // per-instance; fragment MODEL_MATRIX[3] is the node/chunk origin (#76292)
+	v_crown_rho = COLOR.a;
 	float h = max(VERTEX.y, 0.0);
 	float wind_str = length(wind_vec);
 	// Distance LOD on the wind (AAA SOP): canopy sway/flutter is sub-pixel on the far
-	// mesh tiers, so fade wind amplitude to zero past viewing range instead of
-	// animating every distant vertex. player_world_pos is the same source the fragment
-	// dither uses. Folded into rustle/push/gust below so every displacement scales.
+	// mesh tiers, so fade amplitude to zero past viewing range. MUST be the SAME fade
+	// the bark shader uses so the leaf cards track the limbs they sit on at all
+	// distances (a mismatch made the cards drift off the branches in wind, 2026-06-27).
 	float wind_lod = 1.0 - smoothstep(140.0, 220.0, length(tree_origin - player_world_pos));
+	// Shared structural sway — IDENTICAL to the tree_bark call (single source of
+	// truth) so leaf clusters stay rigidly attached to their branches.
+	VERTEX += wind_tree_sway(VERTEX, COLOR, tree_origin, wp, wind_vec, wind_lod);
+
+	// Leaf-only flutter ON TOP of the shared sway: high-frequency blade vibration,
+	// the ONLY leaf-specific wind motion now. Density-scaled so bare winter twigs stay
+	// calm. Kept small so it reads as edge shimmer, never whole-card translation.
 	float rustle = (0.3 + wind_str * 0.7) * mix(0.3, 1.0, leaf_density) * wind_lod;
-	float phase = wind_phase(tree_origin);
-
-	float branch_phase = COLOR.b * 6.283 + phase;
-	float crown = smoothstep(1.5, 4.0, h);
-	v_crown_rho = COLOR.a;
-
-	// Thin, higher-order branches whip far more than the thick limb base. COLOR.r
-	// = hierarchy depth (trunk 0 -> branch tip 1), COLOR.g = branch extent (branch
-	// base 0 -> tip 1); both rise toward the flexible extremities (leaf cards
-	// inherit their parent twig's values). Weighting the secondary sway by them
-	// decouples twig/leaf flutter from absolute height.
-	float branch_flex_w = branch_flex * (1.0 + COLOR.r * 1.8) * (0.6 + 0.4 * COLOR.g);
-
-	// Cantilever trunk + branch sway + wind push (leaves: higher amplitudes than bark)
-	vec2 trunk_d = wind_cantilever_trunk(h, sway_freq, trunk_flex, rustle, phase);
-	vec2 branch_d = wind_branch_sway(h, crown, sway_freq, branch_flex_w, branch_phase, rustle, 0.08, 0.05);
-	vec2 push_d = wind_push(wind_vec, h, 0.18, trunk_flex) * wind_lod;
-	VERTEX.x += trunk_d.x + branch_d.x + push_d.x;
-	VERTEX.z += trunk_d.y + branch_d.y + push_d.y;
-
-	// Gusts (leaves catch more wind than bark)
-	float gust = wind_gust(tree_origin, 0.3, 3.0);
-	float gust_strength = gust * wind_str * 0.25 * gust_resp * wind_lod;
-	VERTEX.x += wind_vec.x * h * gust_strength;
-	VERTEX.z += wind_vec.y * h * gust_strength;
-
-	// Leaf flutter: high-frequency per-leaf vibration
 	float flutter = sin(TIME * 3.5 + VERTEX.x * 11.0 + VERTEX.z * 7.0) * 0.012 * rustle;
-	flutter += sin(TIME * 5.7 + VERTEX.z * 17.0) * 0.006 * gust_strength;
+	flutter += sin(TIME * 5.7 + VERTEX.z * 17.0) * 0.006 * rustle;
 	VERTEX.y += flutter * h;
 
 	// Winter: retained (marcescent) leaves sit closer to the branches.
