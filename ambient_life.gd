@@ -35,7 +35,7 @@ var weather_mode: int = 0                        # Weather enum: 0 clear,1 rain,
 var sun_elevation_deg: float = 45.0             # from ALM.sun_horizontal().x
 
 var enabled: bool = true
-var debug: bool = false                          # dev: ignore out-of-view spawn bias + print live counts
+var debug: bool = false                         # dev: ignore out-of-view spawn bias + print live counts
 
 var _t: float = 0.0
 var _dbg_t: float = 0.0
@@ -46,9 +46,11 @@ var _respawn_budget: int = 0
 var _tones: Array = []
 
 # ============================== FIREFLIES (near) =============================
-const FF_COUNT := 35
-const FF_RANGE := 22.0
-var _ff: Array = []                              # dicts {node, target, vel, ...}
+const FF_COUNT := 220
+const FF_RANGE := 30.0
+var _ff: Array = []                              # agent dicts {pos, target, vel, phase, ...}
+var _ff_mm: MultiMesh
+var _ff_mat: ShaderMaterial
 var _ff_tree_xz: PackedVector2Array = PackedVector2Array()
 
 # ============================== DISTANT FIGURES =============================
@@ -155,7 +157,8 @@ func _build_figures() -> void:
 	var quad := _upright_quad()
 
 	var walker_tex := _make_walker_tex()
-	var swimmer_tex := _make_swimmer_tex()
+	var swimmer_tex := _make_prone_swimmer_tex()
+	var flyer_tex := _make_prone_flyer_tex()
 
 	var walk_mat := ShaderMaterial.new()
 	walk_mat.shader = shader
@@ -164,10 +167,14 @@ func _build_figures() -> void:
 	var swim_mat := ShaderMaterial.new()
 	swim_mat.shader = shader
 	swim_mat.set_shader_parameter("fig_tex", swimmer_tex)
-	# Swimmers sit lower and smaller — fade them a touch closer so they read on water.
+	# Swimmers lie low on the water — fade a touch closer and barely bob.
 	swim_mat.set_shader_parameter("fade_start", 50.0)
 	swim_mat.set_shader_parameter("fade_end", 42.0)
-	swim_mat.set_shader_parameter("bob_amp", 0.025)
+	swim_mat.set_shader_parameter("bob_amp", 0.02)
+
+	var fly_mat := ShaderMaterial.new()
+	fly_mat.shader = shader
+	fly_mat.set_shader_parameter("fig_tex", flyer_tex)
 
 	_walk_mm = _make_mm(quad, WALK_COUNT)
 	_swim_mm = _make_mm(quad, SWIM_COUNT)
@@ -175,7 +182,7 @@ func _build_figures() -> void:
 
 	_add_mmi(_walk_mm, walk_mat, "Figures_Walkers")
 	_add_mmi(_swim_mm, swim_mat, "Figures_Swimmers")
-	_add_mmi(_fly_mm, walk_mat, "Figures_Flyers")
+	_add_mmi(_fly_mm, fly_mat, "Figures_Flyers")
 
 	_walk = _make_agents(WALK_COUNT)
 	_swim = _make_agents(SWIM_COUNT)
@@ -242,12 +249,31 @@ func _make_walker_tex() -> ImageTexture:
 	return ImageTexture.create_from_image(im)
 
 
-func _make_swimmer_tex() -> ImageTexture:
-	# Head + shoulders just above a waterline (pivot at the bottom = water surface).
-	var im := Image.create(64, 64, true, Image.FORMAT_RGBA8)
+func _make_prone_swimmer_tex() -> ImageTexture:
+	# Horizontal (prone) swimmer lying on the water: head, extended body, trailing
+	# legs, one arm reaching forward over the head — a low sliver, not a standing bust.
+	var im := Image.create(128, 48, true, Image.FORMAT_RGBA8)
 	im.fill(Color(1, 1, 1, 0))
-	_disc(im, 32, 22, 9)                          # head
-	_seg(im, 18, 40, 46, 40, 9)                   # shoulders / back at the surface
+	_disc(im, 24, 24, 8)                          # head (forward / left)
+	_seg(im, 30, 24, 92, 24, 8)                   # torso + hips, horizontal
+	_seg(im, 92, 24, 121, 18, 3.5)               # trailing leg
+	_seg(im, 92, 24, 121, 30, 3.5)               # trailing leg
+	_seg(im, 40, 21, 12, 12, 3.0)                # forward arm (stroke over head)
+	im.generate_mipmaps()
+	return ImageTexture.create_from_image(im)
+
+
+func _make_prone_flyer_tex() -> ImageTexture:
+	# Horizontal soaring figure: head forward, body, trailing legs, arms swept out to
+	# the sides — reads as a person flying/gliding, not standing upright in mid-air.
+	var im := Image.create(128, 64, true, Image.FORMAT_RGBA8)
+	im.fill(Color(1, 1, 1, 0))
+	_disc(im, 24, 32, 8)                          # head (forward / left)
+	_seg(im, 30, 32, 92, 32, 8)                   # body, horizontal
+	_seg(im, 92, 32, 121, 26, 4.0)               # trailing leg
+	_seg(im, 92, 32, 121, 38, 4.0)               # trailing leg
+	_seg(im, 46, 32, 30, 10, 3.5)                # arm swept up / out
+	_seg(im, 46, 32, 30, 54, 3.5)                # arm swept down / out
 	im.generate_mipmaps()
 	return ImageTexture.create_from_image(im)
 
@@ -294,7 +320,7 @@ func update(delta: float) -> void:
 	if not enabled:
 		return
 	_t += delta
-	_respawn_budget = 5
+	_respawn_budget = 400 if debug else 5
 
 	# Firefly display window (Photinus pyralis, the common eastern firefly): begins
 	# ~20 min before sunset, peaks through the first hour of twilight, thins out and
@@ -336,9 +362,6 @@ func set_enabled(v: bool) -> void:
 	for c in get_children():
 		if c is MultiMeshInstance3D:
 			c.visible = v
-	for ff in _ff:
-		if ff["node"]:
-			ff["node"].visible = false
 
 
 # ===========================================================================
@@ -355,7 +378,15 @@ func _update_figs(arr: Array, mm: MultiMesh, kind: int, active: bool, delta: flo
 	var ppos := player.global_position
 	var px := ppos.x
 	var pz := ppos.z
-	var aspect := 0.5 if kind != K_SWIM else 1.0
+	# Walkers stand upright; swimmers and flyers lie down (wide, low silhouette).
+	var wf := 0.5
+	var hf := 1.0
+	if kind == K_SWIM:
+		wf = 1.0
+		hf = 0.32
+	elif kind == K_FLY:
+		wf = 1.0
+		hf = 0.42
 	var vis := 0
 	for a in arr:
 		if not a["active"]:
@@ -367,7 +398,7 @@ func _update_figs(arr: Array, mm: MultiMesh, kind: int, active: bool, delta: flo
 		if not _step_agent(a, kind, px, pz, delta):
 			continue
 		var s: float = a["size"]
-		var basis := Basis(Vector3(aspect * s, 0, 0), Vector3(0, s, 0), Vector3(0, 0, 1))
+		var basis := Basis(Vector3(wf * s, 0, 0), Vector3(0, hf * s, 0), Vector3(0, 0, 1))
 		mm.set_instance_transform(vis, Transform3D(basis, a["pos"]))
 		var tone: Color = a["tone"]
 		mm.set_instance_custom_data(vis, Color(tone.r, tone.g, tone.b, a["phase"]))
@@ -516,11 +547,11 @@ func _water_height(x: float, z: float) -> float:
 func _pick_size(kind: int) -> float:
 	match kind:
 		K_SWIM:
-			return _rng.randf_range(0.45, 0.62)
+			return _rng.randf_range(1.3, 1.7)         # prone body length
 		K_FLY:
-			return _rng.randf_range(1.5, 1.9)
+			return _rng.randf_range(1.5, 2.0)         # prone body length
 		_:
-			return _rng.randf_range(1.55, 1.95)
+			return _rng.randf_range(1.55, 1.95)       # upright height
 
 
 func _pick_speed(kind: int) -> float:
@@ -539,17 +570,7 @@ func _pick_speed(kind: int) -> float:
 # FIREFLIES (recovered from dd482f4) — near-camera, dusk/summer
 # ===========================================================================
 func _build_fireflies() -> void:
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(1.0, 0.82, 0.2, 1.0)
-	mat.emission_enabled = true
-	mat.emission = Color(1.0, 0.75, 0.08)
-	mat.emission_energy_multiplier = 6.0
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.no_depth_test = true
-
-	# soft round glow
+	# soft round glow texture
 	var oval := Image.create(32, 32, false, Image.FORMAT_RGBA8)
 	for py in 32:
 		for px2 in 32:
@@ -559,27 +580,39 @@ func _build_fireflies() -> void:
 			var al := clampf(1.0 - dd * 1.5, 0.0, 1.0)
 			al = al * al
 			oval.set_pixel(px2, py, Color(1, 1, 1, al))
+	oval.generate_mipmaps()
 	var tex := ImageTexture.create_from_image(oval)
-	mat.albedo_texture = tex
-	mat.emission_texture = tex
+
+	_ff_mat = ShaderMaterial.new()
+	_ff_mat.shader = load("res://shaders/ambient_firefly.gdshader")
+	_ff_mat.set_shader_parameter("ff_tex", tex)
+	_ff_mat.set_shader_parameter("ff_bright", 1.0)
+
+	var qm := QuadMesh.new()
+	qm.size = Vector2(1.0, 1.0)                   # unit; scaled per-instance (~2-3 cm spark)
+
+	_ff_mm = MultiMesh.new()
+	_ff_mm.transform_format = MultiMesh.TRANSFORM_3D
+	_ff_mm.use_custom_data = true
+	_ff_mm.mesh = qm
+	_ff_mm.instance_count = FF_COUNT
+	_ff_mm.visible_instance_count = 0
+
+	var mmi := MultiMeshInstance3D.new()
+	mmi.name = "Fireflies"
+	mmi.multimesh = _ff_mm
+	mmi.material_override = _ff_mat
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mmi.custom_aabb = AABB(Vector3(-10000, -500, -10000), Vector3(20000, 1000, 20000))
+	add_child(mmi)
 
 	for i in FF_COUNT:
-		var mi := MeshInstance3D.new()
-		var s := _rng.randf_range(0.7, 1.4)
-		var qm := QuadMesh.new()
-		# Scale-correct: a real firefly's glowing abdomen is ~1 cm; with the soft
-		# emissive falloff a ~2-3 cm quad reads as a tiny spark, not a fairy orb.
-		qm.size = Vector2(0.025 * s, 0.02 * s)
-		mi.mesh = qm
-		mi.material_override = mat.duplicate()
-		mi.visible = false
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(mi)
 		_ff.append({
-			"node": mi, "target": Vector3.ZERO, "vel": Vector3.ZERO,
-			"pulse_timer": _rng.randf_range(0.0, 4.0),
-			"pulse_period": _rng.randf_range(4.0, 5.5),
+			"pos": Vector3.ZERO, "target": Vector3.ZERO, "vel": Vector3.ZERO,
+			"phase": _rng.randf(),
+			"period": _rng.randf_range(4.0, 5.5),
 			"thresh": _rng.randf(),               # joins the swarm once intensity exceeds this
+			"size": _rng.randf_range(0.018, 0.034),
 			"spawned": false,
 		})
 
@@ -607,33 +640,29 @@ func _find_near_tree(pos: Vector3) -> Vector3:
 
 
 func _update_fireflies(delta: float, intensity: float) -> void:
+	# Edge-dim the whole swarm at the start/end of the display window.
+	_ff_mat.set_shader_parameter("ff_bright", lerpf(0.55, 1.0, clampf(intensity, 0.0, 1.0)))
 	var ppos := player.global_position
-	_ff_vis = 0
+	var vis := 0
 	for ff in _ff:
-		var node: MeshInstance3D = ff["node"]
 		# Each firefly joins the swarm once the display intensity clears its random
 		# threshold, so the swarm thickens into peak twilight and thins at the edges.
 		if float(ff["thresh"]) >= intensity:
-			if node.visible:
-				node.visible = false
 			ff["spawned"] = false
 			continue
-		_ff_vis += 1
 
-		var dist_to_player := node.global_position.distance_to(ppos)
-		if not ff["spawned"] or dist_to_player > FF_RANGE:
+		var pos: Vector3 = ff["pos"]
+		# spawn / respawn in a ring around the player (they're meant to stay near)
+		if not ff["spawned"] or pos.distance_to(ppos) > FF_RANGE:
 			var angle := _rng.randf() * TAU
-			var radius := _rng.randf_range(3.0, 15.0)
+			var radius := _rng.randf_range(3.0, 18.0)
 			var sx := ppos.x + cos(angle) * radius
 			var sz := ppos.z + sin(angle) * radius
-			var sy: float = terrain_height_fn.call(sx, sz) + _rng.randf_range(0.4, 1.5)
-			node.global_position = Vector3(sx, sy, sz)
-			ff["target"] = _find_near_tree(node.global_position)
+			pos = Vector3(sx, float(terrain_height_fn.call(sx, sz)) + _rng.randf_range(0.4, 1.6), sz)
+			ff["target"] = _find_near_tree(pos)
 			ff["vel"] = Vector3.ZERO
 			ff["spawned"] = true
-			node.visible = true
 
-		var pos: Vector3 = node.global_position
 		var tgt: Vector3 = ff["target"]
 		var to_target := tgt - pos
 		var dist_to_target := to_target.length()
@@ -647,28 +676,13 @@ func _update_fireflies(delta: float, intensity: float) -> void:
 		if pp_dist > 5.0:
 			ff["vel"] = ff["vel"] + to_pp.normalized() * 0.03 * delta * clampf((pp_dist - 5.0) * 0.2, 0.0, 1.0)
 
-		var terrain_y: float = terrain_height_fn.call(pos.x, pos.z)
-		var above := pos.y - terrain_y
+		var above: float = pos.y - float(terrain_height_fn.call(pos.x, pos.z))
 		var vel: Vector3 = ff["vel"]
 
-		# repel from lamps
-		for lp in lamp_positions:
-			var dx := pos.x - lp.x
-			var dz := pos.z - lp.z
-			var d2 := dx * dx + dz * dz
-			if d2 < 100.0 and d2 > 0.01:
-				var ld := sqrt(d2 + (pos.y - lp.y) * (pos.y - lp.y))
-				if ld > 0.1:
-					vel += (pos - lp) / ld * (1.0 / (ld * ld)) * delta
-
-		# repel from the player — hard 1 m minimum
-		var to_player := pos - ppos
-		var pd2 := to_player.length_squared()
-		if pd2 < 1.0 and pd2 > 0.001:
-			vel = to_player / sqrt(pd2) * 0.15
-		elif pd2 < 9.0 and pd2 > 0.01:
-			var pd := sqrt(pd2)
-			vel += to_player / pd * (0.3 / (pd * pd)) * delta
+		# gently keep clear of the player within ~3 m (no hard snap)
+		var pd2 := pp_dist * pp_dist
+		if pd2 < 9.0 and pd2 > 0.01:
+			vel += (-to_pp) / pp_dist * (0.3 / pd2) * delta
 
 		if above < 0.3:
 			vel.y += 0.3 * delta
@@ -681,16 +695,13 @@ func _update_fireflies(delta: float, intensity: float) -> void:
 			vel = vel / spd * 0.05
 		vel += Vector3(_rng.randf_range(-0.04, 0.04), _rng.randf_range(-0.06, 0.06), _rng.randf_range(-0.04, 0.04)) * delta
 		ff["vel"] = vel
-		node.global_position = pos + vel
+		pos += vel
+		ff["pos"] = pos
 
-		# pulse glow — ~1.8 s flash on a 4-5.5 s cycle
-		var pt: float = float(ff["pulse_timer"]) + delta
-		ff["pulse_timer"] = pt
-		var cycle_t := fmod(pt, float(ff["pulse_period"]))
-		var glow := 0.0
-		if cycle_t < 1.8:
-			glow = sin(cycle_t / 1.8 * PI)
-		var bright := lerpf(0.55, 1.0, clampf(intensity, 0.0, 1.0))
-		var m: StandardMaterial3D = node.material_override
-		m.albedo_color.a = glow * 0.9 * bright
-		m.emission_energy_multiplier = glow * 6.0 * bright
+		# write instance: transform (scaled spark) + pulse data (phase, period) for the GPU
+		var sz2: float = ff["size"]
+		_ff_mm.set_instance_transform(vis, Transform3D(Basis().scaled(Vector3(sz2, sz2, sz2)), pos))
+		_ff_mm.set_instance_custom_data(vis, Color(ff["phase"], ff["period"], 0.0, 0.0))
+		vis += 1
+	_ff_mm.visible_instance_count = vis
+	_ff_vis = vis
