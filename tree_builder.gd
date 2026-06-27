@@ -18,7 +18,7 @@ const PHENOLOGY_INDEX := {
 # Maps archetype → base GLB model name
 const ARCHETYPE_MODEL := {
 	"oak": "oak", "maple": "maple", "elm": "elm", "birch": "birch",
-	"deciduous": "deciduous", "conifer": "pine",
+	"conifer": "pine",
 	"honeylocust": "honeylocust", "callery_pear": "callery_pear", "ginkgo": "ginkgo",
 	"london_plane": "london_plane", "linden": "linden", "cherry": "cherry",
 	"zelkova": "elm", "dead": "dead", "willow": "willow", "magnolia": "magnolia",
@@ -439,7 +439,10 @@ func _build_trees(trees: Array) -> void:
 		else:
 			push_warning("Trees: missing bark textures for style %d" % style_id)
 
-	var _base_model_names := ["maple", "birch", "deciduous", "pine", "elm", "oak", "cherry", "ginkgo", "honeylocust", "linden", "london_plane", "callery_pear", "dead", "willow", "magnolia", "cathedral_elm"]
+	# NOTE: "deciduous" is deliberately absent — the generic catch-all data tag is
+	# remapped to london_plane (GENERIC_MODEL) before any mesh lookup, so the old
+	# deciduous GLB is never loaded and nothing falls back to it (user 2026-06-26).
+	var _base_model_names := ["maple", "birch", "pine", "elm", "oak", "cherry", "ginkgo", "honeylocust", "linden", "london_plane", "callery_pear", "dead", "willow", "magnolia", "cathedral_elm"]
 	# Load tiered models (_s, _m, _l): age/size variants per archetype.
 	# Plus _lod1 (card-pruned + bark-decimated) variants of each for the
 	# mesh LOD chain: base near mesh → _lod1 mid mesh. The near tier renders
@@ -727,17 +730,14 @@ func _build_trees(trees: Array) -> void:
 			tier_suffix = "_" + _get_tier(species, desired_h)
 		var species_tier: String = species + tier_suffix
 
-		# Validate mesh exists for this species+tier; fallback chain
+		# Validate mesh exists for this species+tier; fallback chain.
+		# NO deciduous fallback — the generic catch-all is already london_plane
+		# (GENERIC_MODEL) by this point, so a missing tier just skips the tree
+		# rather than substituting the retired deciduous model (user 2026-06-26).
 		if not _species_meshes.has(species_tier):
 			# Try without tier (backward compat with old single-tier models)
 			if _species_meshes.has(species):
 				species_tier = species
-			elif _species_meshes.has("deciduous" + tier_suffix):
-				species = "deciduous"
-				species_tier = "deciduous" + tier_suffix
-			elif _species_meshes.has("deciduous"):
-				species = "deciduous"
-				species_tier = "deciduous"
 			else:
 				continue
 

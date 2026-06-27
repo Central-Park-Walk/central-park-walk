@@ -107,7 +107,8 @@ const TREE_SPECIES := [
 	["London Plane", "london_plane"],
 	["Oak", "oak"],
 	["Conifer (pine)", "conifer"],
-	["Deciduous (generic)", "deciduous"],
+	# "Deciduous (generic)" removed — the generic catch-all is now london_plane
+	# (the deciduous model was retired 2026-06-26); see the "London Plane" row.
 	["Maple", "maple"],
 	["Honeylocust", "honeylocust"],
 	["Linden", "linden"],
