@@ -335,6 +335,43 @@ vec2 recalculateUV(vec2 uv_f, vec2 frame, vec2 xy_f, vec2 frame_size, float d_sc
 	return clamp(uv_f, vec2(0), vec2(1));
 }
 
+// --- Stable hashed alpha testing (Wyman & McGuire 2017) -------------------------
+// Renders the mipped FRACTIONAL coverage as partial transparency so far crowns read
+// see-through (sky breaks through) instead of the binary scissor filling sub-pixel
+// holes solid. The threshold noise is anchored to a SURFACE coordinate (the atlas UV,
+// fixed on the crown) and quantised at a screen-space-derivative scale, so the grain
+// stays ~1px and STICKS TO THE TREE as the camera moves — this is the property the
+// reverted screen-space thinning lacked (it crawled). Opaque pass via discard (no
+// alpha blending / sorting). TAA resolves the residual grain.
+float hash12(vec2 p) {
+	vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+	p3 += dot(p3, p3.yzx + 33.33);
+	return fract((p3.x + p3.y) * p3.z);
+}
+
+float hashed_alpha_threshold(vec2 anchor) {
+	float max_deriv = max(length(dFdx(anchor)), length(dFdy(anchor)));
+	float pix_scale = 1.0 / max(max_deriv, 1e-8);
+	vec2 pix_scales = vec2(exp2(floor(log2(pix_scale))), exp2(ceil(log2(pix_scale))));
+	vec2 a = vec2(hash12(floor(pix_scales.x * anchor)), hash12(floor(pix_scales.y * anchor)));
+	float lf = fract(log2(pix_scale));
+	float x = (1.0 - lf) * a.x + lf * a.y;
+	float lo = min(lf, 1.0 - lf);
+	vec3 cases = vec3(
+		x * x / (2.0 * lo * (1.0 - lo)),
+		(x - 0.5 * lo) / (1.0 - lo),
+		1.0 - ((1.0 - x) * (1.0 - x) / (2.0 * lo * (1.0 - lo))));
+	float thr = (x < 1.0 - lo) ? ((x < lo) ? cases.x : cases.y) : cases.z;
+	return clamp(thr, 1.0e-6, 1.0);
+}
+
+// FAR BAND (metres). The 200-500m impostors already read well (Chris 2026-06-27), so
+// they stay EXACTLY as before — mip0 + crisp binary scissor. Only beyond ~500m, where
+// the crown was filling into a flat dark blob, do mips + hashed fractional coverage
+// ramp in to make the far tier match the mid-range airy/detailed look. Tunable.
+uniform float far_band_begin = 500.0;
+uniform float far_band_full = 660.0;
+
 void fragment() {
 	// LOD crossfade-in: dither IN over the band where _lod1 dithers out.
 	if (lod_fade_in.y > 0.0) {
@@ -356,7 +393,12 @@ void fragment() {
 	// to keep mips within a cell.
 	float d_cam = length(v_inst_pos - player_world_pos);
 	float screen_px = max(1.0, PROJECTION_MATRIX[1][1] * world_height / max(d_cam, 1.0) * VIEWPORT_SIZE.y * 0.5);
-	float atlas_lod = clamp(log2(max(IMPOSTOR_CELL_PX / screen_px, 1.0)), 0.0, IMPOSTOR_LOD_MAX);
+	float atlas_lod_raw = clamp(log2(max(IMPOSTOR_CELL_PX / screen_px, 1.0)), 0.0, IMPOSTOR_LOD_MAX);
+	// Gate the far treatment to >~500m: below the far band, far_factor=0 → atlas_lod=0
+	// (mip0) so the 200-500m range is BYTE-FOR-BYTE the original look (Chris: that range
+	// was already good — don't touch it). The far band ramps in mips + hashed coverage.
+	float far_factor = smoothstep(far_band_begin, far_band_full, d_cam);
+	float atlas_lod = atlas_lod_raw * far_factor;
 
 	vec4 baseTex = blenderColors(uv_f1, uv_f2, uv_f3, quad_blend_weights, imposterTextureAlbedo, atlas_lod);
 	vec4 ormTex = blenderColors(uv_f1, uv_f2, uv_f3, quad_blend_weights, imposterTextureOrm, atlas_lod);
@@ -385,9 +427,17 @@ void fragment() {
 	ALBEDO = v_season_color * clamp(atlas_lum / detail_ref_lum, 0.0, 1.6) * albedo.rgb;
 	NORMAL = normalTex.xyz;
 
-	// Coverage as an opaque scissor (foliage at distance reads solid).
-	ALPHA = float(baseTex.a > alpha_clamp);
-	ALPHA_SCISSOR_THRESHOLD = 0.5;
+	// Coverage. Below the far band (≤~500m) this is the ORIGINAL crisp binary scissor —
+	// unchanged. In the far band, the mipped alpha (baseTex.a) carries the true fractional
+	// crown coverage, and a stable hashed alpha test renders it as partial see-through so
+	// the far crown stops filling into a flat dark blob and matches the airy mid-range
+	// look. Anchor = atlas texel coord (sticks to the crown surface) + per-tree offset to
+	// decorrelate neighbours; derivative-scaled so the grain is ~1px and doesn't crawl.
+	// Manual discard keeps it in the opaque pass (no alpha blending / sorting).
+	vec2 hash_anchor = uv_f1 * 2048.0 + v_inst_pos.xz * 7.0;
+	float far_thr = mix(alpha_clamp, hashed_alpha_threshold(hash_anchor), far_factor);
+	if (baseTex.a < far_thr) discard;
+	ALPHA = 1.0;
 
 	METALLIC = ormTex.b * metallic;
 	SPECULAR = specular;
