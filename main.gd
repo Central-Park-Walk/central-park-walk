@@ -548,13 +548,16 @@ var _screenshot_file := "/tmp/godot_screenshot.png"  # --screenshot-file=path ov
 var _lt_screenshot_pending := false  # debounce for gamepad left trigger screenshots
 
 # Distance overlay (F1) — floating Label3Ds on nearest trees, color-coded by the
-# rendered LOD tier: green lod0 (near) → yellow lod1 (mid) → blue impostor (far
-# billboard). Only rendered tiers are labelled; trees past IMPOSTOR_FAR are culled
-# (not drawn) so they get no label.
+# rendered LOD tier: green lod0 (near) → yellow lod1 (mid) → impostor billboard, with
+# the impostor range SPLIT at FAR_LABEL_DIST: blue (near impostor, ~200-500m, reads
+# well) → red (far impostor, 500-800m, the band under repair). Far-impostor labels are
+# lifted above the canopy so they're legible over the tree instead of buried in it.
+# Trees past IMPOSTOR_FAR are culled (not drawn) so they get no label.
 var _dist_overlay_visible := false
 var _dist_labels: Array = []  # Array[Label3D] — pool, reused each frame
 const _DIST_POOL_SIZE := 40
-const _DIST_MAX_RANGE := 500.0
+const _DIST_MAX_RANGE := 800.0   # reaches IMPOSTOR_FAR so the 500-800m far band is labelled (was 500)
+const _DIST_FAR_LABEL_DIST := 500.0  # impostor blue→red split + canopy-lift threshold (matches shader far_band_begin)
 var _dist_tree_positions: PackedVector3Array = PackedVector3Array()  # cached once
 var _dist_tree_bands: PackedVector2Array = PackedVector2Array()  # parallel: (lod1_end, mesh_end) per tree, for tier-true label colour
 var _dist_impostor_far := 500.0  # tree_builder.IMPOSTOR_FAR — impostor→cull handoff, cached on first toggle (overwritten from tb at runtime)
@@ -1586,14 +1589,17 @@ func _dist_overlay_update() -> void:
 	var cam_pos := cam.global_position
 	var cam_fwd := -cam.global_transform.basis.z
 	# Bucket in-range, in-front trees by the tier the engine actually renders for
-	# each (band 0 lod0 / 1 lod1 / 2 impostor), using each tree's own scaled LOD
-	# handoffs. Only RENDERED tiers get a label — trees past IMPOSTOR_FAR are culled
-	# (not drawn), so they're skipped, not labelled. Then round-robin the label pool
-	# across bands so the far IMPOSTOR tier is always represented — a plain nearest-N
+	# each (band 0 lod0 / 1 lod1 / 2 near-impostor <500m / 3 far-impostor 500-800m),
+	# using each tree's own scaled LOD handoffs. Only RENDERED tiers get a label — trees
+	# past IMPOSTOR_FAR are culled (not drawn), so they're skipped, not labelled. Then
+	# round-robin the label pool across bands so the far IMPOSTOR tier is always
+	# represented — a plain nearest-N
 	# pick fills entirely with near lod0/lod1 trees in a dense forest and impostors
 	# never show.
 	var max_d2: float = _DIST_MAX_RANGE * _DIST_MAX_RANGE
-	var bands: Array = [[], [], []]  # per band: Array of [d2, idx]
+	# 4 bands: 0 lod0 (green), 1 lod1 (yellow), 2 near-impostor <500m (blue),
+	# 3 far-impostor 500-800m (red, label lifted above canopy).
+	var bands: Array = [[], [], [], []]  # per band: Array of [d2, idx]
 	for i in _dist_tree_positions.size():
 		var p: Vector3 = _dist_tree_positions[i]
 		var d: Vector3 = p - cam_pos
@@ -1614,8 +1620,10 @@ func _dist_overlay_update() -> void:
 			band = 0
 		elif dist < mesh_end:
 			band = 1
+		elif dist < _DIST_FAR_LABEL_DIST:
+			band = 2  # near impostor (~200-500m) — blue
 		elif dist < _dist_impostor_far:
-			band = 2
+			band = 3  # far impostor (500-800m) — red, label above canopy
 		else:
 			continue  # culled (not rendered) — don't label
 		bands[band].append([d2, i])
@@ -1624,11 +1632,11 @@ func _dist_overlay_update() -> void:
 	# Round-robin nearest-first across bands until the pool is full or all drained,
 	# so the far impostor band shows up instead of being crowded out by near trees.
 	var picks: Array = []  # Array of [idx, band]
-	var ptr := [0, 0, 0]
+	var ptr := [0, 0, 0, 0]
 	var drained := false
 	while picks.size() < _DIST_POOL_SIZE and not drained:
 		drained = true
-		for bi in 3:
+		for bi in 4:
 			if picks.size() >= _DIST_POOL_SIZE:
 				break
 			if ptr[bi] < bands[bi].size():
@@ -1638,7 +1646,8 @@ func _dist_overlay_update() -> void:
 	const _BAND_COLORS := [
 		Color(0.5, 1.0, 0.5),   # lod0 base mesh — green
 		Color(1.0, 1.0, 0.4),   # lod1 mid mesh — yellow
-		Color(0.5, 0.75, 1.0),  # impostor billboard — blue
+		Color(0.5, 0.75, 1.0),  # near impostor (~200-500m) — blue
+		Color(1.0, 0.35, 0.3),  # far impostor (500-800m) — red
 	]
 	var n: int = picks.size()
 	for k in n:
@@ -1647,7 +1656,17 @@ func _dist_overlay_update() -> void:
 		var p: Vector3 = _dist_tree_positions[idx]
 		var dist: float = p.distance_to(cam_pos)
 		var lbl: Label3D = _dist_labels[k]
-		lbl.global_position = p + Vector3(0.0, 4.0, 0.0)  # float above trunk
+		# Far-impostor (band 3) labels lift ABOVE the canopy so they hover legibly over
+		# the tree instead of being buried in the foliage blob; nearer bands keep the
+		# low "just above the trunk" float. Canopy height is estimated from the tree's
+		# scaled mesh_end (mesh_end = 200·lod_scale, height = 22·lod_scale → ×0.11).
+		var y_off: float = 4.0
+		if band == 3:
+			var mesh_end_i: float = 200.0
+			if idx < _dist_tree_bands.size():
+				mesh_end_i = _dist_tree_bands[idx].y
+			y_off = clampf(mesh_end_i * 0.11, 6.0, 40.0) + 2.0
+		lbl.global_position = p + Vector3(0.0, y_off, 0.0)
 		lbl.text = "%.0fm" % dist
 		lbl.modulate = _BAND_COLORS[band]
 		lbl.visible = true
