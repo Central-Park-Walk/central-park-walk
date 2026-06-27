@@ -30,6 +30,12 @@ uniform int bake_mode = 0;
 
 varying vec3 world_pos;
 varying vec3 world_nrm;
+// True per-instance world origin captured in vertex(). Fragment MODEL_MATRIX[3]
+// returns the MultiMeshInstance3D NODE origin (= chunk_origin), not the per-tree
+// transform (godotengine/godot#76292) — using it for the LOD dither made the
+// fade chunk-uniform and desynced it from the per-instance impostor fade-in,
+// causing the mesh->impostor handoff dead-band. See tree_leaf.gdshader.
+varying vec3 v_inst_pos;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/seasonal.gdshaderinc"
@@ -51,6 +57,7 @@ void vertex() {
 	float gust_resp = wp.w;
 
 	vec3 tree_origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	v_inst_pos = tree_origin;  // per-instance; fragment MODEL_MATRIX[3] is the node/chunk origin (#76292)
 	float h = max(VERTEX.y, 0.0);
 	float wind_str = length(wind_vec);
 	float rustle = 0.3 + wind_str * 0.7;
@@ -84,8 +91,9 @@ void vertex() {
 }
 
 void fragment() {
-	// LOD crossfade dithering (must be early to avoid wasted shading)
-	vec3 tree_base = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	// LOD crossfade dithering (must be early to avoid wasted shading).
+	// v_inst_pos is per-instance; MODEL_MATRIX[3] here would be the chunk origin (#76292).
+	vec3 tree_base = v_inst_pos;
 	if (lod_fade_out.y > 0.0 || lod_fade_in.y > 0.0) {
 		float bark_cam_dist = length(tree_base - player_world_pos);
 		if (lod_fade_out.y > 0.0 && bark_cam_dist > lod_fade_out.x) {

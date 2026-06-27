@@ -70,6 +70,17 @@ varying float v_species_idx; // species index for fragment shader
 // makes leaves on the same twig drop together, like real abscission.
 varying flat float v_card_seed;
 varying float v_crown_rho;   // COLOR.a: 0 = crown core, 1 = outer shell
+// True PER-INSTANCE world origin, captured in vertex() and passed down. In a
+// FRAGMENT shader MODEL_MATRIX[3] returns the MultiMeshInstance3D NODE origin
+// (here = chunk_origin, set in tree_builder), NOT the per-tree transform — a
+// Godot limitation (godotengine/godot#76292: NODE_POSITION_WORLD ==
+// read_model_matrix[3]). Reading it in fragment made the LOD dither distance
+// chunk-uniform, so camera-side trees in a chunk dithered OUT (chunk-origin
+// distance) ~20m before their per-instance impostor dithered IN — the
+// disappear/reappear dead-band at the mesh->impostor handoff. MODEL_MATRIX IS
+// per-instance in vertex(), so capture it there. (tree_impostor.gdshader
+// already did this via v_inst_pos; the mesh shaders did not.)
+varying vec3 v_inst_pos;
 
 // Spring blossom colors: cherry = pink, callery_pear = white, magnolia = pink-white
 const vec3 BLOSSOM_COLORS[14] = vec3[14](
@@ -187,6 +198,7 @@ void vertex() {
 	float gust_resp = wp.w;
 
 	vec3 tree_origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	v_inst_pos = tree_origin;  // per-instance; fragment MODEL_MATRIX[3] is the node/chunk origin (#76292)
 	float h = max(VERTEX.y, 0.0);
 	float wind_str = length(wind_vec);
 	// Distance LOD on the wind (AAA SOP): canopy sway/flutter is sub-pixel on the far
@@ -257,7 +269,7 @@ void fragment() {
 	// tiers share one variant silhouette (see tree_builder variant pin).
 	// [DIAG-DISABLED 2026-05-18] Second LOD system (distance-adaptive alpha threshold
 	// ramping discard 0.15→0.02 over 60-180m) disabled for A/B comparison.
-	vec3 frag_tree_pos = MODEL_MATRIX[3].xyz;
+	vec3 frag_tree_pos = v_inst_pos;  // per-instance (see varying decl); NOT MODEL_MATRIX[3] — chunk-locked in fragment (#76292)
 	float frag_cam_dist = length(frag_tree_pos - player_world_pos);
 	if (lod_fade_out.y > 0.0 && frag_cam_dist > lod_fade_out.x) {
 		if (lod_dither_discard(frag_cam_dist, lod_fade_out.x, lod_fade_out.y,
@@ -360,8 +372,10 @@ void fragment() {
 		bump_coarse = mix(0.5, bump_coarse, gate_micro);
 	}
 
-	// Within-canopy detail: simulate individual leaf shadows, overlap, light pockets
-	vec3 tree_pos = MODEL_MATRIX[3].xyz;
+	// Within-canopy detail: simulate individual leaf shadows, overlap, light pockets.
+	// Per-instance origin (v_inst_pos) so the dapple/pocket/per-pixel noise below
+	// decorrelates per TREE, not per chunk (fragment MODEL_MATRIX[3] is chunk-locked, #76292).
+	vec3 tree_pos = v_inst_pos;
 	if (gate_leaf > 0.001) {
 		float detail_n = vnoise(UV * 12.0 + tree_pos.xz * 0.5);  // per-leaf-scale noise
 		float pocket_n = vnoise(UV * 4.0 + tree_pos.xz * 0.3);   // shadow pocket scale
