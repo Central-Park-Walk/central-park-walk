@@ -198,7 +198,13 @@ func _init(loader) -> void:
 	_loader = loader
 	# Default ON since 2026-06-10 (docs/trees.md §3 DoD passed: shtri, SDFGI
 	# A/B, crown fit, winter shed, perf gate). Opt-out is a diagnostic.
-	_shadow_proxy = not ("--no-tree-shadow-proxy" in OS.get_cmdline_user_args())
+	# Shadow proxies are OFF by default (2026-06-28): the proxy's 3D crown shadow
+	# internally-shadowed the impostor only within the directional shadow range, then
+	# hard-popped at its cull distance → the impostor flipped dense-dark↔pale-flat on a
+	# tiny step (worst at low sun, gone at noon). Now meshes + impostors cast their OWN
+	# shadows (impostor cast_shadow ON + opaque shader, below), so there's no separate
+	# proxy tier to desync. Opt back in with --tree-shadow-proxy for A/B comparison.
+	_shadow_proxy = "--tree-shadow-proxy" in OS.get_cmdline_user_args()
 	if not _shadow_proxy:
 		print("TreeBuilder: shadow proxies OFF (diagnostic) — visible trees cast per-leaf")
 	# Diagnostic: solid crowns (no dapple discard material) to isolate the
@@ -1468,7 +1474,11 @@ func _spawn_impostor_chunks(buckets: Dictionary) -> void:
 		immi.visibility_range_begin_margin = 0.0
 		immi.visibility_range_end_margin = 0.0
 		immi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
-		immi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# Impostors cast their own shadows (2026-06-28; replaces the removed shadow proxy).
+		# Requires the opaque/alpha-tested shader — transparent materials don't cast shadows
+		# in Godot (see tree_impostor.gdshader render_mode). In the shadow pass the billboard
+		# faces the SUN, so it casts its crown silhouette.
+		immi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		_loader.add_child(immi)
 		impostor_instances += xf_list.size()
 		impostor_chunks += 1

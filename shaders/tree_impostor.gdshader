@@ -13,7 +13,13 @@ shader_type spatial;
 // Atlases are produced by scripts/bake_impostors.gd with a matching cell/direction
 // convention (OctaUtils.octa_uv_to_world), so this decoder lines up by construction.
 
-render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_schlick_ggx;
+// OPAQUE, alpha-tested (depth_prepass_alpha) — NOT blend_mix. Required so the impostor
+// can CAST shadows: Godot's transparent queue doesn't cast shadows, and a `blend_mix`
+// material that writes ALPHA lands there. Discard-only coverage (no ALPHA write, like
+// tree_leaf) keeps it opaque; the discard runs in the depth/shadow prepass so the cast
+// shadow is the crown silhouette, not a solid quad. Visually identical to the old
+// ALPHA=1.0 in the colour pass (it was never actually blended).
+render_mode depth_prepass_alpha, cull_back, diffuse_burley, specular_schlick_ggx;
 
 uniform vec4 albedo : source_color = vec4(1, 1, 1, 1);
 uniform float specular = 0.1f;                 // foliage: low spec so diffuse dominates
@@ -441,11 +447,12 @@ void fragment() {
 	// the far crown stops filling into a flat dark blob and matches the airy mid-range
 	// look. Anchor = atlas texel coord (sticks to the crown surface) + per-tree offset to
 	// decorrelate neighbours; derivative-scaled so the grain is ~1px and doesn't crawl.
-	// Manual discard keeps it in the opaque pass (no alpha blending / sorting).
+	// Coverage is discard-only — NO `ALPHA =` write (writing ALPHA would flag the material
+	// transparent → no shadow casting; see render_mode note at top). depth_prepass_alpha
+	// runs this discard in the depth/shadow prepass, so the silhouette is correct.
 	vec2 hash_anchor = uv_f1 * 2048.0 + v_inst_pos.xz * 7.0;
 	float far_thr = mix(alpha_clamp, hashed_alpha_threshold(hash_anchor), far_factor);
 	if (baseTex.a < far_thr) discard;
-	ALPHA = 1.0;
 
 	METALLIC = ormTex.b * metallic;
 	SPECULAR = specular;
