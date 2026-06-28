@@ -19,7 +19,20 @@ shader_type spatial;
 // tree_leaf) keeps it opaque; the discard runs in the depth/shadow prepass so the cast
 // shadow is the crown silhouette, not a solid quad. Visually identical to the old
 // ALPHA=1.0 in the colour pass (it was never actually blended).
-render_mode depth_prepass_alpha, cull_back, diffuse_burley, specular_schlick_ggx;
+//
+// shadows_disabled: the impostor does NOT RECEIVE shadows (it still CASTS them — casting
+// is the instance cast_shadow=ON setting, tree_builder.gd; receiving is this render_mode).
+// WHY: the billboard faces the CAMERA in the colour pass but the SUN in the shadow pass
+// (tree_builder.gd:1576), so the two oriented planes intersect and the camera-facing crown
+// self-shadows behind the sun-facing plane along their intersection — a dead-straight line
+// bisecting the crown (Chris 2026-06-28, l·28m impostor). A planar gap of metres can't be
+// closed by shadow bias, so the only clean fix is to stop the billboard receiving its own
+// cast shadow. Crown form/depth still come from the normal-atlas directional shading + the
+// baked ambient AO (AO=ormTex.r below) — soft, organic "darker in-shadow" pockets, not a
+// hard line — so average tint/brightness/coverage are unchanged. Tradeoff: the impostor no
+// longer takes building/neighbour/cloud shadows either, acceptable at the far LOD range and
+// in line with keeping the far tier's average brightness consistent.
+render_mode depth_prepass_alpha, cull_back, diffuse_burley, specular_schlick_ggx, shadows_disabled;
 
 uniform vec4 albedo : source_color = vec4(1, 1, 1, 1);
 uniform float specular = 0.1f;                 // foliage: low spec so diffuse dominates
