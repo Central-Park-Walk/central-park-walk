@@ -79,7 +79,15 @@ uniform float detail_ref_lum = 0.28;
 // (cells are packed gutterless, so deep mips would bleed neighbouring views).
 uniform float world_height = 22.0;
 const float IMPOSTOR_CELL_PX = 128.0;   // ATLAS_RES/FRAMES = 2048/16 (bake_impostors.gd)
-const float IMPOSTOR_LOD_MAX = 3.0;     // mip3 = 16px/cell — bleed-safe floor
+// Mip cap. The mip's ONLY job here is to make the atlas ALPHA fractional so the hashed
+// alpha test (below) can render see-through coverage instead of a binary scissor — mip1
+// (2×2 box of the binary mask) already supplies that. Higher mips ALSO average the
+// crown COLOUR, and past ~mip2 the interior dapple is gone → a flat-green disc; with
+// London plane's dense summer alpha the hashed test then passes nearly every interior
+// pixel → the "flat blob with a hard outline" Chris saw at extreme distance (2026-06-27).
+// So cap at mip1: fractional alpha for the hash, but interior detail preserved out to
+// 800m so the far crown keeps the airy/detailed look the 200-500m range already has.
+const float IMPOSTOR_LOD_MAX = 1.0;
 
 varying vec3 v_season_color;
 varying vec2 uv_frame1;

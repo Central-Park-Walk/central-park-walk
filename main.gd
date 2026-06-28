@@ -555,7 +555,8 @@ var _lt_screenshot_pending := false  # debounce for gamepad left trigger screens
 # Trees past IMPOSTOR_FAR are culled (not drawn) so they get no label.
 var _dist_overlay_visible := false
 var _dist_labels: Array = []  # Array[Label3D] — pool, reused each frame
-const _DIST_POOL_SIZE := 40
+const _DIST_POOL_SIZE := 64  # 16/band round-robin — was 40 (~10/band), too few: far (red) band
+                            # ran out before reaching mid-distance trees, leaving centre trees unlabelled
 const _DIST_MAX_RANGE := 800.0   # reaches IMPOSTOR_FAR so the 500-800m far band is labelled (was 500)
 const _DIST_FAR_LABEL_DIST := 500.0  # impostor blue→red split + canopy-lift threshold (matches shader far_band_begin)
 var _dist_tree_positions: PackedVector3Array = PackedVector3Array()  # cached once
