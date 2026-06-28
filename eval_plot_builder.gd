@@ -28,12 +28,12 @@ const UndergrowthScript := preload("res://undergrowth_builder.gd")
 # centre and that central area is the default spawn (was the far south edge
 # Z308, 158m from the specimens). Single-species STAND mode is the primary
 # use; in grid (--eval-plot=all) mode this puts the camera mid-lineup.
-const SPAWN := Vector3(-99.0, 360.0, 213.0)  # x, yaw_degrees, z
+const SPAWN := Vector3(-99.0, 360.0, 228.0)  # x, yaw_degrees, z — pulled back 2026-06-28 so all three TIER_MATCH columns (X -121..-77) frame without the impostor column clipping the right edge; still a short walk to any specimen
 
 # Species a no-flag launch drops into (main.gd defaults --eval-plot to this when
 # no mode/pos flag is given; user 2026-06-19). Update per session to the species
 # under review. --park forces the plain park instead.
-const DEFAULT_EVAL_SPECIES := "oak"  # 2026-06-24: oak _s review (was london_plane)
+const DEFAULT_EVAL_SPECIES := "london_plane"  # 2026-06-28: TIER_MATCH cross-tier review (was oak)
 
 # Grid-mode layout
 const TREE_ROW_Z0 := 50.0      # northernmost tree row
@@ -97,6 +97,22 @@ const GRID_TIERS := [
 	["_m", 22.0, 160.0, 30.0],
 	["_l", 30.0, 110.0, 44.0],
 ]
+
+# TIER MATCH garden (user 2026-06-28): one s/m/l of the matched species in EACH of
+# the three LOD tiers (lod0 mesh · lod1 mesh · far impostor), grouped by tier in
+# close proximity so textures/colours can be matched across tiers — the goal is a
+# tree that reads the same at 8 m and at 800 m. Each specimen is force_tier-tagged
+# so tree_builder renders exactly that tier at full opacity, distance-independent
+# (no LOD fade, no distance cull). Takes precedence over VARIANT_GRID/VARIANT_ROW/
+# SOLO. No effect outside single-species stand mode.
+const TIER_MATCH := true
+const TM_TIERS := ["lod0", "lod1", "impostor"]   # one column per tier
+# [size suffix, forced height m]: heights land squarely in london_plane's tier
+# bounds [13, 25] → _s (<13) / _m (<25) / _l (≥25). NOTE: the _s sapling has no
+# lod1 model, so the lod1·s slot falls back to the lod0 sapling mesh (tree_builder).
+const TM_SIZES := [["s", 11.0], ["m", 19.0], ["l", 28.0]]
+const TM_TIER_DX := 22.0                          # X gap between tier columns
+const TM_SIZE_Z := [192.0, 166.0, 136.0]          # rows: s nearest spawn → l farthest
 
 # Display name, census species key. Order = stature, tallest rows northmost
 # so no specimen hides behind a bigger neighbour when viewed from spawn.
@@ -169,6 +185,35 @@ func inject_trees(trees: Array) -> int:
 	if _sel_trees.is_empty():
 		return 0
 	var added := 0
+	if _stand_mode and TIER_MATCH:
+		# 3 sizes (s/m/l) × 3 tiers (lod0/lod1/impostor) = 9 specimens; one column
+		# per tier (grouped by tier), one row per size (s nearest spawn → l farthest
+		# so the tall trees never hide the short ones). Each tree carries force_tier
+		# so tree_builder renders exactly that tier at full opacity (no distance fade)
+		# — letting the three representations of the same tree be matched for texture
+		# and colour. The species pin (tree_builder LP_SINGLE_VARIANT) keeps lod0/lod1/
+		# impostor the SAME variant, so any difference is the tier, not the specimen.
+		var entry: Array = _sel_trees[0]
+		var n_t: int = TM_TIERS.size()
+		for ti in n_t:
+			var tier: String = TM_TIERS[ti]
+			var cx: float = STAND_X + (float(ti) - float(n_t - 1) * 0.5) * TM_TIER_DX
+			for si in TM_SIZES.size():
+				var sz: String = TM_SIZES[si][0]
+				var h: float = float(TM_SIZES[si][1])
+				var rz: float = TM_SIZE_Z[si]
+				var rec: Dictionary = _rec(cx, rz, entry[1], h)
+				rec["force_tier"] = tier
+				trees.append(rec)
+				added += 1
+				_labels.append(["%s · %s · %dm" % [tier, sz, int(round(h))],
+					Vector2(cx, rz + 7.0), 2.6, 0.013])
+			# Tier (column) title, raised above the near end of the column.
+			_labels.append([tier.to_upper(),
+				Vector2(cx, float(TM_SIZE_Z[0]) + 11.0), 6.0, 0.024])
+		_labels.append(["%s — tier match (lod0 · lod1 · impostor)" % entry[0],
+			Vector2(STAND_X, float(TM_SIZE_Z[0]) + 18.0), 9.0, 0.03])
+		return added
 	if _stand_mode and VARIANT_GRID:
 		# All N variants of every tier, in size-organized rows (s near → l far).
 		var entry: Array = _sel_trees[0]

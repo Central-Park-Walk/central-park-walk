@@ -55,6 +55,10 @@ var impostor_chunks: int = 0
 # sp_tier -> billboard QuadMesh carrying the tree_impostor material (atlases + octa
 # params from textures/impostors/<species>_manifest.json). Empty until bakes exist.
 var _impostor_meshes: Dictionary = {}
+# Eval-only TIER_MATCH specimens: trees tagged force_tier in the loop are pulled out
+# of the chunked, distance-faded pipeline and built as dedicated single-instance MMIs
+# (one chosen tier, fade disabled) in _build_forced_specimens — see eval_plot_builder.
+var _forced_specimens: Array = []
 # Far cull for the impostor tier (m). Trees only need an impostor from the mesh
 # handoff (~200m) out to here; beyond this they're sub-pixel / fog-veiled and are
 # culled entirely. Was 2500m — far past any useful range, which kept ~2737
@@ -635,6 +639,7 @@ func _build_trees(trees: Array) -> void:
 	var real_h_accum: Dictionary = {}
 	_species_real_h.clear()
 	tree_lod_bands.clear()
+	_forced_specimens.clear()
 	var _skip_surface := 0
 	var _nudged := 0
 	for i in trees.size():
@@ -835,6 +840,22 @@ func _build_trees(trees: Array) -> void:
 		var basis := Basis(lean_axis, lean_angle) \
 			* Basis(Vector3.UP, y_rot) * Basis().scaled(Vector3(sx * sj, sy, sx * sj))
 		var tf := Transform3D(basis, Vector3(tx, ty, tz))
+
+		# Eval-only TIER_MATCH specimens: a tree tagged force_tier renders exactly
+		# ONE tier (lod0|lod1|impostor) at full opacity, bypassing the chunked,
+		# distance-faded pipeline, so the three representations of the same tree can
+		# be compared side by side up close. Capture its transform + season here and
+		# build a dedicated single-instance MMI in _build_forced_specimens (after the
+		# impostor assets exist); skip normal bucketing / canopy / LOD-band / collision.
+		if is_eval and typeof(tree_entry) == TYPE_DICTIONARY \
+				and str(tree_entry.get("force_tier", "")) != "":
+			var pj: int = PHENOLOGY_INDEX.get(species, 4)
+			var cjf := fmod(abs(sin(tx * 127.1 + tz * 311.7) * 43758.5453), 1.0)
+			_forced_specimens.append({
+				"tf": tf, "species_tier": species_tier, "variant": variant_idx,
+				"tier": str(tree_entry["force_tier"]),
+				"cd": Color(float(pj) / 13.0, 0.5, 0.0, cjf)})
+			continue
 
 		var key := "%s_%d" % [species_tier, variant_idx]
 		if not xf_by_key.has(key):
@@ -1132,6 +1153,11 @@ func _build_trees(trees: Array) -> void:
 	if not _impostor_meshes.is_empty():
 		print("Trees impostor tier: %d MMIs / %d instances" % [impostor_chunks, impostor_instances])
 
+	# Eval TIER_MATCH garden: dedicated, distance-independent specimens (one chosen
+	# tier each, fade disabled). Built after both mesh and impostor assets exist.
+	if not _forced_specimens.is_empty():
+		_build_forced_specimens()
+
 	# Per-tier dither fade ranges. Shader dithering replaces Godot's
 	# VISIBILITY_RANGE_FADE_SELF (known bug #88854 with alpha_to_coverage).
 	# Two mesh tiers:
@@ -1416,6 +1442,76 @@ func _build_tree_collision(trunk_xf: Array) -> void:
 
 func _tree_glb_leaf_shader_code() -> String:
 	return "res://shaders/tree_leaf.gdshader"
+
+
+# Eval TIER_MATCH garden (eval_plot_builder): render each captured specimen as ONE
+# tier at full opacity, distance-independent, so lod0 / lod1 / impostor of the same
+# tree can be compared side by side for texture/colour. Each gets its OWN mesh +
+# materials with the LOD fade disabled (Vector2.ZERO) so mutating them never touches
+# the shared park meshes, and a single-instance MMI with no visibility-range cull.
+func _build_forced_specimens() -> void:
+	var built := 0
+	for spec: Dictionary in _forced_specimens:
+		var st: String = spec["species_tier"]   # e.g. london_plane_m
+		var vi: int = spec["variant"]
+		var tier: String = spec["tier"]         # lod0 | lod1 | impostor
+		var tf: Transform3D = spec["tf"]
+		var mesh: Mesh = null
+		match tier:
+			"impostor":
+				var q = _impostor_meshes.get(st, null)
+				if q == null:
+					print("EvalForced: no impostor atlas for %s — skipped" % st)
+					continue
+				mesh = q.duplicate(false)
+				var im = mesh.surface_get_material(0)
+				if im is ShaderMaterial:
+					var nim: ShaderMaterial = im.duplicate()
+					nim.set_shader_parameter("lod_fade_in", Vector2.ZERO)
+					mesh.surface_set_material(0, nim)
+			"lod1":
+				# Sapling tier has no _lod1 model → fall back to the lod0 sapling mesh.
+				var l1: Array = _species_meshes.get(st + "_lod1", [])
+				if l1.is_empty():
+					l1 = _species_meshes.get(st, [])
+				if l1.is_empty():
+					continue
+				mesh = _mesh_fade_off(l1[vi % l1.size()])
+			_:  # lod0
+				var v0: Array = _species_meshes.get(st, [])
+				if v0.is_empty():
+					continue
+				mesh = _mesh_fade_off(v0[vi % v0.size()])
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_custom_data = true
+		mm.mesh = mesh
+		mm.instance_count = 1
+		mm.set_instance_transform(0, Transform3D(tf.basis, Vector3.ZERO))
+		mm.set_instance_custom_data(0, spec["cd"])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.position = tf.origin
+		mmi.name = "EvalForced_%s_%s" % [tier, st]
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		_loader.add_child(mmi)
+		built += 1
+	print("EvalForced: %d TIER_MATCH specimens placed (lod0/lod1/impostor, fade off)" % built)
+
+
+# Shallow-duplicate a mesh and give it its OWN per-surface materials with the LOD
+# crossfade disabled, so the specimen renders solid at every distance and mutating
+# its materials cannot affect the shared park meshes.
+func _mesh_fade_off(src: Mesh) -> Mesh:
+	var dup: Mesh = src.duplicate(false)
+	for si in dup.get_surface_count():
+		var m = dup.surface_get_material(si)
+		if m is ShaderMaterial:
+			var nm: ShaderMaterial = m.duplicate()
+			nm.set_shader_parameter("lod_fade_out", Vector2.ZERO)
+			nm.set_shader_parameter("lod_fade_in", Vector2.ZERO)
+			dup.surface_set_material(si, nm)
+	return dup
 
 
 # Spawn the far impostor tier from the same per-chunk buckets the mesh tiers use,
