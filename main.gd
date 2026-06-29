@@ -1335,6 +1335,7 @@ var _cli_canopy_ao := Vector3(-1.0, -1.0, -1.0)
 var _diag_shadow_census: bool = false
 var _diag_tick_count: int = 0
 var _diag_trees_hidden: bool = false
+var _diag_grass_hidden: bool = false
 var _diag_ug_hidden: bool = false
 var _diag_terrain_hidden: bool = false
 var _diag_tree_mmis: Array = []
@@ -1372,6 +1373,19 @@ func _diag_toggle_trees() -> void:
 			n.visible = not _diag_trees_hidden
 	print("[DIAG] Trees %s (%d MMIs)" % [
 		"HIDDEN" if _diag_trees_hidden else "VISIBLE", _diag_tree_mmis.size()])
+
+func _diag_toggle_grass() -> void:
+	# Live A/B for grass-particle fill cost (the screen-filling cluster cards).
+	# Hides every GPUParticles3D grass layer without unloading it, so the FPS
+	# delta isolates grass overdraw from the rest of the visible forward pass.
+	_diag_grass_hidden = not _diag_grass_hidden
+	var count := 0
+	for gp in _grass_particle_nodes:
+		if is_instance_valid(gp):
+			gp.visible = not _diag_grass_hidden
+			count += 1
+	print("[DIAG] Grass %s (%d layers)" % [
+		"HIDDEN" if _diag_grass_hidden else "VISIBLE", count])
 
 func _diag_toggle_undergrowth() -> void:
 	if not (_park_loader and _park_loader._undergrowth_builder):
@@ -1828,6 +1842,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.keycode == KEY_F1:
 		_toggle_dist_overlay()
 
+	elif event.keycode == KEY_F3:
+		_diag_toggle_grass()
 	elif event.keycode == KEY_F4:
 		_diag_toggle_grass_highlight()
 	elif event.keycode == KEY_F5:
