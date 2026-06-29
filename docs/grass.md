@@ -6,20 +6,45 @@ Sheep Meadow reference comparison (`notes/refs/sheep_meadow_game/COMPARISON.md`,
 `docs/trees.md`: code that contradicts this file is wrong, or this file gets updated in the
 same commit.
 
+## 0. Fantasy mode (alpha-testing QoL — ACTIVE since 2026-06-28)
+
+The data-driven Central Park palette below is currently **suspended** in favour
+of one lush, idealized fantasy green, so testers evaluate trees/vegetation
+against a clean lawn instead of muted, patchy, wear/dead-tuft turf. This is a
+deliberate, reversible departure from the data-first philosophy — *temporary*.
+
+- Toggle: `GRASS_FANTASY` in `main.gd` (default `1.0` = ON). It drives a
+  `fantasy` uniform on **both** `grass_particle_render.gdshader` and
+  `terrain3d_override.gdshader` (they must stay matched).
+- ON: `fantasy_grass_color()` in `grass_zone_colors.gdshaderinc` — lush green +
+  gentle all-green vitality drift; no zone palette, thatch, turf wear, dead
+  tufts, golden undertone, biome amber/teal tints, canopy litter, or
+  autumn/winter dry-down. Translucent backlight boosted.
+- OFF (`0.0`): restores everything in §1–§6 verbatim. Every data path is
+  preserved behind `if (fantasy < 0.5)` — nothing was deleted, only branched.
+- Blades (`make_blade_mesh.py`) retuned taller/arched/sharper for the lush look.
+
+Set `GRASS_FANTASY := 0.0` to return to the data-driven spec that follows.
+
 ## 1. System map
 
-Four cooperating layers; color coherence comes from every layer including
+Three cooperating layers; color coherence comes from every layer including
 `shaders/include/grass_zone_colors.gdshaderinc`.
 
 | layer | files | range | role |
 |---|---|---|---|
 | Tier 0 blades + accents | `main.gd` `GRASS_TIER0`/`GRASS_ACCENTS`, `shaders/grass_particles.gdshader` (spawn), `grass_particle_render.gdshader` (draw) | 0–6 m | close-up blade variety, clover/dandelion |
 | Tier 1 blades | `main.gd` `GRASS_BIOMES`, same shaders | 0–60.5 m (dither fade from ~36 m) | base blade coverage, one mesh per biome |
-| Tier 2 tufts (**dormant**) | `grass_tuft_builder.gd`, `shaders/grass_tuft_render.gdshader` | 13–120 m | `_setup_grass_tuft_chunks()` is never called (audited 2026-06-11) — retired in the 2026-05-09 unification; code kept wear-consistent in case of revival |
-| Terrain albedo | `shaders/terrain3d_override.gdshader` | everywhere | blends Terrain3D source 85% toward `grass_base_color_no_dead()` in grass zones — the dominant signal beyond ~20 m |
+| Terrain albedo | `shaders/terrain3d_override.gdshader` | everywhere | blends Terrain3D source 85% toward the grass color in grass zones — the dominant signal beyond ~20 m |
+
+Dormant duplicates **removed 2026-06-28**: the Tier-2 static MultiMesh tuft
+chunks (`grass_tuft_builder.gd`), the crossed-card cluster tier
+(`grass_cluster_builder.gd`), and the `GPUGrass` compute GDExtension
+(`gpu_grass/`, `shaders/grass_compute.glsl`) were all built, superseded by the
+particle path, and never instantiated. Recoverable from git history.
 
 Spawn-side data: `landuse_map.png` (R8 8192², zone IDs) + canopy map. Both sampled in the
-particle spawn shader, the tuft builder (CPU), and the terrain shader.
+particle spawn shader and the terrain shader.
 
 ## 2. Zone encoding — the truth table
 
