@@ -206,7 +206,12 @@ void fragment() {
 	// blade bases; any noticeable root darkening reads as a "dark disc
 	// following the camera" against the terrain just beyond.
 	float root_t = smoothstep(0.0, 0.30, v_height_t);
-	col *= mix(0.98, 1.0, root_t);
+	// Data-driven: barely-there (single blades → strong root darkening reads as
+	// a dark disc trailing the camera). Fantasy: blades are CLUMPS, so a darker
+	// base gives each tuft 3D depth (matching the reference puck's shadowed
+	// interior) instead of a flat pale triangle, and is self-occluded from most
+	// angles by the tuft's own blades.
+	col *= mix(mix(0.98, 0.80, fantasy), 1.0, root_t);
 
 	// Thatch tint at base — barely-there now. The previous values created
 	// a visible darker zone where blades render vs terrain just beyond.
@@ -225,7 +230,7 @@ void fragment() {
 	// noon): the blade chain's extras (dead tufts, biome tint, tip
 	// warmth, card specular) stack on top of now-correct lighting. Trim
 	// to parity so the 36-60m fade ring is invisible in both directions.
-	col *= mix(0.905, 0.97, fantasy);
+	col *= mix(0.905, 0.90, fantasy);
 
 	// terrain_tint removed — dithered crossfade means terrain between blades
 	// is now filled by the next LOD tier, not visible through blade gaps.
@@ -237,8 +242,12 @@ void fragment() {
 	// brightness range. Keeping the boost made blades read brighter/yellower
 	// than terrain → a halo following the camera as the player walked.
 
-	// Per-instance hue variation (±10% for visible blade-to-blade difference)
-	col *= mix(vec3(0.90, 1.04, 1.06), vec3(1.10, 0.96, 0.90), blade_seed);
+	// Per-instance hue variation. Data-driven wants ±10% blade-to-blade
+	// difference; fantasy narrows it to ~±4% so blades read as a cohesive
+	// sward rather than thousands of individually-distinct spikes.
+	vec3 hue_lo = mix(vec3(0.90, 1.04, 1.06), vec3(0.96, 1.02, 1.02), fantasy);
+	vec3 hue_hi = mix(vec3(1.10, 0.96, 0.90), vec3(1.04, 0.99, 0.97), fantasy);
+	col *= mix(hue_lo, hue_hi, blade_seed);
 
 	// Tip warmth: yellow highlights at blade tips from waxy cuticle.
 	// Scaled by season — full strength in autumn dry-down, ~25% in peak
@@ -315,7 +324,10 @@ void fragment() {
 	METALLIC = 0.0;
 	// Translucent backlight glow — boosted + greener in fantasy mode for the
 	// idealized "sun-through-blades" pop; data-driven keeps the calibrated turf value.
-	BACKLIGHT = mix(vec3(0.30, 0.36, 0.10), vec3(0.34, 0.52, 0.16), fantasy)
+	// Soft translucent backlight. Kept close to the data-driven value in
+	// fantasy (only slightly greener) — an over-bright glow lit every blade
+	// tip individually, which is what made the field read as glowing spikes.
+	BACKLIGHT = mix(vec3(0.30, 0.36, 0.10), vec3(0.16, 0.24, 0.08), fantasy)
 		* mix(0.5, 1.0, v_height_t);
 
 	// --- Weather ---

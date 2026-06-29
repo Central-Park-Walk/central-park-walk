@@ -2309,9 +2309,9 @@ const GRASS_BIOMES := [
 		# Lawn: densest base coverage (maintained Kentucky bluegrass turf).
 		# Y-scale range tight (0.85-1.15): mowing homogenizes blade height
 		# (docs/grass.md §3). Width randomness unchanged.
-		"spacing": 0.10, "cell_width": 11.0, "grid_width": 11,
+		"spacing": 0.16, "cell_width": 11.0, "grid_width": 11,
 		"min_distance": 4.0, "process_fps": 15,
-		"random_spacing": 0.5,
+		"random_spacing": 0.7,
 		"min_scale": Vector3(0.6, 0.85, 0.6),
 		"max_scale": Vector3(1.4, 1.15, 1.4),
 		"position_offset": Vector3(0, -0.003, 0),
@@ -2320,9 +2320,9 @@ const GRASS_BIOMES := [
 		"name": "Shade", "biome_id": 1,
 		"mesh_path": "res://models/vegetation/Blade_Shade.glb",
 		# Shade: sparser woodland floor (less light, fewer blades).
-		"spacing": 0.16, "cell_width": 11.0, "grid_width": 11,
+		"spacing": 0.18, "cell_width": 11.0, "grid_width": 11,
 		"min_distance": 4.0, "process_fps": 15,
-		"random_spacing": 0.5,
+		"random_spacing": 0.7,
 		"min_scale": Vector3(0.6, 0.6, 0.6),
 		"max_scale": Vector3(1.4, 1.4, 1.4),
 		"position_offset": Vector3(0, -0.003, 0),
@@ -2331,9 +2331,9 @@ const GRASS_BIOMES := [
 		"name": "Wild", "biome_id": 2,
 		"mesh_path": "res://models/vegetation/Blade_Wild.glb",
 		# Wild meadow: clumpy native grasses, gaps between bunches.
-		"spacing": 0.19, "cell_width": 11.0, "grid_width": 11,
+		"spacing": 0.22, "cell_width": 11.0, "grid_width": 11,
 		"min_distance": 4.0, "process_fps": 15,
-		"random_spacing": 0.5,
+		"random_spacing": 0.7,
 		"min_scale": Vector3(0.6, 0.6, 0.6),
 		"max_scale": Vector3(1.4, 1.4, 1.4),
 		"position_offset": Vector3(0, -0.005, 0),
@@ -2342,9 +2342,9 @@ const GRASS_BIOMES := [
 		"name": "Sedge", "biome_id": 3,
 		"mesh_path": "res://models/vegetation/Blade_Sedge.glb",
 		# Sedge: waterside, moderate density.
-		"spacing": 0.16, "cell_width": 11.0, "grid_width": 11,
+		"spacing": 0.18, "cell_width": 11.0, "grid_width": 11,
 		"min_distance": 4.0, "process_fps": 15,
-		"random_spacing": 0.5,
+		"random_spacing": 0.7,
 		"min_scale": Vector3(0.6, 0.6, 0.6),
 		"max_scale": Vector3(1.4, 1.4, 1.4),
 		"position_offset": Vector3(0, -0.003, 0),
@@ -2500,9 +2500,14 @@ func _setup_grass_particles() -> void:
 	noise_tex.noise = noise
 
 	var all_grass_layers: Array = []
-	all_grass_layers.append_array(GRASS_BIOMES)   # Tier 1: 0-22m base coverage per biome
-	all_grass_layers.append_array(GRASS_TIER0)    # Tier 0: 0-6m near-field variants
-	all_grass_layers.append_array(GRASS_ACCENTS)  # 0-6m botanical detail
+	all_grass_layers.append_array(GRASS_BIOMES)   # Tier 1: base coverage per biome
+	if GRASS_FANTASY < 0.5:
+		# Data-driven: add near-field single-blade variety + botanical accents.
+		all_grass_layers.append_array(GRASS_TIER0)    # Tier 0: 0-6m near-field variants
+		all_grass_layers.append_array(GRASS_ACCENTS)  # 0-6m botanical detail
+	# Fantasy: skip Tier 0 / accents — the Tier-1 CLUMP meshes cover from 0m as
+	# a cohesive sward, and the single-blade Tier-0 layers are exactly the
+	# isolated "spikes" we're eliminating. Also drops 12 particle layers.
 
 	for biome in all_grass_layers:
 		# Load tuft GLB via Godot's native load()
@@ -2546,7 +2551,9 @@ func _setup_grass_particles() -> void:
 			if gw % 2 == 0:
 				gw += 1
 		gp.grid_width = gw
-		gp.near_cull_distance = biome.get("min_distance", 0.0)
+		# Fantasy: Tier-1 clumps must reach the camera (no Tier-0 underlay), so
+		# draw from 0m; data-driven keeps the configured inner cull.
+		gp.near_cull_distance = 0.0 if GRASS_FANTASY >= 0.5 else biome.get("min_distance", 0.0)
 		gp.process_fixed_fps = biome.get("process_fps", 30)
 		gp.shadow_mode = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		gp.mesh = tuft_mesh
