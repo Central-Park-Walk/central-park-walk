@@ -81,6 +81,11 @@ uniform sampler2D landuse_map : filter_nearest, repeat_disable;
 uniform sampler2D canopy_map : filter_linear, repeat_disable;
 // Baked foot-traffic wear (paths/benches) — scripts/gen_wear_map.py
 uniform sampler2D wear_map : filter_linear, repeat_disable;
+// Fantasy mode (1.0 = ON, default) — mirrors the grass blade shader's
+// `fantasy` toggle so terrain grass-zones and blades stay matched. ON swaps
+// the data-driven spectral palette + turf wear + biome amber/teal tint +
+// litter for one lush idealized green. Set via _set_terrain_param("fantasy").
+uniform float fantasy : hint_range(0.0, 1.0) = 1.0;
 
 // Global uniforms (set by main.gd)
 global uniform float snow_cover;
@@ -393,14 +398,16 @@ void fragment() {
 		// Moderate strength: keep terrain looking natural while making boundaries
 		// visible. Mirrors the per-biome tints applied to grass blades.
 		vec3 biome_terrain_tint = vec3(1.0);
-		if (zone_id == 5 || zone_id == 10 || zone_id == 11) {
-			biome_terrain_tint = vec3(0.78, 0.92, 1.10);  // Shade: cool blue-green
-		} else if (zone_id == 13) {
-			// Sedge: cool teal (shore) — patchy tussocks, not a painted band
-			biome_terrain_tint = mix(vec3(1.0), vec3(0.82, 1.02, 1.18),
-				sedge_patch_mask(v_vertex.xz));
-		} else if (zone_id == 14) {
-			biome_terrain_tint = vec3(1.20, 1.05, 0.72);  // Wild: warm amber (hand-marked meadow)
+		if (fantasy < 0.5) {
+			if (zone_id == 5 || zone_id == 10 || zone_id == 11) {
+				biome_terrain_tint = vec3(0.78, 0.92, 1.10);  // Shade: cool blue-green
+			} else if (zone_id == 13) {
+				// Sedge: cool teal (shore) — patchy tussocks, not a painted band
+				biome_terrain_tint = mix(vec3(1.0), vec3(0.82, 1.02, 1.18),
+					sedge_patch_mask(v_vertex.xz));
+			} else if (zone_id == 14) {
+				biome_terrain_tint = vec3(1.20, 1.05, 0.72);  // Wild: warm amber (hand-marked meadow)
+			}
 		}
 		ALBEDO *= biome_terrain_tint;
 
@@ -416,22 +423,28 @@ void fragment() {
 		// brown flecks on solid terrain where blade coverage would normally
 		// hide it.
 		if (is_grass_zone) {
-			vec3 spectral_col = grass_base_color_no_dead(zone_id, v_vertex.xz);
-			// Shore band: blend the sedge palette in by tussock patches so
-			// the cool teal reads as clumped vegetation over bank grass.
-			if (zone_id == 13) {
-				spectral_col = mix(grass_base_color_no_dead(0, v_vertex.xz),
-					spectral_col, sedge_patch_mask(v_vertex.xz));
+			vec3 spectral_col;
+			float wear = 0.0;
+			if (fantasy < 0.5) {
+				spectral_col = grass_base_color_no_dead(zone_id, v_vertex.xz);
+				// Shore band: blend the sedge palette in by tussock patches so
+				// the cool teal reads as clumped vegetation over bank grass.
+				if (zone_id == 13) {
+					spectral_col = mix(grass_base_color_no_dead(0, v_vertex.xz),
+						spectral_col, sedge_patch_mask(v_vertex.xz));
+				}
+				// Turf wear: baked path/bench wear + ambient mottle + canopy
+				// compaction (docs/grass.md §4). The blade spawn shader thins
+				// blades with the same function, so dirt never shows green
+				// blades on top of it.
+				float baked_wear = texture(wear_map, splat_uv).r;
+				float wear_canopy = texture(canopy_map, splat_uv).r;
+				wear = turf_wear_total(baked_wear, wear_canopy, zone_id, v_vertex.xz);
+			} else {
+				// Fantasy: one lush green to match the blades (no wear/dirt).
+				spectral_col = fantasy_grass_color(v_vertex.xz);
 			}
 			ALBEDO = mix(ALBEDO, spectral_col, 0.85);
-
-			// Turf wear: baked path/bench wear + ambient mottle + canopy
-			// compaction (docs/grass.md §4). The blade spawn shader thins
-			// blades with the same function, so dirt never shows green
-			// blades on top of it.
-			float baked_wear = texture(wear_map, splat_uv).r;
-			float wear_canopy = texture(canopy_map, splat_uv).r;
-			float wear = turf_wear_total(baked_wear, wear_canopy, zone_id, v_vertex.xz);
 			ALBEDO = apply_turf_wear(ALBEDO, wear, v_vertex.xz);
 
 			// Turf sheen (grass.md §6): broad white specular off waxy blade
@@ -450,7 +463,7 @@ void fragment() {
 	// ---- Canopy leaf litter (under dense tree cover) ----
 	{
 		float canopy_cover = texture(canopy_map, splat_uv).r;
-		if (canopy_cover > 0.3 && (is_grass_zone || is_woodland)) {
+		if (canopy_cover > 0.3 && (is_woodland || (is_grass_zone && fantasy < 0.5))) {
 			vec3 litter_col = mix(vec3(0.28, 0.22, 0.14), vec3(0.34, 0.26, 0.16), vnoise(v_vertex.xz * 0.5));
 			float litter_blend = smoothstep(0.3, 0.7, canopy_cover) * 0.50;
 			ALBEDO = mix(ALBEDO, litter_col, litter_blend);

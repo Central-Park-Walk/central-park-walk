@@ -15,6 +15,13 @@ uniform bool debug_highlight = false;
 uniform vec3 debug_color : source_color = vec3(1.0, 0.0, 1.0);
 // 0=Lawn 1=Shade 2=Wild 3=Sedge — set per layer in _setup_grass_particles
 uniform int biome_id = 0;
+// Fantasy mode (1.0 = ON, default): bypass the data-driven Central Park
+// palette (zone spectral colors, thatch, turf wear, dead tufts, biome
+// amber/teal tints, canopy litter, autumn/winter dry-down) and render one
+// lush idealized green for alpha-testing QoL. Set to 0.0 in
+// _setup_grass_particles to restore the full data-driven look — every
+// data path below is preserved behind `if (fantasy < 0.5)`.
+uniform float fantasy : hint_range(0.0, 1.0) = 1.0;
 
 global uniform float season_t;
 global uniform vec2 wind_vec;
@@ -139,23 +146,27 @@ void fragment() {
 	// (20m), landscape gradient (70m), warm/cool drift (8m), micro (3m),
 	// and golden undertone. Dead tufts are applied below with a seasonal
 	// gate so July reads green and autumn ramps the brown up.
-	vec3 col = grass_base_color_no_dead(zone_id, v_world_pos.xz);
-	// Shore band: sedge palette comes in by tussock patches (same mask as
-	// the terrain shader so patches line up across the 36-60m fade).
-	if (zone_id == 13) {
-		col = mix(grass_base_color_no_dead(0, v_world_pos.xz), col,
-			sedge_patch_mask(v_world_pos.xz));
-	}
 	float autumn_t_early = sn_veg_autumn(season_t);
-	col = apply_dead_tufts(col, v_world_pos.xz, 0.15 + 0.85 * autumn_t_early);
-
-	// Turf wear: survivors in worn patches read dusty/dry instead of
-	// popping green against the dirt. COLOR.b carries the spawn-time wear
-	// (baked + ambient); turf_wear_total re-maxes it with the canopy
-	// compaction term so blades under dense crowns match the dirt terrain
-	// (ambient recomputes to the identical value — same noise, same pos).
-	float wear_total = turf_wear_total(COLOR.b, canopy_cover, zone_id, v_world_pos.xz);
-	col = apply_turf_wear(col, wear_total, v_world_pos.xz);
+	vec3 col;
+	if (fantasy < 0.5) {
+		// ---- Data-driven Central Park palette (suspended; flip `fantasy`=0) ----
+		col = grass_base_color_no_dead(zone_id, v_world_pos.xz);
+		// Shore band: sedge palette comes in by tussock patches (same mask as
+		// the terrain shader so patches line up across the 36-60m fade).
+		if (zone_id == 13) {
+			col = mix(grass_base_color_no_dead(0, v_world_pos.xz), col,
+				sedge_patch_mask(v_world_pos.xz));
+		}
+		col = apply_dead_tufts(col, v_world_pos.xz, 0.15 + 0.85 * autumn_t_early);
+		// Turf wear: survivors in worn patches read dusty/dry. COLOR.b carries
+		// spawn-time wear; turf_wear_total re-maxes with canopy compaction so
+		// blades under dense crowns match the dirt terrain.
+		float wear_total = turf_wear_total(COLOR.b, canopy_cover, zone_id, v_world_pos.xz);
+		col = apply_turf_wear(col, wear_total, v_world_pos.xz);
+	} else {
+		// ---- Fantasy lush green (alpha-testing QoL) ----
+		col = fantasy_grass_color(v_world_pos.xz);
+	}
 
 	// Texture modulation: texture luminance adds blade-level detail
 	// without overriding the zone palette. Same approach as tuft shader
@@ -172,18 +183,21 @@ void fragment() {
 
 	// Per-biome tint — moderate now that the terrain shader also tints
 	// per biome. Blades and terrain pull in the same hue direction so
-	// boundaries read clearly without either fighting the other.
-	if (biome_id == 0) {
-		col *= vec3(1.05, 1.02, 0.92);  // Lawn: subtle warm
-	} else if (biome_id == 1) {
-		col *= vec3(0.75, 0.88, 1.18);  // Shade: cool blue-green
-	} else if (biome_id == 2) {
-		col *= vec3(1.32, 1.05, 0.65);  // Wild: warm amber
-	} else if (biome_id == 3) {
-		// Sedge: cool teal — masked by the same tussock patches; off-patch
-		// blades read like the lawn tint so the band isn't a flat decal.
-		col *= mix(vec3(1.05, 1.02, 0.92), vec3(0.78, 1.02, 1.25),
-			sedge_patch_mask(v_world_pos.xz));
+	// boundaries read clearly without either fighting the other. Fantasy
+	// mode wants one uniform lush green, so the amber/teal splits are off.
+	if (fantasy < 0.5) {
+		if (biome_id == 0) {
+			col *= vec3(1.05, 1.02, 0.92);  // Lawn: subtle warm
+		} else if (biome_id == 1) {
+			col *= vec3(0.75, 0.88, 1.18);  // Shade: cool blue-green
+		} else if (biome_id == 2) {
+			col *= vec3(1.32, 1.05, 0.65);  // Wild: warm amber
+		} else if (biome_id == 3) {
+			// Sedge: cool teal — masked by the same tussock patches; off-patch
+			// blades read like the lawn tint so the band isn't a flat decal.
+			col *= mix(vec3(1.05, 1.02, 0.92), vec3(0.78, 1.02, 1.25),
+				sedge_patch_mask(v_world_pos.xz));
+		}
 	}
 
 	// Root-to-tip gradient: very subtle darkening at base only.
@@ -196,10 +210,13 @@ void fragment() {
 
 	// Thatch tint at base — barely-there now. The previous values created
 	// a visible darker zone where blades render vs terrain just beyond.
-	vec3 c_lo, c_hi;
-	grass_zone_palette(zone_id, c_lo, c_hi);
-	vec3 thatch_col = c_lo * 0.5;
-	col = mix(col, thatch_col, (1.0 - root_t) * 0.02);
+	// Skipped in fantasy mode (no dead-thatch undertone in lush grass).
+	if (fantasy < 0.5) {
+		vec3 c_lo, c_hi;
+		grass_zone_palette(zone_id, c_lo, c_hi);
+		vec3 thatch_col = c_lo * 0.5;
+		col = mix(col, thatch_col, (1.0 - root_t) * 0.02);
+	}
 
 	// Blade-vs-terrain equalization (dark-circle fix, 2026-06-11). With
 	// the backface normal pre-flip + up-blended normals + Lambert in
@@ -208,7 +225,7 @@ void fragment() {
 	// noon): the blade chain's extras (dead tufts, biome tint, tip
 	// warmth, card specular) stack on top of now-correct lighting. Trim
 	// to parity so the 36-60m fade ring is invisible in both directions.
-	col *= 0.905;
+	col *= mix(0.905, 0.97, fantasy);
 
 	// terrain_tint removed — dithered crossfade means terrain between blades
 	// is now filled by the next LOD tier, not visible through blade gaps.
@@ -239,11 +256,13 @@ void fragment() {
 	float autumn_t = sn_veg_autumn(season_t);
 	float winter_t = sn_veg_winter(season_t);
 	col = mix(col, col * vec3(1.1, 1.15, 0.75), spring_t * 0.6);
-	col = mix(col, vec3(0.16, 0.12, 0.04), autumn_t * 0.7);
-	col = mix(col, vec3(0.12, 0.10, 0.06), winter_t);
+	// Autumn/winter dry-down: full in data-driven mode; fantasy keeps grass
+	// lush year-round for alpha testing (only a faint cool-down in deep winter).
+	col = mix(col, vec3(0.16, 0.12, 0.04), autumn_t * 0.7 * (1.0 - fantasy));
+	col = mix(col, vec3(0.12, 0.10, 0.06), winter_t * mix(1.0, 0.25, fantasy));
 
 	// --- Canopy leaf litter at grass roots (matches terrain shader overlay) ---
-	if (canopy_cover > 0.3) {
+	if (fantasy < 0.5 && canopy_cover > 0.3) {
 		vec3 litter_col = mix(vec3(0.28, 0.22, 0.14), vec3(0.34, 0.26, 0.16),
 			vnoise(v_world_pos.xz * 0.5));
 		float litter_strength = smoothstep(0.3, 0.7, canopy_cover) * (1.0 - root_t) * 0.5;
@@ -294,7 +313,10 @@ void fragment() {
 	ROUGHNESS = mix(ROUGHNESS, 0.60, turf_sheen);
 	SPECULAR = mix(SPECULAR, 0.30, turf_sheen * mix(0.7, 1.0, v_height_t));
 	METALLIC = 0.0;
-	BACKLIGHT = vec3(0.30, 0.36, 0.10) * mix(0.5, 1.0, v_height_t);
+	// Translucent backlight glow — boosted + greener in fantasy mode for the
+	// idealized "sun-through-blades" pop; data-driven keeps the calibrated turf value.
+	BACKLIGHT = mix(vec3(0.30, 0.36, 0.10), vec3(0.34, 0.52, 0.16), fantasy)
+		* mix(0.5, 1.0, v_height_t);
 
 	// --- Weather ---
 	if (rain_wetness > 0.01) {

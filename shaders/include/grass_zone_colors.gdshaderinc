@@ -73,6 +73,35 @@ float sedge_patch_mask(vec2 world_xz) {
 	return smoothstep(0.30, 0.70, n);
 }
 
+// =====================================================================
+// Fantasy lush green (alpha-testing QoL — data-driven palette suspended).
+// One idealized, saturated, evenly-green sward with a gentle ALL-green
+// vitality drift for life. No thatch, wear, dead tufts, golden undertone,
+// or zone/biome hue split — those are the realistic-muting terms we drop.
+// =====================================================================
+vec3 fantasy_grass_color(vec2 world_xz) {
+	// Blade-group clump variation (3m)
+	float micro = vnoise(world_xz / 3.0);
+	// Lush green range — cooler + more saturated than the spectral palette,
+	// value lifted a touch for that idealized look.
+	vec3 lush_lo = vec3(0.050, 0.158, 0.034);
+	vec3 lush_hi = vec3(0.094, 0.280, 0.058);
+	vec3 col = mix(lush_lo, lush_hi, micro);
+
+	// Soft field-scale vitality drift — two rotated octaves so no axis
+	// lattice. Both ends stay green (vigorous vs slightly deeper), never brown.
+	vec2 r1 = mat2(vec2(0.80, -0.60), vec2(0.60, 0.80)) * world_xz;
+	vec2 r2 = mat2(vec2(0.51, 0.86), vec2(-0.86, 0.51)) * world_xz;
+	float macro = vnoise(r1 / 24.0 + vec2(13.7, 41.2)) * 0.6
+	            + vnoise(r2 / 33.0 + vec2(7.1, 23.9)) * 0.4;
+	col *= mix(0.90, 1.12, macro);
+
+	// Faint emerald/spring hue drift (8m) — stays in the green wedge.
+	float hue = smoothstep(0.35, 0.65, vnoise(world_xz / 8.0 + vec2(51.3, 17.9)));
+	col *= mix(vec3(1.03, 1.0, 0.93), vec3(0.92, 1.02, 1.0), hue);
+	return col;
+}
+
 // Grass base color WITHOUT dead-tuft accents.
 // The dead-tuft mask is fine-scale (~1.25m); on solid terrain it shows
 // as scattered brown flecks under the camera. Blade-coverage shaders

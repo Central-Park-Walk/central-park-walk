@@ -21,40 +21,47 @@ PROJECT_DIR = os.path.dirname(SCRIPT_DIR)
 OUT_DIR = os.path.join(PROJECT_DIR, "models", "vegetation")
 os.makedirs(OUT_DIR, exist_ok=True)
 
+# Fantasy-look tuning (2026-06-28): blades made taller + more arched + more
+# sharply tapered than the realistic mown-turf originals, so the near-field
+# reads as a lush idealized sward rather than a buzzcut. Heights bumped
+# moderately to stay clear of the "dark disc following the camera" failure
+# mode (taller blades = more coverage near camera). base/tip_rgb are unused
+# by the render shader (color comes from the zone/fantasy palette) — kept for
+# documentation only.
 BLADE_TYPES = [
-    {   # Spectral: Kentucky Bluegrass (Poa pratensis)
+    {   # Kentucky Bluegrass (Poa pratensis) — lush lawn
         "name": "Blade_Lawn",
-        "segments": 2,
-        "height": 0.076,
+        "segments": 3,        # 2 → 3: smoother curve now that it arcs more
+        "height": 0.105,      # 0.076 → taller, fuller lawn
         "width": 0.030,
-        "arch": 0.004,
+        "arch": 0.014,        # 0.004 → gentle forward arc (was nearly straight)
         "base_rgb": (0.37, 0.44, 0.38),
         "tip_rgb": (0.23, 0.40, 0.24),
     },
-    {   # Spectral: Switchgrass (Panicum virgatum)
+    {   # Switchgrass (Panicum virgatum) — tall meadow
         "name": "Blade_Wild",
         "segments": 4,
-        "height": 0.25,
+        "height": 0.28,       # 0.25 → a touch taller
         "width": 0.035,
-        "arch": 0.08,
+        "arch": 0.11,         # 0.08 → fuller dramatic arc
         "base_rgb": (0.41, 0.46, 0.41),
         "tip_rgb": (0.28, 0.41, 0.24),
     },
-    {   # Spectral: Fine Fescue (Festuca rubra)
+    {   # Fine Fescue (Festuca rubra) — soft woodland
         "name": "Blade_Shade",
         "segments": 3,
-        "height": 0.12,
+        "height": 0.15,       # 0.12 → taller, softer
         "width": 0.025,
-        "arch": 0.03,
+        "arch": 0.05,         # 0.03 → fuller curve
         "base_rgb": (0.36, 0.42, 0.36),
         "tip_rgb": (0.22, 0.37, 0.22),
     },
-    {   # Spectral: Tussock Sedge (Carex stricta)
+    {   # Tussock Sedge (Carex stricta) — waterside
         "name": "Blade_Sedge",
         "segments": 3,
-        "height": 0.16,
+        "height": 0.19,       # 0.16 → taller
         "width": 0.025,
-        "arch": 0.04,
+        "arch": 0.06,         # 0.04 → fuller lean
         "base_rgb": (0.35, 0.41, 0.35),
         "tip_rgb": (0.22, 0.36, 0.21),
     },
@@ -79,7 +86,7 @@ def make_blade(cfg):
         t = si / segments
         z = height * (t - 0.12 * t * t)
         x = arch * t * t
-        w = width * (1.0 - t * 0.65) * 0.5
+        w = width * (1.0 - t * 0.82) * 0.5  # sharper taper to a point (was 0.65)
 
         vl = bm.verts.new((x, w, z))
         vr = bm.verts.new((x, -w, z))

@@ -443,6 +443,8 @@ func _ready() -> void:
 		print("main: landuse map: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 		if _park_loader and _park_loader._canopy_texture:
 			_set_terrain_param("canopy_map", _park_loader._canopy_texture)
+		# Fantasy grass: terrain grass-zones match the blade shader's lush green.
+		_set_terrain_param("fantasy", GRASS_FANTASY)
 		print("main: canopy map: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 		# Unified to Godot's particle system 2026-05-09: Tier 1 + Tier 0 + Accents
 		# all run through _setup_grass_particles. Previous GDExtension (Tier 1) and
@@ -2333,6 +2335,12 @@ var _wear_texture: Texture2D  # baked turf wear (scripts/gen_wear_map.py)
 # --grass-spacing-mult stacks on top for sweeps.
 const GRASS_DENSITY_SCALE := 1.41
 
+# Fantasy grass look (alpha-testing QoL): 1.0 = ON (one lush idealized green,
+# data-driven Central Park palette/wear/seasons suspended), 0.0 = restore the
+# full data-driven look. Drives the `fantasy` uniform on both the grass blade
+# render shader and the terrain override shader so the two stay matched.
+const GRASS_FANTASY := 1.0
+
 # Biome definitions for multi-layer grass particles.
 # 4 Tuft layers with PBR textures + alpha cutout — one per biome type, non-overlapping.
 # Tuft meshes have embedded albedo textures with alpha for realistic blade-level detail
@@ -2623,6 +2631,7 @@ func _setup_grass_particles() -> void:
 		var render_mat := ShaderMaterial.new()
 		render_mat.shader = render_shader
 		render_mat.set_shader_parameter("biome_id", biome.biome_id)
+		render_mat.set_shader_parameter("fantasy", GRASS_FANTASY)
 		if albedo_tex:
 			render_mat.set_shader_parameter("use_texture", true)
 			render_mat.set_shader_parameter("grass_albedo", albedo_tex)
