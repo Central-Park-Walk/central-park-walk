@@ -1,0 +1,201 @@
+shader_type spatial;
+render_mode cull_disabled, world_vertex_coords;
+
+// Shell-textured mown turf (POC promoted to in-game eval, 2026-06-29).
+// A camera-following tessellated patch is drawn N times by a MultiMesh; each
+// instance is one horizontal "shell" lifted by layer*grass_height, and the
+// fragment shader carves blades out of each shell with discard. Stacked, the
+// shells read as a continuous grass carpet from ANY angle (the top-down case
+// the card/tuft grass could never solve). The patch CONFORMS to the terrain by
+// sampling the project heightmap per-vertex (decode_terrain.gdshaderinc), so it
+// follows hills instead of sitting on a flat plane.
+
+// --- terrain height sampling (shared project decode) ---
+uniform sampler2D heightmap_tex : filter_linear, repeat_disable;
+uniform float hm_world_size = 5000.0;
+uniform float hm_min_h      = 0.0;
+uniform float hm_range      = 1.0;
+uniform float hm_res        = 4096.0;
+#include "res://shaders/include/decode_terrain.gdshaderinc"
+
+// --- zone + wear data (same maps the particle grass uses) ---
+// Zone IDs (docs/grass.md §2): 0=unzoned 1=garden 2=grass(named lawns) 3=pitch
+//   4=playground 5=nature_reserve 6=dog_park 7=sports 8=pool 9=track 10=wood
+//   11=forest 12=water 13=shore 14=wild_meadow
+uniform sampler2D landuse_map : filter_nearest, repeat_disable;
+uniform sampler2D wear_map    : filter_linear,  repeat_disable;
+
+uniform int   shell_count  = 32;
+uniform float density       = 33.0;   // blade cells per meter
+// blade_len/blade_wid are now the BASE half-extents (near-full cell), so the
+// lowest shells of neighbouring cells MERGE into a continuous sward that hides
+// the terrain beneath; the footprint tapers to a thin point at the tip.
+uniform float blade_len     = 0.62;   // base half-length along the blade (cell frac)
+uniform float blade_wid     = 0.46;   // base half-width across the blade (cell frac)
+uniform float lean_amt      = 0.62;   // blade lean (cell frac)
+uniform float mat_height    = 0.30;   // shell fraction below which the dense mat is solid
+uniform vec3  understory : source_color = vec3(0.085, 0.135, 0.055);
+uniform vec3  blade_base : source_color = vec3(0.190, 0.290, 0.115);
+uniform vec3  blade_tip  : source_color = vec3(0.340, 0.520, 0.205);
+// Patch fade: the camera-following patch dissolves into the terrain in its outer
+// ring so it never reads as a hard disc. Center is pushed per-frame from main.gd.
+uniform vec2  patch_center  = vec2(0.0);
+uniform float patch_radius  = 72.0;   // metres from center where grass is fully gone
+uniform float patch_fade    = 34.0;   // width of the dissolve ring (long, so no visible ring)
+
+varying float v_layer;
+varying vec3  v_world;
+
+vec2 splat_uv(vec2 w){ return (w + hm_world_size * 0.5) / hm_world_size; }
+int zone_at(vec2 w){ return int(texture(landuse_map, splat_uv(w)).r * 255.0 + 0.5); }
+bool zone_is_unmown(int z){ return z == 5 || z == 10 || z == 11 || z == 13 || z == 14; }
+
+// Per-zone standing height in METERS (CPC Turf Care Handbook; docs/grass.md §3).
+// Each shell stack lifts to ITS OWN zone height, so a mown lawn packs all shells
+// densely while a meadow spreads them — no global-max waste on the common case.
+float zone_height_m(int z){
+	if (z == 8 || z == 12) return 0.0;    // pool / water — no grass
+	if (z == 1)            return 0.07;   // formal garden panels ~7cm
+	if (z == 2)            return 0.085;  // named lawns (A/B) ~8.5cm
+	if (z == 3 || z == 7 || z == 9) return 0.07;  // pitch/sports/track ~7cm
+	if (z == 4 || z == 6)  return 0.08;   // playground / dog park ~8cm
+	if (z == 0)            return 0.10;   // unzoned fringe ~10cm
+	if (z == 5)            return 0.22;   // nature reserve (Hallett) unmown ~22cm
+	if (z == 10 || z == 11) return 0.17;  // woodland floor ~17cm
+	if (z == 13)           return 0.20;   // shore sedge ~20cm
+	if (z == 14)           return 0.30;   // wild meadow ~30cm
+	return 0.085;                          // default: treat as mown lawn
+}
+
+// Hash21/22 (Hoskins) — no axis symmetry, so no mirror seam at x=0/z=0.
+float hash21(vec2 p){
+	vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+	p3 += dot(p3, p3.yzx + 33.33);
+	return fract((p3.x + p3.y) * p3.z);
+}
+vec2 hash22(vec2 p){
+	vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+	p3 += dot(p3, p3.yzx + 33.33);
+	return fract((p3.xx + p3.yz) * p3.zy);
+}
+float vnoise(vec2 p){
+	vec2 i = floor(p), f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	float a = hash21(i), b = hash21(i + vec2(1.0, 0.0));
+	float c = hash21(i + vec2(0.0, 1.0)), d = hash21(i + vec2(1.0, 1.0));
+	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+void vertex(){
+	float f = float(INSTANCE_ID) / float(max(shell_count - 1, 1));
+	v_layer = f;
+	// world_vertex_coords: VERTEX is already world-space. Snap each shell onto
+	// the terrain surface, then lift it by this zone's standing height.
+	float ground = sample_terrain(VERTEX.xz);
+	VERTEX.y = ground + f * zone_height_m(zone_at(VERTEX.xz));
+	v_world = VERTEX;
+}
+
+void fragment(){
+	vec2 world = v_world.xz;
+	float f = v_layer;
+
+	// --- zone + wear (data-driven, same maps as the particle grass) ---
+	int  zone   = zone_at(world);
+	if (zone == 8 || zone == 12) discard;          // pool / water — no grass
+	bool unmown = zone_is_unmown(zone);
+	float wear  = texture(wear_map, splat_uv(world)).r;
+
+	// --- patch edge dissolve: thin coverage toward the rim so the camera-following
+	// patch melts into the terrain instead of ending in a visible disc. ---
+	float edge = 1.0 - smoothstep(patch_radius - patch_fade, patch_radius,
+		length(world - patch_center));
+
+	// --- patch-scale variation (low frequency) ---
+	float patch  = vnoise(world * 0.22);
+	float patchH = vnoise(world * 0.55 + 31.0);
+	float sparse = vnoise(world * 0.40 + 7.0);
+
+	// --- per-blade cell ---
+	vec2 uv    = world * density;
+	vec2 cell  = floor(uv);
+	vec2 local = fract(uv) - 0.5;
+	float r1   = hash21(cell);
+	local -= (hash22(cell) - 0.5) * 0.5;
+
+	// Coverage model: every cell forms a dense MAT up to mat_height so the lowest
+	// shells knit into a continuous sward (the terrain never shows through as
+	// "felt"); ABOVE the mat only a `keep` fraction of cells grow individual tall
+	// blades. Foot-traffic wear erodes the mat AND thins the tall blades so paths
+	// go to bare ground.
+	float keep = mix(0.78, 0.97, sparse);   // fraction of cells with tall blades
+	if (unmown) keep *= 0.92;
+	float mat = mat_height * (1.0 - smoothstep(0.20, 0.62, wear));   // mat erodes on paths
+	keep *= 1.0 - smoothstep(0.15, 0.6, wear) * 0.98;
+	// Rim dissolve: thin height (mat), tall-blade count (keep), and drop whole
+	// cells stochastically so the patch grades into terrain instead of a disc edge.
+	keep *= edge;
+	mat  *= edge;
+	if (hash21(cell + 7.7) > smoothstep(0.0, 0.35, edge)) discard;
+	bool tall = hash21(cell + 3.3) <= keep;
+	if (f > mat && !tall) discard;          // above the mat, only tall-blade cells survive
+	if (f > mat && mat <= 0.001) discard;    // fully worn / past rim: no mat, no blades
+
+	// --- combing: coherent per-area flow direction + per-blade jitter ---
+	float ang = vnoise(world * 0.16) * 6.2831 + (r1 - 0.5) * 1.3;
+	vec2  dir = vec2(cos(ang), sin(ang));
+	// Linear lean term tilts even low shells (pure-vertical bases empty the
+	// nadir top-down); quadratic term bends the tip over further than the base.
+	local -= dir * (f * 0.35 + f * f * 0.65) * lean_amt;
+
+	// --- blade height: mowing homogenizes (±10%), unmown keeps natural clumping
+	// (±30%); wear shortens what blades survive. The mat is always at least
+	// mat_height tall so it stays solid.
+	float hv_lo = unmown ? 0.55 : 0.80;
+	float hv_hi = unmown ? 1.35 : 1.12;
+	float bh = clamp(mix(0.5, 1.0, r1) * mix(hv_lo, hv_hi, patchH), 0.0, 1.0);
+	bh *= mix(1.0, 0.40, smoothstep(0.1, 0.6, wear));
+	bh = max(bh, mat);
+	if (f > bh) discard;
+
+	// --- coverage. The bottom couple of shells (f < floor_solid) fill the WHOLE
+	// cell with NO footprint test, a genuinely opaque skin that occludes the
+	// terrain so it can never show through as black speckle on a shaded slope —
+	// only 2 of 32 shells, so the overdraw cost is tiny. Above that the footprint
+	// tapers from a wide overlapping base (mat body) to a thin point (blade tip).
+	const float floor_solid = 0.06;
+	vec2 rl = vec2(dot(local, dir), dot(local, vec2(-dir.y, dir.x)));
+	if (f >= floor_solid) {
+		float t = smoothstep(mat, bh, f);   // 0 through the mat body, 1 at blade tip
+		float halfL = mix(blade_len, 0.16, t);
+		float halfW = mix(blade_wid, 0.008, t);
+		if (abs(rl.x) > halfL || abs(rl.y) > halfW) discard;
+	}
+
+	// --- colour ---
+	// Vertical gradient: shaded base → lit tip. Tall blades only become visible at
+	// f>=mat, so remap the gradient to START part-way up (not at pure blade_base) —
+	// otherwise every blade EMERGES from the mat as a near-black point and that
+	// pepper of dark emergence-points is what reads as speckle against the lit mat.
+	float vgrad = clamp(f * 0.62 + 0.34, 0.0, 1.0);
+	vec3  col = mix(blade_base, blade_tip, vgrad);
+	// Ambient-occlusion deepens toward the soil; the mat band is genuinely shaded
+	// (light doesn't reach the sward floor), which is what stops the felt glow.
+	float ao  = mix(0.66, 1.0, smoothstep(0.0, 0.85, f));
+	col *= mix(0.86, 1.14, patch);
+	// Warm/dry patches — stronger in unmown sward (meadow/woodland read golder).
+	col  = mix(col, col * vec3(1.10, 1.0, 0.66), patch * (unmown ? 0.62 : 0.42));
+	col *= mix(0.90, 1.10, r1);
+	float lum = dot(col, vec3(0.30, 0.59, 0.11));
+	col = mix(vec3(lum), col, 0.82);
+	// Blend the dark understory across the WHOLE mat band so the sward floor reads
+	// as shade between blades, not a bright green plane.
+	ALBEDO = mix(understory, col, smoothstep(0.0, mat_height + 0.10, f)) * ao;
+
+	// --- shading: flatter ribbon normal, softer varied specular ---
+	vec3 n = normalize(vec3(rl.y * 0.5 * dir.x, 1.0, rl.y * 0.5 * dir.y));
+	NORMAL = normalize((VIEW_MATRIX * vec4(n, 0.0)).xyz);
+	ROUGHNESS = mix(0.55, 0.80, hash21(cell + 9.1));
+	SPECULAR  = 0.25;
+	BACKLIGHT = vec3(0.25 * f);
+}

@@ -77,6 +77,11 @@ var _audio_manager = null  # ambient sound (wind, city, water, footsteps)
 
 var _terrain_only := false
 var _grass_off := false  # --no-grass: skip grass blade particles (eval bare terrain)
+var _shell_grass := false  # --shell-grass: replace particle grass with shell-textured turf (eval)
+var _shell_grass_mmi: MultiMeshInstance3D = null
+const SHELL_GRASS_SHELLS := 32
+const SHELL_GRASS_PATCH := 150.0   # patch size (m); follows the camera
+const SHELL_GRASS_SUBDIV := 98     # tessellation so the patch conforms to hills (~1.5m quads)
 # Weather state — enum for fast comparison in hot paths
 enum Weather { CLEAR, RAIN, THUNDERSTORM, SNOW, FOG }
 const WEATHER_NAMES: Array = ["clear", "rain", "thunderstorm", "snow", "fog"]
@@ -147,6 +152,8 @@ func _parse_cli_args() -> void:
 			_terrain_only = true
 		elif arg == "--no-grass":
 			_grass_off = true
+		elif arg == "--shell-grass":
+			_shell_grass = true
 		elif key == "--time" and val != "":
 			cli_time = val
 		elif key == "--screenshot-file" and val != "":
@@ -454,10 +461,16 @@ func _ready() -> void:
 		# static tuft chunks (Tier 2) retired — single source of truth for zone
 		# filtering, density tables, and coordinate transforms.
 		if _terrain3d and not _grass_off:
-			_setup_grass_particles()
-			if _cli_grass_highlight:
-				_diag_toggle_grass_highlight()
-			print("main: grass particles: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
+			if _shell_grass:
+				# Eval: shell-textured turf REPLACES the particle grass (no double
+				# coverage). Reversible — drop --shell-grass and the game is unchanged.
+				_setup_shell_grass()
+				print("main: shell grass: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
+			else:
+				_setup_grass_particles()
+				if _cli_grass_highlight:
+					_diag_toggle_grass_highlight()
+				print("main: grass particles: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_player = _setup_player()
 	if _park_loader and _park_loader.boundary_polygon.size() > 2:
 		_player.boundary_polygon = _park_loader.boundary_polygon
@@ -807,6 +820,22 @@ func _process(delta: float) -> void:
 	# shaders (tree LOD dither) compute against the actual view.
 	if _player_camera:
 		RenderingServer.global_shader_parameter_set("player_world_pos", _player_camera.global_position)
+
+	# Shell-grass patch follows the camera. Blades are world-locked (the fragment
+	# shader keys everything off world XZ), so the patch can slide freely without
+	# the grass swimming; snapping to the quad size keeps tessellation verts on
+	# fixed world positions so terrain-height sampling doesn't shimmer.
+	if _shell_grass_mmi and _player_camera:
+		var q := SHELL_GRASS_PATCH / float(SHELL_GRASS_SUBDIV + 1)
+		var cp := _player_camera.global_position
+		var snapped := Vector3(roundf(cp.x / q) * q, 0.0, roundf(cp.z / q) * q)
+		_shell_grass_mmi.global_position = snapped
+		# Feed the snapped patch center to the shader so its rim dissolves into the
+		# terrain (no hard disc edge) centered exactly where the patch sits.
+		var sg_mesh := _shell_grass_mmi.multimesh.mesh as PlaneMesh
+		if sg_mesh and sg_mesh.material is ShaderMaterial:
+			(sg_mesh.material as ShaderMaterial).set_shader_parameter(
+				"patch_center", Vector2(snapped.x, snapped.z))
 
 	# Wind + GPU grass push + volumetric clouds — must run BEFORE the tour
 	# and walk-bot early returns: those paths exist to CAPTURE the world,
@@ -2722,6 +2751,57 @@ func _setup_grass_particles() -> void:
 			biome.name, biome.spacing, biome.biome_id, biome.mesh_path,
 			tuft_mesh.get_faces().size() / 3 if tuft_mesh.get_faces().size() > 0 else 0,
 			n_nodes, first_mesh_ok, first_mat_ok, first_amount])
+
+
+func _setup_shell_grass() -> void:
+	## Shell-textured turf eval (--shell-grass). A camera-following tessellated
+	## patch drawn SHELL_GRASS_SHELLS times by one MultiMesh; the shader carves
+	## blades from each shell and conforms the patch to terrain via the project
+	## heightmap. Replaces the particle grass while active.
+	var shader: Shader = load("res://shaders/shell_grass.gdshader")
+	if not shader:
+		push_warning("shell_grass.gdshader not found"); return
+	if not _park_loader or not _park_loader._hm_texture:
+		push_warning("shell grass: heightmap texture unavailable"); return
+
+	var patch := PlaneMesh.new()
+	patch.size = Vector2(SHELL_GRASS_PATCH, SHELL_GRASS_PATCH)
+	patch.subdivide_width = SHELL_GRASS_SUBDIV
+	patch.subdivide_depth = SHELL_GRASS_SUBDIV
+
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	mat.set_shader_parameter("shell_count", SHELL_GRASS_SHELLS)
+	mat.set_shader_parameter("heightmap_tex", _park_loader._hm_texture)
+	mat.set_shader_parameter("hm_world_size", _park_loader._hm_world_size)
+	mat.set_shader_parameter("hm_min_h", _park_loader._hm_min_h)
+	mat.set_shader_parameter("hm_range", maxf(_park_loader._hm_max_h - _park_loader._hm_min_h, 0.01))
+	mat.set_shader_parameter("hm_res", float(_park_loader._hm_texture.get_width()))
+	# Data-driven zone height + foot-traffic wear (same maps as the particle grass).
+	if _landuse_texture:
+		mat.set_shader_parameter("landuse_map", _landuse_texture)
+	if _wear_texture:
+		mat.set_shader_parameter("wear_map", _wear_texture)
+	patch.material = mat
+
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = patch
+	mm.instance_count = SHELL_GRASS_SHELLS
+	for i in SHELL_GRASS_SHELLS:
+		mm.set_instance_transform(i, Transform3D.IDENTITY)
+
+	_shell_grass_mmi = MultiMeshInstance3D.new()
+	_shell_grass_mmi.name = "ShellGrass"
+	_shell_grass_mmi.multimesh = mm
+	_shell_grass_mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Generous AABB so the camera-following patch is never frustum-culled wrongly.
+	_shell_grass_mmi.custom_aabb = AABB(
+		Vector3(-SHELL_GRASS_PATCH, -200.0, -SHELL_GRASS_PATCH),
+		Vector3(SHELL_GRASS_PATCH * 2.0, 400.0, SHELL_GRASS_PATCH * 2.0))
+	add_child(_shell_grass_mmi)
+	print("Shell grass: %d shells, %.0fm patch, %d subdiv" % [
+		SHELL_GRASS_SHELLS, SHELL_GRASS_PATCH, SHELL_GRASS_SUBDIV])
 
 
 # ---------------------------------------------------------------------------
