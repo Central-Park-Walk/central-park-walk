@@ -7,4 +7,4 @@
 id = 0
 albedo_texture = ExtResource("1")
 normal_texture = ExtResource("2")
-uv_scale = 0.25
+uv_scale = 1.6

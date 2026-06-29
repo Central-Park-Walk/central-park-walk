@@ -26,6 +26,34 @@ deliberate, reversible departure from the data-first philosophy — *temporary*.
 
 Set `GRASS_FANTASY := 0.0` to return to the data-driven spec that follows.
 
+## 0b. Grass overhaul — direction reset (2026-06-29)
+
+The instanced-tuft approach was rejected by Chris on two grounds the screenshots
+proved (cpw_000/001/002): **(1)** straight down, every clump — geometry tuft *or*
+crossed-quad card — projects to a flat green **starburst/asterisk**, because both
+build a tuft as blades radiating from a single point (a side-view-only trick);
+**(2)** spacing tufts out will never reach 60 fps (vertex load + transparent
+overdraw across a 60–140 m band). The **card LOD tier** (§1 row, `GRASS_CARDS`,
+`make_grass_card.py`) is part of the rejected approach — pending removal.
+
+New mental model: grass is **a textured ground surface with blades growing out of
+it near the camera**, not a field of discrete tuft objects. Three layers:
+
+1. **The ground IS grass.** `make_turf_texture.py` generates a real top-down turf
+   texture (thousands of z-tested blade strokes over a dark-green understory →
+   `textures/terrain3d/grass_albedo_height.png` + `_normal_rough.png`), replacing
+   the old flat pale speckle. Retiled small (`texture_grass.tres` `uv_scale 1.6`
+   ≈ 1.25 m) so blades resolve. The terrain shader injects this texture's
+   blade-scale luminance as relief into the recoloured palette (see §3 note) so
+   the lawn reads as blades from **any** angle, including straight down — no
+   starbursts, no bare dirt. **This is the foundation; landed 2026-06-29.**
+2. **Near blades (next):** real upright *individual* curved blades within ~18 m,
+   not radial domes — depth/parallax/wind up close. Not yet built.
+3. **No mid/far card tier.** Distant grass = terrain texture only.
+
+Eval bare terrain with `--no-grass` (skips blade particles; `main.gd`). The
+`--terrain-only` capture path honours `--pitch` (e.g. `-89` for straight down).
+
 ## 1. System map
 
 Three cooperating layers; color coherence comes from every layer including

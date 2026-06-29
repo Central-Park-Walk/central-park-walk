@@ -76,6 +76,7 @@ const PROF_SMOOTH := 0.9  # EMA smoothing factor (higher = more stable)
 var _audio_manager = null  # ambient sound (wind, city, water, footsteps)
 
 var _terrain_only := false
+var _grass_off := false  # --no-grass: skip grass blade particles (eval bare terrain)
 # Weather state — enum for fast comparison in hot paths
 enum Weather { CLEAR, RAIN, THUNDERSTORM, SNOW, FOG }
 const WEATHER_NAMES: Array = ["clear", "rain", "thunderstorm", "snow", "fog"]
@@ -144,6 +145,8 @@ func _parse_cli_args() -> void:
 		var val := eq_val if has_eq else next_val
 		if arg == "--terrain-only":
 			_terrain_only = true
+		elif arg == "--no-grass":
+			_grass_off = true
 		elif key == "--time" and val != "":
 			cli_time = val
 		elif key == "--screenshot-file" and val != "":
@@ -450,7 +453,7 @@ func _ready() -> void:
 		# all run through _setup_grass_particles. Previous GDExtension (Tier 1) and
 		# static tuft chunks (Tier 2) retired — single source of truth for zone
 		# filtering, density tables, and coordinate transforms.
-		if _terrain3d:
+		if _terrain3d and not _grass_off:
 			_setup_grass_particles()
 			if _cli_grass_highlight:
 				_diag_toggle_grass_highlight()
@@ -3007,7 +3010,8 @@ func _setup_player() -> CharacterBody3D:
 	p.terrain_height_fn = Callable(self, "_terrain_height")
 	add_child(p)
 	if _terrain_only and p.head:
-		p.head.rotation_degrees.x = -55.0  # look down at terrain
+		# Default to a downward look at the terrain, but honour an explicit --pitch.
+		p.head.rotation_degrees.x = _cli_pitch if _cli_pitch != 0.0 else -55.0
 	elif _cli_pitch != 0.0 and p.head:
 		p.head.rotation_degrees.x = _cli_pitch
 	return p

@@ -444,8 +444,19 @@ void fragment() {
 				// Fantasy: one lush green to match the blades (no wear/dirt).
 				spectral_col = fantasy_grass_color(v_vertex.xz);
 			}
-			ALBEDO = mix(ALBEDO, spectral_col, 0.85);
+			// Inject the Grass texture's blade-scale luminance relief
+				// (make_turf_texture.py: mid-luma blade strokes over a dark
+				// understory) so the recoloured ground reads as individual
+				// blades from ANY angle — including straight down — not flat
+				// felt. albedo_height.rgb is the raw turf texture; map its
+				// value to a bounded multiplier (never blown out / fully black).
+				float turf_luma = dot(albedo_height.rgb, vec3(0.299, 0.587, 0.114));
+				float turf_relief = mix(0.50, 1.50, smoothstep(0.04, 0.42, turf_luma));
+				spectral_col *= turf_relief;
+				ALBEDO = mix(ALBEDO, spectral_col, 0.92);
 			ALBEDO = apply_turf_wear(ALBEDO, wear, v_vertex.xz);
+				// Let the turf normal map's blade relief catch grazing light.
+				NORMAL_MAP_DEPTH = max(NORMAL_MAP_DEPTH, 1.5);
 
 			// Turf sheen (grass.md §6): broad white specular off waxy blade
 			// cuticles. The spectral palette is diffuse-only reflectance —
