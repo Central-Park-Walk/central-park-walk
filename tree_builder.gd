@@ -1586,6 +1586,16 @@ func _spawn_impostor_chunks(buckets: Dictionary) -> void:
 # baked into the material's lod_fade_in (per-tier, height-scaled) so it dithers in
 # exactly where _lod1 dithers out. Instances reuse the mesh tiers' transforms, so
 # positionOffset/scale (mesh-units) scale to world per-tree automatically.
+# Far-tier brightness/hue calibration tint (the impostor analog of tier_brightness).
+# IMP_CALIB="r,g,b" overrides it for a headless sweep without a recompile.
+func _imp_calib_tint() -> Color:
+	if OS.has_environment("IMP_CALIB"):
+		var cc: PackedStringArray = OS.get_environment("IMP_CALIB").split(",")
+		if cc.size() == 3:
+			return Color(cc[0].to_float(), cc[1].to_float(), cc[2].to_float())
+	return Color(0.90, 0.86, 0.92)  # 2026-06-28: slight de-green/cool; brightness now carried by ao_light_affect (see _build_impostor_assets)
+
+
 func _build_impostor_assets() -> void:
 	_impostor_meshes.clear()
 	var imp_shader: Shader = load("res://shaders/tree_impostor.gdshader")
@@ -1642,8 +1652,35 @@ func _build_impostor_assets() -> void:
 			# noon-tuned tint (which crashed 18h to 0.79x — too dark). Slight cool bias
 			# (B highest) emulates the mesh's underside sky-fill the impostor lacks.
 			# Lands ~1.12x noon / ~0.89x 18h (scripts/tier_handoff_check.sh, lp mode).
-			mat.set_shader_parameter("albedo", Color(1.0, 0.0, 0.0) if OS.has_environment("IMP_RED") else Color(0.93, 0.94, 0.96))  # TEMP diag: IMP_RED=1 tints impostor red to see tier coverage
+			mat.set_shader_parameter("albedo", Color(1.0, 0.0, 0.0) if OS.has_environment("IMP_RED") else _imp_calib_tint())  # TEMP diag: IMP_RED=1 tints impostor red to see tier coverage
 			mat.set_shader_parameter("imposterTextureAlbedo", load(alb_path))
+			# Crown self-shadow fake (2026-06-28, impostor<->mesh tone match). A flat
+			# billboard can't geometrically self-shadow its interior the way the volumetric
+			# mesh does, so it relit ~1.14x brighter + greener than lod0/lod1 at noon. The
+			# diffuse-tint calib above is a near-dead lever (a 98% albedo cut moved measured
+			# foliage luminance only ~22% -- the impostor brightness is dominated by an
+			# albedo-INDEPENDENT ambient term that AO multiplies), so the real lever is
+			# letting the baked crown AO attenuate DIRECT light too (ao_light_affect) plus
+			# deepening interior AO (ao_power). Inherently sun-angle-aware: bites hard at noon
+			# (strong direct -> impostor was most over-bright), little at evening; lands
+			# impostor ~0.94x lod0 noon / ~0.96x evening (was 1.14x / 0.98x) -- inside the
+			# lod0..lod1 band at both ends. Verified headless in the TIER_MATCH garden with a
+			# fixed-pixel-mask measure (the green-classifier drifts when brightness moves).
+			# IMP_AOLA / IMP_AOPOW override for a no-recompile sweep. NOTE: AO-on-direct also
+			# blacks the trunk (low baked AO) -- garden-only artifact (plot renders impostors
+			# at 8m); the impostor only renders past ~180m where the trunk is sub-pixel.
+			var imp_aola := 1.0
+			if OS.has_environment("IMP_AOLA"):
+				imp_aola = OS.get_environment("IMP_AOLA").to_float()
+			var imp_aopow := 1.5
+			if OS.has_environment("IMP_AOPOW"):
+				imp_aopow = OS.get_environment("IMP_AOPOW").to_float()
+			mat.set_shader_parameter("ao_light_affect", imp_aola)
+			mat.set_shader_parameter("ao_power", imp_aopow)
+			var imp_aofloor := 0.40
+			if OS.has_environment("IMP_AOFLOOR"):
+				imp_aofloor = OS.get_environment("IMP_AOFLOOR").to_float()
+			mat.set_shader_parameter("ao_floor", imp_aofloor)
 			mat.set_shader_parameter("imposterTextureNormal", load(nrm_path))
 			# ORM atlas (R = crown-interior AO, applied ambient-only by the shader so
 			# the far tier isn't ~1.5x too bright). Optional — pre-AO bakes omit it,

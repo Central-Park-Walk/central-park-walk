@@ -38,6 +38,17 @@ uniform vec4 albedo : source_color = vec4(1, 1, 1, 1);
 uniform float specular = 0.1f;                 // foliage: low spec so diffuse dominates
 uniform float metallic = 0.0f;
 uniform float roughness : hint_range(0.0f, 1.0f) = 1.0f;
+// Crown self-shadow fake: a flat billboard can't geometrically self-shadow its
+// interior the way the volumetric mesh does, so optionally let the baked crown AO
+// attenuate DIRECT light too (not just ambient). 0 = ambient-only (mesh parity).
+uniform float ao_light_affect : hint_range(0.0f, 1.0f) = 0.0f;
+// Deepen baked crown AO (interior occlusion) without darkening lit edges:
+// AO = pow(ormTex.r, ao_power). >1 pushes the interior darker, edges (AO=1) stay 1.
+uniform float ao_power : hint_range(0.25f, 4.0f) = 1.0f;
+// AO floor: AO-on-direct on the near-zero trunk AO blacks the trunk out; this
+// floors AO so the trunk stays visible. Crown interior AO (~0.42) is above it,
+// so the floor rescues the trunk without lightening the crown.
+uniform float ao_floor : hint_range(0.0f, 1.0f) = 0.0f;
 
 uniform sampler2D imposterTextureAlbedo : source_color;
 uniform sampler2D imposterTextureNormal : hint_normal;
@@ -476,6 +487,6 @@ void fragment() {
 	// mesh leaf shader does (AO_LIGHT_AFFECT = 0) — so the far tier stops reading
 	// ~1.5x too bright vs lod0/lod1 without dimming the direct-sun side. Defaults
 	// to 1.0 (no occlusion) when no ORM atlas is bound (hint_default_white).
-	AO = ormTex.r;
-	AO_LIGHT_AFFECT = 0.0;
+	AO = max(pow(ormTex.r, ao_power), ao_floor);
+	AO_LIGHT_AFFECT = ao_light_affect;
 }
