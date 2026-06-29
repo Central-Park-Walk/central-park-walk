@@ -17,10 +17,6 @@ models/
 !models/furniture/cp_*_arch.glb
 !models/vegetation/Snowflake.glb
 !models/vegetation/Flower_*.glb
-!models/vegetation/Tuft_Tiny.glb
-!models/vegetation/Tuft_Woodland.glb
-!models/vegetation/Tuft_Wild.glb
-!models/vegetation/Tuft_Meadow.glb
 !models/vegetation/Blade_*.glb
 !models/vegetation/Accent_*.glb
 # Undergrowth models (procedural, MIT — make_undergrowth.py + make_ferns.py)

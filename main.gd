@@ -813,9 +813,7 @@ func _process(delta: float) -> void:
 	var _tw0 := Time.get_ticks_usec()
 	_wind_system.update(delta, _time_of_day, _weather_mode)
 	_wind_vec = _wind_system.wind_vec
-	for gn in _gpu_grass_nodes:
-		if is_instance_valid(gn):
-			gn.set("wind_vec", _wind_vec)
+
 	if _vol_sky:
 		var wlen: float = _wind_vec.length()
 		if wlen > 0.01:
@@ -1335,7 +1333,6 @@ var _diag_shadow_census: bool = false
 var _diag_tick_count: int = 0
 var _diag_trees_hidden: bool = false
 var _diag_ug_hidden: bool = false
-var _diag_grass_hidden: bool = false
 var _diag_terrain_hidden: bool = false
 var _diag_tree_mmis: Array = []
 var _diag_log_timer: float = 0.0
@@ -1386,20 +1383,6 @@ func _diag_toggle_undergrowth() -> void:
 		count += 1
 	print("[DIAG] Undergrowth %s (%d instances)" % [
 		"HIDDEN" if _diag_ug_hidden else "VISIBLE", count])
-
-func _diag_toggle_grass() -> void:
-	# Node3D.visible doesn't propagate to RS-direct instances created inside
-	# the GPUGrass GDExtension, so we toggle set_process to stop the per-frame
-	# compute dispatch. is_processing() is logged to confirm the flag actually
-	# flipped (rules out GDExtension ignoring the base-class flag).
-	_diag_grass_hidden = not _diag_grass_hidden
-	var states := []
-	for gn in _gpu_grass_nodes:
-		if is_instance_valid(gn):
-			gn.set_process(not _diag_grass_hidden)
-			states.append("%s=%s" % [gn.name, gn.is_processing()])
-	print("[DIAG] GPU grass dispatch %s — %s" % [
-		"OFF" if _diag_grass_hidden else "ON", ", ".join(states)])
 
 func _shadow_census() -> void:
 	## Dump every node-level shadow caster, largest raster load first.
@@ -1525,8 +1508,6 @@ func _diag_apply_hides() -> void:
 				push_warning("--diag-hide: unknown option '%s'" % what)
 
 
-var _diag_grass_force: bool = false
-var _diag_grass_orig_biomes: Array = []
 func _toggle_dist_overlay() -> void:
 	_dist_overlay_visible = not _dist_overlay_visible
 	if _dist_overlay_visible and _dist_tree_positions.is_empty():
@@ -1677,29 +1658,6 @@ func _dist_overlay_update() -> void:
 		_dist_labels[k].visible = false
 
 
-func _diag_toggle_grass_force() -> void:
-	# Set every grass node's target_biome to -2, which triggers a debug
-	# bypass in grass_compute.glsl that places a blade at every grid
-	# position, regardless of zone/canopy/distance filters. If grass
-	# appears in this mode but not in normal mode, the zone filter or
-	# its input data is the problem. If grass STILL doesn't appear,
-	# the failure is downstream (mesh, instance, AABB, indirect draw).
-	_diag_grass_force = not _diag_grass_force
-	if _diag_grass_force and _diag_grass_orig_biomes.is_empty():
-		for gn in _gpu_grass_nodes:
-			_diag_grass_orig_biomes.append(gn.get("target_biome"))
-	for i in _gpu_grass_nodes.size():
-		var gn = _gpu_grass_nodes[i]
-		if not is_instance_valid(gn):
-			continue
-		if _diag_grass_force:
-			gn.set("target_biome", -2)
-		else:
-			gn.set("target_biome", _diag_grass_orig_biomes[i])
-	print("[DIAG] Grass force-place %s (4 nodes, target_biome=%s)" % [
-		"ON (zone filter bypassed)" if _diag_grass_force else "OFF",
-		"-2" if _diag_grass_force else "original"])
-
 var _diag_grass_highlight: bool = false
 # Indexed by biome_id: 0=Lawn 1=Shade 2=Wild 3=Sedge
 const _DIAG_BIOME_COLORS := [
@@ -1713,8 +1671,7 @@ func _diag_toggle_grass_highlight() -> void:
 	# (a) which biomes are placing blades, (b) where they're placing them
 	# spatially, and (c) the height differences between blade meshes
 	# (Blade_Lawn=7.6cm, Shade=12cm, Wild=25cm, Sedge=16cm).
-	# (Used to iterate _gpu_grass_nodes — the retired GDExtension path — so
-	# it silently did nothing; now drives the live particle layers.)
+	# Drives the live GPUParticles3D layers (_grass_particle_nodes).
 	_diag_grass_highlight = not _diag_grass_highlight
 	var n := 0
 	for gp in _grass_particle_nodes:
@@ -1867,8 +1824,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		print("Perf overlay: %s" % ("ON" if _hud.perf_visible else "OFF"))
 	elif event.keycode == KEY_F1:
 		_toggle_dist_overlay()
-	elif event.keycode == KEY_F3:
-		_diag_toggle_grass_force()
+
 	elif event.keycode == KEY_F4:
 		_diag_toggle_grass_highlight()
 	elif event.keycode == KEY_F5:
@@ -1877,8 +1833,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_diag_toggle_trees()
 	elif event.keycode == KEY_F7:
 		_diag_toggle_undergrowth()
-	elif event.keycode == KEY_F8:
-		_diag_toggle_grass()
+
 	elif event.keycode == KEY_F2:
 		# SDFGI on/off A/B (F10 is the screenshot bot) — isolate the green
 		# indirect-bounce cast on pale surfaces (bark/paths/buildings) from
@@ -2323,8 +2278,6 @@ func _setup_ground() -> void:
 # GPU Particle Grass (Terrain3D-based)
 # ---------------------------------------------------------------------------
 var _grass_particle_nodes: Array[Node3D] = []
-var _grass_tuft_builder: Node3D  # Tier 2 static MultiMesh tuft chunks
-var _gpu_grass_nodes: Array = []  # GPUGrass compute-driven grass nodes (one per biome)
 var _landuse_texture: Texture2D  # cached for grass particle system
 var _wear_texture: Texture2D  # baked turf wear (scripts/gen_wear_map.py)
 
@@ -2672,202 +2625,6 @@ func _setup_grass_particles() -> void:
 			biome.name, biome.spacing, biome.biome_id, biome.mesh_path,
 			tuft_mesh.get_faces().size() / 3 if tuft_mesh.get_faces().size() > 0 else 0,
 			n_nodes, first_mesh_ok, first_mat_ok, first_amount])
-
-
-# Tier 2 tuft meshes: crossed-card tufts for static MultiMesh chunks (13-70m)
-const TUFT_BIOMES := {
-	0: "res://models/vegetation/Tuft_Tiny.glb",      # lawn
-	1: "res://models/vegetation/Tuft_Woodland.glb",   # shade
-	2: "res://models/vegetation/Tuft_Wild.glb",       # wild
-	3: "res://models/vegetation/Tuft_Meadow.glb",     # sedge
-}
-
-func _setup_grass_tuft_chunks() -> void:
-	## Build static Tier 2 MultiMesh chunks of crossed-card tufts.
-	## These render at 15-55m, bridging GPU particle blades and terrain impostor.
-	var builder_script = load("res://grass_tuft_builder.gd")
-	var tuft_shader: Shader = load("res://shaders/grass_tuft_render.gdshader")
-	if not builder_script or not tuft_shader:
-		push_warning("Grass tuft builder script/shader not found")
-		return
-
-	var builder: Node3D = Node3D.new()
-	builder.set_script(builder_script)
-	builder.name = "GrassTuftChunks"
-	builder.terrain = _terrain3d
-	builder.world_size = _hm_world_size
-	builder.render_shader = tuft_shader
-
-	# Load landuse image for CPU-side zone sampling
-	if _landuse_texture:
-		builder.landuse_image = _landuse_texture.get_image()
-	# Load canopy image
-	if _park_loader and _park_loader._canopy_texture:
-		builder.canopy_image = _park_loader._canopy_texture.get_image()
-
-	# Baked turf wear — tufts thin on worn dirt like the blade tiers
-	if _wear_texture:
-		builder.wear_image = _wear_texture.get_image()
-
-	# Load tuft meshes and textures per biome
-	for biome_id in TUFT_BIOMES:
-		var path: String = TUFT_BIOMES[biome_id]
-		var scene = load(path)
-		if not scene:
-			push_warning("Tuft mesh not found: %s" % path)
-			continue
-		var inst = scene.instantiate()
-		var mesh_node: MeshInstance3D = null
-		if inst is MeshInstance3D:
-			mesh_node = inst
-		else:
-			for child in inst.get_children():
-				if child is MeshInstance3D:
-					mesh_node = child
-					break
-		if mesh_node and mesh_node.mesh:
-			builder.tuft_meshes[biome_id] = mesh_node.mesh
-			var mat = mesh_node.mesh.surface_get_material(0)
-			if mat is BaseMaterial3D and mat.albedo_texture:
-				builder.tuft_textures[biome_id] = mat.albedo_texture
-		inst.queue_free()
-
-	add_child(builder)
-	_grass_tuft_builder = builder
-	builder.build_all_chunks()
-
-
-func _setup_gpu_grass() -> void:
-	## GPU compute-driven grass using GPUGrass GDExtension.
-	## World-fixed placement, no camera-following grid, no rolling boundary.
-	if not ClassDB.class_exists("GPUGrass"):
-		push_warning("GPUGrass extension not loaded — skipping GPU grass")
-		return
-
-	# Bake heightmap to a 2048×2048 RF texture for compute shader sampling.
-	# Uses the raw _hm_data array (bilinear interpolation) for speed.
-	var hm_res := 2048
-	var hm_img := Image.create(hm_res, hm_res, false, Image.FORMAT_RF)
-	if not _hm_data.is_empty():
-		var half := _hm_world_size * 0.5
-		var inv_ws := 1.0 / _hm_world_size
-		var w_m1 := _hm_width - 1
-		var d_m1 := _hm_depth - 1
-		for pz in range(hm_res):
-			var wz := float(pz) / float(hm_res - 1) * _hm_world_size - half
-			var zi := (wz + half) * inv_ws * d_m1
-			var zi0 := clampi(int(zi), 0, d_m1 - 1)
-			var fz := zi - zi0
-			for px in range(hm_res):
-				var wx := float(px) / float(hm_res - 1) * _hm_world_size - half
-				var xi := (wx + half) * inv_ws * w_m1
-				var xi0 := clampi(int(xi), 0, w_m1 - 1)
-				var fx := xi - xi0
-				var h00 := _hm_data[zi0 * _hm_width + xi0]
-				var h10 := _hm_data[zi0 * _hm_width + xi0 + 1]
-				var h01 := _hm_data[(zi0 + 1) * _hm_width + xi0]
-				var h11 := _hm_data[(zi0 + 1) * _hm_width + xi0 + 1]
-				var h := h00 * (1.0 - fx) * (1.0 - fz) + h10 * fx * (1.0 - fz) + h01 * (1.0 - fx) * fz + h11 * fx * fz
-				hm_img.set_pixel(px, pz, Color(h, 0, 0, 1))
-		print("GPU grass: baked heightmap %dx%d" % [hm_res, hm_res])
-	else:
-		push_warning("GPU grass: no heightmap data — blades will be at Y=0")
-	var hm_tex := ImageTexture.create_from_image(hm_img)
-
-	# Per-biome GPU grass configuration
-	# Each biome gets its own GPUGrass node with appropriate blade mesh,
-	# spacing, and instance budget proportional to zone coverage area.
-	var biome_configs := [
-		{
-			"name": "Lawn", "biome_id": 0,
-			"mesh": "res://models/vegetation/Blade_Lawn.glb",
-			"spacing": 0.12, "max_instances": 600000, "max_distance": 80.0,
-		},
-		{
-			"name": "Shade", "biome_id": 1,
-			"mesh": "res://models/vegetation/Blade_Shade.glb",
-			"spacing": 0.15, "max_instances": 250000, "max_distance": 80.0,
-		},
-		{
-			"name": "Wild", "biome_id": 2,
-			"mesh": "res://models/vegetation/Blade_Wild.glb",
-			"spacing": 0.14, "max_instances": 120000, "max_distance": 80.0,
-		},
-		{
-			"name": "Sedge", "biome_id": 3,
-			"mesh": "res://models/vegetation/Blade_Sedge.glb",
-			"spacing": 0.16, "max_instances": 80000, "max_distance": 80.0,
-		},
-	]
-
-	var render_shader: Shader = load("res://shaders/grass_particle_render.gdshader")
-
-	for cfg in biome_configs:
-		var blade_scene = load(cfg.mesh)
-		if not blade_scene:
-			push_warning("GPU grass: %s not found" % cfg.mesh)
-			continue
-		var blade_inst = blade_scene.instantiate()
-		var blade_mesh: Mesh = null
-		var albedo_tex: Texture2D = null
-		var mesh_node: MeshInstance3D = null
-		if blade_inst is MeshInstance3D:
-			mesh_node = blade_inst
-		else:
-			for child in blade_inst.get_children():
-				if child is MeshInstance3D:
-					mesh_node = child
-					break
-		if mesh_node and mesh_node.mesh:
-			blade_mesh = mesh_node.mesh
-			var mat = blade_mesh.surface_get_material(0)
-			if mat is BaseMaterial3D and mat.albedo_texture:
-				albedo_tex = mat.albedo_texture
-		blade_inst.queue_free()
-		# Diagnostic: dump mesh structure so we can compare across biomes
-		# (a difference in primitive type / index count would explain why
-		# only one biome's indirect-draw MultiMesh actually renders).
-		if blade_mesh:
-			var sc := blade_mesh.get_surface_count()
-			var info := "GPU grass mesh [%s]: surfaces=%d" % [cfg.name, sc]
-			for s in sc:
-				var arrs: Array = blade_mesh.surface_get_arrays(s)
-				var verts: PackedVector3Array = arrs[Mesh.ARRAY_VERTEX] if arrs.size() > Mesh.ARRAY_VERTEX else PackedVector3Array()
-				var idx: PackedInt32Array = arrs[Mesh.ARRAY_INDEX] if arrs.size() > Mesh.ARRAY_INDEX and arrs[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
-				var prim: int = blade_mesh.surface_get_primitive_type(s)
-				info += " | s%d: prim=%d verts=%d idx=%d" % [s, prim, verts.size(), idx.size()]
-			print(info)
-		if not blade_mesh:
-			push_warning("GPU grass: no mesh in %s" % cfg.mesh)
-			continue
-
-		var render_mat := ShaderMaterial.new()
-		render_mat.shader = render_shader
-		if albedo_tex:
-			render_mat.set_shader_parameter("use_texture", true)
-			render_mat.set_shader_parameter("grass_albedo", albedo_tex)
-		else:
-			render_mat.set_shader_parameter("use_texture", false)
-
-		var grass: Node3D = ClassDB.instantiate("GPUGrass")
-		grass.name = "GPUGrass_%s" % cfg.name
-		grass.set("grass_mesh", blade_mesh)
-		grass.set("grass_material", render_mat)
-		grass.set("max_instances", cfg.max_instances)
-		grass.set("spacing", cfg.spacing)
-		grass.set("max_distance", cfg.max_distance)
-		grass.set("target_biome", cfg.biome_id)
-		grass.set("world_size", _hm_world_size)
-		grass.set("heightmap_texture", hm_tex)
-		if _landuse_texture:
-			grass.set("landuse_texture", _landuse_texture)
-		if _park_loader and _park_loader._canopy_texture:
-			grass.set("canopy_texture", _park_loader._canopy_texture)
-
-		add_child(grass)
-		_gpu_grass_nodes.append(grass)
-		print("GPU grass [%s]: biome=%d spacing=%.2f instances=%d" % [
-			cfg.name, cfg.biome_id, cfg.spacing, cfg.max_instances])
 
 
 # ---------------------------------------------------------------------------
