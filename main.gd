@@ -2478,6 +2478,65 @@ const GRASS_ACCENTS := [
 	},
 ]
 
+# Mid/far CARD tier (the LOD that fixes the "hard cutoff line" in cpw_001/002,
+# where grass geometry stopped ~20-30 m out and the world became flat terrain
+# albedo). Each instance is a 3-crossed-quad card (6 tris, ~40x cheaper than the
+# ~260-tri geometry clump) textured with the baked tuft silhouette
+# (Blade_*_card.png alpha cutout). Runs through the SAME GPUParticles path as the
+# geometry tufts — only the mesh, the card_texture override, the wide cells
+# (reach ~140 m), the low density, and near_cull (start past where the geometry
+# tufts are dense, so big flat cards never show up close) differ.
+#
+# Crossfade: geometry tufts (GRASS_BIOMES) draw 0-60 m fading from ~36 m; cards
+# draw 14-140 m fading from ~84 m. They overlap 14-60 m (denser, no seam) so the
+# tuft fade hands off to full card coverage — no hard line.
+const GRASS_CARDS := [
+	{  # Lawn card — maintained turf, densest far coverage
+		"name": "Card_Lawn", "biome_id": 0,
+		"mesh_path": "res://models/vegetation/Card_Lawn.glb",
+		"card_texture": "res://textures/grass/Blade_Lawn_card.png",
+		"spacing": 0.55, "cell_width": 40.0, "grid_width": 7,
+		"near_cull": 14.0, "process_fps": 10,
+		"random_spacing": 0.85,
+		"min_scale": Vector3(0.85, 0.8, 0.85),
+		"max_scale": Vector3(1.7, 1.25, 1.7),
+		"position_offset": Vector3(0, -0.01, 0),
+	},
+	{  # Shade card — woodland floor
+		"name": "Card_Shade", "biome_id": 1,
+		"mesh_path": "res://models/vegetation/Card_Shade.glb",
+		"card_texture": "res://textures/grass/Blade_Shade_card.png",
+		"spacing": 0.62, "cell_width": 40.0, "grid_width": 7,
+		"near_cull": 14.0, "process_fps": 10,
+		"random_spacing": 0.85,
+		"min_scale": Vector3(0.8, 0.7, 0.8),
+		"max_scale": Vector3(1.7, 1.4, 1.7),
+		"position_offset": Vector3(0, -0.01, 0),
+	},
+	{  # Wild card — meadow bunch grass, tallest
+		"name": "Card_Wild", "biome_id": 2,
+		"mesh_path": "res://models/vegetation/Card_Wild.glb",
+		"card_texture": "res://textures/grass/Blade_Wild_card.png",
+		"spacing": 0.70, "cell_width": 40.0, "grid_width": 7,
+		"near_cull": 14.0, "process_fps": 10,
+		"random_spacing": 0.7,
+		"min_scale": Vector3(0.8, 0.7, 0.8),
+		"max_scale": Vector3(1.7, 1.5, 1.7),
+		"position_offset": Vector3(0, -0.015, 0),
+	},
+	{  # Sedge card — waterside
+		"name": "Card_Sedge", "biome_id": 3,
+		"mesh_path": "res://models/vegetation/Card_Sedge.glb",
+		"card_texture": "res://textures/grass/Blade_Sedge_card.png",
+		"spacing": 0.62, "cell_width": 40.0, "grid_width": 7,
+		"near_cull": 14.0, "process_fps": 10,
+		"random_spacing": 0.75,
+		"min_scale": Vector3(0.8, 0.7, 0.8),
+		"max_scale": Vector3(1.7, 1.4, 1.7),
+		"position_offset": Vector3(0, -0.01, 0),
+	},
+]
+
 func _setup_grass_particles() -> void:
 	## Multi-biome grass: Terrain3D particle layers filtered by zone.
 	## Tier 1 (GRASS_BIOMES): 0-22m, base coverage with one blade per biome.
@@ -2500,7 +2559,8 @@ func _setup_grass_particles() -> void:
 	noise_tex.noise = noise
 
 	var all_grass_layers: Array = []
-	all_grass_layers.append_array(GRASS_BIOMES)   # Tier 1: base coverage per biome
+	all_grass_layers.append_array(GRASS_BIOMES)   # Tier 1: near geometry tufts 0-60m
+	all_grass_layers.append_array(GRASS_CARDS)    # Mid/far card LOD 14-140m
 	if GRASS_FANTASY < 0.5:
 		# Data-driven: add near-field single-blade variety + botanical accents.
 		all_grass_layers.append_array(GRASS_TIER0)    # Tier 0: 0-6m near-field variants
@@ -2537,6 +2597,14 @@ func _setup_grass_particles() -> void:
 		if not tuft_mesh:
 			push_warning("No mesh in %s" % biome.mesh_path)
 			continue
+		# Card tier: meshes carry no embedded albedo — the silhouette comes from
+		# a separate baked card texture (Blade_*_card.png alpha cutout).
+		if biome.has("card_texture"):
+			var card_tex: Texture2D = load(biome.card_texture)
+			if card_tex:
+				albedo_tex = card_tex
+			else:
+				push_warning("Card texture not found: %s" % biome.card_texture)
 
 		# Create particle controller node
 		var gp: Node3D = Node3D.new()
@@ -2552,8 +2620,11 @@ func _setup_grass_particles() -> void:
 				gw += 1
 		gp.grid_width = gw
 		# Fantasy: Tier-1 clumps must reach the camera (no Tier-0 underlay), so
-		# draw from 0m; data-driven keeps the configured inner cull.
-		gp.near_cull_distance = 0.0 if GRASS_FANTASY >= 0.5 else biome.get("min_distance", 0.0)
+		# draw from 0m; data-driven keeps the configured inner cull. The card
+		# tier sets its own near_cull so big flat cards never render up close
+		# (geometry tufts own that band).
+		gp.near_cull_distance = biome.get("near_cull",
+			0.0 if GRASS_FANTASY >= 0.5 else biome.get("min_distance", 0.0))
 		gp.process_fixed_fps = biome.get("process_fps", 30)
 		gp.shadow_mode = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		gp.mesh = tuft_mesh

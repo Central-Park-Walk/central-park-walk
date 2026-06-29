@@ -33,15 +33,23 @@ Three cooperating layers; color coherence comes from every layer including
 
 | layer | files | range | role |
 |---|---|---|---|
-| Tier 0 blades + accents | `main.gd` `GRASS_TIER0`/`GRASS_ACCENTS`, `shaders/grass_particles.gdshader` (spawn), `grass_particle_render.gdshader` (draw) | 0–6 m | close-up blade variety, clover/dandelion |
-| Tier 1 blades | `main.gd` `GRASS_BIOMES`, same shaders | 0–60.5 m (dither fade from ~36 m) | base blade coverage, one mesh per biome |
-| Terrain albedo | `shaders/terrain3d_override.gdshader` | everywhere | blends Terrain3D source 85% toward the grass color in grass zones — the dominant signal beyond ~20 m |
+| Tier 0 blades + accents | `main.gd` `GRASS_TIER0`/`GRASS_ACCENTS`, `shaders/grass_particles.gdshader` (spawn), `grass_particle_render.gdshader` (draw) | 0–6 m | close-up blade variety, clover/dandelion (data-driven mode only) |
+| Tier 1 geometry tufts | `main.gd` `GRASS_BIOMES`, same shaders | 0–60.5 m (dither fade from ~36 m) | near-field dense CLUMP geometry (~260 tris, `make_blade_mesh.py`), one mesh per biome |
+| Card LOD tier | `main.gd` `GRASS_CARDS`, same shaders | 14–140 m (dither fade from ~84 m) | mid/far coverage: 3-crossed-quad cards (6 tris, `make_grass_card.py`) textured with the baked tuft silhouette (`Blade_*_card.png` alpha). **Added 2026-06-29** to kill the hard cutoff line where grass geometry stopped and the world became flat terrain albedo (cpw_001/002). |
+| Terrain albedo | `shaders/terrain3d_override.gdshader` | everywhere | blends Terrain3D source 85% toward the grass color in grass zones — now only the dominant signal beyond ~140 m |
+
+LOD crossfade: Tier-1 geometry tufts draw 0–60 m (fade from ~36 m); the card tier
+draws 14–140 m (fade from ~84 m). They overlap 14–60 m so the tuft fade hands off
+to full card coverage with no seam. Card `near_cull=14 m` keeps big flat cards
+from rendering up close, where the geometry tufts own the band.
 
 Dormant duplicates **removed 2026-06-28**: the Tier-2 static MultiMesh tuft
 chunks (`grass_tuft_builder.gd`), the crossed-card cluster tier
 (`grass_cluster_builder.gd`), and the `GPUGrass` compute GDExtension
 (`gpu_grass/`, `shaders/grass_compute.glsl`) were all built, superseded by the
-particle path, and never instantiated. Recoverable from git history.
+particle path, and never instantiated. Recoverable from git history. (The card
+tier above revives the `grass_cluster_builder` crossed-quad *recipe* — 3 quads at
+60° — inside the live GPUParticles path, not the retired static-chunk system.)
 
 Spawn-side data: `landuse_map.png` (R8 8192², zone IDs) + canopy map. Both sampled in the
 particle spawn shader and the terrain shader.
@@ -252,4 +260,10 @@ pending.
 - Wildflower meadow species models (zone 14) — post-sprint model program.
 - GPU-grass GDExtension (`gpu_grass/`) is retired from the lawn path (2026-05-09
   unification); `_setup_gpu_grass()` and `_setup_grass_tuft_chunks()` are both
-  never called — beyond ~60 m the lawn is terrain albedo only.
+  never called. Grass coverage now extends to ~140 m via the card tier (added
+  2026-06-29); beyond that the lawn is terrain albedo only.
+- Card tier follow-ups (2026-06-29): (P2) near-field continuity — close the bright
+  bare-ground gaps between geometry clumps + darken the under-grass terrain tone;
+  (P3) shading depth — translucency, tip→base value gradient, sheen, per-clump hue
+  variation, and kill the terrain triangulation banding. Perf gate not yet re-run
+  with the +4 card layers (~360 K cards, ~196 extra GPUParticles nodes).

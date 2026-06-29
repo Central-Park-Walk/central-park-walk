@@ -18,6 +18,7 @@ models/
 !models/vegetation/Snowflake.glb
 !models/vegetation/Flower_*.glb
 !models/vegetation/Blade_*.glb
+!models/vegetation/Card_*.glb
 !models/vegetation/Accent_*.glb
 # Undergrowth models (procedural, MIT — make_undergrowth.py + make_ferns.py)
 !models/vegetation/Shrub_*.glb
