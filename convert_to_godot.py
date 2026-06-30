@@ -55,9 +55,13 @@ TERRAIN_Z   = 15           # zoom level matching download_terrain.py
 TERRAIN_DIR = "terrain_tiles"
 LIDAR_DEM   = "lidar_data/central_park_dem_8k.tif"  # Bare earth DEM — clean ground level, no tree/structure peaks
 LIDAR_DSM   = "lidar_data/central_park_dsm_enhanced_8k.tif"  # DSM with tree canopy masked — reveals rock outcrops, retaining walls, steps
-GRID_W      = 8192         # heightmap output resolution (~0.6 m/cell)
-GRID_H      = 8192
-ATLAS_RES   = 8192         # world atlas / boundary / landuse grid — matches heightmap (0.61 m/cell)
+GRID_W      = 4096         # heightmap output resolution (~1.22 m/cell). The real
+GRID_H      = 4096         # DEM is 2048²/2.44m; 4096² is the render target (2× over
+                           # data for smooth slopes). MUST match Terrain3D: scene
+                           # vertex_spacing=1.221 + import_terrain3d → 16 regions.
+ATLAS_RES   = 8192         # world atlas (CPU surface/occupancy) + landuse grid. NOTE:
+                           # landuse_map.png is post-downsampled to 4096² (GPU texture,
+                           # ~48 MB VRAM saved); world_atlas.bin stays 8192 (CPU only).
 WORLD_SIZE  = 5000.0       # metres – must match main.gd ground plane size
 FT_TO_M     = 0.3048006096  # US Survey Foot → metres
 

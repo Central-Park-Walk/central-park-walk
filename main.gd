@@ -2920,7 +2920,8 @@ func _apply_boundary_mask(poly: PackedVector2Array) -> void:
 
 
 func _apply_landuse_map(zones: Array, water: Array = []) -> void:
-	## Load pre-baked landuse map (8192×8192) from landuse_map.png, or fall back
+	## Load pre-baked landuse map (4096×4096; downsampled from 8192 for VRAM —
+	## zone IDs preserved via nearest) from landuse_map.png, or fall back
 	## to runtime rasterization at 1024×1024 if the pre-baked file is missing.
 	## Zone encoding: 0=unzoned (woodland/meadow), 1=garden, 2=grass, 3=pitch,
 	## 4=playground, 5=nature_reserve, 6=dog_park, 7=sports, 8=pool, 9=track,

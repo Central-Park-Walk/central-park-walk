@@ -1,8 +1,11 @@
 ## Terrain3D heightmap importer — run headlessly:
 ##   godot --headless -s res://scripts/import_terrain3d.gd
 ##
-## Reads heightmap.bin (8192x8192 float32) at native LiDAR resolution (0.6104m)
-## and imports into Terrain3D regions with autoshader control map.
+## Reads heightmap.bin (NxN float32; world/(N-1) m cell) and imports into
+## Terrain3D regions with autoshader control map. Cell size is derived from the
+## file header, so a 4096² heightmap yields 1.221 m spacing / 16 regions, an
+## 8192² yields 0.6104 m / 64 regions. (The DEM's real resolution is 2.44 m
+## (2048²); 4096² is the chosen render target — see project_grass memory.)
 extends SceneTree
 
 const TERRAIN_DATA_DIR := "res://data/terrain3d"
