@@ -2338,9 +2338,10 @@ const GRASS_DENSITY_SCALE := 1.41
 
 # Fantasy grass look (alpha-testing QoL): 1.0 = ON (one lush idealized green,
 # data-driven Central Park palette/wear/seasons suspended), 0.0 = restore the
-# full data-driven look. Drives the `fantasy` uniform on both the grass blade
-# render shader and the terrain override shader so the two stay matched.
-const GRASS_FANTASY := 1.0
+# full data-driven look (current). Drives the `fantasy` uniform on the grass
+# blade render shader, the terrain override shader, AND the shell-grass shader
+# so all three stay matched.
+const GRASS_FANTASY := 0.0
 
 # Biome definitions for multi-layer grass particles.
 # 4 Tuft layers with PBR textures + alpha cutout — one per biome type, non-overlapping.
@@ -2772,6 +2773,7 @@ func _setup_shell_grass() -> void:
 	var mat := ShaderMaterial.new()
 	mat.shader = shader
 	mat.set_shader_parameter("shell_count", SHELL_GRASS_SHELLS)
+	mat.set_shader_parameter("fantasy", GRASS_FANTASY)
 	mat.set_shader_parameter("heightmap_tex", _park_loader._hm_texture)
 	mat.set_shader_parameter("hm_world_size", _park_loader._hm_world_size)
 	mat.set_shader_parameter("hm_min_h", _park_loader._hm_min_h)

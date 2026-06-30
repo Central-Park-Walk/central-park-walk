@@ -32,6 +32,11 @@ uniform float hm_res        = 4096.0;
 uniform sampler2D landuse_map : filter_nearest, repeat_disable;
 uniform sampler2D wear_map    : filter_linear,  repeat_disable;
 
+// Fantasy toggle (mirrors terrain3d_override + grass_particle_render): 1.0 =
+// lush idealized green (fantasy_grass_color); <0.5 = data-driven Central Park
+// palette (grass_base_color_no_dead + turf wear), so the shell felt matches the
+// terrain felt in BOTH modes and the patch edge never reads as a color seam.
+uniform float fantasy : hint_range(0.0, 1.0) = 1.0;
 uniform int   shell_count  = 32;
 uniform float density       = 33.0;   // blade cells per meter
 // blade_len/blade_wid are now the BASE half-extents (near-full cell), so the
@@ -176,7 +181,12 @@ void fragment(){
 	// blades are the same hue/value as the terrain "felt" they sit in — the patch
 	// edge then has nothing to transition BETWEEN, and the macro patchiness lines up
 	// across the boundary because both call the same noise. ---
-	vec3 felt = fantasy_grass_color(world);   // identical to terrain3d_override grass zones
+	// Felt color: realistic data-driven zone palette, or the lush fantasy green —
+	// identical to the terrain3d_override grass-zone path so near grass and far
+	// felt are one continuous field.
+	vec3 felt = (fantasy < 0.5)
+		? grass_base_color_no_dead(zone, world)
+		: fantasy_grass_color(world);
 	// Vertical gradient: shaded base → lit tip, both shades of the SAME felt color
 	// (a darker green, never a contrasting brown). Remapped to start part-way up so
 	// tall blades don't EMERGE from the mat as near-black pepper specks.
@@ -194,6 +204,16 @@ void fragment(){
 	ao = mix(1.0, ao, edge);
 	understory_c = mix(felt, understory_c, edge);
 	ALBEDO = mix(understory_c, col, smoothstep(0.0, mat_height + 0.10, f)) * ao;
+
+	// Realistic mode: pull worn/compacted patches toward dried turf + dirt so the
+	// near sward matches the terrain felt (which calls apply_turf_wear with the
+	// same wear). Includes ambient mottle (turf_wear_total) for mown zones; canopy
+	// compaction is omitted here (no canopy_map on this patch) — paths/benches and
+	// ambient mottle are the dominant signal. Skipped in fantasy mode (no dirt).
+	if (fantasy < 0.5) {
+		float color_wear = turf_wear_total(wear, 0.0, zone, world);
+		ALBEDO = apply_turf_wear(ALBEDO, color_wear, world);
+	}
 
 	// --- shading: flatter ribbon normal, softer varied specular ---
 	vec3 n = normalize(vec3(rl.y * 0.5 * dir.x, 1.0, rl.y * 0.5 * dir.y));
