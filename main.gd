@@ -82,6 +82,12 @@ var _shell_grass_mmi: MultiMeshInstance3D = null
 const SHELL_GRASS_SHELLS := 32
 const SHELL_GRASS_PATCH := 150.0   # patch size (m); follows the camera
 const SHELL_GRASS_SUBDIV := 98     # tessellation so the patch conforms to hills (~1.5m quads)
+# Near-field 3D blade band — real curved blades layered over the shell mat in the
+# near ~12 m (the hybrid). Default ON with shell grass; --no-blades perf-gates it.
+var _grass_blades := true
+var _grass_blades_mmi: MultiMeshInstance3D = null
+const BLADE_BAND_PATCH := 30.0     # blade grid extent (m); follows the camera (radius ~15m)
+const BLADE_BAND_CELL := 0.26      # placement grid spacing (m); MUST match the shader cell_size
 # Weather state — enum for fast comparison in hot paths
 enum Weather { CLEAR, RAIN, THUNDERSTORM, SNOW, FOG }
 const WEATHER_NAMES: Array = ["clear", "rain", "thunderstorm", "snow", "fog"]
@@ -156,6 +162,8 @@ func _parse_cli_args() -> void:
 			_shell_grass = true   # now the default; kept for explicit/back-compat use
 		elif arg == "--particle-grass" or arg == "--no-shell-grass":
 			_shell_grass = false  # opt back into the legacy particle + ground_cover grass
+		elif arg == "--no-blades":
+			_grass_blades = false  # disable the near-field 3D blade band (perf gate)
 		elif key == "--time" and val != "":
 			cli_time = val
 		elif key == "--screenshot-file" and val != "":
@@ -839,6 +847,21 @@ func _process(delta: float) -> void:
 		if sg_mesh and sg_mesh.material is ShaderMaterial:
 			(sg_mesh.material as ShaderMaterial).set_shader_parameter(
 				"patch_center", Vector2(snapped.x, snapped.z))
+
+	# Near-field blade band follows the camera too. Snap to the CELL grid so each
+	# instance stays on a fixed world cell (the shader keys all per-blade variation
+	# off world XZ, so this keeps the blades from swimming). band_center = the true
+	# (unsnapped) camera xz so the rim fade into the shells is smooth.
+	if _grass_blades_mmi and _player_camera:
+		var bcp := _player_camera.global_position
+		var bsnap := Vector3(
+			roundf(bcp.x / BLADE_BAND_CELL) * BLADE_BAND_CELL, 0.0,
+			roundf(bcp.z / BLADE_BAND_CELL) * BLADE_BAND_CELL)
+		_grass_blades_mmi.global_position = bsnap
+		var bmesh := _grass_blades_mmi.multimesh.mesh
+		if bmesh and bmesh.surface_get_material(0) is ShaderMaterial:
+			(bmesh.surface_get_material(0) as ShaderMaterial).set_shader_parameter(
+				"band_center", Vector2(bcp.x, bcp.z))
 
 	# Wind + GPU grass push + volumetric clouds — must run BEFORE the tour
 	# and walk-bot early returns: those paths exist to CAPTURE the world,
@@ -2812,6 +2835,92 @@ func _setup_shell_grass() -> void:
 		_park_loader._ground_cover_builder.free_all_chunks()
 	print("Shell grass: %d shells, %.0fm patch, %d subdiv (particle grass replaced)" % [
 		SHELL_GRASS_SHELLS, SHELL_GRASS_PATCH, SHELL_GRASS_SUBDIV])
+	# Hybrid: add the near-field 3D blade band over the shell mat (--no-blades off).
+	if _grass_blades:
+		_setup_grass_blades()
+
+
+func _make_blade_mesh() -> ArrayMesh:
+	## A single low-poly curved blade in LOCAL space: x = ±0.5 across, y = 0..1 up.
+	## SEG vertical segments so the shader can bend it into a curve; the tip tapers
+	## to a near-point. Double-sided is handled by cull_disabled in the shader.
+	const SEG := 4
+	var verts := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var idx := PackedInt32Array()
+	for i in SEG + 1:
+		var t := float(i) / float(SEG)          # 0 base .. 1 tip
+		var w := 0.5 * (1.0 - t * 0.82)          # taper (shader scales by blade_width)
+		verts.append(Vector3(-w, t, 0.0))
+		verts.append(Vector3( w, t, 0.0))
+		uvs.append(Vector2(0.0, t))
+		uvs.append(Vector2(1.0, t))
+	for i in SEG:
+		var a := i * 2
+		idx.append_array(PackedInt32Array([a, a + 1, a + 2, a + 1, a + 3, a + 2]))
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_TEX_UV] = uvs
+	arr[Mesh.ARRAY_INDEX] = idx
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	return m
+
+
+func _setup_grass_blades() -> void:
+	## Near-field 3D blade band (the hybrid). A camera-following grid of real bent
+	## blades drawn by one MultiMesh, layered over the shell turf and dissolving into
+	## it at the band rim. Blades are placed by INSTANCE on a fixed cell grid, but ALL
+	## per-blade variation is computed in the shader from world XZ, so the patch can
+	## snap with the camera (in _process) without the blades swimming.
+	var shader: Shader = load("res://shaders/grass_blades.gdshader")
+	if not shader:
+		push_warning("grass_blades.gdshader not found"); return
+	if not _park_loader or not _park_loader._hm_texture:
+		push_warning("grass blades: heightmap texture unavailable"); return
+
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	mat.set_shader_parameter("fantasy", GRASS_FANTASY)
+	mat.set_shader_parameter("cell_size", BLADE_BAND_CELL)
+	mat.set_shader_parameter("heightmap_tex", _park_loader._hm_texture)
+	mat.set_shader_parameter("hm_world_size", _park_loader._hm_world_size)
+	mat.set_shader_parameter("hm_min_h", _park_loader._hm_min_h)
+	mat.set_shader_parameter("hm_range", maxf(_park_loader._hm_max_h - _park_loader._hm_min_h, 0.01))
+	mat.set_shader_parameter("hm_res", float(_park_loader._hm_texture.get_width()))
+	if _landuse_texture:
+		mat.set_shader_parameter("landuse_map", _landuse_texture)
+	if _wear_texture:
+		mat.set_shader_parameter("wear_map", _wear_texture)
+
+	var blade := _make_blade_mesh()
+	blade.surface_set_material(0, mat)
+
+	# Instance grid: one blade per cell over the band patch, centered on origin.
+	var side := int(round(BLADE_BAND_PATCH / BLADE_BAND_CELL))
+	var half := side / 2
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = blade
+	mm.instance_count = side * side
+	var n := 0
+	for gz in range(-half, side - half):
+		for gx in range(-half, side - half):
+			mm.set_instance_transform(n, Transform3D(Basis.IDENTITY,
+				Vector3(float(gx) * BLADE_BAND_CELL, 0.0, float(gz) * BLADE_BAND_CELL)))
+			n += 1
+
+	_grass_blades_mmi = MultiMeshInstance3D.new()
+	_grass_blades_mmi.name = "GrassBlades"
+	_grass_blades_mmi.multimesh = mm
+	_grass_blades_mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_grass_blades_mmi.custom_aabb = AABB(
+		Vector3(-BLADE_BAND_PATCH, -200.0, -BLADE_BAND_PATCH),
+		Vector3(BLADE_BAND_PATCH * 2.0, 400.0, BLADE_BAND_PATCH * 2.0))
+	add_child(_grass_blades_mmi)
+	print("Grass blades: %d near-field blades (%.0fm band, %.2fm cells)" % [
+		mm.instance_count, BLADE_BAND_PATCH, BLADE_BAND_CELL])
 
 
 # ---------------------------------------------------------------------------
