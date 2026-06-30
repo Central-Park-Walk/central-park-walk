@@ -37,6 +37,10 @@ uniform sampler2D wear_map    : filter_linear,  repeat_disable;
 // palette (grass_base_color_no_dead + turf wear), so the shell felt matches the
 // terrain felt in BOTH modes and the patch edge never reads as a color seam.
 uniform float fantasy : hint_range(0.0, 1.0) = 1.0;
+// Aesthetic mode (GRASS_LUSH): suspend the data-driven foot-traffic wear so worn
+// lawns (e.g. The Mall) stay lush green instead of eroding to tan dirt. Only the
+// most extreme wear still erodes. Matches grass_blades.gdshader's aesthetic flag.
+uniform float aesthetic : hint_range(0.0, 1.0) = 1.0;
 uniform int   shell_count  = 32;
 uniform float density       = 33.0;   // blade cells per meter
 // blade_len/blade_wid are now the BASE half-extents (near-full cell), so the
@@ -119,6 +123,9 @@ void fragment(){
 	if (zone == 8 || zone == 12) discard;          // pool / water — no grass
 	bool unmown = zone_is_unmown(zone);
 	float wear  = texture(wear_map, splat_uv(world)).r;
+	// Effective wear for erosion/drying — suppressed in aesthetic mode so worn lawns
+	// stay a lush continuous sward (only near-total wear still erodes).
+	float wear_e = aesthetic > 0.5 ? wear * 0.15 : wear;
 
 	// --- patch edge dissolve: thin coverage toward the rim so the camera-following
 	// patch melts into the terrain instead of ending in a visible disc. ---
@@ -153,8 +160,8 @@ void fragment(){
 	// go to bare ground.
 	float keep = mix(0.78, 0.97, sparse);   // fraction of cells with tall blades
 	if (unmown) keep *= 0.92;
-	float mat = mat_height * (1.0 - smoothstep(0.20, 0.62, wear));   // mat erodes on paths
-	keep *= 1.0 - smoothstep(0.15, 0.6, wear) * 0.98;
+	float mat = mat_height * (1.0 - smoothstep(0.20, 0.62, wear_e));   // mat erodes on paths
+	keep *= 1.0 - smoothstep(0.15, 0.6, wear_e) * 0.98;
 	// Rim dissolve: thin height (mat), tall-blade count (keep), and drop whole
 	// cells stochastically so the patch grades into terrain instead of a disc edge.
 	keep *= edge;
@@ -181,7 +188,7 @@ void fragment(){
 	float hv_lo = unmown ? 0.55 : 0.80;
 	float hv_hi = unmown ? 1.35 : 1.12;
 	float bh = clamp(mix(0.5, 1.0, r1) * mix(hv_lo, hv_hi, patchH), 0.0, 1.0);
-	bh *= mix(1.0, 0.40, smoothstep(0.1, 0.6, wear));
+	bh *= mix(1.0, 0.40, smoothstep(0.1, 0.6, wear_e));
 	bh = max(bh, mat);
 	if (f > bh) discard;
 
@@ -247,6 +254,7 @@ void fragment(){
 	// ambient mottle are the dominant signal. Skipped in fantasy mode (no dirt).
 	if (fantasy < 0.5) {
 		float color_wear = turf_wear_total(wear, 0.0, zone, world);
+		if (aesthetic > 0.5) color_wear *= 0.20;   // keep worn lawns green, not tan
 		ALBEDO = apply_turf_wear(ALBEDO, color_wear, world);
 	}
 

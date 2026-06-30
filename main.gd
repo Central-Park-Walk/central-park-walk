@@ -468,6 +468,8 @@ func _ready() -> void:
 			_set_terrain_param("canopy_map", _park_loader._canopy_texture)
 		# Fantasy grass: terrain grass-zones match the blade shader's lush green.
 		_set_terrain_param("fantasy", GRASS_FANTASY)
+		# Aesthetic scale mode: suspend wear drying so worn lawns stay lush (matches blades/shell)
+		_set_terrain_param("aesthetic", 1.0 if GRASS_LUSH else 0.0)
 		print("main: canopy map: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 		# Unified to Godot's particle system 2026-05-09: Tier 1 + Tier 0 + Accents
 		# all run through _setup_grass_particles. Previous GDExtension (Tier 1) and
@@ -2803,6 +2805,7 @@ func _setup_shell_grass() -> void:
 	mat.shader = shader
 	mat.set_shader_parameter("shell_count", SHELL_GRASS_SHELLS)
 	mat.set_shader_parameter("fantasy", GRASS_FANTASY)
+	mat.set_shader_parameter("aesthetic", 1.0 if GRASS_LUSH else 0.0)
 	mat.set_shader_parameter("heightmap_tex", _park_loader._hm_texture)
 	mat.set_shader_parameter("hm_world_size", _park_loader._hm_world_size)
 	mat.set_shader_parameter("hm_min_h", _park_loader._hm_min_h)

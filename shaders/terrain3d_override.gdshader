@@ -86,6 +86,9 @@ uniform sampler2D wear_map : filter_linear, repeat_disable;
 // the data-driven spectral palette + turf wear + biome amber/teal tint +
 // litter for one lush idealized green. Set via _set_terrain_param("fantasy").
 uniform float fantasy : hint_range(0.0, 1.0) = 1.0;
+// Aesthetic mode (GRASS_LUSH): suspend foot-traffic wear drying on grass terrain so
+// worn lawns read lush green, matching grass_blades + shell_grass aesthetic flags.
+uniform float aesthetic : hint_range(0.0, 1.0) = 1.0;
 
 // Global uniforms (set by main.gd)
 global uniform float snow_cover;
@@ -440,6 +443,7 @@ void fragment() {
 				float baked_wear = texture(wear_map, splat_uv).r;
 				float wear_canopy = texture(canopy_map, splat_uv).r;
 				wear = turf_wear_total(baked_wear, wear_canopy, zone_id, v_vertex.xz);
+				if (aesthetic > 0.5) wear *= 0.20;   // keep worn lawns green, not tan
 			} else {
 				// Fantasy: one lush green to match the blades (no wear/dirt).
 				spectral_col = fantasy_grass_color(v_vertex.xz);
