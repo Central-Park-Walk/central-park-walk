@@ -58,7 +58,15 @@ varying float v_layer;
 varying vec3  v_world;
 
 vec2 splat_uv(vec2 w){ return (w + hm_world_size * 0.5) / hm_world_size; }
-int zone_at(vec2 w){ return int(texture(landuse_map, splat_uv(w)).r * 255.0 + 0.5); }
+// Jitter the sample position with a world-space hash (±0.9m) so int-zone
+// boundaries dither organically instead of rendering the landuse texel grid as
+// hard axis-aligned staircases — this is the blocky teal "quilt" the shell patch
+// showed along the lakeshore (cpw_004/005/006). Uses the SAME hash2*13.1 jitter
+// as terrain3d_override so the dithered water/shore band lines up with the felt.
+int zone_at(vec2 w){
+	vec2 jit = vec2(hash2(w * 13.1), hash2(w * 13.1 + vec2(7.3, 41.9))) - 0.5;
+	return int(texture(landuse_map, splat_uv(w + jit * 1.8)).r * 255.0 + 0.5);
+}
 bool zone_is_unmown(int z){ return z == 5 || z == 10 || z == 11 || z == 13 || z == 14; }
 
 // Per-zone standing height in METERS (CPC Turf Care Handbook; docs/grass.md §3).
@@ -187,6 +195,13 @@ void fragment(){
 	vec3 felt = (fantasy < 0.5)
 		? grass_base_color_no_dead(zone, world)
 		: fantasy_grass_color(world);
+	// Shore (zone 13): the sedge palette is a cool saturated teal. Applied as a
+	// flat strip it read as a painted teal band (cpw_004/005/006). Blend it in by
+	// tussock patches over bank grass so it reads as clumped wetland vegetation —
+	// identical to terrain3d_override's shore handling so blades match the felt.
+	if (fantasy < 0.5 && zone == 13) {
+		felt = mix(grass_base_color_no_dead(0, world), felt, sedge_patch_mask(world));
+	}
 	// Vertical gradient: shaded base → lit tip, both shades of the SAME felt color
 	// (a darker green, never a contrasting brown). Remapped to start part-way up so
 	// tall blades don't EMERGE from the mat as near-black pepper specks.
