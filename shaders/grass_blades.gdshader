@@ -46,16 +46,27 @@ global uniform vec2 wind_vec;
 // Band geometry. The blade patch follows the camera; blades fade out toward its
 // rim so they hand off to the shell turf with no visible boundary.
 uniform vec2  band_center  = vec2(0.0);
-uniform float band_radius  = 12.0;   // metres from camera where blades are fully gone
-uniform float band_fade    = 4.5;    // dissolve-ring width
+uniform float band_radius  = 13.0;   // metres from camera where blades are fully gone
+uniform float band_fade    = 5.0;    // dissolve-ring width
 uniform float cell_size    = 0.26;   // placement grid spacing (m); MUST match main.gd
-uniform float blade_width  = 0.004;  // half-width scale (m); full blade ~2x = ~8mm (thin)
+uniform float blade_width  = 0.0055; // half-width scale (m); full blade ~2x
 uniform float height_scale = 1.0;    // global height multiplier (tuning)
-uniform float density      = 0.82;   // fraction of cells that grow a blade in mown turf
+uniform float density      = 0.85;   // fraction of cells that grow a blade in mown turf
+
+// --- AAA look controls ---
+uniform float clump_size   = 0.62;   // tuft spacing (m): blades gather into clumps this big
+uniform float clump_pull   = 0.40;   // 0=even grid, 1=all blades on the clump centre
+uniform float bare_frac    = 0.16;   // fraction of clumps left bare (negative space)
+uniform float height_var   = 0.45;   // ± per-clump height spread
+uniform float dead_frac    = 0.07;   // fraction of dead/straw blades
+uniform float gust_scale   = 0.045;  // spatial freq of the rolling gust field
+uniform float gust_speed   = 0.55;   // how fast gusts travel across the field
+uniform float spec_strength = 0.40;
 
 varying vec3  v_felt;   // per-blade felt colour (matches shell + terrain)
 varying float v_h;      // 0..1 up the blade (shading)
 varying float v_r;      // per-blade vitality jitter
+varying float v_dead;   // 1 = dead/straw blade
 
 vec2 splat_uv(vec2 w){ return (w + hm_world_size * 0.5) / hm_world_size; }
 // Same ±jitter as shell_grass / terrain3d_override so the zone boundaries (water,
@@ -103,75 +114,96 @@ void vertex(){
 	float up   = clamp(VERTEX.y, 0.0, 1.0);   // authored 0..1 up the blade
 	float side = VERTEX.x;                     // authored ±0.5 across
 
-	// Per-blade world hash → jitter, orientation, height, vitality.
-	vec2  h2  = hash22(cell_world);
-	vec2  jit = (h2 - 0.5) * cell_size * 0.9;
-	vec2  pos = cell_world + jit;
+	// Per-blade world hash → jitter, height, vitality.
+	vec2  h2   = hash22(cell_world);
+	vec2  jit  = (h2 - 0.5) * cell_size * 0.9;
+	vec2  bpos = cell_world + jit;             // raw per-cell blade root
+
+	// --- CLUMPING: gather blades into tufts on a coarser world grid. This is what
+	// turns a uniform "carpet" into real grass: blades pulled toward shared clump
+	// centres, fanned out like a rosette, with whole clumps left bare for negative
+	// space. All keyed off the WORLD clump cell, so it stays put as the patch snaps.
+	vec2  clump_cell   = floor(bpos / clump_size);
+	vec2  ch           = hash22(clump_cell * 1.37 + 2.0);
+	vec2  clump_center = (clump_cell + 0.5 + (ch - 0.5) * 0.75) * clump_size;
+	float cr           = hash21(clump_cell * 2.1 + 5.0);   // per-clump random
+	vec2  pos          = mix(bpos, clump_center, clump_pull);
 
 	int   zone   = zone_at(pos);
 	float zh     = zone_height_m(zone);
 	float wear   = texture(wear_map, splat_uv(pos)).r;
 	bool  unmown = zone_is_unmown(zone);
 
-	// Keep test. A blade is ALIVE only on grass, unworn-enough ground, inside the
-	// band, and passing a stochastic density gate. Dead blades collapse to a point
-	// (degenerate triangle → no fragments), cheaper than a fragment discard.
+	// Keep test. ALIVE only on grass, on a non-bare clump, inside the band, passing
+	// the density gate, on unworn ground. Dead blades collapse to a point (degenerate
+	// triangle → no fragments), cheaper than a fragment discard.
+	float clump_dens = hash21(clump_cell * 3.7 + 1.0);
+	float clump_ok   = step(bare_frac, clump_dens);   // some tufts are bare ground
 	float dist  = distance(pos, band_center);
 	float band  = 1.0 - smoothstep(band_radius - band_fade, band_radius, dist);
-	float keep  = mix(density, 0.95, float(unmown));
+	float keep  = mix(density, 0.96, float(unmown));
 	float r     = hash21(cell_world * 1.7 + 4.0);
-	float alive = float(zh > 0.001) * float(r < keep * band) * float(wear < 0.82);
+	float alive = float(zh > 0.001) * clump_ok * float(r < keep * band) * float(wear < 0.85);
 
-	// Per-blade orientation + height.
-	float ang = hash21(cell_world * 3.1) * 6.2831;
-	vec2  fwd = vec2(cos(ang), sin(ang));         // lean / bend direction (horizontal)
-	vec2  rgt = vec2(-fwd.y, fwd.x);              // width direction (horizontal)
-	float hv  = unmown ? mix(0.55, 1.35, h2.y) : mix(0.80, 1.12, h2.y);
-	float bh  = zh * hv * height_scale;
-	bh       *= mix(1.0, 0.35, smoothstep(0.1, 0.6, wear));   // wear shortens
+	// Orientation: fan OUT from the clump centre (rosette splay) + a per-blade twist
+	// so a tuft reads as many blades from one root, not parallel copies.
+	vec2  outv  = pos - clump_center;
+	float outl  = length(outv);
+	vec2  fan   = outl > 0.001 ? outv / outl : vec2(cos(cr * 6.2831), sin(cr * 6.2831));
+	float twist = (hash21(cell_world * 3.1) - 0.5) * 1.5;
+	float ct = cos(twist), st = sin(twist);
+	vec2  fwd = vec2(fan.x * ct - fan.y * st, fan.x * st + fan.y * ct);  // lean/bend dir
+	vec2  rgt = vec2(-fwd.y, fwd.x);                                     // width dir
 
-	// Width is owned by the mesh profile (parallel-sided, soft tip). The shader
-	// applies a FLAT half-width scale — no second taper — so the blade is a thin
-	// strip, not a teardrop/comma.
-	float halfw = blade_width;
+	// Height: per-clump tall/short (visual rhythm) × per-blade × rare tall stragglers.
+	float clump_hm = mix(1.0 - height_var, 1.0 + height_var, cr);
+	float blade_hm = unmown ? mix(0.70, 1.30, h2.y) : mix(0.82, 1.12, h2.y);
+	float strag    = step(0.96, r) * 0.55;            // occasional extra-tall blade
+	float bh = zh * clump_hm * blade_hm * (1.0 + strag) * height_scale;
+	bh      *= mix(1.0, 0.40, smoothstep(0.1, 0.6, wear));
 
-	// Bend: a GENTLE lean so the blade presents a little area from above yet still
-	// reads as upright grass (not a spike, not a leaning comma). Quadratic so the
-	// base stays planted and the arc accumulates toward the tip.
-	float lean = (up * 0.35 + up * up * 0.65) * bh * 0.22;
+	// Width: a touch wider for tall grass; mesh owns the parallel-sided taper.
+	float halfw = blade_width * mix(0.9, 1.35, smoothstep(0.08, 0.30, bh));
 
-	// Wind: ONE calm, spatially-COHERENT traveling wave along the global wind
-	// direction — the whole field bends as a sheet instead of each blade wriggling
-	// in its own random direction. Low spatial frequency = neighbours move together;
-	// small amplitude + slow time = a breeze, not thrashing. Applied as an arc
-	// (quadratic in up) so it bends the blade rather than translating the tip.
-	vec2  wdir  = (abs(wind_vec.x) + abs(wind_vec.y) > 0.001) ? normalize(wind_vec) : vec2(0.7071, 0.7071);
-	float wstr  = clamp(length(wind_vec), 0.0, 1.0);
-	float phase = TIME * 0.85 + dot(pos, wdir) * 0.30;
-	float sway  = (sin(phase) + 0.4 * sin(phase * 0.47 + 1.3)) * 0.022;  // ~3cm tip, gentle
-	vec2  bend  = wdir * sway * (0.45 + 0.55 * wstr) + wind_vec * 0.05;
-	vec2  wind  = fwd * lean + bend * (up * up);
+	// Bend: gentle lean (a bit more for tall unmown grass), quadratic so the base
+	// stays planted and the arc builds toward the tip.
+	float lean_amt = mix(0.18, 0.32, float(unmown));
+	float lean     = (up * 0.35 + up * up * 0.65) * bh * lean_amt;
+
+	// Wind: a rolling COHERENT GUST envelope that travels across the field in the
+	// wind direction (you see waves of wind move over the grass), plus a gentle
+	// base sway. Tall blades bend more. Applied as an arc (quadratic in up).
+	vec2  wdir = (abs(wind_vec.x) + abs(wind_vec.y) > 0.001) ? normalize(wind_vec) : vec2(0.7071, 0.7071);
+	float wstr = clamp(length(wind_vec), 0.0, 1.0);
+	float gco  = dot(pos, wdir) * gust_scale - TIME * gust_speed;
+	float gust = max(sin(gco) * 0.6 + sin(gco * 0.43 + 1.7) * 0.4, 0.0);   // 0..1 rolling
+	float sway = sin(TIME * 0.9 + dot(pos, wdir) * 0.30) * 0.04;
+	float wfrac = (0.10 + 0.40 * gust) * (0.45 + 0.55 * wstr);   // fraction of height at tip
+	vec2  bendv = (wdir * (wfrac + sway) + wind_vec * 0.04) * bh; // metres
+	vec2  hbend = fwd * lean + bendv * (up * up);                 // total horizontal bend
 
 	float H = sample_terrain(pos);
 	vec3  local;
-	local.xz = rgt * (side * 2.0 * halfw) + wind;
-	local.y  = up * bh;
+	local.xz = rgt * (side * 2.0 * halfw) + hbend;
+	// Foreshorten: a bent blade lowers its tip a little so it doesn't look stretched.
+	local.y  = up * bh - 0.30 * length(bendv) * up * up;
 	local   *= alive;                             // collapse dead blades to a point
 
-	// Write VERTEX as the offset from the instance origin (MODEL is pure
-	// translation, so MODEL * offset = base + offset = the world blade vertex).
+	// Write VERTEX as the offset from the instance origin (MODEL is pure translation).
 	VERTEX = vec3(pos.x, H, pos.y) - base + local;
 
-	// Normal: the blade ribbon plane contains the up-tangent and the width dir;
-	// the broad-face normal is ~horizontal along fwd, biased upward so blades catch
-	// soft top light instead of reading as dark edges. MODEL is pure translation,
-	// so this model-space normal already points the right way in world; the pipeline
-	// transforms it to view space.
-	vec3 rgt3   = vec3(rgt.x, 0.0, rgt.y);
-	vec3 tan_up = normalize(vec3(fwd.x * 0.5 + wind_vec.x * 0.1, 1.0, fwd.y * 0.5 + wind_vec.y * 0.1));
-	NORMAL = normalize(cross(rgt3, tan_up) + vec3(0.0, 0.7, 0.0));
+	// Normal: proper curved-blade normal from the centreline tangent (d/dup of the
+	// bend) crossed with the width dir, up-biased so the field catches sky light and
+	// reads as form, not dark edges.
+	float dlean = (0.35 + 1.30 * up) * bh * lean_amt;
+	vec2  doff  = fwd * dlean + bendv * (2.0 * up);
+	vec3  tang  = normalize(vec3(doff.x, bh, doff.y));
+	vec3  rgt3  = vec3(rgt.x, 0.0, rgt.y);
+	vec3  nrm   = cross(rgt3, tang);
+	if (nrm.y < 0.0) nrm = -nrm;                  // face up-ish for either ribbon side
+	NORMAL = normalize(nrm + vec3(0.0, 0.55, 0.0));
 
-	// --- colour: SAME shared field as shell turf + terrain ---
+	// --- colour: SAME shared field as shell turf + terrain (keeps the seam killed) ---
 	vec3 felt = (fantasy < 0.5)
 		? grass_base_color_no_dead(zone, pos)
 		: fantasy_grass_color(pos);
@@ -182,19 +214,27 @@ void vertex(){
 		float cw = turf_wear_total(wear, 0.0, zone, pos);
 		felt = apply_turf_wear(felt, cw, pos);
 	}
+	// Per-clump tint drift so each tuft is its own subtle hue (still in-family).
+	felt *= mix(vec3(0.93, 0.97, 0.90), vec3(1.07, 1.05, 0.96), cr);
 	v_felt = felt;
 	v_h    = up;
 	v_r    = hash21(cell_world + 9.1);
+	v_dead = step(1.0 - dead_frac, hash21(cell_world + 11.0));
 }
 
 void fragment(){
-	// Vertical gradient: shaded base → lit tip, both shades of the SAME felt.
-	float vgrad = clamp(v_h * 0.70 + 0.30, 0.0, 1.0);
-	vec3  col   = v_felt * mix(0.55, 1.10, vgrad);
-	col        *= mix(0.93, 1.07, v_r);            // per-blade vitality jitter
-	float ao    = mix(0.58, 1.0, v_h);             // soil-darkening toward the base
-	ALBEDO    = col * ao;
-	ROUGHNESS = 0.72;
-	SPECULAR  = 0.20;
-	BACKLIGHT = vec3(0.25 * v_h);                  // translucent tip glow
+	float g = v_h;                                  // 0 base .. 1 tip
+	// Tip-to-base gradient: base cooler/darker, tip warmer (yellow-green) + brighter.
+	// All multiplied off the shared felt so it stays the calibrated colour family.
+	vec3 basec = v_felt * vec3(0.72, 0.84, 0.66);
+	vec3 tipc  = v_felt * vec3(1.14, 1.20, 0.86);
+	vec3 col   = mix(basec, tipc, smoothstep(0.0, 1.0, g));
+	col       *= mix(0.90, 1.10, v_r);             // per-blade vitality jitter
+	// Dead/straw blades: desaturated tan, still height-shaded.
+	if (v_dead > 0.5) col = mix(col, vec3(0.60, 0.52, 0.30) * (0.55 + 0.5 * g), 0.7);
+	col       *= mix(0.52, 1.0, g);                // contact AO darkening toward soil
+	ALBEDO    = col;
+	ROUGHNESS = mix(0.78, 0.52, g);                // glossier tips → a little edge glint
+	SPECULAR  = spec_strength;
+	BACKLIGHT = vec3(0.34, 0.42, 0.18) * g * g;    // warm translucent backlit tips
 }
