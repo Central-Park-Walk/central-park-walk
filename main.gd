@@ -2844,13 +2844,16 @@ func _make_blade_mesh() -> ArrayMesh:
 	## A single low-poly curved blade in LOCAL space: x = ±0.5 across, y = 0..1 up.
 	## SEG vertical segments so the shader can bend it into a curve; the tip tapers
 	## to a near-point. Double-sided is handled by cull_disabled in the shader.
-	const SEG := 4
+	const SEG := 6
 	var verts := PackedVector3Array()
 	var uvs := PackedVector2Array()
 	var idx := PackedInt32Array()
 	for i in SEG + 1:
 		var t := float(i) / float(SEG)          # 0 base .. 1 tip
-		var w := 0.5 * (1.0 - t * 0.82)          # taper (shader scales by blade_width)
+		# Mostly PARALLEL-SIDED (real grass blade), tapering to a soft point only in
+		# the top ~third. This mesh OWNS the width profile; the shader applies a flat
+		# blade_width scale (no second taper) so the blade isn't a teardrop/comma.
+		var w := 0.5 * (1.0 - smoothstep(0.6, 1.0, t) * 0.9)
 		verts.append(Vector3(-w, t, 0.0))
 		verts.append(Vector3( w, t, 0.0))
 		uvs.append(Vector2(0.0, t))

@@ -49,7 +49,7 @@ uniform vec2  band_center  = vec2(0.0);
 uniform float band_radius  = 12.0;   // metres from camera where blades are fully gone
 uniform float band_fade    = 4.5;    // dissolve-ring width
 uniform float cell_size    = 0.26;   // placement grid spacing (m); MUST match main.gd
-uniform float blade_width  = 0.013;  // base half-width (m)
+uniform float blade_width  = 0.004;  // half-width scale (m); full blade ~2x = ~8mm (thin)
 uniform float height_scale = 1.0;    // global height multiplier (tuning)
 uniform float density      = 0.82;   // fraction of cells that grow a blade in mown turf
 
@@ -130,15 +130,27 @@ void vertex(){
 	float bh  = zh * hv * height_scale;
 	bh       *= mix(1.0, 0.35, smoothstep(0.1, 0.6, wear));   // wear shortens
 
-	// Width tapers base→tip; tip is soft (not a needle).
-	float halfw = blade_width * (1.0 - up * 0.80);
+	// Width is owned by the mesh profile (parallel-sided, soft tip). The shader
+	// applies a FLAT half-width scale — no second taper — so the blade is a thin
+	// strip, not a teardrop/comma.
+	float halfw = blade_width;
 
-	// Bend: tip leans over (so the blade presents area when viewed from above and
-	// reads as grass, not a vertical spike). Quadratic so the base stays upright.
-	float lean = (up * 0.30 + up * up * 0.70) * bh * 0.55;
-	// Wind: a shared gust sway + the global wind_vec push, both ramping up the blade.
-	float gust = sin(TIME * 1.6 + pos.x * 0.7 + pos.y * 0.55) * 0.10;
-	vec2  wind = fwd * lean + (wind_vec * 0.12 + fwd * gust) * (up * up);
+	// Bend: a GENTLE lean so the blade presents a little area from above yet still
+	// reads as upright grass (not a spike, not a leaning comma). Quadratic so the
+	// base stays planted and the arc accumulates toward the tip.
+	float lean = (up * 0.35 + up * up * 0.65) * bh * 0.22;
+
+	// Wind: ONE calm, spatially-COHERENT traveling wave along the global wind
+	// direction — the whole field bends as a sheet instead of each blade wriggling
+	// in its own random direction. Low spatial frequency = neighbours move together;
+	// small amplitude + slow time = a breeze, not thrashing. Applied as an arc
+	// (quadratic in up) so it bends the blade rather than translating the tip.
+	vec2  wdir  = (abs(wind_vec.x) + abs(wind_vec.y) > 0.001) ? normalize(wind_vec) : vec2(0.7071, 0.7071);
+	float wstr  = clamp(length(wind_vec), 0.0, 1.0);
+	float phase = TIME * 0.85 + dot(pos, wdir) * 0.30;
+	float sway  = (sin(phase) + 0.4 * sin(phase * 0.47 + 1.3)) * 0.022;  // ~3cm tip, gentle
+	vec2  bend  = wdir * sway * (0.45 + 0.55 * wstr) + wind_vec * 0.05;
+	vec2  wind  = fwd * lean + bend * (up * up);
 
 	float H = sample_terrain(pos);
 	vec3  local;
