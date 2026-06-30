@@ -17,6 +17,13 @@ uniform float hm_min_h      = 0.0;
 uniform float hm_range      = 1.0;
 uniform float hm_res        = 4096.0;
 #include "res://shaders/include/decode_terrain.gdshaderinc"
+// Shared, calibrated grass color field — the SAME function the terrain shader
+// uses for its grass zones (fantasy_grass_color). Coloring the shell blades from
+// this instead of hardcoded greens makes the near grass and the far terrain
+// "felt" one continuous field, so the patch edge stops reading as a seam.
+// (grass_zone_colors requires vnoise/fbm3 from hash_noise — include it first.)
+#include "res://shaders/include/hash_noise.gdshaderinc"
+#include "res://shaders/include/grass_zone_colors.gdshaderinc"
 
 // --- zone + wear data (same maps the particle grass uses) ---
 // Zone IDs (docs/grass.md §2): 0=unzoned 1=garden 2=grass(named lawns) 3=pitch
@@ -34,9 +41,8 @@ uniform float blade_len     = 0.62;   // base half-length along the blade (cell 
 uniform float blade_wid     = 0.46;   // base half-width across the blade (cell frac)
 uniform float lean_amt      = 0.62;   // blade lean (cell frac)
 uniform float mat_height    = 0.30;   // shell fraction below which the dense mat is solid
-uniform vec3  understory : source_color = vec3(0.085, 0.135, 0.055);
-uniform vec3  blade_base : source_color = vec3(0.190, 0.290, 0.115);
-uniform vec3  blade_tip  : source_color = vec3(0.340, 0.520, 0.205);
+// (Blade colors are no longer uniforms — derived per-fragment from the shared
+// fantasy_grass_color field so they track the terrain felt exactly.)
 // Patch fade: the camera-following patch dissolves into the terrain in its outer
 // ring so it never reads as a hard disc. Center is pushed per-frame from main.gd.
 uniform vec2  patch_center  = vec2(0.0);
@@ -78,13 +84,8 @@ vec2 hash22(vec2 p){
 	p3 += dot(p3, p3.yzx + 33.33);
 	return fract((p3.xx + p3.yz) * p3.zy);
 }
-float vnoise(vec2 p){
-	vec2 i = floor(p), f = fract(p);
-	f = f * f * (3.0 - 2.0 * f);
-	float a = hash21(i), b = hash21(i + vec2(1.0, 0.0));
-	float c = hash21(i + vec2(0.0, 1.0)), d = hash21(i + vec2(1.0, 1.0));
-	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-}
+// vnoise/fbm3 come from hash_noise.gdshaderinc (shared with the terrain shader,
+// so the macro patchiness lines up across the near-grass / far-felt boundary).
 
 void vertex(){
 	float f = float(INSTANCE_ID) / float(max(shell_count - 1, 1));
@@ -112,7 +113,6 @@ void fragment(){
 		length(world - patch_center));
 
 	// --- patch-scale variation (low frequency) ---
-	float patch  = vnoise(world * 0.22);
 	float patchH = vnoise(world * 0.55 + 31.0);
 	float sparse = vnoise(world * 0.40 + 7.0);
 
@@ -172,25 +172,28 @@ void fragment(){
 		if (abs(rl.x) > halfL || abs(rl.y) > halfW) discard;
 	}
 
-	// --- colour ---
-	// Vertical gradient: shaded base → lit tip. Tall blades only become visible at
-	// f>=mat, so remap the gradient to START part-way up (not at pure blade_base) —
-	// otherwise every blade EMERGES from the mat as a near-black point and that
-	// pepper of dark emergence-points is what reads as speckle against the lit mat.
+	// --- colour: derived from the SHARED grass field (fantasy_grass_color) so the
+	// blades are the same hue/value as the terrain "felt" they sit in — the patch
+	// edge then has nothing to transition BETWEEN, and the macro patchiness lines up
+	// across the boundary because both call the same noise. ---
+	vec3 felt = fantasy_grass_color(world);   // identical to terrain3d_override grass zones
+	// Vertical gradient: shaded base → lit tip, both shades of the SAME felt color
+	// (a darker green, never a contrasting brown). Remapped to start part-way up so
+	// tall blades don't EMERGE from the mat as near-black pepper specks.
 	float vgrad = clamp(f * 0.62 + 0.34, 0.0, 1.0);
-	vec3  col = mix(blade_base, blade_tip, vgrad);
-	// Ambient-occlusion deepens toward the soil; the mat band is genuinely shaded
-	// (light doesn't reach the sward floor), which is what stops the felt glow.
-	float ao  = mix(0.66, 1.0, smoothstep(0.0, 0.85, f));
-	col *= mix(0.86, 1.14, patch);
-	// Warm/dry patches — stronger in unmown sward (meadow/woodland read golder).
-	col  = mix(col, col * vec3(1.10, 1.0, 0.66), patch * (unmown ? 0.62 : 0.42));
-	col *= mix(0.90, 1.10, r1);
-	float lum = dot(col, vec3(0.30, 0.59, 0.11));
-	col = mix(vec3(lum), col, 0.82);
-	// Blend the dark understory across the WHOLE mat band so the sward floor reads
-	// as shade between blades, not a bright green plane.
-	ALBEDO = mix(understory, col, smoothstep(0.0, mat_height + 0.10, f)) * ao;
+	vec3  col = felt * mix(0.60, 1.06, vgrad);
+	col *= mix(0.93, 1.07, r1);               // per-blade vitality jitter
+	// AO deepens toward the soil so the near sward reads 3D; the understory shade is
+	// a DARK felt (same hue), so worn/thinned spots look like shadow in the sward,
+	// not the black/brown holes a contrasting understory color produced.
+	float ao = mix(0.66, 1.0, smoothstep(0.0, 0.85, f));
+	vec3 understory_c = felt * 0.46;
+	// Toward the patch RIM (edge→0) fade the shading OUT to flat felt: blades aren't
+	// resolved at that distance, so converging the mat to the terrain color makes the
+	// handoff seamless instead of the dark/brown moat ring the old understory left.
+	ao = mix(1.0, ao, edge);
+	understory_c = mix(felt, understory_c, edge);
+	ALBEDO = mix(understory_c, col, smoothstep(0.0, mat_height + 0.10, f)) * ao;
 
 	// --- shading: flatter ribbon normal, softer varied specular ---
 	vec3 n = normalize(vec3(rl.y * 0.5 * dir.x, 1.0, rl.y * 0.5 * dir.y));
