@@ -88,6 +88,9 @@ var _grass_blades := true
 var _grass_blades_mmi: MultiMeshInstance3D = null
 const BLADE_BAND_PATCH := 30.0     # blade grid extent (m); follows the camera (radius ~15m)
 const BLADE_BAND_CELL := 0.26      # placement grid spacing (m); MUST match the shader cell_size
+# Temporary: suspend data-driven grass height for pure aesthetics — lush, readable
+# grass from standing height (mown-turf data is too short to read). false = data-driven.
+const GRASS_LUSH := true
 # Weather state — enum for fast comparison in hot paths
 enum Weather { CLEAR, RAIN, THUNDERSTORM, SNOW, FOG }
 const WEATHER_NAMES: Array = ["clear", "rain", "thunderstorm", "snow", "fog"]
@@ -2886,6 +2889,10 @@ func _setup_grass_blades() -> void:
 	var mat := ShaderMaterial.new()
 	mat.shader = shader
 	mat.set_shader_parameter("fantasy", GRASS_FANTASY)
+	# Aesthetic scale: lift blade height off the (too-short) mown-turf data so grass
+	# reads as real grass from standing height. One flag, reversible (GRASS_LUSH=false
+	# restores data-driven height). See grass_blades.gdshader.
+	mat.set_shader_parameter("aesthetic", 1.0 if GRASS_LUSH else 0.0)
 	mat.set_shader_parameter("cell_size", BLADE_BAND_CELL)
 	mat.set_shader_parameter("heightmap_tex", _park_loader._hm_texture)
 	mat.set_shader_parameter("hm_world_size", _park_loader._hm_world_size)

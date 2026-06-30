@@ -63,6 +63,17 @@ uniform float gust_scale   = 0.045;  // spatial freq of the rolling gust field
 uniform float gust_speed   = 0.55;   // how fast gusts travel across the field
 uniform float spec_strength = 0.40;
 
+// --- AESTHETIC SCALE (temporary: suspend data-driven height for pure look) ---
+// The mown-turf data (7–10 cm) is too short to READ from standing height — each
+// tuft is a few pixels = fuzzy carpet. When aesthetic is on, blade height is driven
+// to a lush, readable scale (zone variety preserved but lifted + clamped) so the
+// grass looks like real grass and makes a good backdrop for the trees. ONE flag in
+// main.gd (GRASS_LUSH) → reversible.
+uniform float aesthetic  : hint_range(0.0, 1.0) = 1.0;
+uniform float lush_mult  = 2.8;     // scale-up applied to the data height
+uniform float lush_floor = 0.20;    // shortest readable blade (m)
+uniform float lush_ceil  = 0.46;    // tallest blade (m)
+
 varying vec3  v_felt;   // per-blade felt colour (matches shell + terrain)
 varying float v_h;      // 0..1 up the blade (shading)
 varying float v_r;      // per-blade vitality jitter
@@ -134,6 +145,13 @@ void vertex(){
 	float wear   = texture(wear_map, splat_uv(pos)).r;
 	bool  unmown = zone_is_unmown(zone);
 
+	// AESTHETIC SCALE: lift the (too-short) data height to a readable lush scale,
+	// keeping the relative zone variety but clamped to a pleasing band. Water/pool
+	// zones (zh==0) stay grassless.
+	if (aesthetic > 0.5 && zh > 0.001) {
+		zh = clamp(zh * lush_mult, lush_floor, lush_ceil);
+	}
+
 	// Keep test. ALIVE only on grass, on a non-bare clump, inside the band, passing
 	// the density gate, on unworn ground. Dead blades collapse to a point (degenerate
 	// triangle → no fragments), cheaper than a fragment discard.
@@ -143,7 +161,10 @@ void vertex(){
 	float band  = 1.0 - smoothstep(band_radius - band_fade, band_radius, dist);
 	float keep  = mix(density, 0.96, float(unmown));
 	float r     = hash21(cell_world * 1.7 + 4.0);
-	float alive = float(zh > 0.001) * clump_ok * float(r < keep * band) * float(wear < 0.85);
+	// Keep grass lush over worn ground too (aesthetic): only the most-trodden bare
+	// paths strip out, so we don't expose the shell mat's weave as Mario64 dirt.
+	float wear_cut = aesthetic > 0.5 ? 0.95 : 0.85;
+	float alive = float(zh > 0.001) * clump_ok * float(r < keep * band) * float(wear < wear_cut);
 
 	// Orientation: fan OUT from the clump centre (rosette splay) + a per-blade twist
 	// so a tuft reads as many blades from one root, not parallel copies.
@@ -160,7 +181,9 @@ void vertex(){
 	float blade_hm = unmown ? mix(0.70, 1.30, h2.y) : mix(0.82, 1.12, h2.y);
 	float strag    = step(0.96, r) * 0.55;            // occasional extra-tall blade
 	float bh = zh * clump_hm * blade_hm * (1.0 + strag) * height_scale;
-	bh      *= mix(1.0, 0.40, smoothstep(0.1, 0.6, wear));
+	// Wear shortens blades, but gently in aesthetic mode so worn lawn stays lush.
+	bh      *= aesthetic > 0.5 ? mix(1.0, 0.70, smoothstep(0.25, 0.85, wear))
+	                           : mix(1.0, 0.40, smoothstep(0.1, 0.6, wear));
 
 	// Width: a touch wider for tall grass; mesh owns the parallel-sided taper.
 	float halfw = blade_width * mix(0.9, 1.35, smoothstep(0.08, 0.30, bh));
@@ -210,8 +233,13 @@ void vertex(){
 	if (fantasy < 0.5 && zone == 13) {
 		felt = mix(grass_base_color_no_dead(0, pos), felt, sedge_patch_mask(pos));
 	}
+	// Wear drying turns grass tan/dead on high-traffic ground (e.g. The Mall) — that
+	// is data fidelity that reads as barren/sparse. In aesthetic mode keep it green
+	// (only a whisper of wear so there's still subtle variation), so worn lawns stay
+	// lush. Realistic mode keeps the full calibrated wear.
 	if (fantasy < 0.5) {
 		float cw = turf_wear_total(wear, 0.0, zone, pos);
+		if (aesthetic > 0.5) cw *= 0.20;
 		felt = apply_turf_wear(felt, cw, pos);
 	}
 	// Per-clump tint drift so each tuft is its own subtle hue (still in-family).
