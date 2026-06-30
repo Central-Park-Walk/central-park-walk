@@ -130,11 +130,21 @@ void fragment(){
 	float sparse = vnoise(world * 0.40 + 7.0);
 
 	// --- per-blade cell ---
-	vec2 uv    = world * density;
+	// Domain-warp the lattice before flooring so cell boundaries CURVE instead of
+	// running in long straight world-axis rows. Straight down, an axis-aligned grid
+	// of cells reads as Minecraft turf-blocks (Chris's walk, cpw_000). The warp is
+	// low-frequency (~5m) so neighbouring cells still merge into a continuous mat at
+	// eye level — only the top-down row regularity is broken. Rotated octaves so the
+	// warp field itself carries no axis lattice.
+	vec2 wrot = mat2(vec2(0.80, -0.60), vec2(0.60, 0.80)) * world;
+	vec2 warp = vec2(vnoise(wrot * 0.19 + 4.0), vnoise(wrot * 0.19 + 19.0)) - 0.5;
+	vec2 uv    = (world + warp * 3.0) * density;
 	vec2 cell  = floor(uv);
 	vec2 local = fract(uv) - 0.5;
 	float r1   = hash21(cell);
-	local -= (hash22(cell) - 0.5) * 0.5;
+	// Stronger per-cell position jitter (±0.42 vs ±0.25) so the bumps don't sit on a
+	// regular grid from above — the other half of the Minecraft cue.
+	local -= (hash22(cell) - 0.5) * 0.84;
 
 	// Coverage model: every cell forms a dense MAT up to mat_height so the lowest
 	// shells knit into a continuous sward (the terrain never shows through as
