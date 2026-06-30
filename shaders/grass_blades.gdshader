@@ -49,19 +49,23 @@ uniform vec2  band_center  = vec2(0.0);
 uniform float band_radius  = 13.0;   // metres from camera where blades are fully gone
 uniform float band_fade    = 5.0;    // dissolve-ring width
 uniform float cell_size    = 0.26;   // placement grid spacing (m); MUST match main.gd
-uniform float blade_width  = 0.0055; // half-width scale (m); full blade ~2x
+uniform float blade_width  = 0.0075; // half-width scale (m); full blade ~2x (wider = fewer dark edge-on slivers)
 uniform float height_scale = 1.0;    // global height multiplier (tuning)
 uniform float density      = 0.85;   // fraction of cells that grow a blade in mown turf
 
 // --- AAA look controls ---
 uniform float clump_size   = 0.62;   // tuft spacing (m): blades gather into clumps this big
-uniform float clump_pull   = 0.40;   // 0=even grid, 1=all blades on the clump centre
-uniform float bare_frac    = 0.16;   // fraction of clumps left bare (negative space)
+uniform float clump_pull   = 0.45;   // 0=even grid, 1=all blades on the clump centre
+uniform float bare_frac    = 0.05;   // fraction of clumps left bare (negative space)
 uniform float height_var   = 0.45;   // ± per-clump height spread
-uniform float dead_frac    = 0.07;   // fraction of dead/straw blades
+uniform float dead_frac    = 0.05;   // fraction of dead/straw blades
 uniform float gust_scale   = 0.045;  // spatial freq of the rolling gust field
 uniform float gust_speed   = 0.55;   // how fast gusts travel across the field
 uniform float spec_strength = 0.40;
+// Blade arc: real grass blades CURVE over (the reference tuft is a mass of bent
+// blades), not straight spikes. This is the per-blade tip bend as a fraction of
+// height; large values lay the tip well over for a soft feathery silhouette.
+uniform float curve_amt    = 0.62;
 
 // --- AESTHETIC SCALE (temporary: suspend data-driven height for pure look) ---
 // The mown-turf data (7–10 cm) is too short to READ from standing height — each
@@ -188,10 +192,11 @@ void vertex(){
 	// Width: a touch wider for tall grass; mesh owns the parallel-sided taper.
 	float halfw = blade_width * mix(0.9, 1.35, smoothstep(0.08, 0.30, bh));
 
-	// Bend: gentle lean (a bit more for tall unmown grass), quadratic so the base
-	// stays planted and the arc builds toward the tip.
-	float lean_amt = mix(0.18, 0.32, float(unmown));
-	float lean     = (up * 0.35 + up * up * 0.65) * bh * lean_amt;
+	// Bend: a real ARC so blades curve over like the reference tuft (not straight
+	// spikes). Quadratic-dominant so the base stays planted and the tip lays over;
+	// per-blade variation so some blades arc more than others.
+	float curve_v  = curve_amt * mix(0.6, 1.25, h2.x);
+	float lean     = (up * 0.25 + up * up * 0.75) * bh * curve_v;
 
 	// Wind: a rolling COHERENT GUST envelope that travels across the field in the
 	// wind direction (you see waves of wind move over the grass), plus a gentle
@@ -218,13 +223,15 @@ void vertex(){
 	// Normal: proper curved-blade normal from the centreline tangent (d/dup of the
 	// bend) crossed with the width dir, up-biased so the field catches sky light and
 	// reads as form, not dark edges.
-	float dlean = (0.35 + 1.30 * up) * bh * lean_amt;
+	float dlean = (0.25 + 1.50 * up) * bh * curve_v;
 	vec2  doff  = fwd * dlean + bendv * (2.0 * up);
 	vec3  tang  = normalize(vec3(doff.x, bh, doff.y));
 	vec3  rgt3  = vec3(rgt.x, 0.0, rgt.y);
 	vec3  nrm   = cross(rgt3, tang);
 	if (nrm.y < 0.0) nrm = -nrm;                  // face up-ish for either ribbon side
-	NORMAL = normalize(nrm + vec3(0.0, 0.55, 0.0));
+	// Strong up-bias: blades catch sky light and read as a soft lit mass instead of
+	// dark vertical edges (the near-black blades in the GPU walk were edge-on faces).
+	NORMAL = normalize(nrm + vec3(0.0, 1.10, 0.0));
 
 	// --- colour: SAME shared field as shell turf + terrain (keeps the seam killed) ---
 	vec3 felt = (fantasy < 0.5)
@@ -254,15 +261,18 @@ void fragment(){
 	float g = v_h;                                  // 0 base .. 1 tip
 	// Tip-to-base gradient: base cooler/darker, tip warmer (yellow-green) + brighter.
 	// All multiplied off the shared felt so it stays the calibrated colour family.
-	vec3 basec = v_felt * vec3(0.72, 0.84, 0.66);
-	vec3 tipc  = v_felt * vec3(1.14, 1.20, 0.86);
+	// Blades are LIT grass standing above a darker understory — keep them clearly on
+	// the bright side of the felt (base a touch deeper, tip brighter) so even edge-on
+	// slivers read as green, never the dark "hairs" of the GPU walk.
+	vec3 basec = v_felt * vec3(0.95, 1.02, 0.84);
+	vec3 tipc  = v_felt * vec3(1.22, 1.28, 0.92);
 	vec3 col   = mix(basec, tipc, smoothstep(0.0, 1.0, g));
-	col       *= mix(0.90, 1.10, v_r);             // per-blade vitality jitter
+	col       *= mix(0.94, 1.10, v_r);             // per-blade vitality jitter
 	// Dead/straw blades: desaturated tan, still height-shaded.
-	if (v_dead > 0.5) col = mix(col, vec3(0.60, 0.52, 0.30) * (0.55 + 0.5 * g), 0.7);
-	col       *= mix(0.52, 1.0, g);                // contact AO darkening toward soil
+	if (v_dead > 0.5) col = mix(col, vec3(0.62, 0.55, 0.33) * (0.6 + 0.5 * g), 0.7);
+	col       *= mix(0.82, 1.0, g);                // soft contact darkening only at the very base
 	ALBEDO    = col;
-	ROUGHNESS = mix(0.78, 0.52, g);                // glossier tips → a little edge glint
-	SPECULAR  = spec_strength;
-	BACKLIGHT = vec3(0.34, 0.42, 0.18) * g * g;    // warm translucent backlit tips
+	ROUGHNESS = mix(0.82, 0.62, g);                // matte; minimal glint (no dark spec angles)
+	SPECULAR  = 0.18;
+	BACKLIGHT = vec3(0.45, 0.52, 0.24) * (0.4 + 0.6 * g * g);  // translucency keeps thin blades lit
 }
