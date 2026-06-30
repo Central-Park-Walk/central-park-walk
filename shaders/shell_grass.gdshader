@@ -164,8 +164,12 @@ void fragment(){
 	if (f > mat && !tall) discard;          // above the mat, only tall-blade cells survive
 	if (f > mat && mat <= 0.001) discard;    // fully worn / past rim: no mat, no blades
 
-	// --- combing: coherent per-area flow direction + per-blade jitter ---
-	float ang = vnoise(world * 0.16) * 6.2831 + (r1 - 0.5) * 1.3;
+	// --- combing: coherent per-area flow direction + STRONG per-blade scatter ---
+	// A uniform per-area comb makes every blade rake the same way -> reads as
+	// corduroy/aligned spikes from above. Two hashes widen the per-blade angular
+	// spread (~±2 rad) so the sward looks tousled, not brushed.
+	float ang = vnoise(world * 0.16) * 6.2831
+	          + (r1 - 0.5) * 2.4 + (hash21(cell + 5.1) - 0.5) * 1.6;
 	vec2  dir = vec2(cos(ang), sin(ang));
 	// Linear lean term tilts even low shells (pure-vertical bases empty the
 	// nadir top-down); quadratic term bends the tip over further than the base.
@@ -190,9 +194,15 @@ void fragment(){
 	vec2 rl = vec2(dot(local, dir), dot(local, vec2(-dir.y, dir.x)));
 	if (f >= floor_solid) {
 		float t = smoothstep(mat, bh, f);   // 0 through the mat body, 1 at blade tip
-		float halfL = mix(blade_len, 0.16, t);
-		float halfW = mix(blade_wid, 0.008, t);
-		if (abs(rl.x) > halfL || abs(rl.y) > halfW) discard;
+		float halfL = mix(blade_len, 0.12, t);
+		float halfW = mix(blade_wid, 0.020, t);
+		// ELLIPTICAL (rounded) footprint, not a hard rectangle: straight down, a grid
+		// of rectangular tips reads as crisp angular "spikes" (Chris: minecraft spikes,
+		// not realistic). A rounded cross-section that tapers to a soft (not needle)
+		// tip reads as blade, not chip.
+		float rx = rl.x / max(halfL, 1e-4);
+		float ry = rl.y / max(halfW, 1e-4);
+		if (rx * rx + ry * ry > 1.0) discard;
 	}
 
 	// --- colour: derived from the SHARED grass field (fantasy_grass_color) so the
