@@ -9,7 +9,7 @@ script = ExtResource("1")
 
 [node name="Terrain3D" type="Terrain3D" parent="."]
 region_size = 1024
-vertex_spacing = 1.221
+vertex_spacing = 2.4426
 data_directory = "res://data/terrain3d"
 assets = ExtResource("2")
 material = ExtResource("3")
