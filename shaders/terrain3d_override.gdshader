@@ -533,12 +533,22 @@ void fragment() {
 	// ---- Rain wetness ----
 	if (rain_wetness > 0.01) {
 		float wet = rain_wetness;
-		ALBEDO *= mix(1.0, 0.65, wet);
-		ROUGHNESS = mix(ROUGHNESS, max(ROUGHNESS * 0.3, 0.08), wet);
-		SPECULAR = mix(SPECULAR, 0.5, wet);
+		// Vegetated surfaces (grass/woodland floor) deepen in color when wet but
+		// stay MATTE — a lawn or leaf-litter never goes glossy or pools into
+		// mirror sheets the way pavement does. Crushing roughness to 0.08 +
+		// specular 0.5 + flat mirror puddles is what made wet terrain read as
+		// "concrete" (Chris, rainy Wagner Cove). Bare/hard ground (paths, dirt,
+		// rock) may gloss and puddle; grass/woodland get only a faint sheen.
+		bool vegetated = is_grass_zone || is_woodland;
+		ALBEDO *= mix(1.0, vegetated ? 0.78 : 0.65, wet);
+		float rough_floor = vegetated ? 0.68 : 0.18;
+		float rough_mul   = vegetated ? 0.85 : 0.3;
+		ROUGHNESS = mix(ROUGHNESS, max(ROUGHNESS * rough_mul, rough_floor), wet);
+		SPECULAR = mix(SPECULAR, vegetated ? 0.30 : 0.5, wet);
 
-		// Puddles on flat terrain
-		if (v_normal.y > 0.95) {
+		// Puddles only on flat NON-vegetated terrain (compacted paths / bare
+		// dirt). Grass doesn't form mirror puddles — that was the wet-pavement tell.
+		if (!vegetated && v_normal.y > 0.95) {
 			float puddle_noise = fbm(v_vertex.xz * 0.10, 3);
 			float puddle_threshold = mix(0.48, 0.22, wet);
 			float puddle = smoothstep(puddle_threshold, puddle_threshold - 0.08, puddle_noise) * v_normal.y;
