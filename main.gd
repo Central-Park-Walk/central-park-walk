@@ -905,7 +905,7 @@ func _process(delta: float) -> void:
 		_park_loader._undergrowth_builder.update_camera(_player.global_position)
 	_prof_undergrowth_us = lerpf(float(Time.get_ticks_usec() - _t0), _prof_undergrowth_us, PROF_SMOOTH)
 	_t0 = Time.get_ticks_usec()
-	if _player and _park_loader and _park_loader._ground_cover_builder:
+	if _player and _park_loader and _park_loader._ground_cover_builder and not _shell_grass:
 		_park_loader._ground_cover_builder.season_t = _season_t
 		_park_loader._ground_cover_builder.update_camera(_player.global_position)
 
@@ -2800,7 +2800,12 @@ func _setup_shell_grass() -> void:
 		Vector3(-SHELL_GRASS_PATCH, -200.0, -SHELL_GRASS_PATCH),
 		Vector3(SHELL_GRASS_PATCH * 2.0, 400.0, SHELL_GRASS_PATCH * 2.0))
 	add_child(_shell_grass_mmi)
-	print("Shell grass: %d shells, %.0fm patch, %d subdiv" % [
+	# REPLACE the particle grass — shell grass is meant to stand alone (the line-80
+	# contract). Without this the legacy ground_cover tufts render ON TOP of the
+	# shell mat, and in dense biomes (lake/woodland) they read as fake neon spikes.
+	if _park_loader and _park_loader._ground_cover_builder:
+		_park_loader._ground_cover_builder.free_all_chunks()
+	print("Shell grass: %d shells, %.0fm patch, %d subdiv (particle grass replaced)" % [
 		SHELL_GRASS_SHELLS, SHELL_GRASS_PATCH, SHELL_GRASS_SUBDIV])
 
 
