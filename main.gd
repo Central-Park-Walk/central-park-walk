@@ -77,7 +77,7 @@ var _audio_manager = null  # ambient sound (wind, city, water, footsteps)
 
 var _terrain_only := false
 var _grass_off := false  # --no-grass: skip grass blade particles (eval bare terrain)
-var _shell_grass := false  # --shell-grass: replace particle grass with shell-textured turf (eval)
+var _shell_grass := true  # shell-textured turf is the DEFAULT grass (2026-06-29); --particle-grass opts back to the legacy particle/ground_cover path
 var _shell_grass_mmi: MultiMeshInstance3D = null
 const SHELL_GRASS_SHELLS := 32
 const SHELL_GRASS_PATCH := 150.0   # patch size (m); follows the camera
@@ -153,7 +153,9 @@ func _parse_cli_args() -> void:
 		elif arg == "--no-grass":
 			_grass_off = true
 		elif arg == "--shell-grass":
-			_shell_grass = true
+			_shell_grass = true   # now the default; kept for explicit/back-compat use
+		elif arg == "--particle-grass" or arg == "--no-shell-grass":
+			_shell_grass = false  # opt back into the legacy particle + ground_cover grass
 		elif key == "--time" and val != "":
 			cli_time = val
 		elif key == "--screenshot-file" and val != "":
@@ -462,8 +464,9 @@ func _ready() -> void:
 		# filtering, density tables, and coordinate transforms.
 		if _terrain3d and not _grass_off:
 			if _shell_grass:
-				# Eval: shell-textured turf REPLACES the particle grass (no double
-				# coverage). Reversible — drop --shell-grass and the game is unchanged.
+				# DEFAULT (2026-06-29): shell-textured turf REPLACES the particle
+				# grass (no double coverage) — fixes the flat-from-overhead look and
+				# drops the Tier0/accent spikes. --particle-grass restores the legacy path.
 				_setup_shell_grass()
 				print("main: shell grass: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 			else:
