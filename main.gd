@@ -89,35 +89,29 @@ var _grass_blades_mmi: MultiMeshInstance3D = null
 var _grass_cards_mmi: MultiMeshInstance3D = null
 var _turf_ring_mmis: Array[MultiMeshInstance3D] = []
 # TURF TILES (the "3d mesh world" grass): a pre-built 3D mesh = a patch of real blade
-# geometry (hundreds of baked blades), instanced as tiles on a camera-following world
+# geometry (thousands of baked blades), instanced as tiles on a camera-following world
 # grid — real blades from every angle, no billboard swivel/rings, cheap because the cost
 # is batched triangles over tile instances (not millions of per-blade instances).
 #
-# PER-LOD DENSITY RINGS (2026-07-01): instead of one 8000-blade tile everywhere (which
-# vertex-shades all ~6M blades every frame even when far ones are LOD-collapsed → <30fps),
-# the field is 3 concentric rings, each its OWN MultiMesh with a mesh baked at that ring's
-# density: dense near, sparse far. Only tiles whose blades actually fall in the ring's
-# [inner, outer+fade] annulus are instanced, so vertex cost scales with the visible sward.
-# Rings overlap in their fades so the density step between LODs cross-dissolves. Because
-# the fades are driven by the CONTINUOUS true-camera band_center (not the snapped grid),
-# and the annulus edge always sits in the fully-faded zone, tiles never pop in/out — this
-# also cures the "grass pulses ahead every few steps" leading-edge tile pop.
+# SINGLE dense mesh + CONTINUOUS density falloff (2026-07-01, after the 3-ring experiment
+# regressed): discrete LOD rings cross-faded ahead of the camera as a visible "shimmer /
+# odd overlap" (Chris), and thinning the mid/far rings left the sward reading BARE at a
+# grazing angle (far blades went sub-pixel → sparse crawling specks under FSR). Back to one
+# mesh with a smooth per-blade rank falloff (dense near → 0 by TURF_RADIUS) so there are no
+# ring boundaries and no far specks to crawl. Perf comes from a TIGHTER radius (blades fully
+# gone by ~14 m, before they go sub-pixel) handing off to the shell/ground texture, not from
+# thinning the visible sward. The pop-free grid margin (grid extends past the fade-out, so
+# entering tiles are already collapsed) cures the original leading-edge "pulse".
 const TURF_TILE_SIZE := 2.0        # tile footprint (m); also the snap-grid cell
+const TURF_BLADES := 8000          # blades baked per tile (near density; far thinned by rank)
+const TURF_THATCH := 700           # flattened dead-blade thatch streaks matting the ground
+const TURF_MAT_N  := 8             # ground-mat subdivisions (terrain conform)
 const TURF_BLADE_H := 0.16         # blade height (m); mown bluegrass lawn, not meadow
 const TURF_BLADE_W := 0.026        # blade base width (m); a touch wider = closes gaps
-const TURF_RING_FADE := 3.5        # cross-fade width at each ring's inner & outer edge (m)
-# Each ring: blades/thatch/mat_n baked into its tile mesh; inner/outer = the band_center
-# radii where the ring's blades fade in (overlapping the next-denser ring) and out. inner
-# < 0 = no inner cut (the near ring fills the centre). Densities chosen so the near sward
-# stays "incredible" while far rings drop 3-8x the geometry.
-# ring0 keeps the FULL 8000 blades x 6 tris only for the immediate ~6 m (where density is
-# scrutinised); rings 1-2 decimate 3x / 7x beyond that, cross-fading so the drop is unseen.
-const TURF_RINGS := [
-	{"blades": 8000, "thatch": 700, "mat_n": 8, "inner": -100.0, "outer": 6.0},
-	{"blades": 3000, "thatch": 280, "mat_n": 6, "inner":  4.0,   "outer": 14.0},
-	{"blades": 1100, "thatch": 110, "mat_n": 4, "inner": 11.0,   "outer": 24.0},
-]
-const TURF_REACH := 24.0           # outermost ring radius (m); shell grass fills beyond
+const TURF_NEAR_FULL := 9.0        # full baked density within this radius (m)
+const TURF_RADIUS := 14.0          # blades thin to zero by here; ground texture carries beyond
+const TURF_FADE := 2.5             # soft size-fade width at the very rim (m)
+const TURF_REACH := 14.0           # turf extent (m); shell grass fills beyond
 # Legacy near-field 3D blade band + card fill (superseded by turf tiles; kept for --flags)
 const BLADE_BAND_PATCH := 18.0
 const BLADE_BAND_CELL := 0.075
@@ -2875,12 +2869,12 @@ func _setup_shell_grass() -> void:
 	mat.set_shader_parameter("shell_count", SHELL_GRASS_SHELLS)
 	mat.set_shader_parameter("fantasy", GRASS_FANTASY)
 	mat.set_shader_parameter("aesthetic", 1.0 if GRASS_LUSH else 0.0)
-	# When the near-field blade band is active, clear the shell out of the blade zone
-	# (blades own it) so the shell isn't drawn just to be hidden — it only fills the
-	# ground beyond the band. 0 = no clear (blades off → shell covers everything).
-	# Shell fills in as the turf tiles fade out (cross-fade over the same ring).
-	mat.set_shader_parameter("near_clear_r", (TURF_REACH - 8.0) if _grass_blades else 0.0)
-	mat.set_shader_parameter("near_clear_fade", 10.0)
+	# Clear the shell out of the dense turf-blade zone (blades own it) and ramp it IN as the
+	# turf thins, so the shell is fully present exactly where the turf blades end (TURF_REACH)
+	# — the ground reads as continuous grass with no bare ring at the handoff. 0 = no clear
+	# (blades off → shell everywhere).
+	mat.set_shader_parameter("near_clear_r", (TURF_REACH - 9.0) if _grass_blades else 0.0)
+	mat.set_shader_parameter("near_clear_fade", 9.0)
 	mat.set_shader_parameter("heightmap_tex", _park_loader._hm_texture)
 	mat.set_shader_parameter("hm_world_size", _park_loader._hm_world_size)
 	mat.set_shader_parameter("hm_min_h", _park_loader._hm_min_h)
@@ -3236,9 +3230,10 @@ func _add_turf_ground(st: SurfaceTool, rng: RandomNumberGenerator, s: float,
 
 
 func _setup_turf_tiles() -> void:
-	## Camera-following LOD rings of turf-tile meshes: each ring is its own MultiMesh with a
-	## mesh baked at that ring's blade density (dense near → sparse far), instanced only over
-	## the annulus where its blades actually contribute. Rings share one grass mat texture.
+	## Camera-following grid of ONE dense turf-tile mesh with a continuous per-blade density
+	## falloff (dense near → 0 by TURF_RADIUS). Single mesh = no LOD-ring boundaries (no
+	## cross-fade shimmer). The grid extends past the fade-out so entering tiles are already
+	## collapsed (no leading-edge "pulse"). Blades hand off to the shell/ground beyond.
 	var shader: Shader = load("res://shaders/turf_tile.gdshader")
 	if not shader:
 		push_warning("turf_tile.gdshader not found"); return
@@ -3246,72 +3241,56 @@ func _setup_turf_tiles() -> void:
 		push_warning("turf tiles: heightmap unavailable"); return
 	var mat_tex: Texture2D = load("res://textures/grass_albedo.jpg")
 
-	# A tile's blades span ±0.75*TILE from its centre, so its farthest blade is this far
-	# from the tile centre (diagonal). Used to decide which tiles fall in a ring's annulus.
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	mat.set_shader_parameter("heightmap_tex", _park_loader._hm_texture)
+	mat.set_shader_parameter("hm_world_size", _park_loader._hm_world_size)
+	mat.set_shader_parameter("hm_min_h", _park_loader._hm_min_h)
+	mat.set_shader_parameter("hm_range", maxf(_park_loader._hm_max_h - _park_loader._hm_min_h, 0.01))
+	mat.set_shader_parameter("hm_res", float(_park_loader._hm_texture.get_width()))
+	mat.set_shader_parameter("near_full", TURF_NEAR_FULL)
+	mat.set_shader_parameter("far_radius", TURF_RADIUS)
+	mat.set_shader_parameter("far_fade", TURF_FADE)
+	if mat_tex:
+		mat.set_shader_parameter("mat_tex", mat_tex)
+
+	var tile := _make_turf_tile_mesh(TURF_BLADES, TURF_THATCH, TURF_MAT_N)
+	tile.surface_set_material(0, mat)
+
+	# A tile's blades span ±0.75*TILE from its centre (diagonal reach). Grid extends a tile
+	# past the fade-out so leading tiles enter already collapsed (pop-free); tiles whose
+	# nearest blade is past TURF_RADIUS render nothing and are skipped (no wasted vertex work).
 	var reach := TURF_TILE_SIZE * 0.75 * sqrt(2.0)
-	var total_tiles := 0
-	var total_blades := 0
-	for r in range(TURF_RINGS.size()):
-		var ring: Dictionary = TURF_RINGS[r]
-		var inner: float = ring["inner"]
-		var outer: float = ring["outer"]
+	var grid_r := TURF_RADIUS + reach + TURF_TILE_SIZE
+	var side := int(ceil(grid_r / TURF_TILE_SIZE))
+	var xforms: Array[Transform3D] = []
+	for gz in range(-side, side + 1):
+		for gx in range(-side, side + 1):
+			var d := Vector2(float(gx), float(gz)).length() * TURF_TILE_SIZE
+			if d - reach > TURF_RADIUS:
+				continue            # beyond the fade-out → collapsed, skip
+			xforms.append(Transform3D(Basis.IDENTITY,
+				Vector3(float(gx) * TURF_TILE_SIZE, 0.0, float(gz) * TURF_TILE_SIZE)))
 
-		var mat := ShaderMaterial.new()
-		mat.shader = shader
-		mat.set_shader_parameter("heightmap_tex", _park_loader._hm_texture)
-		mat.set_shader_parameter("hm_world_size", _park_loader._hm_world_size)
-		mat.set_shader_parameter("hm_min_h", _park_loader._hm_min_h)
-		mat.set_shader_parameter("hm_range", maxf(_park_loader._hm_max_h - _park_loader._hm_min_h, 0.01))
-		mat.set_shader_parameter("hm_res", float(_park_loader._hm_texture.get_width()))
-		mat.set_shader_parameter("inner_r", inner)
-		mat.set_shader_parameter("inner_fade", TURF_RING_FADE)
-		mat.set_shader_parameter("far_radius", outer + TURF_RING_FADE)
-		mat.set_shader_parameter("far_fade", TURF_RING_FADE)
-		if mat_tex:
-			mat.set_shader_parameter("mat_tex", mat_tex)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = tile
+	mm.instance_count = xforms.size()
+	for i in xforms.size():
+		mm.set_instance_transform(i, xforms[i])
 
-		var tile := _make_turf_tile_mesh(int(ring["blades"]), int(ring["thatch"]), int(ring["mat_n"]))
-		tile.surface_set_material(0, mat)
-
-		# Grid large enough to hold the annulus, then keep only tiles whose blades fall in
-		# [inner, outer+fade] (the visible band). A tile is skipped if its NEAREST blade is
-		# already past the outer fade, or its FARTHEST blade is still inside the inner cut —
-		# either way it renders nothing but would still cost vertex work.
-		var grid_r := outer + TURF_RING_FADE + reach + TURF_TILE_SIZE
-		var side := int(ceil(grid_r / TURF_TILE_SIZE))
-		var xforms: Array[Transform3D] = []
-		for gz in range(-side, side + 1):
-			for gx in range(-side, side + 1):
-				var d := Vector2(float(gx), float(gz)).length() * TURF_TILE_SIZE
-				if d - reach > outer + TURF_RING_FADE:
-					continue            # fully beyond the outer fade → collapsed
-				if inner > 0.0 and d + reach < inner:
-					continue            # fully inside the inner cut → collapsed
-				xforms.append(Transform3D(Basis.IDENTITY,
-					Vector3(float(gx) * TURF_TILE_SIZE, 0.0, float(gz) * TURF_TILE_SIZE)))
-
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.mesh = tile
-		mm.instance_count = xforms.size()
-		for i in xforms.size():
-			mm.set_instance_transform(i, xforms[i])
-
-		var mmi := MultiMeshInstance3D.new()
-		mmi.name = "TurfRing%d" % r
-		mmi.multimesh = mm
-		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mmi.custom_aabb = AABB(
-			Vector3(-grid_r, -200.0, -grid_r),
-			Vector3(grid_r * 2.0, 400.0, grid_r * 2.0))
-		add_child(mmi)
-		_turf_ring_mmis.append(mmi)
-		total_tiles += xforms.size()
-		total_blades += xforms.size() * int(ring["blades"])
-		print("  Turf ring %d: %d tiles x %d blades (%.0f-%.0fm)" % [
-			r, xforms.size(), int(ring["blades"]), maxf(inner, 0.0), outer])
-	print("Turf tiles: %d tiles, %d blades total (~%.1fM tris)" % [
-		total_tiles, total_blades, total_blades * 6.0 / 1e6])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.name = "TurfTiles"
+	mmi.multimesh = mm
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mmi.custom_aabb = AABB(
+		Vector3(-grid_r, -200.0, -grid_r),
+		Vector3(grid_r * 2.0, 400.0, grid_r * 2.0))
+	add_child(mmi)
+	_turf_ring_mmis.append(mmi)
+	print("Turf tiles: %d tiles x %d blades = %d (~%.1fM tris, radius %.0fm)" % [
+		xforms.size(), TURF_BLADES, xforms.size() * TURF_BLADES,
+		xforms.size() * TURF_BLADES * 6.0 / 1e6, TURF_RADIUS])
 
 
 func _make_card_mesh() -> ArrayMesh:

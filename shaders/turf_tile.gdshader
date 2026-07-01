@@ -18,13 +18,14 @@ uniform float hm_res    = 4096.0;
 
 global uniform vec2 wind_vec;
 uniform vec2  band_center = vec2(0.0);
-// Ring band fades: this LOD ring's blades fade IN past inner_r (overlapping the next-denser
-// ring inside it) and OUT approaching far_radius, so adjacent LOD rings cross-dissolve with
-// no visible density step or pop. inner_r < 0 disables the inner cut (the near ring centre).
-uniform float inner_r     = -100.0;
-uniform float inner_fade  = 3.5;
-uniform float far_radius  = 30.0;
-uniform float far_fade    = 9.0;
+// CONTINUOUS density falloff (single mesh, no LOD rings): every blade carries a stable rank
+// in [0,1); a blade survives where its rank is under keep(dist), which is 1 within near_full
+// and eases to 0 at far_radius. So the sward is full near and thins smoothly to nothing by
+// far_radius — no ring boundaries to cross-fade (which shimmered), and blades vanish while
+// still resolvable so there are no sub-pixel far specks to crawl under FSR.
+uniform float near_full   = 9.0;   // full density within this radius
+uniform float far_radius  = 14.0;  // blades thinned to zero by here
+uniform float far_fade    = 2.5;   // soft size-fade at the very rim
 
 // Ground-mat grass texture (world-XZ planar): breaks up the flat colour of the horizontal
 // mat + thatch so straight-down shows real turf detail, never solid colour pools.
@@ -52,18 +53,20 @@ void vertex(){
 	vec2  lx  = VERTEX.xz;
 	vec2  rot = vec2(lx.x * cy - lx.y * sy, lx.x * sy + lx.y * cy);
 
-	float up = UV.y;                             // 0 base .. 1 tip (baked)
+	float up   = UV.y;                            // 0 base .. 1 tip (baked)
+	float rank = UV.x;                            // per-blade stable density priority [0,1)
 
 	vec2  rot_full = rot;                         // uncollapsed rotated offset (for mat UV)
 	vec2  approx_w = base.xz + rot;
 	float dist  = distance(approx_w, band_center);
 
-	// RING BAND: this LOD ring's mesh has a fixed baked density; it fades IN past inner_r
-	// (overlapping the denser ring inside it) and OUT approaching far_radius, so the whole
-	// field is a set of concentric density rings that cross-dissolve. Both ends are smooth
-	// and driven by the continuous band_center, so nothing pops as the camera moves.
-	float cover = smoothstep(inner_r, inner_r + inner_fade, dist)
-	            * (1.0 - smoothstep(far_radius - far_fade, far_radius, dist));
+	// CONTINUOUS falloff: keep=1 within near_full, easing to 0 at far_radius. A blade lives
+	// where rank < keep, faded smoothly at the cull edge so density thins gradually (no ring).
+	// Ground verts (rank 0) stay full until the very rim, then hand off to the shell/ground.
+	float keep  = 1.0 - smoothstep(near_full, far_radius, dist);
+	float alive = smoothstep(0.0, 0.10, keep - rank);
+	// Extra soft size-fade over the very rim so the last blades shrink out rather than pop.
+	float cover = alive * (1.0 - smoothstep(far_radius - far_fade, far_radius, dist));
 	rot *= cover;
 	float y = VERTEX.y * cover;
 

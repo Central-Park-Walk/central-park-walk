@@ -62,20 +62,26 @@ instanced on a camera-following grid so blades are genuine from **any** angle in
 down — no billboard swivel, no radial starbursts. Beyond it, the §0b shell/terrain texture
 fills the distance (`near_clear_r = TURF_REACH - 8`).
 
-**Per-LOD density rings (2026-07-01).** One 8000-blade tile everywhere vertex-shaded ~6M
-blades/frame even when far ones were LOD-collapsed → <30 fps. Replaced by **3 concentric
-rings** (`TURF_RINGS` in `main.gd`), each its own MultiMesh + mesh baked at that ring's
-density: ring0 8000 blades (immediate ~6 m, full density where it's scrutinised), ring1 3000
-(4–14 m), ring2 1100 (11–24 m). Only tiles whose blades fall in the ring's `[inner, outer+fade]`
-annulus are instanced (the rest render nothing). Rings overlap in their `TURF_RING_FADE`
-cross-fades so the density step between LODs dissolves. **~37.6M → ~14.2M tris.** Levers to
-dial for fps: the per-ring `blades` counts and `outer` radii.
+**Density & perf — single dense mesh + continuous falloff (2026-07-01, final).** First tried
+3 LOD-density rings (dense near → sparse far) to cut the ~37.6M-tri single-8000-tile field.
+That **regressed**: the discrete rings cross-faded ahead of the camera as a visible *shimmer /
+odd LOD overlap*, and the thinned mid/far rings read *bare* at a grazing angle (far blades went
+sub-pixel → sparse crawling specks under FSR2). Reverted to **one dense mesh** with a
+**continuous per-blade rank falloff** (`turf_tile.gdshader`: `keep = 1 - smoothstep(near_full,
+far_radius, dist)`, blade lives where `rank < keep`): full density within `TURF_NEAR_FULL` (9 m),
+thinning smoothly to zero by `TURF_RADIUS` (14 m) — no ring boundaries (no shimmer), and blades
+vanish while still resolvable (no sub-pixel far specks). Perf comes from the **tighter radius**
+(~14 m vs 28), not from thinning the visible sward: **197 tiles × 8000 = ~9.5M tris** (4× less).
+The shell/ground texture carries beyond 14 m (`near_clear_r = TURF_REACH-9`, ramps in as the
+turf thins so there's no bare ring at the handoff). Levers for more fps: `TURF_RADIUS` (reach),
+`TURF_BLADES`. Note: the bulk of frame cost is elsewhere — F9 showed 6808 tree LOD0 shadow
+casters; grass ≈ 9.5M of the ~19M-tri total.
 
-**Pulse fix (same change).** The old single grid's leading short edge sat inside the far-fade,
-so a new tile row popped in at cover ~0.16 every ~2 m walked ("grass pulses ahead of me").
-The ring fades are driven by the **continuous true-camera `band_center`** (not the snapped
-grid), and every annulus edge sits in the fully-faded (cover 0) zone, so tiles never appear/
-disappear abruptly — the pulse is gone structurally.
+**Pulse fix.** The old single grid's leading short edge sat inside the far-fade, so a new tile
+row popped in at cover ~0.16 every ~2 m walked ("grass pulses ahead of me"). Fixed by the
+**pop-free grid margin**: the grid extends a tile past `TURF_RADIUS`, and tiles whose nearest
+blade is past the fade-out are skipped, so any tile entering the grid as the camera moves is
+already collapsed (cover 0) — nothing appears/disappears abruptly.
 
 **Textured ground mat (2026-07-01).** The horizontal backstop mat + thatch (flagged via
 `UV2.x` in `_turf_vert`) are textured with `textures/grass_albedo.jpg` sampled by **true world
