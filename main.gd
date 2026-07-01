@@ -2882,11 +2882,10 @@ func _setup_shell_grass() -> void:
 	# (blades off → shell everywhere).
 	mat.set_shader_parameter("near_clear_r", (TURF_REACH - 9.0) if _grass_blades else 0.0)
 	mat.set_shader_parameter("near_clear_fade", 9.0)
-	mat.set_shader_parameter("heightmap_tex", _park_loader._hm_texture)
-	mat.set_shader_parameter("hm_world_size", _park_loader._hm_world_size)
-	mat.set_shader_parameter("hm_min_h", _park_loader._hm_min_h)
-	mat.set_shader_parameter("hm_range", maxf(_park_loader._hm_max_h - _park_loader._hm_min_h, 0.01))
-	mat.set_shader_parameter("hm_res", float(_park_loader._hm_texture.get_width()))
+	mat.set_shader_parameter("hm_world_size", _park_loader._hm_world_size)  # for splat_uv only
+	# Conform the shell to Terrain3D's real surface (same fix as the turf) so the far ground
+	# agrees with the terrain and the near blades — no floating/sunk carpet.
+	_push_terrain3d_conform(mat)
 	# Data-driven zone height + foot-traffic wear (same maps as the particle grass).
 	if _landuse_texture:
 		mat.set_shader_parameter("landuse_map", _landuse_texture)
@@ -3236,6 +3235,25 @@ func _add_turf_ground(st: SurfaceTool, rng: RandomNumberGenerator, s: float,
 		_add_flat_blade(st, bx, bz, ang, length, w, tc[0], tc[1])
 
 
+func _push_terrain3d_conform(mat: ShaderMaterial) -> void:
+	## Push Terrain3D's height-array + region-lookup uniforms onto a material that includes
+	## terrain3d_height.gdshaderinc, so its sample_terrain() reads Terrain3D's real surface.
+	## RID/array uniforms must go through RenderingServer (not set_shader_parameter). Regions
+	## are static once the park is loaded, so pushing once at setup is enough.
+	if not _terrain3d or not _terrain3d.data:
+		push_warning("terrain conform: Terrain3D unavailable — grass will not conform")
+		return
+	var rid := mat.get_rid()
+	var bg: int = _terrain3d.material.world_background if _terrain3d.material else 0
+	RenderingServer.material_set_param(rid, "_background_mode", bg)
+	RenderingServer.material_set_param(rid, "_vertex_density", 1.0 / _terrain3d.vertex_spacing)
+	RenderingServer.material_set_param(rid, "_region_size", float(_terrain3d.region_size))
+	RenderingServer.material_set_param(rid, "_region_texel_size", 1.0 / float(_terrain3d.region_size))
+	RenderingServer.material_set_param(rid, "_region_map_size", 32)
+	RenderingServer.material_set_param(rid, "_region_map", _terrain3d.data.get_region_map())
+	RenderingServer.material_set_param(rid, "_height_maps", _terrain3d.data.get_height_maps_rid())
+
+
 func _setup_turf_tiles() -> void:
 	## Camera-following grid of ONE dense turf-tile mesh with a continuous per-blade density
 	## falloff (dense near → 0 by TURF_RADIUS). Single mesh = no LOD-ring boundaries (no
@@ -3255,23 +3273,9 @@ func _setup_turf_tiles() -> void:
 	mat.set_shader_parameter("far_fade", TURF_FADE)
 	if mat_tex:
 		mat.set_shader_parameter("mat_tex", mat_tex)
-	# Conform the turf to TERRAIN3D's own height maps (the surface the player sees/collides
-	# with), NOT the separate project heightmap that diverges by up to several metres and
-	# buries the blades. Push Terrain3D's height-array + region lookup uniforms — the addon's
-	# own sampling path (extras/particle_example) — via RenderingServer (RID/array uniforms
-	# can't go through set_shader_parameter). Regions are static once the park is loaded.
-	if _terrain3d and _terrain3d.data:
-		var rid := mat.get_rid()
-		var bg: int = _terrain3d.material.world_background if _terrain3d.material else 0
-		RenderingServer.material_set_param(rid, "_background_mode", bg)
-		RenderingServer.material_set_param(rid, "_vertex_density", 1.0 / _terrain3d.vertex_spacing)
-		RenderingServer.material_set_param(rid, "_region_size", float(_terrain3d.region_size))
-		RenderingServer.material_set_param(rid, "_region_texel_size", 1.0 / float(_terrain3d.region_size))
-		RenderingServer.material_set_param(rid, "_region_map_size", 32)
-		RenderingServer.material_set_param(rid, "_region_map", _terrain3d.data.get_region_map())
-		RenderingServer.material_set_param(rid, "_height_maps", _terrain3d.data.get_height_maps_rid())
-	else:
-		push_warning("turf tiles: Terrain3D unavailable — grass will not conform to terrain")
+	# Conform the turf to TERRAIN3D's own height maps (the surface the player sees), NOT the
+	# separate heightmap that diverges by up to several metres and buries the blades.
+	_push_terrain3d_conform(mat)
 
 	var tile := _make_turf_tile_mesh(TURF_BLADES, TURF_THATCH, TURF_MAT_N)
 	tile.surface_set_material(0, mat)

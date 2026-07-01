@@ -10,13 +10,11 @@ render_mode cull_disabled, world_vertex_coords;
 // sampling the project heightmap per-vertex (decode_terrain.gdshaderinc), so it
 // follows hills instead of sitting on a flat plane.
 
-// --- terrain height sampling (shared project decode) ---
-uniform sampler2D heightmap_tex : filter_linear, repeat_disable;
+// --- terrain height sampling — conform to TERRAIN3D's real surface (not the divergent
+// heightmap.bin) so the shell agrees with the ground and the turf. hm_world_size is kept
+// only for splat_uv() (landuse/wear map lookups), not for height. ---
 uniform float hm_world_size = 5000.0;
-uniform float hm_min_h      = 0.0;
-uniform float hm_range      = 1.0;
-uniform float hm_res        = 4096.0;
-#include "res://shaders/include/decode_terrain.gdshaderinc"
+#include "res://shaders/include/terrain3d_height.gdshaderinc"
 // Shared, calibrated grass color field — the SAME function the terrain shader
 // uses for its grass zones (fantasy_grass_color). Coloring the shell blades from
 // this instead of hardcoded greens makes the near grass and the far terrain
