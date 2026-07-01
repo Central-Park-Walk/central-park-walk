@@ -351,12 +351,14 @@ than after). Light→dark→light confirmed at both ends.
   cosmetic — cheaper routes if it bothers: bicubic sampling of the
   octahedral texture in clouds.gdshader, or denser update (frames 64→
   smaller region churn) — measure first.
-- **P3 — cirrus rework**: orientation-varying, domain-warped hooked
-  filaments (uncinus) + patchy density; kill the parallel-streak field.
-  Same flat-sheet machinery, still ~free.
-- **P4 — horizon cloud band**: soften/remove the y<0.4 background blend
-  (banding it masked is now handled by adaptive step count + IGN dither
-  — re-verify), so decks stack at the skyline.
+- **P3 — cirrus rework: SHIPPED 2026-07-01 (dc8ee19)** — patch gate +
+  slow-drift streak frame + hook shear + fibrous body sheet. Iteration
+  notes: fast rotation (p*0.06) marbles the filaments into swirls; bare
+  thresholded strands read as cat-scratches — both fixed by capture A/B
+  (tmp/skycirrus).
+- **P4 — horizon cloud band: SHIPPED 2026-07-01 (dc8ee19)** — blend
+  narrowed smoothstep(0.6,1.0)→(0.92,1.0); no banding observed, decks
+  now stack/compress at the skyline.
 - **P5 — dawn/dusk drama pass** (after P0 changes the substrate):
   re-tune blaze/golden + keyframe colors against `notes/refs/
   sky_2026_06_11/`; port earth-shadow + Belt of Venus terms from the
