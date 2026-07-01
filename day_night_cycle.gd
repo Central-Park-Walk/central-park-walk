@@ -197,27 +197,19 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 	# at night (21:00 pitch −65). sun_energy is the honest one: 0.9–0.95 in
 	# daylight, 0.05 at night.
 	var day_f: float = smoothstep(0.15, 0.65, _lerp_kf("sun_energy", a, b, t))
-	# Twilight window factor: the background-sky calibration (cal_bg) must
-	# stay up while the celestial sun (computed below) is rendering real
-	# twilight — day_f tracks sun_energy, which fades exactly when the LUT
-	# needs its AgX exposure correction most (the below-horizon LUT is
-	# already dark; un-calibrating it too turned dusk near-black,
-	# 2026-06-11). Falls to 0 in step with the celestial->moon blend so
-	# the accepted night sky stays exact.
-	var twilight_f: float = 0.0
-	if canon >= 19.0 and canon < 21.0:
-		twilight_f = 1.0 - smoothstep(20.55, 21.0, canon)
-	elif canon >= 5.0 and canon < 6.5:
-		twilight_f = smoothstep(5.0, 5.3, canon)
-	var sky_f: float = maxf(day_f, twilight_f)
 	var sun_mult: float = lerpf(1.0, SUN_CAL, day_f)
 	if sun_cal_override > 0.0:
 		sun_mult = sun_cal_override
 	if vol_sky:
 		vol_sky.cloud_coverage = clampf(cc_val, 0.20, 0.50)
 		vol_sky.density = clampf(_lerp_kf("cloud_density", a, b, t) * 0.08, 0.02, 0.10)
-		# Day-blended sky calibration (constants above).
-		var cal_bg: float = lerpf(1.0, SKY_CAL_BG, sky_f)
+		# Day-blended sky calibration (constants above). cal_bg is CONSTANT
+		# since P0 (sky.md §6): the LUT now runs on the real sun always, so
+		# it darkens honestly through twilight and reads ~0 at night — the
+		# old blend-to-1.0 (needed when the night LUT was a fake-bright
+		# moon/skyglow daylight) put a 5x dive on top of the natural fade
+		# and carved the measured black trough at 21:30.
+		var cal_bg: float = SKY_CAL_BG
 		var cal_sun: float = lerpf(1.0, SKY_CAL_SUN, day_f)
 		var cal_amb: float = lerpf(1.0, SKY_CAL_AMB, day_f)
 		if sky_cal_override.x > 0.0: cal_bg = sky_cal_override.x
@@ -530,34 +522,46 @@ func _apply(time_of_day: float, weather: int, wind_vec: Vector2,
 	sun.transform.basis = Basis.looking_at(-light_dir3, Vector3.UP)
 	sun.directional_shadow_max_distance = _lerp_kf("shadow_dist", a, b, t)
 
-	# Celestial sun for the sky systems (atmosphere LUT, cloud march, sky
-	# shader): the TRUE almanac sun — it crosses the horizon for real, so
-	# the Hillaire LUT's sunrise/sunset band (0 to -6 deg, where ALL the
-	# color lives) is reached on every date at its actual event times.
-	# Below -6 deg it hands over to the night light (= the moon), keeping
-	# the moonlit-clouds/night-sky construction.
-	var night_celest: float = smoothstep(-6.0, -10.0, sun_h.x)
-	var cel_dir: Vector3 = sun_dir3.slerp(light_dir3, night_celest).normalized()
+	# Celestial machinery (sky.md §6 P0 — the honest night sky):
+	# - The atmosphere LUT runs on the TRUE almanac sun ALWAYS. It crosses
+	#   the horizon at real event times and the sky darkens monotonically
+	#   through twilight to ~0 at night. (The old handover slerped the LUT
+	#   sun up to the moon — or a fake 65-deg "skyglow" when the moon was
+	#   down — re-lighting the night sky as dim daylight: the measured
+	#   light->dark->light double-dip, the phantom bright lobe at az 220,
+	#   and the sunlit cream clouds at 1 AM.)
+	# - The cloud MARCH light still hands over to the night light below
+	#   -6 deg (the moon lights the clouds; energy is already phase-scaled).
+	# - night_f gates the additive night layers: light-pollution dome +
+	#   stars in clouds.gdshader, moonlight + NYC city-glow terms in the
+	#   march (rides ground_color.a — the push constant is full).
+	var night_f: float = smoothstep(-6.0, -14.0, sun_h.x)
+	var march_celest: float = smoothstep(-6.0, -10.0, sun_h.x)
+	var march_dir: Vector3 = sun_dir3.slerp(light_dir3, march_celest).normalized()
 	if vol_sky:
-		vol_sky.celestial_direction = cel_dir
-	sky_mat.set_shader_parameter("celestial_dir", cel_dir)
+		vol_sky.celestial_direction = march_dir
+		vol_sky.lut_direction = sun_dir3
+		vol_sky.night_light = night_f
+	sky_mat.set_shader_parameter("celestial_dir", sun_dir3)
+	sky_mat.set_shader_parameter("night_amount", night_f)
 
-	# Moon + sun disk rendering inputs (sky.md 2.5): true sun for the
-	# disk/blaze + the moon's terminator, moon direction/phase, and the
-	# perceptual apparent-size drive — bodies swell ~1.6x near the
-	# horizon (the classic perceptual moon illusion, art-directed),
-	# shrink slightly toward zenith; refraction squashes the disk
-	# vertically within ~2 deg of the horizon.
+	# Moon + sun disk rendering inputs (sky.md 2.5 + §6 P1): true sun for
+	# the disk/blaze + the moon's terminator, moon direction/phase, and
+	# the perceptual apparent-size drive. Chris's art direction
+	# (2026-07-01): the bodies read subjectively HUGE when you focus on
+	# them low in the sky — swell begins in the lower quarter (~25 deg)
+	# and reaches ~5x at the horizon; slight shrink toward zenith;
+	# refraction squashes the disk vertically within ~2 deg.
 	sky_mat.set_shader_parameter("true_sun_dir", sun_dir3)
 	sky_mat.set_shader_parameter("moon_dir", moon_dir3)
 	var moon_vis: float = smoothstep(-1.5, 2.0, moon_h.x)
-	var moon_scale: float = 1.8 * (1.0 + 0.6 * smoothstep(10.0, 0.0, moon_h.x)) \
+	var moon_scale: float = 2.0 * (1.0 + 1.3 * smoothstep(25.0, 0.0, moon_h.x)) \
 			* (1.0 - 0.12 * smoothstep(30.0, 60.0, moon_h.x))
 	var moon_squash: float = 1.0 - 0.22 * smoothstep(4.0, -0.5, moon_h.x)
 	sky_mat.set_shader_parameter("moon_params",
 			Vector4(moon_k, moon_scale, moon_vis, moon_squash))
 	if vol_sky:
-		vol_sky.sun_disk_scale = 2.5 * (1.0 + 0.5 * smoothstep(10.0, 0.0, sun_h.x)) \
+		vol_sky.sun_disk_scale = 2.5 * (1.0 + 1.2 * smoothstep(25.0, 0.0, sun_h.x)) \
 				* (1.0 - 0.15 * smoothstep(40.0, 70.0, sun_h.x))
 	sky_mat.set_shader_parameter("sun_disk_squash",
 			1.0 - 0.22 * smoothstep(4.0, -0.5, sun_h.x))

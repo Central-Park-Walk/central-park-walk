@@ -253,6 +253,25 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth, float jitter) {
 	atmosphere_ambient = mix(atmosphere_ambient, vec3(length(atmosphere_ambient)), 0.5); // interpolate towards white with this intensity.
 	vec3 atmosphere_ground = getValFromSkyLUT(normalize(vec3(1.0, -1.0, 0.0))) * 5.0 * 0.05 * params.ambient_scale;
 	atmosphere_ground = mix(atmosphere_ground, params.ground_color.rgb * vec3(length(atmosphere_ground)), 0.5); // interpolate towards ground color with this intensity.
+
+	// Night lighting (sky.md §6 P0). The LUT terms above go to ~0 once the
+	// real sun is below ~-14 deg, so the night factor (ground_color.a — the
+	// push constant is otherwise full) blends in the two real night sources:
+	// - moonlight: LIGHT_DIRECTION is the moon at night and LIGHT_ENERGY is
+	//   already phase-scaled (~0.05 full moon, ~0.003 moonless floor), so
+	//   this term self-scales with phase and vanishes when the moon is down;
+	// - NYC city glow: the amber wash a lit city throws on cloud bases —
+	//   phase-independent, the dominant light on overcast nights.
+	float night_f = params.ground_color.a;
+	atmosphere_sun += night_f * vec3(0.75, 0.85, 1.05) * 0.6 * params.LIGHT_ENERGY * params.LIGHT_COLOR;
+	// City glow tuned so cloud bases read ~2x BRIGHTER than the night-sky
+	// LP dome behind them (NYC clouds catch the city — cloudy nights are
+	// brighter than clear ones). Converged sweeps showed 0.02-0.032 lands
+	// clouds AT sky level (silhouettes; the early "salmon" reading at
+	// 0.036 was a stale-LUT capture artifact) — the ambient occlusion +
+	// alpha compositing eat roughly half the term. Hue amber, not red.
+	atmosphere_ground += night_f * vec3(0.070, 0.050, 0.026);
+	atmosphere_ambient += night_f * vec3(0.012, 0.012, 0.014);
 	
 	for (int i = 0; i < depth; i++) {
 		p += dir * ss;

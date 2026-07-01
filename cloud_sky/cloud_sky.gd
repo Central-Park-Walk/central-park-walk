@@ -62,10 +62,18 @@ var texture_size : int = 768: # Needs to be divisible by sqrt(frames_to_update)
 
 var sun : DirectionalLight3D
 
-# Celestial sun direction for the sky LUT + cloud march, set by
-# day_night_cycle.gd (decoupled from the shadow light during twilight —
-# 2026-06-11). ZERO = unset, follow the light.
+# Cloud-march light direction, set by day_night_cycle.gd (decoupled from
+# the shadow light during twilight — 2026-06-11). Sun by day, moon at
+# night. ZERO = unset, follow the light.
 var celestial_direction := Vector3.ZERO
+# Atmosphere-LUT sun direction (sky.md §6 P0): the REAL sun ALWAYS — the
+# LUT darkens honestly through twilight instead of re-lighting off the
+# night light. ZERO = unset, follow celestial/light.
+var lut_direction := Vector3.ZERO
+# Night factor (0 day → 1 night, set by day_night_cycle.gd): gates the
+# march's moonlight + NYC city-glow terms. Rides ground_color.a in the
+# push constant (which is otherwise full).
+var night_light: float = 0.0
 
 var date_time_location : Node3D
 
@@ -300,6 +308,8 @@ func _update_per_frame_data():
 	frame_data.cloud_coverage = cloud_coverage
 	frame_data.time_offset = time_offset
 	frame_data.ground_color = ground_color
+	# Night factor rides the (unread) ground_color alpha — see night_light.
+	frame_data.ground_color.a = night_light
 	frame_data.sun_scale = sun_scale
 	frame_data.ambient_scale = ambient_scale
 
@@ -329,7 +339,9 @@ func _update_per_frame_data():
 				wind_direction_normalized.y, frame_data._cloud_pos.x,
 				frame_data._cloud_pos.y, delta])
 
-	sky_lut.update_lut(frame_data.LIGHT_DIRECTION)
+	# LUT sun = the real sun (P0); falls back to the march light if unset.
+	sky_lut.update_lut(lut_direction if lut_direction != Vector3.ZERO
+			else frame_data.LIGHT_DIRECTION)
 
 func _validate_property(property):
 	if property.name == "sky_material" or property.name == "process_mode":

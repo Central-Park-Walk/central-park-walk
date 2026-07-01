@@ -48,6 +48,16 @@ uniform float cirrostratus_amount : hint_range(0.0, 1.0) = 0.0;
 uniform float altocumulus_amount : hint_range(0.0, 1.0) = 0.0;
 uniform float high_cloud_gain : hint_range(0.0, 40.0) = 6.0;
 
+// Night sky layers (sky.md §6 P0). The LUT darkens honestly to ~0 at
+// night (real sun below the horizon); what you actually see over NYC is
+// additive on top of that: the amber light-pollution dome (Bortle 8-9,
+// Midtown-south brighter) and the brighter stars punching through it —
+// art-directed a touch past strict Bortle for "dramatic night skies".
+// night_amount is set by day_night_cycle.gd (0 day -> 1 night).
+uniform float night_amount : hint_range(0.0, 1.0) = 0.0;
+uniform float star_intensity : hint_range(0.0, 4.0) = 1.0;
+uniform float light_pollution_gain : hint_range(0.0, 4.0) = 1.0;
+
 vec2 oct_wrap(vec2 v) {
 	vec2 signVal;
 	signVal.x = v.x >= 0.0 ? 1.0 : -1.0;
@@ -145,63 +155,7 @@ vec3 disk_sun_dir() {
 	return dot(true_sun_dir, true_sun_dir) > 0.25 ? true_sun_dir : sun_dir();
 }
 
-// Moon body (sky.md 2.5): opaque phase-shaded disk. Returns the pixel
-// color with the moon composited over the background — the lit part is
-// moonlight through atmospheric transmittance (reddens/dims at the
-// horizon) plus the sky's own in-scatter haze (daytime moon reads pale
-// blue-washed for free); the dark limb keeps faint earthshine.
-vec3 moon_body(vec3 dir, vec3 bg) {
-	if (moon_params.z <= 0.001) return bg;
-	vec3 m = normalize(moon_dir);
-	if (dot(dir, m) < 0.5) return bg;
-	float ang_r = moon_params.y * 0.53 * PI / 180.0; // matches sun convention
-	vec3 u = normalize(cross(vec3(0.0, 1.0, 0.0), m));
-	vec3 v = cross(m, u);
-	vec3 off = dir - m * dot(dir, m);
-	float sin_r = sin(ang_r);
-	float px = dot(off, u) / sin_r;
-	float pv = dot(off, v) / (moon_params.w * sin_r);
-	float r2 = px * px + pv * pv;
-	if (r2 >= 1.0) return bg;
-	// Sphere normal on the earth-facing hemisphere; light with the true
-	// sun direction (sun is ~400x farther — its earth-relative direction
-	// IS the light direction at the moon).
-	float z = sqrt(1.0 - r2);
-	vec3 n = normalize(u * px + v * pv - m * z);
-	float lit = dot(n, normalize(disk_sun_dir()));
-	float shade = smoothstep(-0.06, 0.18, lit);
-	// Limb darkening + a touch of large-scale maria mottling
-	float limb = 0.95 + 0.05 * z;  // real moon is near-flat (regolith backscatter), not solar limb-darkened
-	float maria = 0.88 + 0.12 * sin(px * 7.1 + 2.3) * sin(pv * 6.3 - 1.7);
-	// Day washes the disk toward the sky (contrast collapses; the in-
-	// scatter term below does the rest).
-	float dayness = smoothstep(-0.05, 0.20, disk_sun_dir().y);
-	float lum = mix(2.2, 0.9, dayness);
-	vec3 surf = vec3(0.92, 0.93, 0.95) * lum * limb * maria
-			* (shade + 0.018 * (1.0 - shade));         // earthshine
-	surf *= getValFromTLUT(source_transmittance, tLUTRes, viewPos, m);
-	vec3 moon_col = surf + getValFromSkyLUT(dir);       // in-scatter haze
-	float edge = smoothstep(1.0, 0.93, r2);             // soft limb
-	return mix(bg, moon_col, edge * moon_params.z);
-}
-
-vec3 get_atmo(vec3 dir) {
-	vec3 col = getValFromSkyLUT(dir);
-	vec3 sunLum = sunWithBloom(dir, disk_sun_dir());
-    if (length(sunLum) > 0.0) {
-        if (rayIntersectSphere(viewPos, dir, groundRadiusMM) >= 0.0) {
-            sunLum *= 0.0;
-        } else {
-            // If the sun value is applied to this pixel, we need to calculate the transmittance to obscure it.
-        	sunLum *= getValFromTLUT(source_transmittance, tLUTRes, viewPos, disk_sun_dir());
-		}
-    }
-    col += sunLum;
-	col = moon_body(dir, col);
-	return col;
-}
-
-// --- High ice layer noise (cheap value-noise fBm + Worley cells) ---
+// Cheap value-noise stack (also used by the high ice layer below).
 float h21(vec2 p) {
 	// Precision-safe hash (Dave Hoskins) — the sin-based hash loses precision
 	// at the large coordinates the flat-sheet projection reaches near the
@@ -230,6 +184,114 @@ float fbm(vec2 p) {
 	}
 	return s;
 }
+
+// Moon body (sky.md 2.5): opaque phase-shaded disk. Returns the pixel
+// color with the moon composited over the background — the lit part is
+// moonlight through atmospheric transmittance (reddens/dims at the
+// horizon) plus the sky's own in-scatter haze (daytime moon reads pale
+// blue-washed for free); the dark limb keeps faint earthshine.
+vec3 moon_body(vec3 dir, vec3 bg) {
+	if (moon_params.z <= 0.001) return bg;
+	vec3 m = normalize(moon_dir);
+	if (dot(dir, m) < 0.5) return bg;
+	float ang_r = moon_params.y * 0.53 * PI / 180.0; // matches sun convention
+	vec3 u = normalize(cross(vec3(0.0, 1.0, 0.0), m));
+	vec3 v = cross(m, u);
+	vec3 off = dir - m * dot(dir, m);
+	float sin_r = sin(ang_r);
+	float px = dot(off, u) / sin_r;
+	float pv = dot(off, v) / (moon_params.w * sin_r);
+	float r2 = px * px + pv * pv;
+	if (r2 >= 1.0) return bg;
+	// Sphere normal on the earth-facing hemisphere; light with the true
+	// sun direction (sun is ~400x farther — its earth-relative direction
+	// IS the light direction at the moon).
+	float z = sqrt(1.0 - r2);
+	vec3 n = normalize(u * px + v * pv - m * z);
+	float lit = dot(n, normalize(disk_sun_dir()));
+	float shade = smoothstep(-0.06, 0.18, lit);
+	// Limb darkening + irregular maria blotches (P1: the disk reads up to
+	// ~5x now — the old sine plaid read as a checker at that size).
+	float limb = 0.95 + 0.05 * z;  // real moon is near-flat (regolith backscatter), not solar limb-darkened
+	float mn = vnoise(vec2(px, pv) * 3.0 + 7.0) * 0.65
+			+ vnoise(vec2(px, pv) * 6.5 + 2.0) * 0.35;
+	float maria = 1.0 - 0.22 * smoothstep(0.42, 0.62, mn);
+	// Day washes the disk toward the sky (contrast collapses; the in-
+	// scatter term below does the rest).
+	float dayness = smoothstep(-0.05, 0.20, disk_sun_dir().y);
+	float lum = mix(2.2, 0.9, dayness);
+	vec3 surf = vec3(0.92, 0.93, 0.95) * lum * limb * maria
+			* (shade + 0.018 * (1.0 - shade));         // earthshine
+	surf *= getValFromTLUT(source_transmittance, tLUTRes, viewPos, m);
+	vec3 moon_col = surf + getValFromSkyLUT(dir);       // in-scatter haze
+	float edge = smoothstep(1.0, 0.93, r2);             // soft limb
+	return mix(bg, moon_col, edge * moon_params.z);
+}
+
+// Precision-safe scalar hash (Dave Hoskins) for the star cells.
+float star_hash(vec2 p) {
+	vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+	p3 += dot(p3, p3.yzx + 33.33);
+	return fract((p3.x + p3.y) * p3.z);
+}
+
+// Light-pollution dome + starfield, in sky-LUT display units (added to
+// the background BEFORE the moon composite and the cloud layers, so
+// clouds/ice occlude stars and the moon draws over them).
+vec3 night_sky(vec3 dir) {
+	if (night_amount < 0.001 || dir.y < 0.0) return vec3(0.0);
+	// Amber dome: horizon-heavy with a zenith floor (NYC is never black);
+	// south (+Z, Midtown) brighter than north (Harlem).
+	float lp_h = exp(-max(dir.y, 0.0) * 5.0) + 0.22;
+	float south = 0.78 + 0.22 * clamp(dir.z, -1.0, 1.0);
+	vec3 lp = vec3(0.085, 0.054, 0.027) * lp_h * south * light_pollution_gain;
+	// Stars: hashed cells, power-law brightness (few bright, many faint),
+	// jittered subpixel points, gentle twinkle; murk-fade near the horizon.
+	vec2 suv = dir.xz / (dir.y + 0.08) * 60.0;
+	vec2 cell = floor(suv);
+	float rnd = star_hash(cell);
+	vec3 star = vec3(0.0);
+	if (rnd > 0.988) {
+		float b = star_hash(cell + 19.19);
+		b = b * b * b;
+		vec2 jit = (vec2(star_hash(cell + 7.7), star_hash(cell + 3.3)) - 0.5) * 0.6;
+		float pt = smoothstep(0.11, 0.02, length(fract(suv) - 0.5 - jit));
+		float tw = 0.75 + 0.25 * sin(TIME * (1.5 + rnd * 2.0) + rnd * 40.0);
+		float hue = star_hash(cell + 11.1);
+		vec3 scol = mix(vec3(1.0, 0.83, 0.65), vec3(0.72, 0.84, 1.0), hue);
+		float horiz = smoothstep(0.03, 0.25, dir.y);
+		star = scol * (0.10 + b) * pt * tw * horiz * 2.0 * star_intensity;
+	}
+	return (lp + star) * night_amount;
+}
+
+vec3 get_atmo(vec3 dir) {
+	vec3 col = getValFromSkyLUT(dir);
+	col += night_sky(dir);
+	vec3 sunLum = sunWithBloom(dir, disk_sun_dir());
+    if (length(sunLum) > 0.0) {
+        if (rayIntersectSphere(viewPos, dir, groundRadiusMM) >= 0.0) {
+            sunLum *= 0.0;
+        } else {
+            // If the sun value is applied to this pixel, we need to calculate the transmittance to obscure it.
+        	sunLum *= getValFromTLUT(source_transmittance, tLUTRes, viewPos, disk_sun_dir());
+		}
+    }
+    col += sunLum;
+	col = moon_body(dir, col);
+	// Moon halo (P1): tight scatter glow + faint wide aureole, night-gated
+	// (daylight washes it out anyway) and phase-scaled via moon_params.x.
+	if (moon_params.z > 0.001 && night_amount > 0.001) {
+		float md = max(dot(dir, normalize(moon_dir)), 0.0);
+		float halo = pow(md, 400.0) * 0.10 + pow(md, 40.0) * 0.012;
+		col += vec3(0.55, 0.60, 0.72) * halo * moon_params.z * night_amount
+				* (0.25 + 0.75 * moon_params.x);
+	}
+	return col;
+}
+
+// --- High ice layer noise (cheap value-noise fBm + Worley cells) ---
+// (h21/vnoise/fbm live above moon_body — the moon maria reuse them.)
 // Worley F1 distance — small value near a cell centre, ~1 at cell edges.
 float worley(vec2 p) {
 	vec2 ip = floor(p);
