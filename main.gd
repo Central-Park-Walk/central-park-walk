@@ -86,8 +86,10 @@ const SHELL_GRASS_SUBDIV := 98     # tessellation so the patch conforms to hills
 # near ~12 m (the hybrid). Default ON with shell grass; --no-blades perf-gates it.
 var _grass_blades := true
 var _grass_blades_mmi: MultiMeshInstance3D = null
-const BLADE_BAND_PATCH := 30.0     # blade grid extent (m); follows the camera (radius ~15m)
-const BLADE_BAND_CELL := 0.26      # placement grid spacing (m); MUST match the shader cell_size
+const BLADE_BAND_PATCH := 26.0     # blade grid extent (m); follows the camera (radius ~13m)
+const BLADE_BAND_CELL := 0.075     # placement grid spacing (m); MUST match the shader cell_size
+# ^ dense: ~120k instances (was 0.26 = ~13k). The near-field blade mass now COVERS the
+# shell mat instead of scattering over it — perf-gated by --no-blades.
 # Temporary: suspend data-driven grass height for pure aesthetics — lush, readable
 # grass from standing height (mown-turf data is too short to read). false = data-driven.
 const GRASS_LUSH := true
@@ -852,6 +854,10 @@ func _process(delta: float) -> void:
 		if sg_mesh and sg_mesh.material is ShaderMaterial:
 			(sg_mesh.material as ShaderMaterial).set_shader_parameter(
 				"patch_center", Vector2(snapped.x, snapped.z))
+			# True camera xz so the shell clears out of the near-field blade zone
+			# (blades own that area) and only fills the ground beyond the blade band.
+			(sg_mesh.material as ShaderMaterial).set_shader_parameter(
+				"near_center", Vector2(cp.x, cp.z))
 
 	# Near-field blade band follows the camera too. Snap to the CELL grid so each
 	# instance stays on a fixed world cell (the shader keys all per-blade variation
@@ -2806,6 +2812,10 @@ func _setup_shell_grass() -> void:
 	mat.set_shader_parameter("shell_count", SHELL_GRASS_SHELLS)
 	mat.set_shader_parameter("fantasy", GRASS_FANTASY)
 	mat.set_shader_parameter("aesthetic", 1.0 if GRASS_LUSH else 0.0)
+	# When the near-field blade band is active, clear the shell out of the blade zone
+	# (blades own it) so the shell isn't drawn just to be hidden — it only fills the
+	# ground beyond the band. 0 = no clear (blades off → shell covers everything).
+	mat.set_shader_parameter("near_clear_r", (BLADE_BAND_PATCH * 0.5 - 5.0) if _grass_blades else 0.0)
 	mat.set_shader_parameter("heightmap_tex", _park_loader._hm_texture)
 	mat.set_shader_parameter("hm_world_size", _park_loader._hm_world_size)
 	mat.set_shader_parameter("hm_min_h", _park_loader._hm_min_h)

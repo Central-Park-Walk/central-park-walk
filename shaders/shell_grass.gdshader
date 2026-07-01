@@ -41,6 +41,12 @@ uniform float fantasy : hint_range(0.0, 1.0) = 1.0;
 // lawns (e.g. The Mall) stay lush green instead of eroding to tan dirt. Only the
 // most extreme wear still erodes. Matches grass_blades.gdshader's aesthetic flag.
 uniform float aesthetic : hint_range(0.0, 1.0) = 1.0;
+// Near-field clear: when the 3D blade band owns the near ground, don't draw the shell
+// there (it would only be hidden). The shell fades IN past near_clear_r so it fills the
+// ground BEYOND the blade band. near_clear_r=0 disables (blades off → shell everywhere).
+uniform vec2  near_center     = vec2(0.0);
+uniform float near_clear_r    = 0.0;
+uniform float near_clear_fade = 6.0;
 uniform int   shell_count  = 32;
 uniform float density       = 33.0;   // blade cells per meter
 // blade_len/blade_wid are now the BASE half-extents (near-full cell), so the
@@ -162,6 +168,15 @@ void fragment(){
 	if (unmown) keep *= 0.92;
 	float mat = mat_height * (1.0 - smoothstep(0.20, 0.62, wear_e));   // mat erodes on paths
 	keep *= 1.0 - smoothstep(0.15, 0.6, wear_e) * 0.98;
+	// Near-field clear: fade the shell OUT inside the blade zone (blades own it) and
+	// IN beyond it, so the shell is only drawn where it does real work (the distance).
+	float near_vis = near_clear_r > 0.01
+		? smoothstep(near_clear_r, near_clear_r + near_clear_fade, distance(world, near_center))
+		: 1.0;
+	keep *= near_vis;
+	mat  *= near_vis;
+	if (near_vis < 0.02) discard;
+
 	// Rim dissolve: thin height (mat), tall-blade count (keep), and drop whole
 	// cells stochastically so the patch grades into terrain instead of a disc edge.
 	keep *= edge;

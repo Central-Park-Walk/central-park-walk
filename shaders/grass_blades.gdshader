@@ -48,15 +48,15 @@ global uniform vec2 wind_vec;
 uniform vec2  band_center  = vec2(0.0);
 uniform float band_radius  = 13.0;   // metres from camera where blades are fully gone
 uniform float band_fade    = 5.0;    // dissolve-ring width
-uniform float cell_size    = 0.26;   // placement grid spacing (m); MUST match main.gd
-uniform float blade_width  = 0.0075; // half-width scale (m); full blade ~2x (wider = fewer dark edge-on slivers)
+uniform float cell_size    = 0.075;  // placement grid spacing (m); MUST match main.gd
+uniform float blade_width  = 0.006;  // half-width scale (m); full blade ~2x (thin: reads as individual blades in a dense mass)
 uniform float height_scale = 1.0;    // global height multiplier (tuning)
-uniform float density      = 0.85;   // fraction of cells that grow a blade in mown turf
+uniform float density      = 0.97;   // fraction of cells that grow a blade (dense mass)
 
 // --- AAA look controls ---
 uniform float clump_size   = 0.62;   // tuft spacing (m): blades gather into clumps this big
-uniform float clump_pull   = 0.45;   // 0=even grid, 1=all blades on the clump centre
-uniform float bare_frac    = 0.05;   // fraction of clumps left bare (negative space)
+uniform float clump_pull   = 0.35;   // 0=even grid, 1=all blades on the clump centre
+uniform float bare_frac    = 0.04;   // fraction of clumps left bare (negative space)
 uniform float height_var   = 0.45;   // ± per-clump height spread
 uniform float dead_frac    = 0.05;   // fraction of dead/straw blades
 uniform float gust_scale   = 0.045;  // spatial freq of the rolling gust field
