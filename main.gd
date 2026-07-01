@@ -135,25 +135,6 @@ const CARD_FAR_RADIUS := 55.0
 # Temporary: suspend data-driven grass height for pure aesthetics — lush, readable
 # grass from standing height (mown-turf data is too short to read). false = data-driven.
 const GRASS_LUSH := true
-
-# CLIPMAP GRASS (2026-07-01) — the new single-system grass, ported from TerraBrush's foliage
-# clipmap (see shaders/grass_clipmap.gdshader). ONE camera-centered MultiMesh of blade CLUMPS
-# placed by a clipmap in the vertex shader: dense inner square, cell size doubling outward, so
-# it covers the whole park (dense centre → sparse edge → terrain beyond) at a bounded instance
-# count — the thing the uniform turf-tile grid (cost R²) could never do. The ground under/beyond
-# it is the terrain texture (terrain3d_override, already sward-colour-matched); NO shell/dome, so
-# there is no second overlapping layer to ring. Prototype default ON; --no-clipmap-grass gates it.
-var _grass_clipmap := true
-var _grass_clipmap_mmi: MultiMeshInstance3D = null
-const CLIP_INITIAL_CELL := 0.35    # inner clump spacing (m) = densest core
-const CLIP_LOD_ROWS := 21          # rows per clipmap level (forced odd); bigger = larger dense core
-const CLIP_LOD_LEVELS := 5         # doubling levels; reach ≈ (rows/2)*cell*2^(levels-1) ≈ 126m
-const CLIP_RAND_PLACE := 0.16      # per-clump random offset (m) to break the grid
-const CLIP_CLUMP_BLADES := 14      # blades baked per clump mesh
-const CLIP_CLUMP_R := 0.26         # clump footprint radius (m); ~cell so inner clumps just meet
-const CLIP_BLADE_H := 0.17         # blade height (m) — mown bluegrass lawn
-const CLIP_BLADE_W := 0.020        # blade base width (m)
-
 # Weather state — enum for fast comparison in hot paths
 enum Weather { CLEAR, RAIN, THUNDERSTORM, SNOW, FOG }
 const WEATHER_NAMES: Array = ["clear", "rain", "thunderstorm", "snow", "fog"]
@@ -230,10 +211,6 @@ func _parse_cli_args() -> void:
 			_shell_grass = false  # opt back into the legacy particle + ground_cover grass
 		elif arg == "--no-blades":
 			_grass_blades = false  # disable the near-field 3D blade band (perf gate)
-		elif arg == "--no-clipmap-grass":
-			_grass_clipmap = false  # disable the clipmap blade field (falls back to terrain texture only)
-		elif arg == "--clipmap-grass":
-			_grass_clipmap = true   # explicit (it is the prototype default)
 		elif key == "--time" and val != "":
 			cli_time = val
 		elif key == "--screenshot-file" and val != "":
@@ -552,12 +529,6 @@ func _ready() -> void:
 				if _cli_grass_highlight:
 					_diag_toggle_grass_highlight()
 				print("main: grass particles: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
-		# CLIPMAP GRASS — the new single-system blade field (on top of the terrain texture, which
-		# is the ground). Independent of the legacy shell/turf toggles above so it works while
-		# GRASS_TERRAIN_ONLY is true. --no-clipmap-grass gates it.
-		if _terrain3d and not _grass_off and _grass_clipmap:
-			_setup_grass_clipmap()
-			print("main: clipmap grass: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 	_player = _setup_player()
 	if _park_loader and _park_loader.boundary_polygon.size() > 2:
 		_player.boundary_polygon = _park_loader.boundary_polygon
@@ -3377,150 +3348,6 @@ func _setup_turf_tiles() -> void:
 	print("Turf tiles: %d tiles x %d blades = %d (~%.1fM tris, radius %.0fm)" % [
 		xforms.size(), TURF_BLADES, xforms.size() * TURF_BLADES,
 		xforms.size() * TURF_BLADES * 6.0 / 1e6, TURF_RADIUS])
-
-
-func _clipmap_instance_count(rows: int, levels: int) -> int:
-	## EXACT number of clipmap points the grass_clipmap shader addresses for (rows, levels).
-	## Mirrors the shader's index partition (foliage_multimesh_shader_include, TerraBrush): an
-	## inner P×P square + (levels-1) rings of (top+bottom bands + left+right bands). The MultiMesh
-	## instance_count MUST equal this — the shader collapses any spare index, but an under-count
-	## leaves un-addressed clipmap points = holes.
-	var r := rows
-	if r % 2 == 0:
-		r += 1
-	var p := 2 * r + 3                                  # points per side of a level
-	var top_lines := (r + 1) / 2                        # integer division (matches shader)
-	var ring := 2 * p * top_lines + 2 * top_lines * (p - 2 * top_lines)
-	return p * p + (levels - 1) * ring
-
-
-func _clump_vert(st: SurfaceTool, pos: Vector3, up: float, col: Color) -> void:
-	## One clump-blade vertex: COLOR = per-blade family multiplier (the shader multiplies it by
-	## the terrain-matched base colour), UV.y = up-fraction (base→tip ramp + wind + backlight),
-	## NORMAL up (blades lit as a soft mass, like the turf tiles).
-	st.set_color(col)
-	st.set_uv(Vector2(0.0, up))
-	st.set_normal(Vector3(0.0, 1.0, 0.0))
-	st.add_vertex(pos)
-
-
-func _add_clump_blade(st: SurfaceTool, bx: float, bz: float, ang: float, h: float,
-		w: float, curve: float, mult: Color) -> void:
-	## One curved tapered blade at (bx,bz) in clump-local space. Same profile as the turf-tile
-	## blade, but COLOR is a MULTIPLIER around 1 (family lean × vitality) rather than an absolute
-	## colour — the absolute albedo comes from the shared sward/zone field in the shader so the
-	## clumps match the terrain and never band against it.
-	const SEGS := 3
-	var fwd := Vector2(cos(ang), sin(ang))
-	var rgt := Vector2(-fwd.y, fwd.x)
-	var L := []
-	var R := []
-	var T := []
-	for i in SEGS + 1:
-		var t := float(i) / float(SEGS)
-		var halfw := w * (1.0 - t * 0.7) * 0.5
-		var lean := (t * 0.30 + t * t * 0.70) * h * curve
-		var cx := bx + fwd.x * lean
-		var cz := bz + fwd.y * lean
-		var y := t * h
-		L.append(Vector3(cx - rgt.x * halfw, y, cz - rgt.y * halfw))
-		R.append(Vector3(cx + rgt.x * halfw, y, cz + rgt.y * halfw))
-		T.append(t)
-	for i in SEGS:
-		_clump_vert(st, L[i], T[i], mult)
-		_clump_vert(st, R[i], T[i], mult)
-		_clump_vert(st, L[i + 1], T[i + 1], mult)
-		_clump_vert(st, R[i], T[i], mult)
-		_clump_vert(st, R[i + 1], T[i + 1], mult)
-		_clump_vert(st, L[i + 1], T[i + 1], mult)
-
-
-func _make_grass_clump_mesh() -> ArrayMesh:
-	## One small 3D mesh = a clump of CLIP_CLUMP_BLADES real blades in a ~CLIP_CLUMP_R disc. This
-	## is the unit the clipmap instances thousands of times (dense near, sparse far). Per-blade
-	## family multiplier baked in COLOR; shape baked here so the vertex shader stays cheap.
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 20260701
-	for i in CLIP_CLUMP_BLADES:
-		# Disc-uniform placement (sqrt for even radial density), so the clump reads round + even.
-		var a := rng.randf() * TAU
-		var rr := sqrt(rng.randf()) * CLIP_CLUMP_R
-		var bx := cos(a) * rr
-		var bz := sin(a) * rr
-		var ang := rng.randf() * TAU
-		var h := CLIP_BLADE_H * rng.randf_range(0.75, 1.2)
-		var w := CLIP_BLADE_W * rng.randf_range(0.85, 1.15)
-		var curve := rng.randf_range(0.4, 0.9)
-		var vit := rng.randf_range(0.9, 1.1)
-		# Bluegrass family LEAN as a multiplier around 1 (mean ≈ 1 so the terrain-matched base
-		# level is preserved): mostly neutral, a cool minority, a warm-straw fraction, a few pale.
-		var fam := rng.randf()
-		var mult: Color
-		if fam < 0.08:
-			mult = Color(0.85, 1.02, 1.10)   # cool blue-green cast
-		elif fam < 0.22:
-			mult = Color(1.28, 1.10, 0.62)   # dry warm straw
-		elif fam < 0.27:
-			mult = Color(1.15, 1.20, 1.05)   # pale seed-head accent
-		else:
-			mult = Color(1.0, 1.0, 1.0)      # neutral majority
-		mult = Color(mult.r * vit, mult.g * vit, mult.b * vit)
-		_add_clump_blade(st, bx, bz, ang, h, w, curve, mult)
-	return st.commit()
-
-
-func _setup_grass_clipmap() -> void:
-	## The clipmap blade field: one MultiMesh of clump meshes, placed by the clipmap in
-	## grass_clipmap.gdshader (dense centre → sparse edge → terrain beyond), camera-centered and
-	## world-locked. The MMI is never moved (placement is INSTANCE_ID + the player_world_pos
-	## global), so no per-frame push is needed here — the shader reads the global each frame.
-	var shader: Shader = load("res://shaders/grass_clipmap.gdshader")
-	if not shader:
-		push_warning("grass_clipmap.gdshader not found"); return
-	if not _terrain3d or not _terrain3d.data:
-		push_warning("clipmap grass: Terrain3D unavailable"); return
-
-	var mat := ShaderMaterial.new()
-	mat.shader = shader
-	mat.set_shader_parameter("initial_cell", CLIP_INITIAL_CELL)
-	mat.set_shader_parameter("lod_rows", CLIP_LOD_ROWS)
-	mat.set_shader_parameter("lod_levels", CLIP_LOD_LEVELS)
-	mat.set_shader_parameter("rand_place", CLIP_RAND_PLACE)
-	mat.set_shader_parameter("height_scale", 1.0)
-	if _landuse_texture:
-		mat.set_shader_parameter("landuse_map", _landuse_texture)
-	mat.set_shader_parameter("world_size", _park_loader._hm_world_size if _park_loader else 5000.0)
-	# Conform to Terrain3D's own surface (the height the player walks on).
-	_push_terrain3d_conform(mat)
-
-	var clump := _make_grass_clump_mesh()
-	clump.surface_set_material(0, mat)
-
-	var count := _clipmap_instance_count(CLIP_LOD_ROWS, CLIP_LOD_LEVELS)
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = clump
-	mm.instance_count = count
-	# All instance transforms are IDENTITY — INSTANCE_ID drives placement in the shader, and the
-	# shader writes absolute world positions, so MODEL_MATRIX must stay identity.
-	for i in count:
-		mm.set_instance_transform(i, Transform3D.IDENTITY)
-
-	var mmi := MultiMeshInstance3D.new()
-	mmi.name = "ClipmapGrass"
-	mmi.multimesh = mm
-	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# The MMI never moves and the field is always around the camera, so a park-wide AABB keeps it
-	# from being frustum-culled once the player walks away from the origin.
-	mmi.custom_aabb = AABB(Vector3(-4000.0, -400.0, -4000.0), Vector3(8000.0, 800.0, 8000.0))
-	add_child(mmi)
-	_grass_clipmap_mmi = mmi
-	var reach := float((2 * CLIP_LOD_ROWS + 3) / 2) * CLIP_INITIAL_CELL * pow(2.0, float(CLIP_LOD_LEVELS - 1))
-	print("Clipmap grass: %d clumps x %d blades = %d blades (~%.2fM tris, reach ~%.0fm)" % [
-		count, CLIP_CLUMP_BLADES, count * CLIP_CLUMP_BLADES,
-		count * CLIP_CLUMP_BLADES * 6.0 / 1e6, reach])
 
 
 func _make_card_mesh() -> ArrayMesh:
