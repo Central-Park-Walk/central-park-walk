@@ -54,6 +54,39 @@ it near the camera**, not a field of discrete tuft objects. Three layers:
 Eval bare terrain with `--no-grass` (skips blade particles; `main.gd`). The
 `--terrain-only` capture path honours `--pitch` (e.g. `-89` for straight down).
 
+## 0c. Turf-tile grass — the "3D mesh world" blades (CURRENT near/mid, 2026-06-30 → 07-01)
+
+The near/mid grass is now **real 3D blade geometry**, not cards/tufts: a tile mesh packed
+with hundreds–thousands of baked curved blades (`_make_turf_tile_mesh`, `turf_tile.gdshader`),
+instanced on a camera-following grid so blades are genuine from **any** angle incl. straight
+down — no billboard swivel, no radial starbursts. Beyond it, the §0b shell/terrain texture
+fills the distance (`near_clear_r = TURF_REACH - 8`).
+
+**Per-LOD density rings (2026-07-01).** One 8000-blade tile everywhere vertex-shaded ~6M
+blades/frame even when far ones were LOD-collapsed → <30 fps. Replaced by **3 concentric
+rings** (`TURF_RINGS` in `main.gd`), each its own MultiMesh + mesh baked at that ring's
+density: ring0 8000 blades (immediate ~6 m, full density where it's scrutinised), ring1 3000
+(4–14 m), ring2 1100 (11–24 m). Only tiles whose blades fall in the ring's `[inner, outer+fade]`
+annulus are instanced (the rest render nothing). Rings overlap in their `TURF_RING_FADE`
+cross-fades so the density step between LODs dissolves. **~37.6M → ~14.2M tris.** Levers to
+dial for fps: the per-ring `blades` counts and `outer` radii.
+
+**Pulse fix (same change).** The old single grid's leading short edge sat inside the far-fade,
+so a new tile row popped in at cover ~0.16 every ~2 m walked ("grass pulses ahead of me").
+The ring fades are driven by the **continuous true-camera `band_center`** (not the snapped
+grid), and every annulus edge sits in the fully-faded (cover 0) zone, so tiles never appear/
+disappear abruptly — the pulse is gone structurally.
+
+**Textured ground mat (2026-07-01).** The horizontal backstop mat + thatch (flagged via
+`UV2.x` in `_turf_vert`) are textured with `textures/grass_albedo.jpg` sampled by **true world
+XZ** (`mat_tex` in `turf_tile.gdshader`, `mat_tex_scale`/`mat_tint`/`mat_bright` uniforms), so
+straight down shows continuous grass detail between the standing blades — **no flat colour
+pools** (the old `d1_down` defect). World-XZ sampling ⇒ seamless across overlapping tiles
+regardless of per-tile yaw. Standing blades stay vertex-coloured.
+
+Gated by `--no-blades`. Walk: `--park --pos "-464,1051,86,1.7" --time 13` (add `--pitch -88`
+for the straight-down mat check).
+
 ## 1. System map
 
 Three cooperating layers; color coherence comes from every layer including

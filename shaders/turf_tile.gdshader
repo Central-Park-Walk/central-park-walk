@@ -18,11 +18,25 @@ uniform float hm_res    = 4096.0;
 
 global uniform vec2 wind_vec;
 uniform vec2  band_center = vec2(0.0);
+// Ring band fades: this LOD ring's blades fade IN past inner_r (overlapping the next-denser
+// ring inside it) and OUT approaching far_radius, so adjacent LOD rings cross-dissolve with
+// no visible density step or pop. inner_r < 0 disables the inner cut (the near ring centre).
+uniform float inner_r     = -100.0;
+uniform float inner_fade  = 3.5;
 uniform float far_radius  = 30.0;
 uniform float far_fade    = 9.0;
 
+// Ground-mat grass texture (world-XZ planar): breaks up the flat colour of the horizontal
+// mat + thatch so straight-down shows real turf detail, never solid colour pools.
+uniform sampler2D mat_tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform float mat_tex_scale = 1.3;                    // texture repeats per metre
+uniform vec3  mat_tint      = vec3(0.80, 1.18, 0.70); // pull the olive photo into the sward
+uniform float mat_bright    = 1.0;                    // overall mat brightness (tunable)
+
 varying vec3  v_col;
 varying float v_up;
+varying float v_ground;   // 1 = horizontal ground mat/thatch (sample mat_tex)
+varying vec2  v_wxz;      // stable (uncollapsed) world XZ for the mat texture
 
 float h21(vec2 p){
 	vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -38,27 +52,18 @@ void vertex(){
 	vec2  lx  = VERTEX.xz;
 	vec2  rot = vec2(lx.x * cy - lx.y * sy, lx.x * sy + lx.y * cy);
 
-	float up   = UV.y;                            // 0 base .. 1 tip (baked)
-	float rank = UV.x;                            // per-blade stable LOD priority [0,1)
+	float up = UV.y;                             // 0 base .. 1 tip (baked)
 
+	vec2  rot_full = rot;                         // uncollapsed rotated offset (for mat UV)
 	vec2  approx_w = base.xz + rot;
 	float dist  = distance(approx_w, band_center);
 
-	// DISTANCE-DENSITY LOD: keep only blades whose rank is under the band's keep
-	// fraction, so the field is incredibly dense up close and thins with distance.
-	// Bands (Chris): 0-5 LOD0 (all) | 5-10 LOD1 | 10-15 LOD2 | 15-25 LOD3 | >25 → shell.
-	float keep;
-	if      (dist <  5.0) keep = 1.0;
-	else if (dist < 10.0) keep = mix(1.0,  0.72, smoothstep( 5.0, 10.0, dist));
-	else if (dist < 15.0) keep = mix(0.72, 0.45, smoothstep(10.0, 15.0, dist));
-	else if (dist < 25.0) keep = mix(0.45, 0.20, smoothstep(15.0, 25.0, dist));
-	else                  keep = 0.20;
-	// Smooth size-fade at the cull edge (not a hard pop) → no visible LOD rings.
-	float alive = smoothstep(0.0, 0.06, keep - rank);
-
-	// Far-rim fade: shrink whole blades to nothing over the rim so the patch hands off
-	// to the shell/terrain with no hard edge (smooth, camera-distance based but gradual).
-	float cover = (1.0 - smoothstep(far_radius - far_fade, far_radius, dist)) * alive;
+	// RING BAND: this LOD ring's mesh has a fixed baked density; it fades IN past inner_r
+	// (overlapping the denser ring inside it) and OUT approaching far_radius, so the whole
+	// field is a set of concentric density rings that cross-dissolve. Both ends are smooth
+	// and driven by the continuous band_center, so nothing pops as the camera moves.
+	float cover = smoothstep(inner_r, inner_r + inner_fade, dist)
+	            * (1.0 - smoothstep(far_radius - far_fade, far_radius, dist));
 	rot *= cover;
 	float y = VERTEX.y * cover;
 
@@ -74,10 +79,21 @@ void vertex(){
 	float tint = mix(0.90, 1.10, h21(floor(base.xz + 0.5) * 1.7 + 3.0));
 	v_col = COLOR.rgb * tint;
 	v_up  = up;
+	v_ground = UV2.x;
+	v_wxz = base.xz + rot_full;                   // true world XZ (stable under collapse)
 }
 
 void fragment(){
-	ALBEDO    = v_col;
+	vec3 alb = v_col;
+	if (v_ground > 0.5) {
+		// Real grass detail on the horizontal mat/thatch: the world-XZ texture supplies
+		// blade detail, the baked mat tone (v_col, per-quad brightness jitter) keeps it in
+		// the shaded-thatch value range. No flat colour pools when looking straight down.
+		vec3 tex = texture(mat_tex, v_wxz * mat_tex_scale).rgb;
+		float qbright = clamp(v_col.g * 3.2, 0.5, 1.3);   // carries per-quad brightness var
+		alb = tex * mat_tint * (mat_bright * qbright);
+	}
+	ALBEDO    = alb;
 	ROUGHNESS = 0.90;
 	SPECULAR  = 0.10;
 	// Faint translucency only at the very tip — kept low so blades read as solid grass,
