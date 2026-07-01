@@ -330,13 +330,32 @@ vec4 high_clouds(vec3 rayDir, vec3 sdir) {
 		float cs = smoothstep(0.30, 0.72, v);
 		cover = max(cover, cs * cirrostratus_amount * 0.65);
 	}
-	// Cirrus: wind-stretched fibrous streaks (anisotropic ridged fBm).
+	// Cirrus (sky.md §6 P3): the old single-axis anisotropic fBm rendered
+	// every filament parallel to X — "a sky full of contrails". Real
+	// fibratus/uncinus is PATCHY (bands with clear sky between), the
+	// filament direction drifts across the dome, and fall-streaks bend
+	// into hooks. Patch gate -> slowly-rotating local streak frame ->
+	// shear warp that curves the filaments.
 	if (cirrus_amount > 0.001) {
-		vec2 q = vec2(p.x * 0.22, p.y * 1.7);
-		float r = fbm(q * 1.15 + 4.0);
-		float streak = smoothstep(0.55, 0.95, r);
-		streak *= 0.55 + 0.45 * smoothstep(0.40, 0.85, fbm(q * 4.3 + 1.0));
-		cover = max(cover, streak * cirrus_amount * 0.55);
+		float cpatch = smoothstep(0.36, 0.62, fbm(p * 0.13 + 31.0));
+		if (cpatch > 0.003) {
+			// Rotation drifts SLOWLY (fast variation swirled the filaments
+			// into marbling) and the hook bend stays gentle — wind-combed
+			// strands that curve, not squiggles.
+			float ang = (fbm(p * 0.018 + 5.0) - 0.5) * 1.7;
+			vec2 dirv = vec2(cos(ang), sin(ang));
+			vec2 q = vec2(dot(p, dirv), dot(p, vec2(-dirv.y, dirv.x)));
+			q.y += (fbm(p * 0.16 + 13.0) - 0.5) * 1.1;   // uncinus hook bend
+			vec2 qa = vec2(q.x * 0.20, q.y * 1.5);
+			// Soft fibrous sheet under the strands — bare hairline threads
+			// read as cat-scratches; real fibratus is tufts with body.
+			float cbody = smoothstep(0.44, 0.82, fbm(qa * 0.55 + 4.0));
+			float r = fbm(qa * 0.95 + 4.0);
+			float streak = smoothstep(0.48, 0.88, r);
+			streak *= 0.50 + 0.50 * smoothstep(0.40, 0.85, fbm(qa * 3.6 + 1.0));
+			cover = max(cover, min(1.0, cbody * 0.34 + streak * 0.66)
+					* cpatch * cirrus_amount * 0.60);
+		}
 	}
 	// Altocumulus: mackerel sky — cloudlets in wind-aligned rows (cloud
 	// streets), domain-warped so they read as organic ripples, not a
@@ -428,5 +447,11 @@ void sky() {
 	}
 
 	COLOR = background * (1.0-clouds.a) + clouds.xyz;
-	COLOR = mix(clamp(COLOR, vec3(0.0), vec3(100.0)), clamp(background, vec3(0.0), vec3(100.0)), smoothstep(0.6, 1.0, 1.0 - EYEDIR.y));
+	// Horizon blend (sky.md §6 P4): was smoothstep(0.6, 1.0, ..) — that
+	// erased ALL volumetric cloud below ~24 deg elevation, so decks never
+	// stacked at the skyline (a big "not a real sky" tell). Keep only a
+	// slim band above the true horizon to mask the octahedral-map edge +
+	// grazing-ray undersample (the compute side already fades 0-3 deg and
+	// scales its step count for long horizon paths).
+	COLOR = mix(clamp(COLOR, vec3(0.0), vec3(100.0)), clamp(background, vec3(0.0), vec3(100.0)), smoothstep(0.92, 1.0, 1.0 - EYEDIR.y));
 }
