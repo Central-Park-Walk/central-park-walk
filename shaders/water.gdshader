@@ -43,30 +43,27 @@ float raindrop_ripple(vec2 p) {
 #include "res://shaders/include/seasonal.gdshaderinc"
 // gnoise/ghash now provided by hash_noise.gdshaderinc
 
-// World-space wave normal from three overlapping noise layers
-// Wind biases wave direction and increases amplitude
-vec3 wave_normal(vec2 uv) {
-	float t  = TIME;
+// Wave normal maps — FFT-synthesized directional ripple (tools/gen_water_normals.py)
+uniform sampler2D water_normal_a : hint_normal, filter_linear_mipmap, repeat_enable;
+uniform sampler2D water_normal_b : hint_normal, filter_linear_mipmap, repeat_enable;
+
+// World-space wave normal from two scrolling ripple maps at three scales.
+// Wind biases drift direction and increases slope amplitude.
+vec3 wave_normal(vec2 wpos) {
+	float t = TIME;
 	float wind_str = length(wind_vec);
-	// Wind pushes wave drift direction
-	vec2 wind_dir = wind_str > 0.01 ? normalize(wind_vec) : vec2(0.0);
-	vec2 wind_push = wind_dir * wind_str * 0.06;
-	vec2 o1  = vec2( t * 0.08,  t * 0.05)  + wind_push * 1.2;   // slow drift
-	vec2 o2  = vec2(-t * 0.12,  t * 0.09)  + wind_push * 0.8;   // medium ripples
-	vec2 o3  = vec2( t * 0.18, -t * 0.14)  + wind_push * 0.4;   // fine detail
-	float e  = 0.04;
-	// Wind increases wave amplitude (calm = 0.20, strong = 0.40 normal strength)
-	float amp = 0.20 + wind_str * 0.10;
-	float h   = gnoise(uv * 0.7 + o1) * 0.4
-	          + gnoise(uv * 1.8 + o2) * 0.35
-	          + gnoise(uv * 4.5 + o3) * 0.25;
-	float hx  = gnoise((uv + vec2(e, 0.0)) * 0.7 + o1) * 0.4
-	          + gnoise((uv + vec2(e, 0.0)) * 1.8 + o2) * 0.35
-	          + gnoise((uv + vec2(e, 0.0)) * 4.5 + o3) * 0.25;
-	float hz  = gnoise((uv + vec2(0.0, e)) * 0.7 + o1) * 0.4
-	          + gnoise((uv + vec2(0.0, e)) * 1.8 + o2) * 0.35
-	          + gnoise((uv + vec2(0.0, e)) * 4.5 + o3) * 0.25;
-	return normalize(vec3(-(hx - h) / e * amp, 1.0, -(hz - h) / e * amp));
+	vec2 wind_dir = wind_str > 0.01 ? normalize(wind_vec) : vec2(0.55, 0.83);
+	// Fine capillary ripple, wind-drifted
+	vec2 uv_a = wpos / 5.0  + wind_dir * t * (0.020 + wind_str * 0.012);
+	// Same map counter-scrolled at another scale — breaks single-sheet drift
+	vec2 uv_c = wpos / 8.3  - wind_dir * t * 0.014 + vec2(0.37, 0.61);
+	// Broader wavelet rows, slower
+	vec2 uv_b = wpos / 17.0 + wind_dir * t * (0.010 + wind_str * 0.008);
+	vec2 slope = (texture(water_normal_a, uv_a).xy * 2.0 - 1.0) * 0.50
+	           + (texture(water_normal_a, uv_c).xy * 2.0 - 1.0) * 0.35
+	           + (texture(water_normal_b, uv_b).xy * 2.0 - 1.0) * 0.80;
+	float amp = 0.35 + wind_str * 0.20;   // calm pond → windy chop
+	return normalize(vec3(slope.x * amp, 1.0, slope.y * amp));
 }
 
 void vertex() {
@@ -102,8 +99,8 @@ void vertex() {
 }
 
 void fragment() {
-	vec2 uv      = world_pos.xz / 12.0;   // natural wave scale
-	vec3 wave_nrm = wave_normal(uv);
+	vec2 uv      = world_pos.xz / 12.0;   // scale for the gnoise color/foam layers
+	vec3 wave_nrm = wave_normal(world_pos.xz);
 
 	// Three noise layers at different scales for natural variation
 	float t = TIME;

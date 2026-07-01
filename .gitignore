@@ -131,3 +131,6 @@ hh_NYC_029.tif
 # baked octahedral tree-impostor atlases + manifest (regen: --bake-impostors)
 !textures/impostors/*.png
 !textures/impostors/*.json
+# original water ripple normal maps (regen: scripts/gen_water_normals.py)
+!textures/water_normal_a.png
+!textures/water_normal_b.png
