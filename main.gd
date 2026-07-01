@@ -89,9 +89,9 @@ var _grass_blades_mmi: MultiMeshInstance3D = null
 var _grass_cards_mmi: MultiMeshInstance3D = null
 # Real 3D blades now cover only the TIGHT nadir foreground (where you look straight
 # down and cards would go edge-on); the card layer (below) fills the mid-field cheaply.
-const BLADE_BAND_PATCH := 16.0     # blade grid extent (m); radius ~7m
-const BLADE_BAND_CELL := 0.09      # placement grid spacing (m); MUST match the shader cell_size
-const BLADE_BAND_RADIUS := 7.0     # blades fully gone here (cards take over)
+const BLADE_BAND_PATCH := 18.0     # blade grid extent (m); radius ~8m
+const BLADE_BAND_CELL := 0.075     # placement grid spacing (m); MUST match the shader cell_size
+const BLADE_BAND_RADIUS := 8.0     # blades fully gone here (cards take over)
 # ~31k blade instances (cheap). perf-gated by --no-blades.
 # Grass CARDS: one textured clump-quad = ~150 painted blades, the affordable fill for
 # the mid-field (make_grass_clump_card.py). ~100k quads reach ~45m.

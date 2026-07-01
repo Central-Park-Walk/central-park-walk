@@ -86,14 +86,14 @@ void vertex(){
 	// Alive within the card ring, faded by DITHER (drop whole cards) not by shrinking
 	// them — shrinking makes concentric size-bands. A per-card threshold vs the ring
 	// gives a soft stochastic transition at both rims, cards stay full size.
-	// Perturb the radius per-card so the fade boundaries are irregular, not perfect
-	// concentric circles (which read as banding rings around the camera).
+	// Coverage is a SMOOTH size-fade, not a binary per-card cull — a binary cull pops
+	// cards on/off as the camera-distance threshold sweeps world cells while walking
+	// (the "pulse"). Cards exist by a stable zone/wear test (camera-independent) and
+	// only SCALE down at the far rim. Radius noise-perturbed so the rim isn't a circle.
 	float dist   = distance(pos, band_center) + (hash21(cw * 0.63 + 1.0) - 0.5) * 7.0;
-	float ring   = smoothstep(near_start, near_start + near_fade, dist)
-	             * (1.0 - smoothstep(far_radius - far_fade, far_radius, dist));
-	float rh     = hash21(cw * 1.7 + 4.0);
+	float cover  = 1.0 - smoothstep(far_radius - far_fade, far_radius, dist);
 	float wear_cut = aesthetic > 0.5 ? 0.97 : 0.85;
-	float alive  = float(zh > 0.001) * float(wear < wear_cut) * step(rh, ring);
+	float alive  = float(zh > 0.001) * float(wear < wear_cut);
 
 	float up   = clamp(VERTEX.y, 0.0, 1.0);   // 0 base .. 1 top
 	float side = VERTEX.x;                     // -0.5 .. 0.5
@@ -119,7 +119,7 @@ void vertex(){
 	vec3  local;
 	local.xz = rgt * (side * cw_m) + bend;
 	local.y  = up * ch;
-	local   *= alive;                          // collapse out-of-ring cards to a point
+	local   *= alive * cover;                  // smooth far-rim size-fade (no pop)
 
 	VERTEX = vec3(pos.x, H, pos.y) - base + local;
 	NORMAL = normalize(vec3(tc.x, 0.85, tc.y));  // face camera, strong up-bias (lit mass)

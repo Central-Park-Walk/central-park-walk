@@ -174,7 +174,10 @@ void vertex(){
 	// Keep grass lush over worn ground too (aesthetic): only the most-trodden bare
 	// paths strip out, so we don't expose the shell mat's weave as Mario64 dirt.
 	float wear_cut = aesthetic > 0.5 ? 0.95 : 0.85;
-	float alive = float(zh > 0.001) * clump_ok * float(r < keep * lod * rim) * float(wear < wear_cut);
+	// STABLE density gate (camera-independent) so blades don't pop as you walk; the
+	// distance lod/rim is applied as a smooth size-fade below, not a binary cull.
+	float alive = float(zh > 0.001) * clump_ok * float(r < keep) * float(wear < wear_cut);
+	float fade  = lod * rim;
 
 	// Orientation: fan OUT from the clump centre (rosette splay) + a per-blade twist
 	// so a tuft reads as many blades from one root, not parallel copies.
@@ -221,7 +224,7 @@ void vertex(){
 	local.xz = rgt * (side * 2.0 * halfw) + hbend;
 	// Foreshorten: a bent blade lowers its tip a little so it doesn't look stretched.
 	local.y  = up * bh - 0.30 * length(bendv) * up * up;
-	local   *= alive;                             // collapse dead blades to a point
+	local   *= alive * fade;                      // dead → point; smooth distance size-fade
 
 	// Write VERTEX as the offset from the instance origin (MODEL is pure translation).
 	VERTEX = vec3(pos.x, H, pos.y) - base + local;
