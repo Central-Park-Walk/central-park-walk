@@ -86,10 +86,11 @@ const SHELL_GRASS_SUBDIV := 98     # tessellation so the patch conforms to hills
 # near ~12 m (the hybrid). Default ON with shell grass; --no-blades perf-gates it.
 var _grass_blades := true
 var _grass_blades_mmi: MultiMeshInstance3D = null
-const BLADE_BAND_PATCH := 26.0     # blade grid extent (m); follows the camera (radius ~13m)
+const BLADE_BAND_PATCH := 44.0     # blade grid extent (m); follows the camera (radius ~20m)
 const BLADE_BAND_CELL := 0.075     # placement grid spacing (m); MUST match the shader cell_size
-# ^ dense: ~120k instances (was 0.26 = ~13k). The near-field blade mass now COVERS the
-# shell mat instead of scattering over it — perf-gated by --no-blades.
+# ^ dense + WIDE: ~344k instances. Full density near, thinned with distance (shader LOD)
+# so the lush zone reaches ~20 m yet stays affordable; shell takes over beyond.
+# perf-gated by --no-blades. Levers if heavy: PATCH down / CELL up / density down.
 # Temporary: suspend data-driven grass height for pure aesthetics — lush, readable
 # grass from standing height (mown-turf data is too short to read). false = data-driven.
 const GRASS_LUSH := true
@@ -2815,7 +2816,7 @@ func _setup_shell_grass() -> void:
 	# When the near-field blade band is active, clear the shell out of the blade zone
 	# (blades own it) so the shell isn't drawn just to be hidden — it only fills the
 	# ground beyond the band. 0 = no clear (blades off → shell covers everything).
-	mat.set_shader_parameter("near_clear_r", (BLADE_BAND_PATCH * 0.5 - 5.0) if _grass_blades else 0.0)
+	mat.set_shader_parameter("near_clear_r", (BLADE_BAND_PATCH * 0.5 - 8.0) if _grass_blades else 0.0)
 	mat.set_shader_parameter("heightmap_tex", _park_loader._hm_texture)
 	mat.set_shader_parameter("hm_world_size", _park_loader._hm_world_size)
 	mat.set_shader_parameter("hm_min_h", _park_loader._hm_min_h)

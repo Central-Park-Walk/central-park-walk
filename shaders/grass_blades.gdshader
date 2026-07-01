@@ -46,8 +46,10 @@ global uniform vec2 wind_vec;
 // Band geometry. The blade patch follows the camera; blades fade out toward its
 // rim so they hand off to the shell turf with no visible boundary.
 uniform vec2  band_center  = vec2(0.0);
-uniform float band_radius  = 13.0;   // metres from camera where blades are fully gone
-uniform float band_fade    = 5.0;    // dissolve-ring width
+uniform float band_radius  = 20.0;   // metres from camera where blades are fully gone
+uniform float band_fade    = 6.0;    // dissolve-ring width
+uniform float lod_near     = 7.0;    // full density inside this radius; thins beyond
+uniform float lod_far_keep = 0.45;   // density fraction at the far edge (screen stays dense)
 uniform float cell_size    = 0.075;  // placement grid spacing (m); MUST match main.gd
 uniform float blade_width  = 0.006;  // half-width scale (m); full blade ~2x (thin: reads as individual blades in a dense mass)
 uniform float height_scale = 1.0;    // global height multiplier (tuning)
@@ -162,13 +164,17 @@ void vertex(){
 	float clump_dens = hash21(clump_cell * 3.7 + 1.0);
 	float clump_ok   = step(bare_frac, clump_dens);   // some tufts are bare ground
 	float dist  = distance(pos, band_center);
-	float band  = 1.0 - smoothstep(band_radius - band_fade, band_radius, dist);
+	// Distance-density LOD: full density near, thinning with distance (far blades are
+	// small on screen, so fewer read as just as dense) — lets the band reach far while
+	// staying affordable. Then a short rim fade hands off to the shell.
+	float lod   = mix(1.0, lod_far_keep, smoothstep(lod_near, band_radius - band_fade, dist));
+	float rim   = 1.0 - smoothstep(band_radius - band_fade, band_radius, dist);
 	float keep  = mix(density, 0.96, float(unmown));
 	float r     = hash21(cell_world * 1.7 + 4.0);
 	// Keep grass lush over worn ground too (aesthetic): only the most-trodden bare
 	// paths strip out, so we don't expose the shell mat's weave as Mario64 dirt.
 	float wear_cut = aesthetic > 0.5 ? 0.95 : 0.85;
-	float alive = float(zh > 0.001) * clump_ok * float(r < keep * band) * float(wear < wear_cut);
+	float alive = float(zh > 0.001) * clump_ok * float(r < keep * lod * rim) * float(wear < wear_cut);
 
 	// Orientation: fan OUT from the clump centre (rosette splay) + a per-blade twist
 	// so a tuft reads as many blades from one root, not parallel copies.
