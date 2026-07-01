@@ -86,11 +86,12 @@ const SHELL_GRASS_SUBDIV := 98     # tessellation so the patch conforms to hills
 # near ~12 m (the hybrid). Default ON with shell grass; --no-blades perf-gates it.
 var _grass_blades := true
 var _grass_blades_mmi: MultiMeshInstance3D = null
-const BLADE_BAND_PATCH := 44.0     # blade grid extent (m); follows the camera (radius ~20m)
-const BLADE_BAND_CELL := 0.075     # placement grid spacing (m); MUST match the shader cell_size
-# ^ dense + WIDE: ~344k instances. Full density near, thinned with distance (shader LOD)
-# so the lush zone reaches ~20 m yet stays affordable; shell takes over beyond.
-# perf-gated by --no-blades. Levers if heavy: PATCH down / CELL up / density down.
+const BLADE_BAND_PATCH := 84.0     # blade grid extent (m); follows the camera (radius ~40m)
+const BLADE_BAND_CELL := 0.053     # placement grid spacing (m); MUST match the shader cell_size
+# ^ DOUBLED density + distance vs the 0.075/44 pass: ~2.5M instances. Full density near,
+# thinned with distance (shader LOD) so the lush zone reaches ~40 m; shell beyond.
+# Uploaded via MultiMesh.buffer (per-instance set is too slow at this count).
+# perf-gated by --no-blades. Levers if heavy: PATCH down / CELL up / density / lod_far_keep down.
 # Temporary: suspend data-driven grass height for pure aesthetics — lush, readable
 # grass from standing height (mown-turf data is too short to read). false = data-driven.
 const GRASS_LUSH := true
@@ -2924,16 +2925,28 @@ func _setup_grass_blades() -> void:
 	# Instance grid: one blade per cell over the band patch, centered on origin.
 	var side := int(round(BLADE_BAND_PATCH / BLADE_BAND_CELL))
 	var half := side / 2
+	var count := side * side
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.mesh = blade
-	mm.instance_count = side * side
+	mm.instance_count = count
+	# Bulk upload via the raw buffer — at ~2.5M instances per-instance set_instance_transform
+	# is far too slow at load. Layout is 12 floats/instance (3x4); identity basis + a pure
+	# XZ translation, so only the diagonal 1s and the origin need setting (resize zero-fills).
+	var buf := PackedFloat32Array()
+	buf.resize(count * 12)
 	var n := 0
 	for gz in range(-half, side - half):
+		var tz := float(gz) * BLADE_BAND_CELL
 		for gx in range(-half, side - half):
-			mm.set_instance_transform(n, Transform3D(Basis.IDENTITY,
-				Vector3(float(gx) * BLADE_BAND_CELL, 0.0, float(gz) * BLADE_BAND_CELL)))
+			var b := n * 12
+			buf[b] = 1.0
+			buf[b + 3] = float(gx) * BLADE_BAND_CELL
+			buf[b + 5] = 1.0
+			buf[b + 10] = 1.0
+			buf[b + 11] = tz
 			n += 1
+	mm.buffer = buf
 
 	_grass_blades_mmi = MultiMeshInstance3D.new()
 	_grass_blades_mmi.name = "GrassBlades"

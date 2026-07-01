@@ -46,11 +46,11 @@ global uniform vec2 wind_vec;
 // Band geometry. The blade patch follows the camera; blades fade out toward its
 // rim so they hand off to the shell turf with no visible boundary.
 uniform vec2  band_center  = vec2(0.0);
-uniform float band_radius  = 20.0;   // metres from camera where blades are fully gone
-uniform float band_fade    = 6.0;    // dissolve-ring width
-uniform float lod_near     = 7.0;    // full density inside this radius; thins beyond
-uniform float lod_far_keep = 0.45;   // density fraction at the far edge (screen stays dense)
-uniform float cell_size    = 0.075;  // placement grid spacing (m); MUST match main.gd
+uniform float band_radius  = 40.0;   // metres from camera where blades are fully gone
+uniform float band_fade    = 10.0;   // dissolve-ring width
+uniform float lod_near     = 12.0;   // full density inside this radius; thins beyond
+uniform float lod_far_keep = 0.38;   // density fraction at the far edge (screen stays dense)
+uniform float cell_size    = 0.053;  // placement grid spacing (m); MUST match main.gd
 uniform float blade_width  = 0.006;  // half-width scale (m); full blade ~2x (thin: reads as individual blades in a dense mass)
 uniform float height_scale = 1.0;    // global height multiplier (tuning)
 uniform float density      = 0.97;   // fraction of cells that grow a blade (dense mass)
