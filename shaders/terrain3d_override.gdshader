@@ -443,7 +443,12 @@ void fragment() {
 				float baked_wear = texture(wear_map, splat_uv).r;
 				float wear_canopy = texture(canopy_map, splat_uv).r;
 				wear = turf_wear_total(baked_wear, wear_canopy, zone_id, v_vertex.xz);
-				if (aesthetic > 0.5) wear *= 0.20;   // keep worn lawns green, not tan
+				// Aesthetic/lush mode: the near turf-tile grass applies NO wear, so the
+				// data-driven felt's path/bench wear + mottle showed as dark trails in the
+				// far lawn that the lush near grass didn't have (Chris: terrain "oddities" =
+				// baked foot-traffic wear at the bench). Suppress it near-fully so the far
+				// felt reads as the same uniform lush sward as the near blades.
+				if (aesthetic > 0.5) wear *= 0.05;   // keep worn lawns lush green, not tan
 			} else {
 				// Fantasy: one lush green to match the blades (no wear/dirt).
 				spectral_col = fantasy_grass_color(v_vertex.xz);

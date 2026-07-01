@@ -895,21 +895,22 @@ func _process(delta: float) -> void:
 			(sg_mesh.material as ShaderMaterial).set_shader_parameter(
 				"near_center", Vector2(cp.x, cp.z))
 
-	# Turf LOD rings follow the camera; each snaps to the tile grid so tiles stay on fixed
-	# world cells (no swim) while band_center (true, UNSNAPPED camera xz) drives the smooth
-	# ring fades. Because the annulus edge always sits in the fully-faded zone and the fades
-	# track the continuous band_center, tiles never pop in/out (no "pulse ahead").
+	# Turf follows the camera via the tile_snap UNIFORM — the MMI itself is NEVER moved, so its
+	# MODEL_MATRIX stays constant and TAA/FSR2 get correct motion vectors (moving the MMI made
+	# them smear the world-static grass 2 m every snap = the unplayable pop). band_center = true
+	# (unsnapped) camera xz drives the smooth density fade; tile_snap = camera snapped to the
+	# tile grid so blades stay on fixed world cells (yaw/variation world-locked).
 	if not _turf_ring_mmis.is_empty() and _player_camera:
 		var tcp := _player_camera.global_position
-		var tsnap := Vector3(
-			roundf(tcp.x / TURF_TILE_SIZE) * TURF_TILE_SIZE, 0.0,
+		var tsnap := Vector2(
+			roundf(tcp.x / TURF_TILE_SIZE) * TURF_TILE_SIZE,
 			roundf(tcp.z / TURF_TILE_SIZE) * TURF_TILE_SIZE)
 		for mmi in _turf_ring_mmis:
-			mmi.global_position = tsnap
 			var tmesh := mmi.multimesh.mesh
 			if tmesh and tmesh.surface_get_material(0) is ShaderMaterial:
-				(tmesh.surface_get_material(0) as ShaderMaterial).set_shader_parameter(
-					"band_center", Vector2(tcp.x, tcp.z))
+				var sm := tmesh.surface_get_material(0) as ShaderMaterial
+				sm.set_shader_parameter("tile_snap", tsnap)
+				sm.set_shader_parameter("band_center", Vector2(tcp.x, tcp.z))
 
 	# Near-field blade band follows the camera too. Snap to the CELL grid so each
 	# instance stays on a fixed world cell (the shader keys all per-blade variation
@@ -1448,7 +1449,9 @@ var _cli_high_clouds: Vector3 = Vector3(-1.0, -1.0, -1.0)
 # Measured 2026-06-11 with SUN_CAL=3 + thatch mix: lawn R/G 0.57→0.82
 # display (reference 0.87); stills nearly identical 0.3–0.9, kept mid
 # for view-dependent life. Full record: docs/grass.md §6.
-const TURF_SHEEN := 0.6
+const TURF_SHEEN := 0.15  # was 0.6 (Sheep Meadow calib → R/G 0.82). KBG-sod recolor
+                          # (2026-07-01): near-off so the felt/shell read blue-green
+                          # (G/R ~1.7) like the sod, not olive; also darkens the midground.
 var _cli_turf_sheen: float = -1.0
 # Crown-interior AO (trees.md §6): leaf shaders map baked crown rho
 # (COLOR.a / depth-atlas G) to AO = mix(CORE, SHELL, pow(rho, EXP)).
@@ -3112,24 +3115,26 @@ func _make_turf_tile_mesh(blades: int, thatch: int, mat_n: int) -> ArrayMesh:
 		var base_c: Color
 		var tip_c: Color
 		var fam := rng.randf()
+		# Palette RE-MEASURED to the KBG sod ref (2026-07-01): the sward reads G/R ~2.0-2.1
+		# (rich blue-green), but the old colours rendered G/R ~1.3 = too red/olive. Red pulled
+		# DOWN across every family so the hue matches the reference bluegrass.
 		if fam < 0.08:
 			# blue-green minority — a tonal cast within the sward, NOT teal confetti
-			base_c = Color(0.13, 0.35, 0.15)
-			tip_c  = Color(0.20, 0.46, 0.24)
+			base_c = Color(0.11, 0.35, 0.16)
+			tip_c  = Color(0.17, 0.46, 0.25)
 		elif fam < 0.22:
-			# dry straw / yellow blade
-			base_c = Color(0.36, 0.40, 0.13)
-			tip_c  = Color(0.60, 0.57, 0.20)
+			# dry straw / yellow blade (kept warmer for variation, but less brick-red)
+			base_c = Color(0.26, 0.40, 0.14)
+			tip_c  = Color(0.44, 0.56, 0.22)
 		elif fam < 0.27:
 			# rare pale seed-head accent (subtle, not white)
-			base_c = Color(0.36, 0.52, 0.24)
-			tip_c  = Color(0.62, 0.72, 0.40)
+			base_c = Color(0.27, 0.52, 0.26)
+			tip_c  = Color(0.47, 0.72, 0.42)
 		else:
-			# rich SATURATED grass-green majority. Measured to the KBG sod ref: bright green
-			# (g~135), LOW blue (g/b~2.0-2.3). High base (LOW base→tip contrast) because
-			# mown bluegrass is fairly uniform top-to-bottom → near canopy isn't a dark pit.
-			base_c = Color(0.21, 0.46, 0.14)
-			tip_c  = Color(0.34, 0.63, 0.18)
+			# rich blue-green majority. Measured to KBG sod ref: G ~123-135, G/R ~2.1,
+			# G/B ~2.0. Red cut hard (0.21/0.34 → 0.10/0.16) to kill the olive cast.
+			base_c = Color(0.10, 0.46, 0.15)
+			tip_c  = Color(0.16, 0.63, 0.19)
 		# Stable LOD rank: a random subset survives each distance band, so far tiles
 		# thin uniformly (no clustering). Near (0-5m) keeps all; far keeps ~10%.
 		var rank := rng.randf()
@@ -3273,6 +3278,11 @@ func _setup_turf_tiles() -> void:
 	mat.set_shader_parameter("far_fade", TURF_FADE)
 	if mat_tex:
 		mat.set_shader_parameter("mat_tex", mat_tex)
+	# Land mask: the turf reads the landuse zones so grass only draws on grass land
+	# (never over water/pool), tying the dome to the land rather than the camera.
+	if _landuse_texture:
+		mat.set_shader_parameter("landuse_map", _landuse_texture)
+	mat.set_shader_parameter("world_size", _park_loader._hm_world_size if _park_loader else 5000.0)
 	# Conform the turf to TERRAIN3D's own height maps (the surface the player sees), NOT the
 	# separate heightmap that diverges by up to several metres and buries the blades.
 	_push_terrain3d_conform(mat)
@@ -3306,9 +3316,10 @@ func _setup_turf_tiles() -> void:
 	mmi.name = "TurfTiles"
 	mmi.multimesh = mm
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	mmi.custom_aabb = AABB(
-		Vector3(-grid_r, -200.0, -grid_r),
-		Vector3(grid_r * 2.0, 400.0, grid_r * 2.0))
+	# The MMI is NEVER moved (blades are placed at the camera via the tile_snap uniform), so its
+	# cull bounds must cover the whole park — else it'd be frustum-culled once you walk away from
+	# the origin. It's a camera-following field, always on screen, so a park-wide AABB is fine.
+	mmi.custom_aabb = AABB(Vector3(-4000.0, -400.0, -4000.0), Vector3(8000.0, 800.0, 8000.0))
 	add_child(mmi)
 	_turf_ring_mmis.append(mmi)
 	print("Turf tiles: %d tiles x %d blades = %d (~%.1fM tris, radius %.0fm)" % [

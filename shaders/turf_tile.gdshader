@@ -23,13 +23,30 @@ uniform float near_full   = 9.0;   // full density within this radius
 uniform float far_radius  = 14.0;  // blades thinned to zero by here
 uniform float far_fade    = 2.5;   // soft size-fade at the very rim
 
+// Camera-snap passed as a UNIFORM instead of moving the MMI. Moving the MMI made MODEL_MATRIX
+// jump 2 m at each snap; because the blades are placed procedurally (VERTEX = worldxz - base),
+// Godot then emitted a bogus 2 m motion vector for every blade and TAA/FSR2 smeared the whole
+// field to "catch up" every couple metres (Chris: unplayable popping). With the MMI held fixed
+// (MODEL_MATRIX constant) and the snap fed here, motion vectors stay correct → no temporal pop.
+uniform vec2  tile_snap    = vec2(0.0);
+
 // Ground-mat grass texture (world-XZ planar): breaks up the flat colour of the horizontal
 // mat + thatch so straight-down shows real turf detail, never solid colour pools.
 uniform sampler2D mat_tex : source_color, filter_linear_mipmap, repeat_enable;
 uniform float mat_tex_scale = 1.3;                    // texture repeats per metre
-uniform vec3  mat_tint      = vec3(0.72, 0.98, 0.60); // pull the photo into the sward; less
-                                                      // green/brightness (Chris: mat too bright)
-uniform float mat_bright    = 0.82;                   // overall mat brightness (tunable)
+uniform vec3  mat_tint      = vec3(0.48, 0.94, 0.56); // re-measured to KBG sod ref: red pulled
+                                                      // DOWN (grass_albedo.jpg is olive → too
+                                                      // red) so the mat reads blue-green (G/R~2)
+uniform float mat_bright    = 0.46;                   // darker — the flat up-facing mat catches
+                                                      // full sun; this is the bright midground
+                                                      // Chris wants darkened toward the sod ref
+
+// LAND MASK — the grass is tied to the LAND, not the camera: only render blades where the
+// landuse zone is actually grass. Without this the camera-following dome drew turf over
+// water, paths and pavement ("follows me out over water, everywhere"). Same landuse map +
+// jittered lookup the shell grass and terrain felt use.
+uniform sampler2D landuse_map : filter_nearest, repeat_disable;
+uniform float world_size = 5000.0;
 
 varying vec3  v_col;
 varying float v_up;
@@ -42,10 +59,24 @@ float h21(vec2 p){
 	return fract((p3.x + p3.y) * p3.z);
 }
 
+// Landuse zone at world XZ, jittered so zone boundaries dither instead of rendering the
+// low-res landuse texel grid as hard staircases (matches the shell/terrain lookup).
+int zone_at(vec2 w){
+	vec2 jit = vec2(h21(w * 13.1), h21(w * 13.1 + vec2(7.3, 41.9))) - 0.5;
+	vec2 uv = (w + jit * 1.8 + world_size * 0.5) / world_size;
+	return int(texture(landuse_map, uv).r * 255.0 + 0.5);
+}
+// Zones with NO grass (docs/grass.md §2): 8=pool 12=water. Grass is culled here so the
+// dome never draws over water/pool. (Paths/pavement handled by the wear map later.)
+bool zone_no_grass(int z){ return z == 8 || z == 12; }
+
 void vertex(){
-	vec3 base = MODEL_MATRIX[3].xyz;              // tile world origin (pure translation)
+	// inst = this tile's FIXED instance origin (the MMI is never moved, so MODEL_MATRIX is
+	// constant → correct motion vectors). tile_snap (uniform) slides the tile to the camera.
+	vec3 inst = MODEL_MATRIX[3].xyz;
+	vec2 base_xz = inst.xz + tile_snap;           // camera-following tile world origin
 	// Per-tile yaw so the single tile mesh doesn't read as a repeating stamp.
-	float yaw = h21(floor(base.xz + 0.5) * 0.137) * 6.2831;
+	float yaw = h21(floor(base_xz + 0.5) * 0.137) * 6.2831;
 	float cy = cos(yaw), sy = sin(yaw);
 	vec2  lx  = VERTEX.xz;
 	vec2  rot = vec2(lx.x * cy - lx.y * sy, lx.x * sy + lx.y * cy);
@@ -54,16 +85,20 @@ void vertex(){
 	float rank = UV.x;                            // per-blade stable density priority [0,1)
 
 	vec2  rot_full = rot;                         // uncollapsed rotated offset (for mat UV)
-	vec2  approx_w = base.xz + rot;
+	vec2  approx_w = base_xz + rot;
 	float dist  = distance(approx_w, band_center);
 
 	// CONTINUOUS falloff: keep=1 within near_full, easing to 0 at far_radius. A blade lives
-	// where rank < keep, faded smoothly at the cull edge so density thins gradually (no ring).
-	// Ground verts (rank 0) stay full until the very rim, then hand off to the shell/ground.
+	// where rank < keep. Wider `alive` band = the density thins over a LONGER taper (denser
+	// centre → gradually sparser out), so the rim dissolves instead of ending in a hard line
+	// (Chris: "hard line at the edge of the dome" + "field pops as I move").
 	float keep  = 1.0 - smoothstep(near_full, far_radius, dist);
-	float alive = smoothstep(0.0, 0.10, keep - rank);
+	float alive = smoothstep(0.0, 0.28, keep - rank);
 	// Extra soft size-fade over the very rim so the last blades shrink out rather than pop.
 	float cover = alive * (1.0 - smoothstep(far_radius - far_fade, far_radius, dist));
+	// LAND MASK: kill grass where the land isn't grass (water/pool) so the dome is tied to
+	// the land, not the camera. Collapses the blade/mat to nothing over water.
+	if (zone_no_grass(zone_at(approx_w))) cover = 0.0;
 	rot *= cover;
 	float y = VERTEX.y * cover;
 
@@ -77,17 +112,19 @@ void vertex(){
 	float wstr = clamp(wlen * 1.6, 0.0, 1.0);                 // 0 calm .. 1 strong (capped)
 	float phase = TIME * 0.9 + dot(approx_w, vec2(0.7071, 0.7071)) * 0.35;   // stable spatial wave
 	float sway = sin(phase) * mix(0.008, 0.05, wstr);         // still in calm, fuller when windy
-	vec2  worldxz = base.xz + rot + wdir * (sway * up * up * cover);
+	vec2  worldxz = base_xz + rot + wdir * (sway * up * up * cover);
 
 	float H = sample_terrain(worldxz);
-	VERTEX = vec3(worldxz.x, H + y, worldxz.y) - base;
+	// Subtract the FIXED instance origin (not the snapped tile origin) so MODEL_MATRIX * VERTEX
+	// lands at the true world position while MODEL_MATRIX itself never changes.
+	VERTEX = vec3(worldxz.x, H + y, worldxz.y) - inst;
 	NORMAL = vec3(0.0, 1.0, 0.0);                 // up (lit as a soft mass; ramp is baked)
 
-	float tint = mix(0.90, 1.10, h21(floor(base.xz + 0.5) * 1.7 + 3.0));
+	float tint = mix(0.90, 1.10, h21(floor(base_xz + 0.5) * 1.7 + 3.0));
 	v_col = COLOR.rgb * tint;
 	v_up  = up;
 	v_ground = UV2.x;
-	v_wxz = base.xz + rot_full;                   // true world XZ (stable under collapse)
+	v_wxz = base_xz + rot_full;                   // true world XZ (stable under collapse)
 }
 
 void fragment(){

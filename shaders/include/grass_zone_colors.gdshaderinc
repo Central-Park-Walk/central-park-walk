@@ -128,8 +128,11 @@ vec3 grass_base_color_no_dead(int zone_id, vec2 world_xz) {
 	                 || zone_id == 3 || zone_id == 4 || zone_id == 6
 	                 || zone_id == 7 || zone_id == 9);
 	if (thatch_mown) {
-		vec3 thatch_col = vec3(0.315, 0.243, 0.120);  // spectral dried grass
-		float thatch = 0.22 * mix(0.7, 1.3, vnoise(world_xz / 1.7 + vec2(5.9, 67.3)));
+		vec3 thatch_col = vec3(0.315, 0.243, 0.120);  // spectral dried grass (high red)
+		// Re-calibrated 2026-07-01 to the KBG SOD ref (Chris): the 0.22 thatch mix was tuned
+		// to a Sheep Meadow ref (olive, G/R~1.15); the sod is a lush blue-green (G/R~2.0), so
+		// cut the red-lifting thatch to ~0.09 to match. The base palette is already blue-green.
+		float thatch = 0.09 * mix(0.7, 1.3, vnoise(world_xz / 1.7 + vec2(5.9, 67.3)));
 		col = mix(col, thatch_col, thatch);
 	}
 
