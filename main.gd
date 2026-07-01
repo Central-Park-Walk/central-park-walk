@@ -77,12 +77,15 @@ var _audio_manager = null  # ambient sound (wind, city, water, footsteps)
 
 var _terrain_only := false
 var _grass_off := false  # --no-grass: skip grass blade particles (eval bare terrain)
-# SINGLE-TEXTURE GRASS (2026-07-01, Chris): the layered dome + shell tiers read as a
-# dark-circle / bright-ring / darker-beyond mismatch everywhere but up close. Direction
-# reset: ONE excellent grass texture on the terrain everywhere grass goes, no geometry
-# tiers. This gates the dome/shell setup off; the terrain3d_override grass path is the
-# whole look now. Flip false to restore the dome/shell tiers.
-const GRASS_TERRAIN_ONLY := true
+# DOME + TERRAIN (2026-07-01, Chris — the "reference composite" direction): the near
+# turf-tile dome (the meadow look Chris liked) over the terrain texture, and NOTHING in
+# between — the mid-band shell was the ring-maker in every layered attempt, so it's
+# dropped, not tuned. The far terrain samples a texture BAKED from the dome's own tile
+# mesh (--bake-turf), so near geometry and far ground are the same material by
+# construction. Flip true = flat terrain only (the 2026-07-01 rip-out state).
+const GRASS_TERRAIN_ONLY := false
+# The 32-shell mid-band layer. OFF: dome + terrain only. Kept for A/B archaeology.
+const GRASS_SHELL := false
 var _shell_grass := true  # shell-textured turf is the DEFAULT grass (2026-06-29); --particle-grass opts back to the legacy particle/ground_cover path
 var _shell_grass_mmi: MultiMeshInstance3D = null
 const SHELL_GRASS_SHELLS := 32
@@ -519,11 +522,19 @@ func _ready() -> void:
 		# filtering, density tables, and coordinate transforms.
 		if _terrain3d and not _grass_off and not GRASS_TERRAIN_ONLY:
 			if _shell_grass:
-				# DEFAULT (2026-06-29): shell-textured turf REPLACES the particle
-				# grass (no double coverage) — fixes the flat-from-overhead look and
-				# drops the Tier0/accent spikes. --particle-grass restores the legacy path.
-				_setup_shell_grass()
-				print("main: shell grass: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
+				if GRASS_SHELL:
+					# Legacy 3-layer path: shell mid-band + turf tiles + terrain.
+					_setup_shell_grass()
+				elif _grass_blades:
+					# DEFAULT (2026-07-01): turf-tile dome directly over the terrain
+					# texture — no shell mid-band (it ringed in every layered attempt).
+					# The legacy ground_cover tufts built at park load still REPLACE
+					# (same line-80 contract as the shell path) — without this they
+					# render on top as neon spikes.
+					if _park_loader and _park_loader._ground_cover_builder:
+						_park_loader._ground_cover_builder.free_all_chunks()
+					_setup_turf_tiles()
+				print("main: turf grass: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 			else:
 				_setup_grass_particles()
 				if _cli_grass_highlight:
