@@ -87,14 +87,21 @@ const SHELL_GRASS_SUBDIV := 98     # tessellation so the patch conforms to hills
 var _grass_blades := true
 var _grass_blades_mmi: MultiMeshInstance3D = null
 var _grass_cards_mmi: MultiMeshInstance3D = null
-# Real 3D blades now cover only the TIGHT nadir foreground (where you look straight
-# down and cards would go edge-on); the card layer (below) fills the mid-field cheaply.
-const BLADE_BAND_PATCH := 18.0     # blade grid extent (m); radius ~8m
-const BLADE_BAND_CELL := 0.075     # placement grid spacing (m); MUST match the shader cell_size
-const BLADE_BAND_RADIUS := 8.0     # blades fully gone here (cards take over)
-# ~31k blade instances (cheap). perf-gated by --no-blades.
-# Grass CARDS: one textured clump-quad = ~150 painted blades, the affordable fill for
-# the mid-field (make_grass_clump_card.py). ~100k quads reach ~45m.
+var _turf_tiles_mmi: MultiMeshInstance3D = null
+# TURF TILES (the "3d mesh world" grass): one pre-built 3D mesh = a patch of real blade
+# geometry (hundreds of baked blades). Instanced as tiles on a camera-following world
+# grid — real blades from every angle, no billboard swivel/rings, and cheap because the
+# cost is batched triangles over a FEW THOUSAND tile instances (not millions of blades).
+const TURF_TILE_SIZE := 2.0        # tile footprint (m); also the grid cell
+const TURF_BLADES := 700           # blades baked into one tile mesh (~175/m^2)
+const TURF_BLADE_H := 0.30         # blade height (m, aesthetic lush)
+const TURF_BLADE_W := 0.022        # blade base width (m)
+const TURF_PATCH := 60.0           # grid extent (m); radius ~30m
+const TURF_FAR := 30.0             # tiles fade out here; shell/terrain beyond
+# Legacy near-field 3D blade band + card fill (superseded by turf tiles; kept for --flags)
+const BLADE_BAND_PATCH := 18.0
+const BLADE_BAND_CELL := 0.075
+const BLADE_BAND_RADIUS := 8.0
 const CARD_BAND_PATCH := 116.0
 const CARD_BAND_CELL := 0.30
 const CARD_FAR_RADIUS := 55.0
@@ -866,6 +873,19 @@ func _process(delta: float) -> void:
 			# (blades own that area) and only fills the ground beyond the blade band.
 			(sg_mesh.material as ShaderMaterial).set_shader_parameter(
 				"near_center", Vector2(cp.x, cp.z))
+
+	# Turf tiles follow the camera; snap to the tile grid so tiles stay on fixed world
+	# cells (no swim) while band_center (true camera xz) drives the smooth rim fade.
+	if _turf_tiles_mmi and _player_camera:
+		var tcp := _player_camera.global_position
+		var tsnap := Vector3(
+			roundf(tcp.x / TURF_TILE_SIZE) * TURF_TILE_SIZE, 0.0,
+			roundf(tcp.z / TURF_TILE_SIZE) * TURF_TILE_SIZE)
+		_turf_tiles_mmi.global_position = tsnap
+		var tmesh := _turf_tiles_mmi.multimesh.mesh
+		if tmesh and tmesh.surface_get_material(0) is ShaderMaterial:
+			(tmesh.surface_get_material(0) as ShaderMaterial).set_shader_parameter(
+				"band_center", Vector2(tcp.x, tcp.z))
 
 	# Near-field blade band follows the camera too. Snap to the CELL grid so each
 	# instance stays on a fixed world cell (the shader keys all per-blade variation
@@ -2835,9 +2855,9 @@ func _setup_shell_grass() -> void:
 	# When the near-field blade band is active, clear the shell out of the blade zone
 	# (blades own it) so the shell isn't drawn just to be hidden — it only fills the
 	# ground beyond the band. 0 = no clear (blades off → shell covers everything).
-	# Shell fills in as the cards fade out (cross-fade over the same ring).
-	mat.set_shader_parameter("near_clear_r", (CARD_FAR_RADIUS - 16.0) if _grass_blades else 0.0)
-	mat.set_shader_parameter("near_clear_fade", 16.0)
+	# Shell fills in as the turf tiles fade out (cross-fade over the same ring).
+	mat.set_shader_parameter("near_clear_r", (TURF_FAR - 8.0) if _grass_blades else 0.0)
+	mat.set_shader_parameter("near_clear_fade", 10.0)
 	mat.set_shader_parameter("heightmap_tex", _park_loader._hm_texture)
 	mat.set_shader_parameter("hm_world_size", _park_loader._hm_world_size)
 	mat.set_shader_parameter("hm_min_h", _park_loader._hm_min_h)
@@ -2873,11 +2893,10 @@ func _setup_shell_grass() -> void:
 		_park_loader._ground_cover_builder.free_all_chunks()
 	print("Shell grass: %d shells, %.0fm patch, %d subdiv (particle grass replaced)" % [
 		SHELL_GRASS_SHELLS, SHELL_GRASS_PATCH, SHELL_GRASS_SUBDIV])
-	# Hybrid: real 3D blades in the tight foreground + textured clump CARDS filling the
-	# mid-field cheaply + shell/terrain beyond (--no-blades gates both).
+	# Real 3D turf-tile grass (instanced mesh of baked blades) + shell/terrain beyond.
+	# (--no-blades gates it.) Supersedes the near-blade band + card fill.
 	if _grass_blades:
-		_setup_grass_blades()
-		_setup_grass_cards()
+		_setup_turf_tiles()
 
 
 func _make_blade_mesh() -> ArrayMesh:
@@ -2987,15 +3006,143 @@ func _setup_grass_blades() -> void:
 		mm.instance_count, BLADE_BAND_PATCH, BLADE_BAND_CELL])
 
 
+func _add_turf_blade(st: SurfaceTool, bx: float, bz: float, ang: float, h: float,
+		w: float, curve: float, straw: bool, vit: float) -> void:
+	## Append one curved tapered 3D blade to the turf-tile surface, colour + up-fraction
+	## baked per vertex (the shader does no per-blade work).
+	const SEGS := 4
+	var fwd := Vector2(cos(ang), sin(ang))
+	var rgt := Vector2(-fwd.y, fwd.x)
+	var base_c := Color(0.20, 0.32, 0.13)
+	var tip_c := Color(0.55, 0.74, 0.30)
+	var straw_c := Color(0.60, 0.53, 0.30)
+	var L := []
+	var R := []
+	var T := []
+	for i in SEGS + 1:
+		var t := float(i) / float(SEGS)
+		var halfw := w * (1.0 - t * 0.7) * 0.5
+		var lean := (t * 0.30 + t * t * 0.70) * h * curve
+		var cx := bx + fwd.x * lean
+		var cz := bz + fwd.y * lean
+		var y := t * h
+		L.append(Vector3(cx - rgt.x * halfw, y, cz - rgt.y * halfw))
+		R.append(Vector3(cx + rgt.x * halfw, y, cz + rgt.y * halfw))
+		T.append(t)
+	for i in SEGS:
+		var ca: Color = straw_c if straw else base_c.lerp(tip_c, T[i])
+		var cb: Color = straw_c if straw else base_c.lerp(tip_c, T[i + 1])
+		ca = Color(ca.r * vit, ca.g * vit, ca.b * vit)
+		cb = Color(cb.r * vit, cb.g * vit, cb.b * vit)
+		# two triangles for the segment quad (L[i],R[i],L[i+1],R[i+1])
+		_turf_vert(st, L[i], T[i], ca)
+		_turf_vert(st, R[i], T[i], ca)
+		_turf_vert(st, L[i + 1], T[i + 1], cb)
+		_turf_vert(st, R[i], T[i], ca)
+		_turf_vert(st, R[i + 1], T[i + 1], cb)
+		_turf_vert(st, L[i + 1], T[i + 1], cb)
+
+
+func _turf_vert(st: SurfaceTool, pos: Vector3, t: float, col: Color) -> void:
+	st.set_color(col)
+	st.set_uv(Vector2(0.0, t))          # UV.y = up-fraction (shader wind/backlight)
+	st.set_normal(Vector3(0.0, 1.0, 0.0))
+	st.add_vertex(pos)
+
+
+func _make_turf_tile_mesh() -> ArrayMesh:
+	## One 3D mesh = a TURF_TILE_SIZE patch packed with TURF_BLADES real blades. Built
+	## once; instanced across the world grid. Per-blade shape/colour baked here.
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20260630
+	var s := TURF_TILE_SIZE
+	for i in TURF_BLADES:
+		var bx := (rng.randf() - 0.5) * s
+		var bz := (rng.randf() - 0.5) * s
+		var ang := rng.randf() * TAU
+		var h := TURF_BLADE_H * rng.randf_range(0.6, 1.4)
+		var w := TURF_BLADE_W * rng.randf_range(0.8, 1.2)
+		var curve := rng.randf_range(0.3, 0.75)
+		var straw := rng.randf() < 0.08
+		var vit := rng.randf_range(0.85, 1.15)
+		_add_turf_blade(st, bx, bz, ang, h, w, curve, straw, vit)
+	return st.commit()
+
+
+func _setup_turf_tiles() -> void:
+	## Camera-following grid of the turf-tile mesh (real 3D blades everywhere near/mid).
+	var shader: Shader = load("res://shaders/turf_tile.gdshader")
+	if not shader:
+		push_warning("turf_tile.gdshader not found"); return
+	if not _park_loader or not _park_loader._hm_texture:
+		push_warning("turf tiles: heightmap unavailable"); return
+
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	mat.set_shader_parameter("heightmap_tex", _park_loader._hm_texture)
+	mat.set_shader_parameter("hm_world_size", _park_loader._hm_world_size)
+	mat.set_shader_parameter("hm_min_h", _park_loader._hm_min_h)
+	mat.set_shader_parameter("hm_range", maxf(_park_loader._hm_max_h - _park_loader._hm_min_h, 0.01))
+	mat.set_shader_parameter("hm_res", float(_park_loader._hm_texture.get_width()))
+	mat.set_shader_parameter("far_radius", TURF_FAR)
+	mat.set_shader_parameter("far_fade", 9.0)
+
+	var tile := _make_turf_tile_mesh()
+	tile.surface_set_material(0, mat)
+
+	var side := int(round(TURF_PATCH / TURF_TILE_SIZE))
+	var half := side / 2
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = tile
+	mm.instance_count = side * side
+	var n := 0
+	for gz in range(-half, side - half):
+		for gx in range(-half, side - half):
+			mm.set_instance_transform(n, Transform3D(Basis.IDENTITY,
+				Vector3(float(gx) * TURF_TILE_SIZE, 0.0, float(gz) * TURF_TILE_SIZE)))
+			n += 1
+
+	_turf_tiles_mmi = MultiMeshInstance3D.new()
+	_turf_tiles_mmi.name = "TurfTiles"
+	_turf_tiles_mmi.multimesh = mm
+	_turf_tiles_mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_turf_tiles_mmi.custom_aabb = AABB(
+		Vector3(-TURF_PATCH, -200.0, -TURF_PATCH),
+		Vector3(TURF_PATCH * 2.0, 400.0, TURF_PATCH * 2.0))
+	add_child(_turf_tiles_mmi)
+	print("Turf tiles: %d tiles x %d blades = %d blades (%.0fm patch)" % [
+		mm.instance_count, TURF_BLADES, mm.instance_count * TURF_BLADES, TURF_PATCH])
+
+
 func _make_card_mesh() -> ArrayMesh:
-	## A single upright quad: x = ±0.5 across, y = 0..1 up, UV full. The shader
-	## Y-billboards it and drapes the clump texture over it.
+	## CROSSED quads (two perpendicular planes), x/z = ±0.5, y = 0..1 up. Fixed
+	## orientation (NOT billboarded) so cards don't swivel as the camera moves and
+	## don't form concentric rings; the cross presents grass area from any angle.
+	## The shader rotates each card by a per-card world-random yaw.
+	# y is a FLAG the shader reads: y in [0,1] = an upright quad vertex (y=height frac);
+	# y = -1 marks the HORIZONTAL turf cap (a flat grass patch near the top, so the tile
+	# reads as solid turf from straight down, not two thin crossed planes).
 	var verts := PackedVector3Array([
+		# quad A — spans local X (upright)
 		Vector3(-0.5, 0.0, 0.0), Vector3(0.5, 0.0, 0.0),
-		Vector3(-0.5, 1.0, 0.0), Vector3(0.5, 1.0, 0.0)])
+		Vector3(-0.5, 1.0, 0.0), Vector3(0.5, 1.0, 0.0),
+		# quad B — spans local Z (upright)
+		Vector3(0.0, 0.0, -0.5), Vector3(0.0, 0.0, 0.5),
+		Vector3(0.0, 1.0, -0.5), Vector3(0.0, 1.0, 0.5),
+		# quad C — HORIZONTAL cap (y flag = -1), spans local X/Z at ~0.6 height
+		Vector3(-0.5, -1.0, -0.5), Vector3(0.5, -1.0, -0.5),
+		Vector3(-0.5, -1.0, 0.5), Vector3(0.5, -1.0, 0.5)])
 	var uvs := PackedVector2Array([
-		Vector2(0.0, 1.0), Vector2(1.0, 1.0), Vector2(0.0, 0.0), Vector2(1.0, 0.0)])
-	var idx := PackedInt32Array([0, 1, 2, 1, 3, 2])
+		Vector2(0.0, 1.0), Vector2(1.0, 1.0), Vector2(0.0, 0.0), Vector2(1.0, 0.0),
+		Vector2(0.0, 1.0), Vector2(1.0, 1.0), Vector2(0.0, 0.0), Vector2(1.0, 0.0),
+		Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(0.0, 1.0), Vector2(1.0, 1.0)])
+	var idx := PackedInt32Array([
+		0, 1, 2, 1, 3, 2,
+		4, 5, 6, 5, 7, 6,
+		8, 9, 10, 9, 11, 10])
 	var arr := []
 	arr.resize(Mesh.ARRAY_MAX)
 	arr[Mesh.ARRAY_VERTEX] = verts

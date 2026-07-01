@@ -95,39 +95,36 @@ void vertex(){
 	float wear_cut = aesthetic > 0.5 ? 0.97 : 0.85;
 	float alive  = float(zh > 0.001) * float(wear < wear_cut);
 
-	float up   = clamp(VERTEX.y, 0.0, 1.0);   // 0 base .. 1 top
-	float side = VERTEX.x;                     // -0.5 .. 0.5
+	float up  = clamp(VERTEX.y, 0.0, 1.0);    // 0 base .. 1 top
+	vec2  loc = VERTEX.xz;                      // crossed-quad local offset (±0.5)
 
-	// Card size: height from the (aesthetic) zone height with per-card variation.
-	float ch = zh * mix(1.4, 2.3, h2.y);       // cards are a clump → taller than 1 blade
-	float cw_m = card_width * mix(0.8, 1.25, h2.x);
+	// Turf-tile size: height from the (aesthetic) zone height with per-tile variation.
+	float ch = zh * mix(1.4, 2.3, h2.y);
+	float cw_m = card_width * mix(0.85, 1.3, h2.x);
 	if (aesthetic > 0.5) ch *= mix(1.0, 0.7, smoothstep(0.3, 0.9, wear));
 
-	// Y-billboard: the quad's width axis is perpendicular to the view direction so
-	// the blade face always points at the camera.
-	vec3  cam = CAMERA_POSITION_WORLD;
-	vec2  tc  = cam.xz - pos;
-	tc = length(tc) > 0.001 ? normalize(tc) : vec2(0.0, 1.0);
-	vec2  rgt = vec2(-tc.y, tc.x);
+	// FIXED per-tile yaw (world-hash) — the tile is locked to the ground, NOT facing the
+	// camera. This is the whole point: no swivel as you walk, and no radial/concentric
+	// rings (a grid of fixed-yaw tiles has no camera-centred symmetry).
+	float yaw = hash21(cw * 7.7 + 3.0) * 6.2831;
+	float cy = cos(yaw), sy = sin(yaw);
+	vec2  offs = vec2(loc.x * cy - loc.y * sy, loc.x * sy + loc.y * cy) * cw_m;
 
-	// Wind: gentle coherent sway of the card top (bend from base).
+	// Wind: gentle coherent sway of the tile top (bend from base).
 	vec2  wdir = (abs(wind_vec.x) + abs(wind_vec.y) > 0.001) ? normalize(wind_vec) : vec2(0.7071, 0.7071);
 	float sway = sin(TIME * 0.85 + dot(pos, wdir) * 0.3) * 0.05 + 0.03;
 	vec2  bend = wdir * sway * ch * up * up;
 
 	float H = sample_terrain(pos);
-	vec3  local;
-	local.xz = rgt * (side * cw_m) + bend;
-	local.y  = up * ch;
-	local   *= alive * cover;                  // smooth far-rim size-fade (no pop)
+	vec3  local = vec3(offs.x + bend.x, up * ch, offs.y + bend.y);
+	local *= alive * cover;                    // smooth far-rim size-fade (no pop)
 
 	VERTEX = vec3(pos.x, H, pos.y) - base + local;
-	NORMAL = normalize(vec3(tc.x, 0.85, tc.y));  // face camera, strong up-bias (lit mass)
+	NORMAL = vec3(0.0, 1.0, 0.0);              // up (lit mass; blade detail from the texture)
 
-	// Per-card horizontal flip breaks the tiled-repeat of one texture across the field.
+	// Per-tile horizontal flip breaks the tiled-repeat of one texture across the field.
 	float flip = step(0.5, hash21(cw * 5.3 + 2.0));
-	float u = mix(side + 0.5, 0.5 - side, flip);
-	v_uv = vec2(u, 1.0 - up);                    // card tex: blades rise from the bottom row
+	v_uv = vec2(mix(UV.x, 1.0 - UV.x, flip), UV.y);
 
 	// Shared, calibrated colour field (same as blades/terrain) so cards match the felt.
 	vec3 felt = (fantasy < 0.5) ? grass_base_color_no_dead(zone, pos) : fantasy_grass_color(pos);
