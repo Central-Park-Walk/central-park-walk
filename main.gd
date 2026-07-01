@@ -103,15 +103,22 @@ var _turf_ring_mmis: Array[MultiMeshInstance3D] = []
 # thinning the visible sward. The pop-free grid margin (grid extends past the fade-out, so
 # entering tiles are already collapsed) cures the original leading-edge "pulse".
 const TURF_TILE_SIZE := 2.0        # tile footprint (m); also the snap-grid cell
-const TURF_BLADES := 8000          # blades baked per tile (near density; far thinned by rank)
-const TURF_THATCH := 700           # flattened dead-blade thatch streaks matting the ground
+const TURF_BLADES := 4000          # blades baked per tile (near density; far thinned by rank).
+                                   # Lower than 8000 so the LONGER reach below stays ~perf-
+                                   # neutral (vertex cost = tiles x this; tiles grow with R^2:
+                                   # radius 14->20 nearly doubles tile count). The textured mat
+                                   # carries near coverage at this density.
+const TURF_THATCH := 600           # flattened dead-blade thatch streaks matting the ground
 const TURF_MAT_N  := 8             # ground-mat subdivisions (terrain conform)
 const TURF_BLADE_H := 0.16         # blade height (m); mown bluegrass lawn, not meadow
 const TURF_BLADE_W := 0.026        # blade base width (m); a touch wider = closes gaps
-const TURF_NEAR_FULL := 9.0        # full baked density within this radius (m)
-const TURF_RADIUS := 14.0          # blades thin to zero by here; ground texture carries beyond
-const TURF_FADE := 2.5             # soft size-fade width at the very rim (m)
-const TURF_REACH := 14.0           # turf extent (m); shell grass fills beyond
+# Long GRADUAL falloff so the dome edge dissolves (Chris: "easy to see where the dome ends"):
+# thin sooner (small near_full) but reach much farther (big radius), so density eases over a
+# long ramp and the outermost blades are already near-zero — no distinct edge.
+const TURF_NEAR_FULL := 5.0        # full baked density only within this radius (m)
+const TURF_RADIUS := 20.0          # blades thin to zero by here (was 14 — pushed out)
+const TURF_FADE := 4.0             # soft size-fade width at the very rim (m)
+const TURF_REACH := 20.0           # turf extent (m); shell grass fills beyond
 # Legacy near-field 3D blade band + card fill (superseded by turf tiles; kept for --flags)
 const BLADE_BAND_PATCH := 18.0
 const BLADE_BAND_CELL := 0.075

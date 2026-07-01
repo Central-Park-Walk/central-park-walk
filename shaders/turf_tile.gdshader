@@ -31,8 +31,9 @@ uniform float far_fade    = 2.5;   // soft size-fade at the very rim
 // mat + thatch so straight-down shows real turf detail, never solid colour pools.
 uniform sampler2D mat_tex : source_color, filter_linear_mipmap, repeat_enable;
 uniform float mat_tex_scale = 1.3;                    // texture repeats per metre
-uniform vec3  mat_tint      = vec3(0.80, 1.18, 0.70); // pull the olive photo into the sward
-uniform float mat_bright    = 1.0;                    // overall mat brightness (tunable)
+uniform vec3  mat_tint      = vec3(0.72, 0.98, 0.60); // pull the photo into the sward; less
+                                                      // green/brightness (Chris: mat too bright)
+uniform float mat_bright    = 0.82;                   // overall mat brightness (tunable)
 
 varying vec3  v_col;
 varying float v_up;

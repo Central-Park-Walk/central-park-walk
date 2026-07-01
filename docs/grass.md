@@ -68,14 +68,24 @@ That **regressed**: the discrete rings cross-faded ahead of the camera as a visi
 odd LOD overlap*, and the thinned mid/far rings read *bare* at a grazing angle (far blades went
 sub-pixel → sparse crawling specks under FSR2). Reverted to **one dense mesh** with a
 **continuous per-blade rank falloff** (`turf_tile.gdshader`: `keep = 1 - smoothstep(near_full,
-far_radius, dist)`, blade lives where `rank < keep`): full density within `TURF_NEAR_FULL` (9 m),
-thinning smoothly to zero by `TURF_RADIUS` (14 m) — no ring boundaries (no shimmer), and blades
-vanish while still resolvable (no sub-pixel far specks). Perf comes from the **tighter radius**
-(~14 m vs 28), not from thinning the visible sward: **197 tiles × 8000 = ~9.5M tris** (4× less).
-The shell/ground texture carries beyond 14 m (`near_clear_r = TURF_REACH-9`, ramps in as the
-turf thins so there's no bare ring at the handoff). Levers for more fps: `TURF_RADIUS` (reach),
-`TURF_BLADES`. Note: the bulk of frame cost is elsewhere — F9 showed 6808 tree LOD0 shadow
-casters; grass ≈ 9.5M of the ~19M-tri total.
+far_radius, dist)`, blade lives where `rank < keep`): full density within `TURF_NEAR_FULL`,
+thinning smoothly to zero by `TURF_RADIUS` — no ring boundaries (no shimmer), and blades vanish
+while still resolvable (no sub-pixel far specks). Perf comes from the **radius + baked count**,
+not from thinning the visible sward. The shell/ground texture carries beyond the turf
+(`near_clear_r = TURF_REACH-9`, ramps in as the turf thins so there's no bare ring at the handoff).
+
+Tuned 2026-07-01 after Chris's walk ("start reducing density sooner but keep going farther out;
+easy to see where the dome ends"): **`TURF_NEAR_FULL` 9→5 m** (thin sooner), **`TURF_RADIUS`
+14→20 m** (reach farther so the dome edge dissolves), **`TURF_BLADES` 8000→4000** (hold vertex cost
+flat — tiles grow with R², so radius 14→20 nearly doubles tile count; the textured mat carries near
+coverage at the lower density). **385 tiles × 4000 = ~9.2M tris** (perf-neutral vs the 197×8000
+radius-14 build, +6 m reach). Levers for more fps: `TURF_RADIUS` / `TURF_BLADES`. Note: the bulk of
+frame cost is elsewhere — F9 showed **6808 tree LOD0 shadow casters**; grass ≈ 9.2M of a ~17M-tri
+total, and fps is ~47–51 (the trees, not grass, gate the path to 70).
+
+Mat colour: `mat_tint`/`mat_bright` in `turf_tile.gdshader` tint the world-XZ grass photo into the
+sward palette; lowered 2026-07-01 (Chris: straight-down mat too bright green) to `(0.72,0.98,0.60)`
+× `0.82`.
 
 **Pulse fix.** The old single grid's leading short edge sat inside the far-fade, so a new tile
 row popped in at cover ~0.16 every ~2 m walked ("grass pulses ahead of me"). Fixed by the
