@@ -87,6 +87,10 @@ uniform sampler2D wear_map : filter_linear, repeat_disable;
 uniform sampler2D grass_macro_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D grass_macro_nrm : filter_linear_mipmap_anisotropic, repeat_enable;
 uniform float grass_macro_scale = 12.0;   // world metres per macro tile
+// Parallax occlusion (near-field fake 3D blade depth on the flat grass ground —
+// texture-only, no geometry tiers). Uses the grass texture's height (alpha).
+uniform float grass_pom_depth = 0.085;   // parallax blade depth (world scale)
+uniform float grass_pom_scale = 0.9;     // grass texture tiles per metre for POM
 // Aesthetic mode (GRASS_LUSH): suspend foot-traffic wear drying on grass terrain so
 // worn lawns read lush green, matching grass_blades + shell_grass aesthetic flags.
 uniform float aesthetic : hint_range(0.0, 1.0) = 1.0;
@@ -494,6 +498,7 @@ void fragment() {
 				// noise steps show as the albedo quilt from altitude. The smooth textureLod macro above
 				// carries the visible distance texture instead, so the field stays textured but seamless.
 				spectral_col = mix(spectral_col, vec3(0.166, 0.506, 0.175), macro_w * 0.85);
+				vec3 pom_base = spectral_col;   // base sward colour (pre-relief) for the POM step
 				spectral_col *= turf_relief;
 				// Fade the native Terrain3D grass texture OUT at distance (macro_w->1): its
 				// textureGrad mip steps per clipmap tile are the last albedo-quilt source;
@@ -507,6 +512,43 @@ void fragment() {
 				// Strong blade relief so the flat ground reads as 3D grass under light
 				// (single-texture grass: the normal IS what makes it look like blades).
 				NORMAL_MAP_DEPTH = max(NORMAL_MAP_DEPTH, 3.5);
+
+				// --- PARALLAX OCCLUSION: fake near-field blade DEPTH on the flat ground ---
+				// The near foreground is where a flat texture reads flattest; POM raymarches the
+				// grass height (texture alpha, layer 0 = grass) along the view ray so blades appear
+				// to stand up and gaps recede, with self-occlusion darkening between them. Near only
+				// (expensive + parallax only reads up close); fades out by ~24 m into the macro/normal.
+				float pom_w = 1.0 - smoothstep(11.0, 24.0, cam_dist);
+				if (pom_w > 0.01) {
+					vec3 Vw = normalize(_camera_pos - v_vertex);           // frag -> camera (world)
+					vec2 g_uv = v_vertex.xz * grass_pom_scale;
+					vec2 P = (Vw.xz / max(Vw.y, 0.35)) * grass_pom_depth * grass_pom_scale;
+					const int NS = 16;
+					float dl = 1.0 / float(NS);
+					vec2 dUV = P * dl;
+					float cur_d = 0.0;
+					vec2 cUV = g_uv;
+					float mapd = 1.0 - textureLod(_texture_array_albedo, vec3(cUV, 0.0), 0.0).a;
+					for (int i = 0; i < NS; i++) {
+						if (cur_d >= mapd) break;
+						cUV -= dUV; cur_d += dl;
+						mapd = 1.0 - textureLod(_texture_array_albedo, vec3(cUV, 0.0), 0.0).a;
+					}
+					float occ = cur_d;                                    // 0 tip .. 1 receded base
+					vec4 pa = textureLod(_texture_array_albedo, vec3(cUV, 0.0), 0.0);
+					float pl = dot(pa.rgb, vec3(0.299, 0.587, 0.114));
+					vec3 pom_col = pom_base;
+					pom_col *= mix(0.80, 1.14, smoothstep(0.08, 0.44, pl));   // blade relief at parallaxed uv
+					pom_col *= mix(1.0, 0.72, occ);                           // gentle self-occlusion between blades
+					pom_col *= 0.50;                                          // canopy-AO parity with the felt
+					pom_col = apply_turf_wear(pom_col, wear, v_vertex.xz);
+					ALBEDO = mix(ALBEDO, pom_col, pom_w);
+					// Lighting must follow the parallaxed blades or the depth reads flat. Standard
+					// tangent-normal decode (matches the base terrain), strengthened in XY for relief.
+					vec3 pn = textureLod(_texture_array_normal, vec3(cUV, 0.0), 0.0).xyz * 2.0 - 1.0;
+					pn = normalize(vec3(pn.xy * 2.2, pn.z));
+					NORMAL_MAP = normalize(mix(NORMAL_MAP * 2.0 - 1.0, pn, pom_w * 0.85)) * 0.5 + 0.5;
+				}
 
 			// Turf sheen (grass.md §6): broad white specular off waxy blade
 			// cuticles. The spectral palette is diffuse-only reflectance —
