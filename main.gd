@@ -2181,6 +2181,18 @@ func _walk_bot_capture() -> void:
 func _load_img_tex(path: String) -> Texture2D:
 	return load(path) if ResourceLoader.exists(path) else null
 
+func _load_img_tex_mip(path: String) -> Texture2D:
+	## Load a PNG straight to an ImageTexture with mipmaps generated, bypassing the
+	## Godot import step (so freshly-written textures work at runtime). Sampler
+	## filter/repeat come from the shader uniform hint.
+	if not FileAccess.file_exists(path):
+		return null
+	var img := Image.new()
+	if img.load(path) != OK:
+		return null
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
+
 func _setup_environment() -> void:
 	# Volumetric cloud sky (clayjohn compute pipeline)
 	var sky: Sky
@@ -2407,12 +2419,27 @@ func _setup_ground() -> void:
 	if noise_tex:
 		_set_terrain_param(&"noise_texture", noise_tex)
 
-	# Configure macro variation for distance pattern breakup
-	_set_terrain_param(&"enable_macro_variation", true)
-	_set_terrain_param(&"macro_variation1", Vector3(0.90, 0.92, 0.88))
-	_set_terrain_param(&"macro_variation2", Vector3(1.0, 0.97, 0.95))
+	# Configure macro variation for distance pattern breakup. Softened 2026-07-01
+	# (0.90/0.88 -> 0.95/0.94): the strong large-scale tonal multiply read as a
+	# visible "quilt" on the distant lawn; the coarse grass macro below now carries
+	# the intended field-scale variation with real relief instead of a flat tint.
+	_set_terrain_param(&"enable_macro_variation", false)  # replaced by grass_macro
+	_set_terrain_param(&"macro_variation1", Vector3(0.95, 0.96, 0.94))
+	_set_terrain_param(&"macro_variation2", Vector3(1.0, 0.99, 0.98))
 	_set_terrain_param(&"noise1_scale", 0.04)
 	_set_terrain_param(&"noise2_scale", 0.076)
+
+	# Coarse grass macro (make_grass_macro.py): clump VALUE tone + relief NORMAL at the
+	# ~0.3-4 m world scale, so the lawn keeps textured 3D structure at distance/altitude
+	# where the fine ~1.25 m terrain texture mips to flat green. Loaded at runtime with
+	# mipmaps (no .import needed); the shader samples in world XZ, weighted up by distance.
+	var gmac := _load_img_tex_mip("res://textures/terrain3d/grass_macro.png")
+	var gmac_n := _load_img_tex_mip("res://textures/terrain3d/grass_macro_n.png")
+	if gmac:
+		_set_terrain_param(&"grass_macro_tex", gmac)
+	if gmac_n:
+		_set_terrain_param(&"grass_macro_nrm", gmac_n)
+	_set_terrain_param(&"grass_macro_scale", 12.0)
 
 	# Autoshader: grass on flat, rock on slopes
 	_set_terrain_param(&"auto_slope", 2.0)

@@ -13,6 +13,10 @@ render_mode cull_disabled, depth_draw_opaque;
 #include "res://shaders/include/terrain3d_height.gdshaderinc"
 
 global uniform vec2 wind_vec;
+global uniform vec3 player_world_pos;   // camera world position (main.gd, per frame)
+// Altitude fade: retire the 3D blade dome as the camera climbs above the ground.
+uniform float alt_fade_lo = 12.0;   // full dome at/below this height above terrain (m)
+uniform float alt_fade_hi = 28.0;   // dome fully gone by here (flying)
 uniform vec2  band_center = vec2(0.0);
 // CONTINUOUS density falloff (single mesh, no LOD rings): every blade carries a stable rank
 // in [0,1); a blade survives where its rank is under keep(dist), which is 1 within near_full
@@ -96,6 +100,12 @@ void vertex(){
 	float alive = smoothstep(0.0, 0.28, keep - rank);
 	// Extra soft size-fade over the very rim so the last blades shrink out rather than pop.
 	float cover = alive * (1.0 - smoothstep(far_radius - far_fade, far_radius, dist));
+	// ALTITUDE FADE: from the air the 3D dome only hurts — black inter-blade gaps straight
+	// down, the terrain quilt revealed through its own thinning, and a dome that visibly
+	// follows the camera — while the terrain macro texture already reads as grass. So retire
+	// it with camera height above the tile's ground (also a GPU win when flying).
+	float cam_alt = player_world_pos.y - sample_terrain(base_xz);
+	cover *= 1.0 - smoothstep(alt_fade_lo, alt_fade_hi, cam_alt);
 	// LAND MASK: kill grass where the land isn't grass (water/pool) so the dome is tied to
 	// the land, not the camera. Collapses the blade/mat to nothing over water.
 	if (zone_no_grass(zone_at(approx_w))) cover = 0.0;

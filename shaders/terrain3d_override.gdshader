@@ -81,6 +81,12 @@ uniform sampler2D landuse_map : filter_nearest, repeat_disable;
 uniform sampler2D canopy_map : filter_linear, repeat_disable;
 // Baked foot-traffic wear (paths/benches) — scripts/gen_wear_map.py
 uniform sampler2D wear_map : filter_linear, repeat_disable;
+// Coarse grass MACRO (distance/altitude coherence, make_grass_macro.py): clump VALUE
+// tone + relief NORMAL at the ~0.3-4 m world scale, sampled in world XZ so the lawn
+// keeps textured 3D structure where the fine ~1.25 m terrain texture mips to flat.
+uniform sampler2D grass_macro_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D grass_macro_nrm : filter_linear_mipmap_anisotropic, repeat_enable;
+uniform float grass_macro_scale = 12.0;   // world metres per macro tile
 // Aesthetic mode (GRASS_LUSH): suspend foot-traffic wear drying on grass terrain so
 // worn lawns read lush green, matching grass_blades + shell_grass aesthetic flags.
 uniform float aesthetic : hint_range(0.0, 1.0) = 1.0;
@@ -447,22 +453,57 @@ void fragment() {
 				// blades from ANY angle — including straight down — not flat
 				// felt. albedo_height.rgb is the raw turf texture; map its
 				// value to a bounded multiplier (never blown out / fully black).
+				// --- Coarse grass macro: the scale that SURVIVES distance/altitude ---
+				// The fine terrain texture (~1.25 m) mips below a pixel from any height and
+				// averages to flat green. This adds clump VALUE + relief NORMAL at the ~0.3-4 m
+				// world scale, weighted UP with camera distance (and altitude -- dist to the
+				// ground below IS the height), so near keeps its fine blades while the
+				// far/aerial reads as lit textured grass clumps. Two rotated taps at different
+				// scales break the tile repeat (texture-bombing lite).
+				vec2  muv1 = v_vertex.xz / grass_macro_scale;
+				vec2  muv2 = (mat2(vec2(0.70, 0.72), vec2(-0.72, 0.70)) * v_vertex.xz)
+					/ (grass_macro_scale * 1.7) + vec2(19.3, 7.1);
+				// Explicit SMOOTH distance LOD (not the auto derivatives): the terrain
+				// geomorph makes the sampling derivatives JUMP at clipmap tile boundaries,
+				// so auto-mip gives per-tile mip steps = the rectangular albedo quilt from
+				// altitude. A continuous cam_dist LOD samples the same mip everywhere -> no
+				// cells. Kept low enough that the 0.3-4 m clump structure still resolves.
+				float mlod = clamp(log2(cam_dist * 0.055 + 1.0), 0.0, 4.0);
+				float m_tone = (textureLod(grass_macro_tex, muv1, mlod).r
+					+ textureLod(grass_macro_tex, muv2, mlod).r) * 0.5;
+				vec3  m_nrm  = normalize((textureLod(grass_macro_nrm, muv1, mlod).xyz * 2.0 - 1.0)
+					+ (textureLod(grass_macro_nrm, muv2, mlod).xyz * 2.0 - 1.0));
+				float macro_w = clamp(0.25 + smoothstep(6.0, 40.0, cam_dist) * 0.75, 0.0, 1.0);
+				float tone_mult = clamp(m_tone / 0.5, 0.80, 1.12);   // subtle; NORMAL carries the texture
+
+				// Fine blade-scale relief from the 1.25 m terrain texture luma. FADED to
+				// neutral at distance (macro_w): sampled at the GEOMORPHED uv, its low-freq
+				// brightness swims per Terrain3D clipmap morph-cell = the rectangular "quilt"
+				// seen from altitude. The coarse macro (12 m, morph-insensitive) carries the
+				// distance texture instead, so the quilt dissolves.
 				float turf_luma = dot(albedo_height.rgb, vec3(0.299, 0.587, 0.114));
-				float turf_relief = mix(0.80, 1.20, smoothstep(0.04, 0.42, turf_luma));  // tightened 2026-07-01: wide swing made distant lawn brighter/patchier than near blades (3-band tell)
-				// Canopy-AO factor: a FLAT ground shell at noon catches full sun and
-				// renders far brighter than the near 3D blade CANOPY of the same albedo
-				// (blades self-shadow + dark inter-blade gaps). Without this the distant
-				// lawn read ~0.7 stop brighter than the near blades = a brightness band at
-				// the blade-band edge. 0.72 pulls the flat shell down to the blade canopy's
-				// apparent value so the field is one brightness from foot to horizon.
-				turf_relief *= 0.50;   // canopy-AO 0.50: reference lawn is ~uniform luma 115-131
-				// near→horizon (measured); a FLAT shell at noon renders ~163 for the sward
-				// albedo (faces full sun + sky), far above the near blade CANOPY (~110, it
-				// self-shadows). 0.50 pulls the flat far ground to ~130 = the reference far,
-				// so the field brightens only gently to the horizon instead of a pale band.
+				float fine_relief = mix(0.86, 1.14, smoothstep(0.04, 0.42, turf_luma));
+				fine_relief = mix(fine_relief, 1.0, macro_w);
+				// Canopy-AO 0.50: a FLAT ground shell at noon catches full sun and renders ~0.7
+				// stop brighter than the near 3D blade CANOPY of the same albedo (blades self-
+				// shadow). 0.50 pulls the flat far ground to the reference's uniform luma band.
+				float turf_relief = fine_relief * 0.50;
+				turf_relief *= mix(1.0, tone_mult, macro_w);
+				// Fade the sward's PROCEDURAL noise toward its flat mean at distance: sward_grass_color
+				// evaluates vnoise from the geomorphed v_vertex.xz, which jumps per clipmap tile -> the
+				// noise steps show as the albedo quilt from altitude. The smooth textureLod macro above
+				// carries the visible distance texture instead, so the field stays textured but seamless.
+				spectral_col = mix(spectral_col, vec3(0.166, 0.506, 0.175), macro_w * 0.85);
 				spectral_col *= turf_relief;
-				ALBEDO = mix(ALBEDO, spectral_col, 0.96);  // 0.92->0.96: less olive Terrain3D-photo leak warming the far lawn off the near blade hue
+				// Fade the native Terrain3D grass texture OUT at distance (macro_w->1): its
+				// textureGrad mip steps per clipmap tile are the last albedo-quilt source;
+				// the macro now carries distance texture, so 100% sward there = no cells.
+				ALBEDO = mix(ALBEDO, spectral_col, mix(0.96, 1.0, macro_w));
 			ALBEDO = apply_turf_wear(ALBEDO, wear, v_vertex.xz);
+				// Blend the coarse relief normal over the fine grass normal, stronger at
+				// distance, so grass clumps catch light from any vantage (the 3D from above).
+				vec3 base_n = NORMAL_MAP * 2.0 - 1.0;
+				NORMAL_MAP = normalize(mix(base_n, m_nrm, macro_w * 0.85)) * 0.5 + 0.5;
 				// Let the turf normal map's blade relief catch grazing light.
 				NORMAL_MAP_DEPTH = max(NORMAL_MAP_DEPTH, 1.5);
 
@@ -531,7 +572,7 @@ void fragment() {
 
 	// ---- Per-pixel micro-variation ----
 	vec2 terr_px = v_vertex.xz * 23.7 + vec2(v_vertex.y * 5.1);
-	ALBEDO += vec3(hash2(terr_px) * 0.05 - 0.025);
+	ALBEDO += vec3(hash2(terr_px) * 0.05 - 0.025) * (1.0 - smoothstep(15.0, 60.0, cam_dist));
 
 	// ---- Cloud shadows ----
 	float sky_lum_cs = dot(sky_reflect_color, vec3(0.2126, 0.7152, 0.0722));

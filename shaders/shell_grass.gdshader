@@ -59,6 +59,11 @@ uniform float patch_fade    = 34.0;   // width of the dissolve ring (long, so no
 
 varying float v_layer;
 varying vec3  v_world;
+varying float v_altfade;   // 1 near ground .. 0 when the camera flies high (retire the shell)
+
+global uniform vec3 player_world_pos;   // camera world position (main.gd, per frame)
+uniform float alt_fade_lo = 12.0;       // full shell at/below this height above terrain (m)
+uniform float alt_fade_hi = 28.0;       // shell gone by here (flying)
 
 vec2 splat_uv(vec2 w){ return (w + hm_world_size * 0.5) / hm_world_size; }
 // Jitter the sample position with a world-space hash (±0.9m) so int-zone
@@ -118,6 +123,9 @@ void vertex(){
 	float ground = sample_terrain(VERTEX.xz);
 	VERTEX.y = ground + f * zone_height_m(zone_at(VERTEX.xz));
 	v_world = VERTEX;
+	// Retire the shell as the camera climbs (flying): from above its thin blades read blocky
+	// and add nothing the terrain macro texture doesn't. Matches the turf dome's altitude fade.
+	v_altfade = 1.0 - smoothstep(alt_fade_lo, alt_fade_hi, player_world_pos.y - ground);
 }
 
 void fragment(){
@@ -173,9 +181,9 @@ void fragment(){
 	float near_vis = near_clear_r > 0.01
 		? smoothstep(near_clear_r, near_clear_r + near_clear_fade, distance(world, near_center))
 		: 1.0;
-	keep *= near_vis;
-	mat  *= near_vis;
-	if (near_vis < 0.02) discard;
+	keep *= near_vis * v_altfade;
+	mat  *= near_vis * v_altfade;
+	if (near_vis * v_altfade < 0.02) discard;
 
 	// Rim dissolve: thin height (mat), tall-blade count (keep), and drop whole
 	// cells stochastically so the patch grades into terrain instead of a disc edge.
