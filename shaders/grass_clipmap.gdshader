@@ -110,9 +110,15 @@ void vertex(){
 		}
 	}
 
-	// ---- Camera-follow: snap camera to the inner lattice so every cell world-locks ----
+	// ---- Camera-follow: world-lock EACH level to ITS OWN cell grid (snap by `cell`) ----
+	// Snapping every level by the small inner cell (initial_cell) made the outer, doubled cells
+	// shift only a FRACTION of their own width each step and re-hash their offset/yaw/colour → the
+	// whole far field visibly "popped to catch up" as you walked (Chris). Snapping each level by
+	// its own cell size lands every level on a fixed world grid of that spacing, so every clump is
+	// world-stationary; only WHICH cells fall inside the ring changes as the camera moves (and the
+	// distance fade hides that at the rim). Inner level still snaps at initial_cell = smooth.
 	vec2 camxz   = player_world_pos.xz;
-	vec2 snap    = round(camxz / initial_cell) * initial_cell;
+	vec2 snap    = round(camxz / cell) * cell;
 	vec2 lattice = vec2(cx, cz) * cell + snap;
 
 	// Per-clump world-locked random offset breaks the lattice look (hash off the fixed cell).

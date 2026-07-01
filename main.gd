@@ -148,10 +148,12 @@ var _grass_clipmap_mmi: MultiMeshInstance3D = null
 const CLIP_INITIAL_CELL := 0.35    # inner clump spacing (m) = densest core
 const CLIP_LOD_ROWS := 21          # rows per clipmap level (forced odd); bigger = larger dense core
 const CLIP_LOD_LEVELS := 5         # doubling levels; reach ≈ (rows/2)*cell*2^(levels-1) ≈ 126m
-const CLIP_RAND_PLACE := 0.16      # per-clump random offset (m) to break the grid
-const CLIP_CLUMP_BLADES := 14      # blades baked per clump mesh
-const CLIP_CLUMP_R := 0.26         # clump footprint radius (m); ~cell so inner clumps just meet
-const CLIP_BLADE_H := 0.17         # blade height (m) — mown bluegrass lawn
+const CLIP_RAND_PLACE := 0.22      # per-tuft random offset (m); > half the 0.35 cell so tufts cross
+                                   # into neighbours and the clipmap lattice rows stop reading as a grid
+const CLIP_CLUMP_BLADES := 20      # blades per TUFT (Chris: use tufts not single blades; perf >80fps has headroom)
+const CLIP_TUFT_BASE_R := 0.05     # tuft crown radius (m): blades rise from a tight base…
+const CLIP_TUFT_CURVE := 1.0       # …and fan/fountain OUTWARD (higher = wider spread)
+const CLIP_BLADE_H := 0.18         # blade height (m) — mown bluegrass lawn
 const CLIP_BLADE_W := 0.020        # blade base width (m)
 
 # Weather state — enum for fast comparison in hot paths
@@ -3436,7 +3438,9 @@ func _add_clump_blade(st: SurfaceTool, bx: float, bz: float, ang: float, h: floa
 
 
 func _make_grass_clump_mesh() -> ArrayMesh:
-	## One small 3D mesh = a clump of CLIP_CLUMP_BLADES real blades in a ~CLIP_CLUMP_R disc. This
+	## One small 3D mesh = a grass TUFT: CLIP_CLUMP_BLADES blades rising from a tight crown
+	## (radius CLIP_TUFT_BASE_R) and fanning/fountaining OUTWARD (Chris: use tufts, not evenly
+	## scattered single blades — a scatter reads as isolated spikes; a tuft reads as grass). This
 	## is the unit the clipmap instances thousands of times (dense near, sparse far). Per-blade
 	## family multiplier baked in COLOR; shape baked here so the vertex shader stays cheap.
 	var st := SurfaceTool.new()
@@ -3444,15 +3448,18 @@ func _make_grass_clump_mesh() -> ArrayMesh:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20260701
 	for i in CLIP_CLUMP_BLADES:
-		# Disc-uniform placement (sqrt for even radial density), so the clump reads round + even.
-		var a := rng.randf() * TAU
-		var rr := sqrt(rng.randf()) * CLIP_CLUMP_R
-		var bx := cos(a) * rr
-		var bz := sin(a) * rr
-		var ang := rng.randf() * TAU
-		var h := CLIP_BLADE_H * rng.randf_range(0.75, 1.2)
+		# Rosette: base sits near the crown centre; the blade LEANS along its radial azimuth so
+		# the tuft fans out into a fountain. Even angular spread (+jitter) keeps the fan balanced;
+		# central blades stay more upright (smaller radius → less outward lean via curve).
+		var az := (float(i) / float(CLIP_CLUMP_BLADES)) * TAU + rng.randf_range(-0.5, 0.5)
+		var br := rng.randf() * CLIP_TUFT_BASE_R
+		var bx := cos(az) * br
+		var bz := sin(az) * br
+		var ang := az + rng.randf_range(-0.5, 0.5)          # lean roughly outward (radial)
+		var h := CLIP_BLADE_H * rng.randf_range(0.7, 1.25)
 		var w := CLIP_BLADE_W * rng.randf_range(0.85, 1.15)
-		var curve := rng.randf_range(0.4, 0.9)
+		# Outer blades fountain more, inner blades stay upright — scale curve by base radius.
+		var curve := CLIP_TUFT_CURVE * rng.randf_range(0.5, 1.1) * (0.3 + 0.7 * br / CLIP_TUFT_BASE_R)
 		var vit := rng.randf_range(0.9, 1.1)
 		# Bluegrass family LEAN as a multiplier around 1 (mean ≈ 1 so the terrain-matched base
 		# level is preserved): mostly neutral, a cool minority, a warm-straw fraction, a few pale.
@@ -3518,7 +3525,7 @@ func _setup_grass_clipmap() -> void:
 	add_child(mmi)
 	_grass_clipmap_mmi = mmi
 	var reach := float((2 * CLIP_LOD_ROWS + 3) / 2) * CLIP_INITIAL_CELL * pow(2.0, float(CLIP_LOD_LEVELS - 1))
-	print("Clipmap grass: %d clumps x %d blades = %d blades (~%.2fM tris, reach ~%.0fm)" % [
+	print("Clipmap grass: %d tufts x %d blades = %d blades (~%.2fM tris, reach ~%.0fm)" % [
 		count, CLIP_CLUMP_BLADES, count * CLIP_CLUMP_BLADES,
 		count * CLIP_CLUMP_BLADES * 6.0 / 1e6, reach])
 
