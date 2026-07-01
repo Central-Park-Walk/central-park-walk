@@ -93,11 +93,14 @@ var _turf_tiles_mmi: MultiMeshInstance3D = null
 # grid — real blades from every angle, no billboard swivel/rings, and cheap because the
 # cost is batched triangles over a FEW THOUSAND tile instances (not millions of blades).
 const TURF_TILE_SIZE := 2.0        # tile footprint (m); also the grid cell
-const TURF_BLADES := 1000          # blades baked into one tile mesh (~250/m^2, fuller)
+const TURF_BLADES := 2800          # blades baked per tile = the 0-5m LOD0 density
+                                   # (~700/m^2, "incredible"); far bands thin in-shader
+const TURF_THATCH := 700           # flattened/dead-blade streaks matting the ground under
+                                   # the standing blades (no bald patches; NOT LOD-thinned)
 const TURF_BLADE_H := 0.16         # blade height (m); mown bluegrass lawn, not meadow
 const TURF_BLADE_W := 0.026        # blade base width (m); a touch wider = closes gaps
-const TURF_PATCH := 60.0           # grid extent (m); radius ~30m
-const TURF_FAR := 30.0             # tiles fade out here; shell/terrain beyond
+const TURF_PATCH := 56.0           # grid extent (m); radius ~28m (turf to ~25m → shell)
+const TURF_FAR := 28.0             # tiles cover-fade to shell/terrain over ~20-28m
 # Legacy near-field 3D blade band + card fill (superseded by turf tiles; kept for --flags)
 const BLADE_BAND_PATCH := 18.0
 const BLADE_BAND_CELL := 0.075
@@ -3007,10 +3010,12 @@ func _setup_grass_blades() -> void:
 
 
 func _add_turf_blade(st: SurfaceTool, bx: float, bz: float, ang: float, h: float,
-		w: float, curve: float, base_c: Color, tip_c: Color, vit: float) -> void:
+		w: float, curve: float, base_c: Color, tip_c: Color, vit: float, rank: float) -> void:
 	## Append one curved tapered 3D blade to the turf-tile surface, colour + up-fraction
 	## baked per vertex (the shader does no per-blade work). base_c/tip_c set per blade
 	## in _make_turf_tile_mesh (bluegrass families: green / blue-green / straw / pale).
+	## rank in [0,1) = the blade's stable LOD priority: the shader keeps blades whose rank
+	## is below the distance-based keep fraction, so far bands thin out (degenerate cull).
 	const SEGS := 3
 	var fwd := Vector2(cos(ang), sin(ang))
 	var rgt := Vector2(-fwd.y, fwd.x)
@@ -3033,17 +3038,17 @@ func _add_turf_blade(st: SurfaceTool, bx: float, bz: float, ang: float, h: float
 		ca = Color(ca.r * vit, ca.g * vit, ca.b * vit)
 		cb = Color(cb.r * vit, cb.g * vit, cb.b * vit)
 		# two triangles for the segment quad (L[i],R[i],L[i+1],R[i+1])
-		_turf_vert(st, L[i], T[i], ca)
-		_turf_vert(st, R[i], T[i], ca)
-		_turf_vert(st, L[i + 1], T[i + 1], cb)
-		_turf_vert(st, R[i], T[i], ca)
-		_turf_vert(st, R[i + 1], T[i + 1], cb)
-		_turf_vert(st, L[i + 1], T[i + 1], cb)
+		_turf_vert(st, L[i], T[i], ca, rank)
+		_turf_vert(st, R[i], T[i], ca, rank)
+		_turf_vert(st, L[i + 1], T[i + 1], cb, rank)
+		_turf_vert(st, R[i], T[i], ca, rank)
+		_turf_vert(st, R[i + 1], T[i + 1], cb, rank)
+		_turf_vert(st, L[i + 1], T[i + 1], cb, rank)
 
 
-func _turf_vert(st: SurfaceTool, pos: Vector3, t: float, col: Color) -> void:
+func _turf_vert(st: SurfaceTool, pos: Vector3, t: float, col: Color, rank: float) -> void:
 	st.set_color(col)
-	st.set_uv(Vector2(0.0, t))          # UV.y = up-fraction (shader wind/backlight)
+	st.set_uv(Vector2(rank, t))         # UV.x = LOD rank, UV.y = up-fraction (wind/backlight)
 	st.set_normal(Vector3(0.0, 1.0, 0.0))
 	st.add_vertex(pos)
 
@@ -3059,9 +3064,15 @@ func _make_turf_tile_mesh() -> ArrayMesh:
 	# Bluegrass palette families (Kentucky bluegrass = cool blue-green cast, with
 	# yellow-green, dry straw and a few pale seed-heads). Cooler & less yellow than a
 	# generic lawn; deliberately little pure white (Chris: "less white/transparent").
-	for i in TURF_BLADES:
-		var bx := (rng.randf() - 0.5) * s
-		var bz := (rng.randf() - 0.5) * s
+	# Blades sit on a JITTERED GRID (not pure random) so coverage is even — pure random
+	# scatter clumps and leaves voids that read as bald patches once the mat shows through.
+	var gside := int(ceil(sqrt(float(TURF_BLADES))))
+	var gcell := s / float(gside)
+	for i in gside * gside:
+		var gx := i % gside
+		var gy := i / gside
+		var bx := -s * 0.5 + (float(gx) + rng.randf()) * gcell
+		var bz := -s * 0.5 + (float(gy) + rng.randf()) * gcell
 		var ang := rng.randf() * TAU
 		var h := TURF_BLADE_H * rng.randf_range(0.7, 1.3)
 		var w := TURF_BLADE_W * rng.randf_range(0.8, 1.2)
@@ -3070,24 +3081,123 @@ func _make_turf_tile_mesh() -> ArrayMesh:
 		var base_c: Color
 		var tip_c: Color
 		var fam := rng.randf()
-		if fam < 0.20:
-			# blue-green / navy cast — the signature bluegrass tone (deep, not minty)
-			base_c = Color(0.05, 0.12, 0.15)
-			tip_c  = Color(0.13, 0.30, 0.33)
-		elif fam < 0.37:
+		if fam < 0.08:
+			# deeper blue-green minority — a tonal shift within the sward, NOT blue confetti
+			base_c = Color(0.05, 0.15, 0.13)
+			tip_c  = Color(0.15, 0.34, 0.28)
+		elif fam < 0.24:
 			# dry straw / yellow blade
-			base_c = Color(0.26, 0.30, 0.13)
-			tip_c  = Color(0.60, 0.58, 0.26)
-		elif fam < 0.42:
-			# rare pale seed-head accent (kept subtle)
-			base_c = Color(0.24, 0.34, 0.22)
-			tip_c  = Color(0.66, 0.74, 0.55)
+			base_c = Color(0.23, 0.27, 0.11)
+			tip_c  = Color(0.50, 0.49, 0.22)
+		elif fam < 0.28:
+			# rare pale seed-head accent (subtle, not white)
+			base_c = Color(0.19, 0.29, 0.18)
+			tip_c  = Color(0.50, 0.59, 0.42)
 		else:
-			# the green majority
-			base_c = Color(0.11, 0.26, 0.14)
-			tip_c  = Color(0.32, 0.54, 0.29)
-		_add_turf_blade(st, bx, bz, ang, h, w, curve, base_c, tip_c, vit)
+			# the rich green majority (Kentucky bluegrass: deep emerald, warm medium green
+			# in sun with only a faint glaucous cast — the blue reads as tone, not per-blade)
+			base_c = Color(0.08, 0.21, 0.12)
+			tip_c  = Color(0.27, 0.48, 0.23)
+		# Stable LOD rank: a random subset survives each distance band, so far tiles
+		# thin uniformly (no clustering). Near (0-5m) keeps all; far keeps ~10%.
+		var rank := rng.randf()
+		_add_turf_blade(st, bx, bz, ang, h, w, curve, base_c, tip_c, vit, rank)
+	# Ground thatch: matted flattened/dead blades beneath the standing sward so there
+	# are no bald patches and the "undergrass" reads as compressed turf, not soil/felt.
+	_add_turf_ground(st, rng, s)
 	return st.commit()
+
+
+func _thatch_color(rng: RandomNumberGenerator) -> Array:
+	## A [base, tip] colour pair for a flattened/dead blade — the SAME bluegrass families
+	## as the standing blades but muted & darkened (compressed, partly dead thatch).
+	var f := rng.randf()
+	if f < 0.30:
+		# dead / dry straw (thatch has more of this than the standing sward)
+		return [Color(0.16, 0.15, 0.07), Color(0.30, 0.27, 0.13)]
+	elif f < 0.42:
+		# cool blue-green mat
+		return [Color(0.05, 0.11, 0.10), Color(0.10, 0.20, 0.17)]
+	else:
+		# dark green mat majority
+		return [Color(0.06, 0.13, 0.07), Color(0.13, 0.26, 0.13)]
+
+
+func _add_flat_blade(st: SurfaceTool, bx: float, bz: float, ang: float, length: float,
+		w: float, base_c: Color, tip_c: Color) -> void:
+	## A blade lying FLAT on the ground (y≈const) — a compressed/matted thatch streak.
+	## up-fraction baked 0 so the shader gives it no wind/backlight; rank 0 = never
+	## LOD-culled (the ground mat must always cover).
+	const FS := 2
+	const YB := 0.03           # just above the backstop mat (0.015) so streaks read as
+	                            # the flattened-blade thatch texture, not hidden under it
+	var fwd := Vector2(cos(ang), sin(ang))
+	var rgt := Vector2(-fwd.y, fwd.x)
+	var L := []
+	var R := []
+	for i in FS + 1:
+		var t := float(i) / float(FS)
+		var halfw := w * (1.0 - t * 0.55) * 0.5
+		var cx := bx + fwd.x * (t * length)
+		var cz := bz + fwd.y * (t * length)
+		L.append(Vector3(cx - rgt.x * halfw, YB, cz - rgt.y * halfw))
+		R.append(Vector3(cx + rgt.x * halfw, YB, cz + rgt.y * halfw))
+	for i in FS:
+		var ca: Color = base_c.lerp(tip_c, float(i) / float(FS))
+		var cb: Color = base_c.lerp(tip_c, float(i + 1) / float(FS))
+		_turf_vert(st, L[i], 0.0, ca, 0.0)
+		_turf_vert(st, R[i], 0.0, ca, 0.0)
+		_turf_vert(st, L[i + 1], 0.0, cb, 0.0)
+		_turf_vert(st, R[i], 0.0, ca, 0.0)
+		_turf_vert(st, R[i + 1], 0.0, cb, 0.0)
+		_turf_vert(st, L[i + 1], 0.0, cb, 0.0)
+
+
+func _add_turf_ground(st: SurfaceTool, rng: RandomNumberGenerator, s: float) -> void:
+	## The undergrass: (1) a solid dark backstop mat (guarantees full coverage → no bald
+	## patches), (2) flattened dead-blade streaks over it for a matted-thatch texture.
+	## Both use the muted bluegrass scheme and sit just above terrain (shader conforms).
+	# (1) backstop mat — subdivided so it conforms to terrain slope. OVERSIZED to 1.5x the
+	# tile (half-extent 0.75*s): each tile is rotated by its own yaw, and rotated squares
+	# don't tile the plane — a tile-sized mat would leave diamond gaps (bald patches). At
+	# 1.5x, every tile's mat still fully covers its own cell at any yaw; neighbours overlap
+	# harmlessly (opaque, same scheme).
+	const N := 8
+	const MY := 0.015          # LOW (below the streaks & blade bases) so the mat is a
+	                            # gap-filler, never a raised platform that occludes blades.
+	                            # N=8 (fine quads) keeps it from sagging below convex ground.
+	var ext := s * 0.75          # half-extent (>= cell_half * sqrt(2) = 0.707*s)
+	var cell := (ext * 2.0) / float(N)
+	for gz in N:
+		for gx in N:
+			var x0 := -ext + float(gx) * cell
+			var z0 := -ext + float(gz) * cell
+			# DARK, near-uniform matted-thatch tone. One dark bluegrass green with only a
+			# subtle per-quad brightness jitter — NOT per-quad hue families (those read as a
+			# camo quilt of flat facets). Colour variety comes from the streaks on top.
+			# A flat up-facing quad catches full sun, so keep it dark = shadowed thatch base.
+			var mj := rng.randf_range(0.85, 1.12)
+			var c := Color(0.045 * mj, 0.105 * mj, 0.065 * mj)
+			var p00 := Vector3(x0, MY, z0)
+			var p10 := Vector3(x0 + cell, MY, z0)
+			var p01 := Vector3(x0, MY, z0 + cell)
+			var p11 := Vector3(x0 + cell, MY, z0 + cell)
+			_turf_vert(st, p00, 0.0, c, 0.0)
+			_turf_vert(st, p10, 0.0, c, 0.0)
+			_turf_vert(st, p01, 0.0, c, 0.0)
+			_turf_vert(st, p10, 0.0, c, 0.0)
+			_turf_vert(st, p11, 0.0, c, 0.0)
+			_turf_vert(st, p01, 0.0, c, 0.0)
+	# (2) flattened dead-blade streaks for the matted texture (over the same 1.5x area so
+	# the flattened-blade look continues across the tile-overlap seams).
+	for i in TURF_THATCH:
+		var bx := (rng.randf() - 0.5) * s * 1.5
+		var bz := (rng.randf() - 0.5) * s * 1.5
+		var ang := rng.randf() * TAU
+		var length := rng.randf_range(0.09, 0.18)
+		var w := TURF_BLADE_W * rng.randf_range(1.0, 1.6)
+		var tc := _thatch_color(rng)
+		_add_flat_blade(st, bx, bz, ang, length, w, tc[0], tc[1])
 
 
 func _setup_turf_tiles() -> void:
@@ -3106,7 +3216,7 @@ func _setup_turf_tiles() -> void:
 	mat.set_shader_parameter("hm_range", maxf(_park_loader._hm_max_h - _park_loader._hm_min_h, 0.01))
 	mat.set_shader_parameter("hm_res", float(_park_loader._hm_texture.get_width()))
 	mat.set_shader_parameter("far_radius", TURF_FAR)
-	mat.set_shader_parameter("far_fade", 9.0)
+	mat.set_shader_parameter("far_fade", 8.0)
 
 	var tile := _make_turf_tile_mesh()
 	tile.surface_set_material(0, mat)

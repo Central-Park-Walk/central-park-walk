@@ -38,13 +38,27 @@ void vertex(){
 	vec2  lx  = VERTEX.xz;
 	vec2  rot = vec2(lx.x * cy - lx.y * sy, lx.x * sy + lx.y * cy);
 
-	float up = UV.y;                              // 0 base .. 1 tip (baked)
+	float up   = UV.y;                            // 0 base .. 1 tip (baked)
+	float rank = UV.x;                            // per-blade stable LOD priority [0,1)
+
+	vec2  approx_w = base.xz + rot;
+	float dist  = distance(approx_w, band_center);
+
+	// DISTANCE-DENSITY LOD: keep only blades whose rank is under the band's keep
+	// fraction, so the field is incredibly dense up close and thins with distance.
+	// Bands (Chris): 0-5 LOD0 (all) | 5-10 LOD1 | 10-15 LOD2 | 15-25 LOD3 | >25 → shell.
+	float keep;
+	if      (dist <  5.0) keep = 1.0;
+	else if (dist < 10.0) keep = mix(1.0,  0.72, smoothstep( 5.0, 10.0, dist));
+	else if (dist < 15.0) keep = mix(0.72, 0.45, smoothstep(10.0, 15.0, dist));
+	else if (dist < 25.0) keep = mix(0.45, 0.20, smoothstep(15.0, 25.0, dist));
+	else                  keep = 0.20;
+	// Smooth size-fade at the cull edge (not a hard pop) → no visible LOD rings.
+	float alive = smoothstep(0.0, 0.06, keep - rank);
 
 	// Far-rim fade: shrink whole blades to nothing over the rim so the patch hands off
 	// to the shell/terrain with no hard edge (smooth, camera-distance based but gradual).
-	vec2  approx_w = base.xz + rot;
-	float dist  = distance(approx_w, band_center);
-	float cover = 1.0 - smoothstep(far_radius - far_fade, far_radius, dist);
+	float cover = (1.0 - smoothstep(far_radius - far_fade, far_radius, dist)) * alive;
 	rot *= cover;
 	float y = VERTEX.y * cover;
 
