@@ -86,12 +86,18 @@ const SHELL_GRASS_SUBDIV := 98     # tessellation so the patch conforms to hills
 # near ~12 m (the hybrid). Default ON with shell grass; --no-blades perf-gates it.
 var _grass_blades := true
 var _grass_blades_mmi: MultiMeshInstance3D = null
-const BLADE_BAND_PATCH := 84.0     # blade grid extent (m); follows the camera (radius ~40m)
-const BLADE_BAND_CELL := 0.053     # placement grid spacing (m); MUST match the shader cell_size
-# ^ DOUBLED density + distance vs the 0.075/44 pass: ~2.5M instances. Full density near,
-# thinned with distance (shader LOD) so the lush zone reaches ~40 m; shell beyond.
-# Uploaded via MultiMesh.buffer (per-instance set is too slow at this count).
-# perf-gated by --no-blades. Levers if heavy: PATCH down / CELL up / density / lod_far_keep down.
+var _grass_cards_mmi: MultiMeshInstance3D = null
+# Real 3D blades now cover only the TIGHT nadir foreground (where you look straight
+# down and cards would go edge-on); the card layer (below) fills the mid-field cheaply.
+const BLADE_BAND_PATCH := 16.0     # blade grid extent (m); radius ~7m
+const BLADE_BAND_CELL := 0.09      # placement grid spacing (m); MUST match the shader cell_size
+const BLADE_BAND_RADIUS := 7.0     # blades fully gone here (cards take over)
+# ~31k blade instances (cheap). perf-gated by --no-blades.
+# Grass CARDS: one textured clump-quad = ~150 painted blades, the affordable fill for
+# the mid-field (make_grass_clump_card.py). ~100k quads reach ~45m.
+const CARD_BAND_PATCH := 116.0
+const CARD_BAND_CELL := 0.30
+const CARD_FAR_RADIUS := 55.0
 # Temporary: suspend data-driven grass height for pure aesthetics — lush, readable
 # grass from standing height (mown-turf data is too short to read). false = data-driven.
 const GRASS_LUSH := true
@@ -875,6 +881,18 @@ func _process(delta: float) -> void:
 		if bmesh and bmesh.surface_get_material(0) is ShaderMaterial:
 			(bmesh.surface_get_material(0) as ShaderMaterial).set_shader_parameter(
 				"band_center", Vector2(bcp.x, bcp.z))
+
+	# Card fill follows the camera too (snap to the card cell grid).
+	if _grass_cards_mmi and _player_camera:
+		var ccp := _player_camera.global_position
+		var csnap := Vector3(
+			roundf(ccp.x / CARD_BAND_CELL) * CARD_BAND_CELL, 0.0,
+			roundf(ccp.z / CARD_BAND_CELL) * CARD_BAND_CELL)
+		_grass_cards_mmi.global_position = csnap
+		var cmesh := _grass_cards_mmi.multimesh.mesh
+		if cmesh and cmesh.surface_get_material(0) is ShaderMaterial:
+			(cmesh.surface_get_material(0) as ShaderMaterial).set_shader_parameter(
+				"band_center", Vector2(ccp.x, ccp.z))
 
 	# Wind + GPU grass push + volumetric clouds — must run BEFORE the tour
 	# and walk-bot early returns: those paths exist to CAPTURE the world,
@@ -2817,7 +2835,9 @@ func _setup_shell_grass() -> void:
 	# When the near-field blade band is active, clear the shell out of the blade zone
 	# (blades own it) so the shell isn't drawn just to be hidden — it only fills the
 	# ground beyond the band. 0 = no clear (blades off → shell covers everything).
-	mat.set_shader_parameter("near_clear_r", (BLADE_BAND_PATCH * 0.5 - 8.0) if _grass_blades else 0.0)
+	# Shell fills in as the cards fade out (cross-fade over the same ring).
+	mat.set_shader_parameter("near_clear_r", (CARD_FAR_RADIUS - 16.0) if _grass_blades else 0.0)
+	mat.set_shader_parameter("near_clear_fade", 16.0)
 	mat.set_shader_parameter("heightmap_tex", _park_loader._hm_texture)
 	mat.set_shader_parameter("hm_world_size", _park_loader._hm_world_size)
 	mat.set_shader_parameter("hm_min_h", _park_loader._hm_min_h)
@@ -2853,9 +2873,11 @@ func _setup_shell_grass() -> void:
 		_park_loader._ground_cover_builder.free_all_chunks()
 	print("Shell grass: %d shells, %.0fm patch, %d subdiv (particle grass replaced)" % [
 		SHELL_GRASS_SHELLS, SHELL_GRASS_PATCH, SHELL_GRASS_SUBDIV])
-	# Hybrid: add the near-field 3D blade band over the shell mat (--no-blades off).
+	# Hybrid: real 3D blades in the tight foreground + textured clump CARDS filling the
+	# mid-field cheaply + shell/terrain beyond (--no-blades gates both).
 	if _grass_blades:
 		_setup_grass_blades()
+		_setup_grass_cards()
 
 
 func _make_blade_mesh() -> ArrayMesh:
@@ -2909,6 +2931,11 @@ func _setup_grass_blades() -> void:
 	# restores data-driven height). See grass_blades.gdshader.
 	mat.set_shader_parameter("aesthetic", 1.0 if GRASS_LUSH else 0.0)
 	mat.set_shader_parameter("cell_size", BLADE_BAND_CELL)
+	# Tight foreground band (cards fill beyond).
+	mat.set_shader_parameter("band_radius", BLADE_BAND_RADIUS)
+	mat.set_shader_parameter("band_fade", 2.5)
+	mat.set_shader_parameter("lod_near", 3.0)
+	mat.set_shader_parameter("lod_far_keep", 0.6)
 	mat.set_shader_parameter("heightmap_tex", _park_loader._hm_texture)
 	mat.set_shader_parameter("hm_world_size", _park_loader._hm_world_size)
 	mat.set_shader_parameter("hm_min_h", _park_loader._hm_min_h)
@@ -2958,6 +2985,95 @@ func _setup_grass_blades() -> void:
 	add_child(_grass_blades_mmi)
 	print("Grass blades: %d near-field blades (%.0fm band, %.2fm cells)" % [
 		mm.instance_count, BLADE_BAND_PATCH, BLADE_BAND_CELL])
+
+
+func _make_card_mesh() -> ArrayMesh:
+	## A single upright quad: x = ±0.5 across, y = 0..1 up, UV full. The shader
+	## Y-billboards it and drapes the clump texture over it.
+	var verts := PackedVector3Array([
+		Vector3(-0.5, 0.0, 0.0), Vector3(0.5, 0.0, 0.0),
+		Vector3(-0.5, 1.0, 0.0), Vector3(0.5, 1.0, 0.0)])
+	var uvs := PackedVector2Array([
+		Vector2(0.0, 1.0), Vector2(1.0, 1.0), Vector2(0.0, 0.0), Vector2(1.0, 0.0)])
+	var idx := PackedInt32Array([0, 1, 2, 1, 3, 2])
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_TEX_UV] = uvs
+	arr[Mesh.ARRAY_INDEX] = idx
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	return m
+
+
+func _setup_grass_cards() -> void:
+	## Textured clump-CARD fill for the mid-field: one quad = ~150 painted blades, so
+	## the field fills densely for ~2 tris/card. Camera-following MultiMesh, world-XZ
+	## keyed in the shader so cards don't swim.
+	var shader: Shader = load("res://shaders/grass_cards.gdshader")
+	if not shader:
+		push_warning("grass_cards.gdshader not found"); return
+	if not _park_loader or not _park_loader._hm_texture:
+		return
+	var card_tex: Texture2D = load("res://textures/grass/clump_card.png")
+	if not card_tex:
+		push_warning("clump_card.png not found — run scripts/make_grass_clump_card.py"); return
+
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	mat.set_shader_parameter("card_tex", card_tex)
+	mat.set_shader_parameter("fantasy", GRASS_FANTASY)
+	mat.set_shader_parameter("aesthetic", 1.0 if GRASS_LUSH else 0.0)
+	mat.set_shader_parameter("cell_size", CARD_BAND_CELL)
+	mat.set_shader_parameter("near_start", 4.0)
+	mat.set_shader_parameter("near_fade", 3.0)
+	mat.set_shader_parameter("far_radius", CARD_FAR_RADIUS)
+	mat.set_shader_parameter("far_fade", 16.0)
+	mat.set_shader_parameter("heightmap_tex", _park_loader._hm_texture)
+	mat.set_shader_parameter("hm_world_size", _park_loader._hm_world_size)
+	mat.set_shader_parameter("hm_min_h", _park_loader._hm_min_h)
+	mat.set_shader_parameter("hm_range", maxf(_park_loader._hm_max_h - _park_loader._hm_min_h, 0.01))
+	mat.set_shader_parameter("hm_res", float(_park_loader._hm_texture.get_width()))
+	if _landuse_texture:
+		mat.set_shader_parameter("landuse_map", _landuse_texture)
+	if _wear_texture:
+		mat.set_shader_parameter("wear_map", _wear_texture)
+
+	var card := _make_card_mesh()
+	card.surface_set_material(0, mat)
+
+	var side := int(round(CARD_BAND_PATCH / CARD_BAND_CELL))
+	var half := side / 2
+	var count := side * side
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = card
+	mm.instance_count = count
+	var buf := PackedFloat32Array()
+	buf.resize(count * 12)
+	var n := 0
+	for gz in range(-half, side - half):
+		var tz := float(gz) * CARD_BAND_CELL
+		for gx in range(-half, side - half):
+			var b := n * 12
+			buf[b] = 1.0
+			buf[b + 3] = float(gx) * CARD_BAND_CELL
+			buf[b + 5] = 1.0
+			buf[b + 10] = 1.0
+			buf[b + 11] = tz
+			n += 1
+	mm.buffer = buf
+
+	_grass_cards_mmi = MultiMeshInstance3D.new()
+	_grass_cards_mmi.name = "GrassCards"
+	_grass_cards_mmi.multimesh = mm
+	_grass_cards_mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_grass_cards_mmi.custom_aabb = AABB(
+		Vector3(-CARD_BAND_PATCH, -200.0, -CARD_BAND_PATCH),
+		Vector3(CARD_BAND_PATCH * 2.0, 400.0, CARD_BAND_PATCH * 2.0))
+	add_child(_grass_cards_mmi)
+	print("Grass cards: %d clump cards (%.0fm band, %.2fm cells)" % [
+		count, CARD_BAND_PATCH, CARD_BAND_CELL])
 
 
 # ---------------------------------------------------------------------------
