@@ -474,7 +474,7 @@ void fragment() {
 				vec3  m_nrm  = normalize((textureLod(grass_macro_nrm, muv1, mlod).xyz * 2.0 - 1.0)
 					+ (textureLod(grass_macro_nrm, muv2, mlod).xyz * 2.0 - 1.0));
 				float macro_w = clamp(0.25 + smoothstep(6.0, 40.0, cam_dist) * 0.75, 0.0, 1.0);
-				float tone_mult = clamp(m_tone / 0.5, 0.80, 1.12);   // subtle; NORMAL carries the texture
+				float tone_mult = clamp(m_tone / 0.5, 0.72, 1.15);   // tonal clump variation (single-texture: less flat)
 
 				// Fine blade-scale relief from the 1.25 m terrain texture luma. FADED to
 				// neutral at distance (macro_w): sampled at the GEOMORPHED uv, its low-freq
@@ -498,14 +498,15 @@ void fragment() {
 				// Fade the native Terrain3D grass texture OUT at distance (macro_w->1): its
 				// textureGrad mip steps per clipmap tile are the last albedo-quilt source;
 				// the macro now carries distance texture, so 100% sward there = no cells.
-				ALBEDO = mix(ALBEDO, spectral_col, mix(0.96, 1.0, macro_w));
+				ALBEDO = mix(ALBEDO, spectral_col, mix(0.86, 1.0, macro_w));  // let grass-photo colour show near
 			ALBEDO = apply_turf_wear(ALBEDO, wear, v_vertex.xz);
 				// Blend the coarse relief normal over the fine grass normal, stronger at
 				// distance, so grass clumps catch light from any vantage (the 3D from above).
 				vec3 base_n = NORMAL_MAP * 2.0 - 1.0;
 				NORMAL_MAP = normalize(mix(base_n, m_nrm, macro_w * 0.85)) * 0.5 + 0.5;
-				// Let the turf normal map's blade relief catch grazing light.
-				NORMAL_MAP_DEPTH = max(NORMAL_MAP_DEPTH, 1.5);
+				// Strong blade relief so the flat ground reads as 3D grass under light
+				// (single-texture grass: the normal IS what makes it look like blades).
+				NORMAL_MAP_DEPTH = max(NORMAL_MAP_DEPTH, 3.5);
 
 			// Turf sheen (grass.md §6): broad white specular off waxy blade
 			// cuticles. The spectral palette is diffuse-only reflectance —

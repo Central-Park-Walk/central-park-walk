@@ -77,6 +77,12 @@ var _audio_manager = null  # ambient sound (wind, city, water, footsteps)
 
 var _terrain_only := false
 var _grass_off := false  # --no-grass: skip grass blade particles (eval bare terrain)
+# SINGLE-TEXTURE GRASS (2026-07-01, Chris): the layered dome + shell tiers read as a
+# dark-circle / bright-ring / darker-beyond mismatch everywhere but up close. Direction
+# reset: ONE excellent grass texture on the terrain everywhere grass goes, no geometry
+# tiers. This gates the dome/shell setup off; the terrain3d_override grass path is the
+# whole look now. Flip false to restore the dome/shell tiers.
+const GRASS_TERRAIN_ONLY := true
 var _shell_grass := true  # shell-textured turf is the DEFAULT grass (2026-06-29); --particle-grass opts back to the legacy particle/ground_cover path
 var _shell_grass_mmi: MultiMeshInstance3D = null
 const SHELL_GRASS_SHELLS := 32
@@ -511,7 +517,7 @@ func _ready() -> void:
 		# all run through _setup_grass_particles. Previous GDExtension (Tier 1) and
 		# static tuft chunks (Tier 2) retired — single source of truth for zone
 		# filtering, density tables, and coordinate transforms.
-		if _terrain3d and not _grass_off:
+		if _terrain3d and not _grass_off and not GRASS_TERRAIN_ONLY:
 			if _shell_grass:
 				# DEFAULT (2026-06-29): shell-textured turf REPLACES the particle
 				# grass (no double coverage) — fixes the flat-from-overhead look and
