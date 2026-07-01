@@ -9,6 +9,9 @@ with only cumulus we never get the dramatic expanses of varying color."*
 Companion records: `rendering.md` §6b (sky calibration) and §6d (cloud
 shape/flow/twilight). References: `notes/refs/sky_2026_06_11/`.
 
+**2026-07-01: full sky/sun/moon/cloud audit in §6 — measured symptoms,
+root causes, and the redesign plan of record. Read §6 before sky work.**
+
 ## 0. Charter
 
 The sky is a primary emotional surface of the walk and must be
@@ -221,3 +224,119 @@ Shipped: multi-scatter octaves, gated powder, in-cloud ambient gradient
 - **P4**: halos/sundogs/pillars (2.4).
 - **P5**: altocumulus cellular layer; rarities (lenticular over the
   reservoir on strong-wind autumn days).
+
+## 6. 2026-07-01 audit — measured symptoms, root causes, redesign plan
+
+Chris's walk-around verdict (2026-07-01): *"odd light, then dark, then
+light again sunrise/sunset effects … cumulus tend to be bun-like … cirrus
+look like a sky full of contrails … oversized sun and moon, huge in the
+lower quarter of the sky … a faint bright spot in the night sky that is
+not the moon … difficult to ever see the moon … realistic clouds for all
+weathers/hours/seasons, dramatic night skies, breath-taking dawns and
+dusks, sparing of the 3060 Ti."*
+
+Evidence: 23-shot headless sweep, `tmp/skysweep/` (Great Lawn, seed 7,
+default season_t=1.5 = Jul 15). Sky-region mean luma (0-255):
+
+| wall hour | 19.5 | 20.0 | 20.5 | 20.75 | 21.0 | 21.25 | 21.5 | 22.0 | 23.0 |
+|---|---|---|---|---|---|---|---|---|---|
+| luma | 187 | 185 | 187 | 168 | 114 | 46 | **3.5** | **3.3** | **40** |
+
+Sky is PITCH BLACK at 21:30 (sun −9°, real NYC nautical twilight still
+glows) then RE-BRIGHTENS to 40 by 23:00 with warm cream sunlit-looking
+clouds at 1 AM. Dawn mirrors it: night steady-state ~70 → 152 at 05:12
+(pre-sunrise) → 113 at 05:48 → 106 at 06:12 (brighter *before* sunrise
+than after). Light→dark→light confirmed at both ends.
+
+### 6.1 Root causes (each verified in code + capture)
+
+1. **The night LUT sun is a lie, and the handover double-dips.**
+   `day_night_cycle.gd` slerps `cel_dir` from the real sun to
+   `light_dir3` over sun elev −6°→−10° (`night_celest`). `light_dir3` at
+   night is the moon — or, when the moon is down/new, a FIXED "skyglow"
+   direction (elev 65°, az 220). The Hillaire LUT has no energy input —
+   it renders a full daylight atmosphere for whatever direction it's
+   given. Sequence at dusk: real-sun LUT darkens to near-black at −6..−10°
+   (deepened by cal_bg 5→1 over canon 20.55–21.0), THEN the slerp hoists
+   the LUT sun to +65° and the sky re-brightens into a dim blue day.
+   Consequences: the black trough, the re-brightening, **the faint
+   bright spot** (the LUT's forward-scatter lobe around az 220 / elev 65
+   — present every night at the default date), and golden-lit cream
+   clouds at 1 AM (the march's `atmosphere_sun`/ambient sample this fake
+   daylight LUT — `clouds.glsl` does NOT divide the LUT by 50).
+2. **Default date has a new moon.** season_t=1.5 → Jul 15 2026: moon
+   illum 0.01–0.04, below horizon ALL night (elev −22..−28 at 0–5 h),
+   only up in daytime. So at defaults the moon is *never* visible at
+   night, and the one sighting is the thin crescent near the setting sun
+   (elev 7–18° at 20–21 h) — exactly Chris's report. Almanac is CORRECT;
+   the presentation (invisible-by-default moon + fake skyglow) is wrong.
+3. **No stars anywhere in the live path.** `cloud_sky/clouds.gdshader`
+   has no starfield/light-pollution terms (those exist only in the dead
+   fallback `shaders/cloud_sky.gdshader`). Night sky = LUT + moon only.
+4. **Bun cumulus**: `gen_weather_map.py` cell_field makes near-circular
+   discs; tower-rescaled density gives each a smooth dome → uniform
+   rounded buns, no flat shaded bases, no wind shear, no size anarchy.
+   Confirmed in shot_03/shot_20 captures.
+5. **Cirrus = contrails**: `high_clouds()` cirrus is anisotropic fBm
+   ridges ALL stretched along one axis (`q=(0.22x, 1.7y)`), thresholded
+   thin → a field of parallel straight streaks. Real cirrus: hooked
+   uncinus filaments, orientation variance, patchy density.
+6. **Clouds vanish at the horizon**: `clouds.gdshader` line ~369 blends
+   to clean background below EYEDIR.y≈0.4 (+ the glsl 0–0.05 fade). Real
+   skies stack/compress cloud at the skyline; ours dissolve — part of the
+   "not realistic" read.
+7. **Disk sizes too timid for the art direction**: sun 2.5×→3.75× at
+   horizon, moon 1.8×→2.88×; swell starts only below 10° elevation.
+   Chris wants "pretty huge" through the lower QUARTER (≲25°).
+8. **Edge pixelation**: 768² octahedral sky texture shows hard stair-step
+   cloud edges at 1080p (shot_19/20).
+
+### 6.2 Redesign plan (priority order)
+
+- **P0 — honest night sky** (fixes 1, 3, and the trough+spot+1AM-clouds):
+  celestial/LUT sun = the REAL sun always (LUT owns dawn→dusk and goes
+  properly dark; kill the `night_celest` slerp and the fake skyglow dir).
+  Night background = additive on the dark LUT in `clouds.gdshader`:
+  NYC light-pollution amber dome (port from the dead fallback shader,
+  data-true Bortle 8-9 but art-directable), star field gated by sun elev
+  (art-directed brighter than strict Bortle — "dramatic night skies"),
+  moon disk unchanged (already correct). Cloud march at night: keep the
+  moon as the LIGHT direction when up (phase-scaled energy), but its
+  sun/ambient terms must come from a night-scaled source, not the raw
+  daylight LUT — plus a city-glow amber underside term (real NYC
+  overcast nights glow amber from below; dramatic AND true). Twilight
+  cal windows (`twilight_f`, cal_bg blend) re-derived after this — the
+  LUT then darkens monotonically and the keyframes only shape mood.
+- **P1 — celestial presentation** (Chris art direction, cheap):
+  swell curves start at ~25° elevation, reach ~4.5–5× at the horizon for
+  BOTH bodies (keep refraction squash); verify the setting sun disk is
+  actually visible/huge at the skyline by capture. Moon: brightness up
+  at night, real albedo texture for maria (sin-mottling won't survive
+  5×), subtle halo. Consider defaulting season_t off the new-moon date
+  or simply accept per-date phases (data-first) — but the moon must be
+  *seeable* when up: verify a full-moon date end-to-end.
+- **P2 — cumulus de-bunning**: weather-map cells get wind elongation,
+  cluster merging, wide size distribution (gen_weather_map.py); glsl
+  gets stronger top erosion/curl tearing, flatter bases with darker
+  shading, slight base-noise anisotropy along wind. Iterate by capture
+  against cloud-atlas refs (humilis/mediocris). Then measure 1024²
+  texture cost on the 3060 Ti (amortized over 64 frames) for the edge
+  pixelation; only ship if the perf gate passes.
+- **P3 — cirrus rework**: orientation-varying, domain-warped hooked
+  filaments (uncinus) + patchy density; kill the parallel-streak field.
+  Same flat-sheet machinery, still ~free.
+- **P4 — horizon cloud band**: soften/remove the y<0.4 background blend
+  (banding it masked is now handled by adaptive step count + IGN dither
+  — re-verify), so decks stack at the skyline.
+- **P5 — dawn/dusk drama pass** (after P0 changes the substrate):
+  re-tune blaze/golden + keyframe colors against `notes/refs/
+  sky_2026_06_11/`; port earth-shadow + Belt of Venus terms from the
+  dead fallback shader (cheap analytic, east-sky payoff); verify the
+  canonical windows at both solstices by sweep.
+- **P6 — perf gate + seasonal breadth**: worst-case sweeps (overcast map,
+  full high-cloud, night with stars) at the gate locations; keep 64-frame
+  amortization; then per-season/per-weather capture matrix.
+
+Non-goals: don't replace the Hillaire LUT / Schneider march (standard,
+calibrated — see feedback-standard-over-novel-graphics); no new
+render passes; everything rides existing shaders/textures.
