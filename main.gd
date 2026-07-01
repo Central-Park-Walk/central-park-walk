@@ -93,9 +93,9 @@ var _turf_tiles_mmi: MultiMeshInstance3D = null
 # grid — real blades from every angle, no billboard swivel/rings, and cheap because the
 # cost is batched triangles over a FEW THOUSAND tile instances (not millions of blades).
 const TURF_TILE_SIZE := 2.0        # tile footprint (m); also the grid cell
-const TURF_BLADES := 700           # blades baked into one tile mesh (~175/m^2)
-const TURF_BLADE_H := 0.30         # blade height (m, aesthetic lush)
-const TURF_BLADE_W := 0.022        # blade base width (m)
+const TURF_BLADES := 1000          # blades baked into one tile mesh (~250/m^2, fuller)
+const TURF_BLADE_H := 0.16         # blade height (m); mown bluegrass lawn, not meadow
+const TURF_BLADE_W := 0.026        # blade base width (m); a touch wider = closes gaps
 const TURF_PATCH := 60.0           # grid extent (m); radius ~30m
 const TURF_FAR := 30.0             # tiles fade out here; shell/terrain beyond
 # Legacy near-field 3D blade band + card fill (superseded by turf tiles; kept for --flags)
@@ -3007,15 +3007,13 @@ func _setup_grass_blades() -> void:
 
 
 func _add_turf_blade(st: SurfaceTool, bx: float, bz: float, ang: float, h: float,
-		w: float, curve: float, straw: bool, vit: float) -> void:
+		w: float, curve: float, base_c: Color, tip_c: Color, vit: float) -> void:
 	## Append one curved tapered 3D blade to the turf-tile surface, colour + up-fraction
-	## baked per vertex (the shader does no per-blade work).
-	const SEGS := 4
+	## baked per vertex (the shader does no per-blade work). base_c/tip_c set per blade
+	## in _make_turf_tile_mesh (bluegrass families: green / blue-green / straw / pale).
+	const SEGS := 3
 	var fwd := Vector2(cos(ang), sin(ang))
 	var rgt := Vector2(-fwd.y, fwd.x)
-	var base_c := Color(0.20, 0.32, 0.13)
-	var tip_c := Color(0.55, 0.74, 0.30)
-	var straw_c := Color(0.60, 0.53, 0.30)
 	var L := []
 	var R := []
 	var T := []
@@ -3030,8 +3028,8 @@ func _add_turf_blade(st: SurfaceTool, bx: float, bz: float, ang: float, h: float
 		R.append(Vector3(cx + rgt.x * halfw, y, cz + rgt.y * halfw))
 		T.append(t)
 	for i in SEGS:
-		var ca: Color = straw_c if straw else base_c.lerp(tip_c, T[i])
-		var cb: Color = straw_c if straw else base_c.lerp(tip_c, T[i + 1])
+		var ca: Color = base_c.lerp(tip_c, T[i])
+		var cb: Color = base_c.lerp(tip_c, T[i + 1])
 		ca = Color(ca.r * vit, ca.g * vit, ca.b * vit)
 		cb = Color(cb.r * vit, cb.g * vit, cb.b * vit)
 		# two triangles for the segment quad (L[i],R[i],L[i+1],R[i+1])
@@ -3058,16 +3056,37 @@ func _make_turf_tile_mesh() -> ArrayMesh:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20260630
 	var s := TURF_TILE_SIZE
+	# Bluegrass palette families (Kentucky bluegrass = cool blue-green cast, with
+	# yellow-green, dry straw and a few pale seed-heads). Cooler & less yellow than a
+	# generic lawn; deliberately little pure white (Chris: "less white/transparent").
 	for i in TURF_BLADES:
 		var bx := (rng.randf() - 0.5) * s
 		var bz := (rng.randf() - 0.5) * s
 		var ang := rng.randf() * TAU
-		var h := TURF_BLADE_H * rng.randf_range(0.6, 1.4)
+		var h := TURF_BLADE_H * rng.randf_range(0.7, 1.3)
 		var w := TURF_BLADE_W * rng.randf_range(0.8, 1.2)
-		var curve := rng.randf_range(0.3, 0.75)
-		var straw := rng.randf() < 0.08
-		var vit := rng.randf_range(0.85, 1.15)
-		_add_turf_blade(st, bx, bz, ang, h, w, curve, straw, vit)
+		var curve := rng.randf_range(0.4, 0.9)
+		var vit := rng.randf_range(0.85, 1.08)
+		var base_c: Color
+		var tip_c: Color
+		var fam := rng.randf()
+		if fam < 0.20:
+			# blue-green / navy cast — the signature bluegrass tone (deep, not minty)
+			base_c = Color(0.05, 0.12, 0.15)
+			tip_c  = Color(0.13, 0.30, 0.33)
+		elif fam < 0.37:
+			# dry straw / yellow blade
+			base_c = Color(0.26, 0.30, 0.13)
+			tip_c  = Color(0.60, 0.58, 0.26)
+		elif fam < 0.42:
+			# rare pale seed-head accent (kept subtle)
+			base_c = Color(0.24, 0.34, 0.22)
+			tip_c  = Color(0.66, 0.74, 0.55)
+		else:
+			# the green majority
+			base_c = Color(0.11, 0.26, 0.14)
+			tip_c  = Color(0.32, 0.54, 0.29)
+		_add_turf_blade(st, bx, bz, ang, h, w, curve, base_c, tip_c, vit)
 	return st.commit()
 
 

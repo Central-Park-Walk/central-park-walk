@@ -64,7 +64,9 @@ void vertex(){
 
 void fragment(){
 	ALBEDO    = v_col;
-	ROUGHNESS = 0.85;
-	SPECULAR  = 0.12;
-	BACKLIGHT = vec3(0.35, 0.42, 0.20) * v_up * v_up;   // translucent tips
+	ROUGHNESS = 0.90;
+	SPECULAR  = 0.10;
+	// Faint translucency only at the very tip — kept low so blades read as solid grass,
+	// not a pale/washed-out sheen (Chris: "less white/transparent").
+	BACKLIGHT = vec3(0.08, 0.11, 0.05) * v_up * v_up;
 }
