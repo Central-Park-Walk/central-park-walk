@@ -23,7 +23,6 @@ uniform float hm_res    = 4096.0;
 uniform sampler2D card_tex : source_color, filter_linear_mipmap, repeat_disable;
 uniform sampler2D landuse_map : filter_nearest, repeat_disable;
 uniform sampler2D wear_map    : filter_linear,  repeat_disable;
-uniform float fantasy   : hint_range(0.0, 1.0) = 1.0;
 uniform float aesthetic : hint_range(0.0, 1.0) = 1.0;
 global uniform vec2 wind_vec;
 
@@ -127,14 +126,12 @@ void vertex(){
 	v_uv = vec2(mix(UV.x, 1.0 - UV.x, flip), UV.y);
 
 	// Shared, calibrated colour field (same as blades/terrain) so cards match the felt.
-	vec3 felt = (fantasy < 0.5) ? grass_base_color_no_dead(zone, pos) : fantasy_grass_color(pos);
-	if (fantasy < 0.5 && zone == 13)
+	vec3 felt = grass_base_color_no_dead(zone, pos);
+	if (zone == 13)
 		felt = mix(grass_base_color_no_dead(0, pos), felt, sedge_patch_mask(pos));
-	if (fantasy < 0.5) {
-		float cwr = turf_wear_total(wear, 0.0, zone, pos);
-		if (aesthetic > 0.5) cwr *= 0.20;
-		felt = apply_turf_wear(felt, cwr, pos);
-	}
+	float cwr = turf_wear_total(wear, 0.0, zone, pos);
+	if (aesthetic > 0.5) cwr *= 0.20;
+	felt = apply_turf_wear(felt, cwr, pos);
 	felt *= mix(vec3(0.93, 0.97, 0.90), vec3(1.07, 1.05, 0.96), hash21(cw * 2.1 + 5.0));
 	v_felt  = felt;
 	v_shade = 1.0;

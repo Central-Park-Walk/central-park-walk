@@ -6,25 +6,49 @@ Sheep Meadow reference comparison (`notes/refs/sheep_meadow_game/COMPARISON.md`,
 `docs/trees.md`: code that contradicts this file is wrong, or this file gets updated in the
 same commit.
 
-## 0. Fantasy mode (alpha-testing QoL — ACTIVE since 2026-06-28)
+## 0. Fantasy mode — REMOVED 2026-07-01
 
-The data-driven Central Park palette below is currently **suspended** in favour
-of one lush, idealized fantasy green, so testers evaluate trees/vegetation
-against a clean lawn instead of muted, patchy, wear/dead-tuft turf. This is a
-deliberate, reversible departure from the data-first philosophy — *temporary*.
+The "fantasy" one-lush-idealized-green toggle (`GRASS_FANTASY` / `fantasy_grass_color`
+/ the `fantasy` uniform on every grass shader) was a temporary alpha-testing QoL idea
+that Chris abandoned. It had already been off (`GRASS_FANTASY := 0.0`) for a while;
+on 2026-07-01 it was deleted entirely — the const, `fantasy_grass_color()`, and every
+`fantasy` uniform + `if (fantasy < 0.5)` branch across `grass_zone_colors.gdshaderinc`,
+`terrain3d_override.gdshader`, `shell_grass.gdshader`, `grass_blades.gdshader`,
+`grass_cards.gdshader`, `grass_particle_render.gdshader`, and `main.gd`. The
+data-driven path (§1–§6) is now the only path. `GRASS_LUSH`/`aesthetic` (the blade
+height-lift + wear-suppression lever) is SEPARATE and stays.
 
-- Toggle: `GRASS_FANTASY` in `main.gd` (default `1.0` = ON). It drives a
-  `fantasy` uniform on **both** `grass_particle_render.gdshader` and
-  `terrain3d_override.gdshader` (they must stay matched).
-- ON: `fantasy_grass_color()` in `grass_zone_colors.gdshaderinc` — lush green +
-  gentle all-green vitality drift; no zone palette, thatch, turf wear, dead
-  tufts, golden undertone, biome amber/teal tints, canopy litter, or
-  autumn/winter dry-down. Translucent backlight boosted.
-- OFF (`0.0`): restores everything in §1–§6 verbatim. Every data path is
-  preserved behind `if (fantasy < 0.5)` — nothing was deleted, only branched.
-- Blades (`make_blade_mesh.py`) retuned taller/arched/sharper for the lush look.
+### 0a. Sward color unification — the "one continuous field" fix (2026-07-01)
 
-Set `GRASS_FANTASY := 0.0` to return to the data-driven spec that follows.
+Chris (screenshots): the lawn read as **three distinguishable zones** — bright
+saturated near turf-tile blades → a darker olive shell ring → a pale yellow-olive
+far terrain — instead of the reference sod photo (`reference_photos/grass/91su*`):
+one continuous field, same tint/brightness/character everywhere, only detail
+falling off with distance. Root cause: the near blades bake a rich blue-green KBG
+palette (`_make_turf_tile_mesh`), while the shell grass and the terrain felt colored
+themselves from the darker/olive spectral `grass_base_color_no_dead()` — a different,
+~2.3× darker source. Fix:
+
+- **`sward_grass_color()`** (grass_zone_colors.gdshaderinc): one color whose MEAN
+  matches the near-blade weighted-average albedo (~0.168, 0.510, 0.176), with only
+  soft macro/hue drift (reference field is near-uniform). `grass_base_color_no_dead`
+  routes all mown-lawn zones (0,1,2,3,4,6,7,9) through it; non-lawn biomes keep their
+  spectral palettes. Shell + terrain both pick it up automatically.
+- **Canopy-AO 0.50** (terrain `turf_relief *= 0.50`; shell rim converges to
+  `felt*0.50`): a FLAT ground shell at noon catches full sun and renders ~0.7 stop
+  brighter than the near 3D blade CANOPY of the same albedo (blades self-shadow). The
+  reference lawn is measured uniform luma 115–131 near→horizon; 0.50 pulls the flat
+  far ground down to that so the field brightens only gently to the horizon.
+- **Shell `patch_radius` 72→40 m** (main.gd): the shell's tall blades brighten at
+  grazing angle (broad sides face full sun) and read pale in the far field. Blades
+  aren't resolvable past ~40 m and the reference far is smooth, so beyond 40 m the
+  flat, angle-controllable, canopy-AO'd terrain owns the field. Shell now carries only
+  the 11–40 m mid band.
+
+Verified headless (tmp/zonesA=before, zonesF=after; +evening t17, +top-down): field
+green-masked luma now ramps smoothly ~90(near)→~140(far) with no zone steps; the only
+bright spots are sunlit mound crests (real topographic lighting). **OPEN: Chris GPU
+walk** for motion/feel + the near-blade-band→terrain edge at eye level.
 
 ## 0b. Grass overhaul — direction reset (2026-06-29)
 

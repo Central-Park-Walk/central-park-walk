@@ -16,7 +16,7 @@ render_mode cull_disabled, world_vertex_coords;
 uniform float hm_world_size = 5000.0;
 #include "res://shaders/include/terrain3d_height.gdshaderinc"
 // Shared, calibrated grass color field — the SAME function the terrain shader
-// uses for its grass zones (fantasy_grass_color). Coloring the shell blades from
+// uses for its grass zones. Coloring the shell blades from
 // this instead of hardcoded greens makes the near grass and the far terrain
 // "felt" one continuous field, so the patch edge stops reading as a seam.
 // (grass_zone_colors requires vnoise/fbm3 from hash_noise — include it first.)
@@ -30,11 +30,6 @@ uniform float hm_world_size = 5000.0;
 uniform sampler2D landuse_map : filter_nearest, repeat_disable;
 uniform sampler2D wear_map    : filter_linear,  repeat_disable;
 
-// Fantasy toggle (mirrors terrain3d_override + grass_particle_render): 1.0 =
-// lush idealized green (fantasy_grass_color); <0.5 = data-driven Central Park
-// palette (grass_base_color_no_dead + turf wear), so the shell felt matches the
-// terrain felt in BOTH modes and the patch edge never reads as a color seam.
-uniform float fantasy : hint_range(0.0, 1.0) = 1.0;
 // Aesthetic mode (GRASS_LUSH): suspend the data-driven foot-traffic wear so worn
 // lawns (e.g. The Mall) stay lush green instead of eroding to tan dirt. Only the
 // most extreme wear still erodes. Matches grass_blades.gdshader's aesthetic flag.
@@ -55,7 +50,7 @@ uniform float blade_wid     = 0.46;   // base half-width across the blade (cell 
 uniform float lean_amt      = 0.62;   // blade lean (cell frac)
 uniform float mat_height    = 0.30;   // shell fraction below which the dense mat is solid
 // (Blade colors are no longer uniforms — derived per-fragment from the shared
-// fantasy_grass_color field so they track the terrain felt exactly.)
+// shared grass field so they track the terrain felt exactly.)
 // Patch fade: the camera-following patch dissolves into the terrain in its outer
 // ring so it never reads as a hard disc. Center is pushed per-frame from main.gd.
 uniform vec2  patch_center  = vec2(0.0);
@@ -232,21 +227,19 @@ void fragment(){
 		if (rx * rx + ry * ry > 1.0) discard;
 	}
 
-	// --- colour: derived from the SHARED grass field (fantasy_grass_color) so the
+	// --- colour: derived from the SHARED grass field (grass_base_color_no_dead) so the
 	// blades are the same hue/value as the terrain "felt" they sit in — the patch
 	// edge then has nothing to transition BETWEEN, and the macro patchiness lines up
 	// across the boundary because both call the same noise. ---
-	// Felt color: realistic data-driven zone palette, or the lush fantasy green —
-	// identical to the terrain3d_override grass-zone path so near grass and far
-	// felt are one continuous field.
-	vec3 felt = (fantasy < 0.5)
-		? grass_base_color_no_dead(zone, world)
-		: fantasy_grass_color(world);
+	// Felt color: the data-driven zone palette — identical to the
+	// terrain3d_override grass-zone path so near grass and far felt are
+	// one continuous field.
+	vec3 felt = grass_base_color_no_dead(zone, world);
 	// Shore (zone 13): the sedge palette is a cool saturated teal. Applied as a
 	// flat strip it read as a painted teal band (cpw_004/005/006). Blend it in by
 	// tussock patches over bank grass so it reads as clumped wetland vegetation —
 	// identical to terrain3d_override's shore handling so blades match the felt.
-	if (fantasy < 0.5 && zone == 13) {
+	if (zone == 13) {
 		felt = mix(grass_base_color_no_dead(0, world), felt, sedge_patch_mask(world));
 	}
 	// Vertical gradient: shaded base → lit tip, both shades of the SAME felt color
@@ -263,20 +256,22 @@ void fragment(){
 	// Toward the patch RIM (edge→0) fade the shading OUT to flat felt: blades aren't
 	// resolved at that distance, so converging the mat to the terrain color makes the
 	// handoff seamless instead of the dark/brown moat ring the old understory left.
-	ao = mix(1.0, ao, edge);
-	understory_c = mix(felt, understory_c, edge);
+	// Rim (edge→0) converges to the SAME canopy-AO'd felt the terrain shader uses beyond
+	// the patch (felt*0.50), NOT full-bright felt — otherwise the flat shell rim renders
+	// ~0.7 stop brighter than the terrain it hands off to = a bright ring. 0.50 matches
+	// terrain3d_override's canopy-AO so the shell→terrain seam is invisible.
+	ao = mix(0.50, ao, edge);
+	understory_c = mix(felt * 0.50, understory_c, edge);
 	ALBEDO = mix(understory_c, col, smoothstep(0.0, mat_height + 0.10, f)) * ao;
 
 	// Realistic mode: pull worn/compacted patches toward dried turf + dirt so the
 	// near sward matches the terrain felt (which calls apply_turf_wear with the
 	// same wear). Includes ambient mottle (turf_wear_total) for mown zones; canopy
 	// compaction is omitted here (no canopy_map on this patch) — paths/benches and
-	// ambient mottle are the dominant signal. Skipped in fantasy mode (no dirt).
-	if (fantasy < 0.5) {
-		float color_wear = turf_wear_total(wear, 0.0, zone, world);
-		if (aesthetic > 0.5) color_wear *= 0.20;   // keep worn lawns green, not tan
-		ALBEDO = apply_turf_wear(ALBEDO, color_wear, world);
-	}
+	// ambient mottle are the dominant signal.
+	float color_wear = turf_wear_total(wear, 0.0, zone, world);
+	if (aesthetic > 0.5) color_wear *= 0.20;   // keep worn lawns green, not tan
+	ALBEDO = apply_turf_wear(ALBEDO, color_wear, world);
 
 	// --- shading: flatter ribbon normal, near-matte (Chris: grass too shiny) ---
 	vec3 n = normalize(vec3(rl.y * 0.5 * dir.x, 1.0, rl.y * 0.5 * dir.y));

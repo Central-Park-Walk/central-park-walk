@@ -40,7 +40,6 @@ uniform float hm_res        = 4096.0;
 uniform sampler2D landuse_map : filter_nearest, repeat_disable;
 uniform sampler2D wear_map    : filter_linear,  repeat_disable;
 
-uniform float fantasy : hint_range(0.0, 1.0) = 1.0;
 global uniform vec2 wind_vec;
 
 // Band geometry. The blade patch follows the camera; blades fade out toward its
@@ -243,21 +242,17 @@ void vertex(){
 	NORMAL = normalize(nrm + vec3(0.0, 1.10, 0.0));
 
 	// --- colour: SAME shared field as shell turf + terrain (keeps the seam killed) ---
-	vec3 felt = (fantasy < 0.5)
-		? grass_base_color_no_dead(zone, pos)
-		: fantasy_grass_color(pos);
-	if (fantasy < 0.5 && zone == 13) {
+	vec3 felt = grass_base_color_no_dead(zone, pos);
+	if (zone == 13) {
 		felt = mix(grass_base_color_no_dead(0, pos), felt, sedge_patch_mask(pos));
 	}
 	// Wear drying turns grass tan/dead on high-traffic ground (e.g. The Mall) — that
 	// is data fidelity that reads as barren/sparse. In aesthetic mode keep it green
 	// (only a whisper of wear so there's still subtle variation), so worn lawns stay
 	// lush. Realistic mode keeps the full calibrated wear.
-	if (fantasy < 0.5) {
-		float cw = turf_wear_total(wear, 0.0, zone, pos);
-		if (aesthetic > 0.5) cw *= 0.20;
-		felt = apply_turf_wear(felt, cw, pos);
-	}
+	float cw = turf_wear_total(wear, 0.0, zone, pos);
+	if (aesthetic > 0.5) cw *= 0.20;
+	felt = apply_turf_wear(felt, cw, pos);
 	// Per-clump tint drift so each tuft is its own subtle hue (still in-family).
 	felt *= mix(vec3(0.93, 0.97, 0.90), vec3(1.07, 1.05, 0.96), cr);
 	v_felt = felt;

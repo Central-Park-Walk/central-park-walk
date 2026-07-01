@@ -81,11 +81,6 @@ uniform sampler2D landuse_map : filter_nearest, repeat_disable;
 uniform sampler2D canopy_map : filter_linear, repeat_disable;
 // Baked foot-traffic wear (paths/benches) — scripts/gen_wear_map.py
 uniform sampler2D wear_map : filter_linear, repeat_disable;
-// Fantasy mode (1.0 = ON, default) — mirrors the grass blade shader's
-// `fantasy` toggle so terrain grass-zones and blades stay matched. ON swaps
-// the data-driven spectral palette + turf wear + biome amber/teal tint +
-// litter for one lush idealized green. Set via _set_terrain_param("fantasy").
-uniform float fantasy : hint_range(0.0, 1.0) = 1.0;
 // Aesthetic mode (GRASS_LUSH): suspend foot-traffic wear drying on grass terrain so
 // worn lawns read lush green, matching grass_blades + shell_grass aesthetic flags.
 uniform float aesthetic : hint_range(0.0, 1.0) = 1.0;
@@ -401,7 +396,6 @@ void fragment() {
 		// Moderate strength: keep terrain looking natural while making boundaries
 		// visible. Mirrors the per-biome tints applied to grass blades.
 		vec3 biome_terrain_tint = vec3(1.0);
-		if (fantasy < 0.5) {
 			if (zone_id == 5 || zone_id == 10 || zone_id == 11) {
 				biome_terrain_tint = vec3(0.78, 0.92, 1.10);  // Shade: cool blue-green
 			} else if (zone_id == 13) {
@@ -411,7 +405,6 @@ void fragment() {
 			} else if (zone_id == 14) {
 				biome_terrain_tint = vec3(1.20, 1.05, 0.72);  // Wild: warm amber (hand-marked meadow)
 			}
-		}
 		ALBEDO *= biome_terrain_tint;
 
 		// Pull terrain albedo toward the spectral grass palette inside grass
@@ -428,7 +421,6 @@ void fragment() {
 		if (is_grass_zone) {
 			vec3 spectral_col;
 			float wear = 0.0;
-			if (fantasy < 0.5) {
 				spectral_col = grass_base_color_no_dead(zone_id, v_vertex.xz);
 				// Shore band: blend the sedge palette in by tussock patches so
 				// the cool teal reads as clumped vegetation over bank grass.
@@ -449,10 +441,6 @@ void fragment() {
 				// baked foot-traffic wear at the bench). Suppress it near-fully so the far
 				// felt reads as the same uniform lush sward as the near blades.
 				if (aesthetic > 0.5) wear *= 0.05;   // keep worn lawns lush green, not tan
-			} else {
-				// Fantasy: one lush green to match the blades (no wear/dirt).
-				spectral_col = fantasy_grass_color(v_vertex.xz);
-			}
 			// Inject the Grass texture's blade-scale luminance relief
 				// (make_turf_texture.py: mid-luma blade strokes over a dark
 				// understory) so the recoloured ground reads as individual
@@ -460,9 +448,20 @@ void fragment() {
 				// felt. albedo_height.rgb is the raw turf texture; map its
 				// value to a bounded multiplier (never blown out / fully black).
 				float turf_luma = dot(albedo_height.rgb, vec3(0.299, 0.587, 0.114));
-				float turf_relief = mix(0.50, 1.50, smoothstep(0.04, 0.42, turf_luma));
+				float turf_relief = mix(0.80, 1.20, smoothstep(0.04, 0.42, turf_luma));  // tightened 2026-07-01: wide swing made distant lawn brighter/patchier than near blades (3-band tell)
+				// Canopy-AO factor: a FLAT ground shell at noon catches full sun and
+				// renders far brighter than the near 3D blade CANOPY of the same albedo
+				// (blades self-shadow + dark inter-blade gaps). Without this the distant
+				// lawn read ~0.7 stop brighter than the near blades = a brightness band at
+				// the blade-band edge. 0.72 pulls the flat shell down to the blade canopy's
+				// apparent value so the field is one brightness from foot to horizon.
+				turf_relief *= 0.50;   // canopy-AO 0.50: reference lawn is ~uniform luma 115-131
+				// near→horizon (measured); a FLAT shell at noon renders ~163 for the sward
+				// albedo (faces full sun + sky), far above the near blade CANOPY (~110, it
+				// self-shadows). 0.50 pulls the flat far ground to ~130 = the reference far,
+				// so the field brightens only gently to the horizon instead of a pale band.
 				spectral_col *= turf_relief;
-				ALBEDO = mix(ALBEDO, spectral_col, 0.92);
+				ALBEDO = mix(ALBEDO, spectral_col, 0.96);  // 0.92->0.96: less olive Terrain3D-photo leak warming the far lawn off the near blade hue
 			ALBEDO = apply_turf_wear(ALBEDO, wear, v_vertex.xz);
 				// Let the turf normal map's blade relief catch grazing light.
 				NORMAL_MAP_DEPTH = max(NORMAL_MAP_DEPTH, 1.5);
@@ -483,7 +482,7 @@ void fragment() {
 	// ---- Canopy leaf litter (under dense tree cover) ----
 	{
 		float canopy_cover = texture(canopy_map, splat_uv).r;
-		if (canopy_cover > 0.3 && (is_woodland || (is_grass_zone && fantasy < 0.5))) {
+		if (canopy_cover > 0.3 && (is_woodland || is_grass_zone)) {
 			vec3 litter_col = mix(vec3(0.28, 0.22, 0.14), vec3(0.34, 0.26, 0.16), vnoise(v_vertex.xz * 0.5));
 			float litter_blend = smoothstep(0.3, 0.7, canopy_cover) * 0.50;
 			ALBEDO = mix(ALBEDO, litter_col, litter_blend);

@@ -15,13 +15,6 @@ uniform bool debug_highlight = false;
 uniform vec3 debug_color : source_color = vec3(1.0, 0.0, 1.0);
 // 0=Lawn 1=Shade 2=Wild 3=Sedge — set per layer in _setup_grass_particles
 uniform int biome_id = 0;
-// Fantasy mode (1.0 = ON, default): bypass the data-driven Central Park
-// palette (zone spectral colors, thatch, turf wear, dead tufts, biome
-// amber/teal tints, canopy litter, autumn/winter dry-down) and render one
-// lush idealized green for alpha-testing QoL. Set to 0.0 in
-// _setup_grass_particles to restore the full data-driven look — every
-// data path below is preserved behind `if (fantasy < 0.5)`.
-uniform float fantasy : hint_range(0.0, 1.0) = 1.0;
 
 global uniform float season_t;
 global uniform vec2 wind_vec;
@@ -148,8 +141,8 @@ void fragment() {
 	// gate so July reads green and autumn ramps the brown up.
 	float autumn_t_early = sn_veg_autumn(season_t);
 	vec3 col;
-	if (fantasy < 0.5) {
-		// ---- Data-driven Central Park palette (suspended; flip `fantasy`=0) ----
+	{
+		// ---- Data-driven Central Park palette ----
 		col = grass_base_color_no_dead(zone_id, v_world_pos.xz);
 		// Shore band: sedge palette comes in by tussock patches (same mask as
 		// the terrain shader so patches line up across the 36-60m fade).
@@ -163,9 +156,6 @@ void fragment() {
 		// blades under dense crowns match the dirt terrain.
 		float wear_total = turf_wear_total(COLOR.b, canopy_cover, zone_id, v_world_pos.xz);
 		col = apply_turf_wear(col, wear_total, v_world_pos.xz);
-	} else {
-		// ---- Fantasy lush green (alpha-testing QoL) ----
-		col = fantasy_grass_color(v_world_pos.xz);
 	}
 
 	// Texture modulation: texture luminance adds blade-level detail
@@ -185,7 +175,7 @@ void fragment() {
 	// per biome. Blades and terrain pull in the same hue direction so
 	// boundaries read clearly without either fighting the other. Fantasy
 	// mode wants one uniform lush green, so the amber/teal splits are off.
-	if (fantasy < 0.5) {
+	{
 		if (biome_id == 0) {
 			col *= vec3(1.05, 1.02, 0.92);  // Lawn: subtle warm
 		} else if (biome_id == 1) {
@@ -211,12 +201,12 @@ void fragment() {
 	// base gives each tuft 3D depth (matching the reference puck's shadowed
 	// interior) instead of a flat pale triangle, and is self-occluded from most
 	// angles by the tuft's own blades.
-	col *= mix(mix(0.98, 0.80, fantasy), 1.0, root_t);
+	col *= mix(0.98, 1.0, root_t);
 
 	// Thatch tint at base — barely-there now. The previous values created
 	// a visible darker zone where blades render vs terrain just beyond.
 	// Skipped in fantasy mode (no dead-thatch undertone in lush grass).
-	if (fantasy < 0.5) {
+	{
 		vec3 c_lo, c_hi;
 		grass_zone_palette(zone_id, c_lo, c_hi);
 		vec3 thatch_col = c_lo * 0.5;
@@ -230,7 +220,7 @@ void fragment() {
 	// noon): the blade chain's extras (dead tufts, biome tint, tip
 	// warmth, card specular) stack on top of now-correct lighting. Trim
 	// to parity so the 36-60m fade ring is invisible in both directions.
-	col *= mix(0.905, 0.90, fantasy);
+	col *= 0.905;
 
 	// terrain_tint removed — dithered crossfade means terrain between blades
 	// is now filled by the next LOD tier, not visible through blade gaps.
@@ -245,8 +235,8 @@ void fragment() {
 	// Per-instance hue variation. Data-driven wants ±10% blade-to-blade
 	// difference; fantasy narrows it to ~±4% so blades read as a cohesive
 	// sward rather than thousands of individually-distinct spikes.
-	vec3 hue_lo = mix(vec3(0.90, 1.04, 1.06), vec3(0.96, 1.02, 1.02), fantasy);
-	vec3 hue_hi = mix(vec3(1.10, 0.96, 0.90), vec3(1.04, 0.99, 0.97), fantasy);
+	vec3 hue_lo = vec3(0.90, 1.04, 1.06);
+	vec3 hue_hi = vec3(1.10, 0.96, 0.90);
 	col *= mix(hue_lo, hue_hi, blade_seed);
 
 	// Tip warmth: yellow highlights at blade tips from waxy cuticle.
@@ -267,11 +257,11 @@ void fragment() {
 	col = mix(col, col * vec3(1.1, 1.15, 0.75), spring_t * 0.6);
 	// Autumn/winter dry-down: full in data-driven mode; fantasy keeps grass
 	// lush year-round for alpha testing (only a faint cool-down in deep winter).
-	col = mix(col, vec3(0.16, 0.12, 0.04), autumn_t * 0.7 * (1.0 - fantasy));
-	col = mix(col, vec3(0.12, 0.10, 0.06), winter_t * mix(1.0, 0.25, fantasy));
+	col = mix(col, vec3(0.16, 0.12, 0.04), autumn_t * 0.7);
+	col = mix(col, vec3(0.12, 0.10, 0.06), winter_t);
 
 	// --- Canopy leaf litter at grass roots (matches terrain shader overlay) ---
-	if (fantasy < 0.5 && canopy_cover > 0.3) {
+	if (canopy_cover > 0.3) {
 		vec3 litter_col = mix(vec3(0.28, 0.22, 0.14), vec3(0.34, 0.26, 0.16),
 			vnoise(v_world_pos.xz * 0.5));
 		float litter_strength = smoothstep(0.3, 0.7, canopy_cover) * (1.0 - root_t) * 0.5;
@@ -327,7 +317,7 @@ void fragment() {
 	// Soft translucent backlight. Kept close to the data-driven value in
 	// fantasy (only slightly greener) — an over-bright glow lit every blade
 	// tip individually, which is what made the field read as glowing spikes.
-	BACKLIGHT = mix(vec3(0.30, 0.36, 0.10), vec3(0.16, 0.24, 0.08), fantasy)
+	BACKLIGHT = vec3(0.30, 0.36, 0.10)
 		* mix(0.5, 1.0, v_height_t);
 
 	// --- Weather ---

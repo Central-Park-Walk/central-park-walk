@@ -504,8 +504,6 @@ func _ready() -> void:
 		print("main: landuse map: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 		if _park_loader and _park_loader._canopy_texture:
 			_set_terrain_param("canopy_map", _park_loader._canopy_texture)
-		# Fantasy grass: terrain grass-zones match the blade shader's lush green.
-		_set_terrain_param("fantasy", GRASS_FANTASY)
 		# Aesthetic scale mode: suspend wear drying so worn lawns stay lush (matches blades/shell)
 		_set_terrain_param("aesthetic", 1.0 if GRASS_LUSH else 0.0)
 		print("main: canopy map: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
@@ -2439,13 +2437,6 @@ var _wear_texture: Texture2D  # baked turf wear (scripts/gen_wear_map.py)
 # --grass-spacing-mult stacks on top for sweeps.
 const GRASS_DENSITY_SCALE := 1.41
 
-# Fantasy grass look (alpha-testing QoL): 1.0 = ON (one lush idealized green,
-# data-driven Central Park palette/wear/seasons suspended), 0.0 = restore the
-# full data-driven look (current). Drives the `fantasy` uniform on the grass
-# blade render shader, the terrain override shader, AND the shell-grass shader
-# so all three stay matched.
-const GRASS_FANTASY := 0.0
-
 # Biome definitions for multi-layer grass particles.
 # 4 Tuft layers with PBR textures + alpha cutout — one per biome type, non-overlapping.
 # Tuft meshes have embedded albedo textures with alpha for realistic blade-level detail
@@ -2713,13 +2704,9 @@ func _setup_grass_particles() -> void:
 	var all_grass_layers: Array = []
 	all_grass_layers.append_array(GRASS_BIOMES)   # Tier 1: near geometry tufts 0-60m
 	all_grass_layers.append_array(GRASS_CARDS)    # Mid/far card LOD 14-140m
-	if GRASS_FANTASY < 0.5:
-		# Data-driven: add near-field single-blade variety + botanical accents.
-		all_grass_layers.append_array(GRASS_TIER0)    # Tier 0: 0-6m near-field variants
-		all_grass_layers.append_array(GRASS_ACCENTS)  # 0-6m botanical detail
-	# Fantasy: skip Tier 0 / accents — the Tier-1 CLUMP meshes cover from 0m as
-	# a cohesive sward, and the single-blade Tier-0 layers are exactly the
-	# isolated "spikes" we're eliminating. Also drops 12 particle layers.
+	# Near-field single-blade variety + botanical accents.
+	all_grass_layers.append_array(GRASS_TIER0)    # Tier 0: 0-6m near-field variants
+	all_grass_layers.append_array(GRASS_ACCENTS)  # 0-6m botanical detail
 
 	for biome in all_grass_layers:
 		# Load tuft GLB via Godot's native load()
@@ -2776,7 +2763,7 @@ func _setup_grass_particles() -> void:
 		# tier sets its own near_cull so big flat cards never render up close
 		# (geometry tufts own that band).
 		gp.near_cull_distance = biome.get("near_cull",
-			0.0 if GRASS_FANTASY >= 0.5 else biome.get("min_distance", 0.0))
+			biome.get("min_distance", 0.0))
 		gp.process_fixed_fps = biome.get("process_fps", 30)
 		gp.shadow_mode = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		gp.mesh = tuft_mesh
@@ -2814,7 +2801,6 @@ func _setup_grass_particles() -> void:
 		var render_mat := ShaderMaterial.new()
 		render_mat.shader = render_shader
 		render_mat.set_shader_parameter("biome_id", biome.biome_id)
-		render_mat.set_shader_parameter("fantasy", GRASS_FANTASY)
 		if albedo_tex:
 			render_mat.set_shader_parameter("use_texture", true)
 			render_mat.set_shader_parameter("grass_albedo", albedo_tex)
@@ -2876,7 +2862,6 @@ func _setup_shell_grass() -> void:
 	var mat := ShaderMaterial.new()
 	mat.shader = shader
 	mat.set_shader_parameter("shell_count", SHELL_GRASS_SHELLS)
-	mat.set_shader_parameter("fantasy", GRASS_FANTASY)
 	mat.set_shader_parameter("aesthetic", 1.0 if GRASS_LUSH else 0.0)
 	# Clear the shell out of the dense turf-blade zone (blades own it) and ramp it IN as the
 	# turf thins, so the shell is fully present exactly where the turf blades end (TURF_REACH)
@@ -2884,6 +2869,14 @@ func _setup_shell_grass() -> void:
 	# (blades off → shell everywhere).
 	mat.set_shader_parameter("near_clear_r", (TURF_REACH - 9.0) if _grass_blades else 0.0)
 	mat.set_shader_parameter("near_clear_fade", 9.0)
+	# Fade the shell out by ~40 m so the flat (angle-controllable) terrain owns the far
+	# field. The shell's tall blades brighten at grazing angle (broad sides catch full
+	# sun) and rendered ~0.7 stop brighter than the near turf tiles = a pale far band;
+	# individual blades aren't resolvable past ~40 m anyway and the reference far field
+	# is smooth, so beyond 40 m the darkened terrain (canopy-AO'd to the blade-canopy
+	# value) reads correctly and uniformly. Shell now only carries the 11-40 m mid band.
+	mat.set_shader_parameter("patch_radius", 40.0)
+	mat.set_shader_parameter("patch_fade", 22.0)
 	mat.set_shader_parameter("hm_world_size", _park_loader._hm_world_size)  # for splat_uv only
 	# Conform the shell to Terrain3D's real surface (same fix as the turf) so the far ground
 	# agrees with the terrain and the near blades — no floating/sunk carpet.
@@ -2968,7 +2961,6 @@ func _setup_grass_blades() -> void:
 
 	var mat := ShaderMaterial.new()
 	mat.shader = shader
-	mat.set_shader_parameter("fantasy", GRASS_FANTASY)
 	# Aesthetic scale: lift blade height off the (too-short) mown-turf data so grass
 	# reads as real grass from standing height. One flag, reversible (GRASS_LUSH=false
 	# restores data-driven height). See grass_blades.gdshader.
@@ -3377,7 +3369,6 @@ func _setup_grass_cards() -> void:
 	var mat := ShaderMaterial.new()
 	mat.shader = shader
 	mat.set_shader_parameter("card_tex", card_tex)
-	mat.set_shader_parameter("fantasy", GRASS_FANTASY)
 	mat.set_shader_parameter("aesthetic", 1.0 if GRASS_LUSH else 0.0)
 	mat.set_shader_parameter("cell_size", CARD_BAND_CELL)
 	mat.set_shader_parameter("near_start", 4.0)
