@@ -225,6 +225,22 @@ Shipped: multi-scatter octaves, gated powder, in-cloud ambient gradient
 - **P5**: altocumulus cellular layer; rarities (lenticular over the
   reservoir on strong-wind autumn days).
 
+### Capture protocol (learned 2026-07-01, the hard way)
+- **`.glsl` edits need a reimport before game-run captures**: compute
+  shaders go through the import cache (`.godot/imported/*.res`), and
+  `godot --path .` game runs do NOT reimport — three successive
+  calibration edits ran with a stale 16:01 SPIR-V. Run
+  `Godot --headless --path . --import` after ANY clouds.glsl change.
+  (`.gd`/`.gdshader` load from source — no reimport needed.)
+- **Sky state needs convergence repeats**: the sky texture rebuilds over
+  64 frames ×3-texture blend and the LUT cycles 3 textures per swap, so
+  after a time jump the first ~2-4 shots at 3 s settle are contaminated
+  by the previous state. Repeat each pose 5-7x in the --shots spec and
+  read the tail (adjacent-identical = converged).
+- **Serialize with other Godot sessions**: concurrent runs (other Claude
+  sessions use this repo too) starve the GPU and freeze convergence —
+  check `pgrep -x Xvfb` before capturing.
+
 ## 6. 2026-07-01 audit — measured symptoms, root causes, redesign plan
 
 Chris's walk-around verdict (2026-07-01): *"odd light, then dark, then
@@ -293,7 +309,10 @@ than after). Light→dark→light confirmed at both ends.
 
 ### 6.2 Redesign plan (priority order)
 
-- **P0 — honest night sky** (fixes 1, 3, and the trough+spot+1AM-clouds):
+- **P0 — honest night sky: SHIPPED 2026-07-01 (a0d9314)**, verified by
+  converged sweeps (tmp/skysweep2/4, skynight): dusk monotonic
+  187→97→19→4.5, dawn mirror, noon unchanged, stars + LP dome live,
+  1AM clouds amber above the dome. Design as specified:
   celestial/LUT sun = the REAL sun always (LUT owns dawn→dusk and goes
   properly dark; kill the `night_celest` slerp and the fake skyglow dir).
   Night background = additive on the dark LUT in `clouds.gdshader`:
@@ -307,7 +326,14 @@ than after). Light→dark→light confirmed at both ends.
   overcast nights glow amber from below; dramatic AND true). Twilight
   cal windows (`twilight_f`, cal_bg blend) re-derived after this — the
   LUT then darkens monotonically and the keyframes only shape mood.
-- **P1 — celestial presentation** (Chris art direction, cheap):
+- **P1 — celestial presentation: SHIPPED 2026-07-01 (a0d9314)** — swell
+  from 25°, sun ~5x / moon ~4.6x at horizon; vnoise maria + night halo;
+  full-moon verify (season 1.97 = Aug 27, moonrise 20:30 ESE) renders
+  moon+halo+stars+moonlit clouds (tmp/skymoon). Sun disk confirmed
+  rendering from a 120 m camera (at ground level the CPW towers really do
+  occlude the low sun from Great Lawn). Moon albedo TEXTURE + brightness
+  polish + a moonlit-sky floor (full-moon nights wash the sky a little)
+  remain open art-direction knobs for a GPU walk. Original spec:
   swell curves start at ~25° elevation, reach ~4.5–5× at the horizon for
   BOTH bodies (keep refraction squash); verify the setting sun disk is
   actually visible/huge at the skyline by capture. Moon: brightness up
