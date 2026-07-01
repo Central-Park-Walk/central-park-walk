@@ -138,9 +138,9 @@ void fragment(){
 		alb = tex * mat_tint * (mat_bright * qbright);
 	}
 	ALBEDO    = alb;
-	ROUGHNESS = 0.90;
-	SPECULAR  = 0.10;
+	ROUGHNESS = 0.98;   // near-matte — Chris: "grass is too shiny"
+	SPECULAR  = 0.02;   // was 0.10; kill the plasticky highlight
 	// Faint translucency only at the very tip — kept low so blades read as solid grass,
 	// not a pale/washed-out sheen (Chris: "less white/transparent").
-	BACKLIGHT = vec3(0.08, 0.11, 0.05) * v_up * v_up;
+	BACKLIGHT = vec3(0.06, 0.09, 0.04) * v_up * v_up;
 }

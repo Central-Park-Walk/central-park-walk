@@ -883,17 +883,16 @@ func _process(delta: float) -> void:
 		var q := SHELL_GRASS_PATCH / float(SHELL_GRASS_SUBDIV + 1)
 		var cp := _player_camera.global_position
 		var snapped := Vector3(roundf(cp.x / q) * q, 0.0, roundf(cp.z / q) * q)
-		_shell_grass_mmi.global_position = snapped
-		# Feed the snapped patch center to the shader so its rim dissolves into the
-		# terrain (no hard disc edge) centered exactly where the patch sits.
+		# Do NOT move the node (that jumps MODEL_MATRIX → TAA/FSR2 smear the shell = pop).
+		# Slide the patch to the camera via the patch_snap uniform; MODEL_MATRIX stays fixed.
 		var sg_mesh := _shell_grass_mmi.multimesh.mesh as PlaneMesh
 		if sg_mesh and sg_mesh.material is ShaderMaterial:
-			(sg_mesh.material as ShaderMaterial).set_shader_parameter(
-				"patch_center", Vector2(snapped.x, snapped.z))
-			# True camera xz so the shell clears out of the near-field blade zone
-			# (blades own that area) and only fills the ground beyond the blade band.
-			(sg_mesh.material as ShaderMaterial).set_shader_parameter(
-				"near_center", Vector2(cp.x, cp.z))
+			var sgm := sg_mesh.material as ShaderMaterial
+			sgm.set_shader_parameter("patch_snap", Vector2(snapped.x, snapped.z))
+			# Snapped patch center so its rim dissolves into the terrain centered on the patch.
+			sgm.set_shader_parameter("patch_center", Vector2(snapped.x, snapped.z))
+			# True camera xz so the shell clears out of the near-field blade zone.
+			sgm.set_shader_parameter("near_center", Vector2(cp.x, cp.z))
 
 	# Turf follows the camera via the tile_snap UNIFORM — the MMI itself is NEVER moved, so its
 	# MODEL_MATRIX stays constant and TAA/FSR2 get correct motion vectors (moving the MMI made
@@ -1449,9 +1448,9 @@ var _cli_high_clouds: Vector3 = Vector3(-1.0, -1.0, -1.0)
 # Measured 2026-06-11 with SUN_CAL=3 + thatch mix: lawn R/G 0.57→0.82
 # display (reference 0.87); stills nearly identical 0.3–0.9, kept mid
 # for view-dependent life. Full record: docs/grass.md §6.
-const TURF_SHEEN := 0.15  # was 0.6 (Sheep Meadow calib → R/G 0.82). KBG-sod recolor
-                          # (2026-07-01): near-off so the felt/shell read blue-green
-                          # (G/R ~1.7) like the sod, not olive; also darkens the midground.
+const TURF_SHEEN := 0.05  # was 0.6 (Sheep Meadow calib → R/G 0.82). KBG-sod recolor +
+                          # "grass too shiny" (2026-07-01): near-off so the felt reads matte
+                          # blue-green like the sod, not an olive waxy sheen.
 var _cli_turf_sheen: float = -1.0
 # Crown-interior AO (trees.md §6): leaf shaders map baked crown rho
 # (COLOR.a / depth-atlas G) to AO = mix(CORE, SHELL, pow(rho, EXP)).
@@ -2907,10 +2906,9 @@ func _setup_shell_grass() -> void:
 	_shell_grass_mmi.name = "ShellGrass"
 	_shell_grass_mmi.multimesh = mm
 	_shell_grass_mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# Generous AABB so the camera-following patch is never frustum-culled wrongly.
-	_shell_grass_mmi.custom_aabb = AABB(
-		Vector3(-SHELL_GRASS_PATCH, -200.0, -SHELL_GRASS_PATCH),
-		Vector3(SHELL_GRASS_PATCH * 2.0, 400.0, SHELL_GRASS_PATCH * 2.0))
+	# The patch node is never moved (it slides to the camera via patch_snap in-shader), so its
+	# cull bounds must span the whole park — else it's frustum-culled away from the origin.
+	_shell_grass_mmi.custom_aabb = AABB(Vector3(-4000.0, -400.0, -4000.0), Vector3(8000.0, 800.0, 8000.0))
 	add_child(_shell_grass_mmi)
 	# REPLACE the particle grass — shell grass is meant to stand alone (the line-80
 	# contract). Without this the legacy ground_cover tufts render ON TOP of the

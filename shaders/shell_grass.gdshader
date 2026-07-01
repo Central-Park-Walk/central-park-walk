@@ -108,11 +108,18 @@ vec2 hash22(vec2 p){
 // vnoise/fbm3 come from hash_noise.gdshaderinc (shared with the terrain shader,
 // so the macro patchiness lines up across the near-grass / far-felt boundary).
 
+// Camera-snap as a uniform (same motion-vector fix as the turf): the patch node is NEVER
+// moved, so its MODEL_MATRIX stays constant and TAA/FSR2 get correct motion vectors. Moving
+// the patch made them smear the world-static shell every snap = part of the "pop".
+uniform vec2 patch_snap = vec2(0.0);
+
 void vertex(){
 	float f = float(INSTANCE_ID) / float(max(shell_count - 1, 1));
 	v_layer = f;
-	// world_vertex_coords: VERTEX is already world-space. Snap each shell onto
-	// the terrain surface, then lift it by this zone's standing height.
+	// world_vertex_coords: VERTEX is world-space. The patch mesh sits at the origin; slide it
+	// to the camera here (via the uniform) rather than by moving the node, so MODEL_MATRIX
+	// never changes. Then snap onto the terrain and lift by this zone's standing height.
+	VERTEX.xz += patch_snap;
 	float ground = sample_terrain(VERTEX.xz);
 	VERTEX.y = ground + f * zone_height_m(zone_at(VERTEX.xz));
 	v_world = VERTEX;
@@ -271,10 +278,10 @@ void fragment(){
 		ALBEDO = apply_turf_wear(ALBEDO, color_wear, world);
 	}
 
-	// --- shading: flatter ribbon normal, softer varied specular ---
+	// --- shading: flatter ribbon normal, near-matte (Chris: grass too shiny) ---
 	vec3 n = normalize(vec3(rl.y * 0.5 * dir.x, 1.0, rl.y * 0.5 * dir.y));
 	NORMAL = normalize((VIEW_MATRIX * vec4(n, 0.0)).xyz);
-	ROUGHNESS = mix(0.55, 0.80, hash21(cell + 9.1));
-	SPECULAR  = 0.25;
-	BACKLIGHT = vec3(0.25 * f);
+	ROUGHNESS = mix(0.85, 0.97, hash21(cell + 9.1));  // was 0.55-0.80
+	SPECULAR  = 0.04;                                  // was 0.25
+	BACKLIGHT = vec3(0.16 * f);                        // was 0.25 — less washed-out glow
 }
