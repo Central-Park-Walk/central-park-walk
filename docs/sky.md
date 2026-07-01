@@ -341,13 +341,16 @@ than after). Light→dark→light confirmed at both ends.
   5×), subtle halo. Consider defaulting season_t off the new-moon date
   or simply accept per-date phases (data-first) — but the moon must be
   *seeable* when up: verify a full-moon date end-to-end.
-- **P2 — cumulus de-bunning**: weather-map cells get wind elongation,
-  cluster merging, wide size distribution (gen_weather_map.py); glsl
-  gets stronger top erosion/curl tearing, flatter bases with darker
-  shading, slight base-noise anisotropy along wind. Iterate by capture
-  against cloud-atlas refs (humilis/mediocris). Then measure 1024²
-  texture cost on the 3060 Ti (amortized over 64 frames) for the edge
-  pixelation; only ship if the perf gate passes.
+- **P2 — cumulus de-bunning: SHIPPED 2026-07-01 (f94bcae)** — satellite-
+  lobe clustering (cluster_p) + size anarchy + stretch 1.6 in
+  gen_weather_map.py; curl tearing 140 m + erosion floor 0.15+0.50·hf in
+  clouds.glsl. Verified tmp/skycum (noon/15:00/19:30): multi-lobed
+  cauliflower masses, torn rims, real gaps. **1024² texture FAILED the
+  perf gate** (+4.6 ms GPU, 9.2→13.8 vpgpu median — the amortized march
+  region scales with area); stays 768. Edge stair-step remains a known
+  cosmetic — cheaper routes if it bothers: bicubic sampling of the
+  octahedral texture in clouds.gdshader, or denser update (frames 64→
+  smaller region churn) — measure first.
 - **P3 — cirrus rework**: orientation-varying, domain-warped hooked
   filaments (uncinus) + patchy density; kill the parallel-streak field.
   Same flat-sheet machinery, still ~free.
