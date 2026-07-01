@@ -9,12 +9,49 @@ render_mode cull_disabled, depth_draw_opaque;
 // (main.gd _make_turf_tile_mesh) so the vertex shader stays cheap: terrain conform,
 // per-tile yaw (breaks the one-mesh repeat), wind, far-rim fade.
 
-uniform sampler2D heightmap_tex : filter_linear, repeat_disable;
-uniform float hm_world_size = 5000.0;
-uniform float hm_min_h = 0.0;
-uniform float hm_range  = 1.0;
-uniform float hm_res    = 4096.0;
-#include "res://shaders/include/decode_terrain.gdshaderinc"
+// TERRAIN CONFORM — sample TERRAIN3D's OWN height maps, the exact surface the player sees
+// and collides with. The turf used to conform to a separate project heightmap (heightmap.bin)
+// that diverges from Terrain3D by 0.2-6.5 m on slopes, burying the short blades under the
+// Terrain3D mesh (→ "bare flat carpet"). These uniforms + get_index_coord are the addon's own
+// height-sampling path (extras/particle_example/particles.gdshader), pushed from main.gd via
+// RenderingServer.material_set_param so the turf reads identical heights to the ground.
+uniform highp sampler2DArray _height_maps : repeat_disable;
+uniform int   _region_map[1024];
+uniform int   _region_map_size = 32;
+uniform float _region_size = 1024.0;
+uniform float _region_texel_size = 0.0009765625;
+uniform float _vertex_density = 1.0;              // = 1 / vertex_spacing
+uniform uint  _background_mode = 0u;
+
+// world XZ grid coord → (texel xy, region layer). Verbatim from the Terrain3D addon.
+ivec3 t3d_index_coord(vec2 uv) {
+	vec2 r_uv = round(uv);
+	vec2 o_uv = mod(r_uv, _region_size);
+	ivec2 pos;
+	int bounds, layer_index = -1;
+	for (int i = -1; i < 0; i++) {
+		if ((layer_index == -1 && _background_mode == 0u) || i < 0) {
+			r_uv -= i == -1 ? vec2(0.0) : vec2(float(o_uv.x <= o_uv.y), float(o_uv.y <= o_uv.x));
+			pos = ivec2(floor((r_uv) * _region_texel_size)) + (_region_map_size / 2);
+			bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
+			layer_index = (_region_map[pos.y * _region_map_size + pos.x] * bounds - 1);
+		}
+	}
+	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
+}
+
+// Bilinear Terrain3D height (metres) at world XZ — the conform used to sit the turf on the
+// ground exactly, so blades are never buried nor floating regardless of terrain shape.
+float sample_terrain(vec2 world_xz) {
+	vec2 uv = world_xz * _vertex_density;
+	vec2 b  = floor(uv);
+	vec2 w  = uv - b;
+	float h00 = texelFetch(_height_maps, t3d_index_coord(b + vec2(0.0, 0.0)), 0).r;
+	float h10 = texelFetch(_height_maps, t3d_index_coord(b + vec2(1.0, 0.0)), 0).r;
+	float h01 = texelFetch(_height_maps, t3d_index_coord(b + vec2(0.0, 1.0)), 0).r;
+	float h11 = texelFetch(_height_maps, t3d_index_coord(b + vec2(1.0, 1.0)), 0).r;
+	return mix(mix(h00, h10, w.x), mix(h01, h11, w.x), w.y);
+}
 
 global uniform vec2 wind_vec;
 uniform vec2  band_center = vec2(0.0);

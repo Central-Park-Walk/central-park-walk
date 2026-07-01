@@ -3244,22 +3244,34 @@ func _setup_turf_tiles() -> void:
 	var shader: Shader = load("res://shaders/turf_tile.gdshader")
 	if not shader:
 		push_warning("turf_tile.gdshader not found"); return
-	if not _park_loader or not _park_loader._hm_texture:
-		push_warning("turf tiles: heightmap unavailable"); return
+	if not _terrain3d or not _terrain3d.data:
+		push_warning("turf tiles: Terrain3D unavailable"); return
 	var mat_tex: Texture2D = load("res://textures/grass_albedo.jpg")
 
 	var mat := ShaderMaterial.new()
 	mat.shader = shader
-	mat.set_shader_parameter("heightmap_tex", _park_loader._hm_texture)
-	mat.set_shader_parameter("hm_world_size", _park_loader._hm_world_size)
-	mat.set_shader_parameter("hm_min_h", _park_loader._hm_min_h)
-	mat.set_shader_parameter("hm_range", maxf(_park_loader._hm_max_h - _park_loader._hm_min_h, 0.01))
-	mat.set_shader_parameter("hm_res", float(_park_loader._hm_texture.get_width()))
 	mat.set_shader_parameter("near_full", TURF_NEAR_FULL)
 	mat.set_shader_parameter("far_radius", TURF_RADIUS)
 	mat.set_shader_parameter("far_fade", TURF_FADE)
 	if mat_tex:
 		mat.set_shader_parameter("mat_tex", mat_tex)
+	# Conform the turf to TERRAIN3D's own height maps (the surface the player sees/collides
+	# with), NOT the separate project heightmap that diverges by up to several metres and
+	# buries the blades. Push Terrain3D's height-array + region lookup uniforms — the addon's
+	# own sampling path (extras/particle_example) — via RenderingServer (RID/array uniforms
+	# can't go through set_shader_parameter). Regions are static once the park is loaded.
+	if _terrain3d and _terrain3d.data:
+		var rid := mat.get_rid()
+		var bg: int = _terrain3d.material.world_background if _terrain3d.material else 0
+		RenderingServer.material_set_param(rid, "_background_mode", bg)
+		RenderingServer.material_set_param(rid, "_vertex_density", 1.0 / _terrain3d.vertex_spacing)
+		RenderingServer.material_set_param(rid, "_region_size", float(_terrain3d.region_size))
+		RenderingServer.material_set_param(rid, "_region_texel_size", 1.0 / float(_terrain3d.region_size))
+		RenderingServer.material_set_param(rid, "_region_map_size", 32)
+		RenderingServer.material_set_param(rid, "_region_map", _terrain3d.data.get_region_map())
+		RenderingServer.material_set_param(rid, "_height_maps", _terrain3d.data.get_height_maps_rid())
+	else:
+		push_warning("turf tiles: Terrain3D unavailable — grass will not conform to terrain")
 
 	var tile := _make_turf_tile_mesh(TURF_BLADES, TURF_THATCH, TURF_MAT_N)
 	tile.surface_set_material(0, mat)
