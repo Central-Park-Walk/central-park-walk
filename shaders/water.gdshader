@@ -17,6 +17,12 @@ global uniform vec2 wind_vec;
 uniform sampler2D canopy_map : filter_linear, repeat_disable;
 uniform float canopy_world_size = 5000.0;
 
+// Screen/depth for true shore depth + refraction (reads keep us in the
+// transparent pass — reflections come from the planar viewport, not SSR)
+uniform sampler2D depth_texture : hint_depth_texture, repeat_disable, filter_nearest;
+uniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_linear;
+uniform float refraction_strength = 0.025;
+
 varying vec3 world_pos;
 varying float v_shore_dist;
 varying float v_water_depth;
@@ -112,6 +118,7 @@ void fragment() {
 	vec3 deep    = vec3(0.020, 0.038, 0.028);   // dark olive-green (Central Park lakes)
 	vec3 shallow = vec3(0.050, 0.075, 0.045);   // slightly warmer shallow
 	float extra_reflect = 0.0;
+	float murk_m = 1.4;   // metres of water column to reach full opacity
 
 	// Per-water-body character based on world position
 	// Conservatory Water (Model Boat Pond): shallow formal reflecting pool
@@ -120,12 +127,14 @@ void fragment() {
 		deep    = vec3(0.035, 0.050, 0.045);   // lighter, blue-gray
 		shallow = vec3(0.065, 0.085, 0.075);
 		extra_reflect = 0.15;
+		murk_m  = 2.4;   // formal reflecting pool, clearer
 	}
 	// Turtle Pond: shallow, murky, dark green-brown
 	float d_turtle = length(world_pos.xz - vec2(-213.0, 374.0));
 	if (d_turtle < 120.0) {
 		deep    = vec3(0.018, 0.030, 0.020);   // darker, murkier
 		shallow = vec3(0.040, 0.055, 0.035);
+		murk_m  = 0.9;
 	}
 	// Reservoir: large, open, more reflective blue
 	float d_reserv = length(world_pos.xz - vec2(282.0, -424.0));
@@ -160,6 +169,7 @@ void fragment() {
 		deep    = vec3(0.025, 0.040, 0.035);   // clearer than most
 		shallow = vec3(0.050, 0.070, 0.060);
 		extra_reflect = 0.10;  // reflecting nearby skyscrapers
+		murk_m  = 2.0;
 	}
 	// Azalea Pond (Ramble): small, secluded, tree-shadowed
 	float d_azalea = length(world_pos.xz - vec2(-358.0, 645.0));
@@ -270,14 +280,44 @@ void fragment() {
 		sky_col += golden_reflect * golden_path;
 	}
 
-	vec3 col = mix(base_col, sky_col, fresnel * (0.35 + extra_reflect));
+	// --- True water depth from the depth buffer: soft shore + murk gradient ---
+	// (reversed-z reconstruction, same as Terrain3D's reference ocean shader)
+	float depth_raw = textureLod(depth_texture, SCREEN_UV, 0.0).r;
+	vec4 bed_clip = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, depth_raw, 1.0);
+	vec3 bed_view = bed_clip.xyz / bed_clip.w;
+	vec3 bed_world = (INV_VIEW_MATRIX * vec4(bed_view, 1.0)).xyz;
+	float pixel_depth = max(world_pos.y - bed_world.y, 0.0);  // vertical column, m
+
+	// Refraction — offset the seen-through bed by the wave normal, but never
+	// pull in pixels that sit above the water surface (ghosting guard).
+	vec2 bed_uv = SCREEN_UV;
+	vec2 refr_uv = SCREEN_UV + wave_nrm.xz * refraction_strength
+	             * clamp(pixel_depth, 0.0, 1.0);
+	float refr_raw = textureLod(depth_texture, refr_uv, 0.0).r;
+	vec4 refr_clip = INV_PROJECTION_MATRIX * vec4(refr_uv * 2.0 - 1.0, refr_raw, 1.0);
+	vec3 refr_view = refr_clip.xyz / refr_clip.w;
+	vec3 refr_world = (INV_VIEW_MATRIX * vec4(refr_view, 1.0)).xyz;
+	if (refr_world.y < world_pos.y + 0.05) {
+		bed_uv = refr_uv;
+		pixel_depth = max(world_pos.y - refr_world.y, 0.0);
+	}
+	vec3 bed_col = texture(screen_texture, bed_uv).rgb;
+
+	// Transmitted light: seen-through bed fades into the body color with depth.
+	// Slight green cast on the bed = suspended algae/particulates.
+	float depth_fade = pow(clamp(pixel_depth / murk_m, 0.0, 1.0), 0.55);
+	vec3 transmitted = mix(bed_col * vec3(0.88, 1.0, 0.90), base_col, depth_fade);
+
+	// Reflection fades out over the last ~30cm to the shore edge
+	float refl_gate = smoothstep(0.0, 0.3, pixel_depth);
+	vec3 col = mix(transmitted, sky_col, fresnel * (0.35 + extra_reflect) * refl_gate);
 
 	// Caustics: light dappling in shallow clear water during daytime
 	// Sunlight refracting through wave surface creates bright dancing patterns on bed
 	float caustic = 0.0;
 	float daytime = 1.0 - night_boost;
-	if (daytime > 0.1 && v_water_depth < 1.5) {
-		float shallow_factor = 1.0 - smoothstep(0.0, 1.5, v_water_depth);
+	if (daytime > 0.1 && pixel_depth < 1.5) {
+		float shallow_factor = 1.0 - smoothstep(0.0, 1.5, pixel_depth);
 		// Two overlapping caustic layers at different scales/speeds
 		float c1 = gnoise(world_pos.xz * 1.8 + vec2(t * 0.12, t * 0.08));
 		float c2 = gnoise(world_pos.xz * 2.5 + vec2(-t * 0.15, t * 0.11));
@@ -358,10 +398,8 @@ void fragment() {
 		}
 	}
 
-	// Shore softening — fade alpha where water is shallow near shore.
-	// v_shore_dist = depth below water surface at this vertex (metres).
-	// Fade quickly: min 0.3 opacity prevents terrain checkerboard in shallow ponds
-	// (Conservatory Water, Turtle Pond). Only fully transparent right at the shore edge.
-	float shore_alpha = smoothstep(-0.05, 0.25, v_shore_dist);
-	ALPHA = max(shore_alpha, smoothstep(-0.15, -0.05, v_shore_dist) * 0.5);
+	// Skirt cutoff — the grid mesh is terrain-clamped, so triangles ride up
+	// onto the banks; hide those. The VISIBLE shore softening is now the
+	// depth-buffer murk gradient above (transmitted → bed as depth → 0).
+	ALPHA = smoothstep(-0.02, 0.10, v_shore_dist);
 }
