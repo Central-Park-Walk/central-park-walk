@@ -2207,6 +2207,10 @@ func _setup_environment() -> void:
 		vol_sky.cloud_coverage = 0.30
 		vol_sky.density = 0.04
 		vol_sky.wind_speed = 4.0  # calm-floor m/s; per-frame coupling owns it
+		# 768 shows some stair-step cloud edges at 1080p, but 1024 measured
+		# +4.6 ms GPU at Great Lawn noon (9.2->13.8 median vpgpu, 2026-07-01)
+		# — the amortized march region scales with texture area. FAILS the
+		# perf gate; edge softening needs a cheaper route (sky.md §6 P2).
 		vol_sky.texture_size = 768
 		vol_sky.frames_to_update = 64
 		vol_sky.sun_disk_scale = 1.5

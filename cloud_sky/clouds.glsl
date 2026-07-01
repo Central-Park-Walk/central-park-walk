@@ -197,13 +197,16 @@ float density(vec3 pip, vec3 weather, float mip) {
 	// cauliflower/wisps; the flat condensation base stays crisp. (Approximate
 	// curl — reuses the bound Perlin-Worley volume, no extra texture binding.)
 	vec3 curl = textureLod(large_scale_noise, p * 0.00002, 0.0).rgb * 2.0 - 1.0;
-	p += curl * 90.0 * hf;
+	p += curl * 140.0 * hf;
 
 	// Detailed texture.
 	vec3 hn = textureLod(small_scale_noise, p * 0.001, mip).rgb;
 	float hfbm = hn.r * 0.625 + hn.g * 0.25 + hn.b * 0.125;
 	hfbm = mix(hfbm, 1.0 - hfbm, clamp(hf * 4.0, 0.0, 1.0));
-	base_cloud = remap(base_cloud, hfbm * 0.45 * hf, 1.0, 0.0, 1.0);
+	// Erosion floor 0.15 nibbles silhouette edges at every height (buns had
+	// untouched smooth rims); the hf term still tears tops hardest while
+	// the flat condensation base stays near-crisp (sky.md §6 P2).
+	base_cloud = remap(base_cloud, hfbm * (0.15 + 0.50 * hf), 1.0, 0.0, 1.0);
 	return pow(clamp(base_cloud, 0.0, 1.0), (1.0 - hf) * 0.8 + 0.5);
 }
 

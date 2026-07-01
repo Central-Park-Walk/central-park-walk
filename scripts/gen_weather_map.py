@@ -61,8 +61,14 @@ def value_noise(rng, size, cells):
             + lat[y1, x0] * (1 - tx) * ty + lat[y1, x1] * tx * ty)
 
 def cell_field(rng, pitch_km, r_median_km, r_sigma, r_min_km, r_max_km,
-               empty_rate, stretch=1.35):
+               empty_rate, stretch=1.35, cluster_p=0.0):
     """Jittered-grid soft-disc cell field (shared by cumulus/storm types).
+
+    cluster_p (sky.md §6 P2 de-bunning): probability a cell grows 1-3
+    satellite lobes fused to its flank — an isolated soft disc extrudes to
+    a smooth single-dome "bun", while real humilis/mediocris masses are
+    irregular multi-lobed clusters. Satellites are smaller and slightly
+    lower, so the merged silhouette reads as one ragged cloud, not two.
 
     Returns (coverage, strength, tower_km) — tower in km, caller scales.
     """
@@ -77,6 +83,23 @@ def cell_field(rng, pitch_km, r_median_km, r_sigma, r_min_km, r_max_km,
     street_ang = rng.uniform(0, np.pi)
     ca, sa = np.cos(street_ang), np.sin(street_ang)
 
+    def stamp(cx, cy, r_km, h_scale):
+        r_px = r_km * PX_PER_KM
+        dx = xx - cx; dx -= SIZE * np.round(dx / SIZE)
+        dy = yy - cy; dy -= SIZE * np.round(dy / SIZE)
+        u = (dx * ca + dy * sa) / stretch
+        v = -dx * sa + dy * ca
+        d = np.sqrt(u * u + v * v)
+        # soft-edged disc: full inside 0.55r, fades to 0 at r
+        blob = np.clip((1.0 - d / r_px) / 0.45, 0.0, 1.0)
+        blob = blob * blob * (3 - 2 * blob)
+        np.maximum(coverage, blob, out=coverage)
+        np.maximum(strength, blob * min(1.0, r_km / 1.1), out=strength)
+        # Tower height: ~0.75 x radius at the core. blob^0.45 keeps the
+        # dome flat on top, dropping fast only at the rim.
+        h_km = max(0.75 * r_km, 0.35) * h_scale
+        np.maximum(tower_km, (blob ** 0.45) * h_km, out=tower_km)
+
     for gy in range(n):
         for gx in range(n):
             if rng.random() < empty_rate:
@@ -85,41 +108,40 @@ def cell_field(rng, pitch_km, r_median_km, r_sigma, r_min_km, r_max_km,
             cy = (gy + 0.5) * step + rng.uniform(-0.45, 0.45) * step
             r_km = float(np.clip(rng.lognormal(np.log(r_median_km), r_sigma),
                                  r_min_km, r_max_km))
-            r_px = r_km * PX_PER_KM
-            dx = xx - cx; dx -= SIZE * np.round(dx / SIZE)
-            dy = yy - cy; dy -= SIZE * np.round(dy / SIZE)
-            u = (dx * ca + dy * sa) / stretch
-            v = -dx * sa + dy * ca
-            d = np.sqrt(u * u + v * v)
-            # soft-edged disc: full inside 0.55r, fades to 0 at r
-            blob = np.clip((1.0 - d / r_px) / 0.45, 0.0, 1.0)
-            blob = blob * blob * (3 - 2 * blob)
-            coverage = np.maximum(coverage, blob)
-            strength = np.maximum(strength, blob * min(1.0, r_km / 1.1))
-            # Tower height: ~0.75 x radius at the core. blob^0.45 keeps the
-            # dome flat on top, dropping fast only at the rim.
-            h_km = max(0.75 * r_km, 0.35)
-            tower_km = np.maximum(tower_km, (blob ** 0.45) * h_km)
+            stamp(cx, cy, r_km, 1.0)
+            if rng.random() < cluster_p:
+                for _ in range(rng.integers(1, 3)):
+                    ang = rng.uniform(0, 2 * np.pi)
+                    off = rng.uniform(0.65, 1.15) * r_km * PX_PER_KM
+                    sat_r = rng.uniform(0.45, 0.75) * r_km
+                    if sat_r < r_min_km * 0.6:
+                        continue
+                    stamp(cx + np.cos(ang) * off, cy + np.sin(ang) * off,
+                          sat_r, rng.uniform(0.65, 0.85))
     return coverage, strength, tower_km
 
 
 def gen_fair_cumulus(rng):
     """Discrete fair-weather cumulus cells with clear sky between (CLEAR)."""
+    # P2 de-bunning (sky.md §6): wider size anarchy (sigma .45->.60),
+    # stronger wind elongation (stretch 1.6), and satellite-lobe clustering
+    # so masses read multi-lobed instead of single smooth domes.
     coverage, strength, tower_km = cell_field(
-        rng, pitch_km=1.75, r_median_km=0.85, r_sigma=0.45,
-        r_min_km=0.35, r_max_km=1.8, empty_rate=0.10)
+        rng, pitch_km=2.15, r_median_km=0.85, r_sigma=0.60,
+        r_min_km=0.35, r_max_km=1.9, empty_rate=0.22,
+        stretch=1.6, cluster_p=0.55)
     tower = tower_km / LAYER_KM
 
     # 5-10 km patchiness: clear out whole regions
     patch = value_noise(rng, SIZE, 3)            # ~5.6 km features
-    patch = np.clip((patch - 0.22) / 0.25, 0.0, 1.0)
+    patch = np.clip((patch - 0.30) / 0.25, 0.0, 1.0)
     coverage *= patch
     strength *= patch
     tower *= 0.4 + 0.6 * patch          # patch edges get shallower cells
 
     # Per-cell edge raggedness
     rag = value_noise(rng, SIZE, 24)             # ~700 m features
-    coverage = np.clip(coverage - (1.0 - coverage) * rag * 0.50, 0.0, 1.0)
+    coverage = np.clip(coverage - (1.0 - coverage) * rag * 0.65, 0.0, 1.0)
 
     # Interiors: lift cell cores toward 1.0 so coverage*B keeps punch.
     # ^0.75: the finer base-noise scale in clouds.glsl adds within-cell
