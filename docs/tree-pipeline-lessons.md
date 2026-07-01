@@ -1,7 +1,10 @@
 # Tree & Leaf Pipeline — Lessons Learned
 
+> **To BUILD a tree, read `docs/tree-pipeline-playbook.md` — the single live runbook.**
+> This file is the *why* (method + war-stories); the playbook is the *what to do*.
+
 Living document, appended after every species (per `tree-leaf-pipeline-brief.md`).
-Promote *systematic* lessons into the archetype library, the attach contract, or the skill.
+Promote *systematic* lessons into the playbook, the attach contract, or the skill.
 
 ---
 

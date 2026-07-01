@@ -1,5 +1,9 @@
 # Tree & Leaf Production Pipeline — Standing Brief for Claude Code
 
+> **To BUILD a tree, start at `docs/tree-pipeline-playbook.md` (the step-by-step runbook +
+> lever reference + code template).** This brief is the *process contract* (phases, gates,
+> budget philosophy) behind it.
+
 **Status:** canonical working agreement. Suggested home: `docs/tree-leaf-pipeline-brief.md`.
 **Owner of all design calls:** Chris. This brief defines *how* to work; Chris decides *whether* a result is acceptable.
 

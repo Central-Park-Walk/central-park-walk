@@ -529,9 +529,78 @@ def enforce_min_twig_diameter(obj, min_diam_m, actual_h):
 # Each species defines botanical parameters mapped to Mtree's API.
 # Height tiers: s=small, m=medium, l=large with real-world target heights.
 # Branch density and sub-branch density scale naturally with tree size.
+#
+# >>> BUILDING A NEW SPECIES? READ docs/tree-pipeline-playbook.md FIRST, then
+#     copy the _TEMPLATE entry below (NOT a real species — real entries carry
+#     species-specific history you don't want). london_plane (tip-bearing) and
+#     oak (along-branch) are the two worked, shipped reference builds. <<<
 # ===========================================================================
 
+# ---------------------------------------------------------------------------
+# _TEMPLATE — clean copy-paste starting point for a new species (the current
+# cluster-card method). Levers marked [MEASURE] must be derived from references
+# per species (playbook §3); everything else is a copyable default. NOT built
+# (leading underscore is skipped by the build loop). Delete comments you don't need.
+# ---------------------------------------------------------------------------
 SPECIES = {
+  "_TEMPLATE": {
+    "name": "Common Name (Genus species)",
+    # --- SKELETON (silhouette; playbook §4) ---
+    "crown_shape": "Spherical",       # Mtree crown envelope
+    "up_attraction": 0.40,            # HIGH=excurrent central leader, LOW~0.35=decurrent rounded  [MEASURE habit]
+    "trunk_randomness": 0.18,         # ~0.18 = clean stout bole; higher = S-curve lean
+    "branch_start": 0.24,
+    "branch_end": 0.95,               # ~0.94-0.97 so branches reach + round the apex
+    "branch_density": 1.2,
+    "branch_length_ratio": 0.37,      # crown breadth  [MEASURE aspect W/H]
+    "branch_start_radius": 0.55,      # limb stoutness
+    "branch_angle": 55,
+    "branch_angle_variation": 0.4,
+    "branch_split_prob": 0.55,
+    "sub_density": 1.2,               # more secondaries fill the crown (stay < ~1.5 crash band)
+    "sub_split_prob": 0.3,
+    "crown_base_size": 0.65,          # DEFAULT 0.0 IS A NARROW-CONE CLAMP — always set (~0.55-0.75)
+    "bark_color": (0.22, 0.18, 0.12),
+    "bark_roughness": 0.92,
+    # --- MIN TWIG DIAMETER (hard law 3) ---
+    "min_twig_diameter": 0.05,        # 5cm floor, SCALAR (a dict floors only the listed tier — the oak bug)
+    # --- LEAF CARD (real-photo cluster card; hard laws 1-2) ---
+    "leaf_real_texture": "textures/leaves/TEMPLATE_cluster.png",  # built by make_<sp>_cluster_from_photo.py
+    "card_stem_anchor": (0.25, 0.12), # [MEASURE] UV of the DRAWN stem base in the cluster PNG — wrong value floats leaves off the twig
+    "foliage_distribute": True,
+    "distribute_tiers": [],           # [] IS CRITICAL — the default ["s","m","l"] activates the dead 3D-leaf path
+    "card_leaf_rule": True,           # >=1 tip cluster per branch
+    "cards_per_cluster": 1,           # the card already IS a sprig; >1 = green ball
+    "card_rule_max_radius": 0.05,     # thin twigs only
+    "card_rule_min_per_branch": 1,
+    "card_rule_spacing": 0.55,
+    "card_rule_isolation_prune": False,
+    "card_rule_apex_band": 0.18,      # clad the top 18% (apex never bare, hard law 6)
+    "card_rule_depth_keep": {1: 0.05, 2: 0.60, 3: 1.0},  # [MEASURE pattern] tip-biased shown; along-branch (oak/elm) raises low-order keeps
+    "card_size_floor": 0.42,          # keep a small _s crown from going see-through
+    "tier_fraction": {"l": 1.0, "m": 0.40, "s": 0.24},
+    "target_cluster_count_l": 700,
+    # --- VARIANTS + SEEDS ---
+    "n_variants": 1,                  # 1 until the impostor path is settled; reopen toward 7 for high-census species
+    "base_seed": 100,                 # bump if the Mtree mesher crashes at a tier (fork-test picks safe seeds)
+    "seed_step": 23,
+    "variant_spans": {                # per-tier variant_spans OUTRANK these; tiers need their own or these clobber them
+        "branch_angle": [45, 60],
+        "up_attraction": [0.40, 0.60],
+    },
+    # --- TIERS (heights from census DBH: tree_builder.gd HEIGHT_RANGES / TIER_BOUNDS) ---
+    "tiers": {
+        "s": {"target_h": 10, "height_range": [8, 12], "skeleton_overrides": {
+            # richer young skeleton to clad, straight leader, gentle droop:
+            "branch_density": 1.0, "branch_split_prob": 0.55, "sub_density": 1.2,
+            "branch_end": 0.95, "trunk_randomness": 0.18,
+            "skeleton_max_depth": 3}},   # sub-visible depth-3 twig order fills the crown (masked by cards)
+        "m": {"target_h": 18, "height_range": [12, 20], "skeleton_overrides": {
+            "branch_split_prob": 0.45, "sub_density": 1.0}},
+        "l": {"target_h": 25, "height_range": [20, 30]},
+    },
+  },
+
     # ----- Deciduous broad-crowned -----
     "oak": {
         "name": "Red Oak (Quercus rubra)",
@@ -4398,6 +4467,8 @@ def main():
 
     # Generate all tiers independently (no derive — each tier has authentic silhouette)
     for sp_name, sp in SPECIES.items():
+        if sp_name.startswith("_"):
+            continue  # underscore-prefixed keys (e.g. _TEMPLATE) are scaffolding, never built
         if filter_species and sp_name != filter_species:
             continue
 

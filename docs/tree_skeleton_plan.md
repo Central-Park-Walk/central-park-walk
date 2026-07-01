@@ -4,7 +4,8 @@
 **Source of truth for:** which tree *models* (skeletons) we build, and how every
 census species is represented on them.
 
-This document is the **what/which**. The **how** — the hard-won build method — lives in
+This document is the **what/which**. The **how** — the step-by-step build method — is
+`docs/tree-pipeline-playbook.md` (the single runbook), with depth in
 `docs/tree-pipeline-lessons.md`, `docs/tree-leaf-pipeline-brief.md`, and
 `docs/tree_model_redesign.md`. Don't restate those here; they will drift. This file
 points at them.
