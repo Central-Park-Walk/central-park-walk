@@ -93,8 +93,9 @@ var _turf_tiles_mmi: MultiMeshInstance3D = null
 # grid — real blades from every angle, no billboard swivel/rings, and cheap because the
 # cost is batched triangles over a FEW THOUSAND tile instances (not millions of blades).
 const TURF_TILE_SIZE := 2.0        # tile footprint (m); also the grid cell
-const TURF_BLADES := 2800          # blades baked per tile = the 0-5m LOD0 density
-                                   # (~700/m^2, "incredible"); far bands thin in-shader
+const TURF_BLADES := 8000          # blades baked per tile = the 0-5m LOD0 density; spread
+                                   # over the oversized ±0.75s extent (9 m^2) ≈ 890/m^2
+                                   # ("incredible", denser near); far bands thin in-shader
 const TURF_THATCH := 700           # flattened/dead-blade streaks matting the ground under
                                    # the standing blades (no bald patches; NOT LOD-thinned)
 const TURF_BLADE_H := 0.16         # blade height (m); mown bluegrass lawn, not meadow
@@ -3066,13 +3067,18 @@ func _make_turf_tile_mesh() -> ArrayMesh:
 	# generic lawn; deliberately little pure white (Chris: "less white/transparent").
 	# Blades sit on a JITTERED GRID (not pure random) so coverage is even — pure random
 	# scatter clumps and leaves voids that read as bald patches once the mat shows through.
+	# Blades cover the SAME oversized 1.5x extent as the mat (half-extent 0.75*s). Per-tile
+	# yaw rotates each square tile, and a tile-sized (±0.5s) blade patch rotated leaves
+	# gaps at the tile seams/corners that the oversized mat fills with smooth flat colour =
+	# the bald patches. Placing blades over ±0.75s means rotated tiles always overlap-cover.
+	var bext := s * 0.75
 	var gside := int(ceil(sqrt(float(TURF_BLADES))))
-	var gcell := s / float(gside)
+	var gcell := (bext * 2.0) / float(gside)
 	for i in gside * gside:
 		var gx := i % gside
 		var gy := i / gside
-		var bx := -s * 0.5 + (float(gx) + rng.randf()) * gcell
-		var bz := -s * 0.5 + (float(gy) + rng.randf()) * gcell
+		var bx := -bext + (float(gx) + rng.randf()) * gcell
+		var bz := -bext + (float(gy) + rng.randf()) * gcell
 		var ang := rng.randf() * TAU
 		var h := TURF_BLADE_H * rng.randf_range(0.7, 1.3)
 		var w := TURF_BLADE_W * rng.randf_range(0.8, 1.2)
@@ -3082,22 +3088,23 @@ func _make_turf_tile_mesh() -> ArrayMesh:
 		var tip_c: Color
 		var fam := rng.randf()
 		if fam < 0.08:
-			# deeper blue-green minority — a tonal shift within the sward, NOT blue confetti
-			base_c = Color(0.05, 0.15, 0.13)
-			tip_c  = Color(0.15, 0.34, 0.28)
-		elif fam < 0.24:
+			# blue-green minority — a tonal cast within the sward, NOT teal confetti
+			base_c = Color(0.13, 0.35, 0.15)
+			tip_c  = Color(0.20, 0.46, 0.24)
+		elif fam < 0.22:
 			# dry straw / yellow blade
-			base_c = Color(0.23, 0.27, 0.11)
-			tip_c  = Color(0.50, 0.49, 0.22)
-		elif fam < 0.28:
+			base_c = Color(0.36, 0.40, 0.13)
+			tip_c  = Color(0.60, 0.57, 0.20)
+		elif fam < 0.27:
 			# rare pale seed-head accent (subtle, not white)
-			base_c = Color(0.19, 0.29, 0.18)
-			tip_c  = Color(0.50, 0.59, 0.42)
+			base_c = Color(0.36, 0.52, 0.24)
+			tip_c  = Color(0.62, 0.72, 0.40)
 		else:
-			# the rich green majority (Kentucky bluegrass: deep emerald, warm medium green
-			# in sun with only a faint glaucous cast — the blue reads as tone, not per-blade)
-			base_c = Color(0.08, 0.21, 0.12)
-			tip_c  = Color(0.27, 0.48, 0.23)
+			# rich SATURATED grass-green majority. Measured to the KBG sod ref: bright green
+			# (g~135), LOW blue (g/b~2.0-2.3). High base (LOW base→tip contrast) because
+			# mown bluegrass is fairly uniform top-to-bottom → near canopy isn't a dark pit.
+			base_c = Color(0.21, 0.46, 0.14)
+			tip_c  = Color(0.34, 0.63, 0.18)
 		# Stable LOD rank: a random subset survives each distance band, so far tiles
 		# thin uniformly (no clustering). Near (0-5m) keeps all; far keeps ~10%.
 		var rank := rng.randf()
@@ -3114,13 +3121,13 @@ func _thatch_color(rng: RandomNumberGenerator) -> Array:
 	var f := rng.randf()
 	if f < 0.30:
 		# dead / dry straw (thatch has more of this than the standing sward)
-		return [Color(0.16, 0.15, 0.07), Color(0.30, 0.27, 0.13)]
+		return [Color(0.22, 0.20, 0.07), Color(0.36, 0.33, 0.12)]
 	elif f < 0.42:
-		# cool blue-green mat
-		return [Color(0.05, 0.11, 0.10), Color(0.10, 0.20, 0.17)]
+		# blue-green mat (greener/less teal, matched to the sward)
+		return [Color(0.09, 0.21, 0.11), Color(0.17, 0.33, 0.15)]
 	else:
-		# dark green mat majority
-		return [Color(0.06, 0.13, 0.07), Color(0.13, 0.26, 0.13)]
+		# green mat majority (lifted so the near canopy floor isn't dark)
+		return [Color(0.11, 0.25, 0.09), Color(0.21, 0.40, 0.14)]
 
 
 func _add_flat_blade(st: SurfaceTool, bx: float, bz: float, ang: float, length: float,
@@ -3177,7 +3184,7 @@ func _add_turf_ground(st: SurfaceTool, rng: RandomNumberGenerator, s: float) -> 
 			# camo quilt of flat facets). Colour variety comes from the streaks on top.
 			# A flat up-facing quad catches full sun, so keep it dark = shadowed thatch base.
 			var mj := rng.randf_range(0.85, 1.12)
-			var c := Color(0.045 * mj, 0.105 * mj, 0.065 * mj)
+			var c := Color(0.14 * mj, 0.30 * mj, 0.09 * mj)
 			var p00 := Vector3(x0, MY, z0)
 			var p10 := Vector3(x0 + cell, MY, z0)
 			var p01 := Vector3(x0, MY, z0 + cell)
