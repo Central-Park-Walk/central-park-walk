@@ -194,25 +194,55 @@ with identical visuals**; grass residual ~5 ms, reflection residual ~2 ms. If mo
 is ever needed: `--turf-blades=2000` measured 64 fps pre-indexing (visible density
 cut — user call), and the mirror could update at half rate.
 
+### 3g. Literary Walk — the one gate failure (2026-07-01 night, reports 20260701_233915 / 234753)
+
+Post-dome-pass gate (20260701_233341): bethesda 70 / ramble 73 / great_lawn 74 /
+north_woods 74 — **all PASS, woodland now clears the 60 aspiration** — but
+literary_walk 43 (was 66 in the June canonical gate). Bisect at the Mall:
+
+| lever | ms (fps) | reading |
+|---|---|---|
+| baseline | 25.0 (43) | shtri **5.42 M** (vs 1.83 at bethesda) — the elm corridor casts per-leaf |
+| notrees | 17.5 (68) | visible tree raster ~7.5 |
+| noshadow | 18.1 (68) | shadows ~6.9 |
+| notreeshadows | 19.3 (62) | **tree casting ~5.5 — the lever** (shtri → 1.79 M) |
+| norefl | 20.9 (54) | mirror ~4.1: full elm-corridor re-render for a Pond ~150 m away |
+| nograss | 20.1 (56) | grass residual ~4.9 |
+| `--shadow-dist=100` | 26.7 (50) | **dead** — casters are near-field |
+
+Shipped: **distance-staged mirror rate** (water_reflection.gd: every frame ≤60 m
+from a body, every 2nd to 140 m, every 4th to the 250 m sleep; UPDATE_ONCE per Nth
+frame, camera tracks every frame, no pop) → literary_walk 43 → **51 fps**. Verify
+in motion on a walk: reflection lag only exists ≥60 m from water where the surface
+is a few grazing pixels.
+
+**Remaining gap at literary_walk ≈ 3 ms = tree shadow casting (5.5 ms measured).**
+Per-leaf casting came back when the shadow proxy was defaulted OFF (2026-06-28
+crown-flip fix, trees.md); the Mall's elm density is where that trade bites.
+Candidate next levers, in order: `Mesh.shadow_mesh` (decimated caster mesh on the
+lod0 trees — keeps the self-shadow-consistency that fixed the flip, cuts cascade
+raster; needs care with the LOD-dither shadow pass), or revisiting proxies with
+leaf shadow-receive disabled. A tree-pipeline session, not a knob.
+
 ## 4. The frame budget (binding)
 
 GPU ms at 1080p, measured at the worst of the 5 locations. A subsystem over its line is a regression even if total fps passes (headroom is for weather/seasons, not for spending). Per `architecture.md` §9, new subsystems must name their budget line.
 
-| line | budget (ms) | measured today (worst) | gap |
+| line | budget (ms) | measured (worst, 2026-07-01 §3f/3g unless noted) | gap |
 |---|---|---|---|
-| sky + volumetric clouds | 1.0 | inside floor (§5) | measure |
-| Terrain3D camera raster | 1.5 | ~4 | −2.5 |
-| trees — camera raster | 4.0 | ~25 (ramble) | −21 |
-| trees — shadow casting (proxies) | 1.0 | 18–28 | −17 to −27 |
-| other shadow casting + sampling | 2.5 | ~19–21 | −17 |
-| SDFGI | 1.5 | ~7 | −5.5 |
-| volumetric fog | 1.0 | ~1 | ok |
-| grass (all tiers, camera) | 1.5 | ~7 | −5.5 |
+| sky + volumetric clouds | 1.0 | inside floor (§5) | ok |
+| Terrain3D camera raster | 1.5 | ~4 (2026-06-09) | −2.5 |
+| trees — camera raster | 4.0 | ~7.5 (literary_walk) | −3.5 |
+| trees — shadow casting (per-leaf since proxies off 2026-06-28) | 1.0 | ~5.5 (literary_walk; ~1 at bethesda) | −4.5 — the next lever (§3g) |
+| other shadow casting + sampling | 2.5 | ~1.4 (bethesda all-shadows 3.3 minus tree share) | ok |
+| SDFGI | 1.5 | ~0 | ok |
+| volumetric fog | 1.0 | ~0 | ok |
+| grass (dome + terrain, camera) | 1.5 | ~5 | −3.5 (vertex-bound; lever = `--turf-blades`, a look trade) |
 | undergrowth + ground cover | 0.5 | <1 | ok |
 | post (SSAO, SSIL, glow, TAA, tonemap) | 1.5 | ~1 (TAA untested) | ok? |
 | water, weather particles, misc | 0.6 | <1 | ok |
-| water planar reflection (2026-07-01, near water only; sleeps >250 m away) | 1.5 | ~2 (Bethesda, §3f — after excluding the turf dome from the mirror; was ~11 with it) | −0.5 (accepted; next lever = half-rate updates) |
-| **total** | **16.6** | ~83–88 | |
+| water planar reflection (near water only; staged rate + >250 m sleep, §3g) | 1.5 | ~2 at the shore, ~1 at range | ok (accepted) |
+| **total** | **16.6** | 14.2–16.6 at 4 locations; ~19.5 literary_walk | |
 
 CPU is not currently binding (`vpcpu` ~9 ms peak, GDScript <1 ms) but inherits the same 16.6 ms ceiling.
 
@@ -261,6 +291,14 @@ shadows ~6, grass ~3.6, floor ~3.3 — all resistant within current visual
 policy (§6.4/6.7/6.8, trees.md §4g). Closing the last 5 ms at NW likely
 requires a policy-level trade (deeper internal scale, grass step 2,
 shadow-distance cut) — surface to the user before taking any of them.
+
+**★ CANONICAL GATE 2026-07-01 (20260701_235245, turf-dome + mirror pass, §3f/§3g):
+literary_walk 51 / bethesda 72 / ramble 73 / great_lawn 79 / north_woods 78.**
+Four of five PASS — deep woodland now clears the 60 aspiration, not just its 45
+floor. All of it visually neutral (A/B'd). The one FAIL, literary_walk, is ~3 ms
+short with tree shadow casting (5.5 ms, per-leaf since proxies went off) as the
+measured lever — see §3g for candidates. The June-10 numbers above predate the
+grass overhaul, sky work, and water reflection; this gate supersedes them.
 
 Every step: perf_gate before/after at all 5 locations, committed with the numbers in the message.
 
