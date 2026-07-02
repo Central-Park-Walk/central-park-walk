@@ -80,13 +80,16 @@ var _audio_manager = null  # ambient sound (wind, city, water, footsteps)
 
 var _terrain_only := false
 var _grass_off := false  # --no-grass: skip grass blade particles (eval bare terrain)
-# DOME + TERRAIN (2026-07-01, Chris — the "reference composite" direction): the near
-# turf-tile dome (the meadow look Chris liked) over the terrain texture, and NOTHING in
-# between — the mid-band shell was the ring-maker in every layered attempt, so it's
-# dropped, not tuned. The far terrain samples a texture BAKED from the dome's own tile
-# mesh (--bake-turf), so near geometry and far ground are the same material by
-# construction. Flip true = flat terrain only (the 2026-07-01 rip-out state).
-const GRASS_TERRAIN_ONLY := false
+# TERRAIN-ONLY (2026-07-02, Chris: "get rid of the dome. it's too much, too big, too
+# expensive, and cannot blend with the terrain texture beyond"). The reference
+# composite's near field is a fabric of thin bright STROKES that connect continuously
+# into the distant speckle — one substance, decreasing scale; the 3D blade dome was a
+# second substance (thick faceted wedges, hard shadow gaps) that could never blend
+# into it. The stroke fabric lives in the BAKE (1 mm/texel, --bake-turf, stochastic
+# 3-tap sampling in terrain3d_override) — the texture IS the grass at every distance.
+# The dome machinery is kept below for possible micro-fringe use (flip false), and the
+# tile mesh remains the bake's source geometry either way.
+const GRASS_TERRAIN_ONLY := true
 # The 32-shell mid-band layer. OFF: dome + terrain only. Kept for A/B archaeology.
 const GRASS_SHELL := false
 var _shell_grass := true  # shell-textured turf is the DEFAULT grass (2026-06-29); --particle-grass opts back to the legacy particle/ground_cover path
@@ -3285,13 +3288,12 @@ func _make_turf_tile_mesh(blades: int, thatch: int, mat_n: int, periodic := fals
 			# G/B ~2.0. Red cut hard (0.21/0.34 → 0.10/0.16) to kill the olive cast.
 			base_c = Color(0.10, 0.46, 0.15)
 			tip_c  = Color(0.16, 0.63, 0.19)
-		# Less-dark centre (Chris, GPU walk 2026-07-01: "make the center of the circle
-		# less dark"): the grazing eye-level view is dominated by blade BASES, so lift
-		# each family's base toward its tip. Top-down (the bake) is tip-dominated, so
-		# this brightens the dome far more than the far field — targeted at the gap.
-		# (0.35 moved the eye-level band only ~+3 luma — screen-space shading and the
-		# tonemapper eat albedo lifts — so 0.55.)
-		base_c = base_c.lerp(tip_c, 0.55)
+		# Base→tip lift 0.30 (was 0.55): the 0.55 lift fought the old dark-centre
+		# problem by bleaching every base toward its tip — with the floor now the
+		# bright baked sward (2026-07-02), it just washed the whole disk pale mint
+		# with white tips (Chris GPU walk: "oddly white blades… contrasted disk").
+		# 0.30 keeps some grazing lift but restores base→tip depth and saturation.
+		base_c = base_c.lerp(tip_c, 0.30)
 		# Stable LOD rank: a random subset survives each distance band, so far tiles
 		# thin uniformly (no clustering). Near (0-5m) keeps all; far keeps ~10%.
 		var rank := rng.randf()
@@ -3410,7 +3412,11 @@ func _add_turf_ground(st: SurfaceTool, rng: RandomNumberGenerator, s: float,
 			# subtle per-quad brightness jitter — NOT per-quad hue families (those read as a
 			# camo quilt of flat facets). Colour variety comes from the streaks on top.
 			# A flat up-facing quad catches full sun, so keep it dark = shadowed thatch base.
-			var mj := rng.randf_range(0.88, 1.12)
+			# NEAR-UNIFORM (2026-07-02): this jitter BAKES into the sward texture as a
+			# fixed 0.25m brightness pattern repeating every 2m tile = the mid-distance
+			# CHECKERBOARD quilt on Chris's walk. Aperiodic variation now comes from the
+			# runtime tone/fine taps in terrain3d_override (world-anchored, non-repeating).
+			var mj := rng.randf_range(0.97, 1.04)
 			# Lifted ~1.3x (with the blade-base lift) — the dark understory showing
 			# through grazing blades was most of the "dark centre". Lifted again
 			# 2026-07-02 (ring-band match): near-band darkest pixels measured p5 26
@@ -3502,7 +3508,13 @@ func _setup_turf_tiles() -> void:
 	# separate heightmap that diverges by up to several metres and buries the blades.
 	_push_terrain3d_conform(mat)
 
-	var tile := _make_turf_tile_mesh(_turf_blades_n, TURF_THATCH, TURF_MAT_N)
+	# THATCH = 0 at runtime (2026-07-02, Chris GPU walk): the flat thatch-streak
+	# GEOMETRY lies on the floor under the blade canopy — shadowed at any sun angle,
+	# it reads as scattered BLACK sticks no matter its albedo (recoloring was tried
+	# twice; pigment can't fix shadow). Real mown-lawn thatch is buried beneath the
+	# canopy. The streaks still exist in the BAKE (bake_turf.gd passes TURF_THATCH)
+	# as lit texture flecks, and the baked floor covers what the mat needed them for.
+	var tile := _make_turf_tile_mesh(_turf_blades_n, 0, TURF_MAT_N)
 	tile.surface_set_material(0, mat)
 
 	# A tile's blades span ±0.75*TILE from its centre (diagonal reach). Grid extends a tile

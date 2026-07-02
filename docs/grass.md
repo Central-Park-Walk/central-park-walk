@@ -6,7 +6,51 @@ Sheep Meadow reference comparison (`notes/refs/sheep_meadow_game/COMPARISON.md`,
 `docs/trees.md`: code that contradicts this file is wrong, or this file gets updated in the
 same commit.
 
-## 0z. CURRENT ARCHITECTURE — dome + baked-sward terrain (2026-07-01, "reference composite")
+## 0y. CURRENT ARCHITECTURE — TERRAIN-ONLY, the texture IS the grass (2026-07-02)
+
+Chris, after walking the mown-sod dome: **"we have to get rid of the dome. it's too much,
+too big, too expensive, and cannot blend with the terrain texture beyond"** — and, on the
+target: **"focus in tightly on the reference composite, and understand how the speckle
+connects into blades in very near field, but turns into just decreasing speckle from
+there out."**
+
+The tight study of `screenshots/reference composite.png` (3× crops, tmp/refcomp_zoom_*)
+shows why the dome could never blend: the composite's near field is a fabric of THIN
+BRIGHT STROKES (1–3 px curved squiggles, every orientation, soft dark counter-strokes)
+that connect *continuously* into the distant speckle — one substance, decreasing scale.
+The 3D dome was a second substance (thick faceted wedges, hard shadow gaps) sitting on
+the texture. Measured targets from the composite itself (band_texture_analysis.py,
+horizon 430): mean ~146 FLAT at every distance; hp3 19 → 16 → 12 → 9 → 7 → 5.7 over
+1.5–100 m — "decreasing speckle", far gentler than the sod photo's 42.
+
+So: `GRASS_TERRAIN_ONLY := true` (main.gd) — no blade geometry at all. The stroke fabric
+lives in the BAKE (1 mm/texel) and the terrain shader carries every distance band:
+
+- **Stochastic 3-tap sampling** (Heitz/Deliot triangle-grid, ~5 m cells, hash-offset
+  taps, barycentric blend) — kills the bake's 2 m repeat (the "checkerboard quilt");
+  the mat quads' per-quad brightness jitter is also near-flat now (0.97–1.04, it BAKED
+  a periodic 0.25 m pattern) so variation comes from the aperiodic runtime tiers.
+- **Near stroke resolve**: LUMA-only local-contrast expansion around a coarse-mip local
+  mean (`blod+3`), ×4.5 at 1 m fading out by 14 m — the strokes "resolve" as you approach,
+  exactly like the composite (measured ramp 17.5/12.7/7.3 vs target
+  18.8/16.1/11.6). Luma-only because full-vector expansion amplified straw flecks into
+  red confetti.
+- **Deviation-centred mottle** (tone_mult gain 2.6 @12 m scale, fine_mult gain 4.5
+  @1.3 m from 2 m out) — see the source_color pitfall note below; these were pinned
+  constants for a long time.
+- **Flat grade 0.46** × `turf_baked_ao` 0.72 — the composite/sod field is one flat tone;
+  haze supplies the gentle far rise. Measured noon bands: mean 122–137 flat ✓.
+- **Deterministic bake**: floor = the mesh's vertex colours (no photo texture, no
+  fixpoint feedback — the old previous-bake loop drifted −4%/rebake).
+
+Perf: vistri at the Bethesda pose 14.5M → **3.8M** (the dome was ~10.7M tris, ~5 ms).
+
+The dome machinery below (§0z) is KEPT in-tree behind the flag — it is still the bake's
+source geometry (`--bake-turf` renders the tile mesh), and a micro-fringe (a few metres
+of blades as "speckle standing up") is a possible future addition if Chris's walk wants
+near-field parallax the texture can't give.
+
+## 0z. PRIOR ARCHITECTURE — dome + baked-sward terrain (2026-07-01, "reference composite") — SUPERSEDED by §0y (dome OFF; this section describes the bake-source mesh + the calibration history)
 
 **Target pivot 2026-07-02 — MOWN SOD, matched ring-for-ring.** Chris: until a comparably
 useful *meadow* reference photo exists, the working target is the annotated KBG sod

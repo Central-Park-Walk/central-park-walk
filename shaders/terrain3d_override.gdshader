@@ -517,7 +517,44 @@ void fragment() {
 				// the macro layer carries far texture presence, which is stable.
 				float graze = clamp(dot(normalize(_camera_pos - v_vertex), v_normal), 0.12, 1.0);
 				float blod = clamp(log2(cam_dist * 0.3 / graze + 1.0), 0.0, 9.0);
-				vec3 sward = textureLod(turf_baked_tex, v_vertex.xz * 0.5, blod).rgb;
+				// STOCHASTIC bake sample (2026-07-02, Chris GPU walk: "bland green quilt"
+				// = the bake's 2 m repeat checkering the mid-distance; a 2-tap bomb only
+				// decorrelated regions — the layout still repeated inside each region).
+				// Heitz/Deliot triangle-grid texturing: 3 taps of the SAME bake at
+				// hash-offset uvs, barycentric-blended per ~5 m cell — aperiodic
+				// everywhere, seam-free, mip-safe (all taps share blod).
+				vec2 buv = v_vertex.xz * 0.5;
+				vec2 skew = mat2(vec2(1.0, -0.57735), vec2(0.0, 1.15470)) * (v_vertex.xz / 5.0);
+				vec2 bcell = floor(skew);
+				vec3 bary = vec3(fract(skew), 0.0);
+				bary.z = 1.0 - bary.x - bary.y;
+				vec2 c1; vec2 c2; vec2 c3; vec3 bw;
+				if (bary.z > 0.0) {
+					bw = vec3(bary.z, bary.y, bary.x);
+					c1 = bcell; c2 = bcell + vec2(0.0, 1.0); c3 = bcell + vec2(1.0, 0.0);
+				} else {
+					bw = vec3(-bary.z, 1.0 - bary.y, 1.0 - bary.x);
+					c1 = bcell + vec2(1.0, 1.0); c2 = bcell + vec2(1.0, 0.0); c3 = bcell + vec2(0.0, 1.0);
+				}
+				vec3 sward =
+					  bw.x * textureLod(turf_baked_tex, buv + fract(sin(c1 * vec2(127.1, 311.7)) * 43758.55), blod).rgb
+					+ bw.y * textureLod(turf_baked_tex, buv + fract(sin(c2 * vec2(127.1, 311.7)) * 43758.55), blod).rgb
+					+ bw.z * textureLod(turf_baked_tex, buv + fract(sin(c3 * vec2(127.1, 311.7)) * 43758.55), blod).rgb;
+				// NEAR STROKE RESOLVE (2026-07-02, terrain-only): in the reference
+				// composite the near field is the same speckle RESOLVING into thin
+				// strokes — measured hp3 ramps 19 -> 16 -> 12 -> 9 over 0-25 m while
+				// ours was flat ~6. Local-contrast expansion around a coarse-mip local
+				// mean (unsharp-mask on the bake's stroke scale), fading out by ~14 m.
+				if (cam_dist < 14.0) {
+					vec3 smid = textureLod(turf_baked_tex, buv, blod + 3.0).rgb;
+					float ncon = mix(4.5, 1.0, smoothstep(1.0, 14.0, cam_dist));
+					// LUMA-only expansion: expanding the full colour vector amplified
+					// the bake's straw/red flecks into red confetti (the composite's
+					// near strokes are brightness variation on green, not hue swings).
+					float sl = dot(sward, vec3(0.2126, 0.7152, 0.0722));
+					float ml = dot(smid, vec3(0.2126, 0.7152, 0.0722));
+					sward *= max(ml + (sl - ml) * ncon, 0.0) / max(sl, 1e-4);
+				}
 				sward *= turf_baked_ao;                 // flat-ground vs blade-canopy parity
 				// GRADE OUT the handoff (Chris: reference spreads its ~115-131 luma over
 				// hundreds of metres; a 20 m ramp reads as an edge). At grazing the dome
@@ -537,12 +574,13 @@ void fragment() {
 				// 0.68 lands the carpet AT the dome's level so the field is one flat tone.
 				// (Absolute level vs ref is a GPU-walk call — headless has no real SDFGI,
 				// which lifts both dome and terrain together.)
-				// Near end eases DOWN to the dome's tone (ring_noon6: terrain 152 vs dome
-				// 128 at the 10-15 m rim = an inverted bright ring); the far end lands the
-				// carpet at the ref's flat level relative to the dome. Levels fold in the
-				// old pinned-constant tone/fine multipliers (0.80 x 0.85 ~= 0.68) that the
-				// deviation-centred modulators above/below no longer apply.
-				sward *= mix(0.41, 0.46, smoothstep(10.0, 40.0, cam_dist));
+				// FLAT grade (terrain-only, 2026-07-02 — no dome left to tone-match):
+				// one level everywhere = the sod ref's flat field; haze supplies its
+				// gentle far rise. Level folds in the old pinned-constant tone/fine
+				// multipliers (0.80 x 0.85 ~= 0.68) that the deviation-centred modulators
+				// above/below no longer apply. Calibrated: carpet ~138 luma at noon vs
+				// ref 140-145 (band_texture_analysis.py, rings-calibrated).
+				sward *= 0.46;
 				sward *= mix(1.0, tone_mult, macro_w);  // macro clump tone: distance texture
 				                                        // + breaks the bake's 2 m repeat
 				// FINE GRAIN (2026-07-02): the ref is never a smooth carpet — blade-scale
@@ -563,7 +601,7 @@ void fragment() {
 				// ~= +-11% blade-grain: ring-calibrated match to the ref's grain band
 				// (hp3 12.3/9.5/7.4 at 15-25/25-50/50-100 m).
 				float fine_mult = mix(1.0, clamp(1.0 + (f_tone - 0.236) * 4.5, 0.75, 1.25),
-					smoothstep(8.0, 20.0, cam_dist));
+					smoothstep(1.5, 8.0, cam_dist));
 				sward *= fine_mult;
 				sward *= biome_terrain_tint;            // sedge/wild/shade zones stay distinct
 				ALBEDO = sward;
