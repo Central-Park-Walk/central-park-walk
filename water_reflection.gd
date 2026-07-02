@@ -26,6 +26,9 @@ var _frame := 0
 
 const RES_DIVISOR := 3         # reflection at 1/3 window resolution
 const BODY_MARGIN := 40.0      # bbox grow for "player is at this body" (m)
+const SLEEP_DIST := 250.0      # no water within this range → stop rendering
+
+var _body_dist := 0.0          # distance to nearest water body (m)
 
 
 func _init() -> void:
@@ -70,6 +73,14 @@ func _process(_dt: float) -> void:
 
 	_plane_y = _nearest_water_plane(main_cam.global_position)
 
+	# Sleep when far from all water — the mirror renders every frame otherwise
+	var want_mode := SubViewport.UPDATE_DISABLED if _body_dist > SLEEP_DIST \
+		else SubViewport.UPDATE_ALWAYS
+	if render_target_update_mode != want_mode:
+		render_target_update_mode = want_mode
+	if want_mode == SubViewport.UPDATE_DISABLED:
+		return
+
 	# Mirror the camera about the horizontal plane y = _plane_y.
 	var t := main_cam.global_transform
 	var origin := t.origin
@@ -102,4 +113,5 @@ func _nearest_water_plane(pos: Vector3) -> float:
 			best_y = lvl["wy"]
 			if d == 0.0:
 				break
+	_body_dist = best_d if best_d < INF else 1e9
 	return best_y
