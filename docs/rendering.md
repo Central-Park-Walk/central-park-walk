@@ -171,6 +171,7 @@ GPU ms at 1080p, measured at the worst of the 5 locations. A subsystem over its 
 | undergrowth + ground cover | 0.5 | <1 | ok |
 | post (SSAO, SSIL, glow, TAA, tonemap) | 1.5 | ~1 (TAA untested) | ok? |
 | water, weather particles, misc | 0.6 | <1 | ok |
+| water planar reflection (2026-07-01, near water only; sleeps >250 m away) | 1.5 | TBD — measure on/off at Lake shore (`--no-water-reflection`) | ? |
 | **total** | **16.6** | ~83–88 | |
 
 CPU is not currently binding (`vpcpu` ~9 ms peak, GDScript <1 ms) but inherits the same 16.6 ms ceiling.
