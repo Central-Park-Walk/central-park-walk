@@ -32,9 +32,16 @@ Two layers only, tied together by a bake instead of by calibration:
 The handoff (graded out per Chris — the reference spreads ~115–131 luma over a couple
 hundred metres, so nothing may ramp fast near the rim):
 
-- blades rank-thin 5→20 m; the dark ground mat/thatch SINKS below the terrain across
-  that band (`mat_sink`, turf_tile.gdshader) — the terrain underneath is the same
-  sward, so the rim dissolves instead of darkening to sparse-blades-over-dark-mat;
+- blades DECIMATE 2→20 m (2026-07-02, Chris: "exquisite detail only the first couple
+  of meters… cut the detail of the density, not the density"): full density only to
+  `TURF_NEAR_FULL` = 2 m, then `keep = (1 - smoothstep(2, 20, dist))^density_curve`
+  (2.2 — front-loaded fade, ~52% at 8 m, ~5% at 14 m) culls blades by rank, while the
+  SURVIVORS widen around their own base (CUSTOM0.xy = blade base, baked in
+  `_turf_vert`) by `1/keep` capped at `grow_max` = 3 — count×width stays constant, so
+  the sward keeps its covered body all the way out and only the geometric detail
+  falls. The dark ground mat/thatch SINKS below the terrain across the same band
+  (`mat_sink`, turf_tile.gdshader) — the terrain underneath is the same sward, so the
+  rim dissolves instead of darkening to sparse-blades-over-dark-mat;
 - rim blades size-shrink over the last `TURF_FADE` = 8 m, tapering the dome's chunky
   blade detail toward the texture grain (a detail-SCALE jump reads as an edge as much
   as tone does — likewise the baked-texture LOD K=0.3 keeps blade-scale mottle alive

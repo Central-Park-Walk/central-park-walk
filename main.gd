@@ -127,8 +127,13 @@ const TURF_BLADE_W := 0.026        # blade base width (m); a touch wider = close
 # Long GRADUAL falloff so the dome edge dissolves (Chris: "easy to see where the dome ends"):
 # thin sooner (small near_full) but reach much farther (big radius), so density eases over a
 # long ramp and the outermost blades are already near-zero — no distinct edge.
-const TURF_NEAR_FULL := 5.0        # full baked density only within this radius (m)
+# 2026-07-02 (Chris): "the real exquisite detail should only be visible for the first couple
+# of meters" — full density only to 2m, and DENSITY_CURVE bends the taper so density drops
+# fast past that and is nearly gone well before the terrain handoff at TURF_RADIUS
+# (~92% at 4m, ~52% at 8m, ~31% at 10m, ~5% at 14m, <1% past 16m).
+const TURF_NEAR_FULL := 2.0        # full baked density only within this radius (m) (was 5)
 const TURF_RADIUS := 20.0          # blades thin to zero by here (was 14 — pushed out)
+const TURF_DENSITY_CURVE := 2.2    # falloff shape: keep = (1-smoothstep)^curve; >1 = front-loaded fade
 # CLI-overridable copies (--turf-blades=N / --turf-radius=R) for perf sweeps; the
 # consts above stay the shipped defaults. NOTE a shipped TURF_BLADES change needs a
 # REBAKE (the terrain sward texture is baked from this tile mesh — scripts/bake_turf.gd).
@@ -3144,28 +3149,30 @@ func _add_turf_blade(st: SurfaceTool, bx: float, bz: float, ang: float, h: float
 		L.append(Vector3(cx - rgt.x * halfw, y, cz - rgt.y * halfw))
 		R.append(Vector3(cx + rgt.x * halfw, y, cz + rgt.y * halfw))
 		T.append(t)
+	var base := Vector2(bx, bz)
 	for i in SEGS:
 		var ca: Color = base_c.lerp(tip_c, T[i])
 		var cb: Color = base_c.lerp(tip_c, T[i + 1])
 		ca = Color(ca.r * vit, ca.g * vit, ca.b * vit)
 		cb = Color(cb.r * vit, cb.g * vit, cb.b * vit)
 		# two triangles for the segment quad (L[i],R[i],L[i+1],R[i+1])
-		_turf_vert(st, L[i], T[i], ca, rank)
-		_turf_vert(st, R[i], T[i], ca, rank)
-		_turf_vert(st, L[i + 1], T[i + 1], cb, rank)
-		_turf_vert(st, R[i], T[i], ca, rank)
-		_turf_vert(st, R[i + 1], T[i + 1], cb, rank)
-		_turf_vert(st, L[i + 1], T[i + 1], cb, rank)
+		_turf_vert(st, L[i], T[i], ca, rank, false, base)
+		_turf_vert(st, R[i], T[i], ca, rank, false, base)
+		_turf_vert(st, L[i + 1], T[i + 1], cb, rank, false, base)
+		_turf_vert(st, R[i], T[i], ca, rank, false, base)
+		_turf_vert(st, R[i + 1], T[i + 1], cb, rank, false, base)
+		_turf_vert(st, L[i + 1], T[i + 1], cb, rank, false, base)
 
 
 func _turf_vert(st: SurfaceTool, pos: Vector3, t: float, col: Color, rank: float,
-		ground: bool = false) -> void:
+		ground: bool = false, base: Vector2 = Vector2.ZERO) -> void:
 	st.set_color(col)
 	st.set_uv(Vector2(rank, t))         # UV.x = LOD rank, UV.y = up-fraction (wind/backlight)
 	# UV2.x flags the horizontal GROUND (mat + thatch) so the shader textures it with a
 	# world-XZ grass image (no flat colour pools straight down); standing blades stay
 	# vertex-coloured. UV2.y unused.
 	st.set_uv2(Vector2(1.0 if ground else 0.0, 0.0))
+	st.set_custom(0, Color(base.x, base.y, 0.0, 0.0))  # blade base XZ (decimation widening)
 	st.set_normal(Vector3(0.0, 1.0, 0.0))
 	st.add_vertex(pos)
 
@@ -3184,6 +3191,11 @@ func _make_turf_tile_mesh(blades: int, thatch: int, mat_n: int, periodic := fals
 	## matches the runtime union by construction: count/s² either way.
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# CUSTOM0.xy = the owning blade's base XZ (tile-local), so the shader can scale a
+	# blade's horizontal extent around ITS OWN base — the decimation widening (survivors
+	# of the rank cull fatten to absorb the culled blades' coverage). Ground verts leave
+	# it zero (the shader gates widening on UV2.x anyway).
+	st.set_custom_format(0, SurfaceTool.CUSTOM_RG_FLOAT)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 20260630
 	var s := TURF_TILE_SIZE
@@ -3425,6 +3437,7 @@ func _setup_turf_tiles() -> void:
 	mat.set_shader_parameter("near_full", TURF_NEAR_FULL)
 	mat.set_shader_parameter("far_radius", _turf_radius_m)
 	mat.set_shader_parameter("far_fade", TURF_FADE)
+	mat.set_shader_parameter("density_curve", TURF_DENSITY_CURVE)
 	# Understory = the SAME baked sward the terrain shows (Chris 2026-07-01): the
 	# mat/thatch sample the dome's own bake, world-aligned at the terrain's 0.5
 	# repeats/m, so the ground seen BETWEEN blades is pixel-identical to the ground

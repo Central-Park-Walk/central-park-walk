@@ -26,6 +26,12 @@ uniform vec2  band_center = vec2(0.0);
 uniform float near_full   = 9.0;   // full density within this radius
 uniform float far_radius  = 14.0;  // blades thinned to zero by here
 uniform float far_fade    = 2.5;   // soft size-fade at the very rim
+uniform float density_curve = 2.2; // >1 = density drops FAST past near_full, long sparse tail
+// DECIMATION, not thinning (Chris 2026-07-02: "instead of cutting down on the density, cut
+// the detail of the density"): as keep(dist) culls blades, the SURVIVORS widen around their
+// own base (CUSTOM0.xy) by 1/keep so count*width — the covered area — stays constant. The
+// sward keeps its body all the way out; only the geometric detail (blade count) falls.
+uniform float grow_max = 3.0;      // widening cap; past keep=1/grow_max coverage tapers too
 
 // Camera-snap passed as a UNIFORM instead of moving the MMI. Moving the MMI made MODEL_MATRIX
 // jump 2 m at each snap; because the blades are placed procedurally (VERTEX = worldxz - base),
@@ -101,7 +107,11 @@ void vertex(){
 	// where rank < keep. Wider `alive` band = the density thins over a LONGER taper (denser
 	// centre → gradually sparser out), so the rim dissolves instead of ending in a hard line
 	// (Chris: "hard line at the edge of the dome" + "field pops as I move").
-	float keep  = 1.0 - smoothstep(near_full, far_radius, dist);
+	// density_curve reshapes the taper (Chris 2026-07-02: "exquisite detail only the first
+	// couple of meters"): the power makes density fall FAST just past near_full and approach
+	// zero well before far_radius, so blade detail is mostly gone by the terrain handoff
+	// instead of carrying half density into the mid-band.
+	float keep  = pow(1.0 - smoothstep(near_full, far_radius, dist), density_curve);
 	float alive = smoothstep(0.0, 0.28, keep - rank);
 	// Extra soft size-fade over the very rim so the last blades shrink out rather than pop.
 	float cover = alive * (1.0 - smoothstep(far_radius - far_fade, far_radius, dist));
@@ -128,6 +138,16 @@ void vertex(){
 		// LAND MASK: kill grass where the land isn't grass (water/pool) so the dome is tied to
 		// the land, not the camera. Collapses the blade/mat to nothing over water.
 		if (zone_no_grass(zone_at(approx_w))) cover = 0.0;
+		// DECIMATION WIDENING (blades only): scale the vertex's horizontal offset from its
+		// blade's base by 1/keep (capped) so the survivors of the rank cull absorb the culled
+		// blades' footprint — same covered area, coarser primitives. Rotation is linear, so
+		// widening in rotated space around the rotated base is exact.
+		if (UV2.x < 0.5) {
+			float wgrow = min(1.0 / max(keep, 0.02), grow_max);
+			vec2 bl = CUSTOM0.xy;
+			vec2 brot = vec2(bl.x * cy - bl.y * sy, bl.x * sy + bl.y * cy);
+			rot = brot + (rot - brot) * wgrow;
+		}
 		rot *= cover;
 		// Retire the ground MAT/THATCH (UV2.x=1) across the blade-thinning band by sinking
 		// it below the terrain: the terrain now shows the SAME baked sward (turf_baked_tex,
