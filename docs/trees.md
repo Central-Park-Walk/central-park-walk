@@ -25,7 +25,7 @@ at the worst test location. Measured today: ~25 ms camera (Ramble), 18–28 ms s
 | lod0 (near) | 0–100 m | dither out 90–100 m | `{species}_{s,m,l}` — the **full base model** (revised Jun 11, §7: a card-pruned near tier visibly thinned close crowns), MMI per species-size × 80 m chunk | **never** (proxy does) | runtime sun + ambient |
 | lod1 (mid) | 90–200 m | dither in 90–100 m, out 180–200 m | `{species}_{s,m,l}_lod1` (**coverage-first, rewritten 2026-06-20, §4c**: keep ALL leaf cards for silhouette parity, decimate BARK only — the old card-prune+area-scale lost ~31 % coverage → distant wash) | never | runtime sun + ambient |
 | shadow proxy | 0–290 m | none (pops with cascade distance, invisible; shadow distance is 150 m so the 290 m cap is never the binding limit) | trunk cylinder + crown hull ≤ ~300 tris, alpha-test dapple mask, MMI `SHADOWS_ONLY` | is the shadow | n/a |
-| impostor | 180–2500 m | dither in 180–200 m | **16×16** hemisphere octahedral, 2048² albedo+normal atlas per species-tier (§2, as-built 2026-06-23) | never | **runtime sun + ambient** |
+| impostor | 180–2500 m | dither in 180–200 m | **16×16** hemisphere octahedral, 2048² albedo+normal+orm+vis atlas per species-tier (§2, as-built 2026-06-23, sun-visibility 2026-07-02) | never | **runtime sun + ambient** |
 
 Mesh fade end moved **400 → 200 m on 2026-06-20** (was 250→400 on Jun 11). Two
 independent reasons impostors must take over by ~200 m: (1) CP trees are not seen
@@ -91,10 +91,40 @@ These replace the old spec's 8×8 (under-sampled).
   B = metallic). The AO and dapple are the two darkening terms the live canopy
   applies that a naive albedo bake omits — leaving them out made the far tier read
   **1.56× too bright** vs lod0/lod1 (measured 2026-06-23, noon, Bethesda handoff).
-- Writes `textures/impostors/<species>_<tier>_{albedo,normal,orm}.png` + a
+- Writes `textures/impostors/<species>_<tier>_{albedo,normal,orm,vis}.png` + a
   `<species>_manifest.json` (frames, `scale`, `aabb_max`, **`position_offset` =
   +AABB-centre** so the billboard sits at canopy height — the sign that, inverted,
   buried the whole far tier in the old system).
+
+**Sun-visibility channel (`_vis.png`, 2026-07-02).** The static AO-on-direct fake
+(a801c20) matched the mesh only at its calibration hours — measured impostor/lod0
+luminance 1.08× at 13h/16h/18h but **0.29×
+at 9h** (the always-on `pow(AO,1.5)` crushes the crown whenever N·L is already
+low). Chris's field report: same tree, same view, great at one hour, terrible at
+another. Fix = per-texel **directional occlusion**, evaluated against the real sun:
+- Bake (`_bake_vis_channel`, summer only): per octa cell, render `bake_mode 4`
+  (white lambert; BACKLIGHT=0 or transmission leaks into the shadowed pass) lit by
+  a probe DirectionalLight from **9 directions** (zenith + 4@40° + 4@12°), shadows
+  ON and OFF; the per-pixel ON/OFF ratio is pure geometric sun-visibility (N·L and
+  BRDF cancel exactly; probe energy 0.6 so the OFF pass can't clip). A GPU
+  least-squares **L1 fit** (one canvas pass over a `Texture2DArray` of the probes)
+  compresses the 9 ratios to `R = c0` (mean visibility), `GBA = bent vector`
+  (bake-object space). Stored **LINEAR** (hdr_2d composite readback — verified),
+  so the runtime samples it *without* `source_color`.
+- Runtime: fragment evaluates `clamp(c0 + dot(c_vec, sun_obj), 0, 1)` (sun rotated
+  per instance in *vertex* — `MODEL_MATRIX` is chunk-locked past vertex, #76292;
+  `sun_dir_world` global pushed from main.gd) and a custom `light()` (exact
+  scene_forward_lights burley; specular dropped — measured no-op) multiplies
+  direct light by it. Winter relaxes vis→1 (a bare crown barely occludes). With a
+  vis atlas bound, tree_builder retires the static fake (`ao_light_affect=0`,
+  `ao_power/floor` neutral — ambient AO back to plain mesh parity); manifests
+  without `vis` keep the old behaviour via an in-shader AO-on-direct replica (the
+  custom `light()` bypasses the engine's `AO_LIGHT_AFFECT` path). `IMP_VIS` env
+  sweeps `vis_strength`.
+- ⚠ **Varying budget:** engine interpolators share the 32-slot cap in the full
+  scene — +2 user varyings broke this shader (33/32) while a minimal project
+  compiled fine. The dormant depth-parallax basis (`xy_frame1..3`) was dropped to
+  pay for the vis pair; to restore parallax, recompute those per-fragment.
 - New PNGs need one editor import pass (`godot --headless --import`) before the
   game can `load()` them.
 
