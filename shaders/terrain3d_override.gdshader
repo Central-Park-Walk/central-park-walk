@@ -574,24 +574,45 @@ void fragment() {
 					bw = vec3(-bary.z, 1.0 - bary.y, 1.0 - bary.x);
 					c1 = bcell + vec2(1.0, 1.0); c2 = bcell + vec2(1.0, 0.0); c3 = bcell + vec2(0.0, 1.0);
 				}
+				// Weight sharpening narrows the blend zones; the variance-preserving
+				// normalization below undoes the contrast the remaining blend loses —
+				// without it the triangle grid shows as a soft pattern of contrast dips
+				// (Chris GPU walk: "the far field has the pattern"). Hashes are
+				// dot-based: the earlier per-component sin() hash was SEPARABLE, so
+				// offsets correlated along rows/columns = an axis-aligned grid.
+				bw = pow(bw, vec3(1.6));
+				bw /= (bw.x + bw.y + bw.z);
+				vec2 h1 = fract(sin(vec2(dot(c1, vec2(127.1, 311.7)),
+					dot(c1, vec2(269.5, 183.3)))) * 43758.5453);
+				vec2 h2 = fract(sin(vec2(dot(c2, vec2(127.1, 311.7)),
+					dot(c2, vec2(269.5, 183.3)))) * 43758.5453);
+				vec2 h3 = fract(sin(vec2(dot(c3, vec2(127.1, 311.7)),
+					dot(c3, vec2(269.5, 183.3)))) * 43758.5453);
 				vec3 sward =
-					  bw.x * textureLod(turf_baked_tex, buv + fract(sin(c1 * vec2(127.1, 311.7)) * 43758.55), blod).rgb
-					+ bw.y * textureLod(turf_baked_tex, buv + fract(sin(c2 * vec2(127.1, 311.7)) * 43758.55), blod).rgb
-					+ bw.z * textureLod(turf_baked_tex, buv + fract(sin(c3 * vec2(127.1, 311.7)) * 43758.55), blod).rgb;
+					  bw.x * textureLod(turf_baked_tex, buv + h1, blod).rgb
+					+ bw.y * textureLod(turf_baked_tex, buv + h2, blod).rgb
+					+ bw.z * textureLod(turf_baked_tex, buv + h3, blod).rgb;
+				vec3 smean = textureLod(turf_baked_tex, buv, blod + 3.0).rgb;
+				sward = smean + (sward - smean) / max(length(bw), 0.62);
 				// NEAR STROKE RESOLVE (2026-07-02, terrain-only): in the reference
 				// composite the near field is the same speckle RESOLVING into thin
 				// strokes — measured hp3 ramps 19 -> 16 -> 12 -> 9 over 0-25 m while
 				// ours was flat ~6. Local-contrast expansion around a coarse-mip local
 				// mean (unsharp-mask on the bake's stroke scale), fading out by ~14 m.
 				if (cam_dist < 14.0) {
-					vec3 smid = textureLod(turf_baked_tex, buv, blod + 3.0).rgb;
-					float ncon = mix(4.5, 1.0, smoothstep(1.0, 14.0, cam_dist));
+					float ncon = mix(3.6, 1.0, smoothstep(1.0, 14.0, cam_dist));
 					// LUMA-only expansion: expanding the full colour vector amplified
 					// the bake's straw/red flecks into red confetti (the composite's
 					// near strokes are brightness variation on green, not hue swings).
+					// ASYMMETRIC: bright deviations (lit strokes) expand fully, dark
+					// ones barely — symmetric expansion carpeted the near field with
+					// BLACK SPECKS (Chris GPU walk); the composite's near darks are
+					// soft shadow, its contrast lives in the bright strokes.
 					float sl = dot(sward, vec3(0.2126, 0.7152, 0.0722));
-					float ml = dot(smid, vec3(0.2126, 0.7152, 0.0722));
-					sward *= max(ml + (sl - ml) * ncon, 0.0) / max(sl, 1e-4);
+					float ml = dot(smean, vec3(0.2126, 0.7152, 0.0722));
+					float dev = sl - ml;
+					float gain = dev > 0.0 ? ncon : mix(1.0, ncon, 0.30);
+					sward *= max(ml + dev * gain, 0.0) / max(sl, 1e-4);
 				}
 				sward *= turf_baked_ao;                 // flat-ground vs blade-canopy parity
 				// GRADE OUT the handoff (Chris: reference spreads its ~115-131 luma over
@@ -632,13 +653,21 @@ void fragment() {
 				// to the carpet (hp3 stayed ~5 for any clamp range). Mild graze comp
 				// (sqrt) keeps far-grazing stable without erasing the mid-band detail.
 				float flod = clamp(log2(cam_dist * 0.05 / sqrt(graze) + 1.0), 0.0, 3.0);
-				float f_tone = textureLod(grass_macro_tex,
-					(mat2(vec2(0.31, 0.95), vec2(-0.95, 0.31)) * v_vertex.xz) / 1.3
-					+ vec2(7.7, 3.3), flod).r;
-				// Deviation-centred like tone_mult (same source_color pitfall). Gain 3.0
-				// ~= +-11% blade-grain: ring-calibrated match to the ref's grain band
-				// (hp3 12.3/9.5/7.4 at 15-25/25-50/50-100 m).
-				float fine_mult = mix(1.0, clamp(1.0 + (f_tone - 0.236) * 4.5, 0.75, 1.25),
+				// TWO rotated INCOMMENSURATE taps, deviations summed (deviation-centred
+				// on the texture's LINEAR mean — the source_color pitfall). One 1.3 m
+				// lattice at gain 4.5 was THE residual pattern (plan-view fingerprint:
+				// ~1.2 m hex rosettes — Chris: "the far field has the pattern"); the
+				// per-cell hash (h1) faded it but the in-cell rhythm remained. Summed
+				// 1.31 m + 2.09 m lattices at different angles are quasi-periodic — no
+				// repeat for the eye to lock onto.
+				float f_ta = textureLod(grass_macro_tex,
+					(mat2(vec2(0.31, 0.95), vec2(-0.95, 0.31)) * v_vertex.xz) / 1.31
+					+ vec2(7.7, 3.3) + h1, flod).r;
+				float f_tb = textureLod(grass_macro_tex,
+					(mat2(vec2(-0.80, 0.60), vec2(-0.60, -0.80)) * v_vertex.xz) / 2.09
+					+ vec2(2.4, 9.1) + h2, flod).r;
+				float f_dev = (f_ta - 0.236) + (f_tb - 0.236);
+				float fine_mult = mix(1.0, clamp(1.0 + f_dev * 2.8, 0.75, 1.25),
 					smoothstep(1.5, 8.0, cam_dist));
 				sward *= fine_mult;
 				sward *= biome_terrain_tint;            // sedge/wild/shade zones stay distinct
