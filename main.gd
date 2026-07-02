@@ -129,7 +129,10 @@ const TURF_BLADE_W := 0.026        # blade base width (m); a touch wider = close
 # long ramp and the outermost blades are already near-zero — no distinct edge.
 const TURF_NEAR_FULL := 5.0        # full baked density only within this radius (m)
 const TURF_RADIUS := 20.0          # blades thin to zero by here (was 14 — pushed out)
-const TURF_FADE := 4.0             # soft size-fade width at the very rim (m)
+const TURF_FADE := 8.0             # size-fade width at the rim (m): rim blades SHRINK
+                                   # over the last stretch so the dome's chunky blade
+                                   # detail tapers toward the baked texture's grain
+                                   # (a detail-scale jump reads as the dome edge)
 const TURF_REACH := 20.0           # turf extent (m); shell grass fills beyond
 # Legacy near-field 3D blade band + card fill (superseded by turf tiles; kept for --flags)
 const BLADE_BAND_PATCH := 18.0
