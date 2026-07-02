@@ -3208,6 +3208,13 @@ func _make_turf_tile_mesh(blades: int, thatch: int, mat_n: int, periodic := fals
 			# G/B ~2.0. Red cut hard (0.21/0.34 → 0.10/0.16) to kill the olive cast.
 			base_c = Color(0.10, 0.46, 0.15)
 			tip_c  = Color(0.16, 0.63, 0.19)
+		# Less-dark centre (Chris, GPU walk 2026-07-01: "make the center of the circle
+		# less dark"): the grazing eye-level view is dominated by blade BASES, so lift
+		# each family's base toward its tip. Top-down (the bake) is tip-dominated, so
+		# this brightens the dome far more than the far field — targeted at the gap.
+		# (0.35 moved the eye-level band only ~+3 luma — screen-space shading and the
+		# tonemapper eat albedo lifts — so 0.55.)
+		base_c = base_c.lerp(tip_c, 0.55)
 		# Stable LOD rank: a random subset survives each distance band, so far tiles
 		# thin uniformly (no clustering). Near (0-5m) keeps all; far keeps ~10%.
 		var rank := rng.randf()
@@ -3243,16 +3250,17 @@ func _periodic_offsets(bx: float, bz: float, ext: float, margin: float,
 func _thatch_color(rng: RandomNumberGenerator) -> Array:
 	## A [base, tip] colour pair for a flattened/dead blade — the SAME bluegrass families
 	## as the standing blades but muted & darkened (compressed, partly dead thatch).
+	# Colours lifted ~1.2x with the mat/blade-base lift (Chris: less-dark centre).
 	var f := rng.randf()
 	if f < 0.30:
 		# dead / dry straw (thatch has more of this than the standing sward)
-		return [Color(0.22, 0.20, 0.07), Color(0.36, 0.33, 0.12)]
+		return [Color(0.26, 0.24, 0.08), Color(0.43, 0.40, 0.14)]
 	elif f < 0.42:
 		# blue-green mat (greener/less teal, matched to the sward)
-		return [Color(0.09, 0.21, 0.11), Color(0.17, 0.33, 0.15)]
+		return [Color(0.11, 0.25, 0.13), Color(0.20, 0.40, 0.18)]
 	else:
 		# green mat majority (lifted so the near canopy floor isn't dark)
-		return [Color(0.11, 0.25, 0.09), Color(0.21, 0.40, 0.14)]
+		return [Color(0.13, 0.30, 0.11), Color(0.25, 0.48, 0.17)]
 
 
 func _add_flat_blade(st: SurfaceTool, bx: float, bz: float, ang: float, length: float,
@@ -3313,7 +3321,9 @@ func _add_turf_ground(st: SurfaceTool, rng: RandomNumberGenerator, s: float,
 			# camo quilt of flat facets). Colour variety comes from the streaks on top.
 			# A flat up-facing quad catches full sun, so keep it dark = shadowed thatch base.
 			var mj := rng.randf_range(0.85, 1.12)
-			var c := Color(0.14 * mj, 0.30 * mj, 0.09 * mj)
+			# Lifted ~1.3x (with the blade-base lift) — the dark understory showing
+			# through grazing blades was most of the "dark centre".
+			var c := Color(0.18 * mj, 0.39 * mj, 0.12 * mj)
 			var p00 := Vector3(x0, MY, z0)
 			var p10 := Vector3(x0 + cell, MY, z0)
 			var p01 := Vector3(x0, MY, z0 + cell)
@@ -3413,6 +3423,11 @@ func _setup_turf_tiles() -> void:
 	mmi.name = "TurfTiles"
 	mmi.multimesh = mm
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Keep the dense blade mass OUT of SDFGI: as a GI occluder it sky-occludes its own
+	# canopy gaps, darkening the whole near field ("dark centre" — albedo lifts barely
+	# moved it because the dark pixels are occluded GAPS, not blade faces). The terrain
+	# below still feeds GI, so the dome region gets open-field ambient like the far field.
+	mmi.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 	# The MMI is NEVER moved (blades are placed at the camera via the tile_snap uniform), so its
 	# cull bounds must cover the whole park — else it'd be frustum-culled once you walk away from
 	# the origin. It's a camera-following field, always on screen, so a park-wide AABB is fine.

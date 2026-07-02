@@ -16,7 +16,7 @@ render_mode unshaded, cull_disabled, depth_draw_opaque;
 uniform sampler2D mat_tex : source_color, filter_linear_mipmap, repeat_enable;
 uniform float mat_tex_scale = 1.3;                    // texture repeats per metre
 uniform vec3  mat_tint      = vec3(0.48, 0.94, 0.56); // = turf_tile.gdshader default
-uniform float mat_bright    = 0.46;                   // = turf_tile.gdshader default
+uniform float mat_bright    = 0.52;                   // = turf_tile.gdshader default
 
 varying vec3  v_col;
 varying float v_ground;   // 1 = horizontal ground mat/thatch (sample mat_tex)

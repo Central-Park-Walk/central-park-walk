@@ -501,16 +501,26 @@ void fragment() {
 				// K=0.3: at the 20 m handoff this holds ~mip 2.6 (≈6 mm texels) so the
 				// terrain still resolves blade-scale mottle where the dome's real blades
 				// end — K=0.5 mip-smoothed the band and the detail JUMP read as the edge.
-				float blod = clamp(log2(cam_dist * 0.3 + 1.0), 0.0, 9.0);
+				// GRAZE term: textureLod has no anisotropy, so at grazing the along-view
+				// footprint is many texels — undersampled far field shimmered under
+				// FSR2/TAA and periodically snapped into focus (Chris walking: "mid and
+				// far distance catches up every so often"). Add mips as the view grazes;
+				// the macro layer carries far texture presence, which is stable.
+				float graze = clamp(dot(normalize(_camera_pos - v_vertex), v_normal), 0.12, 1.0);
+				float blod = clamp(log2(cam_dist * 0.3 / graze + 1.0), 0.0, 9.0);
 				vec3 sward = textureLod(turf_baked_tex, v_vertex.xz * 0.5, blod).rgb;
 				sward *= turf_baked_ao;                 // flat-ground vs blade-canopy parity
 				// GRADE OUT the handoff (Chris: reference spreads its ~115-131 luma over
 				// hundreds of metres; a 20 m ramp reads as an edge). At grazing the dome
 				// shows shadowed blade SIDES while the bake is top-down TIPS, so where the
-				// blades end the ground starts at the dome's darker grazing tone and eases
-				// to the full baked tone over ~200 m ("stretch it out farther" — Chris,
-				// after the 90 m version) — a gradient far too slow to see.
-				sward *= mix(0.80, 1.0, smoothstep(15.0, 200.0, cam_dist));
+				// blades end the ground starts near the dome's grazing tone and eases to
+				// the full baked tone across 50-150 m (band set by Chris on his walk; the
+				// centre was also brightened, so the near multiplier is milder than the
+				// 0.80 it replaced).
+				// 0.62: the far field sits on the tonemapper's SHOULDER, where albedo
+				// multipliers compress to small luma changes (0.88->0.80 moved the
+				// measured band by ~1) — the cut must be deep to read at all.
+				sward *= mix(0.62, 1.0, smoothstep(50.0, 150.0, cam_dist));
 				sward *= mix(1.0, tone_mult, macro_w);  // macro clump tone: distance texture
 				                                        // + breaks the bake's 2 m repeat
 				sward *= biome_terrain_tint;            // sedge/wild/shade zones stay distinct

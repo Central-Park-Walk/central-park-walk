@@ -41,9 +41,8 @@ uniform float mat_tex_scale = 1.3;                    // texture repeats per met
 uniform vec3  mat_tint      = vec3(0.48, 0.94, 0.56); // re-measured to KBG sod ref: red pulled
                                                       // DOWN (grass_albedo.jpg is olive → too
                                                       // red) so the mat reads blue-green (G/R~2)
-uniform float mat_bright    = 0.46;                   // darker — the flat up-facing mat catches
-                                                      // full sun; this is the bright midground
-                                                      // Chris wants darkened toward the sod ref
+uniform float mat_bright    = 0.52;                   // 0.46->0.52 with the 2026-07-01 less-dark-
+                                                      // centre pass (keep = turf_bake.gdshader)
 
 // LAND MASK — the grass is tied to the LAND, not the camera: only render blades where the
 // landuse zone is actually grass. Without this the camera-following dome drew turf over
