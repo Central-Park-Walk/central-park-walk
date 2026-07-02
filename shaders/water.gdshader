@@ -80,16 +80,18 @@ uniform sampler2D water_normal_b : hint_normal, filter_linear_mipmap, repeat_ena
 
 // World-space wave normal from two scrolling ripple maps at three scales.
 // Wind biases drift direction and increases slope amplitude.
+// Scales/speeds calmed 2026-07-02 (Chris walk: waves read too busy/fast for
+// a sheltered pond) — ~1.6× longer wavelengths, ~0.6× drift speed.
 vec3 wave_normal(vec2 wpos) {
 	float t = TIME;
 	float wind_str = length(wind_vec);
 	vec2 wind_dir = wind_str > 0.01 ? normalize(wind_vec) : vec2(0.55, 0.83);
 	// Fine capillary ripple, wind-drifted
-	vec2 uv_a = wpos / 5.0  + wind_dir * t * (0.020 + wind_str * 0.012);
+	vec2 uv_a = wpos / 8.0  + wind_dir * t * (0.012 + wind_str * 0.007);
 	// Same map counter-scrolled at another scale — breaks single-sheet drift
-	vec2 uv_c = wpos / 8.3  - wind_dir * t * 0.014 + vec2(0.37, 0.61);
+	vec2 uv_c = wpos / 13.5 - wind_dir * t * 0.008 + vec2(0.37, 0.61);
 	// Broader wavelet rows, slower
-	vec2 uv_b = wpos / 17.0 + wind_dir * t * (0.010 + wind_str * 0.008);
+	vec2 uv_b = wpos / 28.0 + wind_dir * t * (0.006 + wind_str * 0.005);
 	vec2 slope = (texture(water_normal_a, uv_a).xy * 2.0 - 1.0) * 0.50
 	           + (texture(water_normal_a, uv_c).xy * 2.0 - 1.0) * 0.35
 	           + (texture(water_normal_b, uv_b).xy * 2.0 - 1.0) * 0.80;
