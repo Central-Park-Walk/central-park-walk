@@ -1900,7 +1900,15 @@ SPECIES = {
             # so the card sits at the terminal tip with no bare filaments past it.
             # m/s don't need it — their shorter limbs are already capped by split-prob.
             "l": {"target_h": 30, "height_range": [25, 35],
-                  "skeleton_overrides": {"skeleton_max_depth": 4}},
+                  # L-TIER = PARSIMONIOUS (v2) DENSITY (Chris 2026-07-02): the big
+                  # crowns get the thinner, less-backlit-opaque canopy while s/m keep
+                  # the fuller v1 look. These 3 card levers override the species-level
+                  # (v1) values for the l tier only (foliage reads them from sp_variant).
+                  # Mirrors london_plane_v2's parsimony levers. In-situ park test.
+                  "skeleton_overrides": {"skeleton_max_depth": 4,
+                      "card_rule_depth_keep": {1: 0.04, 2: 0.40, 3: 0.62},  # v1 {1:.05,2:.60,3:1.0}
+                      "card_half_factor": 1.00,                             # v1 implicit 1.20
+                      "card_rule_spacing": 0.72}},                          # v1 0.55
         },
     },
 
@@ -4330,7 +4338,7 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
             leaf_objs = create_leaf_cards_at_positions(
                 placements, leaf_mat, rng, tier=tier_name, n_cards=n_cards,
                 cluster_scatter=_scatter, stem_anchor=sp.get("card_stem_anchor"),
-                card_half_factor=sp.get("card_half_factor", 1.20))
+                card_half_factor=sp_variant.get("card_half_factor", 1.20))  # sp_variant → tier-overridable (per-tier density, e.g. london_plane l = v2)
             # Legacy hanging-card curtain (superseded by branchlet geometry).
             if sp.get("strand_foliage"):
                 leaf_objs += create_strand_cards_at_positions(
