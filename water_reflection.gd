@@ -27,6 +27,14 @@ var _frame := 0
 const RES_DIVISOR := 3         # reflection at 1/3 window resolution
 const BODY_MARGIN := 40.0      # bbox grow for "player is at this body" (m)
 const SLEEP_DIST := 250.0      # no water within this range → stop rendering
+# Distance-staged update rate (2026-07-01 perf pass): the mirror is a full scene
+# render; at Literary Walk it cost ~4ms re-rendering the whole elm corridor for a
+# Pond ~150m away that subtends a handful of pixels. Beyond the shore the water is
+# small/grazing on screen, so a 2-4 frame reflection lag is imperceptible — render
+# every Nth frame instead. No pop (unlike shrinking SLEEP_DIST): updates continue,
+# just sparser, and the cadence steps at distance bands.
+const RATE_FULL_DIST := 60.0   # every frame within this body distance
+const RATE_HALF_DIST := 140.0  # every 2nd frame out to here; every 4th beyond
 
 var _body_dist := 0.0          # distance to nearest water body (m)
 
@@ -73,13 +81,21 @@ func _process(_dt: float) -> void:
 
 	_plane_y = _nearest_water_plane(main_cam.global_position)
 
-	# Sleep when far from all water — the mirror renders every frame otherwise
-	var want_mode := SubViewport.UPDATE_DISABLED if _body_dist > SLEEP_DIST \
-		else SubViewport.UPDATE_ALWAYS
-	if render_target_update_mode != want_mode:
-		render_target_update_mode = want_mode
-	if want_mode == SubViewport.UPDATE_DISABLED:
+	# Sleep when far from all water; otherwise render at the distance-staged rate
+	# (UPDATE_ONCE self-resets to DISABLED, so issuing it every Nth frame renders
+	# exactly that frame). The camera mirror below still tracks every frame, so
+	# each sparse render uses the current view.
+	if _body_dist > SLEEP_DIST:
+		if render_target_update_mode != SubViewport.UPDATE_DISABLED:
+			render_target_update_mode = SubViewport.UPDATE_DISABLED
 		return
+	var interval := 1
+	if _body_dist > RATE_HALF_DIST:
+		interval = 4
+	elif _body_dist > RATE_FULL_DIST:
+		interval = 2
+	if _frame % interval == 0:
+		render_target_update_mode = SubViewport.UPDATE_ONCE
 
 	# Mirror the camera about the horizontal plane y = _plane_y.
 	var t := main_cam.global_transform
