@@ -1958,6 +1958,30 @@ SPECIES = {
     },
 }
 
+# ---------------------------------------------------------------------------
+# london_plane_v2 — PARSIMONY A/B (2026-07-02, Chris). A thinner, less-opaque
+# lod0 of the London plane to test whether v1's canopy is overdone: v1 reads
+# almost fully OPAQUE when backlit (sun directly behind → no dappled light).
+# Built as a shallow copy of london_plane so it shares the IDENTICAL skeleton
+# (same base_seed/pin_variant/n_variants → same trunk & branches), bark, leaf
+# card texture, and variant pin — ONLY the leaf-card DENSITY levers differ. So a
+# side-by-side in the garden isolates coverage/opacity as the single variable,
+# and v2 auto-tracks any future v1 change (nested dicts shared read-only).
+# Levers (all reduce canopy coverage so backlight dapples through):
+#   • card_rule_depth_keep — fewer branches bear cards → sky-gaps between clumps
+#     (the naturalistic thinning: removes whole sprigs, not laces every card).
+#   • card_half_factor — smaller cards → less neighbour overlap → light leaks.
+#   • card_rule_spacing — wider inboard spacing → the guaranteed tip sprig
+#     dominates, fewer fill cards down each branch.
+# Skeleton, apex_band (apex never bare), cards_per_cluster are UNCHANGED.
+SPECIES["london_plane_v2"] = {
+    **SPECIES["london_plane"],
+    "name": "London Plane v2 (parsimonious)",
+    "card_rule_depth_keep": {1: 0.04, 2: 0.40, 3: 0.62},  # v1 {1:0.05, 2:0.60, 3:1.0}
+    "card_half_factor": 1.00,                              # v1 implicit 1.20
+    "card_rule_spacing": 0.72,                             # v1 0.55
+}
+
 # Crown shape name -> Mtree CrownShape enum
 CROWN_MAP = {
     "Spherical": "Spherical",
@@ -2693,7 +2717,8 @@ def _card_placements_per_branch(mesh_obj, sp, target_height, rng, tier="l"):
     return placements
 
 
-def _sprig_cards(bm, uv_layer, pos, size, pdir, n_quads, rng, gidx, stem_anchor=None):
+def _sprig_cards(bm, uv_layer, pos, size, pdir, n_quads, rng, gidx, stem_anchor=None,
+                 half_factor=1.20):
     """Build n_quads SPRIG cards riding a twig (london_plane card path).
 
     Fixes the tiny / floating / randomly-rotated cards (user 2026-06-22, cpw_000-003):
@@ -2708,7 +2733,7 @@ def _sprig_cards(bm, uv_layer, pos, size, pdir, n_quads, rng, gidx, stem_anchor=
     GA = math.radians(137.5)
     d = pdir if pdir.length > 1e-6 else mathutils.Vector((0.0, 0.0, 1.0))
     track = d.normalized().to_track_quat('Z', 'Y').to_matrix().to_4x4()
-    half = size * 1.20     # EVAL 2026-06-22: backed off from 1.60 — l-tier leaf density read too heavy (user); 1.20 thins the cluster cover
+    half = size * half_factor   # EVAL 2026-06-22: backed off from 1.60 — l-tier leaf density read too heavy (user); 1.20 thins the cluster cover. Now a per-species lever (card_half_factor, default 1.20) so a parsimony variant can shrink cards to let backlight through (london_plane_v2, 2026-07-02).
     zoff = -half * 0.10    # anchor INBOARD so the card body OVERLAPS the twig (no floating); leaves still extend modestly outward (user 2026-06-22: "floating clusters")
     # STEM ANCHOR (user 2026-06-24): when the card art has its stem in a known spot
     # (e.g. oak's bottom-left, card_stem_anchor=(0.0,0.0)), pin THAT texture point to
@@ -2741,7 +2766,8 @@ def _sprig_cards(bm, uv_layer, pos, size, pdir, n_quads, rng, gidx, stem_anchor=
 
 
 def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=6,
-                                   cluster_scatter=1.0, stem_anchor=None):
+                                   cluster_scatter=1.0, stem_anchor=None,
+                                   card_half_factor=1.20):
     """Create dense leaf card clusters using AAA scatter approach.
 
     Instead of a few large crossed-quads, each cluster gets many small quads
@@ -2774,7 +2800,8 @@ def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=
         uv_layer = bm.loops.layers.uv.new("UVMap")
 
         if _aligned:
-            _sprig_cards(bm, uv_layer, pos, size, _plc[3], n_quads, rng, _pi, stem_anchor)
+            _sprig_cards(bm, uv_layer, pos, size, _plc[3], n_quads, rng, _pi, stem_anchor,
+                         half_factor=card_half_factor)
 
         for q in range(0 if _aligned else n_quads):
             # Random position within cluster sphere (bias toward surface)
@@ -4150,7 +4177,8 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
             _scatter = 0.20 if sp.get("foliage_continuous") else 1.0  # tighter (was 0.5→0.25): outer cards of each cluster were sprawling past the connectivity gate (2026-06-21)
             leaf_objs = create_leaf_cards_at_positions(
                 placements, leaf_mat, rng, tier=tier_name, n_cards=n_cards,
-                cluster_scatter=_scatter, stem_anchor=sp.get("card_stem_anchor"))
+                cluster_scatter=_scatter, stem_anchor=sp.get("card_stem_anchor"),
+                card_half_factor=sp.get("card_half_factor", 1.20))
             # Legacy hanging-card curtain (superseded by branchlet geometry).
             if sp.get("strand_foliage"):
                 leaf_objs += create_strand_cards_at_positions(

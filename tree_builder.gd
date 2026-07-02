@@ -9,6 +9,7 @@ var species_filter: Array = []  # CLI: only place these species (empty = all)
 const PHENOLOGY_INDEX := {
 	"oak": 0, "maple": 1, "elm": 2, "birch": 3, "deciduous": 4, "conifer": 5,
 	"honeylocust": 6, "callery_pear": 7, "ginkgo": 8, "london_plane": 9,
+	"london_plane_v2": 9,  # parsimony A/B twin — identical phenology/season color
 	"linden": 10, "cherry": 11, "zelkova": 2,  # zelkova shares elm phenology
 	"dead": 4,  # dead trees use deciduous phenology (no leaves rendered anyway)
 	"willow": 12,  # willow: golden yellow fall, early spring
@@ -20,7 +21,8 @@ const ARCHETYPE_MODEL := {
 	"oak": "oak", "maple": "maple", "elm": "elm", "birch": "birch",
 	"conifer": "pine",
 	"honeylocust": "honeylocust", "callery_pear": "callery_pear", "ginkgo": "ginkgo",
-	"london_plane": "london_plane", "linden": "linden", "cherry": "cherry",
+	"london_plane": "london_plane", "london_plane_v2": "london_plane_v2",
+	"linden": "linden", "cherry": "cherry",
 	"zelkova": "elm", "dead": "dead", "willow": "willow", "magnolia": "magnolia",
 	"cathedral_elm": "cathedral_elm",
 }
@@ -189,6 +191,7 @@ const HEIGHT_RANGES := {
 	"callery_pear":  [8.0, 18.0],    # medium street tree
 	"ginkgo":        [10.0, 22.0],   # slow-growing
 	"london_plane":  [9.0, 32.0],    # tall broad crown; floor lowered for young street/lawn planes (_s sapling)
+	"london_plane_v2": [9.0, 32.0],  # parsimony A/B twin — same envelope as london_plane
 	"linden":        [14.0, 24.0],   # dense symmetrical crown
 	"cherry":        [10.0, 22.0],   # includes black cherry (P. serotina 25m+)
 	"zelkova":       [14.0, 24.0],   # upright vase shape
@@ -261,6 +264,7 @@ const TIER_BOUNDS := {
 	"callery_pear":  [10.0, 18.0],
 	"ginkgo":        [14.0, 22.0],
 	"london_plane":  [13.0, 25.0],  # _s sapling added — ~1/3 of census is young (<12" DBH, 2026-06-19)
+	"london_plane_v2": [13.0, 25.0],  # parsimony A/B twin — same tier bounds
 	"linden":        [14.0, 22.0],
 	"willow":        [14.0, 999.0], # no _l tier (0 in census); only _s and _m
 	"magnolia":      [0.0, 0.0],    # only _s tier (41 in census, all small)
@@ -385,6 +389,7 @@ func _build_trees(trees: Array) -> void:
 		"callery_pear":  Vector3(0.28, 0.48, 0.18),   # fresh green, dense crown
 		"ginkgo":        Vector3(0.30, 0.50, 0.22),   # yellow-green (fan-shaped leaves)
 		"london_plane":  Vector3(0.24, 0.44, 0.16),   # medium green, large leaves
+		"london_plane_v2": Vector3(0.24, 0.44, 0.16), # parsimony A/B twin — identical tint
 		"linden":        Vector3(0.26, 0.48, 0.18),   # warm green (heart-shaped leaves)
 		"cherry":        Vector3(0.30, 0.50, 0.20),   # fresh green, small ornamental
 		"zelkova":       Vector3(0.22, 0.40, 0.14),   # dark warm green (elm family)
@@ -404,6 +409,7 @@ func _build_trees(trees: Array) -> void:
 		"callery_pear":  Color(0.42, 0.36, 0.28),     # gray-brown, smooth
 		"ginkgo":        Color(0.50, 0.42, 0.32),     # gray, furrowed with age
 		"london_plane":  Color(0.60, 0.56, 0.48),     # distinctive mottled cream-gray
+		"london_plane_v2": Color(0.60, 0.56, 0.48),   # parsimony A/B twin — identical bark
 		"linden":        Color(0.42, 0.36, 0.28),     # gray-brown, ridged
 		"cherry":        Color(0.52, 0.32, 0.22),     # reddish-brown, glossy
 		"zelkova":       Color(0.38, 0.30, 0.22),     # gray, exfoliating
@@ -461,7 +467,7 @@ func _build_trees(trees: Array) -> void:
 	# NOTE: "deciduous" is deliberately absent — the generic catch-all data tag is
 	# remapped to london_plane (GENERIC_MODEL) before any mesh lookup, so the old
 	# deciduous GLB is never loaded and nothing falls back to it (user 2026-06-26).
-	var _base_model_names := ["maple", "birch", "pine", "elm", "oak", "cherry", "ginkgo", "honeylocust", "linden", "london_plane", "callery_pear", "dead", "willow", "magnolia", "cathedral_elm"]
+	var _base_model_names := ["maple", "birch", "pine", "elm", "oak", "cherry", "ginkgo", "honeylocust", "linden", "london_plane", "london_plane_v2", "callery_pear", "dead", "willow", "magnolia", "cathedral_elm"]
 	# Load tiered models (_s, _m, _l): age/size variants per archetype.
 	# Plus _lod1 (card-pruned + bark-decimated) variants of each for the
 	# mesh LOD chain: base near mesh → _lod1 mid mesh. The near tier renders
@@ -543,7 +549,7 @@ func _build_trees(trees: Array) -> void:
 		var bstyle := 0
 		if archetype in ["birch", "cherry"]:
 			bstyle = 1
-		elif archetype in ["london_plane", "zelkova"]:
+		elif archetype in ["london_plane", "london_plane_v2", "zelkova"]:
 			bstyle = 2
 		elif archetype == "pine":
 			bstyle = 3

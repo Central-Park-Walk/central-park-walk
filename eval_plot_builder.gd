@@ -105,6 +105,26 @@ const GRID_TIERS := [
 # so tree_builder renders exactly that tier at full opacity, distance-independent
 # (no LOD fade, no distance cull). Takes precedence over VARIANT_GRID/VARIANT_ROW/
 # SOLO. No effect outside single-species stand mode.
+# LP V2 COMPARE (user 2026-07-02): side-by-side A/B of london_plane (v1, current)
+# vs london_plane_v2 (parsimonious lod0) so Chris can judge whether v1's canopy is
+# overdone — v1 reads near-opaque when backlit. Two columns (v1 left, v2 right),
+# one row per size (s/m/l), every specimen forced to lod0 at full opacity so only
+# the near mesh's leaf density is under review (no LOD fade). Both use the pinned
+# approved variant (3) so trunk & branches are IDENTICAL — leaf coverage is the
+# only variable. Takes precedence over TIER_MATCH/VARIANT_GRID/VARIANT_ROW/SOLO.
+# Set false to restore the TIER_MATCH garden. Walk to the north side (or use a low
+# --time sun) to put the sun behind the crowns and compare backlit opacity.
+const LP_V2_COMPARE := true
+const LPV2_A := "london_plane"       # left column (v1, current)
+const LPV2_B := "london_plane_v2"    # right column (v2, parsimonious)
+const LPV2_TIER := "lod0"            # the tier under review
+const LPV2_VARIANT := 3              # pinned approved variant (both columns)
+const LPV2_COL_DX := 30.0            # X gap between the v1 and v2 columns
+# [size suffix, forced height m] — heights land in london_plane's tier bounds
+# [13, 25] → _s (<13) / _m (<25) / _l (≥25). s nearest spawn, l farthest.
+const LPV2_SIZES := [["s", 11.0], ["m", 19.0], ["l", 28.0]]
+const LPV2_SIZE_Z := [196.0, 168.0, 136.0]
+
 const TIER_MATCH := true
 const TM_TIERS := ["lod0", "lod1", "impostor"]   # one column per tier
 # [size suffix, forced height m]: heights land squarely in london_plane's tier
@@ -185,6 +205,30 @@ func inject_trees(trees: Array) -> int:
 	if _sel_trees.is_empty():
 		return 0
 	var added := 0
+	if _stand_mode and LP_V2_COMPARE:
+		# v1 vs v2 side-by-side: two columns (v1 left, v2 right), a row per size,
+		# every specimen forced to lod0 so only near-mesh leaf density is judged.
+		var cols := [[LPV2_A, "v1 (current)"], [LPV2_B, "v2 (parsimonious)"]]
+		for ci in cols.size():
+			var sp_key: String = cols[ci][0]
+			var col_title: String = cols[ci][1]
+			var cx: float = STAND_X + (float(ci) - 0.5) * LPV2_COL_DX
+			for si in LPV2_SIZES.size():
+				var sz: String = LPV2_SIZES[si][0]
+				var h: float = float(LPV2_SIZES[si][1])
+				var rz: float = LPV2_SIZE_Z[si]
+				var rec: Dictionary = _rec(cx, rz, sp_key, h, LPV2_VARIANT)
+				rec["force_tier"] = LPV2_TIER
+				trees.append(rec)
+				added += 1
+				_labels.append(["%s · %dm" % [sz, int(round(h))],
+					Vector2(cx, rz + 7.0), 2.6, 0.013])
+			# Column title, raised above the near end of the column.
+			_labels.append([col_title,
+				Vector2(cx, float(LPV2_SIZE_Z[0]) + 11.0), 6.0, 0.024])
+		_labels.append(["London Plane — lod0 density A/B (v1 vs v2)",
+			Vector2(STAND_X, float(LPV2_SIZE_Z[0]) + 18.0), 9.0, 0.03])
+		return added
 	if _stand_mode and TIER_MATCH:
 		# 3 sizes (s/m/l) × 3 tiers (lod0/lod1/impostor) = 9 specimens; one column
 		# per tier (grouped by tier), one row per size (s nearest spawn → l farthest
