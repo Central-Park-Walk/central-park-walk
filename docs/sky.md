@@ -359,11 +359,30 @@ than after). Light→dark→light confirmed at both ends.
 - **P4 — horizon cloud band: SHIPPED 2026-07-01 (dc8ee19)** — blend
   narrowed smoothstep(0.6,1.0)→(0.92,1.0); no banding observed, decks
   now stack/compress at the skyline.
-- **P5 — dawn/dusk drama pass** (after P0 changes the substrate):
-  re-tune blaze/golden + keyframe colors against `notes/refs/
-  sky_2026_06_11/`; port earth-shadow + Belt of Venus terms from the
-  dead fallback shader (cheap analytic, east-sky payoff); verify the
-  canonical windows at both solstices by sweep.
+- **P5 — dawn/dusk drama pass: SHIPPED 2026-07-01.** The baseline
+  regression sweep (tmp/skydusk0, post-P0 substrate) showed the REAL
+  defect wasn't keyframe colors: volumetric cloud undersides cut to
+  BLACK by sun −3° while the reference window (pinks at −2..−6°) was
+  still on. Root cause chain, established by two falsified fixes and a
+  channel-attribution flood (tmp/skydiag*): the march's only sun input
+  is a SKY-VIEW-LUT sample — a ground-observer product whose twilight
+  value is far too small to light cloud, and no multiplier chain fix
+  (cal_sun boost, LIGHT_ENERGY decoupling) can rescue a near-zero
+  factor. The march's beers/phase path itself transmits twilight light
+  perfectly (flood test). Fix: a dedicated twilight underside term in
+  clouds.glsl — the sun TRANSMITTANCE LUT (new binding set 2/1) sampled
+  at cloud altitude (v=0.03) with a +5° lifted sun; T.r drives
+  intensity + die-off timing, hue is art-directed salmon ×10 gain
+  (30 blew out to cream through AgX; flood-8 = "full bright" anchor).
+  Window: in below −0.6°, out −4.3..−8°. Verified tmp/skydusk6:
+  salmon-pink undersides across the dome at −2..−4.7°, mauve-grey
+  retreat + thin warm skyline strip at −6° — matches the reference
+  stratification. Also shipped: earth shadow + Belt of Venus port into
+  clouds.gdshader get_atmo (HDR-relative, band top rides sun
+  depression; subtle east-sky payoff). Blaze/golden + keyframes kept
+  as-is — with lit undersides they land close enough to the refs;
+  remaining knobs are the ×10 gain + salmon constant in clouds.glsl.
+  Solstice window verification: tmp/skysol_jun / skysol_dec.
 - **P6 — perf gate + seasonal breadth**: worst-case sweeps (overcast map,
   full high-cloud, night with stars) at the gate locations; keep 64-frame
   amortization; then per-season/per-weather capture matrix.

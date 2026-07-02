@@ -529,14 +529,22 @@ func _rebuild_noise_uniform_set() -> void:
 	
 func _create_sky_uniform_set(tex_id : int) -> RID:
 	var uniforms = []
-		
+
 	var uniform = RDUniform.new()
 	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE
 	uniform.binding = 0
 	uniform.add_id(sky_sampler)
 	uniform.add_id(sky_lut.texture_rd[tex_id])
 	uniforms.push_back(uniform)
-	
+
+	# Sun transmittance LUT for the twilight underside term (sky.md §6 P5).
+	var t_uniform = RDUniform.new()
+	t_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE
+	t_uniform.binding = 1
+	t_uniform.add_id(sky_sampler)
+	t_uniform.add_id(transmittance_tex.texture_rd)
+	uniforms.push_back(t_uniform)
+
 	return rd.uniform_set_create(uniforms, shader_rd, 2)
 
 func _initialize_compute_code(p_texture_size):

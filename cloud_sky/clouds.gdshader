@@ -265,8 +265,37 @@ vec3 night_sky(vec3 dir) {
 	return (lp + star) * night_amount;
 }
 
+// Earth shadow + Belt of Venus (sky.md §6 P5, ported from the dead
+// fallback shader but rebuilt HDR-relative): at civil twilight the
+// anti-solar horizon carries the planet's own shadow — a cool blue-grey
+// band whose top edge RISES as the sun sinks — with the pink anti-
+// twilight arch (Belt of Venus) riding just above it. Both scale off
+// the local sky luminance so they track exposure/calibration instead
+// of the old absolute LDR constants.
+vec3 twilight_bands(vec3 col, vec3 dir) {
+	vec3 sdir = disk_sun_dir();
+	float se = sdir.y;
+	// Active sun +1.7..-6.9 deg; strongest -0.6..-2.9 deg.
+	float gate = smoothstep(0.03, -0.01, se) * smoothstep(-0.12, -0.05, se);
+	if (gate < 0.005 || dir.y < -0.02) { return col; }
+	float anti = max(-dot(normalize(sdir.xz), normalize(dir.xz + vec2(1e-5))), 0.0);
+	// Shadow top edge tracks sun depression (~1:1, softened); belt sits
+	// in a band just above it and fades with altitude.
+	float dep = max(-se, 0.0);
+	float shadow_w = pow(anti, 1.8) * gate
+			* smoothstep(dep * 1.4 + 0.05, 0.0, dir.y) * 0.45;
+	float belt_w = pow(anti, 1.4) * gate
+			* smoothstep(dep * 0.5, dep * 1.2 + 0.06, dir.y)
+			* smoothstep(dep * 2.2 + 0.20, dep * 1.4 + 0.08, dir.y);
+	float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+	col = mix(col, lum * vec3(0.60, 0.68, 1.05), shadow_w);
+	col += lum * vec3(0.55, 0.12, 0.16) * belt_w;
+	return col;
+}
+
 vec3 get_atmo(vec3 dir) {
 	vec3 col = getValFromSkyLUT(dir);
+	col = twilight_bands(col, dir);
 	col += night_sky(dir);
 	vec3 sunLum = sunWithBloom(dir, disk_sun_dir());
     if (length(sunLum) > 0.0) {

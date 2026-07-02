@@ -16,6 +16,10 @@ layout(set = 1, binding = 2) uniform sampler2D weather_noise;
 layout(set = 1, binding = 3) uniform sampler2D weather_noise_b;
 
 layout(set = 2, binding = 0) uniform sampler2D sky_lut;
+// Sun transmittance LUT (256x64: u = 0.5+0.5*cosZenith, v = altitude
+// fraction of the 100 km column) — the twilight underside term samples it
+// at cloud altitude (sky.md §6 P5).
+layout(set = 2, binding = 1) uniform sampler2D transmittance_lut;
 
 // Our push constant.
 // Push constants have a max size of 128 bytes (32 floats).
@@ -250,7 +254,17 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth, float jitter) {
 	// (horizon dip + refraction) — sample the sun LUT slightly lifted so
 	// undersides stay lit (the reference pinks/corals) through civil
 	// twilight instead of cutting to black with the ground (2026-06-11).
-	vec3 sun_lut_dir = normalize(params.LIGHT_DIRECTION + vec3(0.0, 0.035, 0.0));
+	vec3 sun_lut_dir = params.LIGHT_DIRECTION + vec3(0.0, 0.035, 0.0);
+	// The +2 deg dip lift is not enough past sun -2 deg: the lifted sample
+	// drops into the LUT's BELOW-horizon half (ground rays, near-black), so
+	// undersides cut to black in the middle of the reference pink window
+	// (sky.md §6 P5). Keep the sample on the sky side through the march
+	// handover — the grazing sample carries the deep-red horizon colour and
+	// the gd-side twilight window (cal_sun boost) owns the fade-out timing.
+	if (params.LIGHT_DIRECTION.y > -0.20) {
+		sun_lut_dir.y = max(sun_lut_dir.y, 0.012);
+	}
+	sun_lut_dir = normalize(sun_lut_dir);
 	vec3 atmosphere_sun = getValFromSkyLUT(sun_lut_dir) * 0.1 * params.LIGHT_ENERGY * params.LIGHT_COLOR * params.sun_scale;
 	vec3 atmosphere_ambient = getValFromSkyLUT(normalize(vec3(1.0, 1.0, 0.0))) * 0.05 * params.ambient_scale;
 	atmosphere_ambient = mix(atmosphere_ambient, vec3(length(atmosphere_ambient)), 0.5); // interpolate towards white with this intensity.
@@ -265,6 +279,32 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth, float jitter) {
 	//   this term self-scales with phase and vanishes when the moon is down;
 	// - NYC city glow: the amber wash a lit city throws on cloud bases —
 	//   phase-independent, the dominant light on overcast nights.
+	// Twilight underside light (sky.md §6 P5). The sky-view LUT above is a
+	// GROUND-observer product: its in-scatter dies with the ground sunset,
+	// so the sun term cuts cloud undersides to black by sun -2 deg — but
+	// the reference window (notes/refs/sky_2026_06_11) keeps pink/coral
+	// undersides to sun ~-6 deg (2 km clouds see the sun longer, and the
+	// glow feeding them comes from air further west that is still lit).
+	// Same approximation family as the high ice deck in clouds.gdshader:
+	// sample the sun TRANSMITTANCE at cloud altitude with a lifted sun —
+	// hue (deep orange -> red -> gone) and fade-in ride the physics; the
+	// window fade-out is art-directed to match the refs. Diagnosed by
+	// channel-attribution flood: the term chain (beers/phase/march) was
+	// healthy, the sky-LUT sample was the dead factor — no multiplier on
+	// a zero could work (tmp/skydiag*).
+	float tw_win = (1.0 - smoothstep(-0.025, 0.01, params.LIGHT_DIRECTION.y))
+			* smoothstep(-0.14, -0.075, params.LIGHT_DIRECTION.y);
+	if (tw_win > 0.001) {
+		vec3 tw_dir = normalize(params.LIGHT_DIRECTION + vec3(0.0, 0.09, 0.0));
+		vec2 t_uv = vec2(clamp(0.5 + 0.5 * tw_dir.y, 0.0, 1.0), 0.03);
+		// The red channel of the grazing transmittance drives intensity and
+		// fade timing (it dies as the lifted sun path drops into the earth);
+		// hue is art-directed salmon (raw grazing T is blood-red — the refs'
+		// pink is sunlight + blue skylight mixing). Scale anchor: a flood
+		// test at 8.0 read as full bright; the window peak lands ~2.5.
+		float tw_drive = texture(transmittance_lut, t_uv).r;
+		atmosphere_sun += tw_drive * 10.0 * tw_win * vec3(1.0, 0.42, 0.42);
+	}
 	float night_f = params.ground_color.a;
 	atmosphere_sun += night_f * vec3(0.75, 0.85, 1.05) * 0.6 * params.LIGHT_ENERGY * params.LIGHT_COLOR;
 	// City glow tuned so cloud bases read ~2x BRIGHTER than the night-sky
