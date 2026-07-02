@@ -41,15 +41,29 @@ const RATE_HALF_DIST := 140.0  # every 2nd frame out to here; every 4th beyond
 # mirrored image, and those read fine at ~15Hz. Movement is detected as drift
 # since the LAST RENDER (not per-frame deltas), so slow pans accumulate to the
 # threshold and re-render instead of slipping under an epsilon forever.
+# ⚠ The drift test alone is NOT enough: walking pace at 60-90fps is 1.3-2cm per
+# frame, right at IDLE_POS_EPS — the frame after each render read as "still",
+# giving an alternating fresh/stale mirror at half rate DURING a walk (part of
+# the 2026-07-02 popping report). Idle therefore also requires the per-frame
+# delta to sit under a much tighter epsilon (FRAME_*_EPS): real locomotion
+# always exceeds it, while sub-eps drift (breathing-slow pans) still idles and
+# is world-anchored by the shader's reprojection anyway.
 const IDLE_INTERVAL := 4       # camera still since last render → every 4th frame
-const IDLE_POS_EPS := 0.02     # m of camera travel that counts as motion
+const IDLE_POS_EPS := 0.02     # m of accumulated drift that counts as motion
 const IDLE_ROT_EPS := 0.0006   # rad (~0.03° — sub-pixel at 1/3-res mirror)
+const FRAME_POS_EPS := 0.002   # m per frame — walking is ~10× this even at 144fps
+const FRAME_ROT_EPS := 0.0002  # rad per frame (~0.01°)
 
 var _body_dist := 0.0          # distance to nearest water body (m)
 var current_interval := 1      # frames between mirror renders (HUD readout)
 var full_rate := false         # --refl-full-rate: disable idle staging (A/B diag)
 var half_rate := false         # --refl-half-rate: double staged intervals (walk experiment)
+var freeze := false            # --refl-freeze: render once then never again (reprojection diag)
+var _frozen := false
+var _asleep := true            # start asleep → first in-range frame renders at once
 var _last_render_xform := Transform3D()
+var _prev_cam_xform := Transform3D()
+var water_materials: Array = []  # ShaderMaterials to receive planar_mirror_vp (main.gd)
 
 
 func _init() -> void:
@@ -94,36 +108,15 @@ func _process(_dt: float) -> void:
 
 	_plane_y = _nearest_water_plane(main_cam.global_position)
 
-	# Sleep when far from all water; otherwise render at the distance-staged rate
-	# (UPDATE_ONCE self-resets to DISABLED, so issuing it every Nth frame renders
-	# exactly that frame). The camera mirror below still tracks every frame, so
-	# each sparse render uses the current view.
+	# Sleep when far from all water. The shader keeps reprojecting the frozen
+	# texture through its frozen VP, so the last image stays world-anchored
+	# while asleep; the wake render below refreshes it the frame we re-enter.
 	if _body_dist > SLEEP_DIST:
 		if render_target_update_mode != SubViewport.UPDATE_DISABLED:
 			render_target_update_mode = SubViewport.UPDATE_DISABLED
 		current_interval = 0
+		_asleep = true
 		return
-	var interval := 1
-	if _body_dist > RATE_HALF_DIST:
-		interval = 4
-	elif _body_dist > RATE_FULL_DIST:
-		interval = 2
-	if half_rate:
-		interval *= 2
-	# Idle: camera hasn't drifted past epsilon since the last render → sparser
-	# updates. Any real motion restores the distance-staged cadence at once
-	# (at the shore that means this very frame, interval 1).
-	var cam_t := main_cam.global_transform
-	var moved: bool = (
-		cam_t.origin.distance_to(_last_render_xform.origin) > IDLE_POS_EPS
-		or cam_t.basis.get_rotation_quaternion().angle_to(
-			_last_render_xform.basis.get_rotation_quaternion()) > IDLE_ROT_EPS)
-	if not moved and not full_rate:
-		interval = maxi(interval, IDLE_INTERVAL)
-	current_interval = interval
-	if _frame % interval == 0:
-		render_target_update_mode = SubViewport.UPDATE_ONCE
-		_last_render_xform = cam_t
 
 	# Mirror the camera about the horizontal plane y = _plane_y.
 	var t := main_cam.global_transform
@@ -133,11 +126,54 @@ func _process(_dt: float) -> void:
 	var by := t.basis.y; by.y = -by.y
 	var bz := t.basis.z; bz.y = -bz.y
 	# Reflection flips handedness; negate X to restore a valid camera basis.
-	# The water shader compensates by sampling the texture x-flipped.
+	# The water shader samples via planar_mirror_vp, where the flip falls out.
 	reflect_cam.global_transform = Transform3D(Basis(-bx, by, bz), origin)
 	reflect_cam.fov = main_cam.fov
 	reflect_cam.near = main_cam.near
 	reflect_cam.far = main_cam.far
+
+	# Render at the distance-staged rate (UPDATE_ONCE self-resets to DISABLED,
+	# so issuing it every Nth frame renders exactly that frame). Skipped frames
+	# stay world-anchored via the reprojection VP pushed on each render.
+	var interval := 1
+	if _body_dist > RATE_HALF_DIST:
+		interval = 4
+	elif _body_dist > RATE_FULL_DIST:
+		interval = 2
+	if half_rate:
+		interval *= 2
+	# Idle: camera still since the last render (accumulated drift) AND not in
+	# real per-frame motion (see FRAME_*_EPS note above) → sparser updates.
+	var cam_t := t
+	var drift_still: bool = (
+		cam_t.origin.distance_to(_last_render_xform.origin) <= IDLE_POS_EPS
+		and cam_t.basis.get_rotation_quaternion().angle_to(
+			_last_render_xform.basis.get_rotation_quaternion()) <= IDLE_ROT_EPS)
+	var frame_still: bool = (
+		cam_t.origin.distance_to(_prev_cam_xform.origin) <= FRAME_POS_EPS
+		and cam_t.basis.get_rotation_quaternion().angle_to(
+			_prev_cam_xform.basis.get_rotation_quaternion()) <= FRAME_ROT_EPS)
+	_prev_cam_xform = cam_t
+	if drift_still and frame_still and not full_rate:
+		interval = maxi(interval, IDLE_INTERVAL)
+	current_interval = interval
+	# Waking from sleep renders immediately, not at the next %interval boundary
+	# — no stale first look at the 250m edge. (UPDATE_ONCE self-resets to
+	# DISABLED after each render, so the mode itself can't distinguish "asleep"
+	# from "between staged renders" — hence the explicit flag.)
+	if (_frame % interval == 0 or _asleep) and not (freeze and _frozen):
+		_asleep = false
+		render_target_update_mode = SubViewport.UPDATE_ONCE
+		_last_render_xform = cam_t
+		if freeze and not _frozen:
+			print("WaterReflection: mirror frozen after this render (--refl-freeze)")
+		_frozen = true
+		# World-anchor for the frames between renders: the shader reprojects
+		# world positions through the VP the mirror actually rendered with.
+		var vp: Projection = reflect_cam.get_camera_projection() \
+			* Projection(reflect_cam.global_transform.affine_inverse())
+		for wm in water_materials:
+			wm.set_shader_parameter("planar_mirror_vp", vp)
 
 
 func _nearest_water_plane(pos: Vector3) -> float:

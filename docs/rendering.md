@@ -266,6 +266,49 @@ vs ~8M global here; the Lake-shore tree field is visibly missing) — absolute m
 at this location understate the live-session load, mirror included. The HUD
 mirror line reads the truth in-session.
 
+### 3i. Mirror reprojection — "reflections popping at normal walk" (2026-07-02)
+
+Chris's walk after §3h found reflections **popping** during ordinary walking.
+Two causes, both fixed:
+
+1. **Screen-anchored sampling of a stale mirror.** water.gdshader sampled the
+   mirror at `(1-SCREEN_UV.x, SCREEN_UV.y)` — correct only on the frame the
+   mirror rendered. Any staged/idle skip composited a frames-old image as if
+   rendered from the CURRENT camera, so each sparse update snapped the
+   reflection by the accumulated camera motion (worst under mouse-look: degrees
+   per update at 15 Hz). Fix: water_reflection.gd pushes the mirror camera's
+   view-projection (`planar_mirror_vp`) on every render; the shader reprojects
+   each water fragment's world position through it. Stale frames stay
+   world-anchored — only reflected CONTENT (tree sway, clouds) updates
+   sparsely, which is what §3h assumed all along. Gotcha: the GDScript-side
+   `Projection` is GL-style (NDC y-up); the viewport texture is top-left
+   v-down, so the shader flips y (`-refl_clip.y`) — unlike the in-shader
+   `PROJECTION_MATRIX`, which has the Vulkan flip baked in. The x-flip falls
+   out of the mirror basis's negated X.
+2. **Idle misfiring during locomotion.** Walking pace at 60–90 fps is
+   1.3–2 cm/frame — right at `IDLE_POS_EPS` (2 cm). The frame after each
+   render read as "still" → alternating fresh/stale mirror at half rate while
+   walking straight at the shore. Idle now also requires the per-frame delta
+   under a much tighter `FRAME_*_EPS` (2 mm / 0.01°): real locomotion never
+   idles; sub-eps drift still idles and is reprojection-anchored anyway.
+
+Also: waking from the >250 m sleep now renders immediately (explicit `_asleep`
+flag — `UPDATE_ONCE` self-resets to `DISABLED`, so the mode can't distinguish
+"asleep" from "between staged renders"), and the frozen last image stays
+world-anchored while asleep instead of dragging with the camera.
+
+Verified (Cherry Hill `--pos=-552,959,-62.6`, time 16, cloud-seed 1): (a)
+fresh-frame equivalence — stationary A/B vs pre-change baseline, water-crop
+mean |Δ| 7.98 vs ~5 run-to-run floor (a y-flip variant read 21.4 and lost the
+cloud reflections — the flip test is sensitive); (b) world-anchoring —
+`--refl-freeze` (new diag: render once, then freeze) + 5.5 m walk-bot run:
+frozen-mirror frames match a live-mirror run within noise, boathouse/far-shore
+reflection bands pixel-aligned. Captures in tmp/refl_*.
+
+Follow-up: with reprojection, staleness is far less visible — `--refl-half-rate`
+(and possibly longer idle intervals) may now be promotable; needs a fresh Chris
+shore walk on defaults first.
+
 ## 4. The frame budget (binding)
 
 GPU ms at 1080p, measured at the worst of the 5 locations. A subsystem over its line is a regression even if total fps passes (headroom is for weather/seasons, not for spending). Per `architecture.md` §9, new subsystems must name their budget line.
@@ -283,7 +326,7 @@ GPU ms at 1080p, measured at the worst of the 5 locations. A subsystem over its 
 | undergrowth + ground cover | 0.5 | <1 | ok |
 | post (SSAO, SSIL, glow, TAA, tonemap) | 1.5 | ~1 (TAA untested) | ok? |
 | water, weather particles, misc | 0.6 | <1 | ok |
-| water planar reflection (near water only; staged rate + >250 m sleep §3g; idle rate §3h) | 1.5 | ~2.2 at the shore moving, ~1.0 standing (idle-staged) | ok (accepted; `--refl-half-rate` walk-pending for the moving case) |
+| water planar reflection (near water only; staged rate + >250 m sleep §3g; idle rate §3h; reprojection §3i) | 1.5 | ~2.2 at the shore moving, ~1.0 standing (idle-staged) | ok (accepted; §3i may unlock half-rate) |
 | **total** | **16.6** | 14.2–16.6 at 4 locations; ~19.5 literary_walk | |
 
 CPU is not currently binding (`vpcpu` ~9 ms peak, GDScript <1 ms) but inherits the same 16.6 ms ceiling.

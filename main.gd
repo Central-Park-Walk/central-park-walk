@@ -4068,6 +4068,12 @@ func _setup_water_reflection() -> void:
 	# on a shore walk — saves ~1.4ms at the Lake edge.
 	if "--refl-half-rate" in OS.get_cmdline_user_args():
 		_water_reflection.half_rate = true
+	# Reprojection diag: render the mirror once, then freeze it. With the
+	# world-anchored sampling a frozen mirror should stay glued to the scene
+	# while the camera walks (only disocclusion edges drift).
+	if "--refl-freeze" in OS.get_cmdline_user_args():
+		_water_reflection.freeze = true
+	_water_reflection.water_materials = _park_loader.water_materials
 	add_child(_water_reflection)
 	_water_reflection.setup(_env)
 	# Attribute the mirror directly in [PERF] (mrgpu/mrtri) — its cost is invisible

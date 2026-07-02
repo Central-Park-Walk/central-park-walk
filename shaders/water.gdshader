@@ -39,6 +39,15 @@ uniform float planar_reflection_on = 0.0;
 // Keep small: tower reflections are thin — large offsets shred them to noise
 uniform float planar_distortion = 0.06;
 uniform float planar_debug = 0.0;   // 1 = paint raw reflection sample (--refl-debug)
+// Mirror camera's view-projection AS OF ITS LAST RENDER (water_reflection.gd
+// pushes it on every mirror render). Sampling by reprojecting world_pos through
+// this matrix instead of raw SCREEN_UV keeps the reflection world-anchored when
+// the mirror renders at a sparse interval: screen-UV sampling composited a
+// frames-old mirror as if rendered from the CURRENT pose, so every sparse
+// update snapped the reflection by the accumulated camera motion (the
+// 2026-07-02 "reflections popping at normal walk" report). On a fresh frame the
+// two samplings are identical by construction.
+uniform mat4 planar_mirror_vp;
 
 varying vec3 world_pos;
 varying float v_shore_dist;
@@ -344,8 +353,14 @@ void fragment() {
 	// water IS a mirror at grazing angles (the iconic treeline/skyline look).
 	vec3 refl_col = sky_col;
 	float refl_w = fresnel * (0.35 + extra_reflect);
-	if (planar_reflection_on > 0.5) {
-		vec2 ruv = vec2(1.0 - SCREEN_UV.x, SCREEN_UV.y)
+	vec4 refl_clip = planar_mirror_vp * vec4(world_pos, 1.0);
+	if (planar_reflection_on > 0.5 && refl_clip.w > 0.001) {
+		// World-anchored mirror sample (see planar_mirror_vp above). The mirror
+		// basis negates X, so the x-flip vs SCREEN_UV falls out of the matrix.
+		// The y flip does NOT: the GDScript-side Projection is GL-style (NDC
+		// y-up) while the viewport texture is top-left v-down — unlike the
+		// in-shader PROJECTION_MATRIX, which has the Vulkan flip baked in.
+		vec2 ruv = vec2(refl_clip.x, -refl_clip.y) / refl_clip.w * 0.5 + 0.5
 		         + wave_nrm.xz * planar_distortion * vec2(1.0, -1.0);
 		ruv = clamp(ruv, vec2(0.001), vec2(0.999));
 		refl_col = texture(planar_reflection_tex, ruv).rgb;
@@ -449,9 +464,11 @@ void fragment() {
 	ALPHA = smoothstep(-0.02, 0.10, v_shore_dist);
 
 	// Diagnostic: paint the raw mirror sample so flip/aim errors are obvious
+	// (reprojected path — same UV math as the live reflection above)
 	if (planar_debug > 0.5) {
 		ALBEDO = texture(planar_reflection_tex,
-			clamp(vec2(1.0 - SCREEN_UV.x, SCREEN_UV.y), vec2(0.001), vec2(0.999))).rgb;
+			clamp(vec2(refl_clip.x, -refl_clip.y) / max(refl_clip.w, 0.001) * 0.5 + 0.5,
+				vec2(0.001), vec2(0.999))).rgb;
 		ROUGHNESS = 1.0;
 		METALLIC = 0.0;
 		SPECULAR = 0.0;
