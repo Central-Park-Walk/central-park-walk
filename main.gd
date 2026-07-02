@@ -1550,6 +1550,10 @@ func _diag_toggle_grass() -> void:
 		if is_instance_valid(gp):
 			gp.visible = not _diag_grass_hidden
 			count += 1
+	for tm in _turf_ring_mmis:
+		if is_instance_valid(tm):
+			tm.visible = not _diag_grass_hidden
+			count += 1
 	print("[DIAG] Grass %s (%d layers)" % [
 		"HIDDEN" if _diag_grass_hidden else "VISIBLE", count])
 
@@ -1658,6 +1662,11 @@ func _diag_apply_hides() -> void:
 				for gp in _grass_particle_nodes:
 					if is_instance_valid(gp):
 						gp.visible = false
+				# The turf dome (TurfTiles MMI) is the dominant grass geometry
+				# (~9M tris) — without this the grass bisect measures nothing.
+				for tm in _turf_ring_mmis:
+					if is_instance_valid(tm):
+						tm.visible = false
 			"shadows":
 				if _sun:
 					_sun.shadow_enabled = false
