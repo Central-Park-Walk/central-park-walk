@@ -91,6 +91,17 @@ uniform float grass_macro_scale = 12.0;   // world metres per macro tile
 // texture-only, no geometry tiers). Uses the grass texture's height (alpha).
 uniform float grass_pom_depth = 0.085;   // parallax blade depth (world scale)
 uniform float grass_pom_scale = 0.9;     // grass texture tiles per metre for POM
+// BAKED SWARD (scripts/bake_turf.gd): the near turf-tile DOME rendered top-down into
+// a seamless 2 m-period albedo. When on, grass zones show literally the same material
+// as the dome — near geometry and far ground match by construction, replacing the
+// hand-calibrated spectral/POM path (turf_baked_on=0 keeps that path for rollback).
+uniform sampler2D turf_baked_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform float turf_baked_on = 0.0;
+// Lighting parity: a flat sunlit ground plane renders brighter than the self-shadowing
+// blade canopy of the same albedo (the measured ~0.7-stop gap behind the old 0.50
+// canopy-AO). The bake carries crevice darkness in-texture, so less is needed here;
+// tuned by measuring dome vs terrain luma in captures, not estimated.
+uniform float turf_baked_ao = 0.72;
 // Aesthetic mode (GRASS_LUSH): suspend foot-traffic wear drying on grass terrain so
 // worn lawns read lush green, matching grass_blades + shell_grass aesthetic flags.
 uniform float aesthetic : hint_range(0.0, 1.0) = 1.0;
@@ -480,6 +491,21 @@ void fragment() {
 				float macro_w = clamp(0.25 + smoothstep(6.0, 40.0, cam_dist) * 0.75, 0.0, 1.0);
 				float tone_mult = clamp(m_tone / 0.5, 0.72, 1.15);   // tonal clump variation (single-texture: less flat)
 
+				vec3 pom_base = spectral_col;   // base sward colour (pre-relief) for the POM step
+			if (turf_baked_on > 0.5) {
+				// --- BAKED SWARD: the far field IS the dome's material (bake_turf.gd) ---
+				// Explicit smooth LOD for the same reason as the macro above: the clipmap
+				// geomorph makes auto-mip derivatives jump per tile -> the albedo quilt.
+				// 0.5 repeats/m = the bake's 2 m world period. K=0.5 keeps ~1 texel/pixel
+				// near (1 mm texels) and mips smoothly with distance.
+				float blod = clamp(log2(cam_dist * 0.5 + 1.0), 0.0, 9.0);
+				vec3 sward = textureLod(turf_baked_tex, v_vertex.xz * 0.5, blod).rgb;
+				sward *= turf_baked_ao;                 // flat-ground vs blade-canopy parity
+				sward *= mix(1.0, tone_mult, macro_w);  // macro clump tone: distance texture
+				                                        // + breaks the bake's 2 m repeat
+				sward *= biome_terrain_tint;            // sedge/wild/shade zones stay distinct
+				ALBEDO = sward;
+			} else {
 				// Fine blade-scale relief from the 1.25 m terrain texture luma. FADED to
 				// neutral at distance (macro_w): sampled at the GEOMORPHED uv, its low-freq
 				// brightness swims per Terrain3D clipmap morph-cell = the rectangular "quilt"
@@ -498,12 +524,13 @@ void fragment() {
 				// noise steps show as the albedo quilt from altitude. The smooth textureLod macro above
 				// carries the visible distance texture instead, so the field stays textured but seamless.
 				spectral_col = mix(spectral_col, vec3(0.166, 0.506, 0.175), macro_w * 0.85);
-				vec3 pom_base = spectral_col;   // base sward colour (pre-relief) for the POM step
+				pom_base = spectral_col;
 				spectral_col *= turf_relief;
 				// Fade the native Terrain3D grass texture OUT at distance (macro_w->1): its
 				// textureGrad mip steps per clipmap tile are the last albedo-quilt source;
 				// the macro now carries distance texture, so 100% sward there = no cells.
 				ALBEDO = mix(ALBEDO, spectral_col, mix(0.86, 1.0, macro_w));  // let grass-photo colour show near
+			}
 			ALBEDO = apply_turf_wear(ALBEDO, wear, v_vertex.xz);
 				// Blend the coarse relief normal over the fine grass normal, stronger at
 				// distance, so grass clumps catch light from any vantage (the 3D from above).
@@ -518,7 +545,9 @@ void fragment() {
 				// grass height (texture alpha, layer 0 = grass) along the view ray so blades appear
 				// to stand up and gaps recede, with self-occlusion darkening between them. Near only
 				// (expensive + parallax only reads up close); fades out by ~24 m into the macro/normal.
-				float pom_w = 1.0 - smoothstep(11.0, 24.0, cam_dist);
+				// Skipped in baked-sward mode: the bake carries the blade imagery, and the
+				// near terrain sits under the geometry dome anyway (Chris on flat+POM: "awful").
+				float pom_w = turf_baked_on > 0.5 ? 0.0 : 1.0 - smoothstep(11.0, 24.0, cam_dist);
 				if (pom_w > 0.01) {
 					vec3 Vw = normalize(_camera_pos - v_vertex);           // frag -> camera (world)
 					vec2 g_uv = v_vertex.xz * grass_pom_scale;

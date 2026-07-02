@@ -110,7 +110,12 @@ void vertex(){
 	// the land, not the camera. Collapses the blade/mat to nothing over water.
 	if (zone_no_grass(zone_at(approx_w))) cover = 0.0;
 	rot *= cover;
-	float y = VERTEX.y * cover;
+	// Retire the ground MAT/THATCH (UV2.x=1) across the blade-thinning band by sinking
+	// it below the terrain: the terrain now shows the SAME baked sward (turf_baked_tex,
+	// scripts/bake_turf.gd), so the rim understory hands off to it instead of reading as
+	// sparse blades over the dark mat — the residual dark ring at the dome edge.
+	float mat_sink = smoothstep(near_full + 3.0, far_radius - far_fade, dist) * 0.35;
+	float y = VERTEX.y * cover - UV2.x * mat_sink;
 
 	// Wind: gentle coherent sway of the tip (bend from base). The wave PHASE runs along a
 	// FIXED axis (not the wind direction): phasing off the wandering wind dir × the absolute
