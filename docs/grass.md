@@ -6,6 +6,40 @@ Sheep Meadow reference comparison (`notes/refs/sheep_meadow_game/COMPARISON.md`,
 `docs/trees.md`: code that contradicts this file is wrong, or this file gets updated in the
 same commit.
 
+## 0z. CURRENT ARCHITECTURE — dome + baked-sward terrain (2026-07-01, "reference composite")
+
+Chris's target: `screenshots/reference composite.png` (a real meadow/lawn photo composited
+into a game screenshot) — ONE continuous field from feet to horizon, blade detail only
+falling off with distance. Direction: **good meadow everywhere first, cut lawn (mow
+stripes etc.) in specific zones later.**
+
+Two layers only, tied together by a bake instead of by calibration:
+
+1. **Near turf-tile DOME** (`_setup_turf_tiles`, `turf_tile.gdshader`) — the real-blade
+   meadow, full density to 5 m, thinning to zero by 20 m, alt-fading 12–28 m. The
+   32-shell mid-band is GONE (`GRASS_SHELL := false` in main.gd): it was the ring-maker
+   in every layered attempt. `GRASS_TERRAIN_ONLY := false` restores the dome;
+   flipping it true = the flat rip-out state.
+2. **Terrain = the dome's own material, baked** (`scripts/bake_turf.gd` →
+   `textures/grass_turf_baked.png` → `turf_baked_tex` in terrain3d_override). The bake
+   renders the exact runtime tile mesh (same `_make_turf_tile_mesh`, `periodic=true`
+   variant: one 2 m period, edge-reachers wrapped → seamless, uniform density) top-down
+   through an unshaded twin shader (`shaders/turf_bake.gdshader`). Grass-zone terrain
+   samples it with explicit distance LOD (auto-mip quilts on the clipmap geomorph),
+   macro clump tone on top (also breaks the 2 m repeat), biome tints kept. The old
+   spectral/POM path stays behind `turf_baked_on = 0` for rollback.
+
+The handoff: blades rank-thin 5→20 m while the dark ground mat/thatch SINKS below the
+terrain across that band (`mat_sink` in turf_tile.gdshader) — the terrain underneath is
+the same sward, so the rim dissolves into it instead of darkening to sparse-blades-over-
+dark-mat. `turf_baked_ao` (0.72, measured) covers the flat-ground vs self-shadowing-
+canopy lighting gap; band luma ramps ~80→144 with rim continuity 116→129
+(tmp/baked_eye3.png; reference band 115–131).
+
+**Rebake whenever the dome changes** (palette, density, blade shape, mat texture):
+run the bake_turf.gd command in its header, then `--import`. If dome and terrain drift
+apart again, the first suspect is a stale bake.
+
 ## 0. Fantasy mode — REMOVED 2026-07-01
 
 The "fantasy" one-lush-idealized-green toggle (`GRASS_FANTASY` / `fantasy_grass_color`
