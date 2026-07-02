@@ -145,6 +145,8 @@ const TURF_DENSITY_CURVE := 2.2    # falloff shape: keep = (1-smoothstep)^curve;
 # REBAKE (the terrain sward texture is baked from this tile mesh — scripts/bake_turf.gd).
 var _turf_blades_n := TURF_BLADES
 var _turf_radius_m := TURF_RADIUS
+var _cli_mesh_size := 0   # DIAG: Terrain3D mesh_size override (0 = engine default)
+var _cli_mesh_lods := 0   # DIAG: Terrain3D mesh_lods override (0 = engine default)
 const TURF_FADE := 8.0             # size-fade width at the rim (m): rim blades SHRINK
                                    # over the last stretch so the dome's chunky blade
                                    # detail tapers toward the baked texture's grain
@@ -263,6 +265,10 @@ func _parse_cli_args() -> void:
 				_cli_pos_set = true
 		elif key == "--pitch" and val != "":
 			_cli_pitch = float(val)
+		elif key == "--mesh-size" and val != "":
+			_cli_mesh_size = int(val)   # DIAG: Terrain3D clipmap mesh_size override
+		elif key == "--mesh-lods" and val != "":
+			_cli_mesh_lods = int(val)   # DIAG: Terrain3D clipmap mesh_lods override
 		elif key == "--turf-blades" and val != "":
 			_turf_blades_n = maxi(1, int(val))
 			print("Turf override: %d blades/tile" % _turf_blades_n)
@@ -1754,6 +1760,17 @@ func _diag_apply_hides() -> void:
 				for tm in _turf_ring_mmis:
 					if is_instance_valid(tm):
 						tm.visible = false
+			"turf":
+				# Diagnostic split of "grass": turf sward tiles only (leaves
+				# particle grass on) — isolates the camera-following tile-snap pop.
+				for tm in _turf_ring_mmis:
+					if is_instance_valid(tm):
+						tm.visible = false
+			"gparticle":
+				# Diagnostic split of "grass": particle grass only (leaves turf on).
+				for gp in _grass_particle_nodes:
+					if is_instance_valid(gp):
+						gp.visible = false
 			"shadows":
 				if _sun:
 					_sun.shadow_enabled = false
@@ -2545,6 +2562,12 @@ func _setup_ground() -> void:
 	# ---- Terrain3D (geometry clipmap + built-in collision) ----
 	_terrain3d = $Terrain3D if has_node("Terrain3D") else null
 	if _terrain3d:
+		# DIAG (option 1): denser clipmap near camera to shrink the per-snap jitter.
+		# --mesh-size=N / --mesh-lods=N sweep from CLI (0 = leave engine default).
+		if _cli_mesh_size > 0:
+			_terrain3d.mesh_size = _cli_mesh_size
+		if _cli_mesh_lods > 0:
+			_terrain3d.mesh_lods = _cli_mesh_lods
 		var n_regions: int = _terrain3d.data.get_regions_active().size()
 		print("Terrain3D: %d regions, spacing=%.4f" % [n_regions, _terrain3d.vertex_spacing])
 		_terrain3d.collision.radius = 128
