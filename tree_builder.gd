@@ -83,6 +83,12 @@ var proxy_instances: int = 0
 # distance. mesh = both mesh tiers together; lod0 = base mesh; lod1 = the mid
 # mesh, each across the whole mesh range (for the handoff comparison).
 var _tier_isolate: String = ""
+# --lod1-as-near (perf experiment, Chris 2026-07-02): drop the full lod0 tier and
+# render the cheaper card-pruned/bark-decimated _lod1 mesh from 0m out to the
+# impostor handoff. LOD chain becomes _lod1 → impostor. Reuses the sapling
+# "no-lod1" path (near mesh covers the whole range). Species without a _lod1
+# (saplings/dead) are unaffected. Goal: >60fps in deep forest.
+var _lod1_as_near: bool = false
 # --bake-impostors[=species]: offline octahedral atlas bake (scripts/bake_impostors.gd).
 # Non-empty => after materialising _species_meshes, bake that species' tiers and quit.
 var _bake_impostors_species: String = ""
@@ -219,6 +225,9 @@ func _init(loader) -> void:
 	_proxy_solid = "--proxy-solid" in OS.get_cmdline_user_args()
 	if _proxy_solid:
 		print("TreeBuilder: proxy crowns SOLID (diagnostic) — no dapple discard")
+	_lod1_as_near = "--lod1-as-near" in OS.get_cmdline_user_args()
+	if _lod1_as_near:
+		print("TreeBuilder: LOD1-AS-NEAR — the mid (_lod1) mesh renders from 0m; no full lod0 tier (perf experiment)")
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--tier-isolate="):
 			_tier_isolate = arg.substr("--tier-isolate=".length())
@@ -974,6 +983,13 @@ func _build_trees(trees: Array) -> void:
 		if _species_meshes.has(lod1_key):
 			var mid_vars: Array = _species_meshes[lod1_key]
 			mid_mesh = mid_vars[vi % mid_vars.size()]
+		# LOD1-AS-NEAR experiment: render the _lod1 mesh from 0m and drop the full
+		# lod0 tier → the sapling "no-lod1" path below covers the whole mesh range
+		# with this cheaper mesh, then the impostor. (Its material's fade band is
+		# reconfigured to be visible from 0m in the fade-setup loop.)
+		if _lod1_as_near and mid_mesh != null:
+			near_mesh = mid_mesh
+			mid_mesh = null
 		var cx_sum := 0.0
 		var cy_sum := 0.0
 		var cz_sum := 0.0
@@ -1188,7 +1204,10 @@ func _build_trees(trees: Array) -> void:
 		if _tier_isolate == "lod0" or _tier_isolate == "lod1":
 			pass  # pure single-LOD render for the 60m handoff DoD — no crossfade
 		elif "_lod1" in sp_key:
-			fade_in = lod1_fade
+			# LOD1-AS-NEAR: this mesh is the near tier now → visible from 0m (no
+			# fade-in), fading out to the impostor at the far band. Otherwise it is
+			# the mid tier: fades in at _lod1_end, out at _mesh_fade_end.
+			fade_in = NO_FADE if _lod1_as_near else lod1_fade
 			if _tier_isolate != "mesh":
 				fade_out = mesh_fade_out
 		else:
