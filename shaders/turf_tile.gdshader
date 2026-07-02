@@ -33,6 +33,12 @@ uniform float far_fade    = 2.5;   // soft size-fade at the very rim
 // field to "catch up" every couple metres (Chris: unplayable popping). With the MMI held fixed
 // (MODEL_MATRIX constant) and the snap fed here, motion vectors stay correct → no temporal pop.
 uniform vec2  tile_snap    = vec2(0.0);
+// Camera height above the terrain AT THE CAMERA, fed per frame from main.gd. Replaces a
+// per-vertex sample_terrain(base_xz) that existed only for the altitude fade — one terrain
+// fetch per alive vertex saved, and within the ~20m dome the difference is negligible
+// (side effect, an improvement: blades downhill of a mound no longer pre-fade while the
+// player stands on top of it — the fade now keys off the CAMERA's own ground clearance).
+uniform float cam_alt      = 0.0;
 
 // Ground-mat grass texture (world-XZ planar): breaks up the flat colour of the horizontal
 // mat + thatch so straight-down shows real turf detail, never solid colour pools.
@@ -117,8 +123,7 @@ void vertex(){
 		// ALTITUDE FADE: from the air the 3D dome only hurts — black inter-blade gaps straight
 		// down, the terrain quilt revealed through its own thinning, and a dome that visibly
 		// follows the camera — while the terrain macro texture already reads as grass. So retire
-		// it with camera height above the tile's ground (also a GPU win when flying).
-		float cam_alt = player_world_pos.y - sample_terrain(base_xz);
+		// it with the camera's clearance above ground (cam_alt uniform, fed per frame).
 		cover *= 1.0 - smoothstep(alt_fade_lo, alt_fade_hi, cam_alt);
 		// LAND MASK: kill grass where the land isn't grass (water/pool) so the dome is tied to
 		// the land, not the camera. Collapses the blade/mat to nothing over water.

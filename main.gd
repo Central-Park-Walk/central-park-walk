@@ -129,6 +129,11 @@ const TURF_BLADE_W := 0.026        # blade base width (m); a touch wider = close
 # long ramp and the outermost blades are already near-zero — no distinct edge.
 const TURF_NEAR_FULL := 5.0        # full baked density only within this radius (m)
 const TURF_RADIUS := 20.0          # blades thin to zero by here (was 14 — pushed out)
+# CLI-overridable copies (--turf-blades=N / --turf-radius=R) for perf sweeps; the
+# consts above stay the shipped defaults. NOTE a shipped TURF_BLADES change needs a
+# REBAKE (the terrain sward texture is baked from this tile mesh — scripts/bake_turf.gd).
+var _turf_blades_n := TURF_BLADES
+var _turf_radius_m := TURF_RADIUS
 const TURF_FADE := 8.0             # size-fade width at the rim (m): rim blades SHRINK
                                    # over the last stretch so the dome's chunky blade
                                    # detail tapers toward the baked texture's grain
@@ -245,6 +250,12 @@ func _parse_cli_args() -> void:
 				_cli_pos_set = true
 		elif key == "--pitch" and val != "":
 			_cli_pitch = float(val)
+		elif key == "--turf-blades" and val != "":
+			_turf_blades_n = maxi(1, int(val))
+			print("Turf override: %d blades/tile" % _turf_blades_n)
+		elif key == "--turf-radius" and val != "":
+			_turf_radius_m = maxf(TURF_NEAR_FULL + 1.0, float(val))
+			print("Turf override: radius %.0fm" % _turf_radius_m)
 		elif key == "--tree-species" and val != "":
 			_tree_species_filter = Array(val.split(","))
 			print("Tree species filter: %s" % str(_tree_species_filter))
@@ -938,12 +949,20 @@ func _process(delta: float) -> void:
 		var tsnap := Vector2(
 			roundf(tcp.x / TURF_TILE_SIZE) * TURF_TILE_SIZE,
 			roundf(tcp.z / TURF_TILE_SIZE) * TURF_TILE_SIZE)
+		# Camera clearance above terrain, computed ONCE here instead of per-vertex in
+		# the turf shader (was a sample_terrain per alive vertex, altitude fade only).
+		var tcam_alt := 0.0
+		if _terrain3d and _terrain3d.data:
+			var tgh: float = _terrain3d.data.get_height(tcp)
+			if not is_nan(tgh):
+				tcam_alt = tcp.y - tgh
 		for mmi in _turf_ring_mmis:
 			var tmesh := mmi.multimesh.mesh
 			if tmesh and tmesh.surface_get_material(0) is ShaderMaterial:
 				var sm := tmesh.surface_get_material(0) as ShaderMaterial
 				sm.set_shader_parameter("tile_snap", tsnap)
 				sm.set_shader_parameter("band_center", Vector2(tcp.x, tcp.z))
+				sm.set_shader_parameter("cam_alt", tcam_alt)
 
 	# Near-field blade band follows the camera too. Snap to the CELL grid so each
 	# instance stays on a fixed world cell (the shader keys all per-blade variation
@@ -3398,7 +3417,7 @@ func _setup_turf_tiles() -> void:
 	var mat := ShaderMaterial.new()
 	mat.shader = shader
 	mat.set_shader_parameter("near_full", TURF_NEAR_FULL)
-	mat.set_shader_parameter("far_radius", TURF_RADIUS)
+	mat.set_shader_parameter("far_radius", _turf_radius_m)
 	mat.set_shader_parameter("far_fade", TURF_FADE)
 	# Understory = the SAME baked sward the terrain shows (Chris 2026-07-01): the
 	# mat/thatch sample the dome's own bake, world-aligned at the terrain's 0.5
@@ -3426,20 +3445,20 @@ func _setup_turf_tiles() -> void:
 	# separate heightmap that diverges by up to several metres and buries the blades.
 	_push_terrain3d_conform(mat)
 
-	var tile := _make_turf_tile_mesh(TURF_BLADES, TURF_THATCH, TURF_MAT_N)
+	var tile := _make_turf_tile_mesh(_turf_blades_n, TURF_THATCH, TURF_MAT_N)
 	tile.surface_set_material(0, mat)
 
 	# A tile's blades span ±0.75*TILE from its centre (diagonal reach). Grid extends a tile
 	# past the fade-out so leading tiles enter already collapsed (pop-free); tiles whose
-	# nearest blade is past TURF_RADIUS render nothing and are skipped (no wasted vertex work).
+	# nearest blade is past the radius render nothing and are skipped (no wasted vertex work).
 	var reach := TURF_TILE_SIZE * 0.75 * sqrt(2.0)
-	var grid_r := TURF_RADIUS + reach + TURF_TILE_SIZE
+	var grid_r := _turf_radius_m + reach + TURF_TILE_SIZE
 	var side := int(ceil(grid_r / TURF_TILE_SIZE))
 	var xforms: Array[Transform3D] = []
 	for gz in range(-side, side + 1):
 		for gx in range(-side, side + 1):
 			var d := Vector2(float(gx), float(gz)).length() * TURF_TILE_SIZE
-			if d - reach > TURF_RADIUS:
+			if d - reach > _turf_radius_m:
 				continue            # beyond the fade-out → collapsed, skip
 			xforms.append(Transform3D(Basis.IDENTITY,
 				Vector3(float(gx) * TURF_TILE_SIZE, 0.0, float(gz) * TURF_TILE_SIZE)))
@@ -3472,8 +3491,8 @@ func _setup_turf_tiles() -> void:
 	add_child(mmi)
 	_turf_ring_mmis.append(mmi)
 	print("Turf tiles: %d tiles x %d blades = %d (~%.1fM tris, radius %.0fm)" % [
-		xforms.size(), TURF_BLADES, xforms.size() * TURF_BLADES,
-		xforms.size() * TURF_BLADES * 6.0 / 1e6, TURF_RADIUS])
+		xforms.size(), _turf_blades_n, xforms.size() * _turf_blades_n,
+		xforms.size() * _turf_blades_n * 6.0 / 1e6, _turf_radius_m])
 
 
 func _make_card_mesh() -> ArrayMesh:
