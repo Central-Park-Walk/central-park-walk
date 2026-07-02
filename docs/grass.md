@@ -29,12 +29,23 @@ Two layers only, tied together by a bake instead of by calibration:
    macro clump tone on top (also breaks the 2 m repeat), biome tints kept. The old
    spectral/POM path stays behind `turf_baked_on = 0` for rollback.
 
-The handoff: blades rank-thin 5→20 m while the dark ground mat/thatch SINKS below the
-terrain across that band (`mat_sink` in turf_tile.gdshader) — the terrain underneath is
-the same sward, so the rim dissolves into it instead of darkening to sparse-blades-over-
-dark-mat. `turf_baked_ao` (0.72, measured) covers the flat-ground vs self-shadowing-
-canopy lighting gap; band luma ramps ~80→144 with rim continuity 116→129
-(tmp/baked_eye3.png; reference band 115–131).
+The handoff (graded out per Chris — the reference spreads ~115–131 luma over a couple
+hundred metres, so nothing may ramp fast near the rim):
+
+- blades rank-thin 5→20 m; the dark ground mat/thatch SINKS below the terrain across
+  that band (`mat_sink`, turf_tile.gdshader) — the terrain underneath is the same
+  sward, so the rim dissolves instead of darkening to sparse-blades-over-dark-mat;
+- rim blades size-shrink over the last `TURF_FADE` = 8 m, tapering the dome's chunky
+  blade detail toward the texture grain (a detail-SCALE jump reads as an edge as much
+  as tone does — likewise the baked-texture LOD K=0.3 keeps blade-scale mottle alive
+  in the band right past the blades);
+- terrain brightness starts at the dome's darker grazing tone (×0.80 — at grazing the
+  dome shows shadowed blade sides, the bake is top-down tips) and eases to the full
+  baked tone over ~200 m; `turf_baked_ao` (0.72, measured) is the overall flat-ground
+  vs self-shadowing-canopy parity.
+
+Measured at the standard eye view (tmp/baked_eye5.png): beyond the rim the field
+plateaus at luma 117–134 (reference band 115–131), no fast ramp anywhere.
 
 **Rebake whenever the dome changes** (palette, density, blade shape, mat texture):
 run the bake_turf.gd command in its header, then `--import`. If dome and terrain drift
