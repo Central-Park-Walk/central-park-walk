@@ -555,6 +555,15 @@ func _ready() -> void:
 		if turf_baked:
 			_set_terrain_param("turf_baked_tex", turf_baked)
 			_set_terrain_param("turf_baked_on", 1.0)
+			# Height field (bake pass 2) -> parallax occlusion on the near sward
+			# (terrain-only grass depth; Chris 2026-07-02 "pom").
+			var turf_h: Texture2D = load("res://textures/grass_turf_height.png") \
+				if ResourceLoader.exists("res://textures/grass_turf_height.png") else null
+			if turf_h:
+				_set_terrain_param("turf_height_tex", turf_h)
+				_set_terrain_param("turf_pom_on", 1.0)
+			else:
+				push_warning("grass_turf_height.png missing — sward POM off (run --bake-turf)")
 		else:
 			push_warning("grass_turf_baked.png missing — terrain uses the legacy spectral sward")
 		print("main: canopy map: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()

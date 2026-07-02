@@ -18,6 +18,7 @@
 extends SceneTree
 
 const OUT_PATH := "res://textures/grass_turf_baked.png"
+const HEIGHT_PATH := "res://textures/grass_turf_height.png"
 const RES := 2048     # output resolution: 2 m tile -> ~1 mm/texel
 const SS := 2         # supersample then Lanczos-downscale (AA for thin blades)
 
@@ -93,4 +94,20 @@ func _init() -> void:
 	img.convert(Image.FORMAT_RGB8)
 	img.save_png(ProjectSettings.globalize_path(OUT_PATH))
 	print("saved %s (%dx%d)" % [OUT_PATH, RES, RES])
+
+	# ---- PASS 2: height field (same mesh, height shader, black background) ----
+	# The terrain shader marches this for parallax occlusion on the baked sward
+	# (near-field depth for terrain-only grass). Background = 0 = ground level.
+	var hmat := ShaderMaterial.new()
+	hmat.shader = load("res://shaders/turf_bake_height.gdshader")
+	mi.material_override = hmat
+	env.background_color = Color(0.0, 0.0, 0.0)
+	vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	await RenderingServer.frame_post_draw
+	var himg := vp.get_texture().get_image()
+	if SS > 1:
+		himg.resize(RES, RES, Image.INTERPOLATE_LANCZOS)
+	himg.convert(Image.FORMAT_RGB8)
+	himg.save_png(ProjectSettings.globalize_path(HEIGHT_PATH))
+	print("saved %s (%dx%d)" % [HEIGHT_PATH, RES, RES])
 	quit(0)

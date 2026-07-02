@@ -97,6 +97,11 @@ uniform float grass_pom_scale = 0.9;     // grass texture tiles per metre for PO
 // hand-calibrated spectral/POM path (turf_baked_on=0 keeps that path for rollback).
 uniform sampler2D turf_baked_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform float turf_baked_on = 0.0;
+// Height field baked alongside the albedo (bake_turf.gd pass 2) — POM for the
+// terrain-only grass: the near sward gets real parallax depth without geometry.
+uniform sampler2D turf_height_tex : filter_linear_mipmap, repeat_enable;
+uniform float turf_pom_on = 0.0;
+uniform float turf_pom_depth = 0.09;   // world metres of parallax at full effect
 // Lighting parity: a flat sunlit ground plane renders brighter than the self-shadowing
 // blade canopy of the same albedo (the measured ~0.7-stop gap behind the old 0.50
 // canopy-AO). The bake carries crevice darkness in-texture, so less is needed here;
@@ -524,6 +529,39 @@ void fragment() {
 				// hash-offset uvs, barycentric-blended per ~5 m cell — aperiodic
 				// everywhere, seam-free, mip-safe (all taps share blod).
 				vec2 buv = v_vertex.xz * 0.5;
+				// PARALLAX OCCLUSION on the baked sward (Chris: "pom") — march the baked
+				// height field so near strokes get depth/relief without geometry. Fades
+				// out by 12 m (beyond that the strokes are sub-pixel anyway). The march
+				// runs on the UNBOMBED uv and its offset is applied before the stochastic
+				// taps: the parallax motion is statistically consistent with the bombed
+				// albedo (same texture), which reads correctly at this 9 cm depth scale.
+				float pomw = turf_pom_on * (1.0 - smoothstep(7.0, 12.0, cam_dist));
+				if (pomw > 0.01) {
+					vec3 pvd = normalize(_camera_pos - v_vertex);
+					// world-space horizontal drift per full descent; grazing clamped so
+					// the offset can't smear to infinity at the horizon
+					vec2 drift = pvd.xz / max(pvd.y, 0.30) * (turf_pom_depth * pomw);
+					float pt = 1.0;              // ray height fraction at last sample
+					float ph = 0.0;              // map height there
+					float pt_prev = 1.0;
+					float ph_prev = 0.0;
+					vec2 poff = vec2(0.0);
+					for (int i = 1; i <= 10; i++) {
+						float t = float(i) / 10.0;
+						vec2 o = -drift * t * 0.5;              // world->uv = x0.5
+						float hm = textureLod(turf_height_tex, buv + o, blod).r;
+						pt_prev = pt; ph_prev = ph;
+						pt = 1.0 - t; ph = hm;
+						poff = o;
+						if (hm >= pt) { break; }                // ray went under the sward
+					}
+					// linear refine between the straddling samples
+					float da = pt_prev - ph_prev;               // above-surface gap
+					float db = ph - pt;                          // below-surface overshoot
+					float w = clamp(da / max(da + db, 1e-4), 0.0, 1.0);
+					float t_hit = mix(1.0 - pt_prev, 1.0 - pt, w);
+					buv += -drift * t_hit * 0.5;
+				}
 				vec2 skew = mat2(vec2(1.0, -0.57735), vec2(0.0, 1.15470)) * (v_vertex.xz / 5.0);
 				vec2 bcell = floor(skew);
 				vec3 bary = vec3(fract(skew), 0.0);
