@@ -260,9 +260,13 @@ func update_perf(delta: float, prof: Dictionary = {}) -> void:
 		if prof.has("tree_lod0"):
 			text += "\nTrees: %d LOD0 / %d LOD1\n" % [
 				int(prof["tree_lod0"]), int(prof["tree_lod1"])]
-			text += "  chunks: %d / %d   (shadow casters: %d)\n" % [
-				int(prof["tree_lod0_chunks"]), int(prof["tree_lod1_chunks"]),
-				int(prof["tree_lod0"])]
+			# NOTE: do NOT label instance counts "shadow casters" — the old
+			# "(shadow casters: 6808)" here was just tree_lod0 (park-wide LOD0
+			# instance total) and sent a whole perf investigation chasing tree
+			# shadows that measure ~1ms (bisect 2026-07-01). Real caster load
+			# is the [PERF] shobj/shtri fields.
+			text += "  chunks: %d / %d\n" % [
+				int(prof["tree_lod0_chunks"]), int(prof["tree_lod1_chunks"])]
 		# Chunk counts
 		if prof.has("ug_chunks"):
 			text += "\nUndergrowth: %d chunks, %d queued\n" % [
