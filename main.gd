@@ -3119,10 +3119,18 @@ func _turf_vert(st: SurfaceTool, pos: Vector3, t: float, col: Color, rank: float
 	st.add_vertex(pos)
 
 
-func _make_turf_tile_mesh(blades: int, thatch: int, mat_n: int) -> ArrayMesh:
+func _make_turf_tile_mesh(blades: int, thatch: int, mat_n: int, periodic := false) -> ArrayMesh:
 	## One 3D mesh = a TURF_TILE_SIZE patch packed with `blades` real blades (the ring's
 	## baked density). Built once per LOD ring; instanced across that ring's grid.
 	## Per-blade shape/colour baked here.
+	##
+	## periodic=true (scripts/bake_turf.gd only): place everything over exactly ONE
+	## s-period (±0.5s, not the oversized runtime ±0.75s) and duplicate geometry that
+	## reaches across a period edge at the wrapped position, so the mesh is s-PERIODIC
+	## — an orthographic s x s crop tiles seamlessly with UNIFORM density. (The runtime
+	## union of oversized tiles at s spacing covers each point 1-4x — fine at eye
+	## level, but baked top-down it reads as a 2 m blotch pattern.) Mean density
+	## matches the runtime union by construction: count/s² either way.
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var rng := RandomNumberGenerator.new()
@@ -3137,7 +3145,11 @@ func _make_turf_tile_mesh(blades: int, thatch: int, mat_n: int) -> ArrayMesh:
 	# yaw rotates each square tile, and a tile-sized (±0.5s) blade patch rotated leaves
 	# gaps at the tile seams/corners that the oversized mat fills with smooth flat colour =
 	# the bald patches. Placing blades over ±0.75s means rotated tiles always overlap-cover.
-	var bext := s * 0.75
+	var bext := s * (0.5 if periodic else 0.75)
+	# Sideways reach of a leaning blade / thatch streak past its base (max lean =
+	# h*curve ≤ 0.21*0.9, streak length ≤ 0.18): periodic geometry based within this
+	# margin of a period edge gets a wrapped duplicate so the crop edge stays covered.
+	var wrap_m := 0.25
 	var gside := int(ceil(sqrt(float(blades))))
 	var gcell := (bext * 2.0) / float(gside)
 	for i in gside * gside:
@@ -3176,11 +3188,33 @@ func _make_turf_tile_mesh(blades: int, thatch: int, mat_n: int) -> ArrayMesh:
 		# Stable LOD rank: a random subset survives each distance band, so far tiles
 		# thin uniformly (no clustering). Near (0-5m) keeps all; far keeps ~10%.
 		var rank := rng.randf()
-		_add_turf_blade(st, bx, bz, ang, h, w, curve, base_c, tip_c, vit, rank)
+		for off in _periodic_offsets(bx, bz, bext, wrap_m, periodic):
+			_add_turf_blade(st, bx + off.x, bz + off.y, ang, h, w, curve,
+				base_c, tip_c, vit, rank)
 	# Ground thatch: matted flattened/dead blades beneath the standing sward so there
 	# are no bald patches and the "undergrass" reads as compressed turf, not soil/felt.
-	_add_turf_ground(st, rng, s, thatch, mat_n)
+	_add_turf_ground(st, rng, s, thatch, mat_n, periodic)
 	return st.commit()
+
+
+func _periodic_offsets(bx: float, bz: float, ext: float, margin: float,
+		periodic: bool) -> Array[Vector2]:
+	## Offsets at which to place a piece of turf geometry. Runtime: just its own
+	## position. Periodic bake mesh: also the s-wrapped copies when the base sits
+	## within `margin` of a period edge (corners get all four), so leaning geometry
+	## crosses the crop edge identically on both sides = a seamless tile.
+	var xs: Array[float] = [0.0]
+	var zs: Array[float] = [0.0]
+	if periodic:
+		if bx > ext - margin: xs.append(-2.0 * ext)
+		elif bx < -ext + margin: xs.append(2.0 * ext)
+		if bz > ext - margin: zs.append(-2.0 * ext)
+		elif bz < -ext + margin: zs.append(2.0 * ext)
+	var out: Array[Vector2] = []
+	for ox in xs:
+		for oz in zs:
+			out.append(Vector2(ox, oz))
+	return out
 
 
 func _thatch_color(rng: RandomNumberGenerator) -> Array:
@@ -3229,7 +3263,7 @@ func _add_flat_blade(st: SurfaceTool, bx: float, bz: float, ang: float, length: 
 
 
 func _add_turf_ground(st: SurfaceTool, rng: RandomNumberGenerator, s: float,
-		thatch: int, mat_n: int) -> void:
+		thatch: int, mat_n: int, periodic := false) -> void:
 	## The undergrass: (1) a solid dark backstop mat (guarantees full coverage → no bald
 	## patches), (2) flattened dead-blade streaks over it for a matted-thatch texture.
 	## Both use the muted bluegrass scheme and sit just above terrain (shader conforms).
@@ -3244,7 +3278,8 @@ func _add_turf_ground(st: SurfaceTool, rng: RandomNumberGenerator, s: float,
 	const MY := 0.015          # LOW (below the streaks & blade bases) so the mat is a
 	                            # gap-filler, never a raised platform that occludes blades.
 	                            # N=8 (fine quads) keeps it from sagging below convex ground.
-	var ext := s * 0.75          # half-extent (>= cell_half * sqrt(2) = 0.707*s)
+	# Periodic bake mesh: mat spans exactly one period (grid-aligned = periodic).
+	var ext := s * (0.5 if periodic else 0.75)   # runtime: >= cell_half*sqrt(2) = 0.707*s
 	var cell := (ext * 2.0) / float(N)
 	for gz in N:
 		for gx in N:
@@ -3266,16 +3301,17 @@ func _add_turf_ground(st: SurfaceTool, rng: RandomNumberGenerator, s: float,
 			_turf_vert(st, p10, 0.0, c, 0.0, true)
 			_turf_vert(st, p11, 0.0, c, 0.0, true)
 			_turf_vert(st, p01, 0.0, c, 0.0, true)
-	# (2) flattened dead-blade streaks for the matted texture (over the same 1.5x area so
-	# the flattened-blade look continues across the tile-overlap seams).
+	# (2) flattened dead-blade streaks for the matted texture (over the same area as the
+	# mat so the flattened-blade look continues across the tile-overlap seams).
 	for i in thatch:
-		var bx := (rng.randf() - 0.5) * s * 1.5
-		var bz := (rng.randf() - 0.5) * s * 1.5
+		var bx := (rng.randf() - 0.5) * ext * 2.0
+		var bz := (rng.randf() - 0.5) * ext * 2.0
 		var ang := rng.randf() * TAU
 		var length := rng.randf_range(0.09, 0.18)
 		var w := TURF_BLADE_W * rng.randf_range(1.0, 1.6)
 		var tc := _thatch_color(rng)
-		_add_flat_blade(st, bx, bz, ang, length, w, tc[0], tc[1])
+		for off in _periodic_offsets(bx, bz, ext, 0.25, periodic):
+			_add_flat_blade(st, bx + off.x, bz + off.y, ang, length, w, tc[0], tc[1])
 
 
 func _push_terrain3d_conform(mat: ShaderMaterial) -> void:
