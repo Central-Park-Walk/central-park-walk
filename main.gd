@@ -3376,15 +3376,28 @@ func _setup_turf_tiles() -> void:
 		push_warning("turf_tile.gdshader not found"); return
 	if not _terrain3d or not _terrain3d.data:
 		push_warning("turf tiles: Terrain3D unavailable"); return
-	var mat_tex: Texture2D = load("res://textures/grass_albedo.jpg")
-
 	var mat := ShaderMaterial.new()
 	mat.shader = shader
 	mat.set_shader_parameter("near_full", TURF_NEAR_FULL)
 	mat.set_shader_parameter("far_radius", TURF_RADIUS)
 	mat.set_shader_parameter("far_fade", TURF_FADE)
-	if mat_tex:
-		mat.set_shader_parameter("mat_tex", mat_tex)
+	# Understory = the SAME baked sward the terrain shows (Chris 2026-07-01): the
+	# mat/thatch sample the dome's own bake, world-aligned at the terrain's 0.5
+	# repeats/m, so the ground seen BETWEEN blades is pixel-identical to the ground
+	# past the rim. The bake is already final sward colour → tint neutral;
+	# mat_bright 0.50 × the ~1.25 per-quad qbright ≈ the 0.62 near-terrain grade,
+	# so crevice floor and near terrain sit at the same tone (shaded-floor look).
+	# Fallback: the old olive photo texture with its blue-green tint (shader
+	# defaults) if the bake hasn't been run/imported yet.
+	if ResourceLoader.exists("res://textures/grass_turf_baked.png"):
+		mat.set_shader_parameter("mat_tex", load("res://textures/grass_turf_baked.png"))
+		mat.set_shader_parameter("mat_tex_scale", 0.5)
+		mat.set_shader_parameter("mat_tint", Vector3(1.0, 1.0, 1.0))
+		mat.set_shader_parameter("mat_bright", 0.50)
+	else:
+		var mat_tex: Texture2D = load("res://textures/grass_albedo.jpg")
+		if mat_tex:
+			mat.set_shader_parameter("mat_tex", mat_tex)
 	# Land mask: the turf reads the landuse zones so grass only draws on grass land
 	# (never over water/pool), tying the dome to the land rather than the camera.
 	if _landuse_texture:
