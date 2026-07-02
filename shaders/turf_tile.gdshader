@@ -32,6 +32,9 @@ uniform float density_curve = 2.2; // >1 = density drops FAST past near_full, lo
 // own base (CUSTOM0.xy) by 1/keep so count*width — the covered area — stays constant. The
 // sward keeps its body all the way out; only the geometric detail (blade count) falls.
 uniform float grow_max = 3.0;      // widening cap; past keep=1/grow_max coverage tapers too
+// Diagnostic range rings (--diag-rings / R key) — same rings the terrain draws, painted on
+// the dome's blades + ground mat so the near rings aren't hidden under the turf.
+uniform float diag_rings = 0.0;
 
 // Camera-snap passed as a UNIFORM instead of moving the MMI. Moving the MMI made MODEL_MATRIX
 // jump 2 m at each snap; because the blades are placed procedurally (VERTEX = worldxz - base),
@@ -191,6 +194,20 @@ void fragment(){
 		vec3 tex = texture(mat_tex, v_wxz * mat_tex_scale).rgb;
 		float qbright = clamp(v_col.g * 3.2, 0.5, 1.3);   // carries per-quad brightness var
 		alb = tex * mat_tint * (mat_bright * qbright);
+	}
+	if (diag_rings > 0.5) {
+		// Fixed band width — fwidth() explodes across sub-pixel blade triangles
+		// (neighbouring pixels land on different blades) and painted the whole
+		// dome with red speckle. Blades only exist near, so 4cm works everywhere.
+		float rd = distance(v_wxz, CAMERA_POSITION_WORLD.xz);
+		float rw = 0.04;
+		float rr[5] = {1.0, 5.0, 10.0, 15.0, 25.0};
+		float rm = 0.0;
+		for (int i = 0; i < 5; i++) rm = max(rm, 1.0 - smoothstep(rw, rw * 2.0, abs(rd - rr[i])));
+		float r50 = clamp(round(rd / 50.0), 1.0, 10.0) * 50.0;
+		rm = max(rm, 1.0 - smoothstep(rw, rw * 2.0, abs(rd - r50)));
+		alb = mix(alb, vec3(0.75, 0.02, 0.02), rm);
+		EMISSION = vec3(0.10, 0.0, 0.0) * rm;
 	}
 	ALBEDO    = alb;
 	ROUGHNESS = 0.98;   // near-matte — Chris: "grass is too shiny"

@@ -102,6 +102,9 @@ uniform float turf_baked_on = 0.0;
 // canopy-AO). The bake carries crevice darkness in-texture, so less is needed here;
 // tuned by measuring dome vs terrain luma in captures, not estimated.
 uniform float turf_baked_ao = 0.72;
+// Diagnostic range rings (--diag-rings / R key): red circles around the camera at
+// 1/5/10/15/25/50m then every 50m to 500m, for grading detail falloff on a walk.
+uniform float diag_rings = 0.0;
 // Aesthetic mode (GRASS_LUSH): suspend foot-traffic wear drying on grass terrain so
 // worn lawns read lush green, matching grass_blades + shell_grass aesthetic flags.
 uniform float aesthetic : hint_range(0.0, 1.0) = 1.0;
@@ -791,5 +794,23 @@ void fragment() {
 		ALBEDO = mix(ALBEDO, haze_col, terr_fade * 0.35);
 		ROUGHNESS = mix(ROUGHNESS, 0.95, terr_fade * 0.25);
 		EMISSION = haze_col * 0.25 * terr_fade * 0.4;
+	}
+	// DIAGNOSTIC RANGE RINGS: drawn last (over haze) so the far rings stay legible.
+	// Emissive red so they read in shade and at distance; ~constant screen width
+	// via fwidth of the ground range.
+	if (diag_rings > 0.5) {
+		// Band width follows the pixel footprint (fwidth) so lines stay ~2px, but is
+		// CLAMPED to 1.5% of the ring distance — unclamped grazing footprints made
+		// multi-metre bands whose red emission bounced through GI and tinted the
+		// whole scene. Emission kept faint for the same reason (shade legibility only).
+		float rd = distance(v_vertex.xz, CAMERA_POSITION_WORLD.xz);
+		float rw = clamp(fwidth(rd) * 1.5, 0.02, max(0.05, rd * 0.015));
+		float rr[5] = {1.0, 5.0, 10.0, 15.0, 25.0};
+		float rm = 0.0;
+		for (int i = 0; i < 5; i++) rm = max(rm, 1.0 - smoothstep(rw, rw * 2.0, abs(rd - rr[i])));
+		float r50 = clamp(round(rd / 50.0), 1.0, 10.0) * 50.0;
+		rm = max(rm, 1.0 - smoothstep(rw, rw * 2.0, abs(rd - r50)));
+		ALBEDO = mix(ALBEDO, vec3(0.75, 0.02, 0.02), rm);
+		EMISSION = mix(EMISSION, vec3(0.10, 0.0, 0.0), rm);
 	}
 }

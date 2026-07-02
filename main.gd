@@ -100,6 +100,7 @@ var _grass_blades := true
 var _grass_blades_mmi: MultiMeshInstance3D = null
 var _grass_cards_mmi: MultiMeshInstance3D = null
 var _turf_ring_mmis: Array[MultiMeshInstance3D] = []
+var _turf_mat: ShaderMaterial = null  # the turf-tile material (diag toggles at runtime)
 # TURF TILES (the "3d mesh world" grass): a pre-built 3D mesh = a patch of real blade
 # geometry (thousands of baked blades), instanced as tiles on a camera-following world
 # grid — real blades from every angle, no billboard swivel/rings, cheap because the cost
@@ -230,6 +231,8 @@ func _parse_cli_args() -> void:
 			_shell_grass = false  # opt back into the legacy particle + ground_cover grass
 		elif arg == "--no-blades":
 			_grass_blades = false  # disable the near-field 3D blade band (perf gate)
+		elif arg == "--diag-rings":
+			_diag_rings = true  # red range rings 1/5/10/15/25/50..500m (also R key)
 		elif key == "--time" and val != "":
 			cli_time = val
 		elif key == "--screenshot-file" and val != "":
@@ -1460,6 +1463,7 @@ func _set_labels_visible(vis: bool) -> void:
 #          clouds (freeze volumetric-cloud + sky-LUT compute; sky keeps the
 #          last blended textures — isolates the per-frame dispatch cost)
 var _diag_hide: Array = []
+var _diag_rings := false  # diagnostic red range rings (--diag-rings / R key)
 # Perf-experiment knobs: --shadow-dist=meters, --shadow-size=pixels,
 # --shadow-filter=0..5 (PCF quality; project default 2). -1 = keep defaults.
 var _cli_shadow_dist: float = -1.0
@@ -2117,6 +2121,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _ambient_life:
 			_ambient_life.set_enabled(not _ambient_life.enabled)
 			print("Ambient life: %s" % ("ON" if _ambient_life.enabled else "OFF"))
+	elif event.keycode == KEY_R:
+		_set_diag_rings(not _diag_rings)
+
+
+func _set_diag_rings(on: bool) -> void:
+	## Diagnostic red range rings on the ground at 1/5/10/15/25/50m then every 50m to
+	## 500m from the camera (--diag-rings at launch, R key at runtime). Drawn by the
+	## terrain override + turf-tile shaders, so they show through the grass dome too.
+	_diag_rings = on
+	_set_terrain_param("diag_rings", 1.0 if on else 0.0)
+	if _turf_mat:
+		_turf_mat.set_shader_parameter("diag_rings", 1.0 if on else 0.0)
+	print("[DIAG] range rings %s" % ("ON" if on else "OFF"))
 
 
 func _season_name(t: float) -> String:
@@ -2480,6 +2497,8 @@ func _setup_ground() -> void:
 			_terrain3d.material.shader_override = override_shader
 			_terrain3d.material.shader_override_enabled = true
 			print("Terrain3D: shader override applied (terrain3d_override.gdshader)")
+			if _diag_rings:
+				_set_terrain_param("diag_rings", 1.0)
 		else:
 			push_warning("Terrain3D: override shader not found, using default auto-shader")
 
@@ -3438,6 +3457,8 @@ func _setup_turf_tiles() -> void:
 	mat.set_shader_parameter("far_radius", _turf_radius_m)
 	mat.set_shader_parameter("far_fade", TURF_FADE)
 	mat.set_shader_parameter("density_curve", TURF_DENSITY_CURVE)
+	mat.set_shader_parameter("diag_rings", 1.0 if _diag_rings else 0.0)
+	_turf_mat = mat
 	# Understory = the SAME baked sward the terrain shows (Chris 2026-07-01): the
 	# mat/thatch sample the dome's own bake, world-aligned at the terrain's 0.5
 	# repeats/m, so the ground seen BETWEEN blades is pixel-identical to the ground
