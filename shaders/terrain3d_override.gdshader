@@ -483,9 +483,20 @@ void fragment() {
 				// ground below IS the height), so near keeps its fine blades while the
 				// far/aerial reads as lit textured grass clumps. Two rotated taps at different
 				// scales break the tile repeat (texture-bombing lite).
-				vec2  muv1 = v_vertex.xz / grass_macro_scale;
+				// DOMAIN WARP (2026-07-02, Chris: "jittering the clumps would look
+				// better than smoothing them out"): a low-frequency (~23 m) warp field
+				// displaces the mottle sampling coords, so clump SHAPES stretch and
+				// smear organically — amplitude stays, regularity dies. Each tap gets
+				// the field differently (swizzle/sign) so shapes decorrelate, not just
+				// shift together. The bake taps are NOT warped (strokes + POM stay
+				// crisp); only the clump-tone modulators.
+				vec2 cwrp = vec2(vnoise(v_vertex.xz * 0.043),
+					vnoise(v_vertex.xz * 0.043 + vec2(19.7, 7.3))) - 0.5;
+				vec2  muv1 = v_vertex.xz / grass_macro_scale
+					+ cwrp * (5.0 / grass_macro_scale);
 				vec2  muv2 = (mat2(vec2(0.70, 0.72), vec2(-0.72, 0.70)) * v_vertex.xz)
-					/ (grass_macro_scale * 1.7) + vec2(19.3, 7.1);
+					/ (grass_macro_scale * 1.7) + vec2(19.3, 7.1)
+					- cwrp.yx * (4.0 / (grass_macro_scale * 1.7));
 				// Explicit SMOOTH distance LOD (not the auto derivatives): the terrain
 				// geomorph makes the sampling derivatives JUMP at clipmap tile boundaries,
 				// so auto-mip gives per-tile mip steps = the rectangular albedo quilt from
@@ -662,10 +673,10 @@ void fragment() {
 				// repeat for the eye to lock onto.
 				float f_ta = textureLod(grass_macro_tex,
 					(mat2(vec2(0.31, 0.95), vec2(-0.95, 0.31)) * v_vertex.xz) / 1.31
-					+ vec2(7.7, 3.3) + h1, flod).r;
+					+ vec2(7.7, 3.3) + h1 + cwrp * 0.55, flod).r;
 				float f_tb = textureLod(grass_macro_tex,
 					(mat2(vec2(-0.80, 0.60), vec2(-0.60, -0.80)) * v_vertex.xz) / 2.09
-					+ vec2(2.4, 9.1) + h2, flod).r;
+					+ vec2(2.4, 9.1) + h2 - cwrp.yx * 0.40, flod).r;
 				float f_dev = (f_ta - 0.236) + (f_tb - 0.236);
 				float fine_mult = mix(1.0, clamp(1.0 + f_dev * 2.8, 0.75, 1.25),
 					smoothstep(1.5, 8.0, cam_dist));
