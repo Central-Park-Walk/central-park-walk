@@ -154,6 +154,46 @@ shadow receiver ~4.6. Real gap to 16.6 at ramble: ~9.7 ms.
 
 Furniture casting off bought ~0 despite the census's 8.4 M caster tris — the 150 m shadow distance already culls most of it from the cascades. **Furniture keeps its shadows.** (Census tool: `--shadow-census`, dumps top node-level casters.)
 
+### 3f. Turf-dome perf pass at Bethesda (2026-07-01 night, reports 20260701_225053 → 20260701_232728)
+
+The 2026-06-29 mystery (`vpgpu` ≪ `process`, a large "CPU-side" cost the viewport
+measure missed) is **RESOLVED**: it was the water-reflection SubViewport re-rendering
+the turf dome. `viewport_get_measured_render_time` only reads the MAIN viewport;
+the mirror's GPU time surfaces as main-thread wait inside `process`. And blade
+VERTEX work doesn't shrink with the mirror's 1/3 resolution, so the mirror re-paid
+nearly the dome's full ~12 M-invocation bill every frame.
+
+Opening attribution (32 fps / 33.1 ms, sandwich clean):
+
+| config | ms (fps) | Δ | reading |
+|---|---|---|---|
+| baseline | 33.1 (32) | | vpgpu 21.3, vistri 14.2 M (dome = 10.4 M) |
+| nograss (incl. dome — diag fixed this session) | 12.1 (101) | **~21** | THE frame |
+| norefl (`--no-water-reflection`) | 22.1 (49) | **~11** | mostly the dome again, in the mirror |
+| noshadow | 29.8 (36) | 3.3 | fine |
+| notreeshadows | 31.9 (33) | ~1 | **the "6808 LOD0 shadow casters" HUD line was mislabeled** — it printed the park-wide LOD0 instance count. Tree shadows were never the gate. |
+| nosdfgi | 32.8 (34) | ~0 | still dead |
+
+Shipped fixes — all **visually neutral** (A/B pixel-diff at the standard grass pose ==
+the wind-phase run-to-run noise floor; sward eyeballed intact):
+
+1. **Dome out of the mirror** (`TurfTiles.layers = 8`, the terrain policy) — the
+   reflection now costs ~2 ms gross (its §4 line).
+2. **Dead-blade early-out** in `turf_tile.gdshader` vertex(): rank-collapsed blades
+   skip the terrain/landuse fetches; the tile mesh is emitted in RANK ORDER so dead
+   blades are index-contiguous and warps exit coherently.
+3. **Altitude fade via `cam_alt` uniform** (camera ground clearance, CPU, once per
+   frame) instead of a per-vertex `sample_terrain`.
+4. **Indexed tile mesh** (`st.index()`): 18 emitted verts per 6-tri blade dedup to
+   ~8 unique — the post-transform cache skips the rest. Biggest single win.
+
+The dome measured **vertex-bound**: cost linear in `--turf-blades`, flat under
+internal-res halving (sweep 20260701_232042). Sweep knobs `--turf-blades=N` /
+`--turf-radius=R` are permanent. **Result: Bethesda 33.1 → 16.6 ms (32 → 69–70 fps)
+with identical visuals**; grass residual ~5 ms, reflection residual ~2 ms. If more
+is ever needed: `--turf-blades=2000` measured 64 fps pre-indexing (visible density
+cut — user call), and the mirror could update at half rate.
+
 ## 4. The frame budget (binding)
 
 GPU ms at 1080p, measured at the worst of the 5 locations. A subsystem over its line is a regression even if total fps passes (headroom is for weather/seasons, not for spending). Per `architecture.md` §9, new subsystems must name their budget line.
@@ -171,7 +211,7 @@ GPU ms at 1080p, measured at the worst of the 5 locations. A subsystem over its 
 | undergrowth + ground cover | 0.5 | <1 | ok |
 | post (SSAO, SSIL, glow, TAA, tonemap) | 1.5 | ~1 (TAA untested) | ok? |
 | water, weather particles, misc | 0.6 | <1 | ok |
-| water planar reflection (2026-07-01, near water only; sleeps >250 m away) | 1.5 | TBD — measure on/off at Lake shore (`--no-water-reflection`) | ? |
+| water planar reflection (2026-07-01, near water only; sleeps >250 m away) | 1.5 | ~2 (Bethesda, §3f — after excluding the turf dome from the mirror; was ~11 with it) | −0.5 (accepted; next lever = half-rate updates) |
 | **total** | **16.6** | ~83–88 | |
 
 CPU is not currently binding (`vpcpu` ~9 ms peak, GDScript <1 ms) but inherits the same 16.6 ms ceiling.

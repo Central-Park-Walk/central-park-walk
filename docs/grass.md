@@ -168,9 +168,21 @@ easy to see where the dome ends"): **`TURF_NEAR_FULL` 9→5 m** (thin sooner), *
 14→20 m** (reach farther so the dome edge dissolves), **`TURF_BLADES` 8000→4000** (hold vertex cost
 flat — tiles grow with R², so radius 14→20 nearly doubles tile count; the textured mat carries near
 coverage at the lower density). **385 tiles × 4000 = ~9.2M tris** (perf-neutral vs the 197×8000
-radius-14 build, +6 m reach). Levers for more fps: `TURF_RADIUS` / `TURF_BLADES`. Note: the bulk of
-frame cost is elsewhere — F9 showed **6808 tree LOD0 shadow casters**; grass ≈ 9.2M of a ~17M-tri
-total, and fps is ~47–51 (the trees, not grass, gate the path to 70).
+radius-14 build, +6 m reach). Levers for more fps: `TURF_RADIUS` / `TURF_BLADES` (CLI sweep
+knobs `--turf-radius` / `--turf-blades`).
+
+**Perf pass 2026-07-01 (rendering.md §3f — the dome, not trees, was the frame).** The
+"6808 tree LOD0 shadow casters gate fps" note that used to sit here was a *mislabeled HUD
+line* (park-wide LOD0 instance count; measured tree-shadow cost ~1 ms). Bisect at Bethesda:
+the dome was **~21 ms of a 33 ms frame** — ~12 ms in the main view and ~9 ms re-rendered by
+the water-reflection SubViewport at undiminished vertex cost. Fixes (all visually neutral,
+A/B'd at the run-to-run noise floor): dome excluded from the mirror (`layers = 8`, the
+terrain policy); dead rank-thinned blades early-out in the vertex shader before the terrain/
+landuse fetches (mesh emitted in rank order so warps exit coherently); altitude fade reads a
+per-frame `cam_alt` uniform instead of a per-vertex terrain sample; tile mesh indexed
+(`st.index()`, 18→~8 unique verts per blade). The dome measured **vertex-bound**: GPU cost
+scales with `--turf-blades`, not with internal resolution — if more is ever needed, density
+is the lever that pays, radius barely does (post-early-out the outer band is nearly free).
 
 Mat colour: `mat_tint`/`mat_bright` in `turf_tile.gdshader` tint the world-XZ grass photo into the
 sward palette; lowered 2026-07-01 (Chris: straight-down mat too bright green) to `(0.72,0.98,0.60)`
