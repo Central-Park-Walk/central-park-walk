@@ -514,7 +514,7 @@ void fragment() {
 				// used, making tone_mult a pinned CONSTANT (a hidden darkener, zero
 				// clump variation). Centre on the texture's true linear mean instead;
 				// gain 2.0 ~= +-7% structured mottle (ref hp9/hp3 1.15-1.37).
-				float tone_mult = clamp(1.0 + (m_tone - 0.236) * 2.6, 0.84, 1.16);
+				float tone_mult = clamp(1.0 + (m_tone - 0.236) * 1.6, 0.84, 1.16);
 
 				vec3 pom_base = spectral_col;   // base sward colour (pre-relief) for the POM step
 			if (turf_baked_on > 0.5) {
