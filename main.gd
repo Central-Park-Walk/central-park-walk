@@ -123,8 +123,10 @@ const TURF_BLADES := 4000          # blades baked per tile (near density; far th
                                    # carries near coverage at this density.
 const TURF_THATCH := 600           # flattened dead-blade thatch streaks matting the ground
 const TURF_MAT_N  := 8             # ground-mat subdivisions (terrain conform)
-const TURF_BLADE_H := 0.16         # blade height (m); mown bluegrass lawn, not meadow
-const TURF_BLADE_W := 0.026        # blade base width (m); a touch wider = closes gaps
+const TURF_BLADE_H := 0.10         # blade height (m); mown KBG sod (~8-10cm standing, spec §3),
+                                   # not meadow. Ring A/B vs sodref: sod blades barely resolvable
+                                   # even at 1-2m — short + fine, not tall arching meadow grass.
+const TURF_BLADE_W := 0.020        # blade base width (m); fine KBG leaf, not a broad meadow blade
 # Long GRADUAL falloff so the dome edge dissolves (Chris: "easy to see where the dome ends"):
 # thin sooner (small near_full) but reach much farther (big radius), so density eases over a
 # long ramp and the outermost blades are already near-zero — no distinct edge.
@@ -3247,9 +3249,14 @@ func _make_turf_tile_mesh(blades: int, thatch: int, mat_n: int, periodic := fals
 		var bx := -bext + (float(gx) + rng.randf()) * gcell
 		var bz := -bext + (float(gy) + rng.randf()) * gcell
 		var ang := rng.randf() * TAU
-		var h := TURF_BLADE_H * rng.randf_range(0.7, 1.3)
+		# Mown lawn = fairly uniform height (spec §3: maintained zones ±10%); tighter than the
+		# old 0.7-1.3 meadow spread so no tall stragglers read as unmown.
+		var h := TURF_BLADE_H * rng.randf_range(0.78, 1.15)
 		var w := TURF_BLADE_W * rng.randf_range(0.8, 1.2)
-		var curve := rng.randf_range(0.4, 0.9)
+		# UPRIGHT. Mown KBG stands near-vertical with a slight lean; lean = h*curve, so the old
+		# 0.4-0.9 flopped a 0.21m blade up to 0.19m sideways (~45°) = the coarse arching "meadow"
+		# read in the sod A/B. 0.12-0.40 keeps blades standing, lean <= ~0.04m.
+		var curve := rng.randf_range(0.12, 0.40)
 		var vit := rng.randf_range(0.85, 1.08)
 		var base_c: Color
 		var tip_c: Color

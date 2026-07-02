@@ -31,7 +31,11 @@ uniform float density_curve = 2.2; // >1 = density drops FAST past near_full, lo
 // the detail of the density"): as keep(dist) culls blades, the SURVIVORS widen around their
 // own base (CUSTOM0.xy) by 1/keep so count*width — the covered area — stays constant. The
 // sward keeps its body all the way out; only the geometric detail (blade count) falls.
-uniform float grow_max = 3.0;      // widening cap; past keep=1/grow_max coverage tapers too
+uniform float grow_max = 1.5;      // widening cap; past keep=1/grow_max coverage tapers too.
+                                   // Lowered 3.0->1.5 for the MOWN-SOD target (2026-07-02 ring
+                                   // A/B vs sodref): 3x widening fattened mid-field survivors into
+                                   // chunky "paddles"; the sod is a smooth fine carpet past ~5m,
+                                   // carried by the baked sward, so blades thin out finer instead.
 // Diagnostic range rings (--diag-rings / R key) — same rings the terrain draws, painted on
 // the dome's blades + ground mat so the near rings aren't hidden under the turf.
 uniform float diag_rings = 0.0;

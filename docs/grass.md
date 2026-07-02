@@ -8,6 +8,24 @@ same commit.
 
 ## 0z. CURRENT ARCHITECTURE — dome + baked-sward terrain (2026-07-01, "reference composite")
 
+**Target pivot 2026-07-02 — MOWN SOD, matched ring-for-ring.** Chris: until a comparably
+useful *meadow* reference photo exists, the working target is the annotated KBG sod
+(`tmp/sodref_rings.png`), matched distance-band by distance-band via the diag range rings
+(`--diag-rings` / R). The sod is a *fine mown carpet*: blades barely resolvable even at
+1–2 m, smooth carpet by ~5 m, uniform beyond. So the dome blades were retuned from the old
+meadow scale to mown-lawn scale, and the meadow-era decimation *widening* was pulled down
+(it fattened mid-field survivors into chunky paddles — wrong for a smooth sod). Changes:
+`TURF_BLADE_H` 0.16→0.10 (mown ~8–10 cm, spec §3), `TURF_BLADE_W` 0.026→0.020 (fine leaf),
+blade `curve` 0.4–0.9→0.12–0.40 (UPRIGHT — old lean = h·curve flopped a 0.21 m blade up to
+0.19 m ≈ 45°, the coarse "meadow" read), height spread 0.7–1.3→0.78–1.15 (mown-uniform, no
+tall stragglers), `grow_max` 3.0→1.5 (turf_tile.gdshader — mid-field stays fine, the baked
+sward carries the carpet). Rebaked (blade shape changed → far carpet regenerated to match).
+Ring A/B: `tmp/ring_final.png` (eye, Chris's Great-Lawn vantage) + `tmp/ring_final_down.png`
+(straight down — dense continuous fine turf, no bald patches). **Detail/density profile now
+matches the sod; remaining gap = COLOUR/aerial (sod is lighter/hazier far, ours darker
+saturated at 6 PM) — deferred to Chris's GPU walk per the trust-screenshots rule.**
+
+
 Chris's target: `screenshots/reference composite.png` (a real meadow/lawn photo composited
 into a game screenshot) — ONE continuous field from feet to horizon, blade detail only
 falling off with distance. Direction: **good meadow everywhere first, cut lawn (mow
