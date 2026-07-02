@@ -99,46 +99,62 @@ void vertex(){
 	float alive = smoothstep(0.0, 0.28, keep - rank);
 	// Extra soft size-fade over the very rim so the last blades shrink out rather than pop.
 	float cover = alive * (1.0 - smoothstep(far_radius - far_fade, far_radius, dist));
-	// ALTITUDE FADE: from the air the 3D dome only hurts — black inter-blade gaps straight
-	// down, the terrain quilt revealed through its own thinning, and a dome that visibly
-	// follows the camera — while the terrain macro texture already reads as grass. So retire
-	// it with camera height above the tile's ground (also a GPU win when flying).
-	float cam_alt = player_world_pos.y - sample_terrain(base_xz);
-	cover *= 1.0 - smoothstep(alt_fade_lo, alt_fade_hi, cam_alt);
-	// LAND MASK: kill grass where the land isn't grass (water/pool) so the dome is tied to
-	// the land, not the camera. Collapses the blade/mat to nothing over water.
-	if (zone_no_grass(zone_at(approx_w))) cover = 0.0;
-	rot *= cover;
-	// Retire the ground MAT/THATCH (UV2.x=1) across the blade-thinning band by sinking
-	// it below the terrain: the terrain now shows the SAME baked sward (turf_baked_tex,
-	// scripts/bake_turf.gd), so the rim understory hands off to it instead of reading as
-	// sparse blades over the dark mat — the residual dark ring at the dome edge.
-	float mat_sink = smoothstep(near_full + 3.0, far_radius - far_fade, dist) * 0.35;
-	float y = VERTEX.y * cover - UV2.x * mat_sink;
 
-	// Wind: gentle coherent sway of the tip (bend from base). The wave PHASE runs along a
-	// FIXED axis (not the wind direction): phasing off the wandering wind dir × the absolute
-	// world position (±2 km in the park) made a tiny gust-wander snap the whole field's phase
-	// by radians = the "crazy wind" thrash. Wind now only sets AMPLITUDE (scaled by strength,
-	// capped so it never explodes) and the lean DIRECTION.
-	float wlen = length(wind_vec);
-	vec2  wdir = wlen > 0.001 ? wind_vec / wlen : vec2(0.7071, 0.7071);
-	float wstr = clamp(wlen * 1.6, 0.0, 1.0);                 // 0 calm .. 1 strong (capped)
-	float phase = TIME * 0.9 + dot(approx_w, vec2(0.7071, 0.7071)) * 0.35;   // stable spatial wave
-	float sway = sin(phase) * mix(0.008, 0.05, wstr);         // still in calm, fuller when windy
-	vec2  worldxz = base_xz + rot + wdir * (sway * up * up * cover);
+	if (cover <= 0.0) {
+		// DEAD-BLADE EARLY-OUT: rank-thinned blades were already degenerate (zero-area)
+		// but still paid 2x sample_terrain + the landuse fetch + wind per vertex — a
+		// large share of the dome's ~12M vertex invocations. Collapse straight to a
+		// point and skip all of it. The tile mesh is baked in RANK ORDER (main.gd
+		// _make_turf_tile_mesh) so dead blades are index-contiguous and whole warps
+		// take this path together. Constant position → correct (zero) motion vectors.
+		VERTEX = vec3(0.0, -1000.0, 0.0) - inst;
+		NORMAL = vec3(0.0, 1.0, 0.0);
+		v_col = vec3(0.0);
+		v_up = 0.0;
+		v_ground = 0.0;
+		v_wxz = vec2(0.0);
+	} else {
+		// ALTITUDE FADE: from the air the 3D dome only hurts — black inter-blade gaps straight
+		// down, the terrain quilt revealed through its own thinning, and a dome that visibly
+		// follows the camera — while the terrain macro texture already reads as grass. So retire
+		// it with camera height above the tile's ground (also a GPU win when flying).
+		float cam_alt = player_world_pos.y - sample_terrain(base_xz);
+		cover *= 1.0 - smoothstep(alt_fade_lo, alt_fade_hi, cam_alt);
+		// LAND MASK: kill grass where the land isn't grass (water/pool) so the dome is tied to
+		// the land, not the camera. Collapses the blade/mat to nothing over water.
+		if (zone_no_grass(zone_at(approx_w))) cover = 0.0;
+		rot *= cover;
+		// Retire the ground MAT/THATCH (UV2.x=1) across the blade-thinning band by sinking
+		// it below the terrain: the terrain now shows the SAME baked sward (turf_baked_tex,
+		// scripts/bake_turf.gd), so the rim understory hands off to it instead of reading as
+		// sparse blades over the dark mat — the residual dark ring at the dome edge.
+		float mat_sink = smoothstep(near_full + 3.0, far_radius - far_fade, dist) * 0.35;
+		float y = VERTEX.y * cover - UV2.x * mat_sink;
 
-	float H = sample_terrain(worldxz);
-	// Subtract the FIXED instance origin (not the snapped tile origin) so MODEL_MATRIX * VERTEX
-	// lands at the true world position while MODEL_MATRIX itself never changes.
-	VERTEX = vec3(worldxz.x, H + y, worldxz.y) - inst;
-	NORMAL = vec3(0.0, 1.0, 0.0);                 // up (lit as a soft mass; ramp is baked)
+		// Wind: gentle coherent sway of the tip (bend from base). The wave PHASE runs along a
+		// FIXED axis (not the wind direction): phasing off the wandering wind dir × the absolute
+		// world position (±2 km in the park) made a tiny gust-wander snap the whole field's phase
+		// by radians = the "crazy wind" thrash. Wind now only sets AMPLITUDE (scaled by strength,
+		// capped so it never explodes) and the lean DIRECTION.
+		float wlen = length(wind_vec);
+		vec2  wdir = wlen > 0.001 ? wind_vec / wlen : vec2(0.7071, 0.7071);
+		float wstr = clamp(wlen * 1.6, 0.0, 1.0);                 // 0 calm .. 1 strong (capped)
+		float phase = TIME * 0.9 + dot(approx_w, vec2(0.7071, 0.7071)) * 0.35;   // stable spatial wave
+		float sway = sin(phase) * mix(0.008, 0.05, wstr);         // still in calm, fuller when windy
+		vec2  worldxz = base_xz + rot + wdir * (sway * up * up * cover);
 
-	float tint = mix(0.90, 1.10, h21(floor(base_xz + 0.5) * 1.7 + 3.0));
-	v_col = COLOR.rgb * tint;
-	v_up  = up;
-	v_ground = UV2.x;
-	v_wxz = base_xz + rot_full;                   // true world XZ (stable under collapse)
+		float H = sample_terrain(worldxz);
+		// Subtract the FIXED instance origin (not the snapped tile origin) so MODEL_MATRIX * VERTEX
+		// lands at the true world position while MODEL_MATRIX itself never changes.
+		VERTEX = vec3(worldxz.x, H + y, worldxz.y) - inst;
+		NORMAL = vec3(0.0, 1.0, 0.0);                 // up (lit as a soft mass; ramp is baked)
+
+		float tint = mix(0.90, 1.10, h21(floor(base_xz + 0.5) * 1.7 + 3.0));
+		v_col = COLOR.rgb * tint;
+		v_up  = up;
+		v_ground = UV2.x;
+		v_wxz = base_xz + rot_full;                   // true world XZ (stable under collapse)
+	}
 }
 
 void fragment(){

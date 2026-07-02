@@ -3184,6 +3184,13 @@ func _make_turf_tile_mesh(blades: int, thatch: int, mat_n: int, periodic := fals
 	var wrap_m := 0.25
 	var gside := int(ceil(sqrt(float(blades))))
 	var gcell := (bext * 2.0) / float(gside)
+	# Blades are COLLECTED first and emitted SORTED BY RANK: the shader's density
+	# thinning collapses blades whose rank exceeds keep(dist), and with the mesh in
+	# rank order those dead blades occupy a contiguous vertex-index suffix — GPU
+	# warps hit the vertex-shader dead-blade early-out together instead of diverging
+	# blade-by-blade. Same rng call order as before → identical blades, identical
+	# look; only triangle order changes (invisible: opaque, depth-tested).
+	var blade_defs: Array = []
 	for i in gside * gside:
 		var gx := i % gside
 		var gy := i / gside
@@ -3227,9 +3234,12 @@ func _make_turf_tile_mesh(blades: int, thatch: int, mat_n: int, periodic := fals
 		# Stable LOD rank: a random subset survives each distance band, so far tiles
 		# thin uniformly (no clustering). Near (0-5m) keeps all; far keeps ~10%.
 		var rank := rng.randf()
-		for off in _periodic_offsets(bx, bz, bext, wrap_m, periodic):
-			_add_turf_blade(st, bx + off.x, bz + off.y, ang, h, w, curve,
-				base_c, tip_c, vit, rank)
+		blade_defs.append([rank, bx, bz, ang, h, w, curve, base_c, tip_c, vit])
+	blade_defs.sort_custom(func(a, b): return a[0] < b[0])
+	for bd: Array in blade_defs:
+		for off in _periodic_offsets(bd[1], bd[2], bext, wrap_m, periodic):
+			_add_turf_blade(st, bd[1] + off.x, bd[2] + off.y, bd[3], bd[4], bd[5],
+				bd[6], bd[7], bd[8], bd[9], bd[0])
 	# Ground thatch: matted flattened/dead blades beneath the standing sward so there
 	# are no bald patches and the "undergrass" reads as compressed turf, not soil/felt.
 	_add_turf_ground(st, rng, s, thatch, mat_n, periodic)
@@ -3445,6 +3455,11 @@ func _setup_turf_tiles() -> void:
 	mmi.name = "TurfTiles"
 	mmi.multimesh = mm
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Layer 8 = the terrain's reflection-exclusion layer: the planar water mirror
+	# (cull_mask=1) must NOT re-render the dome — blade VERTEX cost doesn't shrink
+	# with the mirror's 1/3 resolution, so reflected turf re-paid nearly the full
+	# ~12M-invocation bill every frame (measured ~7ms at Bethesda, 2026-07-01).
+	mmi.layers = 8
 	# Keep the dense blade mass OUT of SDFGI: as a GI occluder it sky-occludes its own
 	# canopy gaps, darkening the whole near field ("dark centre" — albedo lifts barely
 	# moved it because the dark pixels are occluded GAPS, not blade faces). The terrain
