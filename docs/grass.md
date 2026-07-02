@@ -44,8 +44,22 @@ hundred metres, so nothing may ramp fast near the rim):
   baked tone over ~200 m; `turf_baked_ao` (0.72, measured) is the overall flat-ground
   vs self-shadowing-canopy parity.
 
-Measured at the standard eye view (tmp/baked_eye5.png): beyond the rim the field
-plateaus at luma 117–134 (reference band 115–131), no fast ramp anywhere.
+Round 2 (Chris's walk: centre less dark, transition 50–150 m, walking "catch-up"):
+
+- the turf MMI is OUT of SDFGI (`gi_mode = GI_MODE_DISABLED`) — the dark centre is
+  ambient-occluded canopy GAPS, not blade albedo (albedo lifts barely measured);
+- grazing albedo lifts anyway: blade base→tip lerp 0.55, mat/thatch lifted,
+  `mat_bright` 0.52 in turf_tile AND turf_bake (sync!), rebaked;
+- grade = `mix(0.62, 1.0, smoothstep(50, 150, cam_dist))` — the far field sits on
+  the tonemapper SHOULDER, where albedo multipliers compress to almost nothing, so
+  cuts must be deep to read;
+- graze-aware LOD (`blod` divides by N·V) — `textureLod` has no anisotropy, and the
+  undersampled grazing far field shimmered under FSR2 and periodically snapped into
+  focus = the walking "catch-up".
+
+Measured at the standard eye view (tmp/baked_eye8.png): rim-outward the field is
+FLAT at luma 119–126 (reference band 115–131); the dome interior ramps 88→119 with
+the GI fix expected to lift it further under real (GPU) SDFGI.
 
 **Rebake whenever the dome changes** (palette, density, blade shape, mat texture):
 run the bake_turf.gd command in its header, then `--import`. If dome and terrain drift
