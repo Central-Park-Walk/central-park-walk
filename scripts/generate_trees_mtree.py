@@ -523,6 +523,153 @@ def enforce_min_twig_diameter(obj, min_diam_m, actual_h):
             "skipped_junction": skipped_junction}
 
 
+def stitch_bark_islands(obj, actual_h, tol_u=0.006, min_twig_m=0.0,
+                        stray_max_verts=30, verbose=True):
+    """Fuse Mtree's branch tubes at their junctions so no branch (or the leaf card
+    riding it) floats detached from the tree.
+
+    ROOT CAUSE (user 2026-07-02, all six london_plane tiers): the ManifoldMesher
+    emits every branch as a SEPARATE tube that only geometrically OVERLAPS its
+    parent — no shared verts. clean_degenerate_geometry's 5 mm remove_doubles
+    fuses the tightest overlaps into one mesh ISLAND, but where a child tube's
+    base sits ~1-5 cm from its parent it welds only a vertex or two → the branch
+    is topologically connected yet a visible SURFACE GAP remains and it reads as
+    floating near the limb. A handful of twigs (esp. on saplings) generate fully
+    detached, up to ~0.8 m off. Both were hidden under v1's dense canopy; v2's
+    airier crown exposes them.
+
+    FIX, in bark-only REAL-METRE space (mesh built at actual_h, normalised to
+    MODEL_H later), run AFTER enforce_min_twig_diameter (thicker twigs overlap
+    more) and BEFORE foliage placement (a card can then only anchor to trunk-wood):
+      A. CROSS-STEM WELD — snap each vert onto its nearest vert on a DIFFERENT
+         BRANCH within `tol`, but only when it is the THINNER (child) side (radius
+         <, index tie-break) so the child base collapses onto the parent surface
+         and the trunk/limb never moves. "Different branch" = different Mtree
+         `stem_id` (falls back to mesh island if the attribute is absent) — this
+         is the key: it closes the child-base-to-parent gap even when the two are
+         ALREADY one mesh island via a stray point-weld (which an island test
+         misses). Same-branch pairs are never touched, so twig ring cross-sections
+         survive (a blind remove_doubles at this tol pinches every twig — ring
+         spacing is ~1.4 cm). remove_doubles(1e-5) then fuses the coincident verts.
+      B. DELETE STRAYS — any mesh island still unconnected to the main structure
+         and small (≤ stray_max_verts) is a generation stray; drop it (a bigger
+         orphan is kept + logged, never silently deleted).
+
+    tol_u is in MODEL_H(5u) units (scales with tree height); ~0.006u closes the
+    measured junction gaps while staying under the ~0.01u ceiling that would start
+    bridging genuinely separate branches. Preserves the Mtree per-vertex attributes
+    foliage placement reads (bmesh keeps point-attribute layers through the round-trip).
+    """
+    import mathutils
+    # tol in real metres: the height-scaled value, but never below one twig
+    # DIAMETER — if a child base sits closer to its parent than a twig is thick,
+    # they should read as touching, so weld them. This floor is what lets small
+    # trees (whose height-scaled tol is tiny, e.g. 1.2 cm on a 10 m sapling)
+    # close their proportionally-larger junction gaps.
+    tol = max(tol_u * actual_h / MODEL_H, min_twig_m)
+    mesh = obj.data
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bm.verts.ensure_lookup_table()
+    n0 = len(bm.verts)
+    if n0 == 0:
+        bm.free()
+        return {"welded": 0, "strays_deleted": 0, "islands_before": 0, "islands_after": 0}
+    radius_layer = bm.verts.layers.float.get("radius")
+    stem_layer = (bm.verts.layers.int.get("stem_id")
+                  or bm.verts.layers.float.get("stem_id"))
+
+    # --- island id per vertex (union-find over mesh edges) ---
+    def _islands():
+        parent = list(range(len(bm.verts)))
+        def find(a):
+            while parent[a] != a:
+                parent[a] = parent[parent[a]]
+                a = parent[a]
+            return a
+        for e in bm.edges:
+            ra, rb = find(e.verts[0].index), find(e.verts[1].index)
+            if ra != rb:
+                parent[ra] = rb
+        return [find(i) for i in range(len(bm.verts))]
+
+    island = _islands()
+    islands_before = len(set(island))
+    # "branch" key for the weld: prefer Mtree stem_id (a logical branch, catches
+    # gaps inside one mesh island), else fall back to the mesh island.
+    if stem_layer is not None:
+        branch = [int(round(v[stem_layer])) for v in bm.verts]
+        stem_based = True
+    else:
+        branch = island
+        stem_based = False
+
+    # --- A. cross-branch weld: snap the thinner (child) side onto the thicker ---
+    kd = mathutils.kdtree.KDTree(len(bm.verts))
+    for i, v in enumerate(bm.verts):
+        kd.insert(v.co, i)
+    kd.balance()
+    snap_to = {}   # vert index → target co (all reads are pre-write = original coords)
+    for v in bm.verts:
+        my = branch[v.index]
+        best_idx, best_d = -1, tol
+        for (_co, idx, d) in kd.find_range(v.co, tol):
+            if idx == v.index or branch[idx] == my:
+                continue
+            if d < best_d:
+                best_d, best_idx = d, idx
+        if best_idx < 0:
+            continue
+        rv = v[radius_layer] if radius_layer else 0.0
+        ru = bm.verts[best_idx][radius_layer] if radius_layer else 0.0
+        # weld the thinner (child) vert onto the thicker (parent); index tie-break
+        if rv < ru or (rv == ru and v.index > best_idx):
+            snap_to[v.index] = bm.verts[best_idx].co.copy()
+    for i, co in snap_to.items():
+        bm.verts[i].co = co
+    welded = len(snap_to)
+    if welded:
+        bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-5)
+        bm.verts.ensure_lookup_table()
+
+    # --- B. delete small strays still unconnected to the main structure ---
+    island = _islands()
+    islands_after_weld = len(set(island))
+    counts = {}
+    for lab in island:
+        counts[lab] = counts.get(lab, 0) + 1
+    root = max(counts, key=counts.get)     # largest island = trunk + all welded branches
+    stray_verts, kept_orphans = [], 0
+    for lab, c in counts.items():
+        if lab == root:
+            continue
+        if c <= stray_max_verts:
+            stray_verts.extend(v for v in bm.verts if island[v.index] == lab)
+        else:
+            kept_orphans += 1
+    strays_deleted = 0
+    if stray_verts:
+        strays_deleted = len(stray_verts)
+        bmesh.ops.delete(bm, geom=stray_verts, context='VERTS')
+
+    bm.to_mesh(mesh)
+    bm.free()
+    mesh.update()
+    islands_after = islands_after_weld - (len([1 for lab, c in counts.items()
+                                               if lab != root and c <= stray_max_verts]))
+    if verbose and (welded or strays_deleted):
+        note = (f"    Bark stitch ({'stem' if stem_based else 'island'}-based): "
+                f"welded {welded} junction verts, deleted "
+                f"{strays_deleted} stray-island verts "
+                f"(islands {islands_before}→~{max(1, islands_after)}"
+                + (f", {kept_orphans} large orphans KEPT+flagged" if kept_orphans else "")
+                + f"; tol {tol*100:.1f}cm) — fuses ManifoldMesher's separate tubes so "
+                "no branch/card floats off the trunk")
+        print(note)
+    return {"welded": welded, "strays_deleted": strays_deleted,
+            "islands_before": islands_before, "kept_orphans": kept_orphans}
+
+
 # ===========================================================================
 # SPECIES CONFIGURATIONS
 # ===========================================================================
@@ -4142,6 +4289,11 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
             # round-trip (custom point-attribute layers are preserved).
             clean_degenerate_geometry(trunk_obj)
             _twig_stats = enforce_min_twig_diameter(trunk_obj, _twig_d, actual_h)
+            # Fuse the ManifoldMesher's separate branch tubes at their junctions +
+            # drop stray fragments, so no branch (or the card that would ride it)
+            # floats detached (user 2026-07-02). AFTER the min-twig floor (thicker
+            # twigs overlap more) and BEFORE foliage (cards anchor to trunk-wood).
+            _stitch_stats = stitch_bark_islands(trunk_obj, actual_h, min_twig_m=_twig_d)
             placements = None
             if sp_variant.get("card_leaf_rule"):
                 # THE LEAF RULE on cards: deterministic tip-weighted per-branch
