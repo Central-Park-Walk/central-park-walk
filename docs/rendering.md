@@ -224,6 +224,48 @@ lod0 trees — keeps the self-shadow-consistency that fixed the flip, cuts casca
 raster; needs care with the LOD-dither shadow pass), or revisiting proxies with
 leaf shadow-receive disabled. A tree-pipeline session, not a knob.
 
+### 3h. Cherry Hill water report — mirror attribution + motion-aware idle rate (2026-07-02, commit a1590ea)
+
+Chris (screenshots cpw_003/4): standing at Cherry Hill (-552, 959), facing the
+Lake 40 fps, turned away 87. Bisect at that pose (yaw −62.6, `--time=16`,
+stationary, reports 20260702_051711 / 052439):
+
+| config | ms (fps) | reading |
+|---|---|---|
+| no-reflection | 13.7 (73) | ceiling; deltas below are within one warm batch |
+| idle-staged (shipped default) | 14.7 (68) | mirror ~1.0 residual (every-4th-frame render) |
+| full-rate mirror (old behaviour) | 15.9 (63) | mirror ~2.2 at the shore |
+| shadows off (earlier batch) | mrgpu 3.0→1.6 | **~half the mirror is its own directional-cascade re-render** — cascades refit per camera; Godot 4.6 has no per-viewport shadow disable, so this share only yields via update rate |
+
+New attribution (permanent): `[PERF]` prints `mrgpu/mrtri/mrshtri` via
+`viewport_set_measure_render_time` on the mirror SubViewport (its GPU time is
+invisible to the main viewport's numbers, §3f — this closes that hole for good);
+the F9 HUD shows a "Water mirror: X ms GPU, Y tris, 1/N rate" line;
+`perf_bisect.sh` reports `mrgpu/mrtri` columns.
+
+**Motion-aware idle rate (shipped):** if the camera has drifted < 2 cm / 0.03°
+since the mirror's LAST RENDER, interval = max(distance-staged, 4). Motion
+restores the staged cadence the same frame (shore = renders that frame, no stale
+first look). Drift is measured against the last-render pose, not per-frame
+deltas, so slow pans accumulate to the threshold instead of slipping under an
+epsilon forever. Wave distortion runs in water.gdshader at full rate — only tree
+sway and cloud drift update at ~15 Hz in the mirrored image. A/B water crops
+pixel-identical (tmp/refl_{idle,full}_ab.png).
+
+Flags: `--refl-full-rate` (diag: defeat idle staging — the moving-at-shore worst
+case), `--refl-half-rate` (walk experiment: doubles staged intervals, shore
+renders every 2nd frame while moving, worth another ~1.1 ms — promote to default
+if reflection lag is invisible on a Lake-shore walk).
+
+⚠ Protocol notes: (1) stationary gate/bisect runs now measure the IDLE-rate
+mirror; use `--refl-full-rate` to measure the moving case. (2) Cross-batch fps
+comparisons drift several fps (first run of a cold session reads low — shader/
+pipeline caches); trust within-batch deltas. (3) A `--pos` spawn at cherry_lake
+renders far fewer trees than Chris's walked-in session (his 16.6M HUD triangles
+vs ~8M global here; the Lake-shore tree field is visibly missing) — absolute ms
+at this location understate the live-session load, mirror included. The HUD
+mirror line reads the truth in-session.
+
 ## 4. The frame budget (binding)
 
 GPU ms at 1080p, measured at the worst of the 5 locations. A subsystem over its line is a regression even if total fps passes (headroom is for weather/seasons, not for spending). Per `architecture.md` §9, new subsystems must name their budget line.
@@ -241,7 +283,7 @@ GPU ms at 1080p, measured at the worst of the 5 locations. A subsystem over its 
 | undergrowth + ground cover | 0.5 | <1 | ok |
 | post (SSAO, SSIL, glow, TAA, tonemap) | 1.5 | ~1 (TAA untested) | ok? |
 | water, weather particles, misc | 0.6 | <1 | ok |
-| water planar reflection (near water only; staged rate + >250 m sleep, §3g) | 1.5 | ~2 at the shore, ~1 at range | ok (accepted) |
+| water planar reflection (near water only; staged rate + >250 m sleep §3g; idle rate §3h) | 1.5 | ~2.2 at the shore moving, ~1.0 standing (idle-staged) | ok (accepted; `--refl-half-rate` walk-pending for the moving case) |
 | **total** | **16.6** | 14.2–16.6 at 4 locations; ~19.5 literary_walk | |
 
 CPU is not currently binding (`vpcpu` ~9 ms peak, GDScript <1 ms) but inherits the same 16.6 ms ceiling.
