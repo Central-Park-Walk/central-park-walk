@@ -278,6 +278,14 @@ func update_perf(delta: float, prof: Dictionary = {}) -> void:
 		if prof.has("gc_chunks"):
 			text += "GroundCover: %d chunks, %d queued\n" % [
 				int(prof["gc_chunks"]), int(prof.get("gc_queue", 0))]
+		# Water-mirror SubViewport: GPU ms + total raster (visible+shadow passes).
+		# This cost hides inside "unaccounted" — it never shows in the main
+		# viewport's render numbers (rendering.md §3f).
+		if prof.has("mirror_gpu_ms"):
+			var mi := int(prof.get("mirror_interval", 1))
+			var rate_str := "asleep" if mi == 0 else "1/%d rate" % mi
+			text += "Water mirror: %.1f ms GPU, %.1fM tris, %s\n" % [
+				prof["mirror_gpu_ms"], prof["mirror_tri"] / 1_000_000.0, rate_str]
 
 	_perf_label.text = text
 

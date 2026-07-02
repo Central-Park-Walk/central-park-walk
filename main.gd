@@ -1344,11 +1344,26 @@ func _process(delta: float) -> void:
 		var sh_p := RenderingServer.viewport_get_render_info(vp_rid,
 			RenderingServer.VIEWPORT_RENDER_INFO_TYPE_SHADOW,
 			RenderingServer.VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME)
-		print("[PERF] fps=%d process=%.1f pmax=%.1f pspk=%d dmax=%.1f dspk=%d physics=%.1f sub=%.2f unacc=%.1f vpcpu=%.1f vpgpu=%.1f vistri=%d shobj=%d shtri=%d overlay=%s" % [
+		# Water-mirror SubViewport attribution (0 when off/asleep) — §3f: its GPU
+		# time never shows in vpgpu, only here and inside `process`.
+		var mrgpu_ms := 0.0
+		var mr_p := 0
+		var mrsh_p := 0
+		if _water_reflection != null:
+			var mr_rid: RID = _water_reflection.get_viewport_rid()
+			mrgpu_ms = RenderingServer.viewport_get_measured_render_time_gpu(mr_rid)
+			mr_p = RenderingServer.viewport_get_render_info(mr_rid,
+				RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE,
+				RenderingServer.VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME)
+			mrsh_p = RenderingServer.viewport_get_render_info(mr_rid,
+				RenderingServer.VIEWPORT_RENDER_INFO_TYPE_SHADOW,
+				RenderingServer.VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME)
+		print("[PERF] fps=%d process=%.1f pmax=%.1f pspk=%d dmax=%.1f dspk=%d physics=%.1f sub=%.2f unacc=%.1f vpcpu=%.1f vpgpu=%.1f vistri=%d shobj=%d shtri=%d mrgpu=%.1f mrtri=%d mrshtri=%d overlay=%s" % [
 			int(fps), p_ms, _pf_window_max_ms, _pf_window_spikes,
 			_df_window_max_ms, _df_window_spikes, phy_ms,
 			sub_us / 1000.0, p_ms - sub_us / 1000.0,
 			vpcpu_ms, vpgpu_ms, vis_p, sh_o, sh_p,
+			mrgpu_ms, mr_p, mrsh_p,
 			"ON" if _hud.perf_visible else "OFF"])
 		_pf_window_max_ms = 0.0
 		_pf_window_spikes = 0
@@ -1396,6 +1411,18 @@ func _get_prof_data() -> Dictionary:
 		var gb = _park_loader._ground_cover_builder
 		data["gc_chunks"] = gb._active_chunks.size()
 		data["gc_queue"] = gb._build_queue.size()
+	# Water-mirror SubViewport cost (GPU ms + raster load) — hidden from the main
+	# viewport's numbers (rendering.md §3f), so surface it explicitly.
+	if _water_reflection != null:
+		var mr_rid: RID = _water_reflection.get_viewport_rid()
+		data["mirror_gpu_ms"] = RenderingServer.viewport_get_measured_render_time_gpu(mr_rid)
+		data["mirror_tri"] = RenderingServer.viewport_get_render_info(mr_rid,
+			RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE,
+			RenderingServer.VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME) \
+			+ RenderingServer.viewport_get_render_info(mr_rid,
+			RenderingServer.VIEWPORT_RENDER_INFO_TYPE_SHADOW,
+			RenderingServer.VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME)
+		data["mirror_interval"] = _water_reflection.current_interval
 	return data
 
 
@@ -4023,8 +4050,21 @@ func _setup_water_reflection() -> void:
 	_water_reflection.main_viewport = get_viewport()
 	if "--refl-dump" in OS.get_cmdline_user_args():
 		_water_reflection._dump_frame = 240
+	# A/B diag: hold the mirror at the distance-staged rate even when the camera
+	# is still (defeats the motion-aware idle staging).
+	if "--refl-full-rate" in OS.get_cmdline_user_args():
+		_water_reflection.full_rate = true
+	# Walk experiment: double the staged intervals (shore renders every 2nd
+	# frame while moving). Promote to default if reflection lag is invisible
+	# on a shore walk — saves ~1.4ms at the Lake edge.
+	if "--refl-half-rate" in OS.get_cmdline_user_args():
+		_water_reflection.half_rate = true
 	add_child(_water_reflection)
 	_water_reflection.setup(_env)
+	# Attribute the mirror directly in [PERF] (mrgpu/mrtri) — its cost is invisible
+	# to the main viewport's measured render time (rendering.md §3f).
+	RenderingServer.viewport_set_measure_render_time(
+		_water_reflection.get_viewport_rid(), true)
 	var refl_tex: ViewportTexture = _water_reflection.get_texture()
 	var refl_debug := "--refl-debug" in OS.get_cmdline_user_args()
 	for wm in _park_loader.water_materials:

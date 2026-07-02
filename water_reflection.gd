@@ -35,8 +35,21 @@ const SLEEP_DIST := 250.0      # no water within this range → stop rendering
 # just sparser, and the cadence steps at distance bands.
 const RATE_FULL_DIST := 60.0   # every frame within this body distance
 const RATE_HALF_DIST := 140.0  # every 2nd frame out to here; every 4th beyond
+# Motion-aware idle rate (2026-07-02, Cherry Hill 40fps report): a still camera
+# doesn't need a 60Hz mirror — the wave distortion that sells water motion runs
+# in water.gdshader at full rate; only tree sway and cloud drift change in the
+# mirrored image, and those read fine at ~15Hz. Movement is detected as drift
+# since the LAST RENDER (not per-frame deltas), so slow pans accumulate to the
+# threshold and re-render instead of slipping under an epsilon forever.
+const IDLE_INTERVAL := 4       # camera still since last render → every 4th frame
+const IDLE_POS_EPS := 0.02     # m of camera travel that counts as motion
+const IDLE_ROT_EPS := 0.0006   # rad (~0.03° — sub-pixel at 1/3-res mirror)
 
 var _body_dist := 0.0          # distance to nearest water body (m)
+var current_interval := 1      # frames between mirror renders (HUD readout)
+var full_rate := false         # --refl-full-rate: disable idle staging (A/B diag)
+var half_rate := false         # --refl-half-rate: double staged intervals (walk experiment)
+var _last_render_xform := Transform3D()
 
 
 func _init() -> void:
@@ -88,14 +101,29 @@ func _process(_dt: float) -> void:
 	if _body_dist > SLEEP_DIST:
 		if render_target_update_mode != SubViewport.UPDATE_DISABLED:
 			render_target_update_mode = SubViewport.UPDATE_DISABLED
+		current_interval = 0
 		return
 	var interval := 1
 	if _body_dist > RATE_HALF_DIST:
 		interval = 4
 	elif _body_dist > RATE_FULL_DIST:
 		interval = 2
+	if half_rate:
+		interval *= 2
+	# Idle: camera hasn't drifted past epsilon since the last render → sparser
+	# updates. Any real motion restores the distance-staged cadence at once
+	# (at the shore that means this very frame, interval 1).
+	var cam_t := main_cam.global_transform
+	var moved: bool = (
+		cam_t.origin.distance_to(_last_render_xform.origin) > IDLE_POS_EPS
+		or cam_t.basis.get_rotation_quaternion().angle_to(
+			_last_render_xform.basis.get_rotation_quaternion()) > IDLE_ROT_EPS)
+	if not moved and not full_rate:
+		interval = maxi(interval, IDLE_INTERVAL)
+	current_interval = interval
 	if _frame % interval == 0:
 		render_target_update_mode = SubViewport.UPDATE_ONCE
+		_last_render_xform = cam_t
 
 	# Mirror the camera about the horizontal plane y = _plane_y.
 	var t := main_cam.global_transform
