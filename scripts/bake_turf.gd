@@ -14,7 +14,8 @@
 ##   xvfb-run -a -s "-screen 0 1920x1080x24" \
 ##     "$GODOT" --path . --rendering-driver vulkan --audio-driver Dummy \
 ##     -s res://scripts/bake_turf.gd
-## Then reimport so the runtime can load it:  "$GODOT" --path . --import --headless
+##   python3 scripts/height_to_normal.py     # normal map FROM the height pass
+##   "$GODOT" --path . --import --headless   # reimport all three PNGs
 extends SceneTree
 
 const OUT_PATH := "res://textures/grass_turf_baked.png"

@@ -564,6 +564,15 @@ func _ready() -> void:
 				_set_terrain_param("turf_pom_on", 1.0)
 			else:
 				push_warning("grass_turf_height.png missing — sward POM off (run --bake-turf)")
+			# Normal map derived from the height field (scripts/height_to_normal.py):
+			# the sward's light response (raking light, ambient relief in shadow).
+			var turf_n: Texture2D = load("res://textures/grass_turf_normal.png") \
+				if ResourceLoader.exists("res://textures/grass_turf_normal.png") else null
+			if turf_n:
+				_set_terrain_param("turf_baked_nrm", turf_n)
+				_set_terrain_param("turf_nrm_on", 1.0)
+			else:
+				push_warning("grass_turf_normal.png missing — sward relief shading off")
 		else:
 			push_warning("grass_turf_baked.png missing — terrain uses the legacy spectral sward")
 		print("main: canopy map: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()

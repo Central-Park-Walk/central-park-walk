@@ -100,6 +100,11 @@ uniform float turf_baked_on = 0.0;
 // Height field baked alongside the albedo (bake_turf.gd pass 2) — POM for the
 // terrain-only grass: the near sward gets real parallax depth without geometry.
 uniform sampler2D turf_height_tex : filter_linear_mipmap, repeat_enable;
+// Normal map derived FROM the height field (scripts/height_to_normal.py) — the
+// sward's light response: raking-light micro-shadowing at distance, ambient
+// relief in shadow (albedo-only strokes go flat when direct sun leaves them).
+uniform sampler2D turf_baked_nrm : filter_linear_mipmap_anisotropic, repeat_enable;
+uniform float turf_nrm_on = 0.0;
 uniform float turf_pom_on = 0.0;
 uniform float turf_pom_depth = 0.09;   // world metres of parallax at full effect
 // Lighting parity: a flat sunlit ground plane renders brighter than the self-shadowing
@@ -517,6 +522,8 @@ void fragment() {
 				float tone_mult = clamp(1.0 + (m_tone - 0.236) * 1.6, 0.84, 1.16);
 
 				vec3 pom_base = spectral_col;   // base sward colour (pre-relief) for the POM step
+			vec3 sward_nrm = vec3(0.0, 0.0, 1.0);   // blade-scale relief (baked sward path)
+			float sward_nrm_w = 0.0;
 			if (turf_baked_on > 0.5) {
 				// --- BAKED SWARD: the far field IS the dome's material (bake_turf.gd) ---
 				// Explicit smooth LOD for the same reason as the macro above: the clipmap
@@ -605,6 +612,16 @@ void fragment() {
 					+ bw.z * textureLod(turf_baked_tex, buv + h3, blod).rgb;
 				vec3 smean = textureLod(turf_baked_tex, buv, blod + 3.0).rgb;
 				sward = smean + (sward - smean) / max(length(bw), 0.62);
+				// Sward normal: same bombed uvs + blod as the albedo (and buv already
+				// carries the POM offset), so relief, strokes and parallax all agree.
+				if (turf_nrm_on > 0.5) {
+					vec3 sn =
+						  bw.x * (textureLod(turf_baked_nrm, buv + h1, blod).xyz * 2.0 - 1.0)
+						+ bw.y * (textureLod(turf_baked_nrm, buv + h2, blod).xyz * 2.0 - 1.0)
+						+ bw.z * (textureLod(turf_baked_nrm, buv + h3, blod).xyz * 2.0 - 1.0);
+					sward_nrm = normalize(sn);
+					sward_nrm_w = 1.0;
+				}
 				// NEAR STROKE RESOLVE (2026-07-02, terrain-only): in the reference
 				// composite the near field is the same speckle RESOLVING into thin
 				// strokes — measured hp3 ramps 19 -> 16 -> 12 -> 9 over 0-25 m while
@@ -713,7 +730,12 @@ void fragment() {
 				// Blend the coarse relief normal over the fine grass normal, stronger at
 				// distance, so grass clumps catch light from any vantage (the 3D from above).
 				vec3 base_n = NORMAL_MAP * 2.0 - 1.0;
-				NORMAL_MAP = normalize(mix(base_n, m_nrm, macro_w * 0.85)) * 0.5 + 0.5;
+				// Blade-scale sward relief first (baked path), then the coarse clump
+				// normal on top — at reduced weight when the sward normal exists, so
+				// the 12 m tier stops owning ALL the light response.
+				base_n = mix(base_n, sward_nrm, sward_nrm_w * 0.85);
+				NORMAL_MAP = normalize(mix(base_n, m_nrm,
+					macro_w * mix(0.85, 0.45, sward_nrm_w))) * 0.5 + 0.5;
 				// Strong blade relief so the flat ground reads as 3D grass under light
 				// (single-texture grass: the normal IS what makes it look like blades).
 				NORMAL_MAP_DEPTH = max(NORMAL_MAP_DEPTH, 3.5);
