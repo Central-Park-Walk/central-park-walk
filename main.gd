@@ -3262,6 +3262,12 @@ func _make_turf_tile_mesh(blades: int, thatch: int, mat_n: int, periodic := fals
 	# Ground thatch: matted flattened/dead blades beneath the standing sward so there
 	# are no bald patches and the "undergrass" reads as compressed turf, not soil/felt.
 	_add_turf_ground(st, rng, s, thatch, mat_n, periodic)
+	# Index the soup: each blade emits 18 vertices for 6 tris but only ~8 are unique
+	# (segment edges repeat bit-identical attributes). Deduplicating lets the GPU's
+	# post-transform cache skip ~55% of vertex-shader invocations — the dome is
+	# vertex-bound (sweep 20260701_232042: cost linear in blades, flat in resolution)
+	# so this is a large win with literally identical geometry.
+	st.index()
 	return st.commit()
 
 
