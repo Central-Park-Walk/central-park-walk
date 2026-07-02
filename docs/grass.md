@@ -61,6 +61,12 @@ Measured at the standard eye view (tmp/baked_eye8.png): rim-outward the field is
 FLAT at luma 119–126 (reference band 115–131); the dome interior ramps 88→119 with
 the GI fix expected to lift it further under real (GPU) SDFGI.
 
+The dome's own understory (mat + thatch) samples the SAME bake, world-aligned at the
+terrain's 0.5 repeats/m (neutral tint, `mat_bright` 0.50 ≈ the near-terrain grade) —
+between-blades ground is pixel-identical to past-the-rim ground. Rebakes feed the
+previous bake back in as the mat source (fixpoint; converges). `grass_albedo.jpg` is
+only the no-bake fallback.
+
 **Rebake whenever the dome changes** (palette, density, blade shape, mat texture):
 run the bake_turf.gd command in its header, then `--import`. If dome and terrain drift
 apart again, the first suspect is a stale bake.
