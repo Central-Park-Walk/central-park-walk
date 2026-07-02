@@ -31,11 +31,15 @@ void vertex(){
 }
 
 void fragment(){
-	vec3 alb = v_col;
-	if (v_ground > 0.5) {
-		vec3 tex = texture(mat_tex, v_wxz * mat_tex_scale).rgb;
-		float qbright = clamp(v_col.g * 3.2, 0.5, 1.3);   // per-quad brightness var
-		alb = tex * mat_tint * (mat_bright * qbright);
-	}
-	ALBEDO = alb;
+	// GROUND = VERTEX COLOURS (2026-07-02): the mat quads + thatch streaks carry a
+	// complete designed colour scheme in the mesh (main.gd _add_turf_ground /
+	// _thatch_color). Baking them directly makes the bake DETERMINISTIC from the
+	// mesh alone — the old photo-texture floor (and before it the fixpoint
+	// previous-bake floor, which drifted ~4% darker per rebake with the short
+	// mown blades) both hung the bake's level on an external/moving source.
+	// Runtime consistency is one-way: the dome's mat samples THIS bake (main.gd
+	// wires mat_tint 1,1,1 / mat_bright 0.50 ~= the terrain's turf_baked_ao x
+	// grade), so floor and far carpet still match by construction.
+	// mat_tex/mat_tint/mat_bright uniforms kept so old bake scripts don't error.
+	ALBEDO = v_col;
 }

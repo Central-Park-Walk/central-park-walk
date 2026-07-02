@@ -492,7 +492,13 @@ void fragment() {
 				vec3  m_nrm  = normalize((textureLod(grass_macro_nrm, muv1, mlod).xyz * 2.0 - 1.0)
 					+ (textureLod(grass_macro_nrm, muv2, mlod).xyz * 2.0 - 1.0));
 				float macro_w = clamp(0.25 + smoothstep(6.0, 40.0, cam_dist) * 0.75, 0.0, 1.0);
-				float tone_mult = clamp(m_tone / 0.5, 0.72, 1.15);   // tonal clump variation (single-texture: less flat)
+				// DEVIATION-centred clump tone (2026-07-02): grass_macro_tex is
+				// source_color, so its sRGB mean 0.518 arrives LINEAR ~0.236 — the old
+				// m_tone/0.5 (~0.47+-0.07) sat entirely BELOW every clamp floor ever
+				// used, making tone_mult a pinned CONSTANT (a hidden darkener, zero
+				// clump variation). Centre on the texture's true linear mean instead;
+				// gain 2.0 ~= +-7% structured mottle (ref hp9/hp3 1.15-1.37).
+				float tone_mult = clamp(1.0 + (m_tone - 0.236) * 2.6, 0.84, 1.16);
 
 				vec3 pom_base = spectral_col;   // base sward colour (pre-relief) for the POM step
 			if (turf_baked_on > 0.5) {
@@ -523,9 +529,42 @@ void fragment() {
 				// 0.62: the far field sits on the tonemapper's SHOULDER, where albedo
 				// multipliers compress to small luma changes (0.88->0.80 moved the
 				// measured band by ~1) — the cut must be deep to read at all.
-				sward *= mix(0.62, 1.0, smoothstep(50.0, 150.0, cam_dist));
+				// FLAT grade (2026-07-02 ring-band match, rings-calibrated bands): the sod
+				// ref's mean is FLAT near->far (125->145, +16% — haze supplies the rise).
+				// The old 0.62->1.0 release over 50-150 m brightened where the ref doesn't.
+				// Level 0.68: ring-calibrated bands measured the carpet at ~104 luma vs the
+				// dome's ~112 (ref: both ~140) — 0.62 overdamped the NEW mown-sod bake;
+				// 0.68 lands the carpet AT the dome's level so the field is one flat tone.
+				// (Absolute level vs ref is a GPU-walk call — headless has no real SDFGI,
+				// which lifts both dome and terrain together.)
+				// Near end eases DOWN to the dome's tone (ring_noon6: terrain 152 vs dome
+				// 128 at the 10-15 m rim = an inverted bright ring); the far end lands the
+				// carpet at the ref's flat level relative to the dome. Levels fold in the
+				// old pinned-constant tone/fine multipliers (0.80 x 0.85 ~= 0.68) that the
+				// deviation-centred modulators above/below no longer apply.
+				sward *= mix(0.41, 0.46, smoothstep(10.0, 40.0, cam_dist));
 				sward *= mix(1.0, tone_mult, macro_w);  // macro clump tone: distance texture
 				                                        // + breaks the bake's 2 m repeat
+				// FINE GRAIN (2026-07-02): the ref is never a smooth carpet — blade-scale
+				// contrast decays x~0.7 per band but never dies (hp3 17->9.5->7.4 at
+				// 10-15/25-50/50-100 m). Once the bake mips out (~10 m) nothing carried
+				// that octave. Third macro tap at ~1.3 m world scale (mipmapped texture =
+				// stable under minification; graze-compensated like blod so it fades
+				// rather than shimmers at long grazing range).
+				// Slow mip growth + low cap: with the blod-style graze division the tap
+				// pinned at mip 4 where the texture is flat — the grain never survived
+				// to the carpet (hp3 stayed ~5 for any clamp range). Mild graze comp
+				// (sqrt) keeps far-grazing stable without erasing the mid-band detail.
+				float flod = clamp(log2(cam_dist * 0.05 / sqrt(graze) + 1.0), 0.0, 3.0);
+				float f_tone = textureLod(grass_macro_tex,
+					(mat2(vec2(0.31, 0.95), vec2(-0.95, 0.31)) * v_vertex.xz) / 1.3
+					+ vec2(7.7, 3.3), flod).r;
+				// Deviation-centred like tone_mult (same source_color pitfall). Gain 3.0
+				// ~= +-11% blade-grain: ring-calibrated match to the ref's grain band
+				// (hp3 12.3/9.5/7.4 at 15-25/25-50/50-100 m).
+				float fine_mult = mix(1.0, clamp(1.0 + (f_tone - 0.236) * 4.5, 0.75, 1.25),
+					smoothstep(8.0, 20.0, cam_dist));
+				sward *= fine_mult;
 				sward *= biome_terrain_tint;            // sedge/wild/shade zones stay distinct
 				ALBEDO = sward;
 			} else {

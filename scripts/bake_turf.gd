@@ -38,22 +38,19 @@ func _init() -> void:
 	var shader: Shader = load("res://shaders/turf_bake.gdshader")
 	var mat := ShaderMaterial.new()
 	mat.shader = shader
-	# Understory source, mirroring the runtime (main.gd _setup_turf_tiles): the mat
-	# samples the PREVIOUS bake when one exists — each rebake is then a fixpoint
-	# iteration and the baked crevices match what the live dome actually shows
-	# (small crevice weight → converges, doesn't compound). First-ever bake falls
-	# back to the olive photo texture with the shader's tinted defaults.
-	if ResourceLoader.exists(OUT_PATH):
-		mat.set_shader_parameter("mat_tex", load(OUT_PATH))
-		mat.set_shader_parameter("mat_tex_scale", 0.5)
-		mat.set_shader_parameter("mat_tint", Vector3(1.0, 1.0, 1.0))
-		mat.set_shader_parameter("mat_bright", 0.50)
+	# Understory source: ALWAYS the fixed photo texture — DETERMINISTIC bake.
+	# The previous "fixpoint" (mat sampled the previous bake) assumed a small
+	# crevice weight and convergence; the 2026-07-02 mown-sod blades exposed far
+	# more floor top-down and the loop DRIFTED darker ~4% per rebake (measured
+	# bake luma 123 -> 112.8 over two passes) — carpet darkened while grades were
+	# being lifted. The runtime near/far identity is unaffected: dome mat and
+	# terrain both sample the OUTPUT PNG; only the texture's own crevice source
+	# changes. Same mesh -> same bake, always.
+	var mat_tex: Texture2D = load("res://textures/grass_albedo.jpg")
+	if mat_tex:
+		mat.set_shader_parameter("mat_tex", mat_tex)
 	else:
-		var mat_tex: Texture2D = load("res://textures/grass_albedo.jpg")
-		if mat_tex:
-			mat.set_shader_parameter("mat_tex", mat_tex)
-		else:
-			printerr("grass_albedo.jpg missing — mat will bake flat")
+		printerr("grass_albedo.jpg missing — mat will bake flat")
 
 	# Bake viewport: own world, linear tonemap (same convention as the impostor
 	# baker — the PNG round-trips back to the same albedo when sampled as

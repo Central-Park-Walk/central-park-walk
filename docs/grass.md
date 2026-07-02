@@ -25,6 +25,43 @@ Ring A/B: `tmp/ring_final.png` (eye, Chris's Great-Lawn vantage) + `tmp/ring_fin
 matches the sod; remaining gap = COLOUR/aerial (sod is lighter/hazier far, ours darker
 saturated at 6 PM) — deferred to Chris's GPU walk per the trust-screenshots rule.**
 
+**Band-relationship calibration (2026-07-02, second pass — Chris: "understand fully how
+the different bands relate to each other in that photo… then apply the same relationships").**
+Tool: `scripts/band_texture_analysis.py` — per-distance-band mean/std/hi-pass(3px,9px)/p5/p95,
+with `--rings-calibrate` fitting the true camera pitch from the --diag-rings red rings in the
+capture itself. ⚠ THE CLI `--pitch` IS NOT THE RENDERED PITCH (requested −10, rings measured
+−4.8) — analytic row→distance mapping without ring calibration mis-registered every band
+~1.5–4× outward and mis-diagnosed the far field for half a session. The reference sod's
+relationships (the calibration targets): mean FLAT 125→145 (+16%) near→horizon; blade-scale
+contrast (hp3) decays ×~0.7 per band 42→26→17→12→9.5→7.4 and NEVER dies; variation is
+STRUCTURED clump mottle (hp9/hp3 1.05–1.37), not pixel noise. What shipped to match:
+
+- **Deterministic bake** (`turf_bake.gdshader` ground = vertex colours; `bake_turf.gd` no
+  longer feeds the previous bake back in): the fixpoint mat source DRIFTED ~4% darker per
+  rebake once the short mown blades exposed more floor top-down (measured 123→112.8 luma
+  over two passes). Runtime near/far identity is one-way and unaffected.
+- **`source_color` pitfall fixed:** `grass_macro_tex` decodes sRGB→linear, so `m_tone/0.5`
+  arrived ~0.47±0.07 — BELOW every clamp floor ever used: `tone_mult`/`fine_mult` were
+  pinned CONSTANTS (hidden ×0.80/×0.85 darkeners, zero variation). Now deviation-centred
+  on the texture's true linear mean: `1.0 + (tone − 0.236) × gain` (tone 2.6, fine 4.5).
+- **Grade** = `mix(0.41, 0.46, smoothstep(10, 40, cam_dist))` — flat (the ref's mean is
+  flat; the old 0.62→1.0 release rose where the ref doesn't), near end easing down to the
+  dome's tone (kills the inverted bright rim ring), levels folding in the removed pinned
+  constants.
+- **Near extremes muted** (Chris: "oddly black and oddly white blades"): pale seed-head
+  blade family DELETED (mowing removes seed-heads; its desaturated tip read as white
+  confetti), straw family greened, vit 0.88–1.05, thatch streak colours lifted toward the
+  sward (black sticks → muted flecks), mat quads lifted (near-band p5 26→34; the rest of
+  the p5 gap vs the ref's 54 is shadow, a GPU-walk item).
+
+Result (ring-calibrated noon bands, game vs ref): mean 121/119/130/131/136/137 vs
+125/138/140/141/142/145 (flat ✓); hp3 38/34/13/8.0/7.5/6.1 vs 42/26/17/12.3/9.5/7.4
+(smooth decay, never dies ✓); hp9/hp3 1.1–1.24 vs 1.05–1.37 (structured ✓). Open for the
+GPU walk: the 5–10 m band is the one still-hot contrast band (34 vs 26 — llvmpipe hard
+shadows exaggerate blade gaps); dome 5–10 m mean sits below the ref (SDFGI should lift);
+15–25 m grain 8.0 vs 12.3 (macro texture's spread is exhausted — needs a dedicated grain
+octave texture if the walk wants more).
+
 
 Chris's target: `screenshots/reference composite.png` (a real meadow/lawn photo composited
 into a game screenshot) — ONE continuous field from feet to horizon, blade detail only

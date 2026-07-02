@@ -1715,8 +1715,12 @@ func _diag_apply_hides() -> void:
 				if _day_night:
 					_day_night.cloud_shadow_disabled = true
 			"fog":
+				# ALL fog: volumetric AND the env depth/aerial fog (the depth fog was
+				# invisibly surviving this diag — a 2026-07-02 far-field bisect chased
+				# ghosts because "fog off" still rendered the depth-fog haze).
 				if _env:
 					_env.volumetric_fog_enabled = false
+					_env.fog_enabled = false
 			"ssao":
 				if _env:
 					_env.ssao_enabled = false
@@ -3257,25 +3261,25 @@ func _make_turf_tile_mesh(blades: int, thatch: int, mat_n: int, periodic := fals
 		# 0.4-0.9 flopped a 0.21m blade up to 0.19m sideways (~45°) = the coarse arching "meadow"
 		# read in the sod A/B. 0.12-0.40 keeps blades standing, lean <= ~0.04m.
 		var curve := rng.randf_range(0.12, 0.40)
-		var vit := rng.randf_range(0.85, 1.08)
+		var vit := rng.randf_range(0.88, 1.05)  # narrowed: per-blade vitality confetti muted
 		var base_c: Color
 		var tip_c: Color
 		var fam := rng.randf()
 		# Palette RE-MEASURED to the KBG sod ref (2026-07-01): the sward reads G/R ~2.0-2.1
 		# (rich blue-green), but the old colours rendered G/R ~1.3 = too red/olive. Red pulled
 		# DOWN across every family so the hue matches the reference bluegrass.
+		# Family extremes muted 2026-07-02 (ring-band match): the sod ref's near-band contrast
+		# is LIGHTING (lit blades vs shadow gaps) on near-uniform green pigment — not a
+		# confetti of odd-coloured blades. The pale seed-head family is GONE (mowing removes
+		# seed-heads; its desaturated tip read as "oddly white" blades) and straw is greener.
 		if fam < 0.08:
 			# blue-green minority — a tonal cast within the sward, NOT teal confetti
 			base_c = Color(0.11, 0.35, 0.16)
 			tip_c  = Color(0.17, 0.46, 0.25)
 		elif fam < 0.22:
 			# dry straw / yellow blade (kept warmer for variation, but less brick-red)
-			base_c = Color(0.26, 0.40, 0.14)
-			tip_c  = Color(0.44, 0.56, 0.22)
-		elif fam < 0.27:
-			# rare pale seed-head accent (subtle, not white)
-			base_c = Color(0.27, 0.52, 0.26)
-			tip_c  = Color(0.47, 0.72, 0.42)
+			base_c = Color(0.24, 0.42, 0.14)
+			tip_c  = Color(0.38, 0.54, 0.20)
 		else:
 			# rich blue-green majority. Measured to KBG sod ref: G ~123-135, G/R ~2.1,
 			# G/B ~2.0. Red cut hard (0.21/0.34 → 0.10/0.16) to kill the olive cast.
@@ -3334,15 +3338,19 @@ func _thatch_color(rng: RandomNumberGenerator) -> Array:
 	## as the standing blades but muted & darkened (compressed, partly dead thatch).
 	# Colours lifted ~1.2x with the mat/blade-base lift (Chris: less-dark centre).
 	var f := rng.randf()
+	# Lightened toward the sward 2026-07-02 (ring-band match vs the sod ref): the old darks
+	# rendered near-BLACK slivers lying across the sward top — game near-band p5 was 38 vs
+	# the reference's 54 (band_texture_analysis.py). Thatch should read as muted flecks
+	# within the green, not black sticks; the ref's darks are shadow, not pigment.
 	if f < 0.30:
 		# dead / dry straw (thatch has more of this than the standing sward)
-		return [Color(0.26, 0.24, 0.08), Color(0.43, 0.40, 0.14)]
+		return [Color(0.30, 0.32, 0.11), Color(0.43, 0.44, 0.16)]
 	elif f < 0.42:
 		# blue-green mat (greener/less teal, matched to the sward)
-		return [Color(0.11, 0.25, 0.13), Color(0.20, 0.40, 0.18)]
+		return [Color(0.15, 0.33, 0.15), Color(0.22, 0.42, 0.19)]
 	else:
 		# green mat majority (lifted so the near canopy floor isn't dark)
-		return [Color(0.13, 0.30, 0.11), Color(0.25, 0.48, 0.17)]
+		return [Color(0.17, 0.38, 0.14), Color(0.27, 0.50, 0.18)]
 
 
 func _add_flat_blade(st: SurfaceTool, bx: float, bz: float, ang: float, length: float,
@@ -3402,10 +3410,12 @@ func _add_turf_ground(st: SurfaceTool, rng: RandomNumberGenerator, s: float,
 			# subtle per-quad brightness jitter — NOT per-quad hue families (those read as a
 			# camo quilt of flat facets). Colour variety comes from the streaks on top.
 			# A flat up-facing quad catches full sun, so keep it dark = shadowed thatch base.
-			var mj := rng.randf_range(0.85, 1.12)
+			var mj := rng.randf_range(0.88, 1.12)
 			# Lifted ~1.3x (with the blade-base lift) — the dark understory showing
-			# through grazing blades was most of the "dark centre".
-			var c := Color(0.18 * mj, 0.39 * mj, 0.12 * mj)
+			# through grazing blades was most of the "dark centre". Lifted again
+			# 2026-07-02 (ring-band match): near-band darkest pixels measured p5 26
+			# vs the sod ref's 54 — the floor between blades is the black extreme.
+			var c := Color(0.22 * mj, 0.46 * mj, 0.15 * mj)
 			var p00 := Vector3(x0, MY, z0)
 			var p10 := Vector3(x0 + cell, MY, z0)
 			var p01 := Vector3(x0, MY, z0 + cell)
