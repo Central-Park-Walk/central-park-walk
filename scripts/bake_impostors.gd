@@ -47,15 +47,125 @@ const BAKE_DENSITY := 0.1
 
 var _loader  # park_loader — in the scene tree; bake viewport parents here
 
+# --- Sun-visibility (directional-occlusion) channel -------------------------
+# Baked so the far tier's DIRECT light responds to the real sun direction at
+# runtime. The static AO-on-direct fake (a801c20) was only right at its
+# calibration hours — measured 2026-07-02: impostor/lod0 luminance 1.08x at
+# 13h/16h/18h but 0.29x at 9h (pow(AO 0.42, 1.5) ~= 0.27 crushing the crown
+# whenever N.L is already low). Method: per octa cell, render the tree lit by
+# a probe DirectionalLight from K directions, shadows ON and OFF; the per-pixel
+# ON/OFF ratio is pure geometric sun-visibility (N.L and the BRDF cancel
+# exactly). A least-squares L1 fit (mean + bent vector) compresses the K
+# ratios into one RGBA texel:
+#   R = c0 (mean visibility), GBA = c_vec * 0.5 + 0.5 (bake-object space)
+# and the runtime evaluates clamp(c0 + dot(c_vec, sun_obj), 0, 1) in light().
+# The fit runs on the GPU (one canvas pass over a Texture2DArray of the probe
+# renders). The hdr_2d composite viewport reads back LINEAR (verified
+# 2026-07-02 against known constants), so the vis atlas is stored linear —
+# the runtime samples it WITHOUT source_color.
+# Probe energy: LIGHT_COLOR carries x PI, so a facing white-lambert pixel
+# renders ~= energy; burley's grazing FdV*FdL can reach ~1.3x. 0.6 keeps every
+# pixel below clipping (a clipped shadows-OFF pass would inflate the ratio).
+const VIS_LIGHT_ENERGY := 0.6
+const VIS_OFF_MIN := 0.015      # linear floor: below it the texel faces away -> vis 0 (occluded)
+
+var _vis_dirs: Array[Vector3] = []   # K probe sun directions (bake-object space)
+var _vis_gmat := PackedVector4Array()  # per-direction LS weights: c += gmat[k] * V_k
+
 func _init(loader) -> void:
 	_loader = loader
+	_build_vis_basis()
+
+# Probe directions: zenith + 4 @ 40deg elevation + 4 @ 12deg (NYC sun spans
+# 0-73deg; low-elevation probes anchor the sunrise/sunset end of the fit).
+# The LS system vis(s) ~= c0 + c.s over these dirs has cond(XtX) ~= 21 (fine);
+# fit of V==1 returns exactly (1, 0-vec), fit of V=max(0,s.y) returns (0, +Y).
+func _build_vis_basis() -> void:
+	_vis_dirs.clear()
+	_vis_dirs.append(Vector3.UP)
+	for ring in [[40.0, 0.0], [12.0, 0.5]]:
+		var el: float = deg_to_rad(ring[0])
+		for i in 4:
+			var az: float = TAU * (float(i) + ring[1]) / 4.0
+			_vis_dirs.append(Vector3(cos(el) * sin(az), sin(el), cos(el) * cos(az)).normalized())
+	# G = (XtX)^-1 Xt with X rows [1, sx, sy, sz]; c = sum_k gmat[k] * V_k.
+	var rows := []
+	for d in _vis_dirs:
+		rows.append([1.0, d.x, d.y, d.z])
+	var xtx := []
+	for r in 4:
+		xtx.append([0.0, 0.0, 0.0, 0.0])
+	for row in rows:
+		for r in 4:
+			for c in 4:
+				xtx[r][c] += row[r] * row[c]
+	var inv := _mat4_inverse(xtx)
+	_vis_gmat.clear()
+	for row in rows:
+		var g := Vector4.ZERO
+		for r in 4:
+			var v := 0.0
+			for c in 4:
+				v += inv[r][c] * row[c]
+			g[r] = v
+		_vis_gmat.append(g)
+
+# Gauss-Jordan 4x4 inverse (no engine mat4-with-inverse type for plain arrays).
+func _mat4_inverse(m: Array) -> Array:
+	var a := []
+	for r in 4:
+		a.append([m[r][0], m[r][1], m[r][2], m[r][3],
+				1.0 if r == 0 else 0.0, 1.0 if r == 1 else 0.0,
+				1.0 if r == 2 else 0.0, 1.0 if r == 3 else 0.0])
+	for col in 4:
+		var piv := col
+		for r in range(col + 1, 4):
+			if absf(a[r][col]) > absf(a[piv][col]):
+				piv = r
+		var tmp = a[col]; a[col] = a[piv]; a[piv] = tmp
+		var pv: float = a[col][col]
+		for c in 8:
+			a[col][c] /= pv
+		for r in 4:
+			if r == col:
+				continue
+			var f: float = a[r][col]
+			for c in 8:
+				a[r][c] -= f * a[col][c]
+	var out := []
+	for r in 4:
+		out.append([a[r][4], a[r][5], a[r][6], a[r][7]])
+	return out
+
+# LS-fit canvas shader: layers alternate shadows-ON / shadows-OFF per probe
+# direction; output = (c0, c_vec*0.5+0.5). Probe readbacks are sRGB-encoded
+# 8-bit (the known bake-viewport gotcha), hence the s2l decode before the ratio.
+const _VIS_FIT_SHADER := "
+shader_type canvas_item;
+render_mode blend_disabled;
+uniform sampler2DArray probes : filter_nearest;
+uniform vec4 gmat[16];
+uniform int n_dirs = 9;
+uniform float off_min = 0.015;
+float s2l(float c) { return c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4); }
+void fragment() {
+	vec4 c = vec4(0.0);
+	for (int k = 0; k < n_dirs; k++) {
+		float on  = s2l(texture(probes, vec3(UV, float(k * 2))).r);
+		float off = s2l(texture(probes, vec3(UV, float(k * 2 + 1))).r);
+		float v = off > off_min ? clamp(on / off, 0.0, 1.0) : 0.0;
+		c += gmat[k] * v;
+	}
+	COLOR = vec4(clamp(c.x, 0.0, 1.0), clamp(c.yzw, vec3(-1.0), vec3(1.0)) * 0.5 + 0.5);
+}
+"
 
 # Bake one species-size tier. Returns a metadata dict for the manifest.
 # card_keep overrides BAKE_DENSITY per call: the default thins a SUPERIMPOSED
 # all-variants crown, but a SINGLE-variant bake has no superposition to undo, so
 # the caller passes -1 (no drop) there — else the 90%-drop empties the crown to a
 # near-invisible 2-6% atlas (the cpw_000 decimated/invisible impostors, 2026-06-24).
-func bake_tier(tier_key: String, meshes: Array, world_height: float, card_keep: float = BAKE_DENSITY, season_t: float = SUMMER_SEASON, file_suffix: String = "") -> Dictionary:
+func bake_tier(tier_key: String, meshes: Array, world_height: float, card_keep: float = BAKE_DENSITY, season_t: float = SUMMER_SEASON, file_suffix: String = "", bake_vis: bool = false) -> Dictionary:
 	var aabb := _combined_aabb(meshes)
 	var center := aabb.get_center()
 	var diag: float = aabb.size.length()
@@ -144,6 +254,12 @@ func bake_tier(tier_key: String, meshes: Array, world_height: float, card_keep: 
 		atlases[ch[0]] = path
 		print("  Impostor bake: %s %s -> %s" % [tier_key, ch[0], path])
 
+	# Sun-visibility channel (summer bakes only — a near-bare winter crown barely
+	# self-occludes, and the runtime blends vis toward 1 as the canopy sheds).
+	var vis_path := ""
+	if bake_vis:
+		vis_path = await _bake_vis_channel(vp, cam, meshes, diag, tier_key, file_suffix)
+
 	_set_bake_mode(meshes, 0)
 	_pop_bake_globals(saved)
 	vp.queue_free()
@@ -162,8 +278,78 @@ func bake_tier(tier_key: String, meshes: Array, world_height: float, card_keep: 
 		"position_offset": [center.x, center.y, center.z],
 		"world_height": world_height, "diag": diag,
 		"albedo": atlases.get("albedo", ""), "normal": atlases.get("normal", ""),
-		"orm": atlases.get("orm", ""),
+		"orm": atlases.get("orm", ""), "vis": vis_path,
 	}
+
+# Bake the sun-visibility atlas for one tier (see the header block above the
+# basis builder). Reuses the caller's bake viewport/camera (materials already
+# have bake_density applied, so the vis crown geometry matches the other
+# channels texel-for-texel); adds a probe light + a GPU LS-fit composite pass.
+func _bake_vis_channel(vp: SubViewport, cam: Camera3D, meshes: Array, diag: float, tier_key: String, file_suffix: String) -> String:
+	_set_bake_mode(meshes, 4)
+	var light := DirectionalLight3D.new()
+	light.light_energy = VIS_LIGHT_ENERGY
+	light.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	light.directional_shadow_max_distance = diag * 4.0
+	vp.add_child(light)
+
+	# Composite viewport: hdr_2d float target -> LINEAR readback (verified), so
+	# the fit coefficients are stored linear end-to-end.
+	var cvp := SubViewport.new()
+	cvp.disable_3d = true
+	cvp.use_hdr_2d = true
+	cvp.transparent_bg = true
+	cvp.size = vp.size
+	cvp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	var fit_sh := Shader.new()
+	fit_sh.code = _VIS_FIT_SHADER
+	var cmat := ShaderMaterial.new()
+	cmat.shader = fit_sh
+	cmat.set_shader_parameter("gmat", _vis_gmat)
+	cmat.set_shader_parameter("n_dirs", _vis_dirs.size())
+	cmat.set_shader_parameter("off_min", VIS_OFF_MIN)
+	var rect := ColorRect.new()
+	rect.size = Vector2(vp.size)
+	rect.material = cmat
+	cvp.add_child(rect)
+	_loader.add_child(cvp)
+
+	var atlas := Image.create(ATLAS_RES, ATLAS_RES, false, Image.FORMAT_RGBA8)
+	# Background texels = (c0 0, vec 0) -> vis 0 everywhere; never sampled
+	# through the alpha discard, encoded value just needs to be valid.
+	atlas.fill(Color(0.0, 0.5, 0.5, 0.5))
+	for fy in FRAMES:
+		for fx in FRAMES:
+			var uv := Vector2(float(fx) / float(FRAMES - 1), float(fy) / float(FRAMES - 1))
+			var dir: Vector3 = OctaUtils.octa_uv_to_world(uv, false)
+			_aim_camera(cam, dir, diag)
+			var layers: Array[Image] = []
+			for d: Vector3 in _vis_dirs:
+				var up := Vector3.UP
+				if absf(d.y) > 0.999:
+					up = Vector3.BACK
+				light.look_at_from_position(d * diag * 2.0, Vector3.ZERO, up)  # shines along -d
+				for shadow_on in [true, false]:
+					light.shadow_enabled = shadow_on
+					vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+					await RenderingServer.frame_post_draw
+					layers.append(vp.get_texture().get_image())
+			var ta := Texture2DArray.new()
+			ta.create_from_images(layers)
+			cmat.set_shader_parameter("probes", ta)
+			cvp.render_target_update_mode = SubViewport.UPDATE_ONCE
+			await RenderingServer.frame_post_draw
+			var cell_img := cvp.get_texture().get_image()   # RGBAH, linear
+			if SS > 1:
+				cell_img.resize(CELL, CELL, Image.INTERPOLATE_LANCZOS)
+			cell_img.convert(Image.FORMAT_RGBA8)             # linear quantise (no sRGB)
+			atlas.blit_rect(cell_img, Rect2i(0, 0, CELL, CELL), Vector2i(fx * CELL, fy * CELL))
+	light.queue_free()
+	cvp.queue_free()
+	var path: String = OUT_DIR + "%s%s_vis.png" % [tier_key, file_suffix]
+	atlas.save_png(ProjectSettings.globalize_path(path))
+	print("  Impostor bake: %s vis (%d probe dirs) -> %s" % [tier_key, _vis_dirs.size(), path])
+	return path
 
 func _combined_aabb(meshes: Array) -> AABB:
 	var out := AABB()

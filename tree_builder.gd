@@ -1669,15 +1669,31 @@ func _build_impostor_assets() -> void:
 			# IMP_AOLA / IMP_AOPOW override for a no-recompile sweep. NOTE: AO-on-direct also
 			# blacks the trunk (low baked AO) -- garden-only artifact (plot renders impostors
 			# at 8m); the impostor only renders past ~180m where the trunk is sub-pixel.
-			var imp_aola := 1.0
+			# Sun-visibility atlas (2026-07-02): direct-light self-shadow that tracks
+			# the REAL sun direction (tree_impostor light(); bake_impostors.gd
+			# _bake_vis_channel). When bound, the static AO-on-direct fake above is
+			# RETIRED (ao_light_affect 0, ao_power/floor neutral — ambient AO back to
+			# plain mesh parity): the fake was correct only at its calibration hours
+			# (measured impostor/lod0 1.08x at 13h/16h/18h but 0.29x at 9h). Pre-vis
+			# manifests keep the old defaults so behaviour is unchanged until rebaked.
+			var vis_path: String = meta.get("vis", "")
+			var has_vis: bool = vis_path != "" and ResourceLoader.exists(vis_path)
+			if has_vis:
+				mat.set_shader_parameter("imposterTextureVis", load(vis_path))
+				mat.set_shader_parameter("has_vis_atlas", true)
+				var imp_vstr := 1.0
+				if OS.has_environment("IMP_VIS"):
+					imp_vstr = OS.get_environment("IMP_VIS").to_float()
+				mat.set_shader_parameter("vis_strength", imp_vstr)
+			var imp_aola := 0.0 if has_vis else 1.0
 			if OS.has_environment("IMP_AOLA"):
 				imp_aola = OS.get_environment("IMP_AOLA").to_float()
-			var imp_aopow := 1.5
+			var imp_aopow := 1.0 if has_vis else 1.5
 			if OS.has_environment("IMP_AOPOW"):
 				imp_aopow = OS.get_environment("IMP_AOPOW").to_float()
 			mat.set_shader_parameter("ao_light_affect", imp_aola)
 			mat.set_shader_parameter("ao_power", imp_aopow)
-			var imp_aofloor := 0.40
+			var imp_aofloor := 0.0 if has_vis else 0.40
 			if OS.has_environment("IMP_AOFLOOR"):
 				imp_aofloor = OS.get_environment("IMP_AOFLOOR").to_float()
 			mat.set_shader_parameter("ao_floor", imp_aofloor)
@@ -1782,7 +1798,9 @@ func _run_impostor_bake() -> void:
 			print("Impostor bake: %s from %s (%d meshes)…" % [key, src_key, src_meshes.size()])
 		var hgt: float = _species_heights.get(key, 0.0)
 		# SUMMER atlas (default season + suffix). Full-canopy silhouette, thinned.
-		var meta: Dictionary = await baker.bake_tier(key, src_meshes, hgt, card_keep, baker_script.SUMMER_SEASON, "")
+		# bake_vis: also bake the sun-visibility channel (summer only — winter's
+		# near-bare crown barely self-occludes; the shader relaxes vis toward 1).
+		var meta: Dictionary = await baker.bake_tier(key, src_meshes, hgt, card_keep, baker_script.SUMMER_SEASON, "", true)
 		# WINTER atlas: same meshes, season=winter, card_keep=-1 so the leaf shader's
 		# own WINTER_RETENTION drop drives a near-bare crown. Geometry (scale/offset/
 		# diag) is identical to summer, so we keep summer's meta and only graft the

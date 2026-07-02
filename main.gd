@@ -506,6 +506,11 @@ func _ready() -> void:
 	RenderingServer.global_shader_parameter_add("ambient_life_light", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 1.0)
 	RenderingServer.global_shader_parameter_add("cloud_coverage_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.5)
 	RenderingServer.global_shader_parameter_add("cloud_speed_g", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.00004)
+	# World-space direction TO the sun — pushed each frame with player_world_pos.
+	# Needed where per-instance work must know the sun in vertex/fragment (the
+	# impostor sun-visibility term: light()'s LIGHT can't be paired with the
+	# per-instance basis there, MODEL_MATRIX is chunk-locked past vertex, #76292).
+	RenderingServer.global_shader_parameter_add("sun_dir_world", RenderingServer.GLOBAL_VAR_TYPE_VEC3, Vector3.UP)
 	# Turf sheen blend (grass.md §6 calibration; --turf-sheen overrides)
 	RenderingServer.global_shader_parameter_add("turf_sheen", RenderingServer.GLOBAL_VAR_TYPE_FLOAT,
 		TURF_SHEEN if _cli_turf_sheen < 0.0 else _cli_turf_sheen)
@@ -950,6 +955,10 @@ func _process(delta: float) -> void:
 	# shaders (tree LOD dither) compute against the actual view.
 	if _player_camera:
 		RenderingServer.global_shader_parameter_set("player_world_pos", _player_camera.global_position)
+	# Direction TO the sun (DirectionalLight3D shines along -Z; +Z basis column
+	# points back at the sun). Consumed by the impostor sun-visibility term.
+	if _sun:
+		RenderingServer.global_shader_parameter_set("sun_dir_world", _sun.global_transform.basis.z)
 
 	# Shell-grass patch follows the camera. Blades are world-locked (the fragment
 	# shader keys everything off world XZ), so the patch can slide freely without

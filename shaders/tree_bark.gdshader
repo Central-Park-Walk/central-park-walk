@@ -439,5 +439,11 @@ void fragment() {
 	} else if (bake_mode == 2) {     // camera-space normal, packed [0,1]
 		EMISSION = NORMAL * 0.5 + 0.5;
 		ALBEDO = vec3(0.0); ROUGHNESS = 1.0; SPECULAR = 0.0; METALLIC = 0.0;
+	} else if (bake_mode == 4) {     // sun-visibility probe: white lambert
+		// Lit by the probe DirectionalLight (bake_impostors.gd); the shadows-ON/OFF
+		// pixel ratio is pure geometric sun-visibility. White albedo for SNR — the
+		// ratio cancels albedo, but dark bark quantises the 8-bit ratio noisily.
+		ALBEDO = vec3(1.0); EMISSION = vec3(0.0); ROUGHNESS = 1.0; SPECULAR = 0.0;
+		METALLIC = 0.0;
 	}
 }

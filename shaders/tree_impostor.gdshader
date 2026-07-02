@@ -59,6 +59,18 @@ uniform sampler2D imposterTextureDepth : hint_default_white;
 // sRGB-inflated 0.71 a linear sampler would read (which would under-darken).
 uniform sampler2D imposterTextureOrm : source_color, hint_default_white;
 
+// Sun-visibility L1 fit (bake_impostors.gd _bake_vis_channel): R = c0 (mean
+// visibility), GBA = bent vector * 0.5 + 0.5, in BAKE-OBJECT space. fragment()
+// evaluates clamp(c0 + dot(c_vec, sun_obj), 0, 1) so the crown's DIRECT-light
+// self-shadowing tracks the REAL sun direction across the day. This replaces
+// the static AO-on-direct fake (ao_light_affect), which was only right at its
+// calibration hours — measured 2026-07-02: impostor/lod0 1.08x at 13h but
+// 0.29x at 9h. LINEAR data (hdr_2d composite readback) — NO source_color.
+uniform sampler2D imposterTextureVis : hint_default_white;
+uniform bool has_vis_atlas = false;
+// 0 = ignore the vis atlas (old behaviour), 1 = full sun-visibility. Sweep lever.
+uniform float vis_strength : hint_range(0.0, 1.0) = 1.0;
+
 // WINTER atlas set (baked at season_t=winter, card_keep=-1 → the leaf shader's own
 // WINTER_RETENTION floor thins the crown to a near-bare skeleton + a few marcescent
 // sprigs). Blended against the summer set by the per-tree phenology fraction
@@ -85,6 +97,10 @@ uniform vec2 lod_fade_in = vec2(0.0, 0.0);
 // Player camera world pos (pushed from main.gd) — same source the mesh tiers use,
 // so the crossfade discards consistently across shadow/reflection passes.
 global uniform vec3 player_world_pos;
+// World-space direction TO the sun (pushed from main.gd each frame) — the vis
+// term needs the sun paired with the per-instance basis, which only exists in
+// vertex (#76292), so light()'s LIGHT built-in can't be used for this.
+global uniform vec3 sun_dir_world;
 
 #include "res://shaders/include/lod_dither.gdshaderinc"
 #include "res://shaders/include/tree_species.gdshaderinc"
@@ -119,25 +135,34 @@ const float IMPOSTOR_CELL_PX = 128.0;   // ATLAS_RES/FRAMES = 2048/16 (bake_impo
 // 800m so the far crown keeps the airy/detailed look the 200-500m range already has.
 const float IMPOSTOR_LOD_MAX = 1.0;
 
+// ⚠ VARYING BUDGET: the engine's internal interpolators share the 32-slot cap
+// with user varyings IN THE FULL SCENE (this shader broke it at +2 user varyings,
+// 2026-07-02, while compiling fine in a minimal project). The xy_frameN varyings
+// (virtual-plane parallax basis) were dropped to pay for the sun-visibility pair
+// below — they only fed the DORMANT depth-parallax path (depth_scale = 0, no
+// depth atlas baked). To restore parallax, recompute them per-fragment from the
+// frame bases instead of re-adding varyings.
 varying vec3 v_season_color;
 varying vec2 uv_frame1;
-varying vec2 xy_frame1;
 varying flat vec2 frame1;
 varying flat vec3 frame1_normal;
 varying vec2 uv_frame2;
-varying vec2 xy_frame2;
 varying flat vec2 frame2;
 varying flat vec3 frame2_normal;
 varying vec2 uv_frame3;
-varying vec2 xy_frame3;
 varying flat vec2 frame3;
 varying flat vec3 frame3_normal;
 varying vec4 quad_blend_weights;
 varying vec3 v_inst_pos;
-// Per-tree seasonal leaf fraction (1=full canopy, 0=bare). Same phenology curve as
-// tree_leaf (min(spring-grow, fall-shed)); blends the winter↔summer atlas sets so
-// the far crown thins with the season instead of staying a fixed summer silhouette.
-varying float v_leaf_frac;
+// xyz = sun direction in BAKE-OBJECT space, rotated per instance in vertex (the
+// ONLY stage where MODEL_MATRIX is per-instance for MultiMesh, #76292) from the
+// sun_dir_world global — each placed tree's baked visibility field follows its
+// yaw. w = per-tree seasonal leaf fraction (1=full canopy, 0=bare; same phenology
+// curve as tree_leaf), which blends the winter↔summer atlas sets and relaxes the
+// vis term as the crown sheds.
+varying flat vec4 v_sun_leaf;
+// Evaluated sun-visibility (fragment-written, consumed in light()).
+varying float v_vis;
 
 vec2 VecToSphereOct(vec3 pivotToCamera) {
 	vec3 octant = sign(pivotToCamera);
@@ -247,6 +272,10 @@ vec3 projectOnPlaneBasis(vec3 ray, vec3 plane_normal, vec3 plane_x, vec3 plane_y
 
 void vertex() {
 	v_inst_pos = MODEL_MATRIX[3].xyz;
+	// World->object direction: basis-column dots = transpose = inverse rotation
+	// up to uniform scale (normalised away).
+	v_sun_leaf.xyz = normalize(vec3(dot(MODEL_MATRIX[0].xyz, sun_dir_world),
+			dot(MODEL_MATRIX[1].xyz, sun_dir_world), dot(MODEL_MATRIX[2].xyz, sun_dir_world)));
 
 	// Per-tree seasonal foliage colour (hue source; the atlas supplies luminance/
 	// detail in fragment). Decode matches tree_leaf: INSTANCE_CUSTOM r=species/13,
@@ -261,7 +290,7 @@ void vertex() {
 	// impostor thins in lockstep with the mesh it hands off from. Evergreens stay full.
 	float grow = smoothstep(ph.w - 0.1, ph.w + 0.3, s);
 	float shed = 1.0 - smoothstep(ph.z - 0.2, ph.z + 0.3, s);
-	v_leaf_frac = (INSTANCE_CUSTOM.b > 0.5) ? 1.0 : clamp(min(grow, shed), 0.0, 1.0);
+	v_sun_leaf.w = (INSTANCE_CUSTOM.b > 0.5) ? 1.0 : clamp(min(grow, shed), 0.0, 1.0);
 	vec3 fall_col = FALL_COLORS[sp_idx];
 	vec3 spring_tint = species_green * vec3(1.15, 1.2, 0.7);
 	vec3 col = mix(spring_tint, species_green, smoothstep(ph.w, ph.w + 0.4, s));
@@ -307,15 +336,12 @@ void vertex() {
 	vec3 plane_x1, plane_y1, plane_x2, plane_y2, plane_x3, plane_y3;
 	calcuateXYbasis(projectedQuadADir, plane_x1, plane_y1);
 	uv_frame1 = virtualPlaneUV(projectedQuadADir, plane_x1, plane_y1, pivotToCameraRay, vertexToCameraRay, scale);
-	xy_frame1 = projectOnPlaneBasis(-vertexToCameraDir, projectedQuadADir, plane_x1, plane_y1).xy;
 
 	calcuateXYbasis(projectedQuadBDir, plane_x2, plane_y2);
 	uv_frame2 = virtualPlaneUV(projectedQuadBDir, plane_x2, plane_y2, pivotToCameraRay, vertexToCameraRay, scale);
-	xy_frame2 = projectOnPlaneBasis(-vertexToCameraDir, projectedQuadBDir, plane_x2, plane_y2).xy;
 
 	calcuateXYbasis(projectedQuadCDir, plane_x3, plane_y3);
 	uv_frame3 = virtualPlaneUV(projectedQuadCDir, plane_x3, plane_y3, pivotToCameraRay, vertexToCameraRay, scale);
-	xy_frame3 = projectOnPlaneBasis(-vertexToCameraDir, projectedQuadCDir, plane_x3, plane_y3).xy;
 
 	VERTEX.xyz = projected + positionOffset;
 	VERTEX.xyz += pivotToCameraDir * aabb_max;
@@ -420,9 +446,9 @@ void fragment() {
 	}
 
 	vec2 quad_size = vec2(1.0f) / imposterFrames;
-	vec2 uv_f1 = recalculateUV(uv_frame1, frame1, xy_frame1, quad_size, depth_scale, imposterTextureDepth);
-	vec2 uv_f2 = recalculateUV(uv_frame2, frame2, xy_frame2, quad_size, depth_scale, imposterTextureDepth);
-	vec2 uv_f3 = recalculateUV(uv_frame3, frame3, xy_frame3, quad_size, depth_scale, imposterTextureDepth);
+	vec2 uv_f1 = recalculateUV(uv_frame1, frame1, vec2(0.0), quad_size, depth_scale, imposterTextureDepth);
+	vec2 uv_f2 = recalculateUV(uv_frame2, frame2, vec2(0.0), quad_size, depth_scale, imposterTextureDepth);
+	vec2 uv_f3 = recalculateUV(uv_frame3, frame3, vec2(0.0), quad_size, depth_scale, imposterTextureDepth);
 
 	// Atlas mip from the billboard's on-screen height (perspective): a world_height-tall
 	// tree at distance d projects to ~ P[1][1]*world_height/d * VIEWPORT.y/2 pixels; the
@@ -447,14 +473,29 @@ void fragment() {
 	// branch is coherent across all impostor fragments in a frame (v_leaf_frac is
 	// season-driven, ~uniform per neighbourhood), so the extra fetches are skipped
 	// outright in full summer / deep winter and only paid during the transition bands.
-	if (has_winter_atlas && v_leaf_frac < 0.999) {
+	if (has_winter_atlas && v_sun_leaf.w < 0.999) {
 		vec4 wBase = blenderColors(uv_f1, uv_f2, uv_f3, quad_blend_weights, imposterTextureAlbedoWinter, atlas_lod);
 		vec4 wOrm = blenderColors(uv_f1, uv_f2, uv_f3, quad_blend_weights, imposterTextureOrmWinter, atlas_lod);
 		vec3 wNormal = blendedNormals(uv_f1, frame1_normal, uv_f2, frame2_normal, uv_f3, frame3_normal,
 				TANGENT, BINORMAL, quad_blend_weights, imposterTextureNormalWinter, atlas_lod);
-		baseTex = mix(wBase, baseTex, v_leaf_frac);
-		ormTex = mix(wOrm, ormTex, v_leaf_frac);
-		normalTex = normalize(mix(wNormal, normalTex, v_leaf_frac));
+		baseTex = mix(wBase, baseTex, v_sun_leaf.w);
+		ormTex = mix(wOrm, ormTex, v_sun_leaf.w);
+		normalTex = normalize(mix(wNormal, normalTex, v_sun_leaf.w));
+	}
+
+	// Sun-visibility: fetch (blended over the same 3 octa frames as every other
+	// channel), decode to (c0, c_vec), evaluate against the object-space sun.
+	// Winter: a near-bare crown barely self-occludes, so vis relaxes toward 1
+	// as v_leaf_frac drops. light() consumes the single evaluated float.
+	// NO vis atlas -> replicate the engine's AO-on-direct here (the custom
+	// light() bypasses the built-in AO_LIGHT_AFFECT path — measured 1.141x
+	// bright without this), so pre-vis species/manifests keep the a801c20 look.
+	if (has_vis_atlas) {
+		vec4 vraw = blenderColors(uv_f1, uv_f2, uv_f3, quad_blend_weights, imposterTextureVis, atlas_lod);
+		float v = clamp(vraw.r + dot(vraw.gba * 2.0 - 1.0, v_sun_leaf.xyz), 0.0, 1.0);
+		v_vis = mix(1.0, v, vis_strength * v_sun_leaf.w);
+	} else {
+		v_vis = mix(1.0, max(pow(ormTex.r, ao_power), ao_floor), ao_light_affect);
 	}
 
 	// Runtime-lit: HUE from the per-tree season colour, LUMINANCE/detail from the
@@ -487,6 +528,29 @@ void fragment() {
 	// mesh leaf shader does (AO_LIGHT_AFFECT = 0) — so the far tier stops reading
 	// ~1.5x too bright vs lod0/lod1 without dimming the direct-sun side. Defaults
 	// to 1.0 (no occlusion) when no ORM atlas is bound (hint_default_white).
+	// With a vis atlas bound, tree_builder zeroes ao_light_affect and neutralises
+	// ao_power/ao_floor: direct-light occlusion moves to light() (sun-aware),
+	// ambient AO returns to plain mesh parity.
 	AO = max(pow(ormTex.r, ao_power), ao_floor);
 	AO_LIGHT_AFFECT = ao_light_affect;
+}
+
+void light() {
+	// Custom diffuse = Godot's burley formula x baked sun-visibility. Replacing
+	// the built-in is required to inject a per-texel, sun-direction-dependent
+	// occlusion into DIRECT light — AO_LIGHT_AFFECT is scalar and static (the
+	// a801c20 fake, right only at its calibration hours; 0.29x lod0 at 9h).
+	// Specular is dropped: measured no-op at specular=0.1/roughness~1 (0.996x,
+	// a801c20). Burley matches scene_forward_lights so the 13h/18h calibration
+	// carries over (LIGHT_COLOR already includes x PI; ALBEDO applied by Godot
+	// after light()).
+	float ndotl = clamp(dot(NORMAL, LIGHT), 0.0, 1.0);
+	float ndotv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+	vec3 h = normalize(VIEW + LIGHT);
+	float ldoth = clamp(dot(LIGHT, h), 0.0, 1.0);
+	float fd90m1 = 2.0 * ldoth * ldoth * ROUGHNESS - 0.5;
+	float fdv = 1.0 + fd90m1 * pow(1.0 - ndotv, 5.0);
+	float fdl = 1.0 + fd90m1 * pow(1.0 - ndotl, 5.0);
+	float burley = (1.0 / PI) * fdv * fdl * ndotl;
+	DIFFUSE_LIGHT += burley * v_vis * ATTENUATION * LIGHT_COLOR;
 }

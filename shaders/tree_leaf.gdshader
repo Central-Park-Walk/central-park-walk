@@ -507,6 +507,14 @@ void fragment() {
 		EMISSION = vec3(canopy_occ, 1.0, 0.0);
 		ALBEDO = vec3(0.0); ROUGHNESS = 1.0; SPECULAR = 0.0;
 		METALLIC = 0.0; BACKLIGHT = vec3(0.0); AO = 1.0;
+	} else if (bake_mode == 4) {     // sun-visibility probe: white lambert, no fakes
+		// Rendered LIT by the probe DirectionalLight (bake_impostors.gd), shadows
+		// ON/OFF pairs per direction; the per-pixel ON/OFF ratio is pure geometric
+		// sun-visibility (N·L and the BRDF cancel in the ratio). White albedo for
+		// 8-bit SNR; BACKLIGHT must be 0 or transmission leaks light into the
+		// shadowed pass and inflates the visibility fit.
+		ALBEDO = vec3(1.0); EMISSION = vec3(0.0); ROUGHNESS = 1.0; SPECULAR = 0.0;
+		METALLIC = 0.0; BACKLIGHT = vec3(0.0); AO = 1.0; AO_LIGHT_AFFECT = 0.0;
 	}
 
 	// NO shader-level aerial haze on leaves (removed 2026-06-11): the
