@@ -44,6 +44,8 @@ var _tunnel_outlines: Array = []          # tunnel outline polygons for labels
 
 var water_bodies: Array = []              # water body polygons for shore blending
 var _water_polygons: Array = []           # water polygon outlines for proximity baking
+var water_levels: Array = []              # per-body {bb: Rect2, wy: float} — planar reflection plane pick
+var water_materials: Array = []           # water ShaderMaterials — planar reflection params
 var _canopy_texture: ImageTexture         # 2K canopy coverage map for dappled shade
 var _water_builder                        # water_builder.gd instance
 var _building_builder                     # building_builder.gd instance

@@ -23,9 +23,25 @@ uniform sampler2D depth_texture : hint_depth_texture, repeat_disable, filter_nea
 uniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_linear;
 uniform float refraction_strength = 0.025;
 
+// Baked shore-distance field (convert_to_godot.py): A channel = distance INTO
+// water, 0-30m → 0-1. LiDAR DEMs record the water surface as ground — the real
+// depth buffer reads ~3cm under every pond — so murk/reflection depth comes
+// from this synthetic shore-slope profile instead.
+uniform sampler2D shore_distance : filter_linear, repeat_disable;
+uniform float shore_world_size = 5000.0;
+uniform float shore_depth_slope = 0.12;  // metres of depth per metre from shore
+uniform float shore_depth_max = 2.6;     // typical CP pond depth cap
+
+// Planar reflection (water_reflection.gd): mirrored-camera viewport.
+// Sampled x-flipped because the mirror basis negates X to stay right-handed.
+uniform sampler2D planar_reflection_tex : source_color, filter_linear, repeat_disable;
+uniform float planar_reflection_on = 0.0;
+// Keep small: tower reflections are thin — large offsets shred them to noise
+uniform float planar_distortion = 0.06;
+uniform float planar_debug = 0.0;   // 1 = paint raw reflection sample (--refl-debug)
+
 varying vec3 world_pos;
 varying float v_shore_dist;
-varying float v_water_depth;
 
 // Raindrop ripple rings — concentric circles from random impact points
 float raindrop_ripple(vec2 p) {
@@ -100,13 +116,21 @@ void vertex() {
 	// Shore dist: blend of local depth and neighbor depth.
 	// Use the shallower of the two — if ANY measurement says "shore", fade.
 	v_shore_dist = min(depth_here, depth_neighbor);
-	// Depth tinting
-	v_water_depth = max(0.0, depth_here);
 }
 
 void fragment() {
 	vec2 uv      = world_pos.xz / 12.0;   // scale for the gnoise color/foam layers
 	vec3 wave_nrm = wave_normal(world_pos.xz);
+	// Distant water reads mirror-flat (slopes foreshorten away); also kills
+	// ripple shimmer against the 1/3-res reflection texture.
+	float cam_dist = length(world_pos - CAMERA_POSITION_WORLD);
+	float slope_fade = mix(1.0, 0.25, smoothstep(25.0, 140.0, cam_dist));
+	wave_nrm = normalize(vec3(wave_nrm.x * slope_fade, 1.0, wave_nrm.z * slope_fade));
+
+	// Synthetic bathymetry: shore-slope profile from the baked distance field
+	vec2 shore_uv = (world_pos.xz + shore_world_size * 0.5) / shore_world_size;
+	float dist_in_m = texture(shore_distance, shore_uv).a * 30.0;
+	float synth_depth = min(dist_in_m * shore_depth_slope, shore_depth_max);
 
 	// Three noise layers at different scales for natural variation
 	float t = TIME;
@@ -212,7 +236,7 @@ void fragment() {
 	}
 
 	// Depth tinting: deeper water is darker and more saturated
-	float depth_t = smoothstep(0.0, 2.5, v_water_depth);
+	float depth_t = smoothstep(0.0, 2.5, synth_depth);
 	deep    = mix(shallow, deep, depth_t);
 
 	// Subtle blend — mostly deep, shallow only at wave peaks
@@ -303,21 +327,39 @@ void fragment() {
 	}
 	vec3 bed_col = texture(screen_texture, bed_uv).rgb;
 
+	// Effective depth: the deeper of measured (real banks/curbs) and synthetic
+	// (flat DEM pond interiors, where the real bed reads 3cm down).
+	float eff_depth = max(pixel_depth, synth_depth);
+
 	// Transmitted light: seen-through bed fades into the body color with depth.
 	// Slight green cast on the bed = suspended algae/particulates.
-	float depth_fade = pow(clamp(pixel_depth / murk_m, 0.0, 1.0), 0.55);
+	float depth_fade = pow(clamp(eff_depth / murk_m, 0.0, 1.0), 0.55);
 	vec3 transmitted = mix(bed_col * vec3(0.88, 1.0, 0.90), base_col, depth_fade);
 
-	// Reflection fades out over the last ~30cm to the shore edge
-	float refl_gate = smoothstep(0.0, 0.3, pixel_depth);
-	vec3 col = mix(transmitted, sky_col, fresnel * (0.35 + extra_reflect) * refl_gate);
+	// Reflection fades out over the last ~2.5m to the shore edge
+	float refl_gate = smoothstep(0.0, 0.3, eff_depth);
+
+	// Planar reflection: real mirrored scene when available, flat sky color
+	// as fallback. With a real image we can use a physical Schlick weight —
+	// water IS a mirror at grazing angles (the iconic treeline/skyline look).
+	vec3 refl_col = sky_col;
+	float refl_w = fresnel * (0.35 + extra_reflect);
+	if (planar_reflection_on > 0.5) {
+		vec2 ruv = vec2(1.0 - SCREEN_UV.x, SCREEN_UV.y)
+		         + wave_nrm.xz * planar_distortion * vec2(1.0, -1.0);
+		ruv = clamp(ruv, vec2(0.001), vec2(0.999));
+		refl_col = texture(planar_reflection_tex, ruv).rgb;
+		float cos_v = max(dot(NORMAL, VIEW), 0.0);
+		refl_w = 0.03 + 0.97 * pow(1.0 - cos_v, 5.0);   // Schlick, n≈1.33
+	}
+	vec3 col = mix(transmitted, refl_col, refl_w * refl_gate);
 
 	// Caustics: light dappling in shallow clear water during daytime
 	// Sunlight refracting through wave surface creates bright dancing patterns on bed
 	float caustic = 0.0;
 	float daytime = 1.0 - night_boost;
-	if (daytime > 0.1 && pixel_depth < 1.5) {
-		float shallow_factor = 1.0 - smoothstep(0.0, 1.5, pixel_depth);
+	if (daytime > 0.1 && eff_depth < 1.5) {
+		float shallow_factor = 1.0 - smoothstep(0.0, 1.5, eff_depth);
 		// Two overlapping caustic layers at different scales/speeds
 		float c1 = gnoise(world_pos.xz * 1.8 + vec2(t * 0.12, t * 0.08));
 		float c2 = gnoise(world_pos.xz * 2.5 + vec2(-t * 0.15, t * 0.11));
@@ -358,15 +400,18 @@ void fragment() {
 	// Foam — white caps at wave peaks (subtle in ponds, more on reservoir)
 	// Wind increases foam: lower threshold, more visible caps
 	float wind_str = length(wind_vec);
-	float foam_thresh = mix(0.6, 0.35, clamp(wind_str, 0.0, 2.0) * 0.5);
+	// Ponds rarely whitecap — foam only at strong wind, and subtle
+	float foam_thresh = mix(0.78, 0.50, clamp(wind_str, 0.0, 2.0) * 0.5);
 	float foam = smoothstep(foam_thresh, foam_thresh + 0.25, wave_h);
-	float foam_vis = night_boost > 0.5 ? 0.3 : 0.7;  // less visible foam at night
+	float foam_vis = night_boost > 0.5 ? 0.15 : 0.35;  // less visible foam at night
 	foam_vis *= (1.0 + wind_str * 0.3);  // wind makes foam more prominent
 	col = mix(col, vec3(0.85, 0.90, 0.92), foam * min(foam_vis, 1.0));
 
 	ALBEDO    = col;
 	ROUGHNESS = mix(0.12, 0.02, fresnel);
-	METALLIC  = 0.15;   // enough for SSR to pick up building/tree reflections
+	// Ambient sky-radiance specular — fallback shimmer when the planar mirror
+	// is off; mostly disabled when on, to avoid counting the sky twice.
+	METALLIC  = 0.15 * (1.0 - planar_reflection_on * 0.7);
 	SPECULAR  = 0.5 + night_boost * 0.2;
 
 	// Winter ice — shallow edges freeze first, center stays open longer
@@ -375,7 +420,7 @@ void fragment() {
 		// Ice forms from shores inward: shallow areas freeze first
 		float freeze = smoothstep(0.3, 0.8, winter_t) * smoothstep(0.1, 0.6, snow_cover);
 		// Shallow edges freeze before deep center
-		float depth_resist = smoothstep(0.0, 1.5, v_water_depth);
+		float depth_resist = smoothstep(0.0, 1.5, eff_depth);
 		float ice_mask = freeze * (1.0 - depth_resist * 0.6);
 		// Noise breaks up ice edge naturally
 		float ice_noise = gnoise(world_pos.xz * 0.15) * 0.3;
@@ -402,4 +447,14 @@ void fragment() {
 	// onto the banks; hide those. The VISIBLE shore softening is now the
 	// depth-buffer murk gradient above (transmitted → bed as depth → 0).
 	ALPHA = smoothstep(-0.02, 0.10, v_shore_dist);
+
+	// Diagnostic: paint the raw mirror sample so flip/aim errors are obvious
+	if (planar_debug > 0.5) {
+		ALBEDO = texture(planar_reflection_tex,
+			clamp(vec2(1.0 - SCREEN_UV.x, SCREEN_UV.y), vec2(0.001), vec2(0.999))).rgb;
+		ROUGHNESS = 1.0;
+		METALLIC = 0.0;
+		SPECULAR = 0.0;
+		ALPHA = 1.0;
+	}
 }

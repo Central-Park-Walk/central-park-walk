@@ -152,6 +152,7 @@ func _extract_mesh_from_glb(path: String) -> Mesh:
 
 func _setup_rain() -> void:
 	_rain_particles = GPUParticles3D.new()
+	_rain_particles.layers = 16  # weather layer — excluded from the water-reflection camera
 	_rain_particles.amount = 6000
 	_rain_particles.lifetime = 4.0
 	_rain_particles.visibility_aabb = AABB(Vector3(-25, -15, -25), Vector3(50, 30, 50))
@@ -178,6 +179,7 @@ func _setup_rain() -> void:
 
 func _setup_thunderstorm() -> void:
 	_rain_particles = GPUParticles3D.new()
+	_rain_particles.layers = 16  # weather layer — excluded from the water-reflection camera
 	_rain_particles.amount = 30000
 	_rain_particles.lifetime = 2.5
 	_rain_particles.visibility_aabb = AABB(Vector3(-25, -15, -25), Vector3(50, 30, 50))
@@ -204,6 +206,7 @@ func _setup_thunderstorm() -> void:
 
 func _setup_snow() -> void:
 	_snow_particles = GPUParticles3D.new()
+	_snow_particles.layers = 16  # weather layer — excluded from the water-reflection camera
 	_snow_particles.amount = 14000
 	_snow_particles.lifetime = 5.0
 	_snow_particles.visibility_aabb = AABB(Vector3(-25, -20, -25), Vector3(50, 40, 50))
@@ -256,6 +259,7 @@ func _setup_snow() -> void:
 
 func _setup_leaf_particles() -> void:
 	_leaf_particles = GPUParticles3D.new()
+	_leaf_particles.layers = 16  # weather layer — excluded from the water-reflection camera
 	_leaf_particles.amount = 800
 	_leaf_particles.lifetime = 8.0
 	_leaf_particles.visibility_aabb = AABB(Vector3(-30, -15, -30), Vector3(60, 30, 60))
@@ -305,6 +309,7 @@ func _setup_leaf_particles() -> void:
 
 func _setup_blossom_particles() -> void:
 	_blossom_particles = GPUParticles3D.new()
+	_blossom_particles.layers = 16  # weather layer — excluded from the water-reflection camera
 	_blossom_particles.amount = 600
 	_blossom_particles.lifetime = 12.0
 	_blossom_particles.visibility_aabb = AABB(Vector3(-35, -15, -35), Vector3(70, 30, 70))

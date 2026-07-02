@@ -23,6 +23,9 @@ const ALM := preload("res://almanac.gd")
 var _ambient_life = null    # ambient_life.gd — near fireflies + distant vague figures
 var _ambient_life_off := false
 
+var _water_reflection = null       # water_reflection.gd SubViewport (planar mirror)
+var _water_reflection_off := false # --no-water-reflection rollback gate
+
 var _player:        CharacterBody3D
 var _hud = null     # HudManager instance (hud_manager.gd)
 var _cloud_debug = null  # CloudDebug panel (cloud_debug.gd), toggle with C
@@ -250,6 +253,8 @@ func _parse_cli_args() -> void:
 			print("Eval plot: %s" % _eval_plot)
 		elif arg == "--no-life":
 			_ambient_life_off = true
+		elif arg == "--no-water-reflection":
+			_water_reflection_off = true
 		elif arg == "--walk":
 			_walk_bot = true
 		elif key == "--walk-duration" and val != "":
@@ -515,6 +520,16 @@ func _ready() -> void:
 			_set_terrain_param("canopy_map", _park_loader._canopy_texture)
 		# Aesthetic scale mode: suspend wear drying so worn lawns stay lush (matches blades/shell)
 		_set_terrain_param("aesthetic", 1.0 if GRASS_LUSH else 0.0)
+		# Baked sward (scripts/bake_turf.gd): grass-zone terrain shows the turf DOME's own
+		# material rendered top-down, so near geometry and far ground match by construction.
+		# Missing texture (bake not run/imported) falls back to the old spectral path.
+		var turf_baked: Texture2D = load("res://textures/grass_turf_baked.png") \
+			if ResourceLoader.exists("res://textures/grass_turf_baked.png") else null
+		if turf_baked:
+			_set_terrain_param("turf_baked_tex", turf_baked)
+			_set_terrain_param("turf_baked_on", 1.0)
+		else:
+			push_warning("grass_turf_baked.png missing — terrain uses the legacy spectral sward")
 		print("main: canopy map: %d ms" % (Time.get_ticks_msec() - _mt)); _mt = Time.get_ticks_msec()
 		# Unified to Godot's particle system 2026-05-09: Tier 1 + Tier 0 + Accents
 		# all run through _setup_grass_particles. Previous GDExtension (Tier 1) and
@@ -549,6 +564,7 @@ func _ready() -> void:
 		_player_camera = _player.get_node_or_null("Head/Camera")
 	if _terrain3d and _player_camera:
 		_terrain3d.set_camera(_player_camera)
+	_setup_water_reflection()
 	_hud = preload("res://hud_manager.gd").new()
 	_hud.setup(self)
 	_cloud_debug = preload("res://cloud_debug.gd").new()
@@ -2416,6 +2432,10 @@ func _setup_ground() -> void:
 		var n_regions: int = _terrain3d.data.get_regions_active().size()
 		print("Terrain3D: %d regions, spacing=%.4f" % [n_regions, _terrain3d.vertex_spacing])
 		_terrain3d.collision.radius = 128
+		# Layer 4 (+ mouse layer 32) instead of default 1: keeps the terrain out
+		# of the water-reflection camera (cull_mask=1) — without oblique near-
+		# plane clipping the pond BED would occlude the whole mirrored view.
+		_terrain3d.render_layers = 8 | (1 << 31)
 
 		# Apply our custom shader override — keeps Terrain3D clipmap vertex,
 		# replaces fragment with zone/weather/season-aware Central Park texturing
@@ -3661,6 +3681,13 @@ func _apply_landuse_map(zones: Array, water: Array = []) -> void:
 				shore_tex = ImageTexture.create_from_image(shore_img)
 	if shore_tex:
 		_set_terrain_param("shore_distance", shore_tex)
+		# Water shader synthesizes bathymetry from the same field (A channel =
+		# distance INTO water): LiDAR DEMs record the water surface as ground,
+		# so the real depth buffer reads ~3cm deep everywhere.
+		if _park_loader:
+			for wmat in _park_loader.water_materials:
+				wmat.set_shader_parameter("shore_distance", shore_tex)
+				wmat.set_shader_parameter("shore_world_size", _hm_world_size)
 		print("Terrain: loaded shore distance field %dx%d" % [shore_tex.get_width(), shore_tex.get_height()])
 
 	# Baked turf wear map (paths/benches → worn dirt; scripts/gen_wear_map.py).
@@ -3819,6 +3846,35 @@ func _setup_player() -> CharacterBody3D:
 # ---------------------------------------------------------------------------
 # Dynamic lamppost lighting — pool of OmniLight3D follows player
 # ---------------------------------------------------------------------------
+func _setup_water_reflection() -> void:
+	## Planar reflection for water (water_reflection.gd): mirrored camera →
+	## SubViewport texture sampled by shaders/water.gdshader. Gated by
+	## --no-water-reflection; costs one reduced-res scene render per frame.
+	if _water_reflection_off or _terrain_only:
+		return
+	if _park_loader == null or _park_loader.water_levels.is_empty():
+		return
+	if _player_camera == null or _env == null:
+		return
+	_water_reflection = preload("res://water_reflection.gd").new()
+	_water_reflection.water_levels = _park_loader.water_levels
+	_water_reflection.main_camera = _player_camera
+	_water_reflection.main_viewport = get_viewport()
+	if "--refl-dump" in OS.get_cmdline_user_args():
+		_water_reflection._dump_frame = 240
+	add_child(_water_reflection)
+	_water_reflection.setup(_env)
+	var refl_tex: ViewportTexture = _water_reflection.get_texture()
+	var refl_debug := "--refl-debug" in OS.get_cmdline_user_args()
+	for wm in _park_loader.water_materials:
+		wm.set_shader_parameter("planar_reflection_tex", refl_tex)
+		wm.set_shader_parameter("planar_reflection_on", 1.0)
+		if refl_debug:
+			wm.set_shader_parameter("planar_debug", 1.0)
+	print("Water reflection: planar mirror active (%d bodies, 1/%d res)"
+		% [_park_loader.water_levels.size(), _water_reflection.RES_DIVISOR])
+
+
 func _setup_lamp_lights() -> void:
 	# Extract all lamppost world positions from MultiMesh instances
 	_lamp_positions = PackedVector3Array()

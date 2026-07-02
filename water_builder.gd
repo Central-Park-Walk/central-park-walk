@@ -95,7 +95,9 @@ func _build_fountain_pool(pts: Array, wy: float) -> void:
 		wmat.set_shader_parameter("canopy_map", _loader._canopy_texture)
 		wmat.set_shader_parameter("canopy_world_size", _loader._hm_world_size)
 	mesh.surface_set_material(0, wmat)
+	_loader.water_materials.append(wmat)
 	var mi := MeshInstance3D.new(); mi.mesh = mesh; mi.name = "FountainPool"
+	mi.layers = 2  # water layer — excluded from the planar reflection camera
 	_loader.add_child(mi)
 
 
@@ -292,6 +294,11 @@ func _build_water_from_grids(grids: Array, verts: PackedVector3Array,
 		var inside: PackedByteArray = grid["inside"]
 		var poly: PackedVector2Array = grid["poly"]
 
+		_loader.water_levels.append({
+			"bb": Rect2(bb_x, bb_z, float(nx) * cell, float(nz) * cell),
+			"wy": wy,
+		})
+
 		# Store polygon for water proximity baking (used by grass/tree builders)
 		var exp_polygon := PackedVector2Array()
 		for pt in poly:
@@ -352,6 +359,10 @@ func _build_water_runtime(water: Array, verts: PackedVector3Array,
 		for pt in pts:
 			wy = minf(wy, _loader._terrain_y(float(pt[0]), float(pt[1])))
 		wy += _loader.WATER_Y
+		_loader.water_levels.append({
+			"bb": Rect2(_bmin_x, _bmin_z, _bmax_x - _bmin_x, _bmax_z - _bmin_z),
+			"wy": wy,
+		})
 		var polygon := PackedVector2Array()
 		for pt in pts:
 			polygon.append(Vector2(float(pt[0]), float(pt[1])))
@@ -414,6 +425,7 @@ func _build_water_mesh(verts: PackedVector3Array, normals: PackedVector3Array, w
 		mat.set_shader_parameter("canopy_world_size", _loader._hm_world_size)
 	mesh.surface_set_material(0, mat)
 
+	_loader.water_materials.append(mat)
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
 	mi.name = "WaterBodies"
@@ -421,6 +433,7 @@ func _build_water_mesh(verts: PackedVector3Array, normals: PackedVector3Array, w
 	# is ONE park-wide 3.1M-tri mesh whose AABB hits every shadow cascade —
 	# measured 2026-06-10 as ~12.4M shadow tris/frame at every location.
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.layers = 2  # water layer — excluded from the planar reflection camera
 	_loader.add_child(mi)
 
 	# --- Water body mist: localized FogVolume for atmospheric dawn/dusk mist ---
@@ -587,6 +600,7 @@ func _build_streams(streams: Array) -> void:
 	var s_mi := MeshInstance3D.new()
 	s_mi.mesh = s_mesh
 	s_mi.name = "Streams"
+	s_mi.layers = 2  # water layer — excluded from the planar reflection camera
 	_loader.add_child(s_mi)
 	print("  Streams: %d polylines, %d triangles" % [streams.size(), verts.size() / 3])
 
