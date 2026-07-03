@@ -434,9 +434,20 @@ func _parse_cli_args() -> void:
 	# Legacy trigger: sniffing --quit-after stopped working when the engine
 	# began stripping recognized flags from OS.get_cmdline_args() (found
 	# 2026-06-10 on 4.6.1 — loop never matches). Use `-- --screenshot`.
-	for earg in OS.get_cmdline_args():
+	var _cargs := OS.get_cmdline_args()
+	for _i in _cargs.size():
+		var earg: String = _cargs[_i]
 		if earg.begins_with("--quit-after"):
 			_auto_screenshot = true
+			# Honour the N value ("--quit-after=N" or "--quit-after N") so perf
+			# runs get their full duration; default stays 8s.
+			var nstr := ""
+			if "=" in earg:
+				nstr = earg.get_slice("=", 1)
+			elif _i + 1 < _cargs.size():
+				nstr = _cargs[_i + 1]
+			if nstr.is_valid_float():
+				_quit_after_sec = maxf(1.0, nstr.to_float())
 			break
 	# Default DEV launch: a no-flag run drops into the single-species eval garden
 	# in the Great Lawn (user 2026-06-19). Suppressed by any explicit mode —
@@ -705,6 +716,7 @@ var _hide_nodes_done := false
 var _labels_hidden_for_screenshot := false
 var _screenshot_counter := 0  # incrementing counter for F12 screenshots
 var _auto_screenshot := false  # only auto-capture when --quit-after is used
+var _quit_after_sec := 8.0     # --quit-after=N: seconds after load to quit (default 8)
 var _force_park := false  # --park: skip the default eval garden, load the plain park
 var _screenshot_file := "/tmp/godot_screenshot.png"  # --screenshot-file=path overrides
 var _lt_screenshot_pending := false  # debounce for gamepad left trigger screenshots
@@ -1224,30 +1236,38 @@ func _process(delta: float) -> void:
 		_hud.update(_player, _time_of_day, TIME_SPEED_NAMES[_time_speed_idx], _season_t)
 		return
 
-	# Auto-screenshot for headless capture (only with --quit-after)
-	if not _screenshot_done and _auto_screenshot:
+	# Auto-screenshot + timed quit for headless capture (enabled by --quit-after).
+	if _auto_screenshot:
 		_screenshot_timer += delta
+		# Grab the frame just before quitting; for the default 8s this keeps the
+		# old 6s-hide / 8s-capture timing. A short --quit-after still captures.
+		var cap_t: float = minf(8.0, _quit_after_sec)
 		if _screenshot_timer <= delta and _player:
 			_player.set_physics_process(false)
 			_player.velocity = Vector3.ZERO
-		if _screenshot_timer >= 6.0 and _hud.canvas and _hud.canvas.visible:
-			_hud.canvas.visible = false  # hide HUD before capture
-		if _screenshot_timer >= 6.0 and _hud.perf_canvas and _hud.perf_canvas.visible:
-			_hud.perf_canvas.visible = false
-		if _screenshot_timer >= 6.0 and not _labels_hidden_for_screenshot:
-			_labels_hidden_for_screenshot = true
-			_set_labels_visible(false)   # hide Label3D (building names, etc.)
-		if _screenshot_timer >= 8.0:
-			_screenshot_done = true
-			var img := get_viewport().get_texture().get_image()
-			if img:
-				img.save_png(_screenshot_file)
-				print("Screenshot saved to %s" % _screenshot_file)
-			if _player:
-				_player.set_physics_process(true)
-			if _hud.canvas:
-				_hud.canvas.visible = true  # restore HUD after capture
-				_set_labels_visible(true)
+		if not _screenshot_done:
+			if _screenshot_timer >= cap_t - 2.0 and _hud.canvas and _hud.canvas.visible:
+				_hud.canvas.visible = false  # hide HUD before capture
+			if _screenshot_timer >= cap_t - 2.0 and _hud.perf_canvas and _hud.perf_canvas.visible:
+				_hud.perf_canvas.visible = false
+			if _screenshot_timer >= cap_t - 2.0 and not _labels_hidden_for_screenshot:
+				_labels_hidden_for_screenshot = true
+				_set_labels_visible(false)   # hide Label3D (building names, etc.)
+			if _screenshot_timer >= cap_t:
+				_screenshot_done = true
+				var img := get_viewport().get_texture().get_image()
+				if img:
+					img.save_png(_screenshot_file)
+					print("Screenshot saved to %s" % _screenshot_file)
+				if _player:
+					_player.set_physics_process(true)
+				if _hud.canvas:
+					_hud.canvas.visible = true  # restore HUD after capture
+					_set_labels_visible(true)
+		# Quit after the requested duration. Fixes headless runs that otherwise
+		# never exit and pile up on the GPU (Vulkan init then fails on the next).
+		if _screenshot_timer >= _quit_after_sec:
+			get_tree().quit()
 	# Update lamp lights every 0.5s
 	_t0 = Time.get_ticks_usec()
 	_lamp_light_timer += delta
