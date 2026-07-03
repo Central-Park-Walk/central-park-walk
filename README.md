@@ -77,9 +77,10 @@ blender4 --background --python scripts/generate_trees_mtree.py
 /path/to/Godot_v4.6.1-stable_linux.x86_64 --path . -- --park
 ```
 
-> A bare launch (no flags) currently opens the **model evaluation garden** on the
-> Great Lawn (a labelled specimen plot used during the vegetation modeling pass).
-> Pass `-- --park` to walk the park itself.
+> Release builds (the downloads above) boot straight into the park. When running
+> from source in the **editor/dev** build, a bare launch instead opens the **model
+> evaluation garden** on the Great Lawn (a labelled specimen plot used during the
+> vegetation modeling pass) — pass `-- --park` to walk the park itself.
 
 ### Controls
 
