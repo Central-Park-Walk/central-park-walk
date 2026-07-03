@@ -43,6 +43,15 @@ float raindrop_ripple(vec2 p) {
 	return ripple;
 }
 
+// Flowing wave height — finer, higher-frequency ripples than a single big blob.
+// A dominant low-frequency layer produced smooth iso-fresnel "agate" contours at
+// grazing angle; shifting energy to finer directional ripples breaks that up.
+float stream_wave(vec2 p, float t) {
+	return gnoise(p * 3.0)                                        * 0.26
+	     + gnoise(p * 6.0 + vec2(t * 0.15, -t * 0.08))            * 0.26
+	     + gnoise(p * 11.0 + vec2(-t * 0.2,  t * 0.12))           * 0.20;
+}
+
 void vertex() {
 	vec3 w = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	float terrain_h = sample_terrain(w.xz) + water_y_offset;
@@ -80,22 +89,20 @@ void fragment() {
 	// Wave normal from flowing noise layers
 	vec2 flow_p = vec2(UV.x * 3.0, flow_uv);
 	float wind_str = length(wind_vec);
-	// Keep calm reaches nearly flat — a large base amp made the mirror-sharp
-	// specular alias into oily chevrons at grazing angles. Steep water still waves.
-	float amp = 0.10 + turb * 0.35 + wind_str * 0.06;
+	// Normal amplitude: kept low so the fresnel term doesn't carve hard contours.
+	// Steep reaches still wave; calm reaches stay near-flat.
+	float amp = 0.038 + turb * 0.18 + wind_str * 0.04;
+	// Fade wave strength with distance so far reaches don't shimmer/alias into
+	// moiré (grazing-angle reflection amplifies any high-freq normal far away).
+	float cam_dist = length(world_pos - CAMERA_POSITION_WORLD);
+	amp *= mix(1.0, 0.35, smoothstep(20.0, 80.0, cam_dist));
 
-	// Three layers: fast flow + cross-stream ripples + fine detail
-	float h1 = gnoise(flow_p * 1.2) * 0.45;
-	float h2 = gnoise(flow_p * 2.5 + vec2(t * 0.15, -t * 0.08)) * 0.35;
-	float h3 = gnoise(flow_p * 5.0 + vec2(-t * 0.2, t * 0.12)) * 0.20;
-	float wave_h = h1 + h2 + h3;
+	float wave_h = stream_wave(flow_p, t);
 
 	// Finite-difference normal from flowing waves
 	float eps = 0.04;
-	vec2 fp_dx = flow_p + vec2(eps, 0.0);
-	vec2 fp_dz = flow_p + vec2(0.0, eps);
-	float hx = gnoise(fp_dx * 1.2) * 0.45 + gnoise(fp_dx * 2.5 + vec2(t * 0.15, -t * 0.08)) * 0.35 + gnoise(fp_dx * 5.0 + vec2(-t * 0.2, t * 0.12)) * 0.20;
-	float hz = gnoise(fp_dz * 1.2) * 0.45 + gnoise(fp_dz * 2.5 + vec2(t * 0.15, -t * 0.08)) * 0.35 + gnoise(fp_dz * 5.0 + vec2(-t * 0.2, t * 0.12)) * 0.20;
+	float hx = stream_wave(flow_p + vec2(eps, 0.0), t);
+	float hz = stream_wave(flow_p + vec2(0.0, eps), t);
 	vec3 wave_nrm = normalize(vec3(-(hx - wave_h) / eps * amp, 1.0, -(hz - wave_h) / eps * amp));
 
 	// Rain ripples
@@ -110,9 +117,13 @@ void fragment() {
 
 	NORMAL = normalize((VIEW_MATRIX * vec4(wave_nrm, 0.0)).xyz);
 
-	// Stream water color — shallower, clearer than lakes
-	vec3 deep    = vec3(0.025, 0.042, 0.032);   // dark green-brown creek water
-	vec3 shallow = vec3(0.055, 0.078, 0.055);   // brighter shallow
+	// Stream water color — shallower, clearer than lakes.
+	// Lifted off near-black (a black albedo reads as chrome — only the sky
+	// specular survives) but kept saturated green-brown so it reads as WATER,
+	// not milky concrete. Real creek water carries visible body colour.
+	// Reference (CP Ravine stream) is a dark tea-brown rill, not a bright sheet.
+	vec3 deep    = vec3(0.032, 0.058, 0.050);   // dark tea-brown creek water
+	vec3 shallow = vec3(0.070, 0.105, 0.088);   // brighter shallow, faint warm cast
 
 	// Seasonal shifts
 	float autumn_t = sn_veg_autumn(season_t);
@@ -133,23 +144,49 @@ void fragment() {
 	vec3 base_col = mix(shallow, deep, depth_t);
 	base_col = mix(base_col, shallow, smoothstep(-0.3, 0.6, wave_h) * 0.4);
 
-	// Fresnel reflection
-	float fresnel = pow(1.0 - max(dot(NORMAL, VIEW), 0.0), 4.0);
+	// Fresnel reflection. A sharp exponent (4) turned smooth normal variation into
+	// hard iso-fresnel contour bands at grazing angle; a softer exponent smears
+	// them out and keeps the surface from washing pale-grey.
+	float fresnel = pow(1.0 - max(dot(NORMAL, VIEW), 0.0), 2.5);
 	vec3 sky_col = sky_reflect_color;
 	float sky_lum = dot(sky_col, vec3(0.2126, 0.7152, 0.0722));
 	float night_boost = smoothstep(0.15, 0.02, sky_lum);
 	if (night_boost > 0.01) {
 		sky_col += vec3(0.08, 0.05, 0.03) * night_boost;
 	}
-	vec3 col = mix(base_col, sky_col, fresnel * 0.5);
+	// Bias the reflected colour toward sky-blue so the surface reads as water
+	// rather than flat grey concrete. Cap the fresnel so the grazing-angle
+	// foreground doesn't blow out to a uniform pale sheet (no planar reflection
+	// exists to give it real reflected content, so a full mirror reads as concrete).
+	sky_col = mix(sky_col, sky_col * vec3(0.80, 0.93, 1.18), 0.6);
+	// A CP stream in a grassy ravine reflects dark banks and canopy, not the full
+	// blazing sky — darken the reflection and give it a green bank cast so the
+	// grazing foreground reads as dim water instead of a bright concrete sheet.
+	sky_col *= 0.70;
+	sky_col = mix(sky_col, vec3(0.09, 0.15, 0.09), 0.22);
+	float refl = min(fresnel, 0.62) * 0.32;
+	vec3 col = mix(base_col, sky_col, refl);
 
-	// White water / foam over rocky terrain (high slope = turbulent)
-	float foam = smoothstep(0.3, 0.7, turb) * (0.5 + wave_h * 0.5);
+	// Ripple shimmer — the reflection is a flat colour, so ripples alone don't
+	// break the bright grazing sheet. Modulate brightness by the (fine, high-freq)
+	// wave height to carve moving light/dark shimmer instead of a dead sheet.
+	col *= (1.0 + wave_h * 0.55 * refl);
+
+	// Moving sun sparkle on the ripples — bright points break the uniform sheet
+	// and sell the surface as reflective moving water.
+	float sparkle = pow(max(gnoise(flow_p * 14.0 + vec2(t * 0.6, -t * 0.4)), 0.0), 6.0);
+	col += vec3(1.0) * sparkle * fresnel * 0.5;
+
+	// White water / foam over rocky terrain (high slope = turbulent).
+	// Only genuine riffles/drops froth. Broken into higher-frequency animated
+	// streaks so it reads as whitewater texture, not a flat paint sheet that
+	// buries the water colour.
+	float foam = smoothstep(0.6, 0.95, turb) * (0.5 + wave_h * 0.5);
 	// Cross-stream foam is thicker at center
 	float center_x = 1.0 - abs(UV.x * 2.0 - 1.0);
 	foam *= smoothstep(0.0, 0.3, center_x);
-	foam *= (0.4 + gnoise(flow_p * 3.0) * 0.6);
-	col = mix(col, vec3(0.78, 0.82, 0.85), clamp(foam, 0.0, 0.6));
+	foam *= (0.25 + gnoise(flow_p * 7.0 + vec2(-t * 0.5, t * 0.3)) * 0.75);
+	col = mix(col, vec3(0.80, 0.84, 0.87), clamp(foam, 0.0, 0.45));
 
 	// Edge foam — subtle white froth along stream banks
 	float edge_mask = smoothstep(0.15, 0.0, min(UV.x, 1.0 - UV.x));
@@ -176,9 +213,13 @@ void fragment() {
 	}
 
 	ALBEDO    = col;
-	ROUGHNESS = mix(0.32, 0.12, fresnel);  // creek water isn't a mirror; softens specular aliasing
-	METALLIC  = 0.05;
-	SPECULAR  = 0.45;
+	// Keep the surface well off mirror-sharp. A low roughness at grazing angle
+	// turned the smooth wave-normal into concentric iso-reflectance "agate rings"
+	// (specular aliasing). A high, flatter roughness scatters that into a soft
+	// sheen that reads as moving water.
+	ROUGHNESS = mix(0.42, 0.55, fresnel);  // rougher at grazing to soften the sky sheen
+	METALLIC  = 0.0;
+	SPECULAR  = 0.14;
 
 	// Winter partial freeze — streams freeze from edges inward
 	if (winter_t > 0.4 && snow_cover > 0.15) {
