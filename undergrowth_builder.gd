@@ -42,8 +42,11 @@ var _catkin_tex: Texture2D = null       # cattail female-spike velvety texture (
 var _scenario: RID               # cached world scenario for RS instance creation
 
 const CHUNK := 20.0
-const LOAD_RANGE := 160.0
-const UNLOAD_RANGE := 180.0
+# PERF (Chris 2026-07-03): nothing renders past ~102m now (max per-species cull 85m +
+# ~17m fade, see _species_cull_dist), so don't build chunks out to 160m. Keep a small
+# margin beyond the max visible edge so a chunk is ready before it comes into range.
+const LOAD_RANGE := 110.0    # was 160
+const UNLOAD_RANGE := 130.0  # was 180
 const UPDATE_DIST := 2.0
 const VIS_END := 200.0
 const VIS_FADE_MARGIN := 30.0
@@ -700,14 +703,18 @@ func _ecology_density_mult(wx: float, wz: float, open_meadow := false) -> float:
 
 func _species_cull_dist(sp_idx: int) -> float:
 	## Per-species visibility range based on plant size.
-	## Small herbs invisible at 80m, large shrubs visible to 200m.
+	## PERF (Chris 2026-07-03): the old 80/140/200m ranges rendered dense alpha-card
+	## understory FAR past where it resolves — measured the #1 deep-forest cost (hiding
+	## undergrowth was 6→35fps, vpgpu 168→35ms; it's overdraw, not tris). A 2m shrub is
+	## ~2px at 200m. Trim to where a plant of that size actually reads (same "don't render
+	## past visibility" principle as the water-mirror boundary). Tune for look after.
 	var s_hi: float = SPECIES[sp_idx].s[1]
 	if s_hi <= 0.5:
-		return 80.0
+		return 40.0    # small herbs/flowers (was 80)
 	elif s_hi <= 1.0:
-		return 140.0
+		return 60.0    # medium herbs/ferns (was 140)
 	else:
-		return VIS_END
+		return 85.0    # large shrubs, spicebush etc. (was 200/VIS_END)
 
 
 func _density_tier(chunk_dist: float) -> float:
