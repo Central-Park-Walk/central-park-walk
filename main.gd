@@ -438,12 +438,15 @@ func _parse_cli_args() -> void:
 		if earg.begins_with("--quit-after"):
 			_auto_screenshot = true
 			break
-	# Default dev launch: a no-flag run drops into the single-species eval garden
+	# Default DEV launch: a no-flag run drops into the single-species eval garden
 	# in the Great Lawn (user 2026-06-19). Suppressed by any explicit mode —
 	# --pos, --walk, --tour/--shots, --terrain-only, --screenshot, or --park
-	# (the escape hatch back to the plain park walk).
+	# (the escape hatch back to the plain park walk). This is a dev convenience
+	# ONLY: a release-exported build (what end-users download) skips it and boots
+	# straight into the park — the eval garden is not a shipping experience.
 	if _eval_plot == "" and not _force_park and not _cli_pos_set and not _walk_bot \
-			and not _terrain_only and not _auto_screenshot and _cli_shots_spec == "":
+			and not _terrain_only and not _auto_screenshot and _cli_shots_spec == "" \
+			and not OS.has_feature("template_release"):
 		var _has_tour := false
 		for a in OS.get_cmdline_user_args():
 			if a in ["--tour", "--tour-showcase", "--readme-shots"]:
