@@ -2129,13 +2129,51 @@ SPECIES = {
 #   • card_rule_spacing — wider inboard spacing → the guaranteed tip sprig
 #     dominates, fewer fill cards down each branch.
 # Skeleton, apex_band (apex never bare), cards_per_cluster are UNCHANGED.
-SPECIES["london_plane_v2"] = {
-    **SPECIES["london_plane"],
-    "name": "London Plane v2 (parsimonious)",
-    "card_rule_depth_keep": {1: 0.04, 2: 0.40, 3: 0.62},  # v1 {1:0.05, 2:0.60, 3:1.0}
-    "card_half_factor": 1.00,                              # v1 implicit 1.20
-    "card_rule_spacing": 0.72,                             # v1 0.55
-}
+#
+# REDUCED-DENSITY lod0 PASS (Chris 2026-07-03): the deployed park runs v1 density
+# on s/m and the first-pass v2 on l, and v1 lod0 reads near-OPAQUE when backlit
+# (also the source of the lod1 gaps — lod1 is derived from lod0). Chris wants a NEW
+# lod0 for ALL THREE tiers at LESS density than before. This sandbox now carries a
+# notch-THINNER-than-first-pass-v2 target so the garden shows current (london_plane,
+# left) vs new-reduced (london_plane_v2, right) for s/m/l. Once Chris approves the
+# density, fold these levers into london_plane and regen lod1 (+ assess impostor).
+#   • depth_keep 2nd/3rd order dropped further (0.40/0.62 → 0.30/0.50) → more sky-gaps
+#     in the crown interior so backlight dapples through instead of reading opaque.
+#   • card_rule_spacing widened (0.72 → 0.85) → fewer inboard fill cards per branch.
+#   • card_half_factor held at 1.00 (smaller-than-v1 cards; not shrunk further to
+#     avoid a wispy read). apex_band/min_per_branch still guarantee clad tips.
+_LP_V2_HALF = 1.00                                # card size, unchanged from first-pass v2
+# GARDEN-WALK TUNE 2 (Chris 2026-07-03, second walk). First tune landed s/m at +47/46%
+# and the even spread reads well, but they still want more cards; l wants a further
+# branch cut at a held leaf count.
+#  • s: DOUBLE the cards (242 → ~484). Nearly all branches bear + much tighter fill.
+#  • m: more cards, evenly spread — landed at 1183 (×1.32 over 894), Chris "1183 is fine".
+#  • l: another ~20% fewer branches, leaf count HELD (~2686).
+# s and m now need DIFFERENT multipliers (2x vs 1.5x) so each takes its OWN per-tier
+# card override; l keeps its own. depth_keep = how many branches bear (even spread);
+# card_rule_spacing = fill cards along each bearing branch (density per branch).
+_LP_V2_S_DEPTH_KEEP = {1: 0.12, 2: 0.85, 3: 1.0}    # near-saturate: leaf almost every branch
+_LP_V2_S_SPACING = 0.42                             # tight fill (was 0.72) — 2x needs more cards/branch, s branches are short
+_LP_V2_M_DEPTH_KEEP = {1: 0.07, 2: 0.70, 3: 1.0}    # more branches bear (was {.045,.45,.75})
+_LP_V2_M_SPACING = 0.45                             # Chris 2026-07-03: m at 1183 (×1.32 over the 894 he saw) "is fine" — no need to force the full 1.5x, and this keeps cards on twigs (no max_radius widening onto secondaries)
+_LP_V2_L_DEPTH_KEEP = {1: 0.047, 2: 0.47, 3: 0.78}  # ~×1.25 vs prior — hold ~2686 cards on ~20% fewer branches
+_LP_V2_L_SPACING = 0.85
+_LP_V2_L_SUBDENSITY = 0.35                           # was 0.50 (0.40 gave only -15% total stems; 0.35 to reach the asked -20%; higher depth_keep masks the cut in the bearing count so measure TOTAL stems)
+# FOLD-IN (Chris approved 2026-07-03, "those look good"): the tuned densities above
+# ARE london_plane now — the v2 A/B sandbox is retired. Apply each tier's card levers
+# (+ l's thinner twig scaffold) straight onto london_plane's own tiers. lod1/impostor
+# are NOT regenerated here: the park walk runs lod0→impostor (no lod1, --no-lod1) with
+# the EXISTING london_plane impostors kept; lod1 regen is a later step.
+def _lp_set_cards(tier, depth_keep, spacing):
+    o = SPECIES["london_plane"]["tiers"][tier].setdefault("skeleton_overrides", {})
+    o["card_rule_depth_keep"] = depth_keep
+    o["card_rule_spacing"] = spacing
+    o["card_half_factor"] = _LP_V2_HALF
+_lp_set_cards("s", _LP_V2_S_DEPTH_KEEP, _LP_V2_S_SPACING)
+_lp_set_cards("m", _LP_V2_M_DEPTH_KEEP, _LP_V2_M_SPACING)
+_lp_set_cards("l", _LP_V2_L_DEPTH_KEEP, _LP_V2_L_SPACING)
+SPECIES["london_plane"]["tiers"]["l"]["skeleton_overrides"]["sub_density"] = _LP_V2_L_SUBDENSITY
+SPECIES["london_plane"]["card_half_factor"] = _LP_V2_HALF
 
 # Crown shape name -> Mtree CrownShape enum
 CROWN_MAP = {

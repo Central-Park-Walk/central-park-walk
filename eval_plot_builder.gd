@@ -114,7 +114,7 @@ const GRID_TIERS := [
 # only variable. Takes precedence over TIER_MATCH/VARIANT_GRID/VARIANT_ROW/SOLO.
 # Set false to restore the TIER_MATCH garden. Walk to the north side (or use a low
 # --time sun) to put the sun behind the crowns and compare backlit opacity.
-const LP_V2_COMPARE := true
+const LP_V2_COMPARE := false  # 2026-07-03: v2 densities approved + folded into london_plane; sandbox retired. TIER_MATCH garden restored.
 const LPV2_A := "london_plane"       # left column (v1, current)
 const LPV2_B := "london_plane_v2"    # right column (v2, parsimonious)
 const LPV2_TIER := "lod0"            # the tier under review
