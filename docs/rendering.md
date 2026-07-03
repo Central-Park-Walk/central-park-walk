@@ -224,6 +224,22 @@ lod0 trees — keeps the self-shadow-consistency that fixed the flip, cuts casca
 raster; needs care with the LOD-dither shadow pass), or revisiting proxies with
 leaf shadow-receive disabled. A tree-pipeline session, not a knob.
 
+**★ RESOLVED 2026-07-02 (deep-forest perf push).** Confirmed on the GPU (`perfab`
+launcher + `[PERF]` log's `shtri`/`vpgpu`/`mrgpu`) that per-leaf tree shadows were the
+dominant deep-forest cost, far above the 5.5 ms at literary_walk: in the all-london-plane
+forest, visible trees generated **37.7 M shadow tris** (2.5× the 15 M seen) and the
+water mirror re-rendered them again; `--diag-hide=treeshadows` → fps 15→27, shtri
+37.7 M→1.76 M. Fix = **shadow proxy restored to default ON** (chosen over `Mesh.shadow_mesh`;
+the deeper rebaked impostor mitigates the 06-28 flip). That unlocked **lod1-as-near** as
+the default near tier (with per-leaf shadows the shadow pass was the wall, so cutting
+near-mesh geometry did nothing — the proxy removed the wall, so it now lands). Result
+~38-39 fps deep Ramble, worst-case density. **SDFGI verdict revised:** the old "dead
+lever" reading was wrong — SDFGI is not dead, it actively darkens dense canopy to BLACK
+(`sdfgi_use_occlusion` drives its sky-ambient to ~0 under the canopy, ×the leaf shader's
+0.12 crown-interior AO). It costs ~2 fps + ~512 MB VRAM; kept ON by Chris's preference
+for the moody eye-level look (F2 toggle, F8 = occlusion, `--no-sdfgi`). Full record:
+[[project_performance_investigation]].
+
 ### 3h. Cherry Hill water report — mirror attribution + motion-aware idle rate (2026-07-02, commit a1590ea)
 
 Chris (screenshots cpw_003/4): standing at Cherry Hill (-552, 959), facing the

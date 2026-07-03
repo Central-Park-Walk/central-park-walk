@@ -20,6 +20,17 @@ at the worst test location. Measured today: ~25 ms camera (Ramble), 18–28 ms s
 > mid mesh, and any "50 %-card `_lod1`" as the *retired* near tier. Runtime code,
 > the loader, and `--tier-isolate=lod0|lod1` use the canonical names.
 
+> **★ 2026-07-02 DEFAULTS UPDATE (deep-forest perf push, Chris walk-approved).** The
+> table below describes the FULL-LOD0 chain, now the OPT-IN (`--full-lod0`). New
+> defaults: (1) **lod1-as-near** — the `_lod1` mid mesh IS the near tier from 0 m and
+> the full lod0 tier is dropped (chain = lod1 → impostor). Root cause of deep-forest
+> teens-fps was per-leaf tree shadow casting, not vertex count; the shadow proxy
+> (restored default ON, §3) removed that wall, which UNLOCKED the lod1 geometry saving.
+> (2) **transition zone 3× wider** — `LOD_FADE_RATIO` 0.10→0.30 (tunable `--lod-fade-ratio=`),
+> hides the lod1→impostor swap, measured free. (3) mirror half-rate default;
+> SDFGI stays ON (it darkens dense canopy via occlusion but Chris prefers the look —
+> see rendering.md). `walk` now runs this stack; see [[project_performance_investigation]].
+
 | tier | range | fade | representation | casts shadow | lit |
 |---|---|---|---|---|---|
 | lod0 (near) | 0–100 m | dither out 90–100 m | `{species}_{s,m,l}` — the **full base model** (revised Jun 11, §7: a card-pruned near tier visibly thinned close crowns), MMI per species-size × 80 m chunk | **never** (proxy does) | runtime sun + ambient |
