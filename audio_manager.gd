@@ -93,6 +93,13 @@ func setup(player: CharacterBody3D, water_bodies: Array, boundary: PackedVector2
 	_loader.add_child(_rain_player)
 
 	# --- Water proximity (3D positional) ---
+	# TODO (full-audio pass): flowing/running water is currently silent. The
+	# streams (The Loch, The Gill, Ravine) were rebuilt 2026-07-03 into
+	# Waterways-style channels carrying per-vertex longitudinal steepness in
+	# COLOR.r — when we do the game's audio, add stream emitters sampled along
+	# the stream polylines with volume weighted by that steepness (loudest at
+	# the weir cascades), plus a looping brook/rush stream. `_water_centroids`
+	# below is fed only from still-water bodies; streams contribute nothing yet.
 	_water_player = AudioStreamPlayer3D.new()
 	_water_player.bus = "Master"
 	_water_player.volume_db = -12.0

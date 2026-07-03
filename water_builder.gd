@@ -526,63 +526,105 @@ func _build_water_curb(pts: Array, tint: Color, body_name: String = "") -> void:
 
 
 func _build_streams(streams: Array) -> void:
+	# Waterways-style flowing channels: each jagged OSM polyline is smoothed
+	# through a Catmull-Rom Curve3D, meshed as a subdivided ribbon whose width
+	# comes from the waterway `type`, and each vertex carries the centreline's
+	# own longitudinal steepness in COLOR.r (the ported Waterways steepness_map)
+	# so the shader can drive faster flow + heavier foam on steep reaches.
 	if streams.is_empty():
 		return
+	const CROSS_SEGS := 4        # cross-stream quads → CROSS_SEGS+1 verts across
+	const SAMPLE_STEP := 1.5     # metres between along-stream samples
+	const RIVER_HALF_W := 3.0    # waterway=river half-width
+	const STREAM_HALF_W := 0.9   # waterway=stream half-width
+
 	var verts := PackedVector3Array()
 	var normals := PackedVector3Array()
 	var uvs := PackedVector2Array()
-	const STREAM_W := 1.5  # half-width in metres
+	var colors := PackedColorArray()
+	var indices := PackedInt32Array()
 
 	for stream in streams:
-		var pts: Array = stream.get("points", [])
-		if pts.size() < 2:
+		var raw: Array = stream.get("points", [])
+		if raw.size() < 2:
 			continue
-		# Accumulate along-stream distance for UV.y (flow coordinate)
+		var stype := str(stream.get("type", "stream"))
+		var half_w: float = RIVER_HALF_W if stype == "river" else STREAM_HALF_W
+
+		# --- Smooth the polyline into a Catmull-Rom spline (Waterways SampleBaked) ---
+		# Zero tangents give a linear curve, so derive Bezier handles from the
+		# neighbour delta (Catmull-Rom): out = +Δ/6, in = -Δ/6 relative to point.
+		var pcount := raw.size()
+		var pos := []
+		for p in raw:
+			pos.append(Vector3(float(p[0]), float(p[1]), float(p[2])))
+		var curve := Curve3D.new()
+		for i in pcount:
+			var tanv: Vector3
+			if i == 0:
+				tanv = pos[1] - pos[0]
+			elif i == pcount - 1:
+				tanv = pos[pcount - 1] - pos[pcount - 2]
+			else:
+				tanv = (pos[i + 1] - pos[i - 1]) * 0.5
+			var handle := tanv / 3.0
+			curve.add_point(pos[i], -handle, handle)
+
+		var total_len := curve.get_baked_length()
+		if total_len < SAMPLE_STEP:
+			continue
+		var rows := maxi(2, int(ceil(total_len / SAMPLE_STEP)) + 1)
+
+		# Centreline samples grounded to terrain, with along-stream tangent.
+		var centre := []   # Vector3 water-surface position
+		var tang := []     # Vector3 unit xz tangent
+		for r in rows:
+			var d: float = float(r) / float(rows - 1) * total_len
+			var cp := curve.sample_baked(d)
+			var wy: float = _loader._terrain_y(cp.x, cp.z) + 0.05
+			centre.append(Vector3(cp.x, wy, cp.z))
+			var tv := curve.sample_baked(minf(d + 0.75, total_len)) - curve.sample_baked(maxf(d - 0.75, 0.0))
+			tv.y = 0.0
+			tang.append(tv.normalized() if tv.length() > 0.001 else Vector3(0, 0, 1))
+
+		# Longitudinal steepness (the water's own tilt) per row → COLOR.r.
+		var steep := []
+		for r in rows:
+			var r0 := maxi(r - 1, 0)
+			var r1 := mini(r + 1, rows - 1)
+			var dy: float = absf(centre[r1].y - centre[r0].y)
+			var dxz: float = Vector2(centre[r1].x - centre[r0].x, centre[r1].z - centre[r0].z).length()
+			var slope: float = dy / maxf(dxz, 0.01)
+			steep.append(clampf(smoothstep(0.03, 0.5, slope), 0.0, 1.0))
+
+		# Emit an indexed grid: `rows` along-stream × (CROSS_SEGS+1) cross-stream.
+		var base_idx := verts.size()
 		var dist_accum := 0.0
-		for i in range(pts.size() - 1):
-			var x0: float = pts[i][0]
-			var y0: float = pts[i][1]
-			var z0: float = pts[i][2]
-			var x1: float = pts[i + 1][0]
-			var y1: float = pts[i + 1][1]
-			var z1: float = pts[i + 1][2]
-
-			# Direction and perpendicular
-			var dx := x1 - x0
-			var dz := z1 - z0
-			var ln := sqrt(dx * dx + dz * dz)
-			if ln < 0.01:
-				continue
-			var nx := -dz / ln * STREAM_W
-			var nz := dx / ln * STREAM_W
-
-			# Clamp Y to terrain + small offset so stream sits on surface
-			var ty0: float = _loader._terrain_y(x0, z0) + 0.05
-			var ty1: float = _loader._terrain_y(x1, z1) + 0.05
-			y0 = maxf(y0, ty0)
-			y1 = maxf(y1, ty1)
-
-			var d0 := dist_accum
-			dist_accum += ln
-			var d1 := dist_accum
-
-			# Two triangles per segment
-			# UV.x = 0 (left bank) or 1 (right bank), UV.y = along-stream distance
-			var va := Vector3(x0 - nx, y0, z0 - nz)
-			var vb := Vector3(x0 + nx, y0, z0 + nz)
-			var vc := Vector3(x1 + nx, y1, z1 + nz)
-			var vd := Vector3(x1 - nx, y1, z1 - nz)
-			verts.append(va); verts.append(vb); verts.append(vc)
-			verts.append(va); verts.append(vc); verts.append(vd)
-			uvs.append(Vector2(0.0, d0)); uvs.append(Vector2(1.0, d0)); uvs.append(Vector2(1.0, d1))
-			uvs.append(Vector2(0.0, d0)); uvs.append(Vector2(1.0, d1)); uvs.append(Vector2(0.0, d1))
-			for _j in 6:
+		for r in rows:
+			if r > 0:
+				dist_accum += centre[r].distance_to(centre[r - 1])
+			var perp := Vector3(-tang[r].z, 0.0, tang[r].x)
+			var col := Color(steep[r], 0.0, 0.0, 1.0)
+			for c in (CROSS_SEGS + 1):
+				var u := float(c) / float(CROSS_SEGS)   # 0..1 cross-stream
+				var off := (u - 0.5) * 2.0 * half_w
+				verts.append(centre[r] + perp * off)
 				normals.append(Vector3.UP)
+				uvs.append(Vector2(u, dist_accum))
+				colors.append(col)
+		var stride := CROSS_SEGS + 1
+		for r in (rows - 1):
+			for c in CROSS_SEGS:
+				var i0 := base_idx + r * stride + c
+				var i2 := i0 + stride
+				# cull_disabled shader → winding irrelevant
+				indices.append(i0); indices.append(i2); indices.append(i0 + 1)
+				indices.append(i0 + 1); indices.append(i2); indices.append(i2 + 1)
 
 	if verts.is_empty():
 		return
 
-	var s_mesh: ArrayMesh = _loader._make_mesh(verts, normals, uvs)
+	var s_mesh: ArrayMesh = _loader._make_mesh(verts, normals, uvs, colors, indices)
 
 	var mat := ShaderMaterial.new()
 	mat.shader = _loader._get_shader("stream", "res://shaders/stream.gdshader")
