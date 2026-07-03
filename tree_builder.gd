@@ -124,13 +124,15 @@ const REF_TREE_HEIGHT: float = 22.0  # m — height the 80/200m defaults were tu
 # Min/max clamp keeps extreme variants sane (tiny shrubs don't pop at 30m; giant
 # elms don't carry full mesh absurdly far).
 const LOD_SCALE_RANGE := Vector2(0.40, 1.60)
-# Crossfade dither band as a fraction of each tier's handoff distance. Godot's
-# official HLOD tutorial sizes End Margin at 10% of the visibility range
-# (End=10 → Margin=1); SpeedTree/AAA guidance is to keep the dither band SHORT
-# because overdraw cost scales with dithered area. 10% satisfies both → 8m at
-# the 80m handoff, 20m at the 200m handoff. Computed inline at each fade site so
-# CLI range overrides (--tree-lod1-range / --tree-mesh-range) track automatically.
-const LOD_FADE_RATIO: float = 0.10
+# Crossfade dither band as a fraction of each tier's handoff distance. Widened
+# 0.10→0.30 (2026-07-02, Chris) now that lod1-as-near is the default near tier: the
+# handoff is lower-detail lod1 mesh → impostor, and a much larger transition zone
+# hides that swap (60m at the 200m handoff vs the old 20m). The AAA "keep it short"
+# guidance (overdraw scales with dithered area) is outweighed here by the perf
+# headroom lod1-as-near freed and by the smoother handoff — the trees are small on
+# screen across that shell. Computed inline at each fade site so CLI range overrides
+# (--tree-lod1-range / --tree-mesh-range) track automatically.
+var LOD_FADE_RATIO: float = 0.30  # tunable via --lod-fade-ratio= (transition-zone width vs overdraw cost)
 # --simple-leaf / --simple-bark (diagnostic): swap tree surface shaders for
 # minimal ones with identical render modes, splitting the camera-raster cost
 # into shader complexity vs raster structure (overdraw, quad efficiency).
@@ -229,9 +231,18 @@ func _init(loader) -> void:
 	_proxy_solid = "--proxy-solid" in OS.get_cmdline_user_args()
 	if _proxy_solid:
 		print("TreeBuilder: proxy crowns SOLID (diagnostic) — no dapple discard")
-	_lod1_as_near = "--lod1-as-near" in OS.get_cmdline_user_args()
+	# lod1-as-near is now the DEFAULT (2026-07-02, Chris walk-approved): the mid
+	# (_lod1) mesh is the near tier from 0m and the full lod0 tier is dropped →
+	# LOD chain = lod1 → impostor. Big deep-forest fps gain, UNLOCKED by the shadow
+	# proxy (with per-leaf shadows the bottleneck was the shadow pass, so cutting
+	# near-mesh geometry did nothing; the proxy removed that wall, so the lod1
+	# geometry saving now lands). Up-close lod1 look confirmed acceptable. lod0 meshes
+	# are still generated — opt back into the full-lod0 near tier with --full-lod0.
+	_lod1_as_near = not ("--full-lod0" in OS.get_cmdline_user_args())
 	if _lod1_as_near:
-		print("TreeBuilder: LOD1-AS-NEAR — the mid (_lod1) mesh renders from 0m; no full lod0 tier (perf experiment)")
+		print("TreeBuilder: LOD1-AS-NEAR (default) — the _lod1 mesh is the near tier from 0m; no full lod0 (--full-lod0 to restore)")
+	else:
+		print("TreeBuilder: FULL-LOD0 near tier (--full-lod0) — lod0 renders near, _lod1 mid, impostor far")
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--tier-isolate="):
 			_tier_isolate = arg.substr("--tier-isolate=".length())
@@ -242,6 +253,9 @@ func _init(loader) -> void:
 		elif arg.begins_with("--tree-lod1-range="):
 			_lod1_end = clampf(float(arg.substr("--tree-lod1-range=".length())), 20.0, 250.0)
 			print("TreeBuilder: near mesh (_lod1) reference fade end = %.0fm (default 80, scaled per tree height) — _lod1 takes over there" % _lod1_end)
+		elif arg.begins_with("--lod-fade-ratio="):
+			LOD_FADE_RATIO = clampf(float(arg.substr("--lod-fade-ratio=".length())), 0.05, 0.60)
+			print("TreeBuilder: LOD crossfade band = %.2f of handoff distance (wider = smoother handoff, more dither overdraw)" % LOD_FADE_RATIO)
 		elif arg == "--simple-leaf":
 			_simple_leaf = true
 			print("TreeBuilder: SIMPLE LEAF shader (diagnostic) — isolates leaf shader complexity cost")
