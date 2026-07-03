@@ -89,6 +89,16 @@ open-collective-setup.md
 sensory-data-sources.md
 visual-reference-report.md
 reference-photos.md
+# Parked/working vision doc — self-declares uncommitted (§ status banner)
+world-platform-vision.md
+
+# Working scratch — temp renders the user watches live, plus one-off debug captures
+# and superseded doc backups. Keep on disk, out of git.
+tmp/
+weird specific tree disappearance bug/
+docs/tree work june 2026/
+docs/oaks prompt.txt
+docs/tree_lod_impostor_handoff_bug_brief.txt
 
 # Archive files
 *.rar
