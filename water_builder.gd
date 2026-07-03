@@ -543,6 +543,7 @@ func _build_streams(streams: Array) -> void:
 	var uvs := PackedVector2Array()
 	var colors := PackedColorArray()
 	var indices := PackedInt32Array()
+	var cascades := []   # {pos, dir, s} — steep reaches get mist spray (Phase 3)
 
 	for stream in streams:
 		var raw: Array = stream.get("points", [])
@@ -597,6 +598,20 @@ func _build_streams(streams: Array) -> void:
 			var slope: float = dy / maxf(dxz, 0.01)
 			steep.append(clampf(smoothstep(0.03, 0.5, slope), 0.0, 1.0))
 
+		# Cascade detection: the stream's own steep reaches (real drops recorded
+		# in the LiDAR DEM — The Loch falls at ~42°, the Gill ~26°) get a mist
+		# spray at their foot. Data-driven, so falls land where the terrain
+		# actually tumbles — not at the hand-placed weir GLBs (which sit up to
+		# 45 m off the real stream lines). Spaced ≥8 m so a long drop gets one.
+		var casc_run := 0.0
+		var last_casc := -100.0
+		for r in rows:
+			if r > 0:
+				casc_run += centre[r].distance_to(centre[r - 1])
+			if steep[r] > 0.6 and (casc_run - last_casc) > 8.0:
+				cascades.append({"pos": centre[r], "dir": tang[r], "s": steep[r]})
+				last_casc = casc_run
+
 		# Emit an indexed grid: `rows` along-stream × (CROSS_SEGS+1) cross-stream.
 		var base_idx := verts.size()
 		var dist_accum := 0.0
@@ -644,7 +659,54 @@ func _build_streams(streams: Array) -> void:
 	s_mi.name = "Streams"
 	s_mi.layers = 2  # water layer — excluded from the planar reflection camera
 	_loader.add_child(s_mi)
-	print("  Streams: %d polylines, %d triangles" % [streams.size(), verts.size() / 3])
+	for c in cascades:
+		_add_cascade_spray(c["pos"], c["dir"], c["s"])
+	print("  Streams: %d polylines, %d triangles, %d cascades" % [streams.size(), verts.size() / 3, cascades.size()])
+
+
+# Mist/spray at the foot of a stream cascade. Droplets tumble forward along the
+# flow and fall — a lighter, wider cousin of the fountain jet spray.
+func _add_cascade_spray(pos: Vector3, flow_dir: Vector3, intensity: float) -> void:
+	var particles := GPUParticles3D.new()
+	particles.amount = int(60.0 + intensity * 90.0)
+	particles.lifetime = 1.8
+	# AABB must cover the whole fall (gravity carries droplets ~11 m down over
+	# the lifetime) or Godot frustum-culls them and the spray vanishes.
+	particles.visibility_aabb = AABB(Vector3(-8, -14, -8), Vector3(16, 22, 16))
+
+	var pm := ParticleProcessMaterial.new()
+	# Fly forward along flow and downward off the lip.
+	var dir := (flow_dir * 0.7 + Vector3.DOWN * 0.5).normalized()
+	pm.direction = dir
+	pm.spread = 32.0
+	pm.initial_velocity_min = 1.5 + intensity * 2.0
+	pm.initial_velocity_max = 3.0 + intensity * 3.5
+	pm.gravity = Vector3(0, -9.8, 0)
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(1.0, 0.15, 1.0)
+	pm.damping_min = 1.5
+	pm.damping_max = 4.0
+	pm.scale_min = 0.8
+	pm.scale_max = 2.2
+	particles.process_material = pm
+
+	var mesh := QuadMesh.new()
+	mesh.size = Vector2(0.14, 0.14)
+	particles.draw_pass_1 = mesh
+
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.88, 0.92, 0.96, 0.65)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+	mat.emission_enabled = true
+	mat.emission = Color(0.62, 0.70, 0.80)
+	mat.emission_energy_multiplier = 0.18
+	particles.material_override = mat
+
+	particles.position = pos + Vector3(0.0, 0.15, 0.0)
+	particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_loader.add_child(particles)
 
 
 func _water_shader_code() -> String:
