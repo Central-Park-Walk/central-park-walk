@@ -3,66 +3,66 @@
 		"aabb_max": 0.0,
 		"albedo": "res://textures/impostors/london_plane_l_albedo.png",
 		"atlas_res": 2048,
-		"diag": 7.58346128463745,
+		"diag": 7.2227611541748,
 		"frames": 16,
 		"is_full_sphere": false,
 		"normal": "res://textures/impostors/london_plane_l_normal.png",
 		"orm": "res://textures/impostors/london_plane_l_orm.png",
 		"position_offset": [
-			0.00219547748565674,
-			2.62880992889404,
-			-0.115912675857544
+			0.00691771507263184,
+			2.59127402305603,
+			-0.152992606163025
 		],
-		"scale": 3.79173064231873,
+		"scale": 3.6113805770874,
 		"tier": "london_plane_l",
 		"vis": "res://textures/impostors/london_plane_l_vis.png",
 		"winter_albedo": "res://textures/impostors/london_plane_l_winter_albedo.png",
 		"winter_normal": "res://textures/impostors/london_plane_l_winter_normal.png",
 		"winter_orm": "res://textures/impostors/london_plane_l_winter_orm.png",
-		"world_height": 5.257653
+		"world_height": 5.182548
 	},
 	"london_plane_m": {
 		"aabb_max": 0.0,
 		"albedo": "res://textures/impostors/london_plane_m_albedo.png",
 		"atlas_res": 2048,
-		"diag": 6.9184250831604,
+		"diag": 6.78675031661987,
 		"frames": 16,
 		"is_full_sphere": false,
 		"normal": "res://textures/impostors/london_plane_m_normal.png",
 		"orm": "res://textures/impostors/london_plane_m_orm.png",
 		"position_offset": [
-			0.0305600166320801,
-			2.58802223205566,
-			0.0519067049026489
+			0.0325716733932495,
+			2.56012487411499,
+			0.0408957004547119
 		],
-		"scale": 3.4592125415802,
+		"scale": 3.39337515830994,
 		"tier": "london_plane_m",
 		"vis": "res://textures/impostors/london_plane_m_vis.png",
 		"winter_albedo": "res://textures/impostors/london_plane_m_winter_albedo.png",
 		"winter_normal": "res://textures/impostors/london_plane_m_winter_normal.png",
 		"winter_orm": "res://textures/impostors/london_plane_m_winter_orm.png",
-		"world_height": 5.1760445
+		"world_height": 5.1202497
 	},
 	"london_plane_s": {
 		"aabb_max": 0.0,
 		"albedo": "res://textures/impostors/london_plane_s_albedo.png",
 		"atlas_res": 2048,
-		"diag": 7.78224515914917,
+		"diag": 7.74231672286987,
 		"frames": 16,
 		"is_full_sphere": false,
 		"normal": "res://textures/impostors/london_plane_s_normal.png",
 		"orm": "res://textures/impostors/london_plane_s_orm.png",
 		"position_offset": [
-			0.0108239650726318,
-			2.40980577468872,
-			-0.0184729099273682
+			0.02494215965271,
+			2.4622220993042,
+			-0.047722339630127
 		],
-		"scale": 3.89112257957458,
+		"scale": 3.87115836143494,
 		"tier": "london_plane_s",
 		"vis": "res://textures/impostors/london_plane_s_vis.png",
 		"winter_albedo": "res://textures/impostors/london_plane_s_winter_albedo.png",
 		"winter_normal": "res://textures/impostors/london_plane_s_winter_normal.png",
 		"winter_orm": "res://textures/impostors/london_plane_s_winter_orm.png",
-		"world_height": 4.8196115
+		"world_height": 4.924444
 	}
 }
