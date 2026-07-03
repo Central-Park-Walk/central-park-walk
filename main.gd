@@ -2440,18 +2440,17 @@ func _setup_environment() -> void:
 	# SDFGI a uniform green indirect bounce that tinted pale surfaces (bark,
 	# paths) green (forced-white-bark probe read G/R 1.18). If that returns, dial
 	# it back via sdfgi_energy / sdfgi_bounce_feedback rather than disabling GI.
-	# SDFGI OFF by default (2026-07-02). GPU-confirmed at Bow Bridge that under a
-	# dense canopy sdfgi_use_occlusion (below) drives SDFGI's computed sky-ambient to
-	# ~0, and the leaf shader's calibrated crown-interior AO (tree_leaf.gdshader §6,
-	# 0.12 of sky ambient) multiplies against that ~0 → foliage renders near-BLACK
-	# when the camera is inside/under the canopy (Chris A/B: same view, SDFGI the only
-	# var; overhead sun ≈ midnight under canopy). SDFGI here is net-negative: it
-	# darkens the deep forest you walk through AND costs +512MB VRAM / ~3fps. The
-	# calibrated leaf AO already provides the correct dim-green under-canopy gradient
-	# without it. Kept fully reversible: opt back in with --sdfgi (or toggle live).
-	# NOTE the specific culprit is sdfgi_use_occlusion — if we ever want GI in the
-	# OPEN areas back, the surgical middle ground is --sdfgi + occlusion off.
-	_env.sdfgi_enabled         = "--sdfgi" in OS.get_cmdline_user_args()
+	# SDFGI ON by default. Brief detour 2026-07-02: flipped OFF over black
+	# under-canopy foliage (sdfgi_use_occlusion drives SDFGI's sky-ambient to ~0
+	# under the dense canopy, and the leaf shader's 0.12 crown-interior AO multiplies
+	# against ~0 → black). But that black only shows in a pathological look-STRAIGHT-
+	# UP-into-canopy view; on a full walk Chris confirmed the normal eye-level SDFGI
+	# look is the moody dappled forest he wants (cpw_009 OFF flat vs cpw_010/011 ON),
+	# for only ~2fps + ~512MB VRAM. So SDFGI stays ON. Occlusion made NO visible
+	# difference on the walk (F8 A/B, cpw_010≡011) so it's left at the standard true;
+	# --sdfgi-no-occlusion / F8 remain if the up-view black ever needs the middle ground.
+	# Opt out entirely with --no-sdfgi (or F2 live).
+	_env.sdfgi_enabled         = not ("--no-sdfgi" in OS.get_cmdline_user_args())
 	_env.sdfgi_cascades        = 6                                   # large outdoor scene needs range (4 = default)
 	_env.sdfgi_min_cell_size   = 0.5                                 # ~0.5m cascade-0 detail, matches atlas resolution
 	_env.sdfgi_y_scale         = Environment.SDFGI_Y_SCALE_75_PERCENT # Godot default; balanced for tree-height verticality
