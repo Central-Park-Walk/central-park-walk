@@ -1131,7 +1131,10 @@ func _ready() -> void:
 	_landmark_builder._build_tennis_house()
 	_landmark_builder._build_maintenance_yard()
 	_landmark_builder._build_dana_pier()
-	_landmark_builder._build_stone_weirs()
+	# Stone weirs removed 2026-07-03: superseded by data-driven stream cascades
+	# (water_builder), and the hand-placed GLBs sat up to 45m off the real stream
+	# lines. Man-made layer is placeholder pending a full rebuild.
+	#_landmark_builder._build_stone_weirs()
 	# Bethesda Arcade disabled — terrace model already includes barrel vault passage.
 	# Separate arcade model at (-480,1020) created duplicate overlapping geometry.
 	#_landmark_builder._build_bethesda_arcade()
@@ -1147,7 +1150,9 @@ func _ready() -> void:
 	_detail_builder._build_mile_markers(paths)
 	_detail_builder._build_balustrades()
 	_detail_builder._build_drive_waste_bins(paths)
-	_detail_builder._build_retaining_walls(paths)
+	# Retaining walls removed 2026-07-03: floating/z-broken slabs (flagged at the
+	# Loch cascade). Man-made layer is placeholder pending a full rebuild.
+	#_detail_builder._build_retaining_walls(paths)
 	_detail_builder._build_bollards()
 	_detail_builder._build_call_boxes(paths)
 	_detail_builder._build_info_kiosks()

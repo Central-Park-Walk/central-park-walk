@@ -537,8 +537,14 @@ func _build_streams(streams: Array) -> void:
 		return
 	const CROSS_SEGS := 4        # cross-stream quads → CROSS_SEGS+1 verts across
 	const SAMPLE_STEP := 1.5     # metres between along-stream samples
-	const RIVER_HALF_W := 3.0    # waterway=river half-width
-	const STREAM_HALF_W := 0.9   # waterway=stream half-width
+	# Width: OSM carries NO `width` tag on any CP waterway (checked: 0/10), so
+	# these are curated half-widths from the real watercourses — the Loch is the
+	# widest (a proper brook in the Ravine), the Gill a narrow rill, unnamed
+	# tributaries narrower still; a mapped waterway=river would be widest.
+	const RIVER_HALF_W := 3.0
+	const LOCH_HALF_W := 2.0
+	const GILL_HALF_W := 1.0
+	const TRIB_HALF_W := 0.8
 
 	var verts := PackedVector3Array()
 	var normals := PackedVector3Array()
@@ -552,7 +558,14 @@ func _build_streams(streams: Array) -> void:
 		if raw.size() < 2:
 			continue
 		var stype := str(stream.get("type", "stream"))
-		var half_w: float = RIVER_HALF_W if stype == "river" else STREAM_HALF_W
+		var lname := str(stream.get("name", "")).to_lower()
+		var half_w: float = TRIB_HALF_W
+		if stype == "river":
+			half_w = RIVER_HALF_W
+		elif lname.contains("loch"):
+			half_w = LOCH_HALF_W
+		elif lname.contains("gill"):
+			half_w = GILL_HALF_W
 
 		# --- Smooth the polyline into a Catmull-Rom spline (Waterways SampleBaked) ---
 		# Zero tangents give a linear curve, so derive Bezier handles from the
@@ -699,7 +712,11 @@ func _add_cascade_spray(pos: Vector3, flow_dir: Vector3, intensity: float) -> vo
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(0.88, 0.92, 0.96, 0.65)
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	# BILLBOARD_PARTICLES (not _ENABLED) is the mode GPUParticles3D expects — it
+	# orients each quad to the camera via the particle transform. With _ENABLED
+	# the quads collapse/cull and the spray is invisible.
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	mat.billboard_keep_scale = true
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
 	mat.emission_enabled = true
 	mat.emission = Color(0.62, 0.70, 0.80)
