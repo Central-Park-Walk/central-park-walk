@@ -1776,6 +1776,15 @@ func _build_impostor_assets() -> void:
 			if OS.has_environment("IMP_AOFLOOR"):
 				imp_aofloor = OS.get_environment("IMP_AOFLOOR").to_float()
 			mat.set_shader_parameter("ao_floor", imp_aofloor)
+			# Backlit SSS/transmission (fix-ladder #2): the mesh glows when the sun is
+			# behind it (tree_leaf BACKLIGHT); the impostor's custom light() bypasses the
+			# built-in path, so the far tier re-injects the same Godot backlight formula.
+			# sss_strength folds the mesh's per-species leaf-thickness factor -- default
+			# 0.6 = london plane (the only species with impostors today). IMP_SSS sweeps it.
+			var imp_sss := 0.6
+			if OS.has_environment("IMP_SSS"):
+				imp_sss = OS.get_environment("IMP_SSS").to_float()
+			mat.set_shader_parameter("sss_strength", imp_sss)
 			mat.set_shader_parameter("imposterTextureNormal", load(nrm_path))
 			# ORM atlas (R = crown-interior AO, applied ambient-only by the shader so
 			# the far tier isn't ~1.5x too bright). Optional — pre-AO bakes omit it,

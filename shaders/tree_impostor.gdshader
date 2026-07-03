@@ -71,6 +71,15 @@ uniform bool has_vis_atlas = false;
 // 0 = ignore the vis atlas (old behaviour), 1 = full sun-visibility. Sweep lever.
 uniform float vis_strength : hint_range(0.0, 1.0) = 1.0;
 
+// Subsurface-scattering (backlit transmission) strength — fix-ladder #2. The near mesh
+// (tree_leaf.gdshader) GLOWS when the sun is behind it via Godot's built-in BACKLIGHT;
+// this shader's custom light() BYPASSES that path, so the far tier had zero SSS. This
+// folds the mesh's per-species leaf-thickness factor (london plane 0.6, magnolia 0.55,
+// conifer 0.25 of the base) AND doubles as a global tuning lever. The impostor tier is
+// london_plane-only today, so the default is london plane's 0.6; tree_builder sets it
+// per-species (IMP_SSS env override) as other species get impostors. 0 = no SSS.
+uniform float sss_strength : hint_range(0.0, 1.5) = 0.6;
+
 // WINTER atlas set (baked at season_t=winter, card_keep=-1 → the leaf shader's own
 // WINTER_RETENTION floor thins the crown to a near-bare skeleton + a few marcescent
 // sprigs). Blended against the summer set by the per-tree phenology fraction
@@ -553,4 +562,25 @@ void light() {
 	float fdl = 1.0 + fd90m1 * pow(1.0 - ndotl, 5.0);
 	float burley = (1.0 / PI) * fdv * fdl * ndotl;
 	DIFFUSE_LIGHT += burley * v_vis * ATTENUATION * LIGHT_COLOR;
+
+	// --- Subsurface transmission (backlit glow) — fix-ladder #2 ------------------
+	// The near mesh glows when the sun is behind it via Godot's built-in BACKLIGHT.
+	// A custom light() BYPASSES that built-in path, so without this the far tier stays
+	// flatly opaque at every sun angle: the vis fix keeps it from being wrongly DARK,
+	// but it also never GLOWS. Re-inject transmission with Godot's EXACT backlight
+	// formula (light_color * (1/PI − diffuse_brdf_NL) * backlight) so the amber glow is
+	// magnitude-matched to the mesh across the handoff. The (1/PI − burley) factor is ~0
+	// when frontlit (burley high) and ~1/PI when backlit (burley→0, normals facing away
+	// from the sun) — it fills only the sun-away side, exactly like leaf transmission.
+	// NOT gated by v_vis: the mesh leaves SSS untouched by crown AO (tree_leaf: AO_LIGHT_
+	// AFFECT=0, SSS untouched), so matching it keeps the handoff seamless.
+	vec3 backlight_col = mix(vec3(0.62, 0.50, 0.14), v_season_color * 0.75, 0.5);
+	float spring_boost = (1.0 - smoothstep(0.3, 0.8, season_t)) * 0.15;
+	// v_sun_leaf.w = per-tree canopy fraction (winter → little glow, matching the mesh's
+	// v_leaf_density term). sss_strength folds the species leaf-thickness factor.
+	float sss = (v_sun_leaf.w * 0.7 + spring_boost) * sss_strength;
+	// Cap at real leaf transmittance (5-15% of albedo) — same clamp the mesh uses, so a
+	// too-hot swing can't make solid far foliage read see-through as the camera rotates.
+	vec3 backlight = min(backlight_col * sss, ALBEDO * 0.15);
+	DIFFUSE_LIGHT += LIGHT_COLOR * (vec3(1.0 / PI) - burley) * backlight * ATTENUATION;
 }
