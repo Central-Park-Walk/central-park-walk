@@ -95,6 +95,9 @@ var _lod1_as_near: bool = false
 # models while the _lod1 meshes are stale/being regenerated. Reuses the sapling
 # "no-lod1" path (near mesh covers the whole mesh range). Forces _lod1_as_near off.
 var _no_lod1: bool = false
+# Reference distance at which the impostor takes over from the near mesh (see the
+# post-parse assignment in _ready): _mesh_fade_end normally, _lod1_end under --no-lod1.
+var _imp_handoff_ref: float = 200.0
 # --bake-impostors[=species]: offline octahedral atlas bake (scripts/bake_impostors.gd).
 # Non-empty => after materialising _species_meshes, bake that species' tiers and quit.
 var _bake_impostors_species: String = ""
@@ -276,7 +279,7 @@ func _init(loader) -> void:
 		elif arg == "--no-lod1":
 			_no_lod1 = true
 			_lod1_as_near = false  # lod0 is the near tier; can't also promote lod1
-			print("TreeBuilder: NO-LOD1 — lod0 near tier from 0m straight to impostor (lod1 mid tier dropped)")
+			print("TreeBuilder: NO-LOD1 — lod0 near tier 0→_lod1_end, then the impostor pulled IN to the lod1 distance (no lod1 mid tier)")
 		elif arg.begins_with("--bake-impostors"):
 			# --bake-impostors  or  --bake-impostors=<species>  (default london_plane).
 			# Bakes octahedral atlases for that species' size tiers, then quits — runs
@@ -284,6 +287,13 @@ func _init(loader) -> void:
 			var eq := arg.find("=")
 			_bake_impostors_species = arg.substr(eq + 1) if eq >= 0 else "london_plane"
 			print("TreeBuilder: IMPOSTOR BAKE mode — species '%s', will quit after baking" % _bake_impostors_species)
+
+	# The distance (reference, height-scaled per tree) at which the impostor takes over
+	# from the near mesh. Default = _mesh_fade_end (after the lod1 mid tier). --no-lod1
+	# collapses it to _lod1_end so the impostor is pulled IN to where lod1 would start:
+	# lod0 renders 0→_lod1_end, then the (good-enough) impostor. Set AFTER arg parsing
+	# so --tree-lod1-range / --tree-mesh-range overrides are already applied.
+	_imp_handoff_ref = _lod1_end if _no_lod1 else _mesh_fade_end
 
 # Size tier boundaries per species: [small_max, medium_max]
 # Trees below small_max use _s model, below medium_max use _m, else _l.
@@ -961,7 +971,7 @@ func _build_trees(trees: Array) -> void:
 		var lsc: float = _lod_scale(band["_tier"])
 		var me: float = _mesh_fade_end * lsc
 		band["mesh_end"] = me
-		band["lod1_end"] = (_lod1_end * lsc) if (band["_lod1"] and not _no_lod1) else me
+		band["lod1_end"] = (_lod1_end * lsc) if (band["_lod1"] or _no_lod1) else me
 		band.erase("_tier")
 		band.erase("_lod1")
 
@@ -1040,7 +1050,8 @@ func _build_trees(trees: Array) -> void:
 		# trees get a near far-cull (≈90m) on their own, no separate constant.
 		var lscale: float = _lod_scale(sp_name)
 		var eff_mesh_end: float = _mesh_fade_end * lscale
-		var mesh_vis_end: float = eff_mesh_end + chunk_r + 5.0
+		# Under --no-lod1 the lod0 mesh only needs to reach _lod1_end (impostor pulled in there).
+		var mesh_vis_end: float = _imp_handoff_ref * lscale + chunk_r + 5.0
 		if _tier_isolate != "":
 			# Isolate captures render a tier pure with the dither disabled, so
 			# the tight per-chunk bound (correct in normal play, where trees
@@ -1079,7 +1090,7 @@ func _build_trees(trees: Array) -> void:
 			"impostor":
 				pass  # impostor-only isolate: no mesh tiers, just the billboards below
 			_:
-				var near_target: float = (_lod1_end * lscale) if mid_mesh != null else eff_mesh_end
+				var near_target: float = (_lod1_end * lscale) if (mid_mesh != null or _no_lod1) else eff_mesh_end
 				tier_specs.append([near_mesh, "Tree", near_target])
 				if mid_mesh != null:
 					tier_specs.append([mid_mesh, "TreeLod1", eff_mesh_end])
@@ -1613,7 +1624,7 @@ func _spawn_impostor_chunks(buckets: Dictionary) -> void:
 		# half-diagonal (mirrors the mesh-tier fix). Without it the impostor spawned LATE
 		# while the mesh had already culled → the coverage gap.
 		var imp_hd: float = imm.get_aabb().size.length() * 0.5
-		var imp_begin: float = eff_mesh_end * (1.0 - LOD_FADE_RATIO) - imp_hd - 5.0
+		var imp_begin: float = (_imp_handoff_ref * lscale) * (1.0 - LOD_FADE_RATIO) - imp_hd - 5.0
 		if _tier_isolate == "impostor":
 			imp_begin = 0.0
 		immi.visibility_range_begin = maxf(imp_begin, 0.0)
@@ -1684,7 +1695,7 @@ func _build_impostor_assets() -> void:
 			var lscale: float = _lod_scale(tier)
 			# Crossfade-in band = where this tier's mesh dithers out (height-scaled), so
 			# the impostor dithers IN exactly as _lod1 dithers OUT (complementary).
-			var band_end: float = _mesh_fade_end * lscale
+			var band_end: float = _imp_handoff_ref * lscale
 			var band_begin: float = band_end * (1.0 - LOD_FADE_RATIO)
 			# Impostor-only isolate: render solid from 0m, no crossfade dither.
 			if _tier_isolate == "impostor":
@@ -1828,7 +1839,9 @@ func _run_impostor_bake() -> void:
 		# The atlas/manifest key stays the species_tier (e.g. london_plane_m) so the
 		# runtime impostor loader is unaffected; only the SOURCE mesh changes.
 		var lod1_key: String = key + "_lod1"
-		var src_key: String = lod1_key if _species_meshes.has(lod1_key) else key
+		# --no-lod1: no lod1 tier — bake from lod0, the tier the impostor hands off FROM
+		# (otherwise this would bake from the now-stale/unused _lod1 GLB still on disk).
+		var src_key: String = key if _no_lod1 else (lod1_key if _species_meshes.has(lod1_key) else key)
 		# TEST ROUND: bake from the ONE pinned variant (LP_SINGLE_VARIANT), not all
 		# variants stacked at the origin. The old all-variants bake superimposed every
 		# variant crown → a denser/fuller silhouette than any single placed tree; with
