@@ -4086,11 +4086,12 @@ func _setup_water_reflection() -> void:
 	# is still (defeats the motion-aware idle staging).
 	if "--refl-full-rate" in OS.get_cmdline_user_args():
 		_water_reflection.full_rate = true
-	# Walk experiment: double the staged intervals (shore renders every 2nd
-	# frame while moving). Promote to default if reflection lag is invisible
-	# on a shore walk — saves ~1.4ms at the Lake edge.
-	if "--refl-half-rate" in OS.get_cmdline_user_args():
-		_water_reflection.half_rate = true
+	# Half-rate PROMOTED to default (2026-07-02): the mirror is a full second
+	# scene render and near-water deep forest is GPU-bound (~30-48ms mirror GPU at
+	# Bow Bridge). Doubling the staged intervals (shore renders every 2nd frame
+	# while moving; the shader reprojection keeps skipped frames world-anchored)
+	# halves the amortized mirror cost. Opt back to per-frame with --no-refl-half-rate.
+	_water_reflection.half_rate = not ("--no-refl-half-rate" in OS.get_cmdline_user_args())
 	# Reprojection diag: render the mirror once, then freeze it. With the
 	# world-anchored sampling a frozen mirror should stay glued to the scene
 	# while the camera walks (only disocclusion edges drift).

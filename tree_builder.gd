@@ -209,17 +209,21 @@ const HEIGHT_RANGES := {
 
 func _init(loader) -> void:
 	_loader = loader
-	# Default ON since 2026-06-10 (docs/trees.md §3 DoD passed: shtri, SDFGI
-	# A/B, crown fit, winter shed, perf gate). Opt-out is a diagnostic.
-	# Shadow proxies are OFF by default (2026-06-28): the proxy's 3D crown shadow
-	# internally-shadowed the impostor only within the directional shadow range, then
-	# hard-popped at its cull distance → the impostor flipped dense-dark↔pale-flat on a
-	# tiny step (worst at low sun, gone at noon). Now meshes + impostors cast their OWN
-	# shadows (impostor cast_shadow ON + opaque shader, below), so there's no separate
-	# proxy tier to desync. Opt back in with --tree-shadow-proxy for A/B comparison.
-	_shadow_proxy = "--tree-shadow-proxy" in OS.get_cmdline_user_args()
-	if not _shadow_proxy:
-		print("TreeBuilder: shadow proxies OFF (diagnostic) — visible trees cast per-leaf")
+	# Shadow proxies RESTORED to default ON (2026-07-02). GPU-confirmed at Bow
+	# Bridge/noon: the per-leaf shadow path costs ~45ms of frametime in deep forest
+	# — visible trees generate 37.7M shadow tris (2.5× the 15M actually seen) and
+	# the water mirror re-renders them again; turning tree-shadow casting off nearly
+	# doubled fps (15→27) and collapsed shadow tris 95% (37.7M→1.76M). The proxy
+	# casts a cheap solid-ish crown mesh instead. Was OFF 2026-06-28 because the
+	# proxy crown made the impostor flip dense-dark↔pale-flat at low sun (its 3D
+	# crown shadow reached only within the directional range, then hard-popped at
+	# cull distance). The deeper rebaked impostor should mitigate that flip — this
+	# is a walk-verify restoration, not a settled call. Opt out: --no-tree-shadow-proxy.
+	_shadow_proxy = not ("--no-tree-shadow-proxy" in OS.get_cmdline_user_args())
+	if _shadow_proxy:
+		print("TreeBuilder: shadow proxies ON (default) — cheap crown shadow, not per-leaf")
+	else:
+		print("TreeBuilder: shadow proxies OFF (--no-tree-shadow-proxy) — visible trees cast per-leaf")
 	# Diagnostic: solid crowns (no dapple discard material) to isolate the
 	# alpha-tested shadow-pass cost from the proxy geometry cost.
 	_proxy_solid = "--proxy-solid" in OS.get_cmdline_user_args()
