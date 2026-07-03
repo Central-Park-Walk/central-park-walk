@@ -7,7 +7,7 @@ Companion docs: [`vision.md`](vision.md) (what and why), `rendering.md` (budgets
 
 ## 1. The two halves
 
-The project is an **offline data pipeline** (Python) that compiles real-world data into binary artifacts, and a **runtime** (Godot 4 / GDScript + one GDExtension) that renders them. The pipeline runs on the developer machine; the runtime ships.
+The project is an **offline data pipeline** (Python) that compiles real-world data into binary artifacts, and a **runtime** (Godot 4 / GDScript + the Terrain3D GDExtension) that renders them. The pipeline runs on the developer machine; the runtime ships.
 
 ```
 OSM ─┐
@@ -64,7 +64,7 @@ Incremental rebuild via `.pipeline_cache.json` (mtime/sha256 signatures); `--for
 4. Create WindSystem, WeatherManager, DayNightCycle singletons.
 5. Terrain3D setup (shader override, collision radius 128).
 6. **ParkLoader**: load `park_data.bin` + `world_atlas.bin`, then run 13 builders **in strict order** (labels → bridges → trees → undergrowth → ground cover → vines → furniture → infrastructure → landmarks → details → water → boundary → buildings). Order is load-bearing and implicit (debt #D2).
-7. GPU grass: 4 biomes × 3 tiers ⇒ ~12-16 GPUParticles3D/GPUGrass nodes.
+7. Turf: terrain-only baked sward (the terrain shader carries grass at every distance, `GRASS_TERRAIN_ONLY`); optional near-field 3D blade band MMI (`--no-blades` gates it). Legacy GPU-particle path only under `--particle-grass`.
 8. Player (CharacterBody3D + Head + Camera), HUD, color-grade CanvasLayer, lamp-light pool (48 SpotLight3D serving ~950 lamp positions).
 9. Apply initial time of day; enter tour/walk-bot mode if flagged.
 
@@ -81,13 +81,17 @@ Incremental rebuild via `.pipeline_cache.json` (mtime/sha256 signatures); `--for
 | `hud_manager.gd` | HUD + F9 perf overlay | label updates; perf text every 0.25 s |
 | `tree_builder.gd` | the tree system — see §5 | none (engine visibility_range does culling) |
 | `undergrowth_builder.gd`, `ground_cover_builder.gd` (via `chunk_builder.gd`) | distance-streamed chunks (80m chunks, 200m load, 350m unload) | `update_camera` check per frame; ≤1 chunk build/frame (~1-5 ms spike per build, est.) |
-| `grass_*` + `gpu_grass/` GDExtension | 3-tier grass (Tier 0 GPU compute 0-10m, clusters 10-35m, tufts 13-120m) | compute dispatch per frame; camera-follow grid snap |
+| baked sward (`terrain3d_override.gdshader`) + `_grass_blades_mmi` | terrain-only turf — the sward texture IS the grass (`GRASS_TERRAIN_ONLY`); optional near-field blade band. See `docs/grass.md` §0y. | none (grass is in the terrain shader); blade band is static MultiMesh |
 | static builders (`path/water/boundary/building/furniture/infrastructure/landmark/detail/gap`) | static world; mostly MultiMesh + combined meshes; ~600-750 scene nodes total (est.) | none (water particles/mist are GPU) |
 | `audio_manager.gd` | ambient + footsteps | ~1-2 ms (est.) — NOTE: implemented despite vision.md deferring audio; keep, but it's not a v1.0 work area |
 
 ## 5. Tree system (the project's hardest subsystem)
 
-Target-state spec: [`trees.md`](trees.md). Current state (post two-tier collapse, commit 20486e4):
+Target-state spec: [`trees.md`](trees.md).
+
+> ⚠ **The bullets below are a June-2026 snapshot and are now partly superseded** — the sprint change in bullet 5 shipped (runtime-lit impostors, rebuilt 2026-06-23; baked sun-visibility 2026-07-02), plus whole-tree shadow proxies and `--lod1-as-near` as the default near tier (2026-07-02). For the current tier chain read [`trees.md`](trees.md); it is the authority.
+
+Snapshot (post two-tier collapse, commit 20486e4):
 
 - **Mesh tier 0-290m**: `{species}_{s|m|l}_lod1` decimated meshes; one MMI per species-tier × 80m chunk, positioned at instance centroid; per-chunk deterministic variant pick (`tree_builder.gd:523`) to limit MMI fragmentation; dither crossfade out 230-250m. ~9,852 census + woodland-fill trees, 17 archetypes.
 - **Impostor tier 190-2500m**: octahedral billboards, 8×8 hemisphere frames, 2048² atlas per species-tier (56 atlases), premultiplied alpha, crossfade in 230-250m, shadows off.
@@ -102,6 +106,8 @@ Set via `RenderingServer.global_shader_parameter_set`, mostly from `main.gd::_pr
 Parameter names are string literals repeated across 3+ files (debt #D3).
 
 ## 7. Performance — measured 2026-06-09 (D1-2 bisection)
+
+> ⚠ **Superseded by the 2026-07-02 deep-forest push** (tree shadow proxies default-on, `--lod1-as-near` default, wider LOD transition, SDFGI kept on with an F8 occlusion toggle) — deep Ramble now clears the ≥45fps woodland bar. [`rendering.md`](rendering.md) §3f/§3g carry the current numbers; the bisection below is kept for the root-cause history (tree shadow raster was the dominant cost).
 
 See [`rendering.md`](rendering.md) for the full attribution tables, the binding 16.6 ms budget, and the reduction plan. Headlines:
 

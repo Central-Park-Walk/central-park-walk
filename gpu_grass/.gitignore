@@ -1,7 +1,0 @@
-# Build artifacts
-*.os
-*.o
-godot-cpp/
-extension_api.json
-.sconsign.dblite
-*.pyc

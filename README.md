@@ -16,7 +16,7 @@ Every tree has a real measured height. Every path follows its real-world geometr
 *Near Bow Bridge in January — snow cover, bare deciduous canopies, photogrammetry bark textures, 4-tier LOD chain.*
 
 ![Literary Walk Winter](screenshots/readme_literary_walk_winter.png)
-*Literary Walk in December snow — bare elms, GPU particle grass hidden under snow, volumetric clouds, seasonal phenology.*
+*Literary Walk in December snow — bare elms, baked-sward turf under snow, volumetric clouds, seasonal phenology.*
 
 ## Download
 
@@ -57,7 +57,6 @@ open "Central Park Walk.app"
 - Python 3 with `numpy`, `scipy`, `gdal`, `Pillow`
 - [Blender 4.5 LTS](https://www.blender.org/download/lts/4-5/) (`blender4` symlink, for model regeneration)
 - [Mtree addon v5.5](https://extensions.blender.org/add-ons/modular-tree/) (Blender, for tree generation)
-- SCons + g++ (for GPU grass GDExtension — `pip3 install scons`)
 - NVIDIA GPU recommended (Forward+ renderer)
 
 ### Setup
@@ -74,13 +73,6 @@ python3 convert_to_godot.py
 
 # Generate high-quality Mtree models (requires Blender 4.5 + Mtree addon)
 blender4 --background --python scripts/generate_trees_mtree.py
-
-# Build GPU grass GDExtension
-cd gpu_grass
-git clone --depth 1 --branch 4.5 https://github.com/godotengine/godot-cpp.git
-/path/to/Godot_v4.6.1-stable_linux.x86_64 --dump-extension-api --headless
-scons custom_api_file=extension_api.json -j$(nproc)
-cd ..
 
 /path/to/Godot_v4.6.1-stable_linux.x86_64 --path . -- --park
 ```
@@ -134,7 +126,7 @@ Terrain3D geometry clipmaps with 64 regions at native 0.61m LiDAR resolution (81
 NYC Tree Census + OSM + woodland scatter across 12 ecological zones. 15 Mtree species x 3 size tiers = 46 GLBs (all tiers generated independently for authentic silhouettes). LiDAR heights (4,005 trees), canopy height model enrichment (1,450), DBH-estimated (4,397). AAA scatter foliage: 35 individually-oriented leaf quads per cluster scattered within spheroidal volumes (SpeedTree/Far Cry approach), density calibrated against published LAI data per species (320-950 clusters/L tier, ~25K leaf quads per tree). Branch-walk placement along all branches using Mtree radius/depth/extent/stem_id attributes. 24-sided branch cylinders, resolution 1.4, fork-test crash safety for Mtree mesher. Automated mesh cleanup: degenerate branch-tip triangles dissolved (Mtree tapers to zero radius), vertex merging, sliver face removal, normal recalculation — eliminates wind-inflated bark artifacts and reduces bark triangle counts 50-70%. Multi-leaf cluster textures (18-28 leaves with twig lines; pine fascicle mode). Junction face wind unification prevents branch-fork tearing. Triplanar bark shader (5 styles: furrowed/smooth/exfoliating/plated/gray) with PBR texture blending, procedural FBM, lichen, moss, sap, per-pixel micro-variation. Three-tier LOD: full base model = lod0 near (0-60m), adaptive-decimated lod1 mid (60-400m), dither-crossfading to octahedral billboard impostors (saplings/small trees skip lod1 — lod0 then impostor) (8x8 hemisphere atlases with 3-frame blending, depth parallax, baked per species and size tier for shape matching). Impostors are runtime-lit — atlases store true unlit albedo + camera-space normal + depth (Godot-native aligned bake), so distant trees receive the same sun and ambient as near meshes at any time of day. Whole-tree shadow proxies: visible foliage casts nothing; a ~220-triangle trunk + crown caster per variant (crown lathe fit to the model's actual leaf vertices) casts instead, with phenology-driven dapple holes that thin in autumn and go bare in winter. Shader-level dither crossfading (IGN + TAA) at all LOD boundaries — avoids Godot's VISIBILITY_RANGE_FADE alpha_to_coverage bug. Mip-driven alpha threshold (0.5 at mip 0 easing to 0.10 by mip 4, via textureQueryLod) prevents mipmap alpha erosion from thinning canopy at distance or on approach. Per-tree color variation (position-hashed brightness ±12% + warm/cool tint) breaks monochromatic distant forest. Invasive vines: porcelain berry + oriental bittersweet (13 variants).
 
 ### Vegetation
-3-tier grass LOD: GPU grass GDExtension (0-80m, compute shader → MultiMesh indirect draw, 1M instances, zero CPU per frame), crossed-card tuft chunks (13-120m), terrain shader impostor (40m+). Traveling fBm wind waves computed per-instance in the grass compute shader — visible ripples (~12m) and sweeping gust fronts (~50m) across fields, all driven by the global wind vector. Rodrigues rotation bends blades with progressive curvature (base stays, tips arc). Colors derived from spectral reflectance via CIE 1931 2° Observer + D65 illuminant → XYZ → sRGB pipeline (effective albedo = leaf R+T for 15 species — 7 grass + 8 broadleaf shrub; scripts/spectral_colors.py). Shared zone palette (grass_zone_colors.gdshaderinc) drives all tiers with identical multi-scale macro variation: 22m field splotchiness, 70m landscape gradient, 8m warm/cool hue drift, 3m micro patchiness. 4 biome layers (lawn/KBG, shade/fescue, wild/switchgrass, sedge/carex) with conservancy botanical data. 35 undergrowth species (shrubs, herbs, ferns, wetland) with ecology-driven density modulation: canopy sweet spot (40-75%), slope penalty, moisture proxy, patch noise — creating natural thicket/clearing mosaic instead of uniform placement.
+Terrain-integrated turf: the grass is a baked sward texture the terrain shader carries at every distance — no per-frame blade simulation (`GRASS_TERRAIN_ONLY`, the default since 2026-07-02). A 1mm/texel bake supplies a continuous fabric of fine bright strokes; the shader resolves near-field stroke contrast on approach (fading by ~14m), stochastic 3-tap triangle-grid sampling kills the bake's tiling, and deviation-centred mottle adds multi-scale field variation. Wind ripples ride the terrain shader. Colors derived from spectral reflectance via CIE 1931 2° Observer + D65 illuminant → XYZ → sRGB pipeline (effective albedo = leaf R+T for 15 species — 7 grass + 8 broadleaf shrub; scripts/spectral_colors.py). Shared zone palette (grass_zone_colors.gdshaderinc) with multi-scale macro variation across 4 biome layers (lawn/KBG, shade/fescue, wild/switchgrass, sedge/carex) from conservancy botanical data. An optional near-field 3D blade band (default on, `--no-blades` to gate) adds parallax in the first few metres; a legacy GPU-particle grass path remains behind `--particle-grass`. 35 undergrowth species (shrubs, herbs, ferns, wetland) with ecology-driven density modulation: canopy sweet spot (40-75%), slope penalty, moisture proxy, patch noise — creating natural thicket/clearing mosaic instead of uniform placement.
 
 ### Sky
 Volumetric clouds via clayjohn's compute shader raymarching (Perlin-Worley noise, multi-scatter octave lighting, Henyey-Greenstein phase). Physically-based atmosphere LUTs (Rayleigh/Mie/ozone). Triple-buffered hemisphere textures with tiled incremental updates. Per-weather-state cloud maps — discrete fair-weather cumulus (flat shared bases, ~2.5:1 tower aspect, NOAA monthly coverage), stratocumulus sheets with blue gaps, featureless stratus overcast, storm congestus masses, and scheduled "dramatic sky" torn sheets at dawn/dusk — crossfaded over ~30 s so weather fronts arrive instead of popping. Cell envelopes and shape noise ride one world-space wind offset, so clouds flow with the wind and evolve by slow thermal boil. An astronomical almanac drives the sun and moon: the real NYC solar path by date (26° December noon vs 73° June noon, with lighting keyframes pinned to each date's actual sunrise/sunset), and a real lunar ephemeris with geometric phases — the moon disk is shaded as a sphere lit by the true sun (correct terminator orientation, earthshine on the dark limb), moonlight scales with phase, and both bodies swell perceptually near the horizon with refraction flattening. Sunrise and sunset render physically: the celestial sun crosses the horizon so the atmosphere LUT produces real twilight color, with cloud undersides staying lit past ground sunset.
@@ -168,7 +160,7 @@ All data is freely available. No paid APIs.
 | Layer | Technology |
 |-------|-----------|
 | Engine | Godot 4.6.1 (Forward+, GDScript) |
-| Terrain | Terrain3D v1.0.1 (geometry clipmaps, GPU particle grass, GDExtension) |
+| Terrain | Terrain3D v1.0.1 (geometry clipmaps, GDExtension) + baked-sward turf shader |
 | Clouds | clayjohn volumetric cloud demo v2 (compute shader raymarching) |
 | Tree impostors | Custom octahedral shader (SpriteProjection, normal + depth parallax, runtime-lit) + Godot-native atlas baker |
 | Data pipeline | Python (GDAL, numpy/scipy, Pillow) |
