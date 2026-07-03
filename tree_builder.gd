@@ -182,19 +182,22 @@ const REDESIGNED_SPECIES: Array = []
 # spread). The bake at _run_impostor_bake sources the SAME index so lod0/_lod1/
 # impostor are all the one variant.
 const LP_SINGLE_VARIANT := 3
-# Summer impostor card-keep for the single-variant london_plane bake, PER TIER.
-# A FULL crown (-1, the old value) projects solid at bake res → the "too full in
-# summer" blob. Dropping cards punches cluster-scale holes so the far crown reads
-# as see-through as the live lod0 mesh it replaces. Tuning lever (raise → denser).
-# PER-TIER since 2026-07-03: after the lod0 reduced-density fold-in, the far crown
-# reads WIDER/DENSER/DARKER than the now-airy lod0 — worst on _l (biggest crown →
-# densest projection; Chris: "the l impostor does not fit the scale of the lod0"),
-# acceptable on _m ("m is good"), and _s (sparsest) is a colour-only gap. So only
-# _l is thinned harder (0.28); _m/_s stay at the 0.5 that read well. The WINTER
-# atlas is baked separately at card_keep=-1 + season=winter so its OWN retention
-# floor (0.05) drives the bare shape (see _run_impostor_bake).
-const LP_SUMMER_CARD_KEEP := {"_s": 0.5, "_m": 0.5, "_l": 0.10}
-const LP_SUMMER_CARD_KEEP_DEFAULT := 0.5
+# Summer impostor card-keep for the single-variant london_plane bake. A FULL crown
+# (-1, the old value) projects solid at bake res → the "too full in summer" blob.
+# Dropping ~half the cards punches cluster-scale holes so the far crown reads as
+# see-through as the live lod0 mesh it replaces. Tuning lever (raise → denser summer
+# crown). The WINTER atlas is baked separately at card_keep=-1 + season=winter so its
+# OWN retention floor (0.05) drives the bare shape (see _run_impostor_bake).
+# TRIED-and-REVERTED 2026-07-03: per-tier thinning (_l 0.5→0.10) to fix the "_l reads
+# too dense/wide vs the airy lod0" complaint. It made _l AIRIER but the stochastic
+# card-drop is spatially UNEVEN — the thinned impostor coverage (0.124) fell BELOW
+# lod0's in dense regions, so lod0's top-right crown lobe had no impostor coverage to
+# hand off to and VANISHED during the lod0→impostor crossfade (Chris saw the top-right
+# fade to nothing as the camera backed away — _l only, the only tier thinned). Reverted.
+# card_keep can only make _l a solid blob (0.5) OR a holey/fading crown (<0.15), never
+# lod0's clean fine airiness — matching the airy lod0 needs the deeper impostor
+# see-through/SSS work (the ~Aug-2026 tech debt), not card-drop.
+const LP_SUMMER_CARD_KEEP := 0.5
 var _noprepass_shader: Shader = null
 
 # Desired height ranges per species archetype (metres)
@@ -1869,9 +1872,8 @@ func _run_impostor_bake() -> void:
 			var vi: int = clampi(LP_SINGLE_VARIANT, 0, src_meshes.size() - 1)
 			src_meshes = [src_meshes[vi]]
 			# Summer: thin the single-variant crown so it reads see-through (not the
-			# solid blob -1 produced). Per-tier: _l thinned harder (see const). Winter
-			# gets its OWN bake below.
-			card_keep = LP_SUMMER_CARD_KEEP.get(tier, LP_SUMMER_CARD_KEEP_DEFAULT)
+			# solid blob -1 produced). Winter gets its OWN bake below.
+			card_keep = LP_SUMMER_CARD_KEEP
 			print("Impostor bake: %s from %s variant v%d (single, summer keep=%.2f, %d surfaces)…" % [key, src_key, vi, card_keep, src_meshes[0].get_surface_count()])
 		else:
 			print("Impostor bake: %s from %s (%d meshes)…" % [key, src_key, src_meshes.size()])
