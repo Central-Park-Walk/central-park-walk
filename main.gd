@@ -2143,6 +2143,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _env:
 			_env.sdfgi_enabled = not _env.sdfgi_enabled
 			print("SDFGI: %s" % ("ON" if _env.sdfgi_enabled else "OFF"))
+	elif event.keycode == KEY_F8:
+		# SDFGI contact-occlusion on/off (2026-07-02) — occlusion is the specific
+		# cause of black under-canopy foliage (it drives SDFGI's sky-ambient to ~0
+		# under the dense canopy). Pair with F2: F2 turns SDFGI on, F8 drops
+		# occlusion to test the middle ground — open-area GI back, canopy no longer
+		# black. Watch for the tradeoff: light-leak through solids (buildings, dense
+		# trunks, terrain) where occlusion would normally block it.
+		if _env:
+			_env.sdfgi_use_occlusion = not _env.sdfgi_use_occlusion
+			print("SDFGI occlusion: %s  (SDFGI %s)" % [
+				"ON" if _env.sdfgi_use_occlusion else "OFF",
+				"ON" if _env.sdfgi_enabled else "OFF"])
 	elif event.keycode == KEY_SEMICOLON or event.keycode == KEY_SLASH:
 		# Live SDFGI strength dial. DOWN = ; or / , UP = ' (user 2026-06-21 PM
 		# pressed / for down — bound both ; and / to lower so it works either way).
@@ -2448,7 +2460,7 @@ func _setup_environment() -> void:
 	_env.sdfgi_probe_bias      = 1.1                                 # Godot default
 	_env.sdfgi_bounce_feedback = 0.5                                 # GODOT DEFAULT / community SOP (restored from 0.1; user 2026-06-21 PM set SDFGI to standard)
 	_env.sdfgi_read_sky_light  = true                               # outdoor ambient from sky
-	_env.sdfgi_use_occlusion   = true                               # higher-quality contact occlusion
+	_env.sdfgi_use_occlusion   = not ("--sdfgi-no-occlusion" in OS.get_cmdline_user_args())  # occlusion is the specific cause of black under-canopy foliage; --sdfgi-no-occlusion tests SDFGI with it off (contact occlusion off = potential light-leak through solids, the tradeoff)
 	# SSIL (screen-space indirect light) left OFF: it is a separate near-field
 	# effect from GI, and produced yellow-shield artifacts here pre-overhaul.
 	# Enable separately if you want SDFGI complemented with screen-space bounce.
