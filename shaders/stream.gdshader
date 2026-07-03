@@ -19,6 +19,7 @@ uniform float canopy_world_size = 5000.0;
 
 varying vec3 world_pos;
 varying float v_water_depth;
+varying float v_steep;   // builder-baked longitudinal steepness (water's own tilt)
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/decode_terrain.gdshaderinc"
@@ -53,6 +54,7 @@ void vertex() {
 	world_pos = w;
 	float bed_h = sample_terrain(w.xz);
 	v_water_depth = max(0.0, w.y - bed_h);
+	v_steep = COLOR.r;
 }
 
 void fragment() {
@@ -66,7 +68,10 @@ void fragment() {
 	float h_dx = sample_terrain(world_pos.xz + vec2(e_t, 0.0));
 	float h_dz = sample_terrain(world_pos.xz + vec2(0.0, e_t));
 	float slope = length(vec2(h_dx - h_here, h_dz - h_here)) / e_t;
-	float turb = smoothstep(0.02, 0.15, slope);  // turbulence factor from slope
+	// Turbulence is driven mainly by the water's OWN longitudinal tilt (v_steep,
+	// baked per-vertex by the builder) so gentle reaches stay calm and real drops
+	// froth. Terrain cross-slope adds only a little rocky-bed texture.
+	float turb = max(v_steep, smoothstep(0.04, 0.20, slope) * 0.4);
 
 	// Directional flow — scroll along stream (UV.y is distance)
 	float flow_speed = 0.8 + turb * 1.2;  // faster over steeper terrain
