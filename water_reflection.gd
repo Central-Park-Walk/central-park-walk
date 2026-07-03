@@ -26,15 +26,16 @@ var _frame := 0
 
 const RES_DIVISOR := 3         # reflection at 1/3 window resolution
 const BODY_MARGIN := 40.0      # bbox grow for "player is at this body" (m)
-const SLEEP_DIST := 250.0      # no water within this range → stop rendering
-# Distance-staged update rate (2026-07-01 perf pass): the mirror is a full scene
-# render; at Literary Walk it cost ~4ms re-rendering the whole elm corridor for a
-# Pond ~150m away that subtends a handful of pixels. Beyond the shore the water is
-# small/grazing on screen, so a 2-4 frame reflection lag is imperceptible — render
-# every Nth frame instead. No pop (unlike shrinking SLEEP_DIST): updates continue,
-# just sparser, and the cadence steps at distance bands.
-const RATE_FULL_DIST := 60.0   # every frame within this body distance
-const RATE_HALF_DIST := 140.0  # every 2nd frame out to here; every 4th beyond
+const SLEEP_DIST := 30.0       # no water within this range → stop rendering
+# 2026-07-03 deep-forest perf pass: the mirror was the biggest remaining Ramble
+# lever (~15ms mrgpu, re-rendering ~2.1M shadow tris + ~4.7M scene tris whenever
+# water sat within the old 250m sleep radius). But more than ~a couple dozen
+# metres from shore the mirror shows essentially only sky — 250m was far larger
+# than useful. Trimmed the active boundary to 30m and scaled the staged rates to
+# match. The frozen mirror stays world-anchored via the shader's reprojection VP
+# while asleep and refreshes on wake, so the tighter sleep radius doesn't pop.
+const RATE_FULL_DIST := 12.0   # every frame within this body distance
+const RATE_HALF_DIST := 22.0   # every 2nd frame out to here; every 4th beyond
 # Motion-aware idle rate (2026-07-02, Cherry Hill 40fps report): a still camera
 # doesn't need a 60Hz mirror — the wave distortion that sells water motion runs
 # in water.gdshader at full rate; only tree sway and cloud drift change in the
@@ -184,10 +185,18 @@ func _nearest_water_plane(pos: Vector3) -> float:
 		var bb: Rect2 = lvl["bb"]
 		var d := 0.0
 		if not bb.grow(BODY_MARGIN).has_point(p):
-			# distance from point to rect
+			# Broad phase: outside the grown bbox → cheap rect distance.
 			var cl := Vector2(clampf(p.x, bb.position.x, bb.end.x),
 							  clampf(p.y, bb.position.y, bb.end.y))
 			d = p.distance_to(cl)
+		else:
+			# Narrow phase: inside the bbox, but a large concave body (the Lake's
+			# bbox spans the Ramble) can still be ~100 m from the actual shore, so
+			# the bbox alone would keep the mirror awake in dry forest. Measure the
+			# true distance to the water outline. ~0.1 ms for the 1-2 near bodies.
+			var poly: PackedVector2Array = lvl.get("poly", PackedVector2Array())
+			if poly.size() >= 3:
+				d = _point_poly_dist(p, poly)
 		if d < best_d:
 			best_d = d
 			best_y = lvl["wy"]
@@ -195,3 +204,17 @@ func _nearest_water_plane(pos: Vector3) -> float:
 				break
 	_body_dist = best_d if best_d < INF else 1e9
 	return best_y
+
+
+func _point_poly_dist(p: Vector2, poly: PackedVector2Array) -> float:
+	## 0 if p is inside the polygon, else distance to the nearest edge.
+	if Geometry2D.is_point_in_polygon(p, poly):
+		return 0.0
+	var best := INF
+	var n := poly.size()
+	for i in n:
+		var a := poly[i]
+		var b := poly[(i + 1) % n]
+		var cp := Geometry2D.get_closest_point_to_segment(p, a, b)
+		best = minf(best, p.distance_to(cp))
+	return best

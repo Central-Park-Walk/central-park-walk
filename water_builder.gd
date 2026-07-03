@@ -297,6 +297,7 @@ func _build_water_from_grids(grids: Array, verts: PackedVector3Array,
 		_loader.water_levels.append({
 			"bb": Rect2(bb_x, bb_z, float(nx) * cell, float(nz) * cell),
 			"wy": wy,
+			"poly": poly,   # true outline for shore-distance (mirror sleep test)
 		})
 
 		# Store polygon for water proximity baking (used by grass/tree builders)
@@ -370,6 +371,7 @@ func _build_water_runtime(water: Array, verts: PackedVector3Array,
 		if not expanded.is_empty():
 			polygon = expanded[0]
 		_loader._water_polygons.append(polygon)
+		_loader.water_levels[-1]["poly"] = polygon   # shore-distance outline
 		var bb_min_x := INF; var bb_max_x := -INF
 		var bb_min_z := INF; var bb_max_z := -INF
 		for pt2 in polygon:
