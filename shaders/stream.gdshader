@@ -80,7 +80,9 @@ void fragment() {
 	// Wave normal from flowing noise layers
 	vec2 flow_p = vec2(UV.x * 3.0, flow_uv);
 	float wind_str = length(wind_vec);
-	float amp = 0.25 + turb * 0.3 + wind_str * 0.08;
+	// Keep calm reaches nearly flat — a large base amp made the mirror-sharp
+	// specular alias into oily chevrons at grazing angles. Steep water still waves.
+	float amp = 0.10 + turb * 0.35 + wind_str * 0.06;
 
 	// Three layers: fast flow + cross-stream ripples + fine detail
 	float h1 = gnoise(flow_p * 1.2) * 0.45;
@@ -174,7 +176,7 @@ void fragment() {
 	}
 
 	ALBEDO    = col;
-	ROUGHNESS = mix(0.15, 0.05, fresnel);
+	ROUGHNESS = mix(0.32, 0.12, fresnel);  // creek water isn't a mirror; softens specular aliasing
 	METALLIC  = 0.05;
 	SPECULAR  = 0.45;
 
