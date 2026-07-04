@@ -1652,10 +1652,16 @@ func _spawn_impostor_chunks(buckets: Dictionary) -> void:
 # other species inherit sane defaults (1.0) once baked. IMP_SCALE_{S,M,L} env overrides
 # for live walk-tuning (relaunch): e.g. IMP_SCALE_L=1.06 to back the tall tier down.
 func _impostor_size_comp(sp_tier: String) -> float:
+	# Defaults calibrated to CHRIS'S WALK observations, which are ground truth here —
+	# the headless garden proxy proved unreliable for absolute height (it read l as
+	# slightly short while Chris saw it taller in the park). His anchor points: l too
+	# SHORT at 1.0, too TALL at 1.075 by ~the same amount → height-neutral ≈ 1.038.
+	# Tolerance: <1m of top mismatch on a 28m tree (~1.036) is fine per Chris. Tune per
+	# tier on a walk with IMP_SCALE_{S,M,L} and tell me the value that reads level.
 	var g := 1.0
 	var tag := ""
 	if sp_tier.ends_with("_l"):
-		g = 1.075; tag = "L"
+		g = 1.038; tag = "L"
 	elif sp_tier.ends_with("_m"):
 		g = 1.045; tag = "M"
 	elif sp_tier.ends_with("_s"):
