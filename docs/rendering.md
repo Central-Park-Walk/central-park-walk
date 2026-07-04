@@ -274,6 +274,23 @@ case), `--refl-half-rate` (walk experiment: doubles staged intervals, shore
 renders every 2nd frame while moving, worth another ~1.1 ms — promote to default
 if reflection lag is invisible on a Lake-shore walk).
 
+**Tested & rejected — per-camera cull_mask to strip tree shadows from the mirror
+(2026-07-03).** The mirror re-renders a full directional shadow pass: at a forested
+shore (Azalea Pond, `--pos=-389,653,105`) `mrshtri` = **1.58 M** shadow tris, mirror
+GPU ~5 ms — nearly the main view's own 1.86 M. Godot *does* gate shadow raster by the
+rendering camera's `cull_mask` (godot #98231; verified here — moving the SHADOWS_ONLY
+tree proxies off layer 1 dropped mirror `mrshtri` by exactly their contribution while
+main `shtri` held), so the layer trick is a real per-viewport lever. **But it's
+worthless here:** the proxies are only ~76 k tris (~5 % of the mirror's shadow load —
+turning proxy casting fully off drops *main* `shtri` by the same 76 k, confirming they're
+a minor caster). The mirror's remaining ~1.4 M shadow tris come from the **visible
+reflected casters** — `TreeImpostor_*` (cast ON) plus bridges/undergrowth — which can't
+be layer-excluded without deleting them from the reflection itself. `shadow_caster_mask`
+(4.4+) is per-*light* and global, so it can't isolate the mirror either. **Conclusion
+stands: no clean per-viewport directional-shadow suppression exists; the mirror's shadow
+share only yields to update-rate reduction** (idle/distance staging, 30 m sleep — all
+shipped). Do not re-attempt the layer trick. Raw logs: `tmp/perf_{base_azalea,proxy_layer,proxyoff}.log`.
+
 ⚠ Protocol notes: (1) stationary gate/bisect runs now measure the IDLE-rate
 mirror; use `--refl-full-rate` to measure the moving case. (2) Cross-batch fps
 comparisons drift several fps (first run of a cold session reads low — shader/
