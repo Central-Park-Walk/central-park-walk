@@ -402,22 +402,6 @@ func _parse_cli_args() -> void:
 			if ca.size() >= 3 and ca[2] != "": _cli_canopy_ao.z = float(ca[2])
 			print("[DIAG] canopy-ao core=%.2f exp=%.2f shell=%.2f"
 					% [_cli_canopy_ao.x, _cli_canopy_ao.y, _cli_canopy_ao.z])
-		elif arg == "--no-density-lod":
-			# Restore the flat 80 m handoff for every tree (pre-Plan-A). tree_builder parses
-			# the same flag so its geometry cull matches this shader-global state.
-			_cli_density_lod = false
-			print("[DIAG] density-lod OFF (flat handoff)")
-		elif arg == "--density-lod":
-			# Density-aware lod0 geometry cull: open-grown trees hold lod0 to the full range,
-			# dense-forest interiors cull sooner (their crowns are mostly occluded up close).
-			# Static per-tree openness → no pop as the camera moves. ON by default.
-			_cli_density_lod = true
-			print("[DIAG] density-lod ON, dense_frac=%.2f" % _cli_density_dense_frac)
-		elif key == "--density-lod" and has_eq:
-			# --density-lod=<frac>: dense-forest handoff as a fraction of the open handoff.
-			_cli_density_lod = true
-			_cli_density_dense_frac = clampf(float(eq_val), 0.1, 1.0)
-			print("[DIAG] density-lod ON, dense_frac=%.2f" % _cli_density_dense_frac)
 		elif key == "--shots" and val != "":
 			# --shots=x,z,yaw[,pitch[,hour]];x,z,yaw... — generic teleporting
 			# snapshot bot: every pose captured in ONE Godot session (launch
@@ -559,14 +543,6 @@ func _ready() -> void:
 	# effects (LOD dither) compute against the player view, not whatever
 	# camera is active in the current render pass (shadow / reflection).
 	RenderingServer.global_shader_parameter_add("player_world_pos", RenderingServer.GLOBAL_VAR_TYPE_VEC3, Vector3.ZERO)
-	# Density-modulated LOD handoff (--density-lod). Openness is always baked into the tree
-	# custom-data B channel; these globals just toggle whether the tree shaders use it, so
-	# --density-lod is a pure runtime switch (no rebuild/rebake). dense_frac = dense-forest
-	# handoff as a fraction of the open-grown handoff.
-	RenderingServer.global_shader_parameter_add("lod_density_enabled", RenderingServer.GLOBAL_VAR_TYPE_FLOAT,
-		1.0 if _cli_density_lod else 0.0)
-	RenderingServer.global_shader_parameter_add("lod_density_dense_frac", RenderingServer.GLOBAL_VAR_TYPE_FLOAT,
-		_cli_density_dense_frac)
 	# Impostor crown wind sway amplitude (global so I / Shift+I can dial it on a walk).
 	RenderingServer.global_shader_parameter_add("impostor_wind_strength", RenderingServer.GLOBAL_VAR_TYPE_FLOAT,
 		_imp_wind_strength)
@@ -1639,14 +1615,6 @@ const CANOPY_AO_CORE := 0.12
 const CANOPY_AO_EXP := 1.6
 const CANOPY_AO_SHELL := 0.55
 var _cli_canopy_ao := Vector3(-1.0, -1.0, -1.0)
-# Density-aware lod0 GEOMETRY culling (Plan A). OPT-IN (`--density-lod`): obscured dense-
-# forest trees cull their lod0 mesh early (short-visibility chunks); open specimens keep the
-# full 80 m handoff. DEFAULT OFF pending artifact fixes (2026-07-04 walk — s-tier impostors
-# too close, crossfade dither stipple not resolving under FSR2, impostor trunk-green; see
-# [[project_impostor_system_rebuilt]]). Sets the shader's lod_density_enabled global so the
-# per-tree dither hands off in step with tree_builder's baked geometry cull (baked at build).
-var _cli_density_lod := false
-var _cli_density_dense_frac := 0.6  # dense-woods lod0 range = 0.6 × 80 m ≈ 48 m (--density-lod=frac; lower = cull sooner but the impostor handoff shows closer)
 # Impostor crown wind sway amplitude (live state for the I key; global default 1.0).
 var _imp_wind_strength := 1.0
 # --shadow-census: one-shot dump of every shadow-casting GeometryInstance3D

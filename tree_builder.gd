@@ -102,17 +102,6 @@ var _bake_impostors_species: String = ""
 # impostor then carries 80m → IMPOSTOR_FAR (800m). lod0 is the full-detail mesh, only
 # needed close; past ~80m the octahedral impostor reads as well and is far cheaper.
 var _mesh_fade_end: float = 80.0
-# --density-lod (default ON) / --no-density-lod / --density-lod=<frac>: Plan A density-
-# aware lod0 GEOMETRY culling. Obscured dense-forest trees bucket into small, short-
-# visibility lod0 chunks so their mesh geometry (vistri) + draw cull EARLY — where their
-# crowns are occluded up close and the impostor already covers — while open specimens
-# keep the full 80 m handoff. This cuts submitted geometry, not just fragments (the
-# earlier fragment-only density dither saved fill but no vistri). _density_dense_frac =
-# the dense-forest lod0 range as a fraction of the open 80 m handoff. Kept in step with
-# main.gd's lod_density_enabled/dense_frac shader globals: the per-tree shader dither
-# hands off at the same density-scaled distance the chunk geometry culls at, so no hole.
-var _density_lod: bool = false  # OPT-IN via --density-lod (default OFF pending artifact fixes — see project_impostor_system_rebuilt)
-var _density_dense_frac: float = 0.6  # dense-forest lod0 range = 0.6 × handoff ≈ 48 m (gentler default; --density-lod=frac to override)
 # SCREEN-SIZE LOD (AAA / Godot community best practice, user 2026-06-22): a tree's
 # on-screen pixel height is (world_height / distance) × const, so to make EVERY
 # tree switch tiers at the same APPARENT size — not the same world distance — the
@@ -250,15 +239,6 @@ func _init(loader) -> void:
 		elif arg.begins_with("--tree-mesh-range="):
 			_mesh_fade_end = clampf(float(arg.substr("--tree-mesh-range=".length())), 60.0, 1000.0)
 			print("TreeBuilder: lod0 mesh → impostor fade-out end = %.0fm (default 80, scaled per tree height)" % _mesh_fade_end)
-		elif arg == "--no-density-lod":
-			_density_lod = false
-			print("TreeBuilder: density-LOD OFF — one 80m lod0 class, full handoff (pre-Plan-A geometry)")
-		elif arg == "--density-lod" or arg.begins_with("--density-lod="):
-			_density_lod = true
-			var deq := arg.find("=")
-			if deq >= 0:
-				_density_dense_frac = clampf(float(arg.substr(deq + 1)), 0.1, 1.0)
-			print("TreeBuilder: density-LOD ON — dense-forest lod0 range = %.2f × handoff (obscured trees cull early)" % _density_dense_frac)
 		elif arg.begins_with("--lod-fade-ratio="):
 			LOD_FADE_RATIO = clampf(float(arg.substr("--lod-fade-ratio=".length())), 0.05, 0.60)
 			print("TreeBuilder: LOD crossfade band = %.2f of handoff distance (wider = smoother handoff, more dither overdraw)" % LOD_FADE_RATIO)
@@ -714,10 +694,6 @@ func _build_trees(trees: Array) -> void:
 	# Key: "species_variantIdx" -> Array[Transform3D]
 	var xf_by_key: Dictionary = {}
 	var cd_by_key: Dictionary = {}  # parallel Color arrays for custom_data (season info)
-	# Parallel to canopy_data (placement order): [key, index_in_cd_by_key[key]] for each
-	# placed tree, so _pack_lod_openness can write per-tree local-density openness back
-	# into that tree's custom-data B channel after all positions are known.
-	var tree_cd_ref: Array = []
 	var all_trunk_xf: Array = []  # for collision
 	# Screen-size LOD: accumulate placed real-world height (metres) per species_tier
 	# so _lod_scale can size handoffs by apparent on-screen size. {tier: [sum, count]}.
@@ -973,8 +949,6 @@ func _build_trees(trees: Array) -> void:
 		# Use proportional radius from desired_h instead — matches visual spread.
 		var crown_r: float = desired_h * (0.25 if species == "conifer" else 0.35)
 		canopy_data.append({"x": tx, "z": tz, "r": crown_r, "ev": species == "conifer"})
-		# 1:1 with canopy_data — the cd just appended for this tree under `key`.
-		tree_cd_ref.append([key, cd_by_key[key].size() - 1])
 
 		# F1 distance-overlay tier bands — finalised after _species_real_h below
 		# (needs the per-tier mean height). Store the inputs now, one per placed tree.
@@ -992,11 +966,6 @@ func _build_trees(trees: Array) -> void:
 			Vector3(0.0,     desired_h, 0.0),
 			Vector3(0.0,     0.0,      trunk_r))
 		all_trunk_xf.append(Transform3D(col_basis, Vector3(tx, ty + desired_h * 0.5, tz)))
-
-	# Per-tree local-density openness → LOD handoff modulation (baked into cd.b now that
-	# every position is known). Static, so the handoff distance can't pop as the camera
-	# moves; the shader ignores it unless --density-lod is set (lod_density_enabled).
-	_pack_lod_openness(cd_by_key, tree_cd_ref)
 
 	# Finalise screen-size-LOD reference heights: mean placed metres per species_tier.
 	# Read by _lod_scale at every handoff/fade site below.
@@ -1020,19 +989,13 @@ func _build_trees(trees: Array) -> void:
 		band["mesh_end"] = _mesh_fade_end * lsc  # lod0 → impostor handoff (no mid tier)
 		band.erase("_tier")
 
-	# --- Spatial chunking for culling (density-aware, Plan A) ---
+	# --- Spatial chunking for culling ---
 	# Each chunk's MMI is positioned at its spatial centre so visibility_range works
-	# per-chunk (camera distance to the node). To cut lod0 GEOMETRY (vistri) — not just
-	# fragments — where it is occluded, trees are bucketed by local-density openness
-	# (decoded from cd.b) into classes, each with its own cell size and lod0 far-cull:
-	# dense-forest interiors get SMALL cells + a SHORT lod0 range (they hand off to the
-	# impostor early, ~dense_frac of the 80 m handoff — their crowns are occluded up
-	# close so the detail is unseen), while open specimens keep the full 80 m cell and
-	# range. The cell MUST be small for a short cull to bite: the MMI is culled by camera
-	# distance to its AABB centre, padded by the AABB half-diagonal, so a big cell pads
-	# the range back out past the handoff. --no-density-lod restores one 80 m class.
-	# Openness classes: [upper openness bound (exclusive), cell size m]. Densest first.
-	var lod0_classes: Array = [[0.34, 40.0], [0.67, 60.0], [1.01, 80.0]] if _density_lod else [[1.01, 80.0]]
+	# per-chunk (camera distance to the node). Trees bucket into fixed cells; the lod0
+	# mesh renders across the whole chunk out to its (height-scaled) handoff distance,
+	# then dithers into the impostor — one handoff story for every tree (no mid tier,
+	# no density modulation).
+	const LOD0_CELL := 80.0
 
 	var lod0_buckets: Dictionary = {}
 	for key in xf_by_key:
@@ -1040,26 +1003,14 @@ func _build_trees(trees: Array) -> void:
 		var cd_arr: Array = cd_by_key[key]
 		for j in xf_arr.size():
 			var tf: Transform3D = xf_arr[j]
-			var op := _decode_openness(cd_arr[j].b)
-			var cls := 0
-			while cls < lod0_classes.size() - 1 and op >= float(lod0_classes[cls][0]):
-				cls += 1
-			var cell: float = lod0_classes[cls][1]
-			var cx := int(floorf(tf.origin.x / cell))
-			var cz := int(floorf(tf.origin.z / cell))
-			var ck0 := "%s|%d|%d|%d" % [key, cls, cx, cz]
+			var cx := int(floorf(tf.origin.x / LOD0_CELL))
+			var cz := int(floorf(tf.origin.z / LOD0_CELL))
+			var ck0 := "%s|%d|%d" % [key, cx, cz]
 			if not lod0_buckets.has(ck0):
-				lod0_buckets[ck0] = {"mesh_key": key, "cx": cx, "cz": cz, "xf": [], "cd": [], "max_open": 0.0}
+				lod0_buckets[ck0] = {"mesh_key": key, "cx": cx, "cz": cz, "xf": [], "cd": []}
 			var bkt: Dictionary = lod0_buckets[ck0]
 			bkt["xf"].append(tf)
 			bkt["cd"].append(cd_arr[j])
-			bkt["max_open"] = maxf(bkt["max_open"], op)
-	# Each chunk's lod0 far-cull factor comes from its LEAST-dense (max-openness) member,
-	# so no tree is culled before its own per-tree shader dither (which scales by that
-	# member's openness) has finished — factor 1 = full 80 m handoff, dense_frac = shortest.
-	for ck0 in lod0_buckets:
-		var bkt: Dictionary = lod0_buckets[ck0]
-		bkt["factor_cull"] = lerpf(_density_dense_frac, 1.0, bkt["max_open"]) if _density_lod else 1.0
 
 	# Spawn LOD0 chunks — position MMI at instance centroid for accurate culling
 	for ckey in lod0_buckets:
@@ -1157,13 +1108,10 @@ func _build_trees(trees: Array) -> void:
 			# it missed the crown height/width and per-tree scale. The mesh and impostor
 			# MMIs carry different meshes → different AABBs → each pads by its own.
 			var hd: float = mm.get_aabb().size.length() * 0.5
-			# Density-aware far-cull (Plan A): a dense/obscured chunk (factor_cull < 1)
-			# stops submitting lod0 geometry at factor_cull × the handoff — where its trees'
-			# shader dither has already handed off to the impostor — instead of drawing the
-			# full mesh out to the padded 80 m range. spec[2] (the shader fade TARGET) stays
-			# the full handoff; only the GEOMETRY visibility shortens. Open chunks: factor 1.
-			var factor_cull: float = info.get("factor_cull", 1.0)
-			var vend: float = spec[2] * factor_cull + hd + 5.0
+			# lod0 geometry stays drawn out to the (height-scaled) handoff distance
+			# (spec[2]) plus this MMI's AABB half-diagonal + margin, so every in-band
+			# tree is covered until its shader dither hands off to the impostor.
+			var vend: float = spec[2] + hd + 5.0
 			if _tier_isolate != "":
 				vend = _mesh_fade_end + 60.0
 			# DIAGNOSTIC (TREE_NOCULL=1): remove the per-MMI visibility_range cull on the
@@ -1498,76 +1446,6 @@ func _append_offset_surface(am: ArrayMesh, prim: PrimitiveMesh, offset: Vector3)
 	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 
 
-# Compute each tree's local-density "openness" and fold it into the custom-data B
-# channel alongside the evergreen flag. openness ∈ [0,1]: 1 = open-grown specimen
-# (holds lod0 out to the full handoff), 0 = dense forest interior (hands off to the
-# impostor sooner — where the detail is mostly occluded by nearer crowns anyway).
-# A tree surrounded by many others is a static, pop-free proxy for "probably occluded",
-# unlike view-dependent occlusion which would pop the crown as the camera moves.
-#
-# Packing (keeps the evergreen flag readable as b>=0.5 while carrying openness):
-#   deciduous: b = openness * 0.49          ∈ [0.00, 0.49]
-#   evergreen: b = 0.51 + openness * 0.49   ∈ [0.51, 1.00]
-# Decode (both leaf + impostor shaders): openness = (b>=0.5 ? b-0.51 : b) / 0.49.
-func _pack_lod_openness(cd_by_key: Dictionary, tree_cd_ref: Array) -> void:
-	var n := canopy_data.size()
-	if n == 0 or tree_cd_ref.size() != n:
-		return
-	const DENSITY_R := 18.0   # neighbourhood radius (m): crowns within this crowd the tree
-	const CELL := DENSITY_R    # grid cell = radius, so a 3×3 block covers the search disc
-	# Calibrated to the placed-tree neighbour histogram (mean 4.7 within 18 m, 2026-07-03):
-	# N_DENSE=9 left most woods trees classed "open" (mean openness 0.66), so the handoff
-	# never shortened where it mattered. 2 = lawn specimen (full 80 m), 7+ = woods interior
-	# (short handoff). 431 of 1892 trees now fully dense, gradient between.
-	const N_OPEN := 2.0        # ≤ this many neighbours → fully open (lawn specimen)
-	const N_DENSE := 7.0       # ≥ this many → fully dense (forest interior)
-	# Bin tree indices into a coarse spatial grid (Vector2i key — negative-safe).
-	var grid: Dictionary = {}
-	for idx in n:
-		var c = canopy_data[idx]
-		var gk := Vector2i(int(floorf(c["x"] / CELL)), int(floorf(c["z"] / CELL)))
-		# Plain Array (reference semantics) so append() through the dict subscript persists;
-		# a PackedInt32Array is copy-on-write and the append would be dropped.
-		if not grid.has(gk):
-			grid[gk] = []
-		grid[gk].append(idx)
-	var r2 := DENSITY_R * DENSITY_R
-	for idx in n:
-		var c = canopy_data[idx]
-		var cx := float(c["x"]); var cz := float(c["z"])
-		var gx := int(floorf(cx / CELL)); var gz := int(floorf(cz / CELL))
-		var cnt := 0
-		for dgx in range(gx - 1, gx + 2):
-			for dgz in range(gz - 1, gz + 2):
-				var gk := Vector2i(dgx, dgz)
-				if not grid.has(gk):
-					continue
-				for oidx in grid[gk]:
-					if oidx == idx:
-						continue
-					var o = canopy_data[oidx]
-					var dx := float(o["x"]) - cx
-					var dz := float(o["z"]) - cz
-					if dx * dx + dz * dz <= r2:
-						cnt += 1
-		# More neighbours → less open (soft ramp between the two anchor counts).
-		var openness := 1.0 - smoothstep(N_OPEN, N_DENSE, float(cnt))
-		var ref: Array = tree_cd_ref[idx]
-		var arr: Array = cd_by_key[ref[0]]
-		var col: Color = arr[ref[1]]
-		var is_ev := col.b >= 0.5   # b is still the raw 0/1 evergreen flag at this point
-		col.b = (0.51 if is_ev else 0.0) + openness * 0.49
-		arr[ref[1]] = col
-
-
-# Decode per-tree openness from the packed custom-data B channel (see _pack_lod_openness):
-# deciduous carries openness in [0,0.49], evergreen in [0.51,1.0] (0.51 offset = the flag).
-# Returns openness in [0,1] (1 = open specimen, 0 = dense interior). Mirrors the decode in
-# tree_leaf.gdshader / tree_impostor.gdshader so the geometry cull matches the shader dither.
-func _decode_openness(b: float) -> float:
-	return clampf((b - 0.51 if b >= 0.5 else b) / 0.49, 0.0, 1.0)
-
-
 func _build_tree_collision(trunk_xf: Array) -> void:
 	if trunk_xf.is_empty():
 		return
@@ -1702,12 +1580,10 @@ func _spawn_impostor_chunks(buckets: Dictionary) -> void:
 		# half-diagonal (mirrors the mesh-tier fix). Without it the impostor spawned LATE
 		# while the mesh had already culled → the coverage gap.
 		var imp_hd: float = imm.get_aabb().size.length() * 0.5
-		# Match the density-aware lod0 cull (Plan A): for a dense/obscured chunk the impostor
-		# must already be drawn where the shortened lod0 geometry culls, so pull its fade-in
-		# begin in by the chunk's factor_cull (open chunks: factor 1 = unchanged). The shader
-		# dither (density-scaled per tree) still owns the visible crossfade within this begin.
-		var factor_cull: float = info.get("factor_cull", 1.0)
-		var imp_begin: float = (_imp_handoff_ref * lscale * factor_cull) * (1.0 - LOD_FADE_RATIO) - imp_hd - 5.0
+		# Spawn the impostor so it is already drawn where each tree's per-tree shader
+		# fade-in begins (the low edge of the height-scaled crossfade band), padded back
+		# by this multimesh's AABB half-diagonal so no chunk spawns late.
+		var imp_begin: float = (_imp_handoff_ref * lscale) * (1.0 - LOD_FADE_RATIO) - imp_hd - 5.0
 		if _tier_isolate == "impostor":
 			imp_begin = 0.0
 		immi.visibility_range_begin = maxf(imp_begin, 0.0)

@@ -113,10 +113,6 @@ global uniform vec3 sun_dir_world;
 // Wind (world XZ dir + magnitude) — same global the mesh leaf/bark shaders sample, so
 // the far crown rocks in lockstep with the mesh trees it crossfades into at the handoff.
 global uniform vec2 wind_vec;
-// Density-modulated LOD (--density-lod) — see tree_leaf.gdshader. enabled 0 = flat
-// handoff (default). Registered in main.gd. dense_frac ≈ 0.44 of the open handoff.
-global uniform float lod_density_enabled;
-global uniform float lod_density_dense_frac;
 // Impostor crown wind sway amplitude (1 = matched to the mesh's gross crown motion).
 // Global so it's live-tunable on a walk (main.gd I / Shift+I); registered in main.gd
 // with default 1.0. 0 = static billboards (old behaviour).
@@ -391,13 +387,6 @@ void vertex() {
 	vec3 sway_obj = (mat3(inv_model) * vec3(sway_world.x, 0.0, sway_world.y)) * UV.y;
 	VERTEX.xyz += sway_obj;
 
-	// Density-LOD: recover per-tree openness (packed in B with the evergreen flag) and
-	// stash the resulting handoff factor in the now-spent quad_blend_weights.w (fragment
-	// reads only .xyz) — avoids a new varying in this varying-budget-critical shader.
-	float imp_open = (INSTANCE_CUSTOM.b >= 0.5 ? INSTANCE_CUSTOM.b - 0.51 : INSTANCE_CUSTOM.b) / 0.49;
-	quad_blend_weights.w = mix(1.0, mix(lod_density_dense_frac, 1.0, clamp(imp_open, 0.0, 1.0)),
-			clamp(lod_density_enabled, 0.0, 1.0));
-
 	NORMAL = normalize(pivotToCameraDir);
 	TANGENT = normalize(cross(NORMAL, vec3(0.0, 1.0, 0.0)));
 	BINORMAL = normalize(cross(TANGENT, NORMAL));
@@ -489,12 +478,10 @@ uniform float far_band_begin = 500.0;
 uniform float far_band_full = 660.0;
 
 void fragment() {
-	// LOD crossfade-in: dither IN over the band where the mesh dithers out. Density-LOD:
-	// scale the distance by the per-tree handoff factor (quad_blend_weights.w, packed in
-	// vertex) so the impostor dithers IN exactly where its mesh dithers OUT — complementary
-	// on a per-tree basis. Factor is 1 when --density-lod is off (identical to before).
+	// LOD crossfade-in: dither IN over the band where the mesh dithers out —
+	// complementary to the mesh fade-out at the same per-tree distance.
 	if (lod_fade_in.y > 0.0) {
-		float d = length(v_inst_pos - player_world_pos) / max(quad_blend_weights.w, 0.05);
+		float d = length(v_inst_pos - player_world_pos);
 		if (d < lod_fade_in.y) {
 			if (lod_dither_discard(d, lod_fade_in.x, lod_fade_in.y, FRAGCOORD.xy, true)) discard;
 		}
