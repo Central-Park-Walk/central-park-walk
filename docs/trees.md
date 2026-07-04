@@ -272,7 +272,16 @@ renders the tier pure from 0 m for comparison.
 method. Other species render mesh-only past `_lod1` until their rebuilds land, then
 `--bake-impostors=<species>` adds each atlas.
 
-> **⚠ KNOWN BUG — UNRESOLVED TECH DEBT (updated 2026-06-24 PM): specific trees go
+> **✅ RESOLVED 2026-06-26 (85349b7) — kept as diagnostic history.** Root cause: in a
+> MultiMesh **fragment** shader, `MODEL_MATRIX[3]` is the NODE (chunk) origin, not the
+> per-instance position (Godot #76292) — so the dither distance was computed from the
+> chunk origin, and instances far from it dither-discarded in the wrong band ("mesh
+> fragments present-but-dither-discarded", exactly the key deduction below). Fix: capture
+> the instance position in `vertex()` into a `v_inst_pos` varying and compute the fade
+> from that. Full record: memory `project_tree_lod_disappearance_bug`. Note the repro
+> bands quoted below (100/150/250 m) are the OLD height-scaled handoffs, pre-80 m chain.
+>
+> *(Original block, 2026-06-24 PM:)* **specific trees go
 > see-through across the mesh→impostor handoff. Trees are NOT "done" until resolved.**
 > On specific, deterministic instances (the SAME trees every session; rare overall), the
 > canopy goes near-totally see-through (~90% gone, ground-shadow stays solid) across that
