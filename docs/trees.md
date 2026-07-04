@@ -231,9 +231,16 @@ each tier is now baked TWICE (`bake_tier(season_t, file_suffix)`):
 **Runtime — `shaders/tree_impostor.gdshader`:** adapts the addon `ImpostorShader`
 (octahedral 3-nearest-frame blend + virtual-plane parallax). Drops
 `impostor_brightness`; `ALBEDO = atlas` and Godot lights it via the normal atlas +
-`diffuse_burley` (roughness 1, specular 0.1). The ORM atlas is sampled
-`source_color` (the bake viewport sRGB-encodes EMISSION on readback, like the
-albedo atlas) and its **R drives `AO` with `AO_LIGHT_AFFECT = 0`** — ambient-only,
+`diffuse_burley` (roughness 1, specular 0.1). The normal atlas is sampled
+`source_color` (**not** `hint_normal`) — the bake viewport sRGB-encodes its framebuffer
+on `get_image()` readback (same LDR SubViewport as albedo/ORM; it bakes
+`EMISSION = NORMAL*0.5+0.5`, a *linear* packed camera-space normal), so it must be
+sRGB→linear decoded before the `xy*2-1` unpack. Sampling it raw (`hint_normal`) left every
+baked normal skewed ~+0.4 in tangent space (a face-on component of 0 read as ~+0.47
+instead of 0), bending N·L and over-brightening/mis-lighting the crown — worst at noon
+(2026-07-04 fix; measured crown-band luminance −8/−12/−4 at 8h/12h/18h toward the correct
+lod0-matched value). The ORM atlas is likewise sampled
+`source_color` (same readback encode) and its **R drives `AO` with `AO_LIGHT_AFFECT = 0`** — ambient-only,
 exactly as the mesh leaf shader, so the far tier darkens by canopy occlusion across
 all sun angles instead of reading ~1.5× too bright. A residual sun-angle-dependent
 gap (diffuse_burley vs the leaf shader's directional response: ~1.20× at noon but

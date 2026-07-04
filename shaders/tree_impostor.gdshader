@@ -51,7 +51,17 @@ uniform float ao_power : hint_range(0.25f, 4.0f) = 1.0f;
 uniform float ao_floor : hint_range(0.0f, 1.0f) = 0.0f;
 
 uniform sampler2D imposterTextureAlbedo : source_color;
-uniform sampler2D imposterTextureNormal : hint_normal;
+// source_color, NOT hint_normal: the bake viewport sRGB-ENCODES its framebuffer on
+// get_image() readback (same LDR SubViewport as albedo/ORM — bake_impostors.gd bakes
+// EMISSION = NORMAL*0.5+0.5, a LINEAR packed camera-space normal). Stored sRGB, it must
+// be sRGB→linear decoded before the xy*2-1 unpack (below) to recover that packed value.
+// hint_normal reads RAW (no decode), so a face-on normal component of 0 (packed linear
+// 0.5 → stored sRGB ~0.735) unpacked to ~+0.47 instead of 0 — every baked normal carried
+// a systematic +tangent skew (measured 2026-07-04: median opaque texel unpacked to
+// +0.40 raw vs -0.10 decoded), bending N·L and mis-lighting the crown at low sun angles.
+// The .import is byte-identical to albedo/ORM (plain RGBA8, compress/normal_map=0), so
+// this is purely the runtime decode hint — matching how albedo/ORM already handle it.
+uniform sampler2D imposterTextureNormal : source_color;
 uniform sampler2D imposterTextureDepth : hint_default_white;
 // source_color: the bake viewport sRGB-encodes EMISSION on readback (same as the
 // albedo atlas), so the linear AO/roughness the leaf shader emitted is stored sRGB.
@@ -88,7 +98,7 @@ uniform float sss_strength : hint_range(0.0, 1.5) = 0.6;
 // so tiers/species without a winter bake fall back to summer-only (no behaviour change).
 uniform bool has_winter_atlas = false;
 uniform sampler2D imposterTextureAlbedoWinter : source_color;
-uniform sampler2D imposterTextureNormalWinter : hint_normal;
+uniform sampler2D imposterTextureNormalWinter : source_color;  // sRGB-decode: see imposterTextureNormal above
 uniform sampler2D imposterTextureOrmWinter : source_color, hint_default_white;
 
 uniform vec2 imposterFrames = vec2(16.0f, 16.0f);
