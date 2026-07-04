@@ -69,6 +69,11 @@ varying float v_species_idx; // species index for fragment shader
 // (the provoking vertex's value covers the triangle); ~0.8m world quantization
 // makes leaves on the same twig drop together, like real abscission.
 varying flat float v_card_seed;
+// Fine per-card seed used ONLY for the impostor bake card-drop, so the bake thins
+// the crown EVENLY (individual cards) instead of by v_card_seed's ~0.77m clusters,
+// whose whole-cluster drops punch clumpy shape-breaking holes into the baked atlas.
+// flat = whole card drops as a unit (no partial cards). See vertex()/bake discard.
+varying flat float v_bake_seed;
 varying float v_crown_rho;   // COLOR.a: 0 = crown core, 1 = outer shell
 // True PER-INSTANCE world origin, captured in vertex() and passed down. In a
 // FRAGMENT shader MODEL_MATRIX[3] returns the MultiMeshInstance3D NODE origin
@@ -183,6 +188,16 @@ void vertex() {
 	float upper01 = smoothstep(2.0, 4.2, VERTEX.y);
 	v_card_seed = hash2(floor(leaf_world_pos.xz * 1.3) + floor(leaf_world_pos.y * 1.3))
 		* mix(0.7, 1.0, upper01);
+	// Fine, spatially-EVEN per-card seed for the impostor bake card-drop only.
+	// The live mesh thins by v_card_seed (~0.77m clusters = realistic abscission),
+	// which at bake time removes whole clusters → clumpy holes that break the far
+	// crown's silhouette ("oddly decimated", Chris 2026-07-03). A fine 3D per-card
+	// hash (~6cm cells, Y mixed in so stacked cards decorrelate) drops individual
+	// cards uniformly, so the thinned impostor stays a coherent airy shape — and an
+	// even drop can't leave a whole crown lobe uncovered (the handoff-vanishing bug
+	// that sank per-tier card_keep, tree_builder.gd:201).
+	vec3 bcell = floor(leaf_world_pos * 16.0);
+	v_bake_seed = hash2(bcell.xz + vec2(bcell.y * 1.7, bcell.y * 0.9));
 	float leaf_bright = (leaf_seed - 0.5) * 0.12;                // ±6%
 	float leaf_warm   = (fract(leaf_seed * 13.7) - 0.5) * 0.04;
 	leaf_color *= 1.0 + leaf_bright;
@@ -230,10 +245,16 @@ void fragment() {
 	// First statement so the depth prepass rejects dropped cards cheaply.
 	// 0.96 keeps the winter retention floor (density 0.08 → ~8% of cards).
 	float drop_density = v_leaf_density;
+	float drop_seed = v_card_seed;  // live mesh: per-cluster realistic abscission
 	// Impostor bake: thin cards to the handoff-distance coverage (a full-density
 	// crown projects solid at bake res; the live mesh is see-through at distance).
-	if (bake_mode > 0 && bake_density >= 0.0) drop_density = bake_density;
-	if (v_card_seed * 0.96 > drop_density) {
+	// Use the FINE per-card seed so the thin is spatially EVEN — v_card_seed's
+	// ~0.77m clusters punch clumpy holes that break the baked silhouette.
+	if (bake_mode > 0 && bake_density >= 0.0) {
+		drop_density = bake_density;
+		drop_seed = v_bake_seed;
+	}
+	if (drop_seed * 0.96 > drop_density) {
 		discard;
 	}
 

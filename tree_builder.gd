@@ -198,16 +198,19 @@ const LP_SINGLE_VARIANT := 3
 # see-through as the live lod0 mesh it replaces. Tuning lever (raise → denser summer
 # crown). The WINTER atlas is baked separately at card_keep=-1 + season=winter so its
 # OWN retention floor (0.05) drives the bare shape (see _run_impostor_bake).
-# TRIED-and-REVERTED 2026-07-03: per-tier thinning (_l 0.5→0.10) to fix the "_l reads
-# too dense/wide vs the airy lod0" complaint. It made _l AIRIER but the stochastic
-# card-drop is spatially UNEVEN — the thinned impostor coverage (0.124) fell BELOW
-# lod0's in dense regions, so lod0's top-right crown lobe had no impostor coverage to
-# hand off to and VANISHED during the lod0→impostor crossfade (Chris saw the top-right
-# fade to nothing as the camera backed away — _l only, the only tier thinned). Reverted.
-# card_keep can only make _l a solid blob (0.5) OR a holey/fading crown (<0.15), never
-# lod0's clean fine airiness — matching the airy lod0 needs the deeper impostor
-# see-through/SSS work (the ~Aug-2026 tech debt), not card-drop.
-const LP_SUMMER_CARD_KEEP := 0.5
+# The bake drop is now spatially EVEN (fine per-card v_bake_seed, tree_leaf.gdshader),
+# not per-cluster — so a given keep removes coverage UNIFORMLY across the crown instead
+# of punching clumpy cluster-scale holes. This fixed the "oddly decimated / not
+# retaining shape" far crown (Chris 2026-07-03) and, because the thin no longer leaves
+# whole lobes uncovered, retired the handoff-vanishing hazard below.
+# (HISTORICAL, pre-even-drop: per-tier thinning _l→0.10 made _l airier but the CLUMPY
+# card-drop coverage fell below lod0's in dense regions, so a lod0 crown lobe had no
+# impostor to hand off to and VANISHED at the crossfade. Even drop can't do that —
+# per-tier keep is safe again if _l ever wants to be thinner than _m/_s.)
+# 0.6 = keep 60% of cards, evenly (raised from the clumpy-era 0.5): the even
+# distribution reads coherent+airy rather than eaten, and removes the solid clumps that
+# made _l read too opaque. Tuning lever (raise → denser summer crown).
+const LP_SUMMER_CARD_KEEP := 0.6
 var _noprepass_shader: Shader = null
 
 # Desired height ranges per species archetype (metres)
