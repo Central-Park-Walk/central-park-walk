@@ -119,6 +119,18 @@ const LOD_SCALE_RANGE := Vector2(0.40, 1.60)
 # lod0 solid 0–40m, dither-crossfade to impostor 40–80m. Computed inline at each fade
 # site so a CLI range override (--tree-mesh-range) tracks automatically.
 var LOD_FADE_RATIO: float = 0.5  # tunable via --lod-fade-ratio= (transition-zone width vs overdraw cost)
+# FLOOR (metres) for the size-scaled lod0-SOLID distance. The per-tree height scale
+# (_lod_scale) pulls a small tree's whole handoff IN proportionally, so an s=0.40 sapling
+# would render solid lod0 only to ~16m (80×0.40×0.5) and then flatten to a flat impostor
+# while still reading as "up close" to a walking player — the root cause of Chris's
+# "cardboard mid-trees" complaint (2026-07-04). This floors the SOLID band so no tree
+# hands off to its impostor nearer than this, regardless of size. Large trees clear it
+# already (solid = 40×s > this for s > 1.0) so they are unaffected — only s < 1.0 trees
+# are pulled back out to the floor. Applied in _lod_scale as a scale floor derived from
+# this metre value, so it tracks --tree-mesh-range / --lod-fade-ratio overrides and the
+# whole (mesh fade-out / impostor fade-in / spawn) band stays consistent. Tunable — bump
+# toward 50 if mid-range trees still read as cards on a walk.
+const MIN_SOLID_MESH_DIST: float = 40.0
 # --simple-leaf / --simple-bark (diagnostic): swap tree surface shaders for
 # minimal ones with identical render modes, splitting the camera-raster cost
 # into shader complexity vs raster structure (overdraw, quad efficiency).
@@ -299,8 +311,22 @@ func _lod_scale(species_tier: String) -> float:
 	## relative spread is added. MUST use the placed metres height (_species_real_h),
 	## NOT _species_heights — the latter is RAW mesh units (~5) and dividing it by 22m
 	## clamped every tree to the 0.40 floor, collapsing the handoff to ~80m (2026-06-22).
+	##
+	## A SECOND floor (MIN_SOLID_MESH_DIST, 2026-07-04) then keeps the SOLID lod0 band —
+	## _mesh_fade_end × s × (1 − LOD_FADE_RATIO) — from dropping below a walkable minimum:
+	## the pure screen-size scale pulls a small tree's handoff so close (s=0.40 → solid to
+	## ~16m) that it flattens to a card while still up-close to a walker. The floor is
+	## derived from the metre constant here (not hard-coded as a scale) so it tracks the
+	## _mesh_fade_end / LOD_FADE_RATIO band geometry, and lives in _lod_scale so every
+	## downstream handoff (mesh fade-out, impostor fade-in, spawn begin) inherits it in
+	## lock-step — mismatched bands are exactly the coverage-gap bug this file has fought.
 	var h: float = _species_real_h.get(species_tier, REF_TREE_HEIGHT)
-	return clampf(h / REF_TREE_HEIGHT, LOD_SCALE_RANGE.x, LOD_SCALE_RANGE.y)
+	var s: float = clampf(h / REF_TREE_HEIGHT, LOD_SCALE_RANGE.x, LOD_SCALE_RANGE.y)
+	# Solid-band metres at s=1.0; guard the /0 if a range/ratio override zeroes it.
+	var solid_ref: float = _mesh_fade_end * (1.0 - LOD_FADE_RATIO)
+	if solid_ref > 0.0:
+		s = maxf(s, MIN_SOLID_MESH_DIST / solid_ref)
+	return s
 
 func _get_tier(species: String, desired_h: float) -> String:
 	## Return size tier suffix based on species and desired height.

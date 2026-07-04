@@ -37,6 +37,17 @@ switches at the same on-screen size (tunable `--tree-mesh-range=N`). lod0 is the
 full-detail mesh, only needed close; past ~80 m the octahedral impostor reads as well
 and is far cheaper. Impostors run out to `IMPOSTOR_FAR` = 800 m.
 
+> **SIZE FLOOR (2026-07-04).** The pure screen-size scale pulls a small tree's whole band
+> IN proportionally — an s-tier london plane (mean ~9 m, `s`→0.42) would go solid-mesh only
+> to ~17 m and flatten to a card while still up-close to a walker (Chris's "cardboard
+> mid-trees"). `_lod_scale` now floors the scale so the **solid lod0 band never drops below
+> `MIN_SOLID_MESH_DIST` (40 m, tunable → 50)** regardless of size. Engine-measured effect
+> (`--all-london-plane`, mean placed heights): s-tier solid 16.7→**40 m**, m-tier (18.6 m)
+> 33.8→**40 m**, l-tier (29 m) **52.9 m unchanged** (40×s already clears the floor). The
+> floor is derived from the metre constant, so it tracks `--tree-mesh-range` /
+> `--lod-fade-ratio` and every downstream band (mesh fade-out, impostor fade-in, spawn
+> begin) inherits it in lock-step — no mesh/impostor coverage gap.
+
 > **PERF NOTE (2026-07-03):** with the mid tier gone, the near tier is the FULL lod0
 > mesh out to ~80 m (was the cheaper lod1). Re-measure deep-woods fps (Ramble/North
 > Woods); `--tree-mesh-range` moves the handoff if the full-lod0 near band is too heavy.
@@ -88,8 +99,10 @@ vistri-for-drawcalls trade — check the draw-call HUD in dense woods); the shad
 still full-range (a phase-2 lever). F6 trees-off is the instant is-it-even-trees check.
 **KNOWN ARTIFACTS (2026-07-04 walk, why it is opt-in / default OFF):** (1) **s-tier impostors
 too close** — screen-size LOD shrinks the small-tree handoff (`80 × h/22`) and density
-shrinks it AGAIN, so a small dense tree becomes a billboard at ~20 m even unoccluded. FIX =
-a **minimum handoff floor** (~35 m, clamp the effective handoff regardless of size×density).
+shrinks it AGAIN, so a small dense tree becomes a billboard at ~20 m even unoccluded.
+✅ **FIXED for the size path 2026-07-04** — `_lod_scale` floors the scale so the solid lod0
+band never drops below `MIN_SOLID_MESH_DIST` (40 m; see SIZE FLOOR above). The density path
+(default OFF) would still compound; its floor is the same constant if it is ever resurrected.
 (2) **crossfade dither stipple** — the lod0↔impostor dither-discard is meant to be resolved
 by TAA, but the project runs FSR2 with TAA off and FSR2 does not dissolve it, so every tree
 in its handoff band shows the raw net (worst vs bright sky; visible even at 1× motion). The
