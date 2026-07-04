@@ -101,33 +101,28 @@ var _bake_impostors_species: String = ""
 # the near mesh. The dither band (LOD_FADE_RATIO of this) and mesh chunk visibility
 # derive from it. Shadow proxies are NOT tied to it — they keep casting to 290m.
 #
-# Default 200 since 2026-06-20 (was 400): in CP, trees are not seen unobstructed
-# beyond ~200m (dense, hilly sightlines — user observation), and beyond ~300m a
-# leaf-card canopy goes sub-pixel and mip-diluted alpha discards the cards, so no
-# geometry tier holds coverage there regardless of card count. Running meshes
-# farther is wasted; the shorter range is also a perf win.
-var _mesh_fade_end: float = 200.0
+# Default 80 (Chris 2026-07-03): lod0 renders solid to ~40m, dither-transitions to the
+# impostor over 40–80m (LOD_FADE_RATIO 0.5), so the handoff is COMPLETE by 80m; the
+# impostor then carries 80m → IMPOSTOR_FAR (800m). lod0 is the full-detail mesh, only
+# needed close; past ~80m the octahedral impostor reads as well and is far cheaper.
+var _mesh_fade_end: float = 80.0
 # SCREEN-SIZE LOD (AAA / Godot community best practice, user 2026-06-22): a tree's
 # on-screen pixel height is (world_height / distance) × const, so to make EVERY
 # tree switch tiers at the same APPARENT size — not the same world distance — the
 # lod0→impostor handoff distance scales linearly with the model's height.
-# _mesh_fade_end (200m) is the REFERENCE distance for a REF_TREE_HEIGHT-tall canopy
+# _mesh_fade_end (80m) is the REFERENCE distance for a REF_TREE_HEIGHT-tall canopy
 # tree; a 30m london_plane_l then holds mesh ~36% farther and a 10m sapling switches
-# ~55% sooner, all at the same ~77px switch size. This also SUBSUMES the old
-# hardcoded _sapling_mesh_end=90 (≈ 200 × 10/22): saplings are short, so the unified
-# formula hands them off early on its own — no special case. Sources: PulseGeek
-# "prefer screen-size thresholds for LOD switches"; Godot HLOD tutorial.
-const REF_TREE_HEIGHT: float = 22.0  # m — height the 200m default was tuned for
+# ~55% sooner, all at the same on-screen switch size. Sources: PulseGeek "prefer
+# screen-size thresholds for LOD switches"; Godot HLOD tutorial.
+const REF_TREE_HEIGHT: float = 22.0  # m — height the 40/80m defaults were tuned for
 # Min/max clamp keeps extreme variants sane (tiny shrubs don't pop at 30m; giant
 # elms don't carry full mesh absurdly far).
 const LOD_SCALE_RANGE := Vector2(0.40, 1.60)
-# Crossfade dither band as a fraction of the lod0→impostor handoff distance. Widened
-# 0.10→0.30 (2026-07-02, Chris): a larger transition zone hides the mesh→impostor swap
-# (60m at the 200m handoff vs the old 20m). The AAA "keep it short" guidance (overdraw
-# scales with dithered area) is outweighed by the smoother handoff — the trees are
-# small on screen across that shell. Computed inline at each fade site so a CLI range
-# override (--tree-mesh-range) tracks automatically.
-var LOD_FADE_RATIO: float = 0.30  # tunable via --lod-fade-ratio= (transition-zone width vs overdraw cost)
+# Crossfade dither band as a fraction of the lod0→impostor handoff distance. 0.5
+# (Chris 2026-07-03) puts the transition band at [40, 80]m for a REF_TREE_HEIGHT tree:
+# lod0 solid 0–40m, dither-crossfade to impostor 40–80m. Computed inline at each fade
+# site so a CLI range override (--tree-mesh-range) tracks automatically.
+var LOD_FADE_RATIO: float = 0.5  # tunable via --lod-fade-ratio= (transition-zone width vs overdraw cost)
 # --simple-leaf / --simple-bark (diagnostic): swap tree surface shaders for
 # minimal ones with identical render modes, splitting the camera-raster cost
 # into shader complexity vs raster structure (overdraw, quad efficiency).
@@ -247,7 +242,7 @@ func _init(loader) -> void:
 			print("TreeBuilder: TIER ISOLATE '%s' — single tier, no crossfade (diagnostic)" % _tier_isolate)
 		elif arg.begins_with("--tree-mesh-range="):
 			_mesh_fade_end = clampf(float(arg.substr("--tree-mesh-range=".length())), 60.0, 1000.0)
-			print("TreeBuilder: lod0 mesh → impostor fade-out end = %.0fm (default 200, scaled per tree height)" % _mesh_fade_end)
+			print("TreeBuilder: lod0 mesh → impostor fade-out end = %.0fm (default 80, scaled per tree height)" % _mesh_fade_end)
 		elif arg.begins_with("--lod-fade-ratio="):
 			LOD_FADE_RATIO = clampf(float(arg.substr("--lod-fade-ratio=".length())), 0.05, 0.60)
 			print("TreeBuilder: LOD crossfade band = %.2f of handoff distance (wider = smoother handoff, more dither overdraw)" % LOD_FADE_RATIO)

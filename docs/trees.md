@@ -24,22 +24,20 @@ at the worst test location. Measured today: ~25 ms camera (Ramble), 18–28 ms s
 
 | tier | range | fade | representation | casts shadow | lit |
 |---|---|---|---|---|---|
-| lod0 (near) | 0–200 m | dither out over the LOD_FADE_RATIO band ending at `_mesh_fade_end` | `{species}_{s,m,l}` — the **full base model**, MMI per species-size × 80 m chunk | **never** (proxy does) / own per-leaf when proxy off | runtime sun + ambient |
+| lod0 (near) | 0–80 m | solid 0–40 m, dither out 40–80 m | `{species}_{s,m,l}` — the **full base model**, MMI per species-size × 80 m chunk | **never** (proxy does) / own per-leaf when proxy off | runtime sun + ambient |
 | shadow proxy | 0–290 m | none (pops with cascade distance, invisible; shadow distance is 150 m so the 290 m cap is never the binding limit) | trunk cylinder + crown hull ≤ ~300 tris, alpha-test dapple mask, MMI `SHADOWS_ONLY` | is the shadow | n/a |
-| impostor | 180–2500 m | dither in over the same band the lod0 dithers out | **16×16** hemisphere octahedral, 2048² albedo+normal+orm+vis atlas per species-tier, **baked from lod0** (§2, as-built 2026-06-23, sun-visibility 2026-07-02, lod0-source 2026-07-03) | never | **runtime sun + ambient** |
+| impostor | 40–800 m | dither in 40–80 m (complementary to lod0), solid 80→800 m | **16×16** hemisphere octahedral, 2048² albedo+normal+orm+vis atlas per species-tier, **baked from lod0** (§2, as-built 2026-06-23, sun-visibility 2026-07-02, lod0-source 2026-07-03) | never | **runtime sun + ambient** |
 
-The lod0 → impostor handoff is `_mesh_fade_end` (**200 m default**, height-scaled per
-tree via `_lod_scale` so every tree switches at the same on-screen size; tunable
-`--tree-mesh-range=N`). Two independent reasons impostors must take over by ~200 m:
-(1) CP trees are not seen unobstructed past ~200 m (dense, hilly sightlines — user
-observation); (2) the **discrete-card floor** — beyond ~300 m a leaf-card canopy goes
-sub-pixel and mip-diluted alpha discards cards, so no geometry tier holds coverage
-there regardless of card count; only the contiguous-raster impostor stays solid.
+The lod0 → impostor handoff is `_mesh_fade_end` (**80 m default**, `LOD_FADE_RATIO` 0.5 →
+band [40, 80]; Chris 2026-07-03), height-scaled per tree via `_lod_scale` so every tree
+switches at the same on-screen size (tunable `--tree-mesh-range=N`). lod0 is the
+full-detail mesh, only needed close; past ~80 m the octahedral impostor reads as well
+and is far cheaper. Impostors run out to `IMPOSTOR_FAR` = 800 m.
 
 > **PERF NOTE (2026-07-03):** with the mid tier gone, the near tier is the FULL lod0
-> mesh out to 200 m (was the cheaper lod1 under the retired `lod1-as-near` default).
-> Re-measure deep-woods fps (Ramble/North Woods); `--tree-mesh-range` pulls the handoff
-> in if the full-lod0 near band is too heavy. See [[project_performance_investigation]].
+> mesh out to ~80 m (was the cheaper lod1). Re-measure deep-woods fps (Ramble/North
+> Woods); `--tree-mesh-range` moves the handoff if the full-lod0 near band is too heavy.
+> See [[project_performance_investigation]].
 
 The lod0 mesh and the impostor spawn from the same per-chunk buckets (transforms +
 custom data identical, crossfade water-tight); chunk visibility ends derive from each

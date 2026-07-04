@@ -232,8 +232,9 @@ water mirror re-rendered them again; `--diag-hide=treeshadows` → fps 15→27, 
 37.7 M→1.76 M. Fix = **shadow proxy restored to default ON** (chosen over `Mesh.shadow_mesh`;
 the deeper rebaked impostor mitigates the 06-28 flip). Result ~38-39 fps deep Ramble,
 worst-case density. (NOTE 2026-07-03: the `_lod1` mid tier — briefly used as the default
-near tier for a perf win — was removed; the near tier is now the full lod0 mesh to 200 m,
-so deep-woods fps needs a re-measure. See [`trees.md`](trees.md) §1 perf note.) **SDFGI verdict revised:** the old "dead
+near tier for a perf win — was removed; the near tier is now the full lod0 mesh to ~80 m
+(solid to 40, dither to impostor by 80), so deep-woods fps needs a re-measure. See
+[`trees.md`](trees.md) §1 perf note.) **SDFGI verdict revised:** the old "dead
 lever" reading was wrong — SDFGI is not dead, it actively darkens dense canopy to BLACK
 (`sdfgi_use_occlusion` drives its sky-ambient to ~0 under the canopy, ×the leaf shader's
 0.12 crown-interior AO). It costs ~2 fps + ~512 MB VRAM; kept ON by Chris's preference
