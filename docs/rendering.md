@@ -230,10 +230,10 @@ dominant deep-forest cost, far above the 5.5 ms at literary_walk: in the all-lon
 forest, visible trees generated **37.7 M shadow tris** (2.5× the 15 M seen) and the
 water mirror re-rendered them again; `--diag-hide=treeshadows` → fps 15→27, shtri
 37.7 M→1.76 M. Fix = **shadow proxy restored to default ON** (chosen over `Mesh.shadow_mesh`;
-the deeper rebaked impostor mitigates the 06-28 flip). That unlocked **lod1-as-near** as
-the default near tier (with per-leaf shadows the shadow pass was the wall, so cutting
-near-mesh geometry did nothing — the proxy removed the wall, so it now lands). Result
-~38-39 fps deep Ramble, worst-case density. **SDFGI verdict revised:** the old "dead
+the deeper rebaked impostor mitigates the 06-28 flip). Result ~38-39 fps deep Ramble,
+worst-case density. (NOTE 2026-07-03: the `_lod1` mid tier — briefly used as the default
+near tier for a perf win — was removed; the near tier is now the full lod0 mesh to 200 m,
+so deep-woods fps needs a re-measure. See [`trees.md`](trees.md) §1 perf note.) **SDFGI verdict revised:** the old "dead
 lever" reading was wrong — SDFGI is not dead, it actively darkens dense canopy to BLACK
 (`sdfgi_use_occlusion` drives its sky-ambient to ~0 under the canopy, ×the leaf shader's
 0.12 crown-interior AO). It costs ~2 fps + ~512 MB VRAM; kept ON by Chris's preference

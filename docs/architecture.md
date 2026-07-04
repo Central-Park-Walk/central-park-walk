@@ -89,11 +89,11 @@ Incremental rebuild via `.pipeline_cache.json` (mtime/sha256 signatures); `--for
 
 Target-state spec: [`trees.md`](trees.md).
 
-> ⚠ **The bullets below are a June-2026 snapshot and are now partly superseded** — the sprint change in bullet 5 shipped (runtime-lit impostors, rebuilt 2026-06-23; baked sun-visibility 2026-07-02), plus whole-tree shadow proxies and `--lod1-as-near` as the default near tier (2026-07-02). For the current tier chain read [`trees.md`](trees.md); it is the authority.
+> ⚠ **The bullets below are a June-2026 snapshot and are now partly superseded** — the sprint change in bullet 5 shipped (runtime-lit impostors, rebuilt 2026-06-23; baked sun-visibility 2026-07-02), plus whole-tree shadow proxies. **2026-07-03: the `_lod1` mid tier was REMOVED — the chain is now lod0 → impostor, and impostors bake from lod0.** For the current tier chain read [`trees.md`](trees.md); it is the authority.
 
 Snapshot (post two-tier collapse, commit 20486e4):
 
-- **Mesh tier 0-290m**: `{species}_{s|m|l}_lod1` decimated meshes; one MMI per species-tier × 80m chunk, positioned at instance centroid; per-chunk deterministic variant pick (`tree_builder.gd:523`) to limit MMI fragmentation; dither crossfade out 230-250m. ~9,852 census + woodland-fill trees, 17 archetypes.
+- **Mesh tier 0-200m**: `{species}_{s|m|l}` full lod0 meshes (the mid `_lod1` tier was removed 2026-07-03 — chain is lod0 → impostor); one MMI per species-tier × 80m chunk, positioned at instance centroid; per-chunk deterministic variant pick to limit MMI fragmentation; dither crossfade into the impostor at `_mesh_fade_end` (height-scaled). ~9,852 census + woodland-fill trees, 17 archetypes.
 - **Impostor tier 190-2500m**: octahedral billboards, 8×8 hemisphere frames, 2048² atlas per species-tier (56 atlases), premultiplied alpha, crossfade in 230-250m, shadows off.
 - **Bake** (`scripts/impostor_baker.gd`): renders **lit color** under a fixed procedural sky (ambient 0.7, SSAO off) — this is the root cause of the impostor/mesh color mismatch family of bugs (May 19 finding: atlas RGB dark olive while alpha was fine). Baker already outputs `_impostor_albedo/_normal/_depth.png` + winter pass.
 - **Sprint change (D3-5)**: switch to **unlit albedo + normal atlases, lit at runtime** in `tree_impostor.gdshader` with the same sun/ambient as meshes. Touch points identified: `impostor_baker.gd:315-343` (don't bake lighting/tint), `tree_leaf.gdshader:115-154` (bake-mode flag), `tree_impostor.gdshader` (decode normals, output NORMAL). Existing normal/depth atlases must be quality-checked before reuse.
