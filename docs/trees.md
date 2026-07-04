@@ -46,6 +46,36 @@ under-cover skewed chunks). Diagnostics: `--tier-isolate=lod0|impostor|mesh` ren
 one tier across the full range; `--tree-mesh-range=N` moves the handoff;
 `TIER_A`/`TIER_B` env vars on `tier_handoff_check.sh` pick the compared pair.
 
+**Density-modulated handoff (`--density-lod[=frac]`, 2026-07-03).** Off by default (flat
+80 m handoff). When on, each tree's handoff distance scales by its baked local-density
+**openness** ∈ [0,1]: an open-grown lawn specimen holds lod0 to the full 80 m, a dense
+forest-interior tree hands off at `dense_frac` of that (default **0.44** → ~35 m), because
+its crown is mostly occluded by nearer crowns up close anyway. This recovers the "far
+handoff where it's noticeable" benefit of the retired mid tier **and** cuts deep-forest
+lod0 overdraw, without a mid tier. Openness is computed once at placement
+(`_pack_lod_openness` in `tree_builder.gd`: neighbours within 18 m via a spatial grid,
+`smoothstep(1, 9, count)`) and packed into the custom-data **B channel alongside the
+evergreen flag** (deciduous b∈[0,0.49], evergreen b∈[0.51,1.0]; decode
+`openness=(b>=0.5?b-0.51:b)/0.49`), so it costs nothing at runtime and **can't pop** as
+the camera moves (unlike view-dependent occlusion). The shaders scale the *dither
+distance* only (`lod_dist = dist / handoff_factor`), leaving detail gates on true
+distance; the impostor carries `handoff_factor` in the spent `quad_blend_weights.w` to
+avoid a new varying (budget-critical). Openness is always baked, so the flag is a pure
+runtime toggle (`lod_density_enabled`/`lod_density_dense_frac` globals, registered in
+`main.gd`). Verified: openness spans 0.00–1.00 across 1892 park trees (519 dense / 1268
+open). **Still flat until walk-tuned** — start with `--density-lod` and adjust
+`--density-lod=<frac>` for the dense-forest pull-in.
+
+**Impostor wind (2026-07-03).** The far crowns now rock in the wind to match the mesh at
+the handoff. `tree_impostor.gdshader` reuses the shared `wind.gdshaderinc` structural
+terms (trunk cantilever + steady push + gust) and the same `WIND_PARAMS` row the mesh
+uses, evaluated once at the crown centroid height (`world_height*0.62`) so the whole
+billboard leans coherently with neighbouring mesh trees; the per-branch term is omitted
+(crown detail, averages to ~0 over the card). The world-space sway is transformed to
+object space and weighted by `UV.y` (top leans, base planted). Full amplitude through the
+40–80 m handoff (mesh wind is full to ~140 m), fading out by ~450 m. Amplitude lever:
+`impostor_wind_strength` uniform (default 1.0; 0 = static billboards).
+
 ## 2. Runtime-lit octahedral impostors (as-built 2026-06-23)
 
 > **Rebuilt from scratch 2026-06-23** after the 2026-06-22 reset wiped the far

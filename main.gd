@@ -402,6 +402,17 @@ func _parse_cli_args() -> void:
 			if ca.size() >= 3 and ca[2] != "": _cli_canopy_ao.z = float(ca[2])
 			print("[DIAG] canopy-ao core=%.2f exp=%.2f shell=%.2f"
 					% [_cli_canopy_ao.x, _cli_canopy_ao.y, _cli_canopy_ao.z])
+		elif arg == "--density-lod":
+			# Density-modulated lod0→impostor handoff: open-grown trees hold lod0 to the
+			# full range, dense-forest interiors hand off sooner (their crowns are mostly
+			# occluded up close). Static per-tree openness → no pop as the camera moves.
+			_cli_density_lod = true
+			print("[DIAG] density-lod ON, dense_frac=%.2f" % _cli_density_dense_frac)
+		elif key == "--density-lod" and has_eq:
+			# --density-lod=<frac>: dense-forest handoff as a fraction of the open handoff.
+			_cli_density_lod = true
+			_cli_density_dense_frac = clampf(float(eq_val), 0.1, 1.0)
+			print("[DIAG] density-lod ON, dense_frac=%.2f" % _cli_density_dense_frac)
 		elif key == "--shots" and val != "":
 			# --shots=x,z,yaw[,pitch[,hour]];x,z,yaw... — generic teleporting
 			# snapshot bot: every pose captured in ONE Godot session (launch
@@ -543,6 +554,14 @@ func _ready() -> void:
 	# effects (LOD dither) compute against the player view, not whatever
 	# camera is active in the current render pass (shadow / reflection).
 	RenderingServer.global_shader_parameter_add("player_world_pos", RenderingServer.GLOBAL_VAR_TYPE_VEC3, Vector3.ZERO)
+	# Density-modulated LOD handoff (--density-lod). Openness is always baked into the tree
+	# custom-data B channel; these globals just toggle whether the tree shaders use it, so
+	# --density-lod is a pure runtime switch (no rebuild/rebake). dense_frac = dense-forest
+	# handoff as a fraction of the open-grown handoff.
+	RenderingServer.global_shader_parameter_add("lod_density_enabled", RenderingServer.GLOBAL_VAR_TYPE_FLOAT,
+		1.0 if _cli_density_lod else 0.0)
+	RenderingServer.global_shader_parameter_add("lod_density_dense_frac", RenderingServer.GLOBAL_VAR_TYPE_FLOAT,
+		_cli_density_dense_frac)
 	_wind_system = preload("res://wind_system.gd").new()
 	_wind_system.name = "WindSystem"
 	if _cli_wind_override >= 0.0:
@@ -1612,6 +1631,9 @@ const CANOPY_AO_CORE := 0.12
 const CANOPY_AO_EXP := 1.6
 const CANOPY_AO_SHELL := 0.55
 var _cli_canopy_ao := Vector3(-1.0, -1.0, -1.0)
+# Density-modulated LOD handoff (--density-lod[=frac]). Off by default (flat handoff).
+var _cli_density_lod := false
+var _cli_density_dense_frac := 0.44
 # --shadow-census: one-shot dump of every shadow-casting GeometryInstance3D
 # (top 25 by mesh tris × instances) on the 3rd perf tick, after diag hides apply.
 var _diag_shadow_census: bool = false

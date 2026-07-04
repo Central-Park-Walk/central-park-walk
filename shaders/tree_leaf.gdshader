@@ -24,6 +24,13 @@ global uniform vec3 player_world_pos;
 // scene ambient is calibrated for unobstructed ground). Registered in
 // main.gd; sweep via --canopy-ao=core:exp:shell.
 global uniform vec3 canopy_ao;
+// Density-modulated LOD (--density-lod). enabled 0 = flat handoff (default, identical
+// to before). When 1, each tree's lod0→impostor handoff distance is scaled by its baked
+// local-density openness (INSTANCE_CUSTOM.b, packed with the evergreen flag): open-grown
+// specimens hold lod0 to the full range, dense-forest interiors hand off at dense_frac of
+// it (their crowns are mostly occluded up close anyway). Registered in main.gd.
+global uniform float lod_density_enabled;    // 0 or 1
+global uniform float lod_density_dense_frac; // dense handoff as a fraction of the open handoff (~0.44)
 
 // LOD crossfade dither ranges (begin, end). Set per LOD tier.
 // vec2(0,0) = no dithering (default).
@@ -86,6 +93,10 @@ varying float v_crown_rho;   // COLOR.a: 0 = crown core, 1 = outer shell
 // per-instance in vertex(), so capture it there. (tree_impostor.gdshader
 // already did this via v_inst_pos; the mesh shaders did not.)
 varying vec3 v_inst_pos;
+// Per-tree density-LOD handoff factor (1 = full/open handoff, dense_frac = packed-in
+// forest interior). Multiplies the dither distance in fragment. Decoded in vertex
+// (INSTANCE_CUSTOM is vertex-only) so no per-fragment custom-data read.
+varying float v_lod_factor;
 
 // Spring blossom colors: cherry = pink, callery_pear = white, magnolia = pink-white
 const vec3 BLOSSOM_COLORS[14] = vec3[14](
@@ -111,6 +122,12 @@ const vec3 BLOSSOM_COLORS[14] = vec3[14](
 void vertex() {
 	// Decode per-instance season data (all INSTANCE_CUSTOM reads in vertex only)
 	float is_evergreen = INSTANCE_CUSTOM.b;
+	// Density-LOD: recover openness from B (packed with the evergreen flag). is_evergreen
+	// stays valid as a b<0.5 test (deciduous ≤0.49, evergreen ≥0.51). openness 1 → full
+	// handoff, 0 → dense_frac. lod_density_enabled 0 collapses the factor to 1 (no change).
+	float openness = (is_evergreen >= 0.5 ? is_evergreen - 0.51 : is_evergreen) / 0.49;
+	v_lod_factor = mix(1.0, mix(lod_density_dense_frac, 1.0, clamp(openness, 0.0, 1.0)),
+			clamp(lod_density_enabled, 0.0, 1.0));
 	int sp_idx = int(INSTANCE_CUSTOM.r * 13.0 + 0.5);
 	float timing_off = INSTANCE_CUSTOM.g - 0.5;
 	float s = mod(season_t + timing_off, 4.0);
@@ -268,12 +285,16 @@ void fragment() {
 	// ramping discard 0.15→0.02 over 60-180m) disabled for A/B comparison.
 	vec3 frag_tree_pos = v_inst_pos;  // per-instance (see varying decl); NOT MODEL_MATRIX[3] — chunk-locked in fragment (#76292)
 	float frag_cam_dist = length(frag_tree_pos - player_world_pos);
-	if (lod_fade_out.y > 0.0 && frag_cam_dist > lod_fade_out.x) {
-		if (lod_dither_discard(frag_cam_dist, lod_fade_out.x, lod_fade_out.y,
+	// Density-LOD: a denser tree (v_lod_factor < 1) hands off sooner. Scale the DITHER
+	// distance only — the detail gates below stay on true frag_cam_dist. v_lod_factor is
+	// 1 when --density-lod is off, so lod_dist == frag_cam_dist (byte-identical handoff).
+	float lod_dist = frag_cam_dist / max(v_lod_factor, 0.05);
+	if (lod_fade_out.y > 0.0 && lod_dist > lod_fade_out.x) {
+		if (lod_dither_discard(lod_dist, lod_fade_out.x, lod_fade_out.y,
 		                       FRAGCOORD.xy, false)) discard;
 	}
-	if (lod_fade_in.y > 0.0 && frag_cam_dist < lod_fade_in.y) {
-		if (lod_dither_discard(frag_cam_dist, lod_fade_in.x, lod_fade_in.y,
+	if (lod_fade_in.y > 0.0 && lod_dist < lod_fade_in.y) {
+		if (lod_dither_discard(lod_dist, lod_fade_in.x, lod_fade_in.y,
 		                       FRAGCOORD.xy, true)) discard;
 	}
 

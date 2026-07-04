@@ -698,6 +698,10 @@ func _build_trees(trees: Array) -> void:
 	# Key: "species_variantIdx" -> Array[Transform3D]
 	var xf_by_key: Dictionary = {}
 	var cd_by_key: Dictionary = {}  # parallel Color arrays for custom_data (season info)
+	# Parallel to canopy_data (placement order): [key, index_in_cd_by_key[key]] for each
+	# placed tree, so _pack_lod_openness can write per-tree local-density openness back
+	# into that tree's custom-data B channel after all positions are known.
+	var tree_cd_ref: Array = []
 	var all_trunk_xf: Array = []  # for collision
 	# Screen-size LOD: accumulate placed real-world height (metres) per species_tier
 	# so _lod_scale can size handoffs by apparent on-screen size. {tier: [sum, count]}.
@@ -953,6 +957,8 @@ func _build_trees(trees: Array) -> void:
 		# Use proportional radius from desired_h instead — matches visual spread.
 		var crown_r: float = desired_h * (0.25 if species == "conifer" else 0.35)
 		canopy_data.append({"x": tx, "z": tz, "r": crown_r, "ev": species == "conifer"})
+		# 1:1 with canopy_data — the cd just appended for this tree under `key`.
+		tree_cd_ref.append([key, cd_by_key[key].size() - 1])
 
 		# F1 distance-overlay tier bands — finalised after _species_real_h below
 		# (needs the per-tier mean height). Store the inputs now, one per placed tree.
@@ -970,6 +976,11 @@ func _build_trees(trees: Array) -> void:
 			Vector3(0.0,     desired_h, 0.0),
 			Vector3(0.0,     0.0,      trunk_r))
 		all_trunk_xf.append(Transform3D(col_basis, Vector3(tx, ty + desired_h * 0.5, tz)))
+
+	# Per-tree local-density openness → LOD handoff modulation (baked into cd.b now that
+	# every position is known). Static, so the handoff distance can't pop as the camera
+	# moves; the shader ignores it unless --density-lod is set (lod_density_enabled).
+	_pack_lod_openness(cd_by_key, tree_cd_ref)
 
 	# Finalise screen-size-LOD reference heights: mean placed metres per species_tier.
 	# Read by _lod_scale at every handoff/fade site below.
@@ -1443,6 +1454,64 @@ func _append_offset_surface(am: ArrayMesh, prim: PrimitiveMesh, offset: Vector3)
 		verts[i] += offset
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+
+
+# Compute each tree's local-density "openness" and fold it into the custom-data B
+# channel alongside the evergreen flag. openness ∈ [0,1]: 1 = open-grown specimen
+# (holds lod0 out to the full handoff), 0 = dense forest interior (hands off to the
+# impostor sooner — where the detail is mostly occluded by nearer crowns anyway).
+# A tree surrounded by many others is a static, pop-free proxy for "probably occluded",
+# unlike view-dependent occlusion which would pop the crown as the camera moves.
+#
+# Packing (keeps the evergreen flag readable as b>=0.5 while carrying openness):
+#   deciduous: b = openness * 0.49          ∈ [0.00, 0.49]
+#   evergreen: b = 0.51 + openness * 0.49   ∈ [0.51, 1.00]
+# Decode (both leaf + impostor shaders): openness = (b>=0.5 ? b-0.51 : b) / 0.49.
+func _pack_lod_openness(cd_by_key: Dictionary, tree_cd_ref: Array) -> void:
+	var n := canopy_data.size()
+	if n == 0 or tree_cd_ref.size() != n:
+		return
+	const DENSITY_R := 18.0   # neighbourhood radius (m): crowns within this crowd the tree
+	const CELL := DENSITY_R    # grid cell = radius, so a 3×3 block covers the search disc
+	const N_OPEN := 1.0        # ≤ this many neighbours → fully open (lawn specimen)
+	const N_DENSE := 9.0       # ≥ this many → fully dense (forest interior)
+	# Bin tree indices into a coarse spatial grid (Vector2i key — negative-safe).
+	var grid: Dictionary = {}
+	for idx in n:
+		var c = canopy_data[idx]
+		var gk := Vector2i(int(floorf(c["x"] / CELL)), int(floorf(c["z"] / CELL)))
+		# Plain Array (reference semantics) so append() through the dict subscript persists;
+		# a PackedInt32Array is copy-on-write and the append would be dropped.
+		if not grid.has(gk):
+			grid[gk] = []
+		grid[gk].append(idx)
+	var r2 := DENSITY_R * DENSITY_R
+	for idx in n:
+		var c = canopy_data[idx]
+		var cx := float(c["x"]); var cz := float(c["z"])
+		var gx := int(floorf(cx / CELL)); var gz := int(floorf(cz / CELL))
+		var cnt := 0
+		for dgx in range(gx - 1, gx + 2):
+			for dgz in range(gz - 1, gz + 2):
+				var gk := Vector2i(dgx, dgz)
+				if not grid.has(gk):
+					continue
+				for oidx in grid[gk]:
+					if oidx == idx:
+						continue
+					var o = canopy_data[oidx]
+					var dx := float(o["x"]) - cx
+					var dz := float(o["z"]) - cz
+					if dx * dx + dz * dz <= r2:
+						cnt += 1
+		# More neighbours → less open (soft ramp between the two anchor counts).
+		var openness := 1.0 - smoothstep(N_OPEN, N_DENSE, float(cnt))
+		var ref: Array = tree_cd_ref[idx]
+		var arr: Array = cd_by_key[ref[0]]
+		var col: Color = arr[ref[1]]
+		var is_ev := col.b >= 0.5   # b is still the raw 0/1 evergreen flag at this point
+		col.b = (0.51 if is_ev else 0.0) + openness * 0.49
+		arr[ref[1]] = col
 
 
 func _build_tree_collision(trunk_xf: Array) -> void:

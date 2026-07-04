@@ -110,9 +110,20 @@ global uniform vec3 player_world_pos;
 // term needs the sun paired with the per-instance basis, which only exists in
 // vertex (#76292), so light()'s LIGHT built-in can't be used for this.
 global uniform vec3 sun_dir_world;
+// Wind (world XZ dir + magnitude) — same global the mesh leaf/bark shaders sample, so
+// the far crown rocks in lockstep with the mesh trees it crossfades into at the handoff.
+global uniform vec2 wind_vec;
+// Density-modulated LOD (--density-lod) — see tree_leaf.gdshader. enabled 0 = flat
+// handoff (default). Registered in main.gd. dense_frac ≈ 0.44 of the open handoff.
+global uniform float lod_density_enabled;
+global uniform float lod_density_dense_frac;
+// Impostor crown wind sway amplitude (1 = matched to the mesh's gross crown motion).
+// Tunable / A-B lever; 0 = static billboards (old behaviour).
+uniform float impostor_wind_strength : hint_range(0.0, 2.0) = 1.0;
 
 #include "res://shaders/include/lod_dither.gdshaderinc"
 #include "res://shaders/include/tree_species.gdshaderinc"
+#include "res://shaders/include/wind.gdshaderinc"
 
 // Season/foliage HUE applied at RUNTIME (option 2, 2026-06-24): the atlas is used as
 // a LUMINANCE/detail map and the colour comes from the per-tree season tint (decoded
@@ -311,8 +322,9 @@ void vertex() {
 	v_season_color = col;
 
 	vec2 framesMinusOne = imposterFrames - vec2(1);
+	mat4 inv_model = inverse(MODEL_MATRIX);
 	vec3 cameraPos_WS = (INV_VIEW_MATRIX * vec4(vec3(0), 1.0)).xyz;
-	vec3 cameraPos_OS = (inverse(MODEL_MATRIX) * vec4(cameraPos_WS, 1.0)).xyz;
+	vec3 cameraPos_OS = (inv_model * vec4(cameraPos_WS, 1.0)).xyz;
 	vec3 pivotToCameraRay = (cameraPos_OS) * 10.0;
 	vec3 pivotToCameraDir = normalize(cameraPos_OS);
 
@@ -354,6 +366,36 @@ void vertex() {
 
 	VERTEX.xyz = projected + positionOffset;
 	VERTEX.xyz += pivotToCameraDir * aabb_max;
+
+	// --- Wind: rock the whole crown to match the mesh's gross sway at the handoff -----
+	// Reuse the shared structural terms (trunk cantilever + steady push + gust) — the SAME
+	// wind.gdshaderinc functions and WIND_PARAMS row the mesh uses — evaluated once at the
+	// crown's world height, so a far crown leans coherently with the neighbouring mesh
+	// trees it crossfades into. (The per-branch term is crown detail that averages to ~0
+	// over the whole billboard, so it's omitted.) Full amplitude through the 40–80m
+	// handoff (matching the mesh, whose wind is full to ~140m), fading out by ~450m.
+	vec4 wp = WIND_PARAMS[sp_idx];
+	float wind_dist = length(v_inst_pos - player_world_pos);
+	float wind_lod = 1.0 - smoothstep(250.0, 450.0, wind_dist);
+	float wind_str = length(wind_vec);
+	float rustle = (0.3 + wind_str * 0.7) * wind_lod;
+	float crown_h = world_height * 0.62;                    // crown centroid height (m)
+	vec2 trunk_d = wind_cantilever_trunk(crown_h, wp.z, wp.x, rustle, wind_phase(v_inst_pos));
+	vec2 push_d  = wind_push(wind_vec, crown_h, 0.10, wp.x) * wind_lod;
+	float gust = wind_gust(v_inst_pos, 0.3, 3.0);
+	float gust_strength = gust * wind_str * 0.20 * wp.w * wind_lod;
+	vec2 sway_world = (trunk_d + push_d + wind_vec * crown_h * gust_strength) * impostor_wind_strength;
+	// World XZ offset → object space (via inv_model, scale-robust), weighted by UV.y so the
+	// top of the card leans and the base stays planted.
+	vec3 sway_obj = (mat3(inv_model) * vec3(sway_world.x, 0.0, sway_world.y)) * UV.y;
+	VERTEX.xyz += sway_obj;
+
+	// Density-LOD: recover per-tree openness (packed in B with the evergreen flag) and
+	// stash the resulting handoff factor in the now-spent quad_blend_weights.w (fragment
+	// reads only .xyz) — avoids a new varying in this varying-budget-critical shader.
+	float imp_open = (INSTANCE_CUSTOM.b >= 0.5 ? INSTANCE_CUSTOM.b - 0.51 : INSTANCE_CUSTOM.b) / 0.49;
+	quad_blend_weights.w = mix(1.0, mix(lod_density_dense_frac, 1.0, clamp(imp_open, 0.0, 1.0)),
+			clamp(lod_density_enabled, 0.0, 1.0));
 
 	NORMAL = normalize(pivotToCameraDir);
 	TANGENT = normalize(cross(NORMAL, vec3(0.0, 1.0, 0.0)));
@@ -446,9 +488,12 @@ uniform float far_band_begin = 500.0;
 uniform float far_band_full = 660.0;
 
 void fragment() {
-	// LOD crossfade-in: dither IN over the band where _lod1 dithers out.
+	// LOD crossfade-in: dither IN over the band where the mesh dithers out. Density-LOD:
+	// scale the distance by the per-tree handoff factor (quad_blend_weights.w, packed in
+	// vertex) so the impostor dithers IN exactly where its mesh dithers OUT — complementary
+	// on a per-tree basis. Factor is 1 when --density-lod is off (identical to before).
 	if (lod_fade_in.y > 0.0) {
-		float d = length(v_inst_pos - player_world_pos);
+		float d = length(v_inst_pos - player_world_pos) / max(quad_blend_weights.w, 0.05);
 		if (d < lod_fade_in.y) {
 			if (lod_dither_discard(d, lod_fade_in.x, lod_fade_in.y, FRAGCOORD.xy, true)) discard;
 		}
