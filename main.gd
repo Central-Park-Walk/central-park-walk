@@ -1637,7 +1637,7 @@ var _cli_canopy_ao := Vector3(-1.0, -1.0, -1.0)
 # Density-modulated LOD handoff (--density-lod[=frac]). Off by default (flat handoff).
 # Also the live state for the K / U keys.
 var _cli_density_lod := false
-var _cli_density_dense_frac := 0.44
+var _cli_density_dense_frac := 0.35  # dense-woods handoff = 0.35 × 80 m ≈ 28 m (Shift+U to lower toward ~20 m)
 # Impostor crown wind sway amplitude (live state for the I key; global default 1.0).
 var _imp_wind_strength := 1.0
 # --shadow-census: one-shot dump of every shadow-casting GeometryInstance3D

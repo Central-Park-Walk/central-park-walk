@@ -1473,8 +1473,12 @@ func _pack_lod_openness(cd_by_key: Dictionary, tree_cd_ref: Array) -> void:
 		return
 	const DENSITY_R := 18.0   # neighbourhood radius (m): crowns within this crowd the tree
 	const CELL := DENSITY_R    # grid cell = radius, so a 3×3 block covers the search disc
-	const N_OPEN := 1.0        # ≤ this many neighbours → fully open (lawn specimen)
-	const N_DENSE := 9.0       # ≥ this many → fully dense (forest interior)
+	# Calibrated to the placed-tree neighbour histogram (mean 4.7 within 18 m, 2026-07-03):
+	# N_DENSE=9 left most woods trees classed "open" (mean openness 0.66), so the handoff
+	# never shortened where it mattered. 2 = lawn specimen (full 80 m), 7+ = woods interior
+	# (short handoff). 431 of 1892 trees now fully dense, gradient between.
+	const N_OPEN := 2.0        # ≤ this many neighbours → fully open (lawn specimen)
+	const N_DENSE := 7.0       # ≥ this many → fully dense (forest interior)
 	# Bin tree indices into a coarse spatial grid (Vector2i key — negative-safe).
 	var grid: Dictionary = {}
 	for idx in n:
