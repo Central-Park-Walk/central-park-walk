@@ -4,7 +4,14 @@
 
 # Loose .import sidecar files at root and reference dirs
 /*.import
-/reference_photos/*.import
+
+# Reference imagery — third-party photos, not ours to redistribute. Kept on disk
+# (reference_photos/<species>/ feeds the per-species modeling loop) but out of git.
+/reference_photos/
+/reference/*.jpg
+/reference/*.jpeg
+/reference/*.import
+# (reference/*.md data compilations stay tracked — they're ours)
 
 # Downloaded binary assets (re-download via scripts)
 models/
