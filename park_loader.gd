@@ -1087,6 +1087,10 @@ func _ready() -> void:
 		trees.clear()
 		var _eval_n: int = _eval_builder.inject_trees(trees)
 		print("  eval plot: %d tree specimens injected (real park trees suppressed)" % _eval_n)
+	# Riparian canopy: let skipped named species near watercourses place as
+	# london_plane so streams get shade (eval plots keep their clean plot).
+	if eval_plot == "":
+		_tree_builder.set_riparian_streams(streams)
 	_tree_builder._build_trees(trees)
 	print("  trees: %d ms" % (Time.get_ticks_msec() - _tp)); _tp = Time.get_ticks_msec()
 	_canopy_texture = _generate_canopy_map(_tree_builder.canopy_data)

@@ -32,6 +32,16 @@ const ARCHETYPE_MODEL := {
 const CATHEDRAL_ELM_ZONE := Rect2(-720.0, 1180.0, 90.0, 340.0)  # x, z, w, h
 
 var canopy_data: Array = []  # [{x, z, radius}] for canopy map generation
+
+# RIPARIAN CANOPY (user 2026-07-03). Real CP streams (Loch/Gill) run under dense
+# Ravine woods, but the census trees along them are almost all NAMED species that
+# the placement policy skips → bare, sky-exposed water. A skipped named species
+# within RIPARIAN_BUFFER of a watercourse is placed as the ready london_plane model
+# instead, so streams get canopy shade. Elsewhere the bare-until-redesigned policy
+# is unchanged. _riparian_hash: spatial hash of stream-centreline sample points
+# (cell = buffer), so the per-tree test only checks the 9 neighbouring cells.
+const RIPARIAN_BUFFER := 18.0
+var _riparian_hash: Dictionary = {}  # Vector2i cell -> Array[Vector2] sample points
 var _species_meshes: Dictionary = {}  # archetype_name -> Array[Mesh]
 var _species_heights: Dictionary = {} # archetype_name -> float (RAW mesh-unit height; divisor for placement scale)
 var _species_real_h: Dictionary = {} # species_tier -> float (mean PLACED real-world height, metres) for screen-size LOD
@@ -421,6 +431,53 @@ func _save_tree_cache(model_name: String, meshes: Array, height: float) -> void:
 	cfg.save(CACHE_DIR + model_name + ".cfg")
 
 
+# Build the riparian spatial hash from stream polylines. Each raw OSM segment is
+# sampled at <= buffer spacing so the union of the sample points' buffer-disks
+# covers the whole stream corridor. Call BEFORE _build_trees.
+func set_riparian_streams(streams: Array) -> void:
+	_riparian_hash.clear()
+	if streams.is_empty():
+		return
+	var step := RIPARIAN_BUFFER * 0.8   # <= buffer → gap-free corridor coverage
+	var n_pts := 0
+	for stream in streams:
+		var raw: Array = stream.get("points", [])
+		if raw.size() < 2:
+			continue
+		for i in range(raw.size() - 1):
+			var a := Vector2(float(raw[i][0]),   float(raw[i][2]))
+			var b := Vector2(float(raw[i + 1][0]), float(raw[i + 1][2]))
+			var seg_len := a.distance_to(b)
+			var nsub := maxi(1, int(ceil(seg_len / step)))
+			for s in range(nsub + 1):
+				var p := a.lerp(b, float(s) / float(nsub))
+				var cell := Vector2i(int(floor(p.x / RIPARIAN_BUFFER)), int(floor(p.y / RIPARIAN_BUFFER)))
+				if not _riparian_hash.has(cell):
+					_riparian_hash[cell] = []
+				_riparian_hash[cell].append(p)
+				n_pts += 1
+	print("  riparian mask: %d stream sample points in %d cells (buffer %.0fm)" % [n_pts, _riparian_hash.size(), RIPARIAN_BUFFER])
+
+# True if (x, z) is within RIPARIAN_BUFFER of any stream centreline sample.
+func _is_riparian(x: float, z: float) -> bool:
+	if _riparian_hash.is_empty():
+		return false
+	var cx := int(floor(x / RIPARIAN_BUFFER))
+	var cz := int(floor(z / RIPARIAN_BUFFER))
+	var r2 := RIPARIAN_BUFFER * RIPARIAN_BUFFER
+	for dx in range(-1, 2):
+		for dz in range(-1, 2):
+			var cell := Vector2i(cx + dx, cz + dz)
+			if not _riparian_hash.has(cell):
+				continue
+			for p in _riparian_hash[cell]:
+				var ddx: float = p.x - x
+				var ddz: float = p.y - z
+				if ddx * ddx + ddz * ddz <= r2:
+					return true
+	return false
+
+
 func _build_trees(trees: Array) -> void:
 	if trees.is_empty():
 		return
@@ -761,7 +818,13 @@ func _build_trees(trees: Array) -> void:
 			if species == GENERIC_SPECIES:
 				species = GENERIC_MODEL          # generic catch-all → the one ready model
 			elif species not in REDESIGNED_SPECIES:
-				continue                          # named, not-yet-redesigned (incl. the 95 london_plane tags) → bare patch
+				# Riparian exception: a skipped named species close to a watercourse
+				# is placed as london_plane so streams get canopy shade (real CP
+				# streams run under Ravine woods). Everywhere else it stays a bare patch.
+				if _is_riparian(tx, tz):
+					species = GENERIC_MODEL
+				else:
+					continue                      # named, not-yet-redesigned → bare patch
 		# Literary Walk/Mall: mature elms AND deciduous trees get cathedral elm
 		# (OSM tags most Mall trees as generic "deciduous" — they're American Elms)
 		if (species == "elm" or species == "deciduous") and CATHEDRAL_ELM_ZONE.has_point(Vector2(tx, tz)):
