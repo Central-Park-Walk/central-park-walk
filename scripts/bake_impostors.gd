@@ -37,11 +37,11 @@ const SUMMER_SEASON := 2.0
 # per-fragment thinning that crawled in motion). See [[project_impostor_system_rebuilt]].
 const WINTER_SEASON := 3.5
 # Per-card keep-fraction used DURING the bake (tree_leaf bake_density). 0.1 drops
-# ~90% of cards so the baked atlas coverage MATCHES the see-through live lod1 mesh at
-# the handoff (a full crown projects solid at bake res). Matching lod1 is the design:
-# the impostor is derived from lod1 and must read identically so the lod1->impostor
+# ~90% of cards so the baked atlas coverage MATCHES the see-through live lod0 mesh at
+# the handoff (a full crown projects solid at bake res). Matching lod0 is the design:
+# the impostor is derived from lod0 and must read identically so the lod0->impostor
 # handoff is seamless. -1 = no drop (full crown). DO NOT raise to solid — a fuller
-# impostor pops against the lod1 it replaces (the per-tier match the bug is NOT about;
+# impostor pops against the lod0 it replaces (the per-tier match the bug is NOT about;
 # see [[project_tree_lod_disappearance_bug]] — the residual is per-INSTANCE).
 const BAKE_DENSITY := 0.1
 

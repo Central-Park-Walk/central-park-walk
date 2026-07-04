@@ -45,22 +45,19 @@ var _riparian_hash: Dictionary = {}  # Vector2i cell -> Array[Vector2] sample po
 var _species_meshes: Dictionary = {}  # archetype_name -> Array[Mesh]
 var _species_heights: Dictionary = {} # archetype_name -> float (RAW mesh-unit height; divisor for placement scale)
 var _species_real_h: Dictionary = {} # species_tier -> float (mean PLACED real-world height, metres) for screen-size LOD
-# Per-tree LOD handoff distances (metres) for the F1 distance overlay, so its
-# colour reflects the ACTUAL tier the engine renders (not a fixed distance band).
-# Each entry: {"pos": Vector3, "lod1_end": float, "mesh_end": float}. dist < lod1_end
-# → lod0 (green); < mesh_end → lod1 (yellow); else culled (red). Saplings have no
-# lod1 so lod1_end == mesh_end (green straight to red). These are the SAME scaled
-# bands the lod_fade shaders dither at (_lod1_end/_mesh_fade_end × _lod_scale).
+# Per-tree LOD handoff distance (metres) for the F1 distance overlay, so its colour
+# reflects the ACTUAL tier the engine renders (not a fixed distance band). Each entry:
+# {"pos": Vector3, "mesh_end": float}. dist < mesh_end → lod0 (green); else impostor
+# (red). This is the SAME scaled handoff the lod_fade shaders dither at
+# (_mesh_fade_end × _lod_scale).
 var tree_lod_bands: Array = []
 
 # MMI / instance counts per LOD tier — read by HUD perf overlay
 var lod0_instances: int = 0
 var lod0_chunks: int = 0
-var lod1_instances: int = 0
-var lod1_chunks: int = 0
 # Far LOD tier: runtime-lit octahedral impostors (rebuilt 2026-06-23, Godot-community
 # /AAA SOP; scripts/bake_impostors.gd + shaders/tree_impostor.gdshader). Billboard
-# quad per species-tier, dithers in where _lod1 dithers out, out to IMPOSTOR_FAR.
+# quad per species-tier, dithers in where lod0 dithers out, out to IMPOSTOR_FAR.
 var impostor_instances: int = 0
 var impostor_chunks: int = 0
 # sp_tier -> billboard QuadMesh carrying the tree_impostor material (atlases + octa
@@ -92,29 +89,17 @@ var proxy_instances: int = 0
 # distance. mesh = both mesh tiers together; lod0 = base mesh; lod1 = the mid
 # mesh, each across the whole mesh range (for the handoff comparison).
 var _tier_isolate: String = ""
-# --lod1-as-near (perf experiment, Chris 2026-07-02): drop the full lod0 tier and
-# render the cheaper card-pruned/bark-decimated _lod1 mesh from 0m out to the
-# impostor handoff. LOD chain becomes _lod1 → impostor. Reuses the sapling
-# "no-lod1" path (near mesh covers the whole range). Species without a _lod1
-# (saplings/dead) are unaffected. Goal: >60fps in deep forest.
-var _lod1_as_near: bool = false
-# --no-lod1 (Chris 2026-07-03): render the FULL lod0 mesh as the near tier from 0m
-# straight to the impostor handoff, DROPPING the _lod1 mid tier entirely. LOD chain
-# becomes lod0 → impostor. The inverse of --lod1-as-near (which keeps lod1, drops
-# lod0); this keeps lod0, drops lod1. Used to walk the park on freshly-tuned lod0
-# models while the _lod1 meshes are stale/being regenerated. Reuses the sapling
-# "no-lod1" path (near mesh covers the whole mesh range). Forces _lod1_as_near off.
-var _no_lod1: bool = false
-# Reference distance at which the impostor takes over from the near mesh (see the
-# post-parse assignment in _ready): _mesh_fade_end normally, _lod1_end under --no-lod1.
+# Reference distance (height-scaled per tree) at which the impostor takes over from
+# the near lod0 mesh. The LOD chain is lod0 → impostor (there is no mid tier); this
+# equals _mesh_fade_end. (Historic _lod1-as-near / _no-lod1 tiers were removed
+# 2026-07-03 when the _lod1 meshes went stale — see the mesh-load comment.)
 var _imp_handoff_ref: float = 200.0
 # --bake-impostors[=species]: offline octahedral atlas bake (scripts/bake_impostors.gd).
 # Non-empty => after materialising _species_meshes, bake that species' tiers and quit.
 var _bake_impostors_species: String = ""
-# --tree-mesh-range=N: lod1 (mid mesh) fade-out END distance (metres) — the far
-# edge of the mesh LOD chain. The dither band (LOD_FADE_RATIO of this = 20m at
-# 200m) and mesh chunk visibility (+40m = half chunk) derive from it. Shadow
-# proxies are NOT tied to it — they keep casting to 290m regardless.
+# --tree-mesh-range=N: lod0 → impostor handoff distance (metres) — the far edge of
+# the near mesh. The dither band (LOD_FADE_RATIO of this) and mesh chunk visibility
+# derive from it. Shadow proxies are NOT tied to it — they keep casting to 290m.
 #
 # Default 200 since 2026-06-20 (was 400): in CP, trees are not seen unobstructed
 # beyond ~200m (dense, hilly sightlines — user observation), and beyond ~300m a
@@ -122,35 +107,26 @@ var _bake_impostors_species: String = ""
 # geometry tier holds coverage there regardless of card count. Running meshes
 # farther is wasted; the shorter range is also a perf win.
 var _mesh_fade_end: float = 200.0
-# --tree-lod1-range=N: lod0 (full base) → lod1 (mid mesh) handoff (fade END,
-# metres). Dither band = LOD_FADE_RATIO of the handoff (8m at 80m); near chunk
-# visibility extends +40m past it.
-# Default 80 since 2026-06-21 (was 100, was 60): lod0's full-detail base model
-# is only needed at close range (<80m); lod1 then carries 80–200m. The 80/200
-# split is the user's spec; the dither band is the Godot HLOD convention.
-var _lod1_end: float = 80.0
 # SCREEN-SIZE LOD (AAA / Godot community best practice, user 2026-06-22): a tree's
 # on-screen pixel height is (world_height / distance) × const, so to make EVERY
 # tree switch tiers at the same APPARENT size — not the same world distance — the
-# handoff distance must scale linearly with the model's height. _lod1_end (80m)
-# and _mesh_fade_end (200m) are the REFERENCE distances for a REF_TREE_HEIGHT-tall
-# canopy tree; a 30m london_plane_l then holds mesh ~36% farther and a 10m sapling
-# switches ~55% sooner, all at the same ~77px switch size. This also SUBSUMES the
-# old hardcoded _sapling_mesh_end=90 (≈ 200 × 10/22): saplings are short, so the
-# unified formula hands them off early on its own — no special case. Sources:
-# PulseGeek "prefer screen-size thresholds for LOD switches"; Godot HLOD tutorial.
-const REF_TREE_HEIGHT: float = 22.0  # m — height the 80/200m defaults were tuned for
+# lod0→impostor handoff distance scales linearly with the model's height.
+# _mesh_fade_end (200m) is the REFERENCE distance for a REF_TREE_HEIGHT-tall canopy
+# tree; a 30m london_plane_l then holds mesh ~36% farther and a 10m sapling switches
+# ~55% sooner, all at the same ~77px switch size. This also SUBSUMES the old
+# hardcoded _sapling_mesh_end=90 (≈ 200 × 10/22): saplings are short, so the unified
+# formula hands them off early on its own — no special case. Sources: PulseGeek
+# "prefer screen-size thresholds for LOD switches"; Godot HLOD tutorial.
+const REF_TREE_HEIGHT: float = 22.0  # m — height the 200m default was tuned for
 # Min/max clamp keeps extreme variants sane (tiny shrubs don't pop at 30m; giant
 # elms don't carry full mesh absurdly far).
 const LOD_SCALE_RANGE := Vector2(0.40, 1.60)
-# Crossfade dither band as a fraction of each tier's handoff distance. Widened
-# 0.10→0.30 (2026-07-02, Chris) now that lod1-as-near is the default near tier: the
-# handoff is lower-detail lod1 mesh → impostor, and a much larger transition zone
-# hides that swap (60m at the 200m handoff vs the old 20m). The AAA "keep it short"
-# guidance (overdraw scales with dithered area) is outweighed here by the perf
-# headroom lod1-as-near freed and by the smoother handoff — the trees are small on
-# screen across that shell. Computed inline at each fade site so CLI range overrides
-# (--tree-lod1-range / --tree-mesh-range) track automatically.
+# Crossfade dither band as a fraction of the lod0→impostor handoff distance. Widened
+# 0.10→0.30 (2026-07-02, Chris): a larger transition zone hides the mesh→impostor swap
+# (60m at the 200m handoff vs the old 20m). The AAA "keep it short" guidance (overdraw
+# scales with dithered area) is outweighed by the smoother handoff — the trees are
+# small on screen across that shell. Computed inline at each fade site so a CLI range
+# override (--tree-mesh-range) tracks automatically.
 var LOD_FADE_RATIO: float = 0.30  # tunable via --lod-fade-ratio= (transition-zone width vs overdraw cost)
 # --simple-leaf / --simple-bark (diagnostic): swap tree surface shaders for
 # minimal ones with identical render modes, splitting the camera-raster cost
@@ -261,28 +237,17 @@ func _init(loader) -> void:
 	_proxy_solid = "--proxy-solid" in OS.get_cmdline_user_args()
 	if _proxy_solid:
 		print("TreeBuilder: proxy crowns SOLID (diagnostic) — no dapple discard")
-	# lod1-as-near is now the DEFAULT (2026-07-02, Chris walk-approved): the mid
-	# (_lod1) mesh is the near tier from 0m and the full lod0 tier is dropped →
-	# LOD chain = lod1 → impostor. Big deep-forest fps gain, UNLOCKED by the shadow
-	# proxy (with per-leaf shadows the bottleneck was the shadow pass, so cutting
-	# near-mesh geometry did nothing; the proxy removed that wall, so the lod1
-	# geometry saving now lands). Up-close lod1 look confirmed acceptable. lod0 meshes
-	# are still generated — opt back into the full-lod0 near tier with --full-lod0.
-	_lod1_as_near = not ("--full-lod0" in OS.get_cmdline_user_args())
-	if _lod1_as_near:
-		print("TreeBuilder: LOD1-AS-NEAR (default) — the _lod1 mesh is the near tier from 0m; no full lod0 (--full-lod0 to restore)")
-	else:
-		print("TreeBuilder: FULL-LOD0 near tier (--full-lod0) — lod0 renders near, _lod1 mid, impostor far")
+	# LOD chain = lod0 → impostor (no mid tier). The near lod0 mesh renders from 0m to
+	# the height-scaled _mesh_fade_end, then dithers into the impostor. (The former
+	# _lod1 mid tier and its --lod1-as-near/--no-lod1/--full-lod0 toggles were removed
+	# 2026-07-03 when the _lod1 meshes went stale vs the current lod0 models.)
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--tier-isolate="):
 			_tier_isolate = arg.substr("--tier-isolate=".length())
 			print("TreeBuilder: TIER ISOLATE '%s' — single tier, no crossfade (diagnostic)" % _tier_isolate)
 		elif arg.begins_with("--tree-mesh-range="):
 			_mesh_fade_end = clampf(float(arg.substr("--tree-mesh-range=".length())), 60.0, 1000.0)
-			print("TreeBuilder: lod1 mesh fade-out end = %.0fm (default 200, scaled per tree height)" % _mesh_fade_end)
-		elif arg.begins_with("--tree-lod1-range="):
-			_lod1_end = clampf(float(arg.substr("--tree-lod1-range=".length())), 20.0, 250.0)
-			print("TreeBuilder: near mesh (_lod1) reference fade end = %.0fm (default 80, scaled per tree height) — _lod1 takes over there" % _lod1_end)
+			print("TreeBuilder: lod0 mesh → impostor fade-out end = %.0fm (default 200, scaled per tree height)" % _mesh_fade_end)
 		elif arg.begins_with("--lod-fade-ratio="):
 			LOD_FADE_RATIO = clampf(float(arg.substr("--lod-fade-ratio=".length())), 0.05, 0.60)
 			print("TreeBuilder: LOD crossfade band = %.2f of handoff distance (wider = smoother handoff, more dither overdraw)" % LOD_FADE_RATIO)
@@ -298,10 +263,6 @@ func _init(loader) -> void:
 		elif arg == "--all-london-plane":
 			_all_london_plane = true
 			print("TreeBuilder: ALL-LONDON-PLANE (TEMP) — every tree forced to london_plane")
-		elif arg == "--no-lod1":
-			_no_lod1 = true
-			_lod1_as_near = false  # lod0 is the near tier; can't also promote lod1
-			print("TreeBuilder: NO-LOD1 — lod0 near tier 0→_lod1_end, then the impostor pulled IN to the lod1 distance (no lod1 mid tier)")
 		elif arg.begins_with("--bake-impostors"):
 			# --bake-impostors  or  --bake-impostors=<species>  (default london_plane).
 			# Bakes octahedral atlases for that species' size tiers, then quits — runs
@@ -311,11 +272,9 @@ func _init(loader) -> void:
 			print("TreeBuilder: IMPOSTOR BAKE mode — species '%s', will quit after baking" % _bake_impostors_species)
 
 	# The distance (reference, height-scaled per tree) at which the impostor takes over
-	# from the near mesh. Default = _mesh_fade_end (after the lod1 mid tier). --no-lod1
-	# collapses it to _lod1_end so the impostor is pulled IN to where lod1 would start:
-	# lod0 renders 0→_lod1_end, then the (good-enough) impostor. Set AFTER arg parsing
-	# so --tree-lod1-range / --tree-mesh-range overrides are already applied.
-	_imp_handoff_ref = _lod1_end if _no_lod1 else _mesh_fade_end
+	# from the near lod0 mesh — the single lod0→impostor handoff. Set AFTER arg parsing
+	# so a --tree-mesh-range override is already applied.
+	_imp_handoff_ref = _mesh_fade_end
 
 # Size tier boundaries per species: [small_max, medium_max]
 # Trees below small_max use _s model, below medium_max use _m, else _l.
@@ -342,16 +301,14 @@ const TIER_BOUNDS := {
 const TIERS := ["s", "m", "l"]
 
 func _lod_scale(species_tier: String) -> float:
-	## Screen-size LOD multiplier: handoff distances scale with the tree's REAL-WORLD
-	## height so every tree switches tiers at the same APPARENT on-screen size (AAA /
-	## Godot best practice). Strip any "_lod1" suffix — the mid mesh shares its base
-	## height. Returns 1.0 for a REF_TREE_HEIGHT-tall canopy tree, so the 80/200m
-	## defaults are unchanged for a typical tree and only the size-relative spread is
-	## added. MUST use the placed metres height (_species_real_h), NOT _species_heights
-	## — the latter is RAW mesh units (~5) and dividing it by 22m clamped every tree to
-	## the 0.40 floor, collapsing the far LOD handoff to ~80m (2026-06-22 LOD bug).
-	var base_key: String = species_tier.trim_suffix("_lod1")
-	var h: float = _species_real_h.get(base_key, REF_TREE_HEIGHT)
+	## Screen-size LOD multiplier: the lod0→impostor handoff distance scales with the
+	## tree's REAL-WORLD height so every tree switches at the same APPARENT on-screen
+	## size (AAA / Godot best practice). Returns 1.0 for a REF_TREE_HEIGHT-tall canopy
+	## tree, so the 200m default is unchanged for a typical tree and only the size-
+	## relative spread is added. MUST use the placed metres height (_species_real_h),
+	## NOT _species_heights — the latter is RAW mesh units (~5) and dividing it by 22m
+	## clamped every tree to the 0.40 floor, collapsing the handoff to ~80m (2026-06-22).
+	var h: float = _species_real_h.get(species_tier, REF_TREE_HEIGHT)
 	return clampf(h / REF_TREE_HEIGHT, LOD_SCALE_RANGE.x, LOD_SCALE_RANGE.y)
 
 func _get_tier(species: String, desired_h: float) -> String:
@@ -580,24 +537,20 @@ func _build_trees(trees: Array) -> void:
 	# remapped to london_plane (GENERIC_MODEL) before any mesh lookup, so the old
 	# deciduous GLB is never loaded and nothing falls back to it (user 2026-06-26).
 	var _base_model_names := ["maple", "birch", "pine", "elm", "oak", "cherry", "ginkgo", "honeylocust", "linden", "london_plane", "callery_pear", "dead", "willow", "magnolia", "cathedral_elm"]
-	# Load tiered models (_s, _m, _l): age/size variants per archetype.
-	# Plus _lod1 (card-pruned + bark-decimated) variants of each for the
-	# mesh LOD chain: base near mesh → _lod1 mid mesh. The near tier renders
-	# the FULL base model — a card-pruned _lod1 tier put a visibly thinned
-	# crown at the closest viewing distances (Jun 11 walk-around defect #1).
+	# Load tiered models (_s, _m, _l): age/size variants per archetype. Each is a
+	# full lod0 model that renders near, then hands off to its impostor (no mid tier).
 	for base_name in _base_model_names:
 		var tier_list: Array
 		if base_name == "dead":
 			tier_list = [""]
 		else:
 			tier_list = ["_s", "_m", "_l"]
-		var full_list: Array = []
-		for ts in tier_list:
-			full_list.append(ts)
-			# lod1 mid mesh for m/l only; the _s sapling is lod0 only
-			# (no lod1) per the LOD policy (user 2026-06-19).
-			if ts != "" and ts != "_s":
-				full_list.append(ts + "_lod1")
+		# LOD chain is lod0 → impostor (no mid tier). The old _lod1 mid meshes are
+		# DEPRECATED and no longer loaded: they went stale vs the current lod0 models
+		# (Chris 2026-07-03), so nothing may render or bake from them. With no _lod1 key
+		# in _species_meshes, every `has(lod1_key)`/`mid_mesh != null` branch below no-ops
+		# → lod0 is the sole near tier, fading straight into the impostor (baked from lod0).
+		var full_list: Array = tier_list.duplicate()
 		for tier_suffix in full_list:
 			var model_key: String = base_name + tier_suffix
 			# Try .res cache first (skips GLTF parsing — much faster on subsequent loads)
@@ -672,8 +625,7 @@ func _build_trees(trees: Array) -> void:
 		if archetype == "dead":
 			tier_suffixes = [""]
 		else:
-			tier_suffixes = ["_s", "_m", "_l",
-				"_m_lod1", "_l_lod1"]  # _s: lod0 only (no lod1)
+			tier_suffixes = ["_s", "_m", "_l"]  # lod0 → impostor; no mid tier
 		for tier_suffix in tier_suffixes:
 			var model_key: String = model_base + tier_suffix
 			if not base_meshes.has(model_key):
@@ -1009,8 +961,7 @@ func _build_trees(trees: Array) -> void:
 
 		# F1 distance-overlay tier bands — finalised after _species_real_h below
 		# (needs the per-tier mean height). Store the inputs now, one per placed tree.
-		tree_lod_bands.append({"pos": Vector3(tx, ty, tz), "_tier": species_tier,
-			"_lod1": _species_meshes.has(species_tier + "_lod1")})
+		tree_lod_bands.append({"pos": Vector3(tx, ty, tz), "_tier": species_tier})
 
 		# Collision: trunk cylinder from actual DBH data (census measurement)
 		var trunk_r: float
@@ -1044,11 +995,8 @@ func _build_trees(trees: Array) -> void:
 	# matches the rendered tier. No lod1 (saplings/dead) → lod1_end == mesh_end.
 	for band in tree_lod_bands:
 		var lsc: float = _lod_scale(band["_tier"])
-		var me: float = _mesh_fade_end * lsc
-		band["mesh_end"] = me
-		band["lod1_end"] = (_lod1_end * lsc) if (band["_lod1"] or _no_lod1) else me
+		band["mesh_end"] = _mesh_fade_end * lsc  # lod0 → impostor handoff (no mid tier)
 		band.erase("_tier")
-		band.erase("_lod1")
 
 	# --- Spatial chunking for culling ---
 	# Each chunk's MMI is positioned at its spatial centre so that
@@ -1082,25 +1030,10 @@ func _build_trees(trees: Array) -> void:
 		var last_us := mesh_key.rfind("_")
 		var sp_name: String = mesh_key.substr(0, last_us)
 		var vi: int = int(mesh_key.substr(last_us + 1))
-		# Mesh LOD chain: FULL base mesh (lod0) near to _lod1_end, then _lod1 mid
-		# mesh (bark-decimated, card-pruned) to _mesh_fade_end. Falls back: no
-		# _lod1 (saplings, dead snags) → lod0 near mesh covers the whole range.
-		var lod1_key: String = sp_name + "_lod1"
+		# Mesh LOD chain: the FULL lod0 mesh is the sole near tier, rendering 0m →
+		# _mesh_fade_end (height-scaled), then dithering into the impostor. No mid tier.
 		var near_vars: Array = _species_meshes[sp_name]
 		var near_mesh: Mesh = near_vars[vi % near_vars.size()]
-		var mid_mesh: Mesh = null
-		if _species_meshes.has(lod1_key):
-			var mid_vars: Array = _species_meshes[lod1_key]
-			mid_mesh = mid_vars[vi % mid_vars.size()]
-		# LOD1-AS-NEAR experiment: render the _lod1 mesh from 0m and drop the full
-		# lod0 tier → the sapling "no-lod1" path below covers the whole mesh range
-		# with this cheaper mesh, then the impostor. (Its material's fade band is
-		# reconfigured to be visible from 0m in the fade-setup loop.)
-		if _no_lod1:
-			mid_mesh = null  # keep lod0 as near_mesh; drop the mid tier → lod0 covers 0m→impostor
-		elif _lod1_as_near and mid_mesh != null:
-			near_mesh = mid_mesh
-			mid_mesh = null
 		var cx_sum := 0.0
 		var cy_sum := 0.0
 		var cz_sum := 0.0
@@ -1125,7 +1058,6 @@ func _build_trees(trees: Array) -> void:
 		# trees get a near far-cull (≈90m) on their own, no separate constant.
 		var lscale: float = _lod_scale(sp_name)
 		var eff_mesh_end: float = _mesh_fade_end * lscale
-		# Under --no-lod1 the lod0 mesh only needs to reach _lod1_end (impostor pulled in there).
 		var mesh_vis_end: float = _imp_handoff_ref * lscale + chunk_r + 5.0
 		if _tier_isolate != "":
 			# Isolate captures render a tier pure with the dither disabled, so
@@ -1139,17 +1071,12 @@ func _build_trees(trees: Array) -> void:
 		if OS.has_environment("DEBUG_TREE_CHUNK"):
 			var dbg: PackedStringArray = OS.get_environment("DEBUG_TREE_CHUNK").split(",")
 			if dbg.size() == 2 and info["cx"] == int(dbg[0]) and info["cz"] == int(dbg[1]):
-				var has_l1 := _species_meshes.has(sp_name + "_lod1")
 				print("[DIAG] chunk %d|%d sp=%s vi=%d n=%d lscale=%.3f real_h=%.1f chunk_r=%.1f" % [
 					info["cx"], info["cz"], sp_name, vi, xf_list.size(), lscale,
 					_species_real_h.get(sp_name, -1.0), chunk_r])
-				print("[DIAG]   centroid=(%.1f,%.1f,%.1f) lod1?=%s" % [chunk_origin.x, chunk_origin.y, chunk_origin.z, has_l1])
-				print("[DIAG]   lod0 vis_end(near)=%.1f  lod1 mesh_vis_end=%.1f" % [
-					(_lod1_end * lscale + chunk_r + 5.0) if has_l1 else mesh_vis_end, mesh_vis_end])
-				print("[DIAG]   shader bands: lod0->lod1 [%.1f,%.1f]  mesh_fade_out [%.1f,%.1f]" % [
-					_lod1_end*lscale*(1.0-LOD_FADE_RATIO), _lod1_end*lscale,
-					_mesh_fade_end*lscale*(1.0-LOD_FADE_RATIO), _mesh_fade_end*lscale])
-				print("[DIAG]   impostor MMI begin=%.1f  shader fade_in [%.1f,%.1f]  per-tree origin.y=%.1f" % [
+				print("[DIAG]   centroid=(%.1f,%.1f,%.1f)  lod0 mesh_vis_end=%.1f" % [
+					chunk_origin.x, chunk_origin.y, chunk_origin.z, mesh_vis_end])
+				print("[DIAG]   impostor MMI begin=%.1f  lod0 fade_out / impostor fade_in [%.1f,%.1f]  per-tree origin.y=%.1f" % [
 					eff_mesh_end*(1.0-LOD_FADE_RATIO) - chunk_r - 5.0,
 					_mesh_fade_end*lscale*(1.0-LOD_FADE_RATIO), _mesh_fade_end*lscale, xf_list[0].origin.y])
 		# [mesh, name prefix, FADE-TARGET distance] per mesh tier this chunk spawns.
@@ -1157,18 +1084,11 @@ func _build_trees(trees: Array) -> void:
 		# computed in the loop below once the multimesh AABB is known (see cull note).
 		var tier_specs: Array = []
 		match _tier_isolate:
-			"lod0":
-				tier_specs.append([near_mesh, "Tree", eff_mesh_end])
-			"lod1":
-				var iso_mesh: Mesh = mid_mesh if mid_mesh != null else near_mesh
-				tier_specs.append([iso_mesh, "TreeLod1", eff_mesh_end])
 			"impostor":
-				pass  # impostor-only isolate: no mesh tiers, just the billboards below
+				pass  # impostor-only isolate: no mesh tier, just the billboards below
 			_:
-				var near_target: float = (_lod1_end * lscale) if (mid_mesh != null or _no_lod1) else eff_mesh_end
-				tier_specs.append([near_mesh, "Tree", near_target])
-				if mid_mesh != null:
-					tier_specs.append([mid_mesh, "TreeLod1", eff_mesh_end])
+				# lod0 (or --tier-isolate=lod0): the sole near mesh, → impostor at eff_mesh_end.
+				tier_specs.append([near_mesh, "Tree", eff_mesh_end])
 		for spec: Array in tier_specs:
 			var mm := MultiMesh.new()
 			mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -1218,12 +1138,8 @@ func _build_trees(trees: Array) -> void:
 			if _shadow_proxy:
 				mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			_loader.add_child(mmi)
-			if spec[1] == "TreeLod1":
-				lod1_instances += xf_list.size()
-				lod1_chunks += 1
-			else:
-				lod0_instances += xf_list.size()
-				lod0_chunks += 1
+			lod0_instances += xf_list.size()
+			lod0_chunks += 1
 		if _shadow_proxy:
 			var pmm := MultiMesh.new()
 			pmm.transform_format = MultiMesh.TRANSFORM_3D
@@ -1257,9 +1173,9 @@ func _build_trees(trees: Array) -> void:
 	# distance gate they stay active at all ranges, hiding distant trees
 	# behind canopy boxes and making distant woodland look sparse.
 
-	# Both mesh tiers (base near, _lod1 mid) are spawned by the main chunk
-	# pathway above from the same buckets, so their per-tree transforms and
-	# custom data match exactly and the 60m crossfade is water-tight.
+	# The lod0 near mesh is spawned by the main chunk pathway above; its per-tree
+	# transforms and custom data match the impostor tier's exactly, so the crossfade
+	# to the impostor is water-tight.
 
 	_build_tree_collision(all_trunk_xf)
 	# Debug: print a few tree heights to verify scale
@@ -1277,8 +1193,8 @@ func _build_trees(trees: Array) -> void:
 			_dbg_count += 1
 	print("Trees: %d placed, %d LOD0 chunks (skipped %d non-grass, nudged %d from paths)" % [
 		all_trunk_xf.size(), lod0_buckets.size(), _skip_surface, _nudged])
-	print("Trees mesh tiers: %d near (base) MMIs / %d instances, %d mid (_lod1) MMIs / %d instances" % [
-		lod0_chunks, lod0_instances, lod1_chunks, lod1_instances])
+	print("Trees mesh tier: %d lod0 near MMIs / %d instances → impostor" % [
+		lod0_chunks, lod0_instances])
 
 	# --- Far LOD tier: runtime-lit octahedral impostors (rebuilt 2026-06-23). For
 	# every chunk whose species-tier has a baked atlas, spawn a billboard MMI that
@@ -1294,45 +1210,22 @@ func _build_trees(trees: Array) -> void:
 
 	# Per-tier dither fade ranges. Shader dithering replaces Godot's
 	# VISIBILITY_RANGE_FADE_SELF (known bug #88854 with alpha_to_coverage).
-	# Two mesh tiers:
-	#   Base near mesh: full model 0 → _lod1_end, fades out over the LOD_FADE_RATIO
-	#                   band (8m at 80m) ending at _lod1_end → _lod1.
-	#   _lod1 mid mesh: fades in over that band, out over the LOD_FADE_RATIO band
-	#                   (20m at 200m) ending at _mesh_fade_end → culled.
-	#   No _lod1 (dead/sapling): near mesh covers the whole range, fades at the far band.
+	# One mesh tier: the lod0 near mesh renders from 0m (no fade-in) and fades OUT
+	# over the LOD_FADE_RATIO band ending at _mesh_fade_end (height-scaled), where the
+	# impostor dithers IN. (The _lod1 mid tier was removed 2026-07-03.)
 	const NO_FADE := Vector2(0.0, 0.0)
 	for sp_key in _species_meshes:
-		# Screen-size LOD: fade bands scale with this tier's model height so each
-		# tree crossfades at the same on-screen size.
+		# Screen-size LOD: the fade band scales with this tier's model height so each
+		# tree crossfades to its impostor at the same on-screen size.
 		var s: float = _lod_scale(sp_key)
-		var lod1_fade := Vector2(_lod1_end * s * (1.0 - LOD_FADE_RATIO), _lod1_end * s)
 		var mesh_fade_out := Vector2(_mesh_fade_end * s * (1.0 - LOD_FADE_RATIO), _mesh_fade_end * s)
-		var fade_in := NO_FADE
+		var fade_in := NO_FADE  # lod0 is the near tier — always visible from 0m
 		var fade_out := NO_FADE
-		# tier_brightness: decimated tiers read slightly brighter than the
-		# full model (less self-shadowing) — keep a small knock-down on _lod1.
-		# The near tier IS the full base model (lod0): 1.0 by construction.
-		var tier_brightness: float = 0.95 if "_lod1" in sp_key else 1.0
-		if _tier_isolate == "lod0" or _tier_isolate == "lod1":
-			pass  # pure single-LOD render for the 60m handoff DoD — no crossfade
-		elif "_lod1" in sp_key:
-			# LOD1-AS-NEAR: this mesh is the near tier now → visible from 0m (no
-			# fade-in), fading out to the impostor at the far band. Otherwise it is
-			# the mid tier: fades in at _lod1_end, out at _mesh_fade_end.
-			fade_in = NO_FADE if _lod1_as_near else lod1_fade
-			if _tier_isolate != "mesh":
-				fade_out = mesh_fade_out
-		else:
-			# Base key = near tier (lod0). With a _lod1 sibling it hands off at
-			# _lod1_end; without one (saplings, dead snags) it covers the whole range.
-			if _species_meshes.has(sp_key + "_lod1"):
-				fade_out = lod1_fade
-			elif sp_key.ends_with("_s") and _tier_isolate != "mesh":
-				# Sapling: no _lod1, fades out at the height-scaled mesh_fade_out
-				# (short tree → ~90m on its own).
-				fade_out = mesh_fade_out
-			elif _tier_isolate != "mesh":
-				fade_out = mesh_fade_out
+		var tier_brightness: float = 1.0  # the near tier IS the full lod0 model
+		# --tier-isolate=lod0/mesh renders the tier pure (no crossfade); otherwise
+		# the lod0 mesh fades out into the impostor at the far band.
+		if _tier_isolate != "lod0" and _tier_isolate != "mesh":
+			fade_out = mesh_fade_out
 		for mesh: Mesh in _species_meshes[sp_key]:
 			for si in mesh.get_surface_count():
 				var mat = mesh.surface_get_material(si)
@@ -1606,14 +1499,6 @@ func _build_forced_specimens() -> void:
 					var nim: ShaderMaterial = im.duplicate()
 					nim.set_shader_parameter("lod_fade_in", Vector2.ZERO)
 					mesh.surface_set_material(0, nim)
-			"lod1":
-				# Sapling tier has no _lod1 model → fall back to the lod0 sapling mesh.
-				var l1: Array = _species_meshes.get(st + "_lod1", [])
-				if l1.is_empty():
-					l1 = _species_meshes.get(st, [])
-				if l1.is_empty():
-					continue
-				mesh = _mesh_fade_off(l1[vi % l1.size()])
 			_:  # lod0
 				var v0: Array = _species_meshes.get(st, [])
 				if v0.is_empty():
@@ -1925,15 +1810,15 @@ func _run_impostor_bake() -> void:
 		if not _species_meshes.has(key):
 			print("Impostor bake: no mesh for %s, skipping" % key)
 			continue
-		# Bake from the _lod1 mid mesh when it exists so the impostor's silhouette
-		# and foliage density match the tier it hands off FROM (lod1 → impostor),
-		# minimising the crossfade pop. Saplings (_s) have no _lod1 → bake lod0.
-		# The atlas/manifest key stays the species_tier (e.g. london_plane_m) so the
-		# runtime impostor loader is unaffected; only the SOURCE mesh changes.
-		var lod1_key: String = key + "_lod1"
-		# --no-lod1: no lod1 tier — bake from lod0, the tier the impostor hands off FROM
-		# (otherwise this would bake from the now-stale/unused _lod1 GLB still on disk).
-		var src_key: String = key if _no_lod1 else (lod1_key if _species_meshes.has(lod1_key) else key)
+		# Bake from LOD0 — the near tier the impostor hands off FROM (lod0 → impostor;
+		# there is no lod1 mid tier). The stale _lod1 GLBs on disk are DEPRECATED and
+		# must never be baked from: they no longer match the current lod0 models, so an
+		# impostor baked from them changes shape vs lod0 across octahedral angles (the
+		# "l keeps changing shape" bug, Chris 2026-07-03 — l_lod1 was a 30%-vert
+		# decimation with an 8%-wider crown; m_lod1 latently wrong too). The atlas/
+		# manifest key stays the species_tier (e.g. london_plane_m) so the runtime loader
+		# is unaffected; only the SOURCE mesh changes.
+		var src_key: String = key
 		# TEST ROUND: bake from the ONE pinned variant (LP_SINGLE_VARIANT), not all
 		# variants stacked at the origin. The old all-variants bake superimposed every
 		# variant crown → a denser/fuller silhouette than any single placed tree; with

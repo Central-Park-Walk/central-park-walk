@@ -91,7 +91,7 @@ const VARIANT_GRID := false
 const GRID_TIERS := [
 	# [tier_label, height(m), row_z, variant_spacing(m)]
 	# Spacing widened 2026-06-24 (user) so crowns don't merge into a "wall" — a
-	# clean per-specimen silhouette is needed to diagnose the impostor↔lod1 size/
+	# clean per-specimen silhouette is needed to diagnose the impostor↔lod0 size/
 	# density handoff (each gap ≳ one crown width at that tier's stature).
 	["_s", 10.0, 200.0, 16.0],
 	["_m", 22.0, 160.0, 30.0],
@@ -99,7 +99,7 @@ const GRID_TIERS := [
 ]
 
 # TIER MATCH garden (user 2026-06-28): one s/m/l of the matched species in EACH of
-# the three LOD tiers (lod0 mesh · lod1 mesh · far impostor), grouped by tier in
+# the two LOD tiers (lod0 mesh · far impostor), grouped by tier in
 # close proximity so textures/colours can be matched across tiers — the goal is a
 # tree that reads the same at 8 m and at 800 m. Each specimen is force_tier-tagged
 # so tree_builder renders exactly that tier at full opacity, distance-independent
@@ -126,10 +126,9 @@ const LPV2_SIZES := [["s", 11.0], ["m", 19.0], ["l", 28.0]]
 const LPV2_SIZE_Z := [196.0, 168.0, 136.0]
 
 const TIER_MATCH := true
-const TM_TIERS := ["lod0", "lod1", "impostor"]   # one column per tier
+const TM_TIERS := ["lod0", "impostor"]   # one column per tier (lod0 → impostor; no mid)
 # [size suffix, forced height m]: heights land squarely in london_plane's tier
-# bounds [13, 25] → _s (<13) / _m (<25) / _l (≥25). NOTE: the _s sapling has no
-# lod1 model, so the lod1·s slot falls back to the lod0 sapling mesh (tree_builder).
+# bounds [13, 25] → _s (<13) / _m (<25) / _l (≥25).
 const TM_SIZES := [["s", 11.0], ["m", 19.0], ["l", 28.0]]
 const TM_TIER_DX := 22.0                          # X gap between tier columns
 const TM_SIZE_Z := [192.0, 166.0, 136.0]          # rows: s nearest spawn → l farthest
@@ -230,13 +229,13 @@ func inject_trees(trees: Array) -> int:
 			Vector2(STAND_X, float(LPV2_SIZE_Z[0]) + 18.0), 9.0, 0.03])
 		return added
 	if _stand_mode and TIER_MATCH:
-		# 3 sizes (s/m/l) × 3 tiers (lod0/lod1/impostor) = 9 specimens; one column
-		# per tier (grouped by tier), one row per size (s nearest spawn → l farthest
-		# so the tall trees never hide the short ones). Each tree carries force_tier
-		# so tree_builder renders exactly that tier at full opacity (no distance fade)
-		# — letting the three representations of the same tree be matched for texture
-		# and colour. The species pin (tree_builder LP_SINGLE_VARIANT) keeps lod0/lod1/
-		# impostor the SAME variant, so any difference is the tier, not the specimen.
+		# 3 sizes (s/m/l) × 2 tiers (lod0/impostor) = 6 specimens; one column per tier
+		# (grouped by tier), one row per size (s nearest spawn → l farthest so the tall
+		# trees never hide the short ones). Each tree carries force_tier so tree_builder
+		# renders exactly that tier at full opacity (no distance fade) — letting the two
+		# representations of the same tree be matched for texture and colour. The species
+		# pin (tree_builder LP_SINGLE_VARIANT) keeps lod0/impostor the SAME variant, so
+		# any difference is the tier, not the specimen.
 		var entry: Array = _sel_trees[0]
 		var n_t: int = TM_TIERS.size()
 		for ti in n_t:
@@ -255,7 +254,7 @@ func inject_trees(trees: Array) -> int:
 			# Tier (column) title, raised above the near end of the column.
 			_labels.append([tier.to_upper(),
 				Vector2(cx, float(TM_SIZE_Z[0]) + 11.0), 6.0, 0.024])
-		_labels.append(["%s — tier match (lod0 · lod1 · impostor)" % entry[0],
+		_labels.append(["%s — tier match (lod0 · impostor)" % entry[0],
 			Vector2(STAND_X, float(TM_SIZE_Z[0]) + 18.0), 9.0, 0.03])
 		return added
 	if _stand_mode and VARIANT_GRID:
