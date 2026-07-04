@@ -118,8 +118,9 @@ global uniform vec2 wind_vec;
 global uniform float lod_density_enabled;
 global uniform float lod_density_dense_frac;
 // Impostor crown wind sway amplitude (1 = matched to the mesh's gross crown motion).
-// Tunable / A-B lever; 0 = static billboards (old behaviour).
-uniform float impostor_wind_strength : hint_range(0.0, 2.0) = 1.0;
+// Global so it's live-tunable on a walk (main.gd I / Shift+I); registered in main.gd
+// with default 1.0. 0 = static billboards (old behaviour).
+global uniform float impostor_wind_strength;
 
 #include "res://shaders/include/lod_dither.gdshaderinc"
 #include "res://shaders/include/tree_species.gdshaderinc"

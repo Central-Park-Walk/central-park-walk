@@ -562,6 +562,9 @@ func _ready() -> void:
 		1.0 if _cli_density_lod else 0.0)
 	RenderingServer.global_shader_parameter_add("lod_density_dense_frac", RenderingServer.GLOBAL_VAR_TYPE_FLOAT,
 		_cli_density_dense_frac)
+	# Impostor crown wind sway amplitude (global so I / Shift+I can dial it on a walk).
+	RenderingServer.global_shader_parameter_add("impostor_wind_strength", RenderingServer.GLOBAL_VAR_TYPE_FLOAT,
+		_imp_wind_strength)
 	_wind_system = preload("res://wind_system.gd").new()
 	_wind_system.name = "WindSystem"
 	if _cli_wind_override >= 0.0:
@@ -1632,8 +1635,11 @@ const CANOPY_AO_EXP := 1.6
 const CANOPY_AO_SHELL := 0.55
 var _cli_canopy_ao := Vector3(-1.0, -1.0, -1.0)
 # Density-modulated LOD handoff (--density-lod[=frac]). Off by default (flat handoff).
+# Also the live state for the K / U keys.
 var _cli_density_lod := false
 var _cli_density_dense_frac := 0.44
+# Impostor crown wind sway amplitude (live state for the I key; global default 1.0).
+var _imp_wind_strength := 1.0
 # --shadow-census: one-shot dump of every shadow-casting GeometryInstance3D
 # (top 25 by mesh tris × instances) on the 3rd perf tick, after diag hides apply.
 var _diag_shadow_census: bool = false
@@ -2262,6 +2268,30 @@ func _unhandled_input(event: InputEvent) -> void:
 			print("Ambient life: %s" % ("ON" if _ambient_life.enabled else "OFF"))
 	elif event.keycode == KEY_R:
 		_set_diag_rings(not _diag_rings)
+	elif event.keycode == KEY_K:
+		# Density-LOD on/off A/B: dense-forest trees hand off to impostor sooner,
+		# open-grown trees hold lod0 to the full range. (U tunes the dense fraction.)
+		_cli_density_lod = not _cli_density_lod
+		RenderingServer.global_shader_parameter_set("lod_density_enabled",
+			1.0 if _cli_density_lod else 0.0)
+		print("Density-LOD: %s (dense_frac=%.2f)" % [
+			"ON" if _cli_density_lod else "OFF", _cli_density_dense_frac])
+	elif event.keycode == KEY_U:
+		# Dense-forest handoff as a fraction of the open handoff (lower = trees in dense
+		# woods drop to impostor closer to the camera). Shift+U lowers it. Enables
+		# density-LOD so the change is visible.
+		var du := -0.04 if event.shift_pressed else 0.04
+		_cli_density_dense_frac = clampf(_cli_density_dense_frac + du, 0.10, 1.0)
+		_cli_density_lod = true
+		RenderingServer.global_shader_parameter_set("lod_density_enabled", 1.0)
+		RenderingServer.global_shader_parameter_set("lod_density_dense_frac", _cli_density_dense_frac)
+		print("Density-LOD dense_frac: %.2f (ON)" % _cli_density_dense_frac)
+	elif event.keycode == KEY_I:
+		# Impostor crown wind sway amplitude. Shift+I lowers it; 0 = static billboards.
+		var dw := -0.1 if event.shift_pressed else 0.1
+		_imp_wind_strength = clampf(_imp_wind_strength + dw, 0.0, 2.0)
+		RenderingServer.global_shader_parameter_set("impostor_wind_strength", _imp_wind_strength)
+		print("Impostor wind: %.1f" % _imp_wind_strength)
 
 
 func _set_diag_rings(on: bool) -> void:

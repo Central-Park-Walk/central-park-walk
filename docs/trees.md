@@ -63,8 +63,9 @@ distance; the impostor carries `handoff_factor` in the spent `quad_blend_weights
 avoid a new varying (budget-critical). Openness is always baked, so the flag is a pure
 runtime toggle (`lod_density_enabled`/`lod_density_dense_frac` globals, registered in
 `main.gd`). Verified: openness spans 0.00–1.00 across 1892 park trees (519 dense / 1268
-open). **Still flat until walk-tuned** — start with `--density-lod` and adjust
-`--density-lod=<frac>` for the dense-forest pull-in.
+open). **Live tuning on a walk:** **K** toggles density-LOD on/off (instant A/B); **U** /
+**Shift+U** raise/lower `dense_frac` (auto-enables it). Launch equivalents: `--density-lod`
+and `--density-lod=<frac>`. Values print to the console.
 
 **Impostor wind (2026-07-03).** The far crowns now rock in the wind to match the mesh at
 the handoff. `tree_impostor.gdshader` reuses the shared `wind.gdshaderinc` structural
@@ -74,7 +75,8 @@ billboard leans coherently with neighbouring mesh trees; the per-branch term is 
 (crown detail, averages to ~0 over the card). The world-space sway is transformed to
 object space and weighted by `UV.y` (top leans, base planted). Full amplitude through the
 40–80 m handoff (mesh wind is full to ~140 m), fading out by ~450 m. Amplitude lever:
-`impostor_wind_strength` uniform (default 1.0; 0 = static billboards).
+`impostor_wind_strength` global (default 1.0; 0 = static billboards), live-tunable on a
+walk with **I** / **Shift+I** (raise/lower). Values print to the console.
 
 ## 2. Runtime-lit octahedral impostors (as-built 2026-06-23)
 
