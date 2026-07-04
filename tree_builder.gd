@@ -1522,7 +1522,7 @@ func _build_forced_specimens() -> void:
 		var eval_basis: Basis = tf.basis
 		if tier == "impostor":
 			var g: float = _impostor_size_comp(st)
-			eval_basis = tf.basis.scaled(Vector3(g, g, g))
+			eval_basis = tf.basis.scaled(Vector3(1.0, g, 1.0))
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.use_custom_data = true
@@ -1585,21 +1585,22 @@ func _spawn_impostor_chunks(buckets: Dictionary) -> void:
 
 		# Octahedral-foreshortening size compensation (2026-07-04). A flat octa card
 		# renders ~SHORTER than lod0 at the handoff: the 3-nearest-facet blend mixes in
-		# facets tilted above horizon where the crown silhouette is foreshortened, and
-		# the taller-relative-to-wide a crown is, the faster that silhouette height falls
-		# off with view elevation. MEASURED in the TIER_MATCH garden (lod0 vs impostor at
-		# equal distance, eye-level + elevated, both seasons of capture): impostor/lod0
-		# HEIGHT = s 1.00, m 0.97, l 0.93, while WIDTH matches (l 1.00) — so it is NOT a
-		# uniform scale/aabb error (the billboard diag and atlas framing are correct) but
-		# a height-only deficit that scales with tier. We can't remove it without adding
-		# facets/geometry (a flat card can never be a perfect 3D stand-in), so we make the
-		# best of it: up-scale each tier's billboard by 1/deficit so APPARENT SIZE matches
-		# where lod0 hands off. Uniform scale (fixes the dominant height pop; the ~7% width
-		# growth on l is within the noise of an already-blobby crown), anchored at the tree
-		# BASE (tf.origin = ground) so the trunk stays planted and only the crown grows
-		# up-and-out. Runtime-only, no rebake. Env IMP_SCALE_{S,M,L} overrides for a walk.
+		# facets tilted above horizon where the crown silhouette is foreshortened, and the
+		# taller-relative-to-wide a crown is, the faster that silhouette height falls off
+		# with view elevation. MEASURED (TIER_MATCH garden, lod0 vs impostor at equal
+		# distance): impostor/lod0 HEIGHT = s 1.00, m 0.97, l 0.93, while WIDTH matches
+		# (l 1.00) — a HEIGHT-ONLY deficit, NOT a uniform scale/aabb error (the billboard
+		# diag + atlas framing are geometrically correct). A flat card can never be a
+		# perfect 3D stand-in, so we make the best of it by up-scaling to match apparent
+		# size. VERTICAL-ONLY scale (Vector3(1,g,1)): the first pass used a UNIFORM scale,
+		# which fixed the height but grew the crown WIDTH ~7% too — Chris's walk read that
+		# as the impostor now BIGGER than lod0 (the reversal). Scaling height alone, width
+		# untouched, corrects the axis that's actually deficient and leaves the matching
+		# axis alone. Anchored at the tree BASE (tf.origin = ground) so the trunk stays
+		# planted; global-Y scale keeps facet selection ~intact (small horizon bias helps).
+		# Runtime-only, no rebake. Env IMP_SCALE_{S,M,L} overrides for a live walk-tune.
 		var imp_size_comp: float = _impostor_size_comp(sp_name)
-		var imp_comp_basis := Vector3(imp_size_comp, imp_size_comp, imp_size_comp)
+		var imp_comp_basis := Vector3(1.0, imp_size_comp, 1.0)
 
 		var imm := MultiMesh.new()
 		imm.transform_format = MultiMesh.TRANSFORM_3D
@@ -1642,19 +1643,21 @@ func _spawn_impostor_chunks(buckets: Dictionary) -> void:
 		impostor_chunks += 1
 
 
-# Per-tier uniform up-scale that compensates for octahedral-billboard foreshortening
-# so the impostor's APPARENT size matches lod0 at the handoff (see the call site in
+# Per-tier VERTICAL up-scale that compensates for octahedral-billboard foreshortening
+# so the impostor's APPARENT HEIGHT matches lod0 at the handoff (see the call site in
 # _spawn_impostor_chunks for the measured deficits and rationale). Factors = 1/(measured
-# impostor-height ÷ lod0-height): s ~1.00 (matches, no comp), m ~0.97, l ~0.93. Only
-# london_plane has impostors today; the _s/_m/_l suffix keys are generic so other species
-# inherit sane defaults (1.0) once baked. IMP_SCALE_{S,M,L} env overrides for live tuning.
+# impostor-height ÷ lod0-height): s ~1.00 (matches, no comp), m ~0.97, l ~0.93. m bumped
+# above the raw 1.028 because Chris's walk read m still slightly short after the first
+# pass. Only london_plane has impostors today; the _s/_m/_l suffix keys are generic so
+# other species inherit sane defaults (1.0) once baked. IMP_SCALE_{S,M,L} env overrides
+# for live walk-tuning (relaunch): e.g. IMP_SCALE_L=1.06 to back the tall tier down.
 func _impostor_size_comp(sp_tier: String) -> float:
 	var g := 1.0
 	var tag := ""
 	if sp_tier.ends_with("_l"):
 		g = 1.075; tag = "L"
 	elif sp_tier.ends_with("_m"):
-		g = 1.028; tag = "M"
+		g = 1.045; tag = "M"
 	elif sp_tier.ends_with("_s"):
 		g = 1.0; tag = "S"
 	if tag != "" and OS.has_environment("IMP_SCALE_" + tag):
