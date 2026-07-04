@@ -48,6 +48,32 @@ banner, the banner wins.**
 
 ## Cross-cutting lessons (not species-specific)
 
+- **DERIVED TIERS ROT — bake from the tier you ship.** (2026-07-03, 5b2bed8/bc26b7c) The
+  `_lod1` mid meshes were decimations of an *old* lod0; as lod0 evolved through the leaf-card
+  redesign, nobody regenerated them. Impostors baked from those stale lod1s changed shape vs
+  lod0 across octahedral angles ("l keeps changing shape") — a bug that read as an impostor
+  defect but was a *pipeline provenance* defect. Resolution: the lod1 tier was REMOVED
+  outright (chain = lod0 → impostor, impostors bake from lod0). General law: any derived
+  asset (LOD, impostor, proxy) must either regenerate automatically with its source or not
+  exist. The "far handoff where it's noticeable" job lod1 did is covered by the
+  density-modulated handoff (`--density-lod`, openness baked per tree in cd.b at placement).
+- **CALIBRATE CLASSIFIER THRESHOLDS TO THE MEASURED DISTRIBUTION, not intuition.**
+  (2026-07-03, 0f1f42f) Density-LOD's "dense" threshold was 9 neighbours within 18 m — but
+  the placed-tree histogram has mean 4.7, so woods trees classed "open" and the feature
+  silently did nothing where it mattered (mean openness 0.66, zero fps movement). The
+  feature *looked* on; only the histogram exposed the mis-tune. Recalibrated N_OPEN 2 /
+  N_DENSE 7 → 431 fully dense. When a data-driven lever shows no effect, print the input
+  distribution before touching the mechanism.
+- **PER-LEAF SHADOW CASTING is the deep-forest perf killer — proxies cast, leaves never do.**
+  (2026-07-02, rendering.md §3g) 37.7 M shadow-tris in the Ramble with per-leaf casting;
+  the ≤300-tri trunk+hull proxy (SHADOWS_ONLY, alpha-test dapple) took it to 1.76 M and
+  15→27 fps. Any new species inherits this: leaf material never casts.
+- **THIN THE CROWN IN THE BAKE, NOT THE LIVE MESH — and drop cards EVENLY, not randomly.**
+  (2026-07-03, 46f03b8 revert + 32e8a47) Runtime card-drop thinning of `_l` broke the
+  mesh↔impostor crossfade (region-fade). And a random per-card drop in the bake clumped
+  into an "oddly decimated" far crown; a spatially EVEN per-card keep (0.6) reads as
+  uniform see-through density while preserving silhouette.
+
 - **⮕ HARD BUILD LAWS (Chris, 2026-06-22) live in `docs/tree_skeleton_plan.md` §1b and are
   ABSOLUTE — they override anything below.** In brief: leaf card first then the small model;
   card = a 2–4-leaf twig sprig (leaves + stems + twig); branch diameter floor ≥ 0.05;

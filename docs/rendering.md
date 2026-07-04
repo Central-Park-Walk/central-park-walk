@@ -335,7 +335,7 @@ GPU ms at 1080p, measured at the worst of the 5 locations. A subsystem over its 
 | sky + volumetric clouds | 1.0 | inside floor (§5) | ok |
 | Terrain3D camera raster | 1.5 | ~4 (2026-06-09) | −2.5 |
 | trees — camera raster | 4.0 | ~7.5 (literary_walk) | −3.5 |
-| trees — shadow casting (per-leaf since proxies off 2026-06-28) | 1.0 | ~5.5 (literary_walk; ~1 at bethesda) | −4.5 — the next lever (§3g) |
+| trees — shadow casting (proxies restored default-ON 2026-07-02, §3g ★RESOLVED; deep-forest shtri 37.7M→1.76M) | 1.0 | ~5.5 was the per-leaf cost with proxies OFF (2026-07-01, stale) | re-measure with proxies on + post-lod1-removal near band |
 | other shadow casting + sampling | 2.5 | ~1.4 (bethesda all-shadows 3.3 minus tree share) | ok |
 | SDFGI | 1.5 | ~0 | ok |
 | volumetric fog | 1.0 | ~0 | ok |
@@ -344,7 +344,7 @@ GPU ms at 1080p, measured at the worst of the 5 locations. A subsystem over its 
 | post (SSAO, SSIL, glow, TAA, tonemap) | 1.5 | ~1 (TAA untested) | ok? |
 | water, weather particles, misc | 0.6 | <1 | ok |
 | water planar reflection (near water only; staged rate + >250 m sleep §3g; idle rate §3h; reprojection §3i) | 1.5 | ~2.2 at the shore moving, ~1.0 standing (idle-staged) | ok (accepted; §3i may unlock half-rate) |
-| **total** | **16.6** | 14.2–16.6 at 4 locations; ~19.5 literary_walk | |
+| **total** | **16.6** | 14.2–16.6 at 4 locations; ~19.5 literary_walk (driven by the stale per-leaf shadow line — table wants a full re-measure post proxy-restore + lod1 removal) | |
 
 CPU is not currently binding (`vpcpu` ~9 ms peak, GDScript <1 ms) but inherits the same 16.6 ms ceiling.
 

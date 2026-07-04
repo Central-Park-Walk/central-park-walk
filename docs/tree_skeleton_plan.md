@@ -156,10 +156,14 @@ war stories). Each item is a thing the *pre-london-plane* models get wrong.
 - [ ] rebuild the `_leaf.dds` after any card change (runtime prefers the DDS over the GLB-embedded texture)
 
 **LOD / perf**
+- [ ] **chain = lod0 → impostor only — do NOT build a `_lod1` mid tier** (removed 2026-07-03,
+  5b2bed8; stale derived lod1s poisoned the impostor bakes). Impostors bake from lod0;
+  handoff 40–80 m, density-modulated (`--density-lod`); `docs/trees.md` §1 is the authority
 - [ ] screen-size LOD (`_lod_scale`) — handoffs scale with tree height (~77 px switch size)
 - [ ] one impostor atlas per species-tier (median variant), shared by all variants
 - [ ] per-tree position-hash variant selection (local diversity, stable across handoff)
-- [ ] `perf_gate.sh ×5` on a real GPU before commit (this headless box runs llvmpipe ~11 fps — not representative)
+- [ ] `perf_gate.sh ×5` on a real GPU before commit (llvmpipe software GL is not representative;
+  `xvfb-run -a` does reach the real NVIDIA card under Vulkan — verified 2026-07-02)
 
 **Distinctiveness**
 - [ ] deliberate, distinct fall color per species (the autumn payoff — never collapse them)

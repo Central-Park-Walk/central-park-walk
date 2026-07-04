@@ -20,7 +20,10 @@ at the worst test location. Measured today: ~25 ms camera (Ramble), 18–28 ms s
 > **bake from lod0** and hand off directly from it. The `--lod1-as-near`/`--no-lod1`/
 > `--full-lod0`/`--tree-lod1-range` toggles and `--tier-isolate=lod1` are gone; the
 > `_lod1` GLBs were deleted. **Legacy `lod1`/`lod2`/`TreeL2` tokens linger in older
-> prose §4–§6 — they describe retired tiers; the live chain is lod0 → impostor.**
+> prose — §2 body (dated as-built logs), §4–§9 — they describe retired tiers; the live
+> chain is lod0 → impostor. Where old prose contradicts this banner on numbers, the
+> banner wins: `IMPOSTOR_FAR` is **800 m** (not 2500), the handoff is **40–80 m** (not
+> 250/340/400 m), and the impostor's crossfade partner is **lod0** (not `_lod1`).**
 
 | tier | range | fade | representation | casts shadow | lit |
 |---|---|---|---|---|---|
@@ -49,21 +52,27 @@ one tier across the full range; `--tree-mesh-range=N` moves the handoff;
 **Density-modulated handoff (`--density-lod[=frac]`, 2026-07-03).** Off by default (flat
 80 m handoff). When on, each tree's handoff distance scales by its baked local-density
 **openness** ∈ [0,1]: an open-grown lawn specimen holds lod0 to the full 80 m, a dense
-forest-interior tree hands off at `dense_frac` of that (default **0.44** → ~35 m), because
-its crown is mostly occluded by nearer crowns up close anyway. This recovers the "far
-handoff where it's noticeable" benefit of the retired mid tier **and** cuts deep-forest
-lod0 overdraw, without a mid tier. Openness is computed once at placement
-(`_pack_lod_openness` in `tree_builder.gd`: neighbours within 18 m via a spatial grid,
-`smoothstep(1, 9, count)`) and packed into the custom-data **B channel alongside the
-evergreen flag** (deciduous b∈[0,0.49], evergreen b∈[0.51,1.0]; decode
-`openness=(b>=0.5?b-0.51:b)/0.49`), so it costs nothing at runtime and **can't pop** as
-the camera moves (unlike view-dependent occlusion). The shaders scale the *dither
-distance* only (`lod_dist = dist / handoff_factor`), leaving detail gates on true
+forest-interior tree hands off at `dense_frac` of that (default **0.35** → ~28 m, under
+Chris's 40 m ceiling and near his ~20 m ideal), because its crown is mostly occluded by
+nearer crowns up close anyway. This recovers the "far handoff where it's noticeable"
+benefit of the retired mid tier **and** cuts deep-forest lod0 overdraw, without a mid
+tier. Openness is computed once at placement (`_pack_lod_openness` in `tree_builder.gd`:
+neighbours within 18 m via a spatial grid, `smoothstep(N_OPEN=2, N_DENSE=7, count)` —
+**calibrated 2026-07-03 to the placed-tree neighbour histogram** (mean 4.7 within 18 m);
+the original 1/9 thresholds left most woods trees classed "open" (mean openness 0.66) so
+the handoff never shortened where it mattered) and packed into the custom-data **B
+channel alongside the evergreen flag** (deciduous b∈[0,0.49], evergreen b∈[0.51,1.0];
+decode `openness=(b>=0.5?b-0.51:b)/0.49`), so it costs nothing at runtime and **can't
+pop** as the camera moves (unlike view-dependent occlusion). The shaders scale the
+*dither distance* only (`lod_dist = dist / handoff_factor`), leaving detail gates on true
 distance; the impostor carries `handoff_factor` in the spent `quad_blend_weights.w` to
 avoid a new varying (budget-critical). Openness is always baked, so the flag is a pure
 runtime toggle (`lod_density_enabled`/`lod_density_dense_frac` globals, registered in
-`main.gd`). Verified: openness spans 0.00–1.00 across 1892 park trees (519 dense / 1268
-open). **Live tuning on a walk:** **K** toggles density-LOD on/off (instant A/B); **U** /
+`main.gd`). Verified: openness spans 0.00–1.00 across 1892 park trees; after the 2/7
+recalibration 431 are fully dense (~28 m), 885 fully open (80 m), 576 on the gradient.
+**Scope note:** density-LOD only cheapens the *mid band* (28–80 m); the near band stays
+full lod0 — if woods fps is set by near-tree overdraw or shadows/GI, this lever won't
+move it (F6 trees-off is the instant check). **Live tuning on a walk:** **K** toggles density-LOD on/off (instant A/B); **U** /
 **Shift+U** raise/lower `dense_frac` (auto-enables it). Launch equivalents: `--density-lod`
 and `--density-lod=<frac>`. Values print to the console.
 
@@ -77,6 +86,24 @@ object space and weighted by `UV.y` (top leans, base planted). Full amplitude th
 40–80 m handoff (mesh wind is full to ~140 m), fading out by ~450 m. Amplitude lever:
 `impostor_wind_strength` global (default 1.0; 0 = static billboards), live-tunable on a
 walk with **I** / **Shift+I** (raise/lower). Values print to the console.
+
+**Impostor backlit SSS/glow (`IMP_SSS`, 2026-07-03, 76d4da3).** The near mesh glows
+amber when backlit via Godot's built-in BACKLIGHT; the impostor's custom `light()`
+bypasses that path, so the far tier never glowed (fix-ladder #2 from the impostor
+rebuild). Fix: re-inject transmission inside `light()` with Godot's exact backlight
+formula (`light_color * (1/PI − diffuse_brdf_NL) * backlight`), magnitude-matched to
+the mesh — amber tint blended with per-tree season colour, scaled by canopy fraction,
+capped at 15 % of ALBEDO, NOT gated by `v_vis` (mesh SSS ignores crown AO too). Zero
+new varyings; `sss_strength` uniform folds the per-species factor (0.6 = london plane).
+Awaiting Chris's motion walk. Bears on §5's open "specular response at low sun" item.
+
+**Riparian canopy (2026-07-03, 9599957).** Watercourse census trees are almost all
+NAMED species (cherry/oak/maple) that the bare-until-redesigned policy skips — so
+streams ran through bare ground and read as pale sky-reflecting sheets. A skipped named
+species within `RIPARIAN_BUFFER` (18 m) of a watercourse (stream polylines rasterised
+into a spatial hash, O(1) test) is now placed as the ready london_plane model: +463
+trees (1429→1892), normal tier chain, feeds the canopy map automatically. Policy is
+unchanged everywhere else. Result: shaded dark ravine rills (see the water memory).
 
 ## 2. Runtime-lit octahedral impostors (as-built 2026-06-23)
 
@@ -157,9 +184,14 @@ see-through live mesh) and *very too full in winter* (the runtime only recoloure
 summer silhouette brown; it never thinned). The far tier's SHAPE must track season, so
 each tier is now baked TWICE (`bake_tier(season_t, file_suffix)`):
 - **SUMMER** (`SUMMER_SEASON=2.0`, suffix `""`): for london_plane's single-variant
-  bake, `LP_SUMMER_CARD_KEEP=0.5` thins the crown via the leaf shader's `bake_density`
-  per-card drop so the projected crown reads as see-through as the lod1 it replaces
-  (`-1`/full = the old blob). Tuning lever for distant summer density.
+  bake, `LP_SUMMER_CARD_KEEP=0.6` thins the crown via the leaf shader's `bake_density`
+  per-card drop so the projected crown reads as see-through as the live lod0
+  (`-1`/full = the old blob). Tuning lever for distant summer density. **The drop is
+  spatially EVEN, not silhouette-random (2026-07-03, 32e8a47/0cdc677):** a random
+  per-card drop clumped and read as an "oddly decimated" far crown; an even per-card
+  keep (0.6) preserves crown shape at the same density. (An earlier attempt to thin by
+  card-drop at *runtime* caused crossfade region-fade and was reverted, 46f03b8 —
+  density belongs in the BAKE, not the live mesh.)
 - **WINTER** (`WINTER_SEASON=3.5` = Jan, suffix `"_winter"`, `card_keep=-1`): at
   `season_t=3.5` london_plane's phenology `canopy=min(grow,shed)=0`, so the leaf
   shader's own `v_leaf_density` collapses to `WINTER_RETENTION` (0.05). With no fixed
@@ -181,7 +213,7 @@ all sun angles instead of reading ~1.5× too bright. A residual sun-angle-depend
 gap (diffuse_burley vs the leaf shader's directional response: ~1.20× at noon but
 ~0.95× at 18h) is closed by a gentle near-neutral `albedo` calibration tint
 `(0.93,0.94,0.96)` in `_build_impostor_assets` (the far-tier analog of the leaf
-shader's `tier_brightness`). Adds `lod_fade_in` dither so it crossfades into `_lod1`
+shader's `tier_brightness`). Adds `lod_fade_in` dither so it crossfades with lod0 (was `_lod1` pre-5b2bed8)
 over the same band the mesh tier dithers out.
 
 When a winter atlas set is bound (`has_winter_atlas`), the shader samples BOTH sets
@@ -198,7 +230,7 @@ transition bands. Season presets: `summer=1.5`→frac 1.0 (pure summer atlas),
 QuadMesh + material per baked tier (params from the manifest, `lod_fade_in` band
 height-scaled per `_lod_scale`). `_spawn_impostor_chunks()` spawns an impostor MMI
 per chunk sharing the mesh tiers' transforms/custom-data, `visibility_range_begin`
-at the `_lod1` fade-out, out to `IMPOSTOR_FAR` (2500 m). `--tier-isolate=impostor`
+at the lod0 fade-out, out to `IMPOSTOR_FAR` (800 m since 0100d19; was 2500). `--tier-isolate=impostor`
 renders the tier pure from 0 m for comparison.
 
 > **`aabb_max` forced to 0 (size fix, 2026-06-23 PM).** The addon ships

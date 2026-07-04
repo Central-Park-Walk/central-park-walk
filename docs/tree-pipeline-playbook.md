@@ -142,11 +142,18 @@ Full param semantics: read the addon socket tooltips (`addons/.../leaf_shape_nod
   Every build's stdout must self-report the floor used + verts inflated.
 
 **LOD / perf**
+- **LOD chain = lod0 → impostor. There is NO lod1 mid tier** (removed 2026-07-03, 5b2bed8 —
+  stale derived lod1s made impostors change shape; do NOT generate `_lod1`). Handoff is
+  40–80 m (`_mesh_fade_end` 80, dither band [40, 80]), density-modulated per tree when
+  `--density-lod` is on (openness baked in cd.b); impostors run to 800 m. `docs/trees.md` §1.
 - Screen-size LOD (`_lod_scale` in `tree_builder.gd`) — handoffs scale with tree height so all
-  trees switch at the same on-screen size. A 22 m tree reproduces the legacy 80/200 m handoffs.
-- One impostor atlas per species-tier (median variant), shared by all variants.
+  trees switch at the same on-screen size.
+- One impostor atlas per species-tier (median variant), shared by all variants, **baked from lod0**.
 - Per-tree position-hash variant selection (local diversity, stable across the handoff).
-- `perf_gate.sh` on a real GPU before commit (this headless box is llvmpipe ~11 fps — unrepresentative).
+- Trees never cast per-leaf shadows — the **shadow proxy** (trunk cylinder + crown hull,
+  `SHADOWS_ONLY`) casts instead; per-leaf casting was the deep-forest perf killer (rendering.md §3g).
+- `perf_gate.sh` on a real GPU before commit (llvmpipe software GL is unrepresentative; note
+  `xvfb-run -a` DOES get the real NVIDIA card under Vulkan — verified 2026-07-02).
 
 ---
 
@@ -163,16 +170,19 @@ Full param semantics: read the addon socket tooltips (`addons/.../leaf_shape_nod
    (headless Blender hangs on shutdown; a loop stalls the whole sweep silently):
    `blender4 --background --python scripts/generate_trees_mtree.py -- --species <sp> --tier s`
    (then `m`, then `l` as separate commands; confirm each process EXITS).
-4. **LODs** (`_m`/`_l` only; `_s` gets none):
-   `blender4 --background --python scripts/generate_tree_lods.py -- --only=<sp>_l` (then `_m`).
+4. ~~LODs~~ — **SKIP. No `_lod1` mid tier exists** (removed 2026-07-03; chain is lod0 →
+   impostor). Do not run `generate_tree_lods.py`; a derived lod1 goes stale the moment
+   lod0 evolves and poisons the impostor bake.
 5. **Leaf DDS** (runtime prefers the DDS over the GLB-embedded PNG):
    `python3 scripts/generate_leaf_dds.py --species <sp>`.
 6. **Import + clear cache** (law 8) — or just run `scripts/eval_capture.sh <sp>`, which does both:
    `godot --headless --import` then delete `cache/trees/<sp>_*.res` + `<sp>.cfg`.
 7. **Impostor bake:** `"<godot>" --path . -- --bake-impostors=<sp>` then `godot --headless --import`
-   (the new atlas PNGs need one import pass). Details in `docs/trees.md` §2.
+   (the new atlas PNGs need one import pass). Bakes **from lod0**. ONE Godot process per
+   species — an all-species bake progressively hangs (GPU resource leak); flaky species
+   (london_plane, magnolia) may hit the 180 s timeout, just retry. Details in `docs/trees.md` §2.
 8. **Eval:** `garden` (interactive 3×3 tier×size grid) or `scripts/eval_capture.sh <sp>` (headless
-   stills). Judge lod0→lod1→impostor handoffs and the natural-density stand, not a hero render.
+   stills). Judge the lod0→impostor handoff and the natural-density stand, not a hero render.
    **▣ GATE 2: Chris reviews the tree.** Stop. Do not start the next species.
 9. **Record lessons** in `docs/tree-pipeline-lessons.md`; promote anything *systematic* into this
    playbook or the `_TEMPLATE`, so species #20 is easier than species #2.
@@ -207,7 +217,7 @@ size changed. Never trust a regen you haven't seen reload.
 
 - **Leaf** — passes self-critique vs cited reference across seasonal states, is a proper twig
   sprig, and cleared Gate 1.
-- **Tree** — full LOD chain per the size table (L/M: lod0+lod1+impostor; S/bush: lod0+impostor)
+- **Tree** — full LOD chain (**lod0 + impostor**, every size; no mid tier since 2026-07-03)
   holds instanced across LOD transitions under AgX at gameplay distance, perf-gated on a real GPU,
   and cleared Gate 2.
 - **Species** — tree done + lessons recorded + any systematic lesson folded back into this playbook.
