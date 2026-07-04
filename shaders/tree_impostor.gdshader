@@ -8,8 +8,8 @@ shader_type spatial;
 //     (scripts/bake_impostors.gd, bake_mode), so Godot lights it here via the
 //     normal atlas + diffuse_burley. This kills the double-lit / time-of-day
 //     mismatch bug class that sank the prior hand-rolled baker.
-//   * `lod_fade_in` dither so the impostor crossfades into _lod1 over the same
-//     band the mesh tiers dither out (tree_builder sets it per instance group).
+//   * `lod_fade_in` dither so the impostor crossfades into lod0 over the same
+//     band the lod0 mesh dithers out (tree_builder sets it per instance group).
 // Atlases are produced by scripts/bake_impostors.gd with a matching cell/direction
 // convention (OctaUtils.octa_uv_to_world), so this decoder lines up by construction.
 
@@ -101,7 +101,7 @@ uniform float normalmap_depth : hint_range(-5, 5) = 1.0f;
 uniform float aabb_max = 1.0;
 
 // LOD crossfade-in band (begin, end) in metres. The impostor dithers IN over this
-// band as the camera approaches, complementary to _lod1's dither-out. vec2(0,0) off.
+// band as the camera approaches, complementary to lod0's dither-out. vec2(0,0) off.
 uniform vec2 lod_fade_in = vec2(0.0, 0.0);
 // Player camera world pos (pushed from main.gd) — same source the mesh tiers use,
 // so the crossfade discards consistently across shadow/reflection passes.
@@ -581,7 +581,7 @@ void fragment() {
 	// Crown-interior ambient occlusion, baked into the ORM red channel
 	// (bake_impostors.gd, bake_mode 3). Applied ambient-only — exactly as the
 	// mesh leaf shader does (AO_LIGHT_AFFECT = 0) — so the far tier stops reading
-	// ~1.5x too bright vs lod0/lod1 without dimming the direct-sun side. Defaults
+	// ~1.5x too bright vs lod0 without dimming the direct-sun side. Defaults
 	// to 1.0 (no occlusion) when no ORM atlas is bound (hint_default_white).
 	// With a vis atlas bound, tree_builder zeroes ao_light_affect and neutralises
 	// ao_power/ao_floor: direct-light occlusion moves to light() (sun-aware),

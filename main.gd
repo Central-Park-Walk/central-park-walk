@@ -402,10 +402,15 @@ func _parse_cli_args() -> void:
 			if ca.size() >= 3 and ca[2] != "": _cli_canopy_ao.z = float(ca[2])
 			print("[DIAG] canopy-ao core=%.2f exp=%.2f shell=%.2f"
 					% [_cli_canopy_ao.x, _cli_canopy_ao.y, _cli_canopy_ao.z])
+		elif arg == "--no-density-lod":
+			# Restore the flat 80 m handoff for every tree (pre-Plan-A). tree_builder parses
+			# the same flag so its geometry cull matches this shader-global state.
+			_cli_density_lod = false
+			print("[DIAG] density-lod OFF (flat handoff)")
 		elif arg == "--density-lod":
-			# Density-modulated lod0→impostor handoff: open-grown trees hold lod0 to the
-			# full range, dense-forest interiors hand off sooner (their crowns are mostly
-			# occluded up close). Static per-tree openness → no pop as the camera moves.
+			# Density-aware lod0 geometry cull: open-grown trees hold lod0 to the full range,
+			# dense-forest interiors cull sooner (their crowns are mostly occluded up close).
+			# Static per-tree openness → no pop as the camera moves. ON by default.
 			_cli_density_lod = true
 			print("[DIAG] density-lod ON, dense_frac=%.2f" % _cli_density_dense_frac)
 		elif key == "--density-lod" and has_eq:
@@ -1634,10 +1639,14 @@ const CANOPY_AO_CORE := 0.12
 const CANOPY_AO_EXP := 1.6
 const CANOPY_AO_SHELL := 0.55
 var _cli_canopy_ao := Vector3(-1.0, -1.0, -1.0)
-# Density-modulated LOD handoff (--density-lod[=frac]). Off by default (flat handoff).
-# Also the live state for the K / U keys.
+# Density-aware lod0 GEOMETRY culling (Plan A). OPT-IN (`--density-lod`): obscured dense-
+# forest trees cull their lod0 mesh early (short-visibility chunks); open specimens keep the
+# full 80 m handoff. DEFAULT OFF pending artifact fixes (2026-07-04 walk — s-tier impostors
+# too close, crossfade dither stipple not resolving under FSR2, impostor trunk-green; see
+# [[project_impostor_system_rebuilt]]). Sets the shader's lod_density_enabled global so the
+# per-tree dither hands off in step with tree_builder's baked geometry cull (baked at build).
 var _cli_density_lod := false
-var _cli_density_dense_frac := 0.35  # dense-woods handoff = 0.35 × 80 m ≈ 28 m (Shift+U to lower toward ~20 m)
+var _cli_density_dense_frac := 0.6  # dense-woods lod0 range = 0.6 × 80 m ≈ 48 m (--density-lod=frac; lower = cull sooner but the impostor handoff shows closer)
 # Impostor crown wind sway amplitude (live state for the I key; global default 1.0).
 var _imp_wind_strength := 1.0
 # --shadow-census: one-shot dump of every shadow-casting GeometryInstance3D
@@ -1884,8 +1893,8 @@ func _dist_cache_tree_positions() -> void:
 		_dist_impostor_far = float(tb.IMPOSTOR_FAR)
 		for b in tb.tree_lod_bands:
 			_dist_tree_positions.append(b["pos"])
-			# LOD chain is lod0 → impostor (no mid tier): both thresholds = the handoff,
-			# so the yellow "lod1" band is empty and labels go lod0 (green) → impostor.
+			# LOD chain is lod0 → impostor (no mid tier); store the handoff twice so the
+			# overlay reads a tree's tier by a single mesh_end threshold (see _dist_overlay_update).
 			_dist_tree_bands.append(Vector2(b["mesh_end"], b["mesh_end"]))
 		return
 	# Fallback (no bands, e.g. legacy build): positions only, colour-by-tier off.
@@ -1925,17 +1934,16 @@ func _dist_overlay_update() -> void:
 		return
 	var cam_pos := cam.global_position
 	var cam_fwd := -cam.global_transform.basis.z
-	# Bucket in-range, in-front trees by the tier the engine actually renders for
-	# each (band 0 lod0 / 2 near-impostor <500m / 3 far-impostor 500-800m; band 1 is
-	# unused since the lod1 mid tier was removed), using each tree's own scaled LOD
-	# handoff. Only RENDERED tiers get a label — trees past IMPOSTOR_FAR are culled
-	# (not drawn), so they're skipped, not labelled. Then round-robin the label pool
-	# across bands so the far IMPOSTOR tier is always represented — a plain nearest-N
-	# pick fills entirely with near lod0 trees in a dense forest and impostors never show.
+	# Bucket in-range, in-front trees by the tier the engine actually renders for each:
+	# band 0 = lod0 mesh (dist < the tree's height-scaled ~80m handoff), band 1 = impostor,
+	# band 2 = impostor far-band (past far_band_begin=500m, where the shader renders it
+	# hashed-see-through and the label lifts above the canopy). The LOD chain is lod0 →
+	# impostor with no mid tier. Only RENDERED tiers get a label — trees past IMPOSTOR_FAR
+	# are culled (not drawn), so they're skipped. Then round-robin the label pool across
+	# bands so the impostor tiers are always represented — a plain nearest-N pick fills
+	# entirely with near lod0 trees in a dense forest and impostors never show.
 	var max_d2: float = _DIST_MAX_RANGE * _DIST_MAX_RANGE
-	# 4 bands: 0 lod0 (green), 1 unused (was lod1), 2 near-impostor <500m (blue),
-	# 3 far-impostor 500-800m (red, label lifted above canopy).
-	var bands: Array = [[], [], [], []]  # per band: Array of [d2, idx]
+	var bands: Array = [[], [], []]  # per band: Array of [d2, idx]
 	for i in _dist_tree_positions.size():
 		var p: Vector3 = _dist_tree_positions[i]
 		var d: Vector3 = p - cam_pos
@@ -1944,36 +1952,31 @@ func _dist_overlay_update() -> void:
 			continue
 		if d.dot(cam_fwd) <= 0.0:
 			continue  # behind camera
-		# LOD chain is lod0 → impostor: both thresholds = the handoff, so band 1 (the
-		# old lod1 yellow) is never hit — labels go lod0 (green) straight to impostor.
-		var lod1_end: float = 200.0
-		var mesh_end: float = 200.0
+		# The tree's own height-scaled lod0→impostor handoff (mesh_end ≈ 80·lod_scale).
+		var mesh_end: float = 80.0
 		if i < _dist_tree_bands.size():
-			lod1_end = _dist_tree_bands[i].x
 			mesh_end = _dist_tree_bands[i].y
 		var dist: float = sqrt(d2)
 		var band: int
-		if dist < lod1_end:
-			band = 0
-		elif dist < mesh_end:
-			band = 1
+		if dist < mesh_end:
+			band = 0  # lod0 mesh — green
 		elif dist < _DIST_FAR_LABEL_DIST:
-			band = 2  # near impostor (~200-500m) — blue
+			band = 1  # impostor (handoff..500m) — blue
 		elif dist < _dist_impostor_far:
-			band = 3  # far impostor (500-800m) — red, label above canopy
+			band = 2  # impostor far-band (500-800m) — red, label above canopy
 		else:
 			continue  # culled (not rendered) — don't label
 		bands[band].append([d2, i])
 	for b in bands:
 		b.sort_custom(func(a, c): return a[0] < c[0])
 	# Round-robin nearest-first across bands until the pool is full or all drained,
-	# so the far impostor band shows up instead of being crowded out by near trees.
+	# so the impostor bands show up instead of being crowded out by near lod0 trees.
 	var picks: Array = []  # Array of [idx, band]
-	var ptr := [0, 0, 0, 0]
+	var ptr := [0, 0, 0]
 	var drained := false
 	while picks.size() < _DIST_POOL_SIZE and not drained:
 		drained = true
-		for bi in 4:
+		for bi in 3:
 			if picks.size() >= _DIST_POOL_SIZE:
 				break
 			if ptr[bi] < bands[bi].size():
@@ -1982,9 +1985,8 @@ func _dist_overlay_update() -> void:
 				drained = false
 	const _BAND_COLORS := [
 		Color(0.5, 1.0, 0.5),   # lod0 base mesh — green
-		Color(1.0, 1.0, 0.4),   # (unused — was lod1 mid mesh) yellow
-		Color(0.5, 0.75, 1.0),  # near impostor (~200-500m) — blue
-		Color(1.0, 0.35, 0.3),  # far impostor (500-800m) — red
+		Color(0.5, 0.75, 1.0),  # impostor (handoff..500m) — blue
+		Color(1.0, 0.35, 0.3),  # impostor far-band (500-800m) — red
 	]
 	var n: int = picks.size()
 	for k in n:
@@ -1993,16 +1995,16 @@ func _dist_overlay_update() -> void:
 		var p: Vector3 = _dist_tree_positions[idx]
 		var dist: float = p.distance_to(cam_pos)
 		var lbl: Label3D = _dist_labels[k]
-		# Far-impostor (band 3) labels lift ABOVE the canopy so they hover legibly over
+		# Impostor far-band (band 2) labels lift ABOVE the canopy so they hover legibly over
 		# the tree instead of being buried in the foliage blob; nearer bands keep the
 		# low "just above the trunk" float. Canopy height is estimated from the tree's
-		# scaled mesh_end (mesh_end = 200·lod_scale, height = 22·lod_scale → ×0.11).
+		# scaled mesh_end (mesh_end ≈ 80·lod_scale, height ≈ 22·lod_scale → ×0.28).
 		var y_off: float = 4.0
-		if band == 3:
-			var mesh_end_i: float = 200.0
+		if band == 2:
+			var mesh_end_i: float = 80.0
 			if idx < _dist_tree_bands.size():
 				mesh_end_i = _dist_tree_bands[idx].y
-			y_off = clampf(mesh_end_i * 0.11, 6.0, 40.0) + 2.0
+			y_off = clampf(mesh_end_i * 0.28, 6.0, 40.0) + 2.0
 		lbl.global_position = p + Vector3(0.0, y_off, 0.0)
 		lbl.text = "%.0fm" % dist
 		lbl.modulate = _BAND_COLORS[band]
@@ -2268,24 +2270,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			print("Ambient life: %s" % ("ON" if _ambient_life.enabled else "OFF"))
 	elif event.keycode == KEY_R:
 		_set_diag_rings(not _diag_rings)
-	elif event.keycode == KEY_K:
-		# Density-LOD on/off A/B: dense-forest trees hand off to impostor sooner,
-		# open-grown trees hold lod0 to the full range. (U tunes the dense fraction.)
-		_cli_density_lod = not _cli_density_lod
-		RenderingServer.global_shader_parameter_set("lod_density_enabled",
-			1.0 if _cli_density_lod else 0.0)
-		print("Density-LOD: %s (dense_frac=%.2f)" % [
-			"ON" if _cli_density_lod else "OFF", _cli_density_dense_frac])
-	elif event.keycode == KEY_U:
-		# Dense-forest handoff as a fraction of the open handoff (lower = trees in dense
-		# woods drop to impostor closer to the camera). Shift+U lowers it. Enables
-		# density-LOD so the change is visible.
-		var du := -0.04 if event.shift_pressed else 0.04
-		_cli_density_dense_frac = clampf(_cli_density_dense_frac + du, 0.10, 1.0)
-		_cli_density_lod = true
-		RenderingServer.global_shader_parameter_set("lod_density_enabled", 1.0)
-		RenderingServer.global_shader_parameter_set("lod_density_dense_frac", _cli_density_dense_frac)
-		print("Density-LOD dense_frac: %.2f (ON)" % _cli_density_dense_frac)
 	elif event.keycode == KEY_I:
 		# Impostor crown wind sway amplitude. Shift+I lowers it; 0 = static billboards.
 		var dw := -0.1 if event.shift_pressed else 0.1

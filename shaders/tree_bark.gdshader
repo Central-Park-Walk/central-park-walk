@@ -22,6 +22,13 @@ uniform float tex_uv_scale = 0.7;      // world-space tiling frequency
 // LOD crossfade dither ranges (begin, end). Set per LOD tier.
 uniform vec2 lod_fade_out = vec2(0.0, 0.0);
 uniform vec2 lod_fade_in = vec2(0.0, 0.0);
+// Density-LOD handoff factor (matches tree_leaf). Dense/obscured trees hand off to the
+// impostor sooner. This MUST stay in lockstep with tree_leaf: without it the bark
+// dithered on the RAW distance while the leaves used the density-scaled one, so a dense
+// tree's lod0 trunk stayed solid (grey) after its crown + impostor had already handed off
+// — the impostor's green trunk then showed through as a "green trunk on a lod0 tree".
+global uniform float lod_density_enabled;
+global uniform float lod_density_dense_frac;
 
 // IMPOSTOR BAKE MODE (see tree_leaf.gdshader). 0 = normal. 1 = albedo (unshaded
 // EMISSION, incl. lichen/moss but before rain/snow/aerial); 2 = camera-space
@@ -36,6 +43,9 @@ varying vec3 world_nrm;
 // fade chunk-uniform and desynced it from the per-instance impostor fade-in,
 // causing the mesh->impostor handoff dead-band. See tree_leaf.gdshader.
 varying vec3 v_inst_pos;
+// Per-tree density-LOD handoff factor (see tree_leaf) — scales the dither distance so the
+// bark hands off in step with the leaves. 1 = full 80 m handoff, dense_frac = forest interior.
+varying float v_lod_factor;
 
 #include "res://shaders/include/hash_noise.gdshaderinc"
 #include "res://shaders/include/seasonal.gdshaderinc"
@@ -48,6 +58,12 @@ varying vec3 v_inst_pos;
 float fbm(vec2 p, int oct) { return fbm_n(p, oct, 2.17, 0.49); }
 
 void vertex() {
+	// Density-LOD factor from the openness packed in INSTANCE_CUSTOM.b (same decode as
+	// tree_leaf) so the bark and leaves cross-fade at the SAME distance.
+	float is_evergreen = INSTANCE_CUSTOM.b;
+	float openness = (is_evergreen >= 0.5 ? is_evergreen - 0.51 : is_evergreen) / 0.49;
+	v_lod_factor = mix(1.0, mix(lod_density_dense_frac, 1.0, clamp(openness, 0.0, 1.0)),
+			clamp(lod_density_enabled, 0.0, 1.0));
 	// --- Per-species wind sway (shared structural model — wind_tree_sway) ---
 	int sp_idx = int(INSTANCE_CUSTOM.r * 13.0 + 0.5);
 	vec4 wp = WIND_PARAMS[sp_idx];
@@ -71,7 +87,9 @@ void fragment() {
 	// v_inst_pos is per-instance; MODEL_MATRIX[3] here would be the chunk origin (#76292).
 	vec3 tree_base = v_inst_pos;
 	if (lod_fade_out.y > 0.0 || lod_fade_in.y > 0.0) {
-		float bark_cam_dist = length(tree_base - player_world_pos);
+		// Density-scaled distance (matches tree_leaf's lod_dist) so the trunk dithers out
+		// exactly where the crown does — dense trees hand off sooner, in lockstep.
+		float bark_cam_dist = length(tree_base - player_world_pos) / max(v_lod_factor, 0.05);
 		if (lod_fade_out.y > 0.0 && bark_cam_dist > lod_fade_out.x) {
 			if (lod_dither_discard(bark_cam_dist, lod_fade_out.x, lod_fade_out.y,
 			                       FRAGCOORD.xy, false)) discard;

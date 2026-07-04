@@ -94,7 +94,7 @@ Target-state spec: [`trees.md`](trees.md).
 Snapshot (post two-tier collapse, commit 20486e4):
 
 - **Mesh tier 0-80m**: `{species}_{s|m|l}` full lod0 meshes (the mid `_lod1` tier was removed 2026-07-03 — chain is lod0 → impostor); one MMI per species-tier × 80m chunk, positioned at instance centroid; per-chunk deterministic variant pick to limit MMI fragmentation; solid to ~40m, dither-crossfade into the impostor over 40–80m (height-scaled). Impostor 40–800m. ~9,852 census + woodland-fill trees, 17 archetypes.
-- **Impostor tier 190-2500m**: octahedral billboards, 8×8 hemisphere frames, 2048² atlas per species-tier (56 atlases), premultiplied alpha, crossfade in 230-250m, shadows off.
+- **Impostor tier 80-800m**: octahedral billboards, **16×16** hemisphere frames, 2048² albedo+normal+orm+vis atlas per species-tier, premultiplied alpha, crossfade in 40-80m (complementary to lod0's dither-out), baked from lod0; never casts its own shadow (the whole-tree shadow proxy does).
 - **Bake** (`scripts/impostor_baker.gd`): renders **lit color** under a fixed procedural sky (ambient 0.7, SSAO off) — this is the root cause of the impostor/mesh color mismatch family of bugs (May 19 finding: atlas RGB dark olive while alpha was fine). Baker already outputs `_impostor_albedo/_normal/_depth.png` + winter pass.
 - **Sprint change (D3-5)**: switch to **unlit albedo + normal atlases, lit at runtime** in `tree_impostor.gdshader` with the same sun/ambient as meshes. Touch points identified: `impostor_baker.gd:315-343` (don't bake lighting/tint), `tree_leaf.gdshader:115-154` (bake-mode flag), `tree_impostor.gdshader` (decode normals, output NORMAL). Existing normal/depth atlases must be quality-checked before reuse.
 - Re-bake protocol: one Godot process per species (~12 s each); all-at-once hangs (see memory `lessons_impostor_bake.md`).
@@ -107,7 +107,7 @@ Parameter names are string literals repeated across 3+ files (debt #D3).
 
 ## 7. Performance — measured 2026-06-09 (D1-2 bisection)
 
-> ⚠ **Superseded by the 2026-07-02 deep-forest push** (tree shadow proxies default-on, `--lod1-as-near` default, wider LOD transition, SDFGI kept on with an F8 occlusion toggle) — deep Ramble now clears the ≥45fps woodland bar. [`rendering.md`](rendering.md) §3f/§3g carry the current numbers; the bisection below is kept for the root-cause history (tree shadow raster was the dominant cost).
+> ⚠ **Superseded by the 2026-07-02 deep-forest push** (tree shadow proxies default-on, `--lod1-as-near` default (that toggle was since removed with the `_lod1` mid tier, 5b2bed8), wider LOD transition, SDFGI kept on with an F8 occlusion toggle) — deep Ramble now clears the ≥45fps woodland bar. [`rendering.md`](rendering.md) §3f/§3g carry the current numbers; the bisection below is kept for the root-cause history (tree shadow raster was the dominant cost).
 
 See [`rendering.md`](rendering.md) for the full attribution tables, the binding 16.6 ms budget, and the reduction plan. Headlines:
 

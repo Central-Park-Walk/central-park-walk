@@ -1,5 +1,12 @@
 # Tree & Leaf Production Pipeline — Standing Brief for Claude Code
 
+> ⚠ **STALE TIER CHAIN BELOW (banner added 2026-07-03).** The `LOD1` mid tier was
+> removed 2026-07-03 (commit 5b2bed8). The live chain is **`lod0` → `impostor`**
+> (handoff 40/80 m, impostor out to 800 m) — there is no LOD1 mid mesh. Read the
+> `LOD0 → LOD1 → impostor` references below (around L130/L137/L144/L176) as two-tier
+> `lod0 → impostor`; the leaf-representation content is unaffected. Current tier spec:
+> [`trees.md`](trees.md) §1.
+
 > **To BUILD a tree, start at `docs/tree-pipeline-playbook.md` (the step-by-step runbook +
 > lever reference + code template).** This brief is the *process contract* (phases, gates,
 > budget philosophy) behind it.

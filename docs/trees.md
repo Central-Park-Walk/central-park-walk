@@ -66,15 +66,41 @@ decode `openness=(b>=0.5?b-0.51:b)/0.49`), so it costs nothing at runtime and **
 pop** as the camera moves (unlike view-dependent occlusion). The shaders scale the
 *dither distance* only (`lod_dist = dist / handoff_factor`), leaving detail gates on true
 distance; the impostor carries `handoff_factor` in the spent `quad_blend_weights.w` to
-avoid a new varying (budget-critical). Openness is always baked, so the flag is a pure
-runtime toggle (`lod_density_enabled`/`lod_density_dense_frac` globals, registered in
-`main.gd`). Verified: openness spans 0.00–1.00 across 1892 park trees; after the 2/7
-recalibration 431 are fully dense (~28 m), 885 fully open (80 m), 576 on the gradient.
-**Scope note:** density-LOD only cheapens the *mid band* (28–80 m); the near band stays
-full lod0 — if woods fps is set by near-tree overdraw or shadows/GI, this lever won't
-move it (F6 trees-off is the instant check). **Live tuning on a walk:** **K** toggles density-LOD on/off (instant A/B); **U** /
-**Shift+U** raise/lower `dense_frac` (auto-enables it). Launch equivalents: `--density-lod`
-and `--density-lod=<frac>`. Values print to the console.
+avoid a new varying (budget-critical).
+**Plan A — geometry cull (2026-07-04).** The dither alone only discards *fragments*; the
+lod0 mesh was still submitted (vistri + draw) out to the chunk's padded ~80 m range, so it
+saved fill but no geometry. Now `tree_builder` also buckets lod0 by openness **class** with
+a per-class cell size (dense <0.34 → 40 m cells, mid <0.67 → 60 m, open → 80 m) and shortens
+each chunk's `visibility_range_end` to `80·lscale·factor_cull + hd`, where `factor_cull =
+lerp(dense_frac, 1, max openness in the chunk)` (the least-dense member, so no tree is culled
+before its own dither ends). Small cells are essential: the MMI culls by camera→AABB-centre
+padded by the half-diagonal `hd`, so a big cell pads the range back past the handoff — a
+dense chunk's lod0 now culls at ~63 m vs ~153 m before. The impostor's
+`visibility_range_begin` is pulled in by the same factor so it is already drawn where lod0
+culls (no hole). Openness is baked once at placement, so **density-LOD is a build/launch
+decision, not a live toggle**: `--density-lod` (**opt-in, default OFF pending the 2026-07-04
+artifact fixes below**) / `--no-density-lod` /
+`--density-lod=<frac>`; the `lod_density_enabled`/`lod_density_dense_frac` globals (main.gd)
+keep the shader dither in step with the baked cull. Verified: openness spans 0.00–1.00 across
+1892 park trees (431 fully dense ~28 m, 885 fully open 80 m, 576 gradient); park builds to
+644 LOD0 chunks. **Watch on a walk:** more/smaller chunks = more draw calls (a
+vistri-for-drawcalls trade — check the draw-call HUD in dense woods); the shadow proxy is
+still full-range (a phase-2 lever). F6 trees-off is the instant is-it-even-trees check.
+**KNOWN ARTIFACTS (2026-07-04 walk, why it is opt-in / default OFF):** (1) **s-tier impostors
+too close** — screen-size LOD shrinks the small-tree handoff (`80 × h/22`) and density
+shrinks it AGAIN, so a small dense tree becomes a billboard at ~20 m even unoccluded. FIX =
+a **minimum handoff floor** (~35 m, clamp the effective handoff regardless of size×density).
+(2) **crossfade dither stipple** — the lod0↔impostor dither-discard is meant to be resolved
+by TAA, but the project runs FSR2 with TAA off and FSR2 does not dissolve it, so every tree
+in its handoff band shows the raw net (worst vs bright sky; visible even at 1× motion). The
+closer/more-numerous density handoffs made it pervasive. FIX = narrow `LOD_FADE_RATIO`
+(0.5→~0.25) to thin the stipple zone, and/or a real resolve (alpha-blend the impostor).
+"Dithers across differing heights" = mixed size tiers handing off at different distances
+(small/low canopy stipples while tall/high canopy stays solid) — the min-floor helps this too.
+(3) **impostor trunk-green** — season tint bleeds onto the baked trunk region of the impostor
+atlas (pre-existing, on true impostors); needs the trunk region masked from the season hue.
+The **bark/leaf desync** (lod0 grey trunk lingering after the crown handed off) is FIXED:
+`tree_bark.gdshader` now density-scales its dither with the same `v_lod_factor` as tree_leaf.
 
 **Impostor wind (2026-07-03).** The far crowns now rock in the wind to match the mesh at
 the handoff. `tree_impostor.gdshader` reuses the shared `wind.gdshaderinc` structural

@@ -37,9 +37,9 @@ global uniform float lod_density_dense_frac; // dense handoff as a fraction of t
 uniform vec2 lod_fade_out = vec2(0.0, 0.0);
 uniform vec2 lod_fade_in = vec2(0.0, 0.0);
 
-// Per-tier brightness compensation. LOD1 decimated mesh has less self-shadowing
-// than LOD0 full mesh, so it reads brighter at the same camera distance.
-// Set to ~0.82 on LOD1 materials to match LOD0 perceived brightness.
+// Per-material brightness lever (default 1.0 = no change). Left from the retired
+// lod1 mid tier, which needed a knock-down to match lod0; the chain is now
+// lod0 → impostor so nothing sets this, but it stays as a general per-material knob.
 uniform float tier_brightness : hint_range(0.4, 1.5) = 1.0;
 
 // IMPOSTOR BAKE MODE (scripts/bake_impostors.gd). 0 = normal render. When set,
@@ -56,7 +56,7 @@ uniform float tier_brightness : hint_range(0.4, 1.5) = 1.0;
 // the baked atlas read ~0.64-0.74 filled vs the live mesh's see-through ~0.38-0.58
 // at the handoff distance (the mesh loses small/far cards to sub-pixel rasterisation
 // the high-res bake doesn't) => the impostor was a solid blob, "fuller/bigger than
-// lod1" (measured 2026-06-24). bake_density (0..1) reuses the seasonal per-card drop
+// the near mesh" (measured 2026-06-24). bake_density (0..1) reuses the seasonal per-card drop
 // (v_card_seed) to punch matching card-scale holes so the atlas coverage matches the
 // mesh; -1 = no bake drop (live density).
 uniform int bake_mode = 0;
@@ -304,7 +304,7 @@ void fragment() {
 
 	// [DIAG-DISABLED 2026-05-18] Mip-level alpha compensation disabled — was
 	// causing visible color steps as mips shifted with distance. Left commented
-	// in case the lod1 distance handoff degrades and we need it back, targeted.
+	// in case the lod0→impostor handoff degrades and we need it back, targeted.
 	// float delta_max = max(length(dFdx(UV)), length(dFdy(UV)));
 	// float mip_level = max(log2(max(delta_max * 1024.0, 1.0)), 0.0);
 	// alpha *= 1.0 + mip_level * 0.3;
@@ -406,7 +406,7 @@ void fragment() {
 	// --- Dappled canopy light/shadow patches (world-space) ---
 	// Real tree canopies show large-scale dappling as sunlight filters
 	// through upper foliage. Two octaves in world coords — survives mip
-	// averaging, so the pattern stays vivid at LOD1+ distance where the
+	// averaging, so the pattern stays vivid at far distance where the
 	// UV-space per-leaf detail above goes sub-pixel and washes flat.
 	// Bias toward sun-exposed (most pixels stay near 1.0×); a minority
 	// sit in deeper shade pockets, a few catch sun-spots.

@@ -1,5 +1,14 @@
 # Tree & Spicebush Model Redesign — implementation spec
 
+> ⚠ **RETIRED TIER NUMBERS BELOW (banner added 2026-07-03).** The `_lod1` mid tier was
+> REMOVED 2026-07-03 (commit 5b2bed8). The live tier chain is **`lod0` → `impostor`**
+> (solid to ~40 m, dither-crossfade 40–80 m, impostor out to `IMPOSTOR_FAR` = 800 m);
+> impostors now **bake from lod0**. Every `lod1` row, "base↔lod1 at 60 m", and
+> "mesh↔impostor at 240 m" handoff in the tables below (§ around L77/L84/L109/L140/L423/
+> L434/L455) is **RETIRED** — this doc is scoped to model geometry, so those rows are
+> left in place for the modeling history only. For the current tier spec see
+> [`trees.md`](trees.md) §1, which is the authority.
+
 Written 2026-06-11 (Fable 5 planning session). This is the plan a cheaper model
 (Opus 4.8 / Sonnet 4.6) executes. It covers **model geometry and art direction
 only** — the rendering tiers, runtime-lit impostors, shadow proxies, crown AO, and
