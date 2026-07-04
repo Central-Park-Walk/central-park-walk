@@ -125,7 +125,40 @@ const LPV2_COL_DX := 30.0            # X gap between the v1 and v2 columns
 const LPV2_SIZES := [["s", 11.0], ["m", 19.0], ["l", 28.0]]
 const LPV2_SIZE_Z := [196.0, 168.0, 136.0]
 
-const TIER_MATCH := true
+# SEASON/LOD garden (user 2026-07-04): show every SIZE tier (_s/_m/_l) in its NORMAL
+# run-time LOD, in both seasons at once — a summer (July) and a winter (January) lod0
+# specimen per tier, placed close so both read as the near mesh, then walked back to
+# watch each hand off to its impostor at the size-appropriate distance. Nothing is
+# force_tier'd: every specimen runs the ordinary distance fade (tree_builder
+# lod0→impostor handoff, which scales with tree height — a short _s pops to impostor
+# far sooner than a tall _l), so backing away transitions the tiers in size order,
+# exactly as the shipping park does. The per-tree ABSOLUTE season rides in the census
+# record ("season" key); tree_builder bakes it into the phenology timing offset, so
+# both seasons coexist under the single global season_t. Layout: one receding ROW per
+# size (short _s nearest the spawn so the tall _l behind never hides it), July on the
+# left of centre and January on the right within each row. Row distances sit inside
+# each tier's solid-lod0 band (screen-size LOD: _s ~20 m, _m ~34 m, _l ~51 m for
+# london_plane) so all six read as lod0 from the spawn. Takes precedence over
+# TIER_MATCH/LP_V2_COMPARE/VARIANT_*/SOLO. Stand mode only.
+const SEASON_LOD := true
+# [label, absolute season_t]. season_t: 0=spring 1=summer 2=autumn 3=winter (main.gd).
+const SL_SEASONS := [["July", 1.5], ["January", 3.5]]
+# [size suffix, height m, lateral ±offset from STAND_X, row Z]. Heights land in
+# london_plane's TIER_BOUNDS [13, 25] → _s (<13) / _m (<25) / _l (≥25). Z counts north
+# (−Z) from SPAWN (Z 228). The layout is a symmetric FAN per season: the small _s sits
+# near centre, _m swings wider, _l widest — each at a DISTINCT azimuth so the three
+# sizes never merge into one clump (an _l crown is ~20 m wide, so stacking them at one
+# azimuth would hide the tiers). Each size's distance from spawn stays inside its own
+# height-scaled solid-lod0 band (_s ~20 m, _m ~34 m, _l ~51 m), so every specimen reads
+# as the near mesh at the spawn; backing away hands each to its impostor. July fills the
+# left half (STAND_X − off), January the right (STAND_X + off).
+const SL_TIERS := [
+	["s", 11.0,  4.0, 213.0],   # ~16 m from spawn, ±15° (band ~20 m)
+	["m", 19.0, 16.0, 200.0],   # ~32 m from spawn, ±30° (band ~34 m)
+	["l", 28.0, 31.0, 191.0],   # ~48 m from spawn, ±40° (band ~51 m)
+]
+
+const TIER_MATCH := false          # 2026-07-04: superseded by SEASON_LOD (normal distance fade, July+January)
 const TM_TIERS := ["lod0", "impostor"]   # one column per tier (lod0 → impostor; no mid)
 # [size suffix, forced height m]: heights land squarely in london_plane's tier
 # bounds [13, 25] → _s (<13) / _m (<25) / _l (≥25).
@@ -204,6 +237,37 @@ func inject_trees(trees: Array) -> int:
 	if _sel_trees.is_empty():
 		return 0
 	var added := 0
+	if _stand_mode and SEASON_LOD:
+		# One receding row per size tier (_s/_m/_l); within each row a July (summer) and
+		# a January (winter) lod0 specimen, side by side. No force_tier — the ordinary
+		# distance fade renders them as the near mesh at spawn and hands each to its
+		# impostor when walked away. "season" carries the absolute per-tree season
+		# (tree_builder bakes the phenology offset relative to build-time season_t).
+		var entry: Array = _sel_trees[0]
+		for tier in SL_TIERS:
+			var tsuf: String = str(tier[0])          # s / m / l
+			var th: float = float(tier[1])           # height (selects the tier)
+			var off: float = float(tier[2])          # lateral ± offset from centre
+			var rz: float = float(tier[3])           # row Z
+			for si in SL_SEASONS.size():
+				var slabel: String = str(SL_SEASONS[si][0])
+				var sval: float = float(SL_SEASONS[si][1])
+				var sgn: float = -1.0 if si == 0 else 1.0   # July left, January right
+				var px: float = STAND_X + sgn * off
+				var rec: Dictionary = _rec(px, rz, entry[1], th)
+				rec["season"] = sval    # absolute per-tree season (tree_builder)
+				trees.append(rec)
+				added += 1
+				_labels.append(["%s · _%s" % [slabel, tsuf],
+					Vector2(px, rz + th * 0.5 + 2.0), 2.6, 0.012])
+		# Big season titles flanking the near (_s) row; garden title centred above it.
+		var s_row_z: float = float(SL_TIERS[0][3])
+		var s_off: float = float(SL_TIERS[0][2])
+		_labels.append(["July",    Vector2(STAND_X - s_off - 8.0, s_row_z + 10.0), 9.0, 0.028])
+		_labels.append(["January", Vector2(STAND_X + s_off + 8.0, s_row_z + 10.0), 9.0, 0.028])
+		_labels.append(["%s — summer & winter lod0 per tier · walk back for impostors" % entry[0],
+			Vector2(STAND_X, s_row_z + 17.0), 12.0, 0.03])
+		return added
 	if _stand_mode and LP_V2_COMPARE:
 		# v1 vs v2 side-by-side: two columns (v1 left, v2 right), a row per size,
 		# every specimen forced to lod0 so only near-mesh leaf density is judged.
@@ -407,8 +471,10 @@ func build(ug_builder) -> void:
 		_make_label(lb[0], lb[1], lb[2], lb[3])
 	# Scale reference (user 2026-06-22): a 1.8 m humanoid beside the row so leaf
 	# size can be eyeballed against a real human head (~0.23 m tall). Stand mode
-	# only (single-species review).
-	if _stand_mode and SCALE_FIGURE:
+	# only (single-species review). Skipped in SEASON_LOD — that garden reviews the
+	# distance LOD/season, not leaf size, and the figure (with its sub-pixel plaque)
+	# would only clutter the mid-plot sightline to the far impostors.
+	if _stand_mode and SCALE_FIGURE and not SEASON_LOD:
 		_make_scale_figure(STAND_X + 4.0, STAND_TREE_ROW_Z)
 	print("EvalPlot: %d undergrowth blocks, %d labels placed" % [
 		_sel_ug.size(), _labels.size()])

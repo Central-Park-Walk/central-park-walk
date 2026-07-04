@@ -703,6 +703,15 @@ func _build_trees(trees: Array) -> void:
 	_forced_specimens.clear()
 	var _skip_surface := 0
 	var _nudged := 0
+	# Eval SEASON_LOD garden: specimens may pin an ABSOLUTE season in their census
+	# record ("season"). The leaf/impostor shaders read season as mod(season_t +
+	# timing_off), so bake the offset relative to the season the garden is built at —
+	# then each specimen renders its own season regardless of the global season_t, and
+	# July + January can coexist under the one global uniform. Read the base once.
+	var _eval_base_season: float = 1.5
+	var _gs_season = RenderingServer.global_shader_parameter_get("season_t")
+	if _gs_season != null:
+		_eval_base_season = float(_gs_season)
 	for i in trees.size():
 		var tree_entry = trees[i]
 		var pt: Array
@@ -932,6 +941,14 @@ func _build_trees(trees: Array) -> void:
 		# Pack season data: R=species phenology index, G=timing offset, B=evergreen flag
 		var pheno_idx: int = PHENOLOGY_INDEX.get(species, 4)
 		var timing_off := rng.randf_range(-0.15, 0.15)
+		# Eval SEASON_LOD: pin this specimen's absolute season (July/January garden).
+		# s = mod(season_t + timing_off); bake the offset so s lands on the record's
+		# target season at the garden's build-time global season (both lod0 mesh and
+		# impostor decode INSTANCE_CUSTOM.g identically, so the tier handoff stays in
+		# the same season). MultiMesh custom data holds full floats, so the >1 offset
+		# a winter pin needs (g = 2.5 for Jan under a summer base) survives.
+		if is_eval and typeof(tree_entry) == TYPE_DICTIONARY and tree_entry.has("season"):
+			timing_off = float(tree_entry["season"]) - _eval_base_season
 		var is_evergreen := 1.0 if species == "conifer" else 0.0
 		# Per-tree color jitter (0-1): deterministic hash from position.
 		# Consistent across all LOD tiers since they share the same tx/tz.
