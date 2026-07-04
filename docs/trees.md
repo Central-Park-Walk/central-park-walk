@@ -103,13 +103,25 @@ shrinks it AGAIN, so a small dense tree becomes a billboard at ~20 m even unoccl
 ✅ **FIXED for the size path 2026-07-04** — `_lod_scale` floors the scale so the solid lod0
 band never drops below `MIN_SOLID_MESH_DIST` (40 m; see SIZE FLOOR above). The density path
 (default OFF) would still compound; its floor is the same constant if it is ever resurrected.
-(2) **crossfade dither stipple** — the lod0↔impostor dither-discard is meant to be resolved
-by TAA, but the project runs FSR2 with TAA off and FSR2 does not dissolve it, so every tree
-in its handoff band shows the raw net (worst vs bright sky; visible even at 1× motion). The
-closer/more-numerous density handoffs made it pervasive. FIX = narrow `LOD_FADE_RATIO`
-(0.5→~0.25) to thin the stipple zone, and/or a real resolve (alpha-blend the impostor).
-"Dithers across differing heights" = mixed size tiers handing off at different distances
-(small/low canopy stipples while tall/high canopy stays solid) — the min-floor helps this too.
+(2) **crossfade dither stipple** — ✅ **FIXED 2026-07-04 (blue-noise dither).** The
+lod0↔impostor dither-discard used Interleaved Gradient Noise, which is designed to be
+resolved by TAA into smooth alpha; the project runs FSR2 with TAA off (a measured −4.6 ms
+win, not given back), so the *static* IGN pattern read as a regular diagonal "screen-door"
+net on foliage. Real alpha-blending was investigated and rejected: the impostor is
+deliberately opaque (`depth_prepass_alpha`) so it can cast shadows, and a prior transparent-
+queue attempt tanked fps 90→32 — so the crossfade must stay opaque/discard-only. FIX = swap
+the noise SOURCE from IGN to a pre-baked **blue-noise tile** (`textures/blue_noise_64.png`,
+void-and-cluster, `scripts/gen_blue_noise.py`; global sampler `lod_blue_noise`, sampled with
+`texelFetch(coord % size)`). Blue noise is constructed so every thresholded level is high-
+frequency and evenly distributed, so it reads as fine even grain instead of a net — with no
+dependence on any temporal filter (deterministic; identical under native and FSR2, since the
+discard runs in the fragment before upscaling). The dither stays **screen-space** (both tiers
+key off `FRAGCOORD` so the split is complementary/water-tight — surface-anchoring would break
+that, the two tiers being different geometry). Direct pattern A/B: low/high-frequency energy
+ratio 0.51 (IGN) → 0.10 (blue). Render mode, sorting, depth and shadow behaviour are unchanged
+(only the noise source moved). "Dithers across differing heights" = mixed size tiers handing
+off at different distances (small/low canopy stipples while tall/high stays solid) — the
+min-floor (SIZE FLOOR above) addresses that separately.
 (3) **impostor trunk-green** — season tint bleeds onto the baked trunk region of the impostor
 atlas (pre-existing, on true impostors); needs the trunk region masked from the season hue.
 The **bark/leaf desync** (lod0 grey trunk lingering after the crown handed off) is FIXED:

@@ -546,6 +546,13 @@ func _ready() -> void:
 	# Impostor crown wind sway amplitude (global so I / Shift+I can dial it on a walk).
 	RenderingServer.global_shader_parameter_add("impostor_wind_strength", RenderingServer.GLOBAL_VAR_TYPE_FLOAT,
 		_imp_wind_strength)
+	# Blue-noise tile for the lod0<->impostor crossfade dither (lod_dither.gdshaderinc).
+	# Screen-space ordered dither that reads as fine grain, not a screen-door, WITHOUT any
+	# temporal filter (TAA is off under FSR2). Loaded raw (not the imported .ctex) and forced
+	# to R8 so it samples linear/exact; kept referenced so the texture RID stays alive.
+	_lod_blue_noise_tex = _load_lod_blue_noise()
+	RenderingServer.global_shader_parameter_add("lod_blue_noise",
+		RenderingServer.GLOBAL_VAR_TYPE_SAMPLER2D, _lod_blue_noise_tex)
 	_wind_system = preload("res://wind_system.gd").new()
 	_wind_system.name = "WindSystem"
 	if _cli_wind_override >= 0.0:
@@ -1617,6 +1624,9 @@ const CANOPY_AO_SHELL := 0.55
 var _cli_canopy_ao := Vector3(-1.0, -1.0, -1.0)
 # Impostor crown wind sway amplitude (live state for the I key; global default 1.0).
 var _imp_wind_strength := 1.0
+# Blue-noise dither tile for the LOD crossfade (kept referenced so its RID stays alive
+# while it's bound as the lod_blue_noise global sampler).
+var _lod_blue_noise_tex: Texture2D
 # --shadow-census: one-shot dump of every shadow-casting GeometryInstance3D
 # (top 25 by mesh tris × instances) on the 3rd perf tick, after diag hides apply.
 var _diag_shadow_census: bool = false
@@ -2399,6 +2409,21 @@ func _load_img_tex_mip(path: String) -> Texture2D:
 		return null
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
+
+func _load_lod_blue_noise() -> Texture2D:
+	# The blue-noise dither tile, imported LOSSLESS + NO-mipmaps + NO-sRGB + detect_3d off
+	# (see blue_noise_64.png.import) so its threshold bytes survive intact — VRAM compression
+	# or an sRGB decode would distort the ordered-dither levels. Sampled in-shader with a plain
+	# sampler (no source_color) + texelFetch, so the stored value comes back exact. Export-safe
+	# (loads the imported .ctex, not the raw PNG). Falls back to a flat 0.5 tile if missing
+	# (the dither degrades to a hard cut at the band midpoint, never a crash).
+	var tex := load("res://textures/blue_noise_64.png") as Texture2D
+	if tex == null:
+		push_warning("blue_noise_64.png missing — LOD dither falls back to a hard cut")
+		var img := Image.create(64, 64, false, Image.FORMAT_R8)
+		img.fill(Color(0.5, 0.5, 0.5))
+		return ImageTexture.create_from_image(img)
+	return tex
 
 func _setup_environment() -> void:
 	# Volumetric cloud sky (clayjohn compute pipeline)

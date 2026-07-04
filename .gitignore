@@ -151,3 +151,9 @@ hh_NYC_029.tif
 # original water ripple normal maps (regen: scripts/gen_water_normals.py)
 !textures/water_normal_a.png
 !textures/water_normal_b.png
+# LOD-crossfade blue-noise dither tile (regen: scripts/gen_blue_noise.py). The .import
+# IS tracked here (unlike other textures) because its non-default settings are load-bearing:
+# detect_3d/compress_to=0 + lossless keep the exact ordered-dither bytes — a default reimport
+# would recompress it lossy on first 3D use and reintroduce banding.
+!textures/blue_noise_64.png
+!textures/blue_noise_64.png.import

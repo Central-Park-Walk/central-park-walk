@@ -258,9 +258,9 @@ void fragment() {
 		discard;
 	}
 
-	// LOD crossfade dither — distance/screen-space only (needs no texture), so it runs
-	// BEFORE the albedo fetch: dithered-out fragments skip the texture sample and all
-	// shading below. player_world_pos (not INV_VIEW_MATRIX[3]) keeps the discards
+	// LOD crossfade dither — screen-space distance test (one cheap blue-noise texelFetch),
+	// so it runs BEFORE the albedo fetch: dithered-out fragments skip the texture sample and
+	// all shading below. player_world_pos (not INV_VIEW_MATRIX[3]) keeps the discards
 	// consistent across shadow/reflection passes. Complementary dither: each tier
 	// dithers out as the next dithers in over the same band; coherent now that all
 	// tiers share one variant silhouette (see tree_builder variant pin).
