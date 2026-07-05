@@ -3057,6 +3057,78 @@ def create_leaf_cards_at_positions(placements, leaf_mat, rng, tier="l", n_cards=
     return all_objects
 
 
+def apply_leaf_shell_normals(trunk_obj, up_blend=0.35, center_frac=0.45):
+    """Replace leaf-card face normals with a HEMISPHERICAL / INFLATED crown-shell
+    normal so the flat cutout cards shade as one coherent foliage mass instead of
+    a scatter of hard-lit discrete planes.
+
+    THE INVARIANT (docs/tree-leaf-pipeline-brief.md §Normals): "author foliage
+    normals as hemispherical / inflated rather than true geometric normals ... the
+    single biggest lever on whether a tree reads as foliage or as cardboard." The
+    Mtree card path never wired this in — every leaf card kept its flat, ~random
+    geometric face normal (measured: mean N.y=0.00, mean dot(N,outward)=0.00 on
+    london_plane_{s,l}), so both the near lod0 mesh AND the impostor normal atlas
+    (tree_leaf.gdshader bake_mode==2 writes NORMAL*0.5+0.5) baked as cardboard.
+
+    Applied POST-join on the final combined mesh: only faces whose material is a
+    leaf material are reshaped; bark keeps its geometric tube normals. Shading only
+    — card COUNT/placement is untouched, so young s / mid m stay appropriately
+    thinner than mature l (their density is Chris-approved, 2026-07-03); the fix is
+    that the appropriately-sparse young foliage now reads as soft foliage rather
+    than isolated flat blobs. Uniform across tiers (s normals already matched l —
+    the tier-worse read was density exposing the flat shading, not a normal diff).
+
+    Shell normal = normalize( lerp( outward_from_crown_centre, +Z(up), up_blend ) ),
+    centre biased below the leaf centroid (center_frac<0.5) so more of the canopy
+    tilts skyward (catches the sun/sky hemisphere) — the SpeedTree spherical-normal
+    convention.
+    """
+    import mathutils
+    mesh = trunk_obj.data
+    mat_list = list(mesh.materials)
+    leaf_idx = {i for i, m in enumerate(mat_list)
+                if m is not None and "leaf" in m.name.lower()}
+    if not leaf_idx:
+        return 0
+
+    # Crown centre from the leaf-card vertices only (bark verts would drag it down).
+    leaf_vids = set()
+    for poly in mesh.polygons:
+        if poly.material_index in leaf_idx:
+            leaf_vids.update(poly.vertices)
+    if not leaf_vids:
+        return 0
+    co = [mesh.vertices[i].co for i in leaf_vids]
+    cx = sum(v.x for v in co) / len(co)
+    cy = sum(v.y for v in co) / len(co)
+    zmin = min(v.z for v in co)
+    zmax = max(v.z for v in co)
+    centre = mathutils.Vector((cx, cy, zmin + center_frac * max(zmax - zmin, 1e-4)))
+    up = mathutils.Vector((0.0, 0.0, 1.0))
+
+    # Start from the mesh's existing (geometric) corner normals; override only leaf
+    # loops. corner_normals is the Blender 4.1+ read path for computed split normals.
+    base = [tuple(cn.vector) for cn in mesh.corner_normals]
+    n_leaf_loops = 0
+    for poly in mesh.polygons:
+        if poly.material_index not in leaf_idx:
+            continue
+        poly.use_smooth = True
+        for li in poly.loop_indices:
+            vco = mesh.vertices[mesh.loops[li].vertex_index].co
+            outward = vco - centre
+            if outward.length < 1e-5:
+                outward = up.copy()
+            outward.normalize()
+            n = outward.lerp(up, up_blend)
+            if n.length < 1e-5:
+                n = up.copy()
+            base[li] = tuple(n.normalized())
+            n_leaf_loops += 1
+    mesh.normals_split_custom_set(base)
+    return n_leaf_loops
+
+
 def create_strand_cards_at_positions(placements, strand_mat, rng, target_height):
     """Willow weeping curtain — a continuous fountain skirt.
 
@@ -4410,6 +4482,15 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
 
         # --- Bake wind vertex colors from MTree attributes ---
         bake_wind_vertex_colors(trunk_obj)
+
+        # --- Hemispherical/inflated leaf-card normals (foliage, not cardboard) ---
+        # docs/tree-leaf-pipeline-brief.md §Normals: the single biggest lever on
+        # whether a tree reads as foliage or as cardboard. Post-join so it survives
+        # the join/scale/centre steps and can keep bark's geometric normals.
+        _n_shell = apply_leaf_shell_normals(trunk_obj)
+        if _n_shell:
+            print(f"    leaf shell-normals: reshaped {_n_shell} leaf loops "
+                  f"(hemispherical/inflated crown shell)")
 
         dt = time.time() - t0
         n_leaves = (n_leaf_verts // 2) if leaf_proto is not None else len(placements)
