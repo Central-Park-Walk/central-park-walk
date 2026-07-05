@@ -165,4 +165,3 @@ data-backed omission — stated explicitly so a future pass doesn't re-ask:
 difference" pair, capture the two side by side at the **mid and far** ranges; if they're not
 distinguishable there (they shouldn't be by design), the consolidation is confirmed. If a pair
 IS distinguishable and *should* be (e.g. pin vs red), that's the skeleton split working.
-</content>

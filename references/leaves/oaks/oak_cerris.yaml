@@ -2,8 +2,9 @@
 # ▲ PIN: Turkey oak = Quercus CERRIS (European, section Cerris). NOT Q. laevis (American scrub/turkey oak).
 # ▲ POPULATION (2026-07-04 audit): 356 in park / 3rd most populous oak (Central Park Entire 2013) → DISTINCT
 #   geometry. Absent from the on-disk NYC street census ONLY because that dataset excludes the park interior.
-# ⏳ follow_up (TRACKED, do NOT fix this pass): the old census_basis "may double as the in-census Sawtooth oak
-#   model" cross-ref is stale (sawtooth archived out of 3-oak scope) — reconcile in Phase 2.
+# ✔ RESOLVED (Phase 2, 2026-07-04): a prior single-boolean census structure carried a "may double as the
+#   in-census Sawtooth oak model" cross-ref. That field is gone (replaced by the two-dataset abundance) and
+#   sawtooth is archived out of the 3-oak scope → no live sawtooth cross-ref remains. Historical note only.
 
 taxon:
   common_name: Turkey oak (Turkish oak)
@@ -103,4 +104,3 @@ provenance:
   population_sources:
     nyc_street_census: "on-disk (convert_to_godot.py + park_data.json): NYC Street Tree Census, genus-aggregated, EXCLUDES Central Park interior — cannot see cerris by species."
     park_field_survey: "Chaya & Barnard, Central Park Entire (2013), via Cameron/Intl Oak Society 2014-05-25 (URL above): Turkey oak 356, 3rd most populous park oak. Field ground-truth, 2013 point-in-time."
-</content>

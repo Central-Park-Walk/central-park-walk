@@ -38,10 +38,10 @@ Implications folded into Phase 2:
 Phase 1 schema: **FROZEN** 2026-07-04 (Chris approved, 3-oak scope; `SCHEMA.yaml`).
 Supersedes the 2026-06-24 7-taxon freeze.
 
-> **Phase 2 carry-over (TRACKED):** the harvested `oak_pin.yaml` / `oak_red.yaml` still use the
-> OLD census fields (`in_census` boolean + `genus_total`); conform them to the frozen two-dataset
-> `abundance` structure in Phase 2, and fill park counts from *Central Park Entire* (pin ≈half of
-> 2,854; red 584) — NOT the street census. `oak_cerris.yaml` is already conformed.
+> **Phase 2 carry-over (RESOLVED 2026-07-04):** `oak_pin.yaml` / `oak_red.yaml` were still on the OLD
+> census fields (`in_census` boolean + `genus_total`); both are now conformed to the frozen two-dataset
+> `abundance` structure, with park counts from *Central Park Entire* (pin ≈half of 2,854 = MOST populous;
+> red 584 = 2nd) — NOT the street census. All three dossiers now share one abundance schema.
 
 ## Research roster — 3 oaks (per `docs/oaks prompt.txt`)
 
@@ -84,5 +84,3 @@ Park-survey counts are from *Central Park Entire* (2013) — see Data provenance
 ## Reference data
 - `reference_photos/pin oak/` is a **mixed-oak grab-bag** (cerris, pin, red `redoak_09`,
   shingle, generic 3D renders) — sort per species before building Phase 2 image manifests.
-</content>
-</invoke>

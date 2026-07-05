@@ -1,18 +1,27 @@
-# Pin oak — Lobatae, DELTAS vs oak_red.yaml baseline. Schema: SCHEMA.yaml (frozen).
+# Pin oak — Lobatae, DELTAS vs oak_red.yaml baseline. Schema: SCHEMA.yaml (FROZEN 2026-07-04).
 # The one Lobatae oak with a genuinely distinct HABIT (excurrent) → own skeleton.
+# ▲ POPULATION: ≈half of 2,854 park oaks — the MOST populous oak in the park (Central Park Entire 2013).
+#   Conformed to the two-dataset abundance structure 2026-07-04 (was in_census bool + genus_total).
 
 taxon:
   common_name: Pin oak
   binomial: Quercus palustris
   section: Lobatae
   archetype_key: oak
-  in_census: true
-  census_basis: zone-list (North Woods, Ramble, Hallett & The Pond) + scatter (0.10–0.15)
 
 abundance:
-  genus_total: 2613
-  species_count: null
-  scatter_weight: 0.10-0.15
+  # TWO datasets — see provenance.population_sources. Populous in the PARK survey; genus-only in the
+  # on-disk street census (which excludes the park interior). Do NOT collapse to one number.
+  nyc_street_census:
+    covers_central_park: false     # street census excludes the park interior
+    resolution: genus              # Quercus aggregated to genus (2,613); no per-species count
+    species_count: null            # pin not distinguishable on-disk — coverage gap, NOT abundance
+  park_field_survey:
+    present: true
+    species_count: ~1450           # ≈half of 2,854 — source reports a proportion ("just over half"), NOT an exact count
+    rank: "1st — MOST populous oak (of 18 spp; ≈half of 2,854; red 584 2nd, Turkey 356 3rd)"
+    park_oak_total: 2854
+  scatter_weight: 0.10-0.15        # on-disk genus-level placement weight (hand-authored), NOT a per-species census count
   prominence: stood-under
   park_locations: [North Woods, Ramble, Hallett & The Pond, street/lawn specimens]
 
@@ -80,9 +89,12 @@ mtree_hints:
 sources:
   - { claim: "18-22 m H, 8-14 m spread, strong central leader, drooping lower / horizontal mid / ascending upper branches", value: see-above, source: "Wikipedia Quercus palustris; UFL EDIS ST555; Morton Arboretum", confidence: high }
   - { claim: "5-7 lobes, deep U-shaped sinuses ~= blade area; russet-red fall, marcescent young; small ½-¾in acorn shallow saucer cap", value: see-above, source: "NC State Extension; Ohio DNR; USDA NRCS factsheet", confidence: high }
+  - { claim: "Pin oak ≈half of Central Park's 2,854 oaks — the MOST populous oak in the park (of 18 spp)", value: "~half of 2,854", source: "Chaya & Barnard, Central Park Entire (2013) field survey — via R. Cameron, 'A New Map of New York's Central Park,' International Oak Society, 2014-05-25, https://www.internationaloaksociety.org/content/new-map-new-york%27s-central-park", confidence: high }
 conflicts: []
 provenance:
   filled_by: Claude (Phase 2)
-  date: 2026-06-24
+  date: 2026-06-24 (abundance conformed to two-dataset structure 2026-07-04)
   baseline_deltas_only: true
-</content>
+  population_sources:
+    nyc_street_census: "on-disk (convert_to_godot.py SPECIES_MAP + park_data.json): NYC Street Tree Census, genus-aggregated (Quercus=2,613), EXCLUDES the Central Park interior — no per-species oak count."
+    park_field_survey: "Chaya & Barnard, Central Park Entire (2013), via R. Cameron, Intl Oak Society 2014-05-25 (https://www.internationaloaksociety.org/content/new-map-new-york%27s-central-park): pin oak ≈half of 2,854 park oaks — the most populous. Field ground-truth, 2013 point-in-time."

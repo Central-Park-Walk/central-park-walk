@@ -33,4 +33,3 @@ before Gate-1 leaf work. Dossier leaf morphology comes from cited web botany, no
 `reference_photos/pin oak/` commingles ≥4 species (cerris, pin, red, shingle) under a
 "pin oak" name. When real refs are gathered, split into per-species subfolders
 (`reference_photos/oak/<species>/`) so the manifests are clean.
-</content>
