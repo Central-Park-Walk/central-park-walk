@@ -73,6 +73,24 @@ banner, the banner wins.**
   mesh↔impostor crossfade (region-fade). And a random per-card drop in the bake clumped
   into an "oddly decimated" far crown; a spatially EVEN per-card keep (0.6) reads as
   uniform see-through density while preserving silhouette.
+- **A FIXED SINGLE-POINT PERF-GATE POSITION SILENTLY UNDER-SAMPLES IF IT FACES AN OPEN
+  SIGHTLINE — benchmark the view a player actually gets, not a convenient one.** (2026-07-05,
+  perf_gate.sh repoint) The gate's `north_woods` position `600,-1315,0` read ~24 ms / **40 fps**,
+  but a player walking the same wood at `666,-1257` heading 355° sees ~35–41 ms / **~30 fps**
+  (live F9, 21.8 M tris in frame) — a ~15 fps gap created purely by *where the camera points*:
+  the fixed pose happened to look down an open lawn/gap, so most of the tree geometry fell
+  outside the frustum. This made a real but MODEST tree-density optimization (london_plane
+  m trade50) look like it "recovered the 45 fps woodland floor" when the real woodland was
+  ~30 fps the whole time; the absolute claim had to be retracted (the trade50 *delta* was fine
+  — deltas are position-robust; the *absolute* was not). Fix: repoint the gate's woodland
+  spots to representative dense-tree headings (ramble/north_woods now use Chris's walked F9
+  coords) and, when picking any woodland benchmark, orient INTO the trees and sanity-check the
+  process-ms / triangle count against a live F9 walk. **This is the SECOND instance of the same
+  class of bug — "benchmark config not matching real play conditions."** The first was the
+  1892-vs-6808 tree-count scene mismatch (`perf_gate.sh` omitting `--all-london-plane` measured
+  ~28% of the park; see project_performance_investigation). General law: a perf gate is only
+  honest if its scene AND its camera match what a player experiences — verify both against a
+  live capture, never trust a single fixed pose's absolute number.
 
 - **⮕ HARD BUILD LAWS (Chris, 2026-06-22) live in `docs/tree_skeleton_plan.md` §1b and are
   ABSOLUTE — they override anything below.** In brief: leaf card first then the small model;

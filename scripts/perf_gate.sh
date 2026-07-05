@@ -63,13 +63,27 @@ OUT_DIR="$PROJECT_DIR/perf_reports"
 mkdir -p "$OUT_DIR"
 REPORT="$OUT_DIR/${STAMP}_${LABEL}.txt"
 
-# name:x,z,yaw — the 5 canonical test locations
+# name:x,z,yaw — the 5 canonical test locations.
+#
+# ⚠ 2026-07-05 REPOINTED the two woodland spots (ramble, north_woods) to
+# REPRESENTATIVE DENSE-TREE headings taken from Chris's live F9 walk. The old
+# fixed positions faced OPEN sightlines and silently UNDER-SAMPLED the real
+# woodland: north_woods 600,-1315,0 read ~24ms/40fps but a player walking the
+# same wood at 666,-1257 heading 355° sees ~35-41ms/~30fps (F9, 21.8M tris in
+# frame) — a ~15fps gap purely from where the camera points. Ramble had a
+# smaller but real gap (-400,600,0 ~30ms vs the walked -239,672,328 ~33ms). A
+# fixed single-point gate that happens to face open sky reports a park that is
+# faster than the one you play. This is the SECOND instance of "benchmark config
+# not matching real conditions" (the first was the 1892-vs-6808 tree-count
+# scene bug). See docs/tree-pipeline-lessons.md. If you re-pick a woodland
+# position, orient it INTO the trees (verify tri count / process ms against a
+# live F9 walk), not down a lawn/path.
 LOCATIONS=(
   "literary_walk:-600,1420,0"
   "bethesda:-480,1020,0"
-  "ramble:-400,600,0"
+  "ramble:-239,672,328"        # was -400,600,0 (open); dense walked view (Chris F9)
   "great_lawn:-99,173,0"
-  "north_woods:600,-1315,0"
+  "north_woods:666,-1257,355"  # was 600,-1315,0 (open); dense walked view (Chris F9 ~30fps)
 )
 
 echo "perf_gate: label=$LABEL  $(date -Iseconds)" | tee "$REPORT"
