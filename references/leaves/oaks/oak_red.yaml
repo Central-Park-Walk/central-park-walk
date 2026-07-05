@@ -72,8 +72,8 @@ representation:                  # see FIDELITY_CALL.md for the cross-oak per-ti
     mid_lod1: "broad rounded crown + brick-red fall — vs scarlet's vivid scarlet, pin's narrow drooping form"
     far_impostor: "rounded silhouette + red-russet color mass"
   legible_to_m: { leaf: 30, crown_form: 200, fall_color: 400 }
-  shared_skeleton_candidates: [scarlet, white, swamp_white, sawtooth, cerris]   # Skeleton A
-  shared_leaf_card_candidates: [pin, scarlet]                                   # Lobatae card
+  shared_skeleton_candidates: []          # Skeleton A — alone in the 3-oak roster (pin=excurrent B, turkey=Cerris C). Old 7-taxon list [scarlet,white,swamp_white,sawtooth] archived out of scope.
+  shared_leaf_card_candidates: [pin]      # Lobatae card (shared with pin; scarlet archived out of scope)
   tiers_needed: "s/m/l, full LOD0+LOD1+impostor (stood-under woodland mass)"
 
 mtree_hints:

@@ -73,7 +73,7 @@ representation:
     far_impostor: "narrow excurrent silhouette (the ONE oak silhouette that survives as an impostor distinct from the rounded mass)"
   legible_to_m: { leaf: 30, crown_form: 300, fall_color: 400 }
   shared_skeleton_candidates: []          # ▲ NEEDS ITS OWN SKELETON (Skeleton B, excurrent)
-  shared_leaf_card_candidates: [red, scarlet]   # shares the Lobatae card
+  shared_leaf_card_candidates: [red]   # shares the Lobatae card with red (scarlet archived out of 3-oak scope)
   tiers_needed: "s/m/l, full LOD0+LOD1+impostor"
 
 mtree_hints:
