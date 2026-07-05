@@ -1782,21 +1782,33 @@ SPECIES = {
                     # BOLE. Fix = firmer leader (kill lean) + longer/flatter laterals
                     # (push mass into the 1-3m rings) + higher branch_start (bare bole).
                     "branch_start": [0.16, 0.26],        # bole ~16-26% (refs show foliage from ~1.5m on a 9m young tree); [0.24,0.34] read TOO top-heavy
-                    "branch_length_ratio": [0.60, 0.74], # KEEP length (user 2026-06-21 PM: "keep the branches about as long"); narrow the crown by WINDING UP, not shortening
+                    "branch_length_ratio": [0.48, 0.62], # was [0.60,0.74]. 2026-07-04 SKELETON DENSITY/NARROW FIX: shortened to narrow the crown (measured aspect 0.66→0.52, toward l's 0.55) — the old "keep length, wind up" call left the young crown too broad/open vs the nursery ref
                     # NARROW UPRIGHT YOUNG HABIT (user 2026-06-21 PM, morton-circle 3-part
                     # nursery ref): young planes wind their limbs STEEPLY UPWARD into a
                     # narrow crown, not spread horizontally. The total-tree diameter was
                     # reading too wide for that habit. Supersedes the older 6e6cb11fdc
                     # size-chart "broad young cone" call. Steepen + wind up, same length:
-                    "up_attraction": [0.46, 0.58],       # moderate upward arc — enough to wind the limbs up into the teardrop, not so much it spikes into a narrow column (the [0.52,0.64] over-steepened to a sparse spike)
+                    "up_attraction": [0.42, 0.54],       # was [0.46,0.58]. 2026-07-04: eased slightly so the now-denser twig structure isn't wound into a spike (density comes from sub_density/sub_start_radius below, not from steep up_attraction)
                     "branch_angle": [50, 62],            # moderate (was [58,72] too wide, [44,56] too steep/spiky) — lower-middle limbs reach out to give the teardrop its BODY; the Flame crown + angle_variation taper the apex
                 },
                 "skeleton_overrides": {
                     "crown_shape": "Conical",      # TEARDROP via Conical (user 2026-06-21 PM, refs 6e6cb11fdc + morton-circle): Conical = BROAD base tapering to apex = the teardrop's broad lower-middle + tapered top, foliage from low. (Tried "Flame" — it bulged top-heavy with a bare lower crown, the OPPOSITE of a teardrop. The teardrop fix is moderate WIDTH + DENSITY, not the crown-shape enum.)
                     "branch_end": 0.97,            # branches almost to the apex so the TOP carries leaf clusters (user 2026-06-21: "the top of the tree must get clusters"); 0.92 left a bare leader spike
+                    # ★ 2026-07-04 SKELETON DENSITY FIX (Chris-approved skeleton pass). The
+                    # young s crown read as 2-3 disconnected foliage clumps around a bare
+                    # leader (not a normal young-plane cone) because the skeleton was too
+                    # sparse: the "clean primaries, few secondaries" tuning starved the crown
+                    # of the continuous twig structure a real young plane clads from ~1.5m to
+                    # the tip. ROOT CAUSE of why density levers alone did nothing: the 5mm
+                    # remove_doubles weld in clean_degenerate_geometry culls ~75-80% of a 9m
+                    # tree's fine twigs BEFORE the min-twig floor thickens them (docs/
+                    # tree-pipeline-lessons.md). FIX = born-twig radius up so twigs survive the
+                    # weld, then crank sub density + finer forking + clad the upper leader:
+                    "sub_start_radius": 0.7,       # was default 0.25 — twigs born thick enough (>=~9mm) to survive the 5mm weld; the min-twig floor still thickens survivors to 4cm, so this only KEEPS twigs, doesn't fatten the look. Lifted s twig survival 2215->4043 verts.
+                    "branch_length_top_factor": 0.6,  # was species 0.4 — upper branches longer so the top ~40% of the leader is clad (0.4 stunted them → bare upper-leader spike, the "clumps + bare stick" read)
                     "branch_angle_variation": 0.55,  # was 0.46 — stronger height envelope: top limbs steepen (taper the apex), lower limbs stay broad → the teardrop taper
-                    "branch_flatness": 0.45,       # was 0.30 — KEY breadth lever: laterals spread sideways into a full crown
-                    "crown_base_size": 0.5,        # moderate teardrop body (0.6 too wide, 0.35 too narrow/sparse) — gives the Flame crown a broad rounded lower-middle without the old horizontal sprawl
+                    "branch_flatness": 0.36,       # was 0.45 (2026-07-04): less lateral sprawl → narrower young crown (aspect 0.66→0.52)
+                    "crown_base_size": 0.46,       # was 0.5 (2026-07-04): tighten the crown envelope toward the narrow young-plane cone (the nursery/size-chart refs are narrower than the old 0.5 produced)
                     "branch_gravity": 4.0,         # 2.5->4.0 (user 2026-06-21 PM weight model): the length gradient now makes the LOWER branches longer, so gravity sags THEM more (longer lever) → "heavier, less upward" droop that rounds the teardrop's broad lower-middle, while the short upper branches stay ascending. (Earlier the lean came from one-sided droop; the rounder radial spread of branch_angle_variation 0.55 + straight leader should keep this even — verify in winter.)
                     "sub_gravity": 4.0,            # was species 10.0 — heavy sub-branch droop was the main source of the one-sided lean
                     "trunk_randomness": 0.18,      # was species 0.32 — straighter young leader (less curve → less lean)
@@ -1828,7 +1840,12 @@ SPECIES = {
                     # sub_split stays the species 0.3 = minimal sub-sub). The big
                     # sub_density drop frees mesher headroom for the higher branch_density
                     # (net topology ≈ lower), so crash risk does not rise.
-                    "branch_density": 1.3, "branch_split_prob": 0.50, "sub_density": 0.85,
+                    # 2026-07-04: sub_density 0.85→1.7 (many more twigs — now that they survive
+                    # the weld, this finally registers), branch_density 1.3→1.7 (more primaries
+                    # along the full leader). The old "FAR FEWER confused secondaries" call
+                    # (sub_density 1.45→0.85) is REVERSED here — that produced the sparse clumpy
+                    # crown; a real young plane's density IS its continuous fine-twig secondaries.
+                    "branch_density": 1.7, "branch_split_prob": 0.50, "sub_density": 1.7,
                     # RAMIFICATION CAP on _s (user 2026-06-22 s4 "all tiers incl. s"):
                     # was inheriting species sub_split_prob (now the hard 0.10 l cap).
                     # _s limbs are shortest (~9m × 0.6-0.7) so they ramify the least —
@@ -1837,9 +1854,9 @@ SPECIES = {
                     # cap: applies the principle species-wide while keeping _s close to
                     # its approved density. Re-review _s after regen; push harder only if
                     # the user wants more cap.
-                    "sub_split_prob": 0.24,
-                    "sub_length_ratio": 0.18,
-                    "sub_dist_start": 0.05,  # twigs emerge near the branch base/interior (user 2026-06-21: "twigs come off the branches closer to the interior"), not just the outer 80% (was 0.2)
+                    "sub_split_prob": 0.58,   # was 0.24 (2026-07-04): finer twig forking fills the crown continuously — short s limbs have headroom (the l deep-haze concern is length-driven, not present here)
+                    "sub_length_ratio": 0.22,  # was 0.18 (2026-07-04): slightly longer twigs so ramification reaches between primaries (continuous, not isolated fans)
+                    "sub_dist_start": 0.02,  # was 0.05 (2026-07-04): twigs emerge right from the primary base so the WHOLE primary is clad, not just its tip (the old fans-at-tips read)
                     # Saplings are proportionally SLENDER (trunk dia scales faster than
                     # height): a 9m young plane is ~6-8" DBH, not the ~14" the 1.12
                     # mature factor gives. 0.55 → ~7" DBH at 9m (user 2026-06-19).
@@ -1883,10 +1900,30 @@ SPECIES = {
                 },
                 "skeleton_overrides": {
                     "crown_base_size": 0.62,       # narrower oval than mature l's 0.75
-                    "branch_end": 0.94,            # branches reach near the apex so the apex-cladding gate can leaf the top (0.86 left a bare leader spike — the s4b top-stick)
-                    "branch_density": 0.95,        # denser young primaries (more body); under the ~1.05 mesher crash band
-                    "sub_density": 0.92,           # fuller young twig structure
-                    "sub_split_prob": 0.22,        # CAP, scale-appropriate: lighter than l's 0.10. m's shorter limbs ramify far less, so l's hard cap left m too sparse (explore lp_m_final ~8k faces); 0.22 keeps a full crown while still capping the deep haze.
+                    # ★ 2026-07-04 SKELETON DENSITY FIX (Chris-approved). The young-adult m read
+                    # bottom-heavy: dense lower fans + a thin, under-clad upper crown with the
+                    # leader showing through (the "2-3 clumps + bare stick" report). Densify the
+                    # twig structure continuously and clad the upper leader. (m's twigs are
+                    # absolutely larger than s's so the 5mm-weld cull is milder here — ~34% vs
+                    # s's ~80% — but a modest born-radius bump still adds fill. See lessons.)
+                    "sub_start_radius": 0.45,      # was default 0.25 — more twigs survive the clean_degenerate weld → fuller crown
+                    "branch_length_top_factor": 0.55,  # was species 0.4 — upper branches longer so the upper crown is clad (fixes the bottom-heavy/bare-apex profile: the thin upper third measured in the diagnosis)
+                    "sub_dist_start": 0.02,        # was species 0.05 — twigs from the primary base → whole primary clad, not just tips
+                    "branch_end": 0.96,            # was 0.94 — primaries reach higher up the leader so the top isn't sparse
+                    # 2026-07-05 TRADE50 PERF POINT (perf_reports/20260705_130000_m_density_tradeback_curve.txt):
+                    # backed the 3 count knobs ~50% from the 2026-07-04 skeleton-density peak
+                    # (bd 1.25/sd 1.35/ssp 0.44) toward OLD (0.95/0.92/0.22). Isolation proved the
+                    # ~3fps woodland regression was ~90% denser BARK geometry, and the depth audit
+                    # showed the fix was SAME-DEPTH densification (no max_depth change), so density
+                    # knobs are the correct lever. trade50 = the efficient knee: m faces 33.7k→~23.2k,
+                    # recovers ~88% of the north_woods loss (NEW ~40fps→~44, at the 45 floor), ramble
+                    # ~34→~37, while staying visually closest to the approved NEW crown (continuous clad
+                    # cone, leader clad — the silhouette fix survives). Cladding knobs (sub_start_radius
+                    # 0.45, branch_length_top_factor 0.55, branch_end 0.96, sub_dist_start 0.02) HELD at
+                    # NEW to keep that fix. s tier left at NEW (little perf, still under-dense — deferred).
+                    "branch_density": 1.10,        # TRADE50: was 1.25 (peak) <- OLD 0.95, ~50% back
+                    "sub_density": 1.14,           # TRADE50: was 1.35 (peak) <- OLD 0.92, ~50% back
+                    "sub_split_prob": 0.33,        # TRADE50: was 0.44 (peak) <- OLD 0.22, ~50% back
                     "branch_split_prob": 0.52,     # CAP, lighter than l's 0.45
                     "trunk_randomness": 0.20,      # straight young bole (kill the old S-curve/lean)
                     "sub_gravity": 6.0,            # less one-sided lean (species 10.0 drove it on the stale m)
@@ -2154,7 +2191,7 @@ _LP_V2_HALF = 1.00                                # card size, unchanged from fi
 # card_rule_spacing = fill cards along each bearing branch (density per branch).
 _LP_V2_S_DEPTH_KEEP = {1: 0.12, 2: 0.85, 3: 1.0}    # near-saturate: leaf almost every branch
 _LP_V2_S_SPACING = 0.42                             # tight fill (was 0.72) — 2x needs more cards/branch, s branches are short
-_LP_V2_M_DEPTH_KEEP = {1: 0.07, 2: 0.70, 3: 1.0}    # more branches bear (was {.045,.45,.75})
+_LP_V2_M_DEPTH_KEEP = {1: 0.05, 2: 0.50, 3: 0.45}   # 2026-07-05 PERF TRIM: was {1:.07,2:.70,3:1.0}. The 2026-07-04 skeleton-density fix nearly TRIPLED m's card count (1183→3031) because the same per-branch rule ran on a far denser skeleton (bearing branches ~680→1868) — the actual fragment-overdraw perf driver (ramble −4fps/+2.8ms). Branch CONTINUITY (skeleton), not raw card count, is what fixed m's bare-crown, so the extra cards are slack: dropped orders≥3 keep 1.0→0.45 + order2 0.70→0.50 to land ~1450 clusters (est) on the dense evenly-distributed skeleton (still continuous — the trees carry the coverage, not a saturated card count).
 _LP_V2_M_SPACING = 0.45                             # Chris 2026-07-03: m at 1183 (×1.32 over the 894 he saw) "is fine" — no need to force the full 1.5x, and this keeps cards on twigs (no max_radius widening onto secondaries)
 _LP_V2_L_DEPTH_KEEP = {1: 0.047, 2: 0.47, 3: 0.78}  # ~×1.25 vs prior — hold ~2686 cards on ~20% fewer branches
 _LP_V2_L_SPACING = 0.85
