@@ -10,6 +10,63 @@ Spec for the D3–5 sprint work (written 2026-06-10, before implementation, per
 ([`rendering.md`](rendering.md) §4): **camera raster 4.0 ms, shadow casting 1.0 ms**
 at the worst test location. Measured today: ~25 ms camera (Ramble), 18–28 ms shadows.
 
+## 0. Cross-species invariants (read before ANY species' rendering work)
+
+Hard-won constraints that apply to **every** species, not just london_plane. Oak and
+everything after inherit these — do not rediscover them by re-breaking them. Each is a
+rule with its reason, so a future cleanup pass can't dismiss it as an unexplained magic
+number.
+
+- **Route per-tree size/distance behaviour through the `_lod_scale()` chokepoint
+  (`tree_builder.gd`).** One scale factor `s` feeds *every* downstream band — mesh
+  fade-out, impostor fade-in, impostor spawn-begin, and the F1 debug overlay. Any NEW
+  per-tree distance- or size-dependent behaviour goes *through this one function*, never
+  duplicated at each call site. This is precisely why the size-floor
+  (`MIN_SOLID_MESH_DIST`) applied at `_lod_scale` couldn't drift out of sync: fade-out,
+  fade-in and spawn all inherited it in lock-step. Adding the same clamp at N call sites
+  would guarantee they eventually disagree (coverage gap → wink-out).
+
+- **Every atlas baked through the LDR SubViewport is sRGB-encoded on `get_image()`
+  readback → sample it `source_color`, never `hint_normal`/raw — regardless of what the
+  data conceptually is.** The bake emits `EMISSION = data` and the viewport sRGB-encodes
+  its framebuffer on readback, so albedo, ORM *and the camera-space NORMAL atlas* are all
+  stored sRGB and must be sRGB-decoded before use. The normal atlas bit is
+  counter-intuitive (a normal is "not a colour"), and sampling it `hint_normal` cost a
+  systematic **+0.4 tangent skew** that mis-lit crowns until 2026-07-04. **Checklist for
+  any NEW bake channel a future species needs** (e.g. an oak-specific mask/thickness
+  atlas): if it round-trips through the LDR bake viewport, it is sRGB on readback — decode
+  it `source_color`; do **not** assume a raw/`hint_*` sampler is fine because the data
+  "isn't a colour". The only exceptions are channels baked through the *linear* `hdr_2d`
+  path (e.g. the sun-visibility fit) — those are linear, sample WITHOUT `source_color`.
+  Know which viewport a channel came from before choosing the hint.
+
+- **Impostors (and the leaf/bark tiers) are OPAQUE / alpha-tested (`depth_prepass_alpha`,
+  discard-only), NOT `blend_mix` — this is a hard constraint, because Godot's transparent
+  queue does not cast shadows, and a full-tier transparent attempt tanked fps 90→32
+  (no early-Z, overdraw).** Any future crossfade/blend/see-through work on ANY species
+  must stay in the opaque queue (dither/hashed-alpha discard), or first get an explicit
+  decision to give up impostor shadow-casting. Do not re-attempt real alpha-blending of a
+  tier and re-measure the 90→32 hit; it is already known.
+
+- **For any screen-space dithered discard, use the blue-noise tile
+  (`textures/blue_noise_64.png`, global sampler `lod_blue_noise`), NOT Interleaved Gradient
+  Noise.** TAA is force-off project-wide under FSR2 (`main.gd`, a −4.6 ms win we keep), and
+  IGN is *designed* to be resolved by TAA — without it, its static pattern reads as a
+  periodic diagonal "screen-door" net. Blue noise thresholds evenly at every level → fine
+  grain instead of a net, with no temporal dependence. This applies to *any* future
+  dithered transition (new species' crossfades, any LOD/alpha fade), not just the
+  lod0↔impostor band. The dither stays screen-space (both tiers key off `FRAGCOORD`) so the
+  complementary split is water-tight — the two tiers are different geometry with no shared
+  surface coord.
+
+- **`MIN_SOLID_MESH_DIST` (40 m, tunable to ~50) is not a magic number — keep it.** Pure
+  screen-size LOD scales a small tree's whole handoff inward proportionally, so an s-tier
+  sapling's *solid* lod0 band collapsed to ~17 m and it flattened onto its flat impostor
+  billboard while a walking player was still right next to it ("cardboard mid-trees"). The
+  floor clamps `_lod_scale`'s `s` so the solid mesh band never drops below this distance,
+  regardless of how small the tree is. Applied at the chokepoint (above), so it can't
+  create a coverage gap. Removing it re-introduces the cardboard-close-up bug.
+
 ## 1. Tier architecture (target state)
 
 > **CANONICAL TIER CHAIN (since 2026-07-03): `lod0` (full base model) → `impostor`.
