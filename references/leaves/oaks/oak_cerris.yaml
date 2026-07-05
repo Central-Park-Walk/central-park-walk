@@ -1,21 +1,31 @@
-# Turkey oak — section CERRIS, DELTAS vs oak_sawtooth.yaml. Schema: SCHEMA.yaml (frozen).
-# ▲ PIN: Turkey oak = Quercus CERRIS (European, section Cerris). NOT Q. laevis (American
-#   scrub/turkey oak). Added by Chris as a research variant — NOT in the NYC census.
+# Turkey oak — section CERRIS, standalone Cerris baseline (3-oak scope). Schema: SCHEMA.yaml (PROPOSED 2026-07-04).
+# ▲ PIN: Turkey oak = Quercus CERRIS (European, section Cerris). NOT Q. laevis (American scrub/turkey oak).
+# ▲ POPULATION (2026-07-04 audit): 356 in park / 3rd most populous oak (Central Park Entire 2013) → DISTINCT
+#   geometry. Absent from the on-disk NYC street census ONLY because that dataset excludes the park interior.
+# ⏳ follow_up (TRACKED, do NOT fix this pass): the old census_basis "may double as the in-census Sawtooth oak
+#   model" cross-ref is stale (sawtooth archived out of 3-oak scope) — reconcile in Phase 2.
 
 taxon:
   common_name: Turkey oak (Turkish oak)
   binomial: Quercus cerris
   section: Cerris
   archetype_key: oak
-  in_census: false                 # ▲ ADDED — not in NYC census data
-  census_basis: "added (art target / accent); may double as the in-census Sawtooth oak model"
 
 abundance:
-  genus_total: 2613
-  species_count: 0 (not in data)
-  scatter_weight: null
-  prominence: accent (a few specimens at most) — OR re-skin of sawtooth
-  park_locations: "none confirmed; CP has occasional European-oak specimens. Decide placement in Phase 3."
+  # TWO datasets — see provenance.population_sources. Populous in the PARK survey, invisible to
+  # the on-disk street census (which excludes the park interior). Do NOT collapse to one number.
+  nyc_street_census:
+    covers_central_park: false     # street census excludes the park interior
+    resolution: genus              # Quercus aggregated to genus (2,613); no per-species count
+    species_count: null            # cerris not distinguishable on-disk — coverage gap, NOT rarity
+  park_field_survey:
+    present: true
+    species_count: 356             # Central Park Entire (2013)
+    rank: "3rd most populous oak (of 18 spp; after pin ≈half of 2,854, red 584)"
+    park_oak_total: 2854
+  scatter_weight: null             # no on-disk weight (absent from street census); placement TBD Phase 3
+  prominence: stood-under          # 356 individuals → a genuinely encountered park oak → full fidelity
+  park_locations: "per Central Park Entire (2013); specific zones to map in Phase 3 from the survey."
 
 form:                              # ▲ DELTA vs sawtooth: LARGER, conical-young → dense-rounded
   mature_height_m: [25, 40]        # 82-131 ft — much larger than sawtooth
@@ -62,12 +72,12 @@ representation:
   discriminators:
     near_L0: "narrow shallow-lobed bristle-toothed leaf + ORANGE-fissured bark + whiskered mossy acorn cup"
     mid_lod1: "large dense rounded crown + pale gold fall + winter retention"
-    far_impostor: "large rounded silhouette + gold color mass — NOT separable from sawtooth at distance"
-  legible_to_m: { leaf: 30, crown_form: 0, fall_color: 400 }
-  shared_skeleton_candidates: [sawtooth, red, scarlet, white, swamp_white]   # Skeleton A
-  shared_leaf_card_candidates: [sawtooth]                                     # Cerris toothed card
-  tiers_needed: "m/l (large tree) — OR none if it just re-skins sawtooth"
-  consolidation_note: "STRONGEST consolidation candidate: Turkey oak and Sawtooth oak share section, leaf card, gold fall, marcescence, and rounded crown. ONE Cerris model (Skeleton A + toothed card) at two size tiers, with the orange-fissured bark tint as Turkey's near-only distinctive, likely serves BOTH. Only build a distinct Turkey model if a placement need (large accent specimen) justifies it."
+    far_impostor: "large rounded silhouette + gold color mass"
+  legible_to_m: { leaf: 30, crown_form: 200, fall_color: 400 }
+  shared_skeleton_candidates: []        # ▲ DISTINCT — its own Skeleton C (large Cerris); NOT folded into A
+  shared_leaf_card_candidates: []        # own Cerris bristle-toothed card (sawtooth archived out of scope)
+  tiers_needed: "m/l (large tree), full LOD0+LOD1+impostor"
+  distinct_geometry_rationale: "REVERSED 2026-07-04: 356 individuals / 3rd most populous park oak (Central Park Entire 2013) warrants its OWN skeleton + Cerris card + orange-fissured bark. The prior 'STRONGEST consolidation candidate / accent / sawtooth re-skin' call was based on the on-disk NYC street census, which EXCLUDES the park interior and so couldn't see cerris — a dataset-coverage artifact, not low abundance."
 
 mtree_hints:
   branch_angle: ~55
@@ -77,14 +87,19 @@ mtree_hints:
   leaf_scale: 0.9 (narrow leaf)
   leaf_density: 0.7
   known_mesher_crashes: "see memory mtree_pipeline; dense large crown — watch sub_density at _l scale"
-  notes: "= sawtooth skeleton at a larger size tier; the orange-fissured bark + slightly-more-lobed card are the only Turkey-specific assets."
+  notes: "Its OWN large-Cerris skeleton (conical-young → broad rounded dense); orange-fissured bark + Cerris bristle-toothed card are Turkey-specific. Distinct model justified by the 356/3rd-most-populous park count, not consolidated."
 
 sources:
   - { claim: "25-40 m tall, conical-young→rounded dense crown; oblong leaf 5-12cm × 1.5-3cm shallow-lobed with triangular bristle teeth; pale yellow-gold late fall, marcescent young; mossy/whiskered acorn cup ⅓-½; bark deep-fissured grey-brown with orange in fissures", value: see-above, source: "Wikipedia Quercus cerris; Woodland Trust; NC State Extension; Trees & Shrubs Online; Oregon State Landscape Plants", confidence: high }
+  - { claim: "Turkey oak = 356 individuals, 3rd most populous oak in Central Park (of 2,854 oaks / 18 spp)", value: 356, source: "Chaya & Barnard, Central Park Entire (2013) field survey — via R. Cameron, 'A New Map of New York's Central Park,' International Oak Society, 2014-05-25, https://www.internationaloaksociety.org/content/new-map-new-york%27s-central-park", confidence: high }
 conflicts:
   - "Section-Cerris PIN confirmed across all sources — Q. cerris is the European Turkey oak, distinct from American Q. laevis. No on-disk doc implied otherwise."
+  - "APPARENT-ONLY (RESOLVED, not a real conflict): on-disk NYC street census shows cerris absent / genus-only, while Central Park Entire shows 356. Two different datasets — the street census excludes the park interior. Keep BOTH; the park field survey governs fidelity. Do NOT average or collapse."
 provenance:
-  filled_by: Claude (Phase 2)
-  date: 2026-06-24
-  baseline_deltas_only: true
+  filled_by: Claude (Phase 2); population corrected 2026-07-04 audit
+  date: 2026-06-24 (pop. 2026-07-04)
+  baseline_deltas_only: false      # ▲ now the STANDALONE Cerris baseline (sawtooth archived out of scope)
+  population_sources:
+    nyc_street_census: "on-disk (convert_to_godot.py + park_data.json): NYC Street Tree Census, genus-aggregated, EXCLUDES Central Park interior — cannot see cerris by species."
+    park_field_survey: "Chaya & Barnard, Central Park Entire (2013), via Cameron/Intl Oak Society 2014-05-25 (URL above): Turkey oak 356, 3rd most populous park oak. Field ground-truth, 2013 point-in-time."
 </content>

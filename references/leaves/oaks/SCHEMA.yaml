@@ -21,15 +21,23 @@ taxon:
   binomial:             # Quercus palustris | Q. rubra | Q. cerris
   section:              # Lobatae (pin, red) | Cerris (turkey)
   archetype_key: oak    # current runtime SPECIES_MAP slot (all oaks today)
-  in_census:            # true | false
-  census_basis:         # zone-list | scatter-weight | genus-comment | added(not-in-data)
 
 abundance:
-  genus_total: 2613             # shared — NYC census aggregates Quercus to genus
-  species_count:                # true count if known, else null
-  scatter_weight:               # per-zone weights (convert_to_godot.py) or null
-  prominence:                   # stood-under | passed-at-distance | accent (sets fidelity tier)
-  park_locations:               # zones it lives in
+  # TWO INDEPENDENT POPULATION DATASETS — keep BOTH; NEVER collapse to one number.
+  # (A boolean `in_census` did exactly that and mis-tiered Turkey oak — 2026-07-04 audit.)
+  # Citations in provenance.population_sources.
+  nyc_street_census:              # ON-DISK source: convert_to_godot.py SPECIES_MAP + park_data.json
+    covers_central_park: false    # NYC Street Tree Census maps STREET trees — EXCLUDES the park interior
+    resolution: genus             # aggregates all Quercus to genus (2,613) — NO per-species oak count
+    species_count: null           # not distinguishable in this dataset for ANY oak
+  park_field_survey:              # Central Park Entire / Chaya–Barnard 2013 (per-species, park-specific, cited)
+    present:                      # true | false — is this species in the park per the field survey?
+    species_count:                # per-species count (e.g. Turkey oak 356)
+    rank:                         # rank among park oaks if notable (e.g. "3rd of 18 oak species")
+    park_oak_total: 2854          # shared constant: 2,854 oaks / 18 spp in the 2013 survey
+  scatter_weight:                 # per-zone placement weight (genus-level, from on-disk census) or null
+  prominence:                     # stood-under | passed-at-distance | accent (sets fidelity tier)
+  park_locations:                 # zones it lives in
 
 form:
   mature_height_m:    [ , ]
@@ -102,3 +110,6 @@ provenance:
   filled_by:
   date:
   baseline_deltas_only:         # red=false(baseline); pin=true(vs red); turkey=false(own Cerris baseline)
+  population_sources:           # keep BOTH datasets distinct forever (2026-07-04 audit)
+    nyc_street_census: "on-disk: convert_to_godot.py SPECIES_MAP + park_data.json — NYC Street Tree Census, genus-aggregated (Quercus=2,613), EXCLUDES the Central Park interior. Cannot distinguish oak species; not a park population."
+    park_field_survey: "Ken Chaya & Edward Sibley Barnard, *Central Park Entire: The Definitive Illustrated Map* (2013) — 19,600+ trees, 173 species individually field-mapped over 2 yr. Oak breakdown (2,854 oaks, 18 spp) via Roderick Cameron, 'A New Map of New York's Central Park,' International Oak Society, 2014-05-25: https://www.internationaloaksociety.org/content/new-map-new-york%27s-central-park . Turkey oak = 356 (3rd most populous). NOTE: 2013 point-in-time FIELD census, not a live DB; predates any post-2013 loss/planting; independent ground-truth, not modeled data."

@@ -1,18 +1,25 @@
 # Oak per-LOD-tier fidelity call + build order (Phase 2 required deliverable)
 
-> **AUDIT NOTE — Q. cerris census status (2026-07-04 blindspot audit).** Turkey oak
-> (*Q. cerris*) is **confirmed NOT in the NYC census** and is an **accent-tier** taxon, NOT
-> an abundant one. Evidence: `cerris`/"turkey oak" is absent from the entire data pipeline
-> (`convert_to_godot.py` SPECIES_MAP + genus comment `:1457`), absent from `park_data.json`
-> (`cerris in file: False`), and the census aggregates *Quercus* to genus (2,613) with **no
-> per-species oak counts at all**. A claimed "~356 specimens / third-most-populous oak"
-> finding was searched for (repo, memory, notes, docs, full git history) and **does not exist
-> anywhere on disk** — it is not reconcilable because there is no source. Consequence for
-> fidelity: Turkey's prominence stays **accent** (a few specimens at most, if placed) → the
-> consolidation call below stands and if anything strengthens (it is the *weakest* case for a
-> distinct model, not the strongest). It is in the 3-oak roster only because `docs/oaks
-> prompt.txt` names it as a research/art variant, not for abundance. Any future modeling
-> spend on Turkey must be justified by a placement decision, never by census weight.
+> **AUDIT NOTE — Q. cerris population, RESOLVED (2026-07-04, supersedes earlier accent call).**
+> There are **TWO independent datasets and they do not conflict** — do not collapse them:
+> - **NYC Street Tree Census** (on-disk: `convert_to_godot.py` SPECIES_MAP + `park_data.json`):
+>   maps STREET trees, **excludes the Central Park interior**, and aggregates *Quercus* to
+>   genus (2,613) with **no per-species oak count**. cerris is correctly absent here — this
+>   dataset simply cannot see park oaks by species. Nothing to fix on-disk.
+> - **Central Park Entire field survey** (Chaya & Barnard 2013; 19,600+ trees field-mapped;
+>   oak breakdown 2,854 oaks / 18 spp via R. Cameron, Intl Oak Society 2014-05-25 —
+>   https://www.internationaloaksociety.org/content/new-map-new-york%27s-central-park):
+>   **Turkey oak = 356, the 3rd most populous oak in the park** (after pin ≈half of 2,854
+>   and red 584). Independent ground-truth field data, not modeled.
+>
+> **CONSEQUENCE — REVERSED:** Turkey oak is **NOT accent-tier and NOT a sawtooth re-skin.** At
+> 356 individuals it is a genuinely populous park oak and **warrants its own distinct-geometry
+> slot** (its own skeleton — large *Q. cerris* conical-young→broad-rounded-dense — plus the
+> Cerris bristle-toothed leaf card and orange-fissured bark). The "fold Turkey into Skeleton A
+> / re-skin sawtooth / accent" statements in the body below are **superseded by this note.**
+> Fidelity basis = the *Central Park Entire* count (356), NOT the genus-aggregated street
+> census. (Sawtooth is now out of the 3-oak roster; its dossier is archived.) The full per-tier
+> 3-oak fidelity call is re-derived in the new Phase 2; this note fixes the Turkey tier now.
 
 **Question (Chris, 2026-06-24):** for the park's oaks, decide *which skeletons* and *which
 textures* to build to best represent them **on a 3060 Ti rendering a forest at >45 fps
@@ -85,8 +92,9 @@ size tier + winter marcescence — all cheap (texture/material/runtime), not geo
 
 | asset | count | serves |
 |---|---|---|
-| **Skeleton A — rounded decurrent oak** | 1 (×s/m/l) | red, scarlet, white, swamp white, sawtooth, Turkey (per-species crown-width/size tuning) |
+| **Skeleton A — rounded decurrent oak** | 1 (×s/m/l) | red (+ scarlet/white/swamp-white/sawtooth in the old 7-taxon plan; per-species crown-width/size tuning) |
 | **Skeleton B — pin excurrent** (central leader, drooping lower limbs) | 1 (×s/m/l) | pin oak only |
+| **Skeleton C — Turkey (Cerris)** — large conical-young → broad rounded dense | 1 (×m/l) | Turkey oak only (356 in park; distinct geometry per the audit note above — NOT folded into A) |
 | **Leaf card — Lobatae bristle-lobed** | 1 | pin, red, scarlet |
 | **Leaf card — white-group rounded-lobe** | 1 | white, swamp white |
 | **Leaf card — Cerris bristle-toothed** | 1 | sawtooth, Turkey |
@@ -103,10 +111,12 @@ and keeps card count/overdraw flat.
   habit that *might* read distinctly at mid range. Decide at the white-oak mid-tier review;
   default = Skeleton A tuned wider.
 - **4th deep-sinus Lobatae card?** Decide at Lobatae Gate-1; default = one card.
-- **Swamp white & Turkey existence.** Swamp white isn't confirmed in the park data (genus
-  comment only); Turkey oak isn't in the census at all and **likely just re-skins sawtooth**
-  (same skeleton + card + gold fall; orange bark tint as its only distinctive). Confirm
-  placement need before authoring either as distinct.
+- **Turkey oak — RESOLVED as distinct (see audit note).** At **356 individuals (3rd most
+  populous park oak, Central Park Entire 2013)** it is NOT accent and NOT a sawtooth re-skin;
+  it gets its own Skeleton C + Cerris card + orange-fissured bark. (Its absence from the
+  on-disk NYC street census is a dataset-coverage artifact, not low abundance.)
+- **Swamp white existence.** *(Out of the 3-oak roster — archived. Was: not confirmed in park
+  data beyond the genus comment.)*
 - **Intra-species cloning.** With one variant per skeleton/size, a dense same-species stand
   risks visible repeats. Lean on runtime per-instance yaw / non-uniform scale / slight lean +
   color/phenology jitter; accept some repetition as temporary until the variant count reopens.
@@ -126,9 +136,10 @@ and keeps card count/overdraw flat.
 4. **White-group card + WHITE OAK** on Skeleton A (tuned wider) + pale flaky bark; decide the
    white-oak skeleton split at its mid-review. Then **SWAMP WHITE** as a recolor (golden fall
    + bicolor underside) — *only if park presence confirmed*.
-5. **Cerris card + SAWTOOTH OAK** on Skeleton A + high winter marcescence + gold-copper fall.
-   Then **TURKEY OAK** — likely a re-skin of sawtooth (larger size tier + orange-fissured bark
-   tint) — *only if a placement need justifies a distinct model*.
+5. **Cerris card + TURKEY OAK** — its own **Skeleton C** (large *Q. cerris*, conical-young →
+   broad rounded dense), Cerris bristle-toothed card, orange-fissured bark, pale-gold late
+   fall + winter marcescence. Distinct model is **justified by population** (356 / 3rd most
+   populous park oak), not a placement guess. *(Sawtooth is out of the 3-oak roster — archived.)*
 6. Downstream regen per `tree_model_redesign.md` §8 after each approved species; perf-gate ×5
    (60 open / 45 woodland).
 
