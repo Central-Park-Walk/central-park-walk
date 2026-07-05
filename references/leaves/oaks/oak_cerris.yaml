@@ -76,7 +76,8 @@ representation:
   legible_to_m: { leaf: 30, crown_form: 200, fall_color: 400 }
   shared_skeleton_candidates: []        # ▲ DISTINCT — its own Skeleton C (large Cerris); NOT folded into A
   shared_leaf_card_candidates: []        # own Cerris bristle-toothed card (sawtooth archived out of scope)
-  tiers_needed: "m/l (large tree), full LOD0+LOD1+impostor"
+  tiers_needed: "s/m/l, full LOD0+LOD1+impostor (matches pin/red — see FIDELITY_CALL.md 'Turkey oak tier note')"
+  tiers_rationale: "s/m/l NOT m/l-only. No park size-distribution data exists for the 356 → default to pin/red's s/m/l. The old m/l-only was a carried-over artifact of the dead sawtooth-covers-small-tier consolidation (archived), not a data call. Keep _s: young-tree marcescence + Cerris card make a Turkey sapling read distinct from a red sapling near-range; tree_builder routes any oak <12m to _s. Cost = one extra skeleton variant."
   distinct_geometry_rationale: "REVERSED 2026-07-04: 356 individuals / 3rd most populous park oak (Central Park Entire 2013) warrants its OWN skeleton + Cerris card + orange-fissured bark. The prior 'STRONGEST consolidation candidate / accent / sawtooth re-skin' call was based on the on-disk NYC street census, which EXCLUDES the park interior and so couldn't see cerris — a dataset-coverage artifact, not low abundance."
 
 mtree_hints:

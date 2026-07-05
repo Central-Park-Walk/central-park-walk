@@ -94,7 +94,7 @@ size tier + winter marcescence — all cheap (texture/material/runtime), not geo
 |---|---|---|
 | **Skeleton A — rounded decurrent oak** | 1 (×s/m/l) | red (+ scarlet/white/swamp-white/sawtooth in the old 7-taxon plan; per-species crown-width/size tuning) |
 | **Skeleton B — pin excurrent** (central leader, drooping lower limbs) | 1 (×s/m/l) | pin oak only |
-| **Skeleton C — Turkey (Cerris)** — large conical-young → broad rounded dense | 1 (×m/l) | Turkey oak only (356 in park; distinct geometry per the audit note above — NOT folded into A) |
+| **Skeleton C — Turkey (Cerris)** — conical-young → broad rounded dense | 1 (×**s/m/l**) | Turkey oak only (356 in park; distinct geometry — NOT folded into A). Full s/m/l per the tier note below |
 | **Leaf card — Lobatae bristle-lobed** | 1 | pin, red, scarlet |
 | **Leaf card — white-group rounded-lobe** | 1 | white, swamp white |
 | **Leaf card — Cerris bristle-toothed** | 1 | sawtooth, Turkey |
@@ -105,6 +105,24 @@ size tier + winter marcescence — all cheap (texture/material/runtime), not geo
 **This collapses 7 taxa → 2 skeletons + 3 cards.** It honors the one-variant tax (only two
 skeleton authoring lines, two impostor bakes), de-risks the impostor work (fewer atlases),
 and keeps card count/overdraw flat.
+
+### Turkey oak (Skeleton C) tier note — s/m/l, NOT m/l-only (resolved 2026-07-04)
+**Decision: full s/m/l, matching pin/red.** This is a *default-to-consistency* call, NOT a
+data-backed omission — stated explicitly so a future pass doesn't re-ask:
+- **No size/age distribution data exists** for the park's 356 Turkey oaks. The *Central Park
+  Entire* source gives counts only; the dossier's 25–40 m / DBH 60–200 cm are botanical
+  *mature* values, not a park distribution. Nothing on disk says they are all mature / that
+  there are no young specimens — so we cannot justify dropping `_s` on data.
+- **The earlier "m/l only" was a carried-over artifact**, not a call: in the dead 7-taxon plan
+  sawtooth was to cover the small end of the shared Cerris skeleton and Turkey the large end
+  (`_superseded_7taxon/oak_sawtooth.yaml:80`). Sawtooth is now archived → that reason is gone.
+- **No budget/fidelity reason to drop `_s`; there's a reason to KEEP it.** `tree_builder.gd`
+  routes any oak < 12 m to the `_s` model, and a Turkey sapling is *distinct* from a red
+  sapling near-range via the Cerris bristle-toothed card + strong **young-tree marcescence**
+  (gold leaves held into winter — strongest exactly at small/young size). Dropping `_s` would
+  forfeit that read. Cost of keeping it = one extra skeleton variant (the flat one-variant tax).
+- Revisit only if a future *Central Park Entire* size breakdown shows the 356 are effectively
+  all mature; until then, `_s` stands.
 
 ### Open splits to resolve at the gates (don't pre-build)
 - **White oak → 3rd skeleton?** Its massive low horizontal limbs are the only rounded-crown
