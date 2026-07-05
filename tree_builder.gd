@@ -734,10 +734,10 @@ func _build_trees(trees: Array) -> void:
 	# timing_off), so bake the offset relative to the season the garden is built at —
 	# then each specimen renders its own season regardless of the global season_t, and
 	# July + January can coexist under the one global uniform. Read the base once.
-	var _eval_base_season: float = 1.5
-	var _gs_season = RenderingServer.global_shader_parameter_get("season_t")
-	if _gs_season != null:
-		_eval_base_season = float(_gs_season)
+	# Read the base season from the loader (mirrors the "season_t" global shader param main
+	# set). RenderingServer.global_shader_parameter_get() is editor-only and errors at
+	# runtime, so we take the value from the source rather than reading it back.
+	var _eval_base_season: float = float(_loader.season_t)
 	for i in trees.size():
 		var tree_entry = trees[i]
 		var pt: Array

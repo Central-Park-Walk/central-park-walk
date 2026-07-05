@@ -2689,10 +2689,13 @@ func _setup_ground() -> void:
 
 	# Coarse grass macro (make_grass_macro.py): clump VALUE tone + relief NORMAL at the
 	# ~0.3-4 m world scale, so the lawn keeps textured 3D structure at distance/altitude
-	# where the fine ~1.25 m terrain texture mips to flat green. Loaded at runtime with
-	# mipmaps (no .import needed); the shader samples in world XZ, weighted up by distance.
-	var gmac := _load_img_tex_mip("res://textures/terrain3d/grass_macro.png")
-	var gmac_n := _load_img_tex_mip("res://textures/terrain3d/grass_macro_n.png")
+	# where the fine ~1.25 m terrain texture mips to flat green. Imported with mipmaps
+	# (mipmaps/generate=true in the .import) and loaded as normal resources so they survive
+	# export; the shader samples in world XZ, weighted up by distance.
+	var gmac_path := "res://textures/terrain3d/grass_macro.png"
+	var gmac_n_path := "res://textures/terrain3d/grass_macro_n.png"
+	var gmac: Texture2D = load(gmac_path) if ResourceLoader.exists(gmac_path) else null
+	var gmac_n: Texture2D = load(gmac_n_path) if ResourceLoader.exists(gmac_n_path) else null
 	if gmac:
 		_set_terrain_param(&"grass_macro_tex", gmac)
 	if gmac_n:
@@ -3837,6 +3840,7 @@ func _setup_park() -> void:
 		loader.terrain3d = _terrain3d
 	loader.tree_species_filter = _tree_species_filter
 	loader.eval_plot = _eval_plot
+	loader.season_t = _season_t
 	add_child(loader)
 	_park_loader = loader
 

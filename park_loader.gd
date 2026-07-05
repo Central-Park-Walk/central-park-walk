@@ -52,6 +52,7 @@ var _building_builder                     # building_builder.gd instance
 var _tree_builder                        # tree_builder.gd instance
 var tree_species_filter: Array = []      # CLI: only place these species (empty = all)
 var eval_plot: String = ""               # CLI --eval-plot: ""=off, "all", "trees", "undergrowth", species list
+var season_t: float = 1.5                # base season set by main (mirrors the "season_t" global shader param)
 var _eval_builder                        # eval_plot_builder.gd instance (eval runs only)
 var _boundary_builder                    # boundary_builder.gd instance
 var _furniture_builder                   # furniture_builder.gd instance
