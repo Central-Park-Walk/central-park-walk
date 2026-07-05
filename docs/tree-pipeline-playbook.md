@@ -208,6 +208,13 @@ size changed. Never trust a regen you haven't seen reload.
   reads wider than the skeleton bbox (cards extend past tips).
 - **`check_foliage_connectivity.py` is necessary but not sufficient** — it can false-pass a cluster
   on a thin/near-invisible twig. Combine it with the min-twig floor and a look at the actual render.
+- **`check_foliage_connectivity.py` FALSE-FAILS the CARD path** (2026-07-04): its `R_ATTACH=0.12u`
+  (~0.5 m, a leaf *petiole's* reach, built for the on-bark distribute path) is shorter than a card
+  SPRIG legitimately fans out, so it reports huge "leaf floating %" on perfectly good card trees —
+  **the approved, shipped `london_plane_s` reads 70.8% floating** by it. So a high leaf-floating % on
+  a card species is NOT a coherence failure. What matters for cards: **bark→trunk 100%** (structure
+  coherent) + the build's bark-stitch fusing islands to 1 + the actual render. Calibrate any card
+  species against LP's number, don't read the absolute % as a gate.
 - **Eval yaw `0.0` silently becomes 30°** — pass `0.01` for dead-north.
 - **Headless captures need `--upscale=bilinear:1.0`** (FSR2 hangs `get_image()` under xvfb).
 

@@ -122,7 +122,9 @@ Full s/m/l, matching pin/red — a *default-to-consistency* call, not a data-bac
   future *Central Park Entire* size breakdown shows the 356 are effectively all mature.
 
 ### Open splits to resolve at the gates (don't pre-build)
-- **Deep-sinus pin leaf card?** Decide at Lobatae Gate-1; default = one shared card.
+- **Deep-sinus pin leaf card?** Decide at Lobatae Gate-1; default = one shared card. **↳ Red Gate-1
+  (2026-07-04) flagged that the shared card's bottom-right leaf already reads deeper (~pin range) —
+  it may partially serve pin's silhouette on the shared card. See `CARD_GATE1_RED.md` ⚑.**
 - **Turkey's own gold impostor atlas?** Decide at the impostor gate; default = shared rounded
   atlas + gold tint (see FAR gate-flag).
 - **Intra-species cloning.** With one variant per skeleton/size, a dense same-species stand

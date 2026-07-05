@@ -814,12 +814,12 @@ SPECIES = {
         "cards_per_cluster": 1,            # the card already IS a 4-leaf sprig — 1 (default 35 = green ball)
         "card_rule_max_radius": 0.05,      # thin twigs only
         "card_rule_min_per_branch": 1,
-        "card_rule_spacing": 0.55,
+        "card_rule_spacing": 0.42,         # tighter card packing along the twig (was 0.55) — 2026-07-04 density pass vs "beads on a string" _s crown
         "card_rule_isolation_prune": False,
         "card_rule_apex_band": 0.18,       # clad the leafy apex (no bare leader spike; hard law 6)
-        "card_rule_depth_keep": {1: 0.05, 2: 0.60, 3: 1.0},  # london-plane-proven distribution: rare on primary, partial on secondary, FULL on the thin depth-3 twig order (the terminal, card-bearing order). Restored depth-3 2026-06-24 — the depth-2 cap left long bare secondaries (see-through crown); a SUB-VISIBLE thin-twig order (radius<=card_rule_max_radius 0.05, masked by its own cards) fills the crown volume the way LP does, distinct from the heavy depth-5 forks Chris banned.
+        "card_rule_depth_keep": {1: 0.30, 2: 0.85, 3: 1.0},  # OAK IS ALONG-BRANCH (playbook §4: oak/elm raise low-order keeps so foliage spreads DOWN the limb, not just tips). Was tip-biased {1:0.05,2:0.60,3:1.0} (london-plane pattern) → left long bare secondaries + a see-through "beads on a string" _s crown (2026-07-04 render). Raised orders 1/2 so cards clad the primaries + most of the secondaries → fills gaps AND widens the silhouette. Depth-3 = the thin terminal twig order (radius<=card_rule_max_radius, masked by its own cards); heavy depth>=4 forks stay banned.
         "card_size_floor": 0.42,           # sapling crown not see-through (gate-safe)
-        "tier_fraction": {"l": 1.0, "m": 0.40, "s": 0.24},  # _s bumped 0.18→0.24 (~122→163 cards) to fill the young crown without enlarging leaves (2026-06-24)
+        "tier_fraction": {"l": 1.0, "m": 0.40, "s": 0.34},  # _s 0.24→0.34 (2026-07-04) — more cards to fill the young crown (density pass); leaves NOT enlarged (Chris: card already >= natural)
         "target_cluster_count_l": 680,
         "base_seed": 105,   # shifted from 100 to avoid Mtree mesher crash at _m tier
         "seed_step": 23,
@@ -840,9 +840,9 @@ SPECIES = {
             # then let ~1 cluster/branch fill it. (First _s was a sparse leaning whip: the old
             # override LOWERED density to 0.7/0.30/0.4 → only 32 branches/56 clusters.)
             "s": {"target_h": 10, "height_range": [8, 12], "skeleton_overrides": {
-                "branch_density": 1.0,         # richer primary count (was 0.7)
+                "branch_density": 1.1,         # richer primary count (was 0.7→1.0; 1.1 held per memory, <1.5 crash band) — 2026-07-04 density pass
                 "branch_split_prob": 0.55,     # more forks → more tips to clad (was 0.30)
-                "sub_density": 1.2,            # more twigs (was 0.4; held below the ~1.5 crash band)
+                "sub_density": 1.4,            # more twig structure to clad (was 0.4→1.2→1.4; held below the ~1.45 crash line) — "more structure fills gaps better than more leaves" (Chris)
                 "branch_end": 0.95,            # branches reach near the apex (clad the top)
                 "branch_angle_variation": 0.50,
                 "branch_flatness": 0.40,       # baseline (reset 2026-06-24 single-var test)
