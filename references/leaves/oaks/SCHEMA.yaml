@@ -1,15 +1,25 @@
-// FROZEN 2026-06-24 (Chris approved, Phase 1 gate passed). Every oak fills this
-// structure identically as oak_<key>.yaml. Rules (from the pipeline
-// brief): proportions over absolutes, cite every measurement, FLAG conflicts — never
-// average blindly. Phase 2 establishes the Lobatae baseline once, then each file
-// records DELTAS against it (provenance.baseline_deltas_only).
+// PROPOSED 2026-07-04 (Phase 1 re-run, awaiting Chris approval — NOT yet frozen).
+// Scope: THREE oaks per `docs/oaks prompt.txt` — Pin (Q. palustris), Red (Q. rubra),
+// Turkey (Q. cerris). Supersedes the 2026-06-24 7-taxon freeze (scarlet/white/
+// swamp-white/sawtooth dropped as scope-creep; their dossiers archived under
+// _superseded_7taxon/). Harvested from that frozen schema — structure unchanged,
+// only the section/archetype enums and consolidation candidate pools re-scoped to
+// the 3-oak roster.
+//
+// Every oak fills this structure identically as oak_<key>.yaml. Rules (from the
+// pipeline brief): proportions over absolutes, cite every measurement, FLAG conflicts
+// — never average blindly. Phase 2 establishes the Lobatae baseline once (Red), then
+// Pin records DELTAS against it; Turkey (Cerris) is its own standalone baseline.
+//
+// PIN THIS: Turkey oak = Quercus cerris (European, section Cerris). NOT Q. laevis
+// (American scrub/turkey oak) — entirely different leaves.
 //
 // (YAML body below; this header is comment-style for readability only.)
 
 taxon:
-  common_name:          # e.g. Pin oak
-  binomial:             # e.g. Quercus palustris
-  section:              # Lobatae | Quercus(white) | Cerris
+  common_name:          # Pin oak | Northern red oak | Turkey oak
+  binomial:             # Quercus palustris | Q. rubra | Q. cerris
+  section:              # Lobatae (pin, red) | Cerris (turkey)
   archetype_key: oak    # current runtime SPECIES_MAP slot (all oaks today)
   in_census:            # true | false
   census_basis:         # zone-list | scatter-weight | genus-comment | added(not-in-data)
@@ -37,16 +47,16 @@ bark:
   distinctive:                  # bool — does bark separate this oak near?
 
 leaf:
-  archetype:                    # lobed-bristle(Lobatae) | lobed-rounded(white) | toothed(Cerris)
+  archetype:                    # lobed-bristle (Lobatae: pin, red) | toothed (Cerris: turkey)
   reference_image:              # path to flat-on-white / wire-mesh ref it's measured from
   length_cm:          [ , ]
   width_cm:           [ , ]
   length_to_width:              # proportion (transfers to any target size)
-  lobe_or_tooth_count:          # lobes/side (Lobatae,white) or teeth/side (Cerris)
+  lobe_or_tooth_count:          # lobes/side (Lobatae) or teeth/side (Cerris)
   sinus_depth_frac:             # sinus depth / half-blade-width (0 entire .. ~0.9 deep)
-  lobe_tip:                     # bristle-pointed | rounded | toothed
+  lobe_tip:                     # bristle-pointed | toothed
   bristle_tips:                 # y | n
-  margin:                       # bristle-lobed | rounded-lobed | triangular-toothed
+  margin:                       # bristle-lobed (Lobatae) | triangular-toothed (Cerris)
   phyllotaxy: alternate         # confirm per species
   shape_resolves_at_m:          # distance beyond which leaf SHAPE stops resolving (~30 m)
 
@@ -59,19 +69,20 @@ color:
 
 fruit:
   acorn:                        # size, cap coverage
-  cupule:                       # scaly | mossy/whiskered(Cerris) — near-only recognition cue
+  cupule:                       # scaly (Lobatae) | mossy/whiskered (Cerris) — near-only cue
   note:
 
-# THE RESEARCH DELIVERABLE — per-LOD-tier discriminability vs the OTHER oaks.
+# THE RESEARCH DELIVERABLE — per-LOD-tier discriminability vs the OTHER two oaks.
 # Drives the "distinct geometry vs shared+texture vs consolidate" call in Phase 2.
+# Answer PER TIER (near/L0 vs mid/lod1 vs far/impostor), never as one global call.
 representation:
   discriminators:
     near_L0:                    # what separates this oak < ~30 m (leaf / bark / acorn)
     mid_lod1:                   # what separates it ~30–200 m (crown shape, density, fall color)
     far_impostor:               # what separates it > ~200 m (silhouette, color mass)
   legible_to_m:                 # distance each discriminator stops being legible
-  shared_skeleton_candidates:   # taxa it could share a SKELETON with (consolidation)
-  shared_leaf_card_candidates:  # taxa it could share a LEAF CARD with
+  shared_skeleton_candidates:   # of {pin, red, turkey} — which it could share a SKELETON with
+  shared_leaf_card_candidates:  # of {pin, red, turkey} — which it could share a LEAF CARD with
   tiers_needed:                 # s/m/l + which LODs per existing TIER_BOUNDS
 
 mtree_hints:
@@ -90,5 +101,4 @@ conflicts:                      # ambiguous/contradictory data — list, do NOT 
 provenance:
   filled_by:
   date:
-  baseline_deltas_only: true    # Lobatae baseline set once; this file = deltas vs it
-</content>
+  baseline_deltas_only:         # red=false(baseline); pin=true(vs red); turkey=false(own Cerris baseline)

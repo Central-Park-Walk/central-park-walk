@@ -1,5 +1,19 @@
 # Oak per-LOD-tier fidelity call + build order (Phase 2 required deliverable)
 
+> **AUDIT NOTE — Q. cerris census status (2026-07-04 blindspot audit).** Turkey oak
+> (*Q. cerris*) is **confirmed NOT in the NYC census** and is an **accent-tier** taxon, NOT
+> an abundant one. Evidence: `cerris`/"turkey oak" is absent from the entire data pipeline
+> (`convert_to_godot.py` SPECIES_MAP + genus comment `:1457`), absent from `park_data.json`
+> (`cerris in file: False`), and the census aggregates *Quercus* to genus (2,613) with **no
+> per-species oak counts at all**. A claimed "~356 specimens / third-most-populous oak"
+> finding was searched for (repo, memory, notes, docs, full git history) and **does not exist
+> anywhere on disk** — it is not reconcilable because there is no source. Consequence for
+> fidelity: Turkey's prominence stays **accent** (a few specimens at most, if placed) → the
+> consolidation call below stands and if anything strengthens (it is the *weakest* case for a
+> distinct model, not the strongest). It is in the 3-oak roster only because `docs/oaks
+> prompt.txt` names it as a research/art variant, not for abundance. Any future modeling
+> spend on Turkey must be justified by a placement decision, never by census weight.
+
 **Question (Chris, 2026-06-24):** for the park's oaks, decide *which skeletons* and *which
 textures* to build to best represent them **on a 3060 Ti rendering a forest at >45 fps
 @ 1080p** — and **where a difference can't be portrayed noticeably at gameplay distance,
