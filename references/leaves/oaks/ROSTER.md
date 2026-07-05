@@ -35,8 +35,13 @@ Implications folded into Phase 2:
   for now. A one-variant stand risks visible cloning; note it as accepted-temporary.
 - Revisit variant count once london plane's impostor path is settled (may reopen 5–8).
 
-Phase 1 schema: **PROPOSED** 2026-07-04 (re-run, 3-oak scope; `SCHEMA.yaml`). NOT frozen —
-awaiting Chris approval. (Supersedes the 2026-06-24 7-taxon freeze.)
+Phase 1 schema: **FROZEN** 2026-07-04 (Chris approved, 3-oak scope; `SCHEMA.yaml`).
+Supersedes the 2026-06-24 7-taxon freeze.
+
+> **Phase 2 carry-over (TRACKED):** the harvested `oak_pin.yaml` / `oak_red.yaml` still use the
+> OLD census fields (`in_census` boolean + `genus_total`); conform them to the frozen two-dataset
+> `abundance` structure in Phase 2, and fill park counts from *Central Park Entire* (pin ≈half of
+> 2,854; red 584) — NOT the street census. `oak_cerris.yaml` is already conformed.
 
 ## Research roster — 3 oaks (per `docs/oaks prompt.txt`)
 

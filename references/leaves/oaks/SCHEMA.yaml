@@ -1,10 +1,11 @@
-// PROPOSED 2026-07-04 (Phase 1 re-run, awaiting Chris approval — NOT yet frozen).
+// FROZEN 2026-07-04 (Chris approved — Phase 1 re-run, 3-oak gate passed).
 // Scope: THREE oaks per `docs/oaks prompt.txt` — Pin (Q. palustris), Red (Q. rubra),
 // Turkey (Q. cerris). Supersedes the 2026-06-24 7-taxon freeze (scarlet/white/
 // swamp-white/sawtooth dropped as scope-creep; their dossiers archived under
-// _superseded_7taxon/). Harvested from that frozen schema — structure unchanged,
-// only the section/archetype enums and consolidation candidate pools re-scoped to
-// the 3-oak roster.
+// _superseded_7taxon/). Harvested from that schema; the section/archetype enums and
+// consolidation pools were re-scoped to the 3-oak roster, and the census `in_census`
+// boolean was replaced by a two-dataset abundance structure (street census vs
+// Central Park Entire field survey) after the 2026-07-04 Q. cerris population audit.
 //
 // Every oak fills this structure identically as oak_<key>.yaml. Rules (from the
 // pipeline brief): proportions over absolutes, cite every measurement, FLAG conflicts
