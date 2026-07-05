@@ -2554,19 +2554,24 @@ func _setup_environment() -> void:
 	_sun.shadow_enabled = true
 	_sun.light_angular_distance = 1.5  # soft penumbra — velvety shadows
 	_sun.light_volumetric_fog_energy = 5.0  # stronger god rays for Crimson-Desert-style forest shafts
-	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
-	_sun.directional_shadow_split_1      = 0.05   # tighter first cascade for near-field detail
-	_sun.directional_shadow_split_2      = 0.15
-	_sun.directional_shadow_split_3      = 0.4
+	# 2 cascades (was SHADOW_PARALLEL_4_SPLITS): ADOPTED 2026-07-05 from the
+	# woodland-perf-investigation mission (Lever 3, "splits2"). Halving the cascade
+	# count halves the shadow-tri count (shtri: Ramble 2.19→1.10M, N.Woods 2.33→1.17M)
+	# — the biggest single GPU win of that mission: North Woods −3.9ms/+2fps, Ramble
+	# −1.9ms/+1fps. Walk-checked clean at North Woods (no cascade swim, no seam, no
+	# near-field acne; only a subtle mid-ground shadow softening). --shadow-splits=4
+	# restores the old 4-cascade behaviour for A/B. Only split_1 is used in 2-split
+	# mode (the single 7.5m cascade boundary); split_2/3 below are vestigial (kept so
+	# --shadow-splits=4 still reads its 3 boundaries).
+	_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	_sun.directional_shadow_split_1      = 0.05   # near/far cascade boundary at 7.5m (of 150m max)
+	_sun.directional_shadow_split_2      = 0.15   # (4-split only)
+	_sun.directional_shadow_split_3      = 0.4    # (4-split only)
 	# 150m max (was 300): LOD0 fade ends at 100m, so 150m keeps full
-	# shadow coverage through LOD0 with a small buffer. Halving the
-	# distance halves the cascade area → ~half as many LOD0 trees draw
-	# into each cascade per frame. With 6808 LOD0 shadow casters in the
-	# Ramble × 4 cascades, this is the biggest per-frame win available
-	# without dropping a quality knob.
+	# shadow coverage through LOD0 with a small buffer.
 	_sun.directional_shadow_max_distance = 150.0
 	_sun.directional_shadow_pancake_size = 20.0
-	_sun.directional_shadow_blend_splits = true  # smooth the 7.5m/22.5m/60m cascade boundaries
+	_sun.directional_shadow_blend_splits = true  # smooth the 7.5m cascade boundary
 	add_child(_sun)
 
 	# Perf-experiment overrides (scripts/perf_bisect.sh)

@@ -79,17 +79,18 @@ number.
 > `_lod1` GLBs were deleted. **Legacy `lod1`/`lod2`/`TreeL2` tokens linger in older
 > prose — §2 body (dated as-built logs), §4–§9 — they describe retired tiers; the live
 > chain is lod0 → impostor. Where old prose contradicts this banner on numbers, the
-> banner wins: `IMPOSTOR_FAR` is **800 m** (not 2500), the handoff is **40–80 m** (not
-> 250/340/400 m), and the impostor's crossfade partner is **lod0** (not `_lod1`).**
+> banner wins: `IMPOSTOR_FAR` is **800 m** (not 2500), the crossfade band is **60–80 m**
+> (`LOD_FADE_RATIO` 0.25, adopted 2026-07-05; was 40–80 at 0.5; not 250/340/400 m), and the
+> impostor's crossfade partner is **lod0** (not `_lod1`).**
 
 | tier | range | fade | representation | casts shadow | lit |
 |---|---|---|---|---|---|
-| lod0 (near) | 0–80 m | solid 0–40 m, dither out 40–80 m | `{species}_{s,m,l}` — the **full base model**, MMI per species-size × 80 m chunk | **never** (proxy does) / own per-leaf when proxy off | runtime sun + ambient |
+| lod0 (near) | 0–80 m | solid 0–60 m, dither out 60–80 m | `{species}_{s,m,l}` — the **full base model**, MMI per species-size × 80 m chunk | **never** (proxy does) / own per-leaf when proxy off | runtime sun + ambient |
 | shadow proxy | 0–290 m | none (pops with cascade distance, invisible; shadow distance is 150 m so the 290 m cap is never the binding limit) | trunk cylinder + crown hull ≤ ~300 tris, alpha-test dapple mask, MMI `SHADOWS_ONLY` | is the shadow | n/a |
-| impostor | 40–800 m | dither in 40–80 m (complementary to lod0), solid 80→800 m | **16×16** hemisphere octahedral, 2048² albedo+normal+orm+vis atlas per species-tier, **baked from lod0** (§2, as-built 2026-06-23, sun-visibility 2026-07-02, lod0-source 2026-07-03) | never | **runtime sun + ambient** |
+| impostor | 60–800 m | dither in 60–80 m (complementary to lod0), solid 80→800 m | **16×16** hemisphere octahedral, 2048² albedo+normal+orm+vis atlas per species-tier, **baked from lod0** (§2, as-built 2026-06-23, sun-visibility 2026-07-02, lod0-source 2026-07-03) | never | **runtime sun + ambient** |
 
-The lod0 → impostor handoff is `_mesh_fade_end` (**80 m default**, `LOD_FADE_RATIO` 0.5 →
-band [40, 80]; Chris 2026-07-03), height-scaled per tree via `_lod_scale` so every tree
+The lod0 → impostor handoff is `_mesh_fade_end` (**80 m default**, `LOD_FADE_RATIO` 0.25 →
+band [60, 80]; adopted 2026-07-05, was 0.5→[40,80]), height-scaled per tree via `_lod_scale` so every tree
 switches at the same on-screen size (tunable `--tree-mesh-range=N`). lod0 is the
 full-detail mesh, only needed close; past ~80 m the octahedral impostor reads as well
 and is far cheaper. Impostors run out to `IMPOSTOR_FAR` = 800 m.

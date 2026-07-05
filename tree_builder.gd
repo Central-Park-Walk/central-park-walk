@@ -97,8 +97,8 @@ var _bake_impostors_species: String = ""
 # the near mesh. The dither band (LOD_FADE_RATIO of this) and mesh chunk visibility
 # derive from it. Shadow proxies are NOT tied to it — they keep casting to 290m.
 #
-# Default 80 (Chris 2026-07-03): lod0 renders solid to ~40m, dither-transitions to the
-# impostor over 40–80m (LOD_FADE_RATIO 0.5), so the handoff is COMPLETE by 80m; the
+# Default 80 (Chris 2026-07-03): lod0 renders solid to ~60m, dither-transitions to the
+# impostor over 60–80m (LOD_FADE_RATIO 0.25), so the handoff is COMPLETE by 80m; the
 # impostor then carries 80m → IMPOSTOR_FAR (800m). lod0 is the full-detail mesh, only
 # needed close; past ~80m the octahedral impostor reads as well and is far cheaper.
 var _mesh_fade_end: float = 80.0
@@ -114,18 +114,23 @@ const REF_TREE_HEIGHT: float = 22.0  # m — height the 40/80m defaults were tun
 # Min/max clamp keeps extreme variants sane (tiny shrubs don't pop at 30m; giant
 # elms don't carry full mesh absurdly far).
 const LOD_SCALE_RANGE := Vector2(0.40, 1.60)
-# Crossfade dither band as a fraction of the lod0→impostor handoff distance. 0.5
-# (Chris 2026-07-03) puts the transition band at [40, 80]m for a REF_TREE_HEIGHT tree:
-# lod0 solid 0–40m, dither-crossfade to impostor 40–80m. Computed inline at each fade
-# site so a CLI range override (--tree-mesh-range) tracks automatically.
-var LOD_FADE_RATIO: float = 0.5  # tunable via --lod-fade-ratio= (transition-zone width vs overdraw cost)
+# Crossfade dither band as a fraction of the lod0→impostor handoff distance. 0.25
+# (ADOPTED 2026-07-05, woodland-perf-investigation Lever 2 "fade025"; was 0.5) puts the
+# transition band at [60, 80]m for a REF_TREE_HEIGHT tree: lod0 solid 0–60m,
+# dither-crossfade to impostor 60–80m. Narrowing the band shrinks the dither-overlap
+# annulus where BOTH the lod0 mesh AND the impostor draw, dropping impostor draws from
+# the 40–60m ring: North Woods −1.3M vistri/−1.6ms/+1fps (null at Ramble). Walk-checked
+# clean (no mesh→impostor pop). Bonus: it WIDENS the near solid-mesh band (60m vs 40m)
+# so it is safer against the "cardboard mid-trees" symptom, not worse. Computed inline at
+# each fade site so a CLI range override (--tree-mesh-range) tracks automatically.
+var LOD_FADE_RATIO: float = 0.25  # tunable via --lod-fade-ratio= (transition-zone width vs overdraw cost)
 # FLOOR (metres) for the size-scaled lod0-SOLID distance. The per-tree height scale
 # (_lod_scale) pulls a small tree's whole handoff IN proportionally, so an s=0.40 sapling
-# would render solid lod0 only to ~16m (80×0.40×0.5) and then flatten to a flat impostor
-# while still reading as "up close" to a walking player — the root cause of Chris's
-# "cardboard mid-trees" complaint (2026-07-04). This floors the SOLID band so no tree
-# hands off to its impostor nearer than this, regardless of size. Large trees clear it
-# already (solid = 40×s > this for s > 1.0) so they are unaffected — only s < 1.0 trees
+# would render solid lod0 only to ~24m (80×0.40×0.75, at LOD_FADE_RATIO 0.25) and then
+# flatten to a flat impostor while still reading as "up close" to a walking player — the
+# root cause of Chris's "cardboard mid-trees" complaint (2026-07-04). This floors the SOLID
+# band so no tree hands off to its impostor nearer than this, regardless of size. Large
+# trees clear it already (solid = 60×s > this for s > 1.0) so they are unaffected — only s < 1.0 trees
 # are pulled back out to the floor. Applied in _lod_scale as a scale floor derived from
 # this metre value, so it tracks --tree-mesh-range / --lod-fade-ratio overrides and the
 # whole (mesh fade-out / impostor fade-in / spawn) band stays consistent. Tunable — bump
