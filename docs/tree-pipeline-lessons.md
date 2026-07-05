@@ -57,6 +57,19 @@ banner, the banner wins.**
   asset (LOD, impostor, proxy) must either regenerate automatically with its source or not
   exist. The "far handoff where it's noticeable" job lod1 did is covered by the
   density-modulated handoff (`--density-lod`, openness baked per tree in cd.b at placement).
+  COROLLARY (2026-07-05): the reverse rot also bites — when lod0 changes, the impostor atlas
+  must be **rebaked or it silently keeps the OLD silhouette**. The london_plane s/m skeleton
+  fix (`137f286`) regenerated lod0 but not the atlas; at impostor range s/m reverted to the
+  pre-fix sparse crown until `--bake-impostors=london_plane` + reimport (closed 2026-07-05:
+  s atlas +36% crown-fill, m apex bare-leader clad over, **l byte/visually identical** — l is
+  structurally unaffected by the s/m fix, so rebaking it is pure parity, no content change).
+- **IMPOSTOR BAKE IS SLOW — the `vis` channel is ~6 min/tier; use `timeout ≥2400s`.**
+  (2026-07-05) `--bake-impostors=<sp>` bakes all 3 tiers (summer albedo/normal/orm/**vis** +
+  winter albedo/normal/orm) + manifest in ONE process. Most channels write in ~20 s but the
+  summer sun-visibility (`vis`) raymarch takes **~360 s each**, so a full london_plane bake is
+  ~25 min. A 1200 s timeout dies mid-`l` (partial atlases + STALE manifest, which is written
+  LAST). Gate on the `Impostor bake complete` log line + a fresh manifest mtime, never on
+  "some PNGs updated." It genuinely uses the RTX 3060 Ti (not llvmpipe) under `xvfb-run`.
 - **CALIBRATE CLASSIFIER THRESHOLDS TO THE MEASURED DISTRIBUTION, not intuition.**
   (2026-07-03, 0f1f42f) Density-LOD's "dense" threshold was 9 neighbours within 18 m — but
   the placed-tree histogram has mean 4.7, so woods trees classed "open" and the feature
