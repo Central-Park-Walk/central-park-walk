@@ -1,0 +1,15 @@
+{
+  "n_sprigs": 809,
+  "n_edges": 1082,
+  "n_primaries": 4,
+  "hops": {
+    "min": 2,
+    "med": 6,
+    "max": 6,
+    "mean": 5.84
+  },
+  "height_m": 14.4,
+  "dbh_in": 15,
+  "crown_base_m": 5.3,
+  "crown_rx_m": 5.3
+}
