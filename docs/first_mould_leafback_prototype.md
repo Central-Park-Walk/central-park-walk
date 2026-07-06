@@ -248,15 +248,15 @@ skeleton *derived by merging inward*, with hop count emerging from the geometry
 rather than being imposed.
 
 **Does not yet establish:** (a) the crown shape is a reference stand-in, not a
-reconstructed CP volume — the iNat multi-angle pull (crown audit §"Optional next
-step") should precede any real mould; (b) tuning of merge radius / trunk-pull vs.
-real branch topology (the `…branch_structure.jpg` from-below scaffold ref is the
-check); (c) nothing here is wired into Godot or the s/m/l pipeline.
+reconstructed CP volume (⚠ but see the RETIRED-gap note at the end of Part D — a
+*distribution* method does not need one triangulated volume); (b) tuning of merge
+radius / trunk-pull vs. real branch topology (the `…branch_structure.jpg` from-below
+scaffold ref is the check); (c) nothing here is wired into Godot or the s/m/l pipeline.
 
-**Recommended next step (for sign-off):** run the iNat *Platanus* CP-bbox pull
-for 2–3 mature open-grown specimens at ≥2 angles, rebuild this one mould against a
-real crown outline, and only then discuss crown-type buckets. **Stopping here per
-the task's step-6 boundary.**
+**Next steps (both now DONE):** ~~run the iNat *Platanus* CP-bbox pull, rebuild the
+mould against a real outline, then discuss crown-type buckets~~ → iNat pull = Part C,
+rebuild = Part D, **crown-type buckets adopted in
+[`docs/crown_type_buckets.md`](crown_type_buckets.md).**
 
 ---
 
@@ -337,9 +337,19 @@ merges than a taller pointed dome. Visuals: `tmp/leafback_v2_compare.png`
 `tmp/leafback_v2_stats.json`.
 
 **Still a stand-in caveat:** the v2 crown is derived from **one clean full specimen
-broadened by two others** — a real, measured outline, but single-angle-sourced (no
-multi-angle triangulation, no aerial plan). It is a genuine step up from the v1
-placeholder, not a fully reconstructed volume.
+broadened by two others** — a real, measured outline, but single-angle-sourced. It is
+a genuine step up from the v1 placeholder, not a fully reconstructed volume.
 
-**STOPPING here per the task gate — no crown-type bucket discussion.** That
-conversation is deferred to after this result is reviewed.
+> **★ Multi-angle / aerial "gap" RETIRED 2026-07-06 (not a defect, not a task).** The
+> single-angle-per-tree limitation flagged throughout Parts B–D is **no longer a
+> concern.** Leaf-back construction makes per-angle typicality a property of the
+> *method*: the skeleton is derived from a filled crown envelope, so a tree reads as
+> typical-for-species-and-age **from every angle by construction** — there is no
+> jitter-guesswork step for an odd angle to expose. Triangulating one specimen would
+> matter for *reconstructing that tree*; we build a **distribution**, and the envelope
+> (clear-bole + aspect + widest-fraction) is all the method consumes. **Do not scope
+> aerial/street-view/multi-angle capture.**
+
+**STOPPING here per the task gate.** Crown-type buckets were the next conversation —
+now **adopted in [`docs/crown_type_buckets.md`](crown_type_buckets.md)** (3 buckets:
+Upright Ovoid / Broad Dome / Low-Forked Spread).

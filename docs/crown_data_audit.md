@@ -155,6 +155,16 @@ All confirmed by inspection; nothing here shows a whole crown.
 
 ## Coverage gaps for mould-building purposes — stated plainly
 
+> **★ UPDATE 2026-07-06 — gaps 1 & 3 RETIRED, not closed by more data.** The
+> leaf-back method that followed this audit does **not** need multi-angle or aerial
+> coverage: it derives the skeleton from a filled crown *envelope*, so a built tree
+> reads as typical from every angle by construction (no triangulation of a single
+> real volume required — we build a *distribution*). Gaps 1 and 3 are therefore **no
+> longer work items.** Gap 2 (thin specimen count) was materially eased by the iNat
+> pull (~4 summer + ~2–3 winter clean crowns). See `docs/first_mould_leafback_prototype.md`
+> Parts C–D and `docs/crown_type_buckets.md`. The "Optional next step" below is
+> **withdrawn** — do not run further capture.
+
 This is where the audit stops. **No mould-building recommendation is made.**
 The gaps, in priority order:
 
@@ -187,7 +197,12 @@ confidence. Flagging the gap and stopping, per atomic-investigation discipline.
 
 ---
 
-## Optional next step (flagged, NOT performed)
+## Optional next step (WITHDRAWN 2026-07-06 — see update box above)
+
+> This step was flagged before the leaf-back method existed. It is **withdrawn**: the
+> multi-angle/aerial gap it targeted is retired (a distribution method doesn't need a
+> triangulated volume), and the iNat pull it proposed has already run (Part C). Kept
+> below only as a record of the original reasoning.
 
 A broader web/reference pull would **plausibly** close gaps 1–3 cheaply:
 - Open-grown *Platanus × acerifolia* specimens are common and well-photographed.
