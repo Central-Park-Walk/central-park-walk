@@ -1,14 +1,17 @@
-# s/m/l → Crown-Type Bucket Migration — PLAN (gated on review)
+# s/m/l → Crown-Type Bucket Migration
 
-> **Status:** REPORT ONLY. **No code or config edited.** This enumerates every
-> touch-point, states the old-tier reassignment, specifies the new form-field wiring,
-> and gives the Low-Forked Spread LOD budget numbers with an explicit
-> adjusted-or-not conclusion. **Per the task gate + `crown_type_buckets.md` context
-> ("gate on review before touching runtime-facing config"), nothing runtime-facing has
-> been changed — awaiting review before edits and before running against live trees.**
-> **Date:** 2026-07-06 · **By:** Opus 4.8 (1M). Follows
-> [`crown_type_buckets.md`](crown_type_buckets.md) §4 and
+> **Status:** CONFIG LANDED (commit `75979d2`) + **REGEN PHASE STOPPED FOR REVIEW.**
+> The §6 config was approved and landed. Regenerating the retargeted meshes then
+> surfaced **two findings that block the "verify distinct forms" step** — reported in
+> §8. Impostor re-bake and live-sim verify were **not run** (stopped on the "if
+> anything looks off, don't push through" rule). **Date:** 2026-07-06 · **By:** Opus
+> 4.8 (1M). Follows [`crown_type_buckets.md`](crown_type_buckets.md) §4 and
 > [`leafback_bucket_validation.md`](leafback_bucket_validation.md).
+>
+> **★ READ §8 FIRST** — the LOD-budget lever (`tier_fraction`) is **inert for London
+> plane**, and the regenerated crowns are **old parametric shapes scaled**, not the
+> new bucket forms, because the leaf-back mould is not yet wired into generation.
+> §0–§6 below are the (still-valid) config plan; §8 is what actually happened on run.
 
 ---
 
@@ -254,13 +257,93 @@ impostor atlases; (5) verify in the eval garden, then the park. **Steps 2–5 ar
 
 ---
 
-## 7. STOP — awaiting review
-Per the task gate: **no runtime-facing config has been edited.** This report is the
-review artifact. On sign-off of (a) the repoint-vs-rename decision (§0), (b) the
-old-tier reassignment (§2), and (c) the `tier_fraction` 0.60 target (§5), the config
-edits in §6 can land, followed by the gated regeneration/measure/re-bake phase.
+## 7. Config land (DONE — commit `75979d2`)
+Approved §6 config landed across 3 files + this doc: `tree_builder.gd` (TIER_BOUNDS
+`[12,18]`, HEIGHT_RANGES top `28`), `generate_trees_mtree.py` (LP tiers retargeted
+s 10 / m 15 / l 22, `crown_bucket` metadata added per tier), `eval_plot_builder.gd`
+(STAND_ROWS 10/15/22). `crown_bucket` verified inert to the current generation path
+(tier cfg is read by explicit keys only). Then the gated regen phase was run — see §8.
+
+---
+
+## 8. Regeneration findings (STOP-and-report — the verify phase cannot pass yet)
+
+Ran `blender4 … generate_trees_mtree.py -- --species london_plane --tier {m,l}
+--no-fork-test` on the landed config. Two findings, both material, both exactly what
+the "count the actual cards / verify the forms" gate exists to catch.
+
+### Finding 1 — `tier_fraction` is INERT for London plane; the LOD-budget lever was wrong
+**Measured `_l` (Low-Forked Spread, target 22 m): 774 leaf clusters** (`h=26.3 m,
+w=3.2 m`, seed 300). `_m` (Broad Dome, target 15 m): **190 clusters** (`h=16.2 m,
+w=3.0 m`). Neither is near the report's ~2686 baseline / ~2754 prediction — because
+**that whole budget arithmetic used the wrong lever and the wrong card population:**
+
+- **LP is on the card-per-branch RULE path, not the distribute path.** LP sets
+  `distribute_tiers: []` (the comment at L718 literally calls the alternative "the dead
+  3D-leaf path") and `card_leaf_rule: True`. Its card count comes from the RULE
+  function (prints `card per-branch (RULE): N clusters across M branches`), governed by
+  **`card_rule_depth_keep` + `card_rule_spacing` + skeleton branch count**. That
+  function **never reads `tier_fraction`.**
+- **`tier_fraction` is only read at L2521**, inside the foliage-DISTRIBUTE path
+  (`target_count = target_l × tier_fraction[tier]`) — which LP disables. So
+  **`tier_fraction["l"] 1.0→0.60 has zero effect on LP's LOD0 card count.** Verified:
+  the `_l` regen produced 774 clusters; it would be 774 at either value.
+- The report's §5 arithmetic (raw mould-sprig × tier_fraction ≈ cards) was doubly
+  mis-premised: the mould sprig cloud is **not** the wired card population (the RULE
+  path is), and `tier_fraction` is **not** LP's card scaler.
+
+**Action taken:** reverted `tier_fraction["l"]` to `1.0` with a comment recording the
+finding (it is a proven no-op, and the 0.60 comment's justification was false — leaving
+it would be misleading, not honest). This is **not** a silent re-tune to hit a number:
+no number was forced, an ineffective change was removed and documented. **LP's real
+card lever is `_LP_V2_L_DEPTH_KEEP {1:0.047, 2:0.47, 3:0.78}` + `card_rule_spacing`** —
+if Low-Forked Spread's card budget ever needs pulling, that is the knob, and it should
+be set against a **measured** count, not the mould prediction. With the retarget alone
+(30→22 m, a shorter tree = fewer branches), `_l` already dropped to 774 clusters.
+
+### Finding 2 — regenerated crowns are OLD parametric shapes scaled, NOT the bucket forms
+The `crown_bucket` fields (`clear_bole_frac`, `aspect_wh`) are **inert** — the Mtree
+skeleton generation reads none of them. So the shape is still the old parametric
+candelabra, only scaled to the new target height:
+
+- **Measured skeleton width is clamped ~3.0–3.2 m** for both tiers (`_m` w=3.0, `_l`
+  w=3.2), i.e. skeleton aspect ~0.12. This is a **known pre-existing Mtree limitation**
+  (L863 comment, 2026-06-24: *"crown width is clamped ~3.3m by Mtree crown/gravity
+  internals — crown_base_size, up_attraction, branch_angle & length all proved ~no-op
+  on measured width"*). The foliated crown reads a bit wider than the skeleton bbox
+  (cards over-hang), but **nowhere near the Low-Forked Spread's aspect 1.2 wide spread.**
+- The `_l` thumbnail (`models/trees/thumbnails/london_plane_l.png`) confirms it visually:
+  a **narrow, high-forked upright oval on a clean bole** — the old form, shorter. Not a
+  low-forked, wide-spreading veteran.
+
+**Consequence:** step 6 ("verify Broad Dome and Low-Forked Spread read as intended
+distinct forms, not reversions to old idiosyncratic shapes") **cannot pass on the
+current generation path.** The bucket *identity* is now attached (metadata, boundaries,
+targets), but the bucket *forms* require the **leaf-back mould to be wired into
+generation** — which the migration report §0/§5 explicitly scoped as future work, not
+part of this config migration. Regenerating now yields old-form trees at new heights.
+
+### What was and wasn't done, and the recommended next move
+- **Kept:** the landed config (§7) and the regenerated `_m`/`_l` `.glb`s — they are
+  **height-correct for the new bounds** (a 15 m `_m` model now fits the 12–18 m slot;
+  previously a 22 m model served it), an interim improvement even with old crown form.
+- **Reverted:** `tier_fraction["l"]` → 1.0 (Finding 1).
+- **NOT done (deliberately stopped):** impostor re-bake (step 5) and live-sim verify
+  (step 6). Re-baking would bake the old form; the lod0 meshes (new height) and the
+  **stale impostor atlases (old height/form) now mismatch** — so **do not run LP in the
+  live sim until either the impostors are re-baked or the mould-wiring lands.**
+- **Recommended next task (the real form delivery):** wire the leaf-back mould
+  (`tmp/leafback_bucket_validation.py` machinery) into `generate_trees_mtree.py` so
+  `crown_bucket` actually drives the crown envelope, then regenerate → measure cards
+  (real lever = `card_rule_depth_keep`) → re-bake → verify. That is the step that makes
+  the buckets visible; this config migration is its prerequisite, now in place.
+
+**This is a genuine stop point, not a failure of the migration** — the config half is
+sound and landed; the run surfaced that the form half depends on the (separately
+scoped) mould wiring, and that the report's LOD lever was the wrong one. Reporting both
+before touching anything further, per the gate.
 
 ### Out of scope (unchanged)
 - No oak work (held oak weld fix parked). No new buckets / boundary changes. No
-  re-running the leaf-back validation. No silent tuning — every proposed number is
-  stated with its basis above.
+  re-running the leaf-back validation. No silent tuning — every number here is measured
+  and stated with its basis.

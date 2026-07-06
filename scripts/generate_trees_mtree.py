@@ -1695,7 +1695,7 @@ SPECIES = {
         # with foliage from ~1.5m — not the narrow bare-trunked pole the old
         # override produced (aspect 0.16). m/l fractions unchanged.
         "card_size_floor": 0.42,
-        "tier_fraction": {"l": 0.60, "m": 0.40, "s": 0.18},  # BUCKET MIGRATION 2026-07-06 (docs/smla_bucket_migration.md §5): l 1.0→0.60 for Low-Forked Spread. LFS's wide low-fork crown (aspect 1.2) generates ~2865 sprigs at H22 centre / ~4590 at the 28m ceiling; at 1.0 the ceiling ran ~1.7× the old _l card budget (~2686). 0.60 holds the ceiling near ceiling-parity (~2754). PROVISIONAL: predictive (mould not yet the wired card path) — confirm by counting actual LOD0 cards in the verify phase.
+        "tier_fraction": {"l": 1.0, "m": 0.40, "s": 0.18},  # NOTE 2026-07-06 (docs/smla_bucket_migration.md §"regen findings"): tier_fraction is INERT for london_plane — LP is on the card-per-branch RULE path (distribute_tiers=[], card_leaf_rule=True), whose count is driven by card_rule_depth_keep + card_rule_spacing + skeleton branch count. tier_fraction is only read at ~L2521 in the foliage-DISTRIBUTE path, which LP disables. The migration's proposed l→0.60 was reverted: it changes nothing here (verified — _l regen = 774 clusters regardless). LP's real card lever is _LP_V2_L_DEPTH_KEEP.
         # THE LEAF RULE on cards (user 2026-06-21 PM: clusters "are not all the way
         # out to the tips... remember what we learned with the 3d model"). Place a
         # cluster card at every branch's tip-most vertex (guaranteed, tip-weighted)
