@@ -338,8 +338,8 @@ def apply_hemisphere_normals(mesh, center=None):
             0.0  # base of plant
         ))
 
-    mesh.use_auto_smooth = True
-    mesh.auto_smooth_angle = math.pi
+    # NB: mesh.use_auto_smooth / auto_smooth_angle were REMOVED in Blender 4.1.
+    # Custom split normals set below are always honored now — no flag needed.
 
     up = Vector((0, 0, 1))
     custom_normals = []

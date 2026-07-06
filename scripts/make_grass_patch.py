@@ -428,7 +428,11 @@ def make_grass_material(name):
     bsdf = nodes.new('ShaderNodeBsdfPrincipled')
     bsdf.location = (100, 0)
     bsdf.inputs['Roughness'].default_value = 0.85
-    bsdf.inputs['Specular'].default_value = 0.06
+    # Principled 'Specular' was renamed 'Specular IOR Level' in Blender 4.0.
+    if 'Specular IOR Level' in bsdf.inputs:
+        bsdf.inputs['Specular IOR Level'].default_value = 0.06
+    elif 'Specular' in bsdf.inputs:
+        bsdf.inputs['Specular'].default_value = 0.06
     links.new(bsdf.outputs['BSDF'], out.inputs['Surface'])
     vcol = nodes.new('ShaderNodeVertexColor')
     vcol.location = (-200, 0)
