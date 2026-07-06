@@ -180,8 +180,20 @@ ratio 0.51 (IGN) → 0.10 (blue). Render mode, sorting, depth and shadow behavio
 (only the noise source moved). "Dithers across differing heights" = mixed size tiers handing
 off at different distances (small/low canopy stipples while tall/high stays solid) — the
 min-floor (SIZE FLOOR above) addresses that separately.
-(3) **impostor trunk-green** — season tint bleeds onto the baked trunk region of the impostor
-atlas (pre-existing, on true impostors); needs the trunk region masked from the season hue.
+(3) **impostor trunk-green — FIXED 2026-07-05** (`tree_impostor.gdshader`). The runtime season
+HUE recolours the WHOLE atlas as a luminance map, so the pale London-plane trunk/branches
+(baked as true cream bark) were painted the summer green — a colour tell at the 40–80m handoff
+where the impostor's green trunk sits beside lod0's grey bark. Confirmed GI-INDEPENDENT in the
+UNSHADED eval garden (impostor trunk G/R 1.09 vs lod0 grey bark), so NOT the separate SDFGI
+green-bounce-on-lod0-bark item (a lighting phenomenon, unfixable without dropping SDFGI — out of
+scope, still open). Fix: the baked albedo still carries the true hue (leaves desaturated grey,
+warmth R−B≈0.007; bark warm cream ≈0.067) AND bark reads low in the crown-AO channel (≈0.18 vs
+foliage ≈0.42) — detect bark from BOTH (`bark_warmth_lo/hi`, `bark_ao_lo/hi`) and keep its baked
+cream colour instead of greening it (`bark_neutralize`, 0 = old whole-atlas green). Season-
+invariant (keys off the baked atlas): bark stays neutral in summer AND fall, foliage tinting is
+byte-identical (mask=0 on leaf texels). Trunk G/R 1.09 (green) → 0.88 (warm bark); crown G/R
+1.244 → 1.240 (unchanged). Masks the season TINT only — geometry/coverage/normals/lighting/
+calibration all untouched. NO rebake (pure runtime shader change).
 The **bark/leaf desync** (lod0 grey trunk lingering after the crown handed off) is FIXED:
 `tree_bark.gdshader` now density-scales its dither with the same `v_lod_factor` as tree_leaf.
 

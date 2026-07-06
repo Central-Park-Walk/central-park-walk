@@ -151,6 +151,25 @@ global uniform float season_t;
 // was the hue tint (tree_builder _imp_calib_tint). See project_impostor_system_rebuilt.
 uniform float detail_ref_lum = 0.274;
 
+// --- Trunk/bark de-green mask (impostor "trunk-green" fix, 2026-07-05) -----------
+// The season HUE above recolours the WHOLE atlas as a luminance map, so the pale
+// London-plane trunk/branches (baked as TRUE cream bark) get painted the summer green
+// — a real colour tell at the 40–80m handoff where the impostor's green trunk sits
+// beside lod0's grey bark (isolated in the UNSHADED eval garden, so NOT the SDFGI
+// green-bounce issue, which is a SEPARATE lod0 lighting item). Fix: the baked albedo
+// still carries the true hue (leaves desaturated grey, warmth R−B≈0.007 linear; bark
+// warm cream, R−B≈0.067) AND bark reads LOW in the crown-AO channel (bark≈0.18 vs
+// foliage≈0.42). Detect bark from BOTH and keep its baked colour instead of greening
+// it. Keys off the season-invariant BAKED atlas, so bark stays neutral in EVERY season
+// and foliage tinting is byte-identical (bark_mask=0 on leaf texels). Masks the
+// season TINT only — geometry/coverage/normals/lighting untouched. Set bark_neutralize
+// 0 for an A/B against the old whole-atlas green. See project_impostor_system_rebuilt.
+uniform float bark_warmth_lo : hint_range(0.0, 0.2) = 0.02;
+uniform float bark_warmth_hi : hint_range(0.0, 0.2) = 0.06;
+uniform float bark_ao_lo : hint_range(0.0, 1.0) = 0.20;   // AO ≤ this → full bark
+uniform float bark_ao_hi : hint_range(0.0, 1.0) = 0.45;   // AO ≥ this → full foliage
+uniform float bark_neutralize : hint_range(0.0, 1.0) = 1.0;
+
 // On-screen-size mip LOD. The atlas now carries mipmaps; the impostor selects a mip
 // from the billboard's apparent size (real height vs camera distance) rather than
 // fetching mip0 always. Without this, a far crown's sub-pixel holes + shading can't
@@ -563,7 +582,15 @@ void fragment() {
 	// darker-green canopy variation and lets the far tier track season. Godot still
 	// lights it directionally via NORMAL below (atlas is unlit → no double-lit).
 	float atlas_lum = dot(baseTex.rgb, vec3(0.2126, 0.7152, 0.0722));
-	ALBEDO = v_season_color * clamp(atlas_lum / detail_ref_lum, 0.0, 1.6) * albedo.rgb;
+	vec3 foliage_albedo = v_season_color * clamp(atlas_lum / detail_ref_lum, 0.0, 1.6) * albedo.rgb;
+	// Bark/trunk exclusion: keep the baked cream bark instead of the season green.
+	// warmth (R−B) + low crown-AO both flag the trunk/branches; foliage scores ~0 on
+	// both → its tint is untouched. baseTex.rgb is the raw baked bark albedo (NOT the
+	// foliage calib tint, which is a leaf hue-match that would wrongly de-green bark).
+	float bark_warmth = baseTex.r - baseTex.b;
+	float bark_mask = smoothstep(bark_warmth_lo, bark_warmth_hi, bark_warmth)
+			* smoothstep(bark_ao_hi, bark_ao_lo, ormTex.r) * bark_neutralize;
+	ALBEDO = mix(foliage_albedo, baseTex.rgb, bark_mask);
 	NORMAL = normalTex.xyz;
 
 	// Coverage. Below the far band (≤~500m) this is the ORIGINAL crisp binary scissor —
