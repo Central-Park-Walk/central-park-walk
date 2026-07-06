@@ -10,6 +10,19 @@ Spec for the D3–5 sprint work (written 2026-06-10, before implementation, per
 ([`rendering.md`](rendering.md) §4): **camera raster 4.0 ms, shadow casting 1.0 ms**
 at the worst test location. Measured today: ~25 ms camera (Ramble), 18–28 ms shadows.
 
+> **⚠ 2026-07-06 — SKELETON-DEPTH FINDING; `_s`/`_m` baseline is SUSPECT.** `skeleton_max_depth`
+> is absent for london_plane `_s`/`_m`, and the consuming code (`generate_trees_mtree.py:4410`,
+> `.get("skeleton_max_depth")` with no default → `None` → cap skipped) means absent = **UNCAPPED**.
+> Mesh histograms confirm LP `_s` and `_m` actually ramify to **depth 8** (bark geometry through
+> tertiary and well beyond), whereas oak `_s` is capped at **depth 3**. Original design intent was
+> "no ramification beyond secondary," so **LP `_s`/`_m` were approved/gated under an unintended
+> config and must NOT be treated as a finalized baseline.** oak `_m`/`_l` depth is unconfirmed and
+> needs the same check. This is escalated to a reference-driven skeleton-generation redesign (depth
+> + card-fill compensation designed together vs the 3060 Ti budget, no regen-and-eyeball tuning):
+> **see [`tree_skeleton_depth_redesign.md`](tree_skeleton_depth_redesign.md), a new effort started
+> 2026-07-06.** The oak `_s` `sub_start_radius: 0.7` weld-cull fix is measured but held uncommitted
+> pending that redesign.
+
 ## 0. Cross-species invariants (read before ANY species' rendering work)
 
 Hard-won constraints that apply to **every** species, not just london_plane. Oak and
