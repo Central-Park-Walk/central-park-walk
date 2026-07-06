@@ -11,6 +11,11 @@ var _meshes: Dictionary = {}    # species_name -> Mesh (or species_base -> [Mesh
 var _shader: Shader
 var _leaf_atlas: Texture2D       # 2048x2048 leaf texture atlas (4x4 grid)
 var _active_chunks: Dictionary = {}
+# Runtime spicebush toggle (main.gd KEY_B). Spicebush is species index 0, the sole
+# WOODLAND_SPECIES entry; when true its instances are hidden (incl. chunks that
+# stream in afterwards — see _build_chunk visibility below). Perf-relevant: a hidden
+# MultiMesh instance draws nothing.
+var spicebush_hidden: bool = false
 var _last_update_pos := Vector3(-99999, 0, -99999)
 var _build_queue: Array = []
 var _queued_set: Dictionary = {}
@@ -1042,13 +1047,27 @@ func _build_chunk(ck: String) -> void:
 		RS.instance_set_base(inst_rid, mm_rid)
 		RS.instance_set_scenario(inst_rid, _scenario)
 		RS.instance_set_transform(inst_rid, Transform3D(Basis.IDENTITY, Vector3(ox, oy, oz)))
-		RS.instance_set_visible(inst_rid, true)
+		# Honour the spicebush toggle for chunks that stream in while it is hidden.
+		RS.instance_set_visible(inst_rid, not (spicebush_hidden and sp_idx == 0))
 		var cull_d := _species_cull_dist(sp_idx)
 		RS.instance_geometry_set_visibility_range(inst_rid, 0.0, cull_d, 0.0,
 			minf(VIS_FADE_MARGIN, cull_d * 0.2), RS.VISIBILITY_RANGE_FADE_SELF)
 		RS.instance_geometry_set_cast_shadows_setting(inst_rid,
 			RS.SHADOW_CASTING_SETTING_OFF)
 		_active_chunks["%d|%s" % [sp_idx, ck]] = [mm_rid, inst_rid]
+
+
+# Show/hide all currently-built spicebush (species 0) instances and remember the
+# state so chunks streamed in later stay consistent (see _build_chunk). Returns the
+# number of spicebush chunks toggled. Driven by main.gd's KEY_B handler.
+func set_spicebush_hidden(hidden: bool) -> int:
+	spicebush_hidden = hidden
+	var count := 0
+	for key in _active_chunks:
+		if (key as String).begins_with("0|"):
+			RenderingServer.instance_set_visible(_active_chunks[key][1], not hidden)
+			count += 1
+	return count
 
 
 func _load_model(sp_name: String) -> Mesh:

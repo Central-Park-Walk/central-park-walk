@@ -1634,6 +1634,7 @@ var _diag_tick_count: int = 0
 var _diag_trees_hidden: bool = false
 var _diag_grass_hidden: bool = false
 var _diag_ug_hidden: bool = false
+var _spicebush_hidden: bool = false  # KEY_B runtime toggle (spicebush understory)
 var _diag_terrain_hidden: bool = false
 var _diag_tree_mmis: Array = []
 var _diag_log_timer: float = 0.0
@@ -1701,6 +1702,16 @@ func _diag_toggle_undergrowth() -> void:
 		count += 1
 	print("[DIAG] Undergrowth %s (%d instances)" % [
 		"HIDDEN" if _diag_ug_hidden else "VISIBLE", count])
+
+func _toggle_spicebush() -> void:
+	## KEY_B: show/hide the woodland spicebush understory (species 0) at runtime.
+	## Hidden instances draw nothing, so this doubles as a perf toggle. The builder
+	## remembers the state, so spicebush stays hidden in chunks that stream in later.
+	if not (_park_loader and _park_loader._undergrowth_builder):
+		return
+	_spicebush_hidden = not _spicebush_hidden
+	var n: int = _park_loader._undergrowth_builder.set_spicebush_hidden(_spicebush_hidden)
+	print("Spicebush: %s (%d chunks)" % ["HIDDEN" if _spicebush_hidden else "VISIBLE", n])
 
 func _shadow_census() -> void:
 	## Dump every node-level shadow caster, largest raster load first.
@@ -2254,6 +2265,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		_imp_wind_strength = clampf(_imp_wind_strength + dw, 0.0, 2.0)
 		RenderingServer.global_shader_parameter_set("impostor_wind_strength", _imp_wind_strength)
 		print("Impostor wind: %.1f" % _imp_wind_strength)
+	elif event.keycode == KEY_B:
+		# Toggle the woodland spicebush understory (species 0) on/off at runtime.
+		_toggle_spicebush()
 
 
 func _set_diag_rings(on: bool) -> void:
