@@ -847,6 +847,15 @@ SPECIES = {
                 "branch_angle_variation": 0.50,
                 "branch_flatness": 0.40,       # baseline (reset 2026-06-24 single-var test)
                 "branch_start_radius": 0.45,   # finer young limbs
+                # ★ 2026-07-06 WELD-CULL PORT from london_plane 137f286. Oak _s (10m ≈ LP _s 9m)
+                # was born at the default sub_start_radius 0.25, so the 5mm absolute remove_doubles
+                # weld in clean_degenerate_geometry culled the fine twigs BEFORE the min-twig floor
+                # could thicken them — the "beads on a string"/sparse young crown. The 1f583a5
+                # density knobs (sub_density 1.2→1.4 etc.) couldn't register because the twigs were
+                # welded away at birth. Raise born-twig radius so twigs survive the weld (min-twig
+                # floor still thickens survivors to Ø5cm, so this KEEPS twigs, doesn't fatten). LP
+                # _s used 0.7 at the same size class. ONE-LEVER port (no card/density retune here).
+                "sub_start_radius": 0.7,       # was default 0.25 — twigs survive the 5mm weld
                 "crown_base_size": 0.55,       # baseline (crown.base_size proven a NO-OP on measured width in this config 2026-06-24)
                 "branch_gravity": 4.0,         # gentle (was species 8.0)
                 "sub_gravity": 4.0,            # was species 12.0 — heavy droop caused the lean
@@ -1686,7 +1695,7 @@ SPECIES = {
         # with foliage from ~1.5m — not the narrow bare-trunked pole the old
         # override produced (aspect 0.16). m/l fractions unchanged.
         "card_size_floor": 0.42,
-        "tier_fraction": {"l": 1.0, "m": 0.40, "s": 0.18},
+        "tier_fraction": {"l": 0.60, "m": 0.40, "s": 0.18},  # BUCKET MIGRATION 2026-07-06 (docs/smla_bucket_migration.md §5): l 1.0→0.60 for Low-Forked Spread. LFS's wide low-fork crown (aspect 1.2) generates ~2865 sprigs at H22 centre / ~4590 at the 28m ceiling; at 1.0 the ceiling ran ~1.7× the old _l card budget (~2686). 0.60 holds the ceiling near ceiling-parity (~2754). PROVISIONAL: predictive (mould not yet the wired card path) — confirm by counting actual LOD0 cards in the verify phase.
         # THE LEAF RULE on cards (user 2026-06-21 PM: clusters "are not all the way
         # out to the tips... remember what we learned with the 3d model"). Place a
         # cluster card at every branch's tip-most vertex (guaranteed, tip-weighted)
@@ -1763,7 +1772,8 @@ SPECIES = {
             # upright conical young habit — but DENSE (not a sparse whip): the ref
             # 3D model shows juveniles clad with twigs from low trunk to a leafy
             # apex. Tier ramps leader-dominance down + spread up s→m→l.
-            "s": {"target_h": 9, "height_range": [7, 13],
+            "s": {"target_h": 10, "height_range": [7, 12],  # BUCKET: Upright Ovoid (was 9 / [7,13]) — docs/crown_type_buckets.md
+                  "crown_bucket": {"name": "Upright Ovoid", "clear_bole_frac": 0.35, "aspect_wh": 0.80},
                 # REFERENCE-GROUNDED PROPORTION (2026-06-21, size-chart 6e6cb11fdc):
                 # a real young plane is a BROAD DENSE cone (aspect ~0.4-0.45) clad
                 # from ~1.5-2m, trunk mostly hidden — NOT the narrow (aspect 0.16)
@@ -1891,7 +1901,8 @@ SPECIES = {
             # 10 drove the lean, and the species (mature) variant_spans clobbered its
             # skeleton_overrides. Fix: own variant_spans (younger ranges) + width/bole/
             # density overrides. Form verified via explore lp_m_full.
-            "m": {"target_h": 22, "height_range": [15, 25],
+            "m": {"target_h": 15, "height_range": [12, 18],  # BUCKET: Broad Dome (was 22 / [15,25]) — retargeted DOWN to the validated v2 mould centre (H14.4). Old 22m .glb SUPERSEDED. docs/smla_bucket_migration.md §2
+                  "crown_bucket": {"name": "Broad Dome", "clear_bole_frac": 0.30, "aspect_wh": 1.00},
                 "variant_spans": {
                     "branch_angle": [52, 60],            # more upright than mature l
                     "branch_start": [0.26, 0.34],        # higher, cleaner young-adult bole
@@ -1936,7 +1947,8 @@ SPECIES = {
             # prunes geometry past tertiary/quaternary directly (height-independent),
             # so the card sits at the terminal tip with no bare filaments past it.
             # m/s don't need it — their shorter limbs are already capped by split-prob.
-            "l": {"target_h": 30, "height_range": [25, 35],
+            "l": {"target_h": 22, "height_range": [18, 28],  # BUCKET: Low-Forked Spread (was 30 / [25,35]) — retargeted DOWN to the veteran centre ~22m, real ceiling ~28m. Old 30m .glb SUPERSEDED. docs/smla_bucket_migration.md §2
+                  "crown_bucket": {"name": "Low-Forked Spread", "clear_bole_frac": 0.20, "aspect_wh": 1.20},
                   # L-TIER = PARSIMONIOUS (v2) DENSITY (Chris 2026-07-02): the big
                   # crowns get the thinner, less-backlit-opaque canopy while s/m keep
                   # the fuller v1 look. These 3 card levers override the species-level

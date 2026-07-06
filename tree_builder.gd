@@ -213,7 +213,7 @@ const HEIGHT_RANGES := {
 	"honeylocust":   [14.0, 25.0],   # open, airy crown
 	"callery_pear":  [8.0, 18.0],    # medium street tree
 	"ginkgo":        [10.0, 22.0],   # slow-growing
-	"london_plane":  [9.0, 32.0],    # tall broad crown; floor lowered for young street/lawn planes (_s sapling)
+	"london_plane":  [9.0, 28.0],    # BUCKET MIGRATION 2026-07-06: top 32→28 = real distribution ceiling (30m target was above real trees). docs/smla_bucket_migration.md §2
 	"linden":        [14.0, 24.0],   # dense symmetrical crown
 	"cherry":        [10.0, 22.0],   # includes black cherry (P. serotina 25m+)
 	"zelkova":       [14.0, 24.0],   # upright vase shape
@@ -298,7 +298,7 @@ const TIER_BOUNDS := {
 	"honeylocust":   [14.0, 22.0],
 	"callery_pear":  [10.0, 18.0],
 	"ginkgo":        [14.0, 22.0],
-	"london_plane":  [13.0, 25.0],  # _s sapling added — ~1/3 of census is young (<12" DBH, 2026-06-19)
+	"london_plane":  [12.0, 18.0],  # BUCKET MIGRATION 2026-07-06: [13,25]→[12,18]. s≤12=Upright Ovoid, 12-18=Broad Dome, >18=Low-Forked Spread. Upper break dropped hard (old _m/_l retargeted down). docs/smla_bucket_migration.md §2
 	"linden":        [14.0, 22.0],
 	"willow":        [14.0, 999.0], # no _l tier (0 in census); only _s and _m
 	"magnolia":      [0.0, 0.0],    # only _s tier (41 in census, all small)
