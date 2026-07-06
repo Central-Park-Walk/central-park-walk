@@ -1,0 +1,27 @@
+{
+  "dome": {
+    "sprigs": 809,
+    "primaries": 4,
+    "hops": {
+      "min": 2,
+      "med": 6,
+      "max": 6,
+      "mean": 5.84
+    },
+    "crown_base_m": 5.33,
+    "aspect_WH": 1.16
+  },
+  "real": {
+    "sprigs": 781,
+    "primaries": 4,
+    "hops": {
+      "min": 2,
+      "med": 5,
+      "max": 6,
+      "mean": 5.37
+    },
+    "crown_base_m": 4.32,
+    "aspect_WH": 1.0,
+    "profile_source": "iNat obs75867287 + distribution (122865830,11670158)"
+  }
+}

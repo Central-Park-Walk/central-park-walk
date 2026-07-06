@@ -257,3 +257,89 @@ check); (c) nothing here is wired into Godot or the s/m/l pipeline.
 for 2–3 mature open-grown specimens at ≥2 angles, rebuild this one mould against a
 real crown outline, and only then discuss crown-type buckets. **Stopping here per
 the task's step-6 boundary.**
+
+---
+
+# Part C — iNaturalist crown-silhouette distribution pull (2026-07-06, approved)
+
+**Ran the pull** (iNat API, `Platanus × acerifolia`, CP bbox 40.764–40.800 N /
+−73.981–−73.949 W). Confirmed not previously run (no iNat artifacts in repo; crown
+audit flagged it "not started").
+
+### What the pull returned
+- **311 observations** in the CP bbox (the BRIEF's "~28" was a narrower query).
+- Quality grade: 303 casual / 4 needs-id / 4 research. **Casual is expected and not
+  a quality signal** — iNat auto-marks *planted* organisms casual, and every CP tree
+  is planted. So grade was **not** used to filter.
+- Photos-per-obs: 243 single-photo, 68 with ≥2 (33×2, 20×3, 12×4, 2×5, 1×9).
+- **Reviewed:** all 311 first-photo thumbnails (4 scan sheets) + 70 medium images
+  from the 16 most-photographed obs + 20 large images of every whole-crown candidate.
+
+### Finding — productive, but the multi-angle gap remains
+- **~90% of individual photos are ID-oriented close-ups** (bark camouflage, single
+  leaf, seed-ball, from-below into the canopy). Whole-tree shots are the minority.
+- **Whole-crown distance shots do exist, scattered in the *single-photo* obs**
+  (~25–30 spotted in thumbnails) — materially more than the reference-photo set's
+  ~3. ⚠ **But at full resolution many "whole-tree" thumbnails resolve to close-ups
+  or cropped/occluded crowns** (a 120 px thumbnail of a distant tree and of a bark
+  macro look alike). **Clean, complete, single-specimen crowns after full-res
+  triage: ≈ 4 summer** (`obs139149438`, `obs122865830`, `obs75867287`, marginal
+  `obs258609552`) **+ ≈ 2–3 winter bare silhouettes** (`obs11670158` best,
+  `obs11648420`, `obs11818396`).
+- **The core gap the crown audit named is NOT closed:** every clean crown is still a
+  **single angle of a different tree**; **no specimen appears from ≥2 crown angles,
+  and there are still zero aerials.** iNat's 2–3-photos-per-obs are near-duplicate
+  angles or close-ups, not orthogonal crown views. So the pull is enough to
+  characterise the crown-shape **distribution**, not to **triangulate one volume**.
+
+### Measured crown-form distribution (3 clean specimens)
+
+| specimen | form / context | clear-bole frac | crown aspect W/H | note |
+|---|---|---|---|---|
+| `obs75867287` | young-mature, open lawn | ~0.33 | ~0.85 | rounded ovoid, single bole; early-spring so outline clean |
+| `obs122865830` | mature, grove edge | ~0.30 (low fork ~2–2.5 m) | wide, low-spreading | near-horizontal low primaries on the open side; crown top out of frame |
+| `obs11670158` | veteran, very large | ~0.20 (low multi-stem fork) | >1.2 | broad wide-spreading; crown exceeds frame |
+
+**Signal:** open-grown CP London planes are **broad and wide-spreading on a
+low-to-moderate fork**, getting **lower-forking and wider with age** — *not* the
+tall narrow dome. Clear-bole fraction ~0.20→0.35 (centre ~0.30); aspect ~0.85→>1.2
+(centre ~1.0). Reference sheets: `tmp/inat_lp/crown_summer.jpg`,
+`crown_winter.jpg`; scan sheets `tmp/inat_lp/scan_{0-3}.jpg`; metadata
+`tmp/inat_lp/candidates.json`, `crown/meta.json`.
+
+---
+
+# Part D — Mould v2 rebuilt against the real crown outline
+
+Rebuilt the **same** representative specimen (H 14.4 m, DBH 15 in), **same sprig
+fill + same leaf-back merge**, changing **only the crown envelope** so the
+comparison isolates crown shape. The v2 envelope is a **table-interpolated radius
+profile sampled from `obs75867287`**, broadened toward the measured distribution:
+clear-bole **0.30·H = 4.32 m** (was 0.37 = 5.3 m), **aspect ≈ 1.0** (was 1.16),
+widest at ~0.50, with a **fuller lower-mid crown** (the low-spreading primaries).
+Script: `tmp/leafback_mould_v2_realcrown.py`.
+
+| | v1 placeholder dome | v2 iNat-derived crown |
+|---|---|---|
+| clear-bole | 5.33 m (0.37·H) | **4.32 m (0.30·H)** |
+| crown aspect W/H | 1.16 | **1.00** |
+| sprig cards | 809 | 781 |
+| primaries at fork | 4 | 4 |
+| merge chain | 809→263→82→30→10→6→4 | 781→247→72→20→6→6→4 |
+| **emergent hops** | **med 6 (2–6)** | **med 5 (2–6)** |
+
+**Result.** The real crown — lower fork, broader, fuller-below — produced a
+**shallower emergent hop count (median 5 vs 6)** from the identical merge rules.
+That is the point restated concretely: **skeleton depth tracked the crown shape
+with no parameter touched.** A lower, broader crown funnels to the trunk in fewer
+merges than a taller pointed dome. Visuals: `tmp/leafback_v2_compare.png`
+(side-by-side wireframe), `tmp/leafback_v2_envelope.png` (silhouette overlay),
+`tmp/leafback_v2_stats.json`.
+
+**Still a stand-in caveat:** the v2 crown is derived from **one clean full specimen
+broadened by two others** — a real, measured outline, but single-angle-sourced (no
+multi-angle triangulation, no aerial plan). It is a genuine step up from the v1
+placeholder, not a fully reconstructed volume.
+
+**STOPPING here per the task gate — no crown-type bucket discussion.** That
+conversation is deferred to after this result is reviewed.
