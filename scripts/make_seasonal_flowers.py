@@ -37,7 +37,7 @@ def export_glb(obj, name):
         export_format='GLB',
         use_selection=True,
         export_normals=True,
-        export_colors=True,
+        export_vertex_color='ACTIVE',
         export_apply=True,
     )
     print(f"  Exported {path}")

@@ -393,7 +393,7 @@ def finalize_and_export(bm, name, out_dir=None):
         export_format='GLB',
         use_selection=True,
         export_normals=True,
-        export_colors=True,
+        export_vertex_color='ACTIVE',
         export_apply=True,
     )
     nv = len(mesh.vertices)
