@@ -124,6 +124,13 @@ angle capture as a task.** (Pointer-retired in the prototype doc and in
 
 ## 4. Migration scope note — s/m/l → buckets (DO NOT execute yet)
 
+> **★ Validated 2026-07-06** — the leaf-back method was run unchanged at both size
+> extremes (Upright Ovoid H10 + Low-Forked Spread H22, plus a 7→28 m edge sweep) and
+> generalizes with no parameter fragility or degenerate cases →
+> [`docs/leafback_bucket_validation.md`](leafback_bucket_validation.md), **GO for
+> migration**. Two tuning inputs carried forward (young bucket wants a *tighter* depth
+> range not a shallower one; scale card-thinning for the big bucket's large sprig cloud).
+
 Requested scope-sizing only. **Verdict: the slot *count* maps 1:1, but the
 *boundaries, target heights, and per-tier params do not* — and a new crown-envelope
 parameter pair has no home in the current schema.** So this is a **re-parameterisation
