@@ -11,5 +11,14 @@
   "height_m": 14.4,
   "dbh_in": 15,
   "crown_base_m": 5.3,
-  "crown_rx_m": 5.3
+  "crown_rx_m": 5.3,
+  "_join_caveat": {
+    "note": "Height comes from a nearest-neighbour join to 6m_trees (no species field). Per-tree match_distance_m is inspectable in tmp/lp_height_join.csv (this mould stats file is single-specimen, so the per-tree join data lives in that CSV, not here).",
+    "nn_offset_m": {"median": 2.37, "p75": 3.25, "p90": 5.10, "within_3m_frac": 0.68},
+    "flagged_outlier_match_distance_m": {
+      "5.7m_30in_ratio7.5": {"dist": 1.60, "pctile": 28, "in_tail": false},
+      "8.1m_24in_ratio13.3": {"dist": 1.26, "pctile": 18, "in_tail": false},
+      "8.0m_34in_ratio9.3": {"dist": 2.84, "pctile": 63, "in_tail": true}
+    }
+  }
 }

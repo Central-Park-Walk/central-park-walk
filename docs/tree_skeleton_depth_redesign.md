@@ -1,5 +1,15 @@
 # Tree Skeleton-Depth Redesign — reference-driven, starts 2026-07-06
 
+> ⚠ **SUPERSEDED IN DIRECTION 2026-07-06 (sign-off).** This whole debate — Hard Law's
+> `=2`, the `=3` recommendation below, the open depth-2-vs-3 decision — is **retired by the
+> leaf-back mould result** (`docs/first_mould_leafback_prototype.md`). Verdict: **skeleton
+> depth is not a parameter to set; it is an OUTPUT** of leaf-back construction (fill the crown
+> volume, merge sprigs inward, hop count emerges — median 6, range 2–6 for a 14 m London plane,
+> varying per specimen *and* per sprig). There is no correct single cap to ratify. Keep this
+> doc for its source-verified depth audit (Steps 0–3) and reference research, but do **not**
+> implement the uniform-`=3` change; the depth question is now answered by the mould method,
+> not by picking a number. See the leaf-back report's Part B note.
+
 **Status: SPEC DRAFTED 2026-07-06 — awaiting Chris's approval before ANY generation code.**
 Steps 0–3 below are complete (source-verified depths, reference research, budget
 cross-reference, numeric design spec). The recommendation is a **uniform

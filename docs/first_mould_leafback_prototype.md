@@ -96,16 +96,23 @@ specimens. (This closes the one check requested; no further pollarding pursuit.)
 
 Flagging trees short-for-their-girth (low height ÷ DBH — the storm-topped /
 pollarded signature). Threshold: DBH ≥ 20 in **and** height/DBH(m) < 15. **3
-specimens**, alive, tight-matched:
+specimens**, alive, tight-matched. **Height is join-derived, so each outlier's
+own NN match distance is shown** (see §6 caveat — a large match distance means
+the "signature" could be a mismatched adjacent tree, not verified either way):
 
-| height | DBH | h/DBH | condition | lat, lon |
-|---|---|---|---|---|
-| 5.7 m | 30 in | 7.5 | Fair | 40.79608, −73.96744 |
-| 8.0 m | 34 in | 9.3 | Good | 40.79685, −73.97388 |
-| 8.1 m | 24 in | 13.3 | Good | 40.79917, −73.96611 |
+| height | DBH | h/DBH | match dist | vs. median (2.37 m) | condition | lat, lon |
+|---|---|---|---|---|---|---|
+| 5.7 m | 30 in | 7.5 | **1.60 m** | within median (28th pctile) | Fair | 40.79608, −73.96744 |
+| 8.0 m | 34 in | 9.3 | **2.84 m** | ⚠ in tail (63rd pctile) | Good | 40.79685, −73.97388 |
+| 8.1 m | 24 in | 13.3 | **1.26 m** | within median (18th pctile) | Good | 40.79917, −73.96611 |
 
-The first (huge 30-in bole, 5.7 m tall) is a textbook topped/storm-damaged or
-pollarded profile. **Flagged for later — not chased.**
+The strongest signature (30-in bole, 5.7 m tall — textbook topped/storm/pollard)
+matched at **1.60 m, comfortably within the median offset**, so for that one the
+join is *not* the likely culprit — still unconfirmed, but not a mismatch artifact.
+The **8.0 m / 34-in** tree matched at **2.84 m, in the tail** of the offset
+distribution: its short-for-girth reading **could be a mismatched join rather than
+a real short tree, and has NOT been verified either way.** All 3 **flagged for
+later — not chased.**
 
 ### 5. Proposed natural breaks (proposal only — NOT locked in)
 
@@ -120,6 +127,33 @@ that's where most CP London planes live, and what the prototype below is built t
 These are data-derived clusters, **not** a young/mature/old scheme, and are
 offered for discussion only. As you noted, tiering may want to wait until more
 moulds are built.
+
+### 6. Caveat — spatial-join reliability (folded in per sign-off 2026-07-06)
+
+The height figures throughout Part A are **not native**. `6m_trees_central_park.json`
+has no species field, so every London-plane height was obtained by a
+**nearest-neighbour join** from the census points to the 6m-trees canopy points.
+Match quality: **NN offset median 2.37 m, p75 3.25 m, p90 5.10 m; only 1060/1564
+(68%) within 3 m.** That means **roughly a third of the height values are matched
+at a distance where the nearest canopy point could plausibly be an *adjacent,
+different* tree** rather than the same specimen — most acutely in dense grove
+areas (Ramble, North Woods) where crowns are packed tighter than the offset.
+
+This is a **flag, not a defect to fix** (join deliberately not re-run). It bears on
+exactly two downstream claims:
+
+1. **Bucket breaks are approximate** — the distribution *shape* is trustworthy, the
+   exact break decimals (15.6 m; 11.4 / 18.1 m) are blurred by join noise (see §5).
+2. **The 3 short+thick outliers are plausible but unconfirmed** — each outlier's own
+   match distance is now in §4. The strongest (5.7 m / 30 in) sits at 1.60 m (within
+   median → join not the likely culprit); the 8.0 m / 34 in sits at 2.84 m (in the
+   tail → could be a mismatched join, **not verified either way**).
+
+Per-tree match distances are dumped to **`tmp/lp_height_join.csv`** (`lat, lon,
+dbh_in, condition, height_m, match_distance_m`) so this is inspectable per-specimen,
+not only in aggregate, next time distribution work touches this data. (The
+single-specimen `tmp/leafback_stats.json` carries a `_join_caveat` summary pointing
+to that CSV.) **No action taken beyond flagging.**
 
 ---
 
@@ -179,13 +213,15 @@ the funnel runs until few nodes remain, which are then wired to the trunk fork.
 **derived, not set** — it fell out of the merge geometry. **4 primaries** leave
 the trunk fork, which is botanically plausible for a broad-domed plane.
 
-> ⚠ **Note for the skeleton-depth debate** ([[project_london_plane_crown_mould]],
-> `docs/tree_skeleton_depth_redesign.md`): leaf-back merging of a real-scale 14 m
-> crown wants **~6 hops**, materially more than the parametric Hard-Law
-> `skeleton_max_depth = 2`. That's expected — a card-masked forward generator can
-> hide missing interior order, whereas leaf-back *derives* the interior from where
-> the foliage actually is. Worth weighing before ratifying a fixed depth; not
-> resolved here.
+> ✅ **This retires the skeleton-depth debate** (`docs/tree_skeleton_depth_redesign.md`;
+> Hard-Law `skeleton_max_depth = 2`; the depth-3 spec drafted earlier). Sign-off
+> 2026-07-06: **depth is not a parameter to set — it is an output that varies per
+> specimen and per sprig.** Leaf-back merging of this real-scale 14 m crown *derived*
+> a median of 6 hops (range 2–6) from where the foliage actually sits; a taller/broader
+> crown or a denser fill will derive a different number, and individual sprigs within
+> one tree already range 2→6. Any future proposal to "cap depth at N" is answering the
+> wrong question — the cap is an emergent property of crown size × fill density × merge
+> geometry, not a knob. Note this wherever the depth-cap question resurfaces.
 
 ### c. Scope
 
