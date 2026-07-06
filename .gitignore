@@ -22,25 +22,13 @@ models/
 !models/furniture/cp_rocks.glb
 !models/furniture/cp_*_bridge.glb
 !models/furniture/cp_*_arch.glb
+# Vegetation: only spicebush + cattail undergrowth stay tracked. Everything else
+# in models/vegetation/ is regen-on-demand (make_*.py) and untracked. The two
+# negations below keep future spicebush/cattail regens trackable; nothing else.
+!models/vegetation/Shrub_Spicebush*.glb
+!models/vegetation/Wetland_Cattail*.glb
+# Snowflake: runtime snow-particle mesh (weather_manager.gd), not regen-on-demand.
 !models/vegetation/Snowflake.glb
-!models/vegetation/Flower_*.glb
-!models/vegetation/Blade_*.glb
-!models/vegetation/Card_*.glb
-!models/vegetation/Accent_*.glb
-# Undergrowth models (procedural, MIT — make_undergrowth.py + make_ferns.py)
-!models/vegetation/Shrub_*.glb
-!models/vegetation/Herb_*.glb
-!models/vegetation/Fern_*.glb
-!models/vegetation/Wetland_*.glb
-!models/vegetation/Grass_Bottlebrush.glb
-!models/vegetation/Grass_LittleBluestem.glb
-!models/vegetation/Grass_Switchgrass.glb
-!models/vegetation/Grass_TussockSedge.glb
-!models/vegetation/Grass_PASedge.glb
-# Ground cover models (procedural, MIT — make_forest_floor.py)
-!models/vegetation/GroundCover_*.glb
-# Vine models (procedural, MIT — make_vine.py, per-species)
-!models/vegetation/Vine_*.glb
 textures/*
 !textures/terrain3d/
 !textures/leaves/
