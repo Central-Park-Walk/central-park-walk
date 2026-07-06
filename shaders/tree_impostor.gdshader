@@ -140,8 +140,16 @@ global uniform float impostor_wind_strength;
 // tier now tracks season (summer green / fall colour) per tree.
 global uniform float season_t;
 // Linear luminance of a full leaf atlas pixel — leaf areas map to ~v_season_color,
-// darker (bark/dapple) areas to proportionally darker green. (measured 2026-06-24.)
-uniform float detail_ref_lum = 0.28;
+// darker (bark/dapple) areas to proportionally darker green. This is the ~p97 of
+// opaque linear leaf luminance in the summer albedo atlas (a "full leaf" texel);
+// texels below it render proportionally darker. RE-DERIVED 2026-07-05 against the
+// post-137f286 s/m/l rebake (b66c106): ALL-tier p97 = 0.274 (was 0.277→stored 0.28
+// on the pre-rebake 97e06ba atlas). The skeleton rebake barely moved this reference
+// (−1.4%) — it changed COVERAGE (s +46%) and MEAN luminance (m +5.8%), which are
+// density effects mirroring the denser lod0, NOT the per-texel full-leaf brightness
+// this normalises. So this knob was only marginally stale; the material recalibration
+// was the hue tint (tree_builder _imp_calib_tint). See project_impostor_system_rebuilt.
+uniform float detail_ref_lum = 0.274;
 
 // On-screen-size mip LOD. The atlas now carries mipmaps; the impostor selects a mip
 // from the billboard's apparent size (real height vs camera distance) rather than

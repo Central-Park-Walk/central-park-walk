@@ -1715,15 +1715,25 @@ func _imp_calib_tint(tier_key: String = "") -> Color:
 		var cc: PackedStringArray = OS.get_environment("IMP_CALIB").split(",")
 		if cc.size() == 3:
 			return Color(cc[0].to_float(), cc[1].to_float(), cc[2].to_float())
-	# Per-tier (2026-07-03): the _s sapling impostor reads a touch less green than
-	# lod0-s (Chris: "s impostor needs to better colour match the lod0"); measured a
-	# ~5% green deficit at noon (matched at evening) in the TIER_MATCH garden. A gentle
-	# green lift closes it without over-greening the evening. _m/_l keep the base tint —
-	# _m reads good, and _l's gap is DENSITY (a solid-projection blob vs the airy lod0),
-	# addressed by the per-tier LP_SUMMER_CARD_KEEP thin, not by colour.
+	# RE-DERIVED 2026-07-05 against the post-137f286 s/m/l atlas rebake (b66c106) —
+	# see project_impostor_system_rebuilt colour-mismatch diagnosis. Method (the same
+	# one that set the prior values): tier-isolate lod0 vs impostor in the UNSHADED eval
+	# garden at noon, measure foliage G/R + B/R + luminance, tune the tint to match lod0's
+	# HUE. Measured impostor was +9.2% greener than lod0 (G/R 1.379 vs 1.263) and +4.6%
+	# bluer EVEN UNSHADED — a real calibration miss, not the shadow term (which is a
+	# SEPARATE, still-open issue: the impostor has shadows_disabled so it stays too bright
+	# in dense/shaded woodland — NOT addressed here). The correction is a CONSTANT-LUMINANCE
+	# hue rebalance (R↑/G↓): (0.96,0.84,0.94) lands impostor at G/R 1.270 / B/R 0.838 (≈lod0)
+	# with luminance UNCHANGED (0.857× lod0), so it does NOT disturb the shaded-pose brightness
+	# balance. Verified by IMP_CALIB sweep + before/after tier-isolate capture.
+	# The old per-tier split (_s got a +green lift for a ~5% green DEFICIT on the SPARSE
+	# pre-rebake s atlas) is RETIRED: the rebake densified s by +46% coverage, eliminating
+	# that deficit, so the lift now over-greens. All tiers share the re-derived hue-match tint.
+	# Brightness is carried by the sun-visibility atlas / relight, not this tint (a 98% albedo
+	# cut moves rendered luminance only ~22%; see _build_impostor_assets).
 	if tier_key.ends_with("_s"):
-		return Color(0.93, 0.90, 0.92)
-	return Color(0.90, 0.86, 0.92)  # 2026-06-28: slight de-green/cool; brightness now carried by ao_light_affect (see _build_impostor_assets)
+		return Color(0.96, 0.84, 0.94)
+	return Color(0.96, 0.84, 0.94)
 
 
 func _build_impostor_assets() -> void:
