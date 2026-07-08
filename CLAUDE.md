@@ -5,6 +5,10 @@ data (NYC LiDAR, OpenStreetMap, NYC Tree Census, building footprints) and interp
 Claude. Godot 4.6.1, Forward+, GDScript. Branch **master**. No objectives — just a place.
 
 ## Read at session start (in order)
+0. **[`docs/standing_rules.md`](docs/standing_rules.md)** — permanent, all-projects rules that outlive
+   any session. Currently: (1) the three roles (Planner/Engineer/Critic) are RESEARCHER-roles — every
+   role reads before it acts; (2) **prior art first, forever** — when the HOW isn't obvious, read the
+   prior work BEFORE proposing/building/judging (the leaf-back hollow lantern was a published Fig. 7).
 1. **`DESIGN.md`** — the single source of truth for what this project is supposed to be.
 2. **Memory** — `~/.claude/projects/-home-chris/memory/MEMORY.md` (the index) + the linked
    file for whatever you're touching.
