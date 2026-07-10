@@ -843,6 +843,11 @@ The first draft implemented only Mode 2, and called it the crown-building mechan
 **Recommend (b).** But it is Chris's call because it is a scope decision: Mode 2 is where the *arbre du passé*
 lives, and CP's l-tier planes are exactly that tree.
 
+> **✅ RATIFIED 2026-07-10 (Chris): (b) — BOTH birth modes.** The grower implements `TERMINAL_FORK` (crown
+> builder) and `LATENT_BUD` (ager) as the same `D` threshold at two bud origins. F6 (the prototype) is
+> unblocked. The m-tier prototype must fire at least `TERMINAL_FORK` to build its crown; `LATENT_BUD` is
+> exercised properly by the l tier but the object model carries both from the start.
+
 > **Why this is a fork and not a correction:** the first draft's `Reiterate` is born by *re-categorizing an
 > existing axis*. A `TERMINAL_FORK` reiterate has **no prior axis to re-categorize** — it is born as one of N
 > siblings sharing an insertion node, and the bearing axis *ends*. That is an object-model change, and object-model
@@ -1023,14 +1028,22 @@ light (with trauma and water stress) **modulates relay dominance `D`**, hence fo
 verbatim: *"un haut niveau d'énergie lumineuse … peu[t] redonner … une équivalence aux différents modules émanant
 d'une même u.c., favorisant tout processus réitératif."* Full statement and its consequences in **§7.5**.
 This is why the woodland/open-grown split needs **two** mechanisms (shedding sets bole length; `env_release` sets
-fork count and timing), and it is what dissolves **C7**. **Chris's sign-off is requested on the amendment and on
-F7; nothing else in §13 is re-opened.**
+fork count and timing), and it is what dissolves **C7**.
 
-### 13.6 The next task — still NOT "build the reiterate"
+> **✅ RATIFIED 2026-07-10 (Chris): F1 amendment adopted as written.** Light modulates `D` (fork count + timing)
+> in addition to survival-gating — the third channel stands. F1 itself is unchanged: space colonization stays
+> confined to twig/A5 axes, light does not steer a limb's direction. `L` enters at exactly three places:
+> `env_release(D)`, the shed gate, the twig rule.
 
-The AU exists now, so **F6's precondition is met**. But **F7 must be called first** (it is an object-model
-decision), and the numbers that make the AU *runnable* — `Φ_fork`, `D₀`, `γ`, drift, A1's module length — are
-**Genoyer 1999**, whose priority is therefore **restored, unchanged**: it supplies the *staging numbers* for a
-mechanism C&E has now fully specified. Nothing in this document is buildable without a decision on F7.
+### 13.6 The next task — F6, the m-tier prototype (F7 called 2026-07-10)
 
-*Design still HELD. No grower code. No build. Nothing committed, nothing pushed.*
+**F7 and the F1 amendment are ratified (both, and as-written — §11, §13.5).** F6's precondition (the AU) was
+already met; the object-model decision is now made. → **Build the F6 prototype: the year-stepped grower on the
+m tier only, leafless**, judged on the five §11-F6 criteria before any mesh/perf/cards.
+
+The numbers that make the AU *runnable* — `Φ_fork`, `D₀`, `γ`, drift, A1's module length — remain **Genoyer
+1999** (still unobtained); they are the *staging numbers*, not the mechanism. The prototype therefore runs on
+**`[PROV]` values, labelled as such**, and reports emergent outputs (primary count, caliber gradient, clear-bole
+fraction, DBH) as *predictions to be checked against the census and Genoyer*, not as tuned results.
+
+*Grower build STARTED 2026-07-10.*
