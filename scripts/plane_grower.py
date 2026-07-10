@@ -63,6 +63,7 @@ GU_NODES = {1: 14,        # A1 trunk. [GAP-A1GU] — C&E's cell is BLANK; do NOT
             5: 5}         # A5  measured C&E (short shoot)
 INTERNODE = 0.11          # metamer length, m. [PROV] — no plane number; set so the m-tier
                           # trunk reaches ~14 m over the establishment window.
+GROUND_FLOOR = 0.15       # m; a drooping limb rests just above soil, never grows underground. [PROV]
 
 # ★ F6 SCOPE: grow the WOODY ARMATURE only (A1 trunk, A2 primaries, A3 secondaries). The
 # A4/A5 short-shoot + twig layer is the space-filling FOLIAGE layer (design §7.1, §9.2) and
@@ -85,23 +86,72 @@ DIVERG_SPIRAL = 137.5     # 2/5 spiral phyllotaxis divergence for orthotropic A1
 
 # --- angles ---
 THETA_RELAY_DEG = 4.0     # kink of the relay ("prolongement", near-straight). [PROV/GAP-θrelay]
-THETA_LATERAL_DEG = 55.0  # insertion angle of subjacent laterals ("ouvert"). [PROV]
-THETA_GSA_DEG = 60.0      # plagiotropic gravitropic set-point from vertical, A2-A5. [PROV/GAP-θGSA]
+THETA_LATERAL_DEG = 60.0  # insertion angle of subjacent laterals ("ouvert"). [PROV]
+# ★ iter-4: MODERATELY ASCENDING set-point (62° from vertical = ~28° above horizontal). iter-3's
+# 60° CLIMBED forever because the posture pinned the tip to the set-point (right=RIGHT_K/r blew up
+# at thin tips) so the arch never formed — a 26 m relay chain rose +13 m into the light. The fix is
+# NOT a flat set-point (that gave dead-straight horizontal spokes) but a working ASCEND-THEN-ARCH:
+# a young limb holds this ascending set-point; as it lengthens, self-weight sag wins and the tip
+# DROOPS, so the limb arches over and comes DOWN under the master crown, where the downward shadow
+# can overtop and shed it (the shed-driven bole, §7.3). See posture() for the load-vs-righting law.
+THETA_GSA_DEG = 62.0      # plagiotropic gravitropic set-point from vertical, A2-A5. [PROV/GAP-θGSA]
 
 # --- relay dominance D / firing (§2). ---
 AU_MIN_AGE   = 6          # SEED trunk establishment: no crown-fork before the AU is attained.
                           # C&E: "AU attained in first 6 years." (structural, from source)
-REITER_MIN_AGE = 2        # a REITERATE leader is born mature (low D); it builds acrotony over
-                          # a couple modules, then forks — it is NOT a seedling. [PROV]
+REITER_MIN_AGE = 1        # a REITERATE leader is born mature (low D); iter-4: a ceiling master must
+                          # be able to round over after ONE module (age 2 let it overshoot H by ~3 m).
 H_SOFT_FRAC  = 0.42       # crown-envelope soft cap (§6): a leader's D collapses as its apex
                           # nears H, so vertical extension stops near the target height. [PROV]
-D0_SEED      = 1.0        # seed trunk starts fully dominant
-D_DECAY_AGE  = 0.13       # per-module dominance decay (acrotony wanes). [PROV/GAP-γ]
+# ★ iter-4: the crown ROUNDS OVER near H (§6 envelope as a soft bound). Two coupled effects above
+# CEIL_FRAC*H: (a) growth bends toward horizontal (grow_module) so no axis climbs far past H, and
+# (b) an orthotropic leader that forks AT the ceiling yields PLAGIOTROPIC crown branches (the dome),
+# NOT new climbing masters — whereas one that forks lower (room above) still makes orthotropic
+# sub-masters. Without this the establishment-rise fix just moved the runaway from A2 chains to a
+# stack of orthotropic master waves climbing to ~1.4×H. CEIL_FRAC [PROV].
+CEIL_FRAC    = 0.82
+D0_SEED      = 1.0        # seed trunk establishment PEAK (rises to this, then decays)
+D_DECAY_AGE  = 0.13       # per-module dominance decay AFTER establishment (crown-building
+                          # "diminution progressive de la dominance"). [PROV/GAP-γ]
 PHI_FORK     = 0.34       # D threshold below which the axis forks. [PROV/GAP-Φfork]
-D_RESET      = 0.55       # newborn wave inherits D_RESET * D_at_fork -> lower each wave. [PROV/GAP-D0]
-D_STOP       = 0.12       # below this a fork's elements are terminal (peripheral pauperized
-                          # secondaries, NOT new orthotropic leaders) -> recursion ends on its
-                          # own, D->0 at the periphery (C&E). [PROV]
+# ★★ iter-4: the ESTABLISHMENT RISE (§2.1). C&E gives D a THREE-phase trajectory:
+#   early sympodial (low) -> ESTABLISHMENT (RISING: "la dominance d'un relais unique est de plus
+#   en plus marquée, l'acrotonie augmente") -> crown-building (falling -> forks).
+# iter-1..3 modelled ONLY the falling limb (D monotone-decayed from birth), so every fork child
+# was born already BELOW Phi_fork and re-forked at REITER_MIN_AGE -> pauperized to twigs -> NO
+# persistent masters (the #1 iter-4 blocker). The rise is exactly what C&E says a fork element does:
+# "chaque élément des fourches présente D'ABORD une forte acrotonie et une grande dominance ...
+# il y a ENSUITE diminution." So a newborn master REBUILDS acrotony (rises to its wave peak), holds
+# a single dominant orthotropic leader through establishment, THEN decays and forks. The peak is set
+# per wave (D_RESET * parent_PEAK -> lower each wave -> 0 at the periphery: "d'une vague à l'autre le
+# caractère dominant ... diminue pour devenir NUL"), so scaffold DEPTH is an OUTPUT that terminates
+# on its own. (This reconciles §2.1's three-phase narrative with §2.2's decay-only formula, which
+# had dropped the rising limb.)
+EST_FLOOR    = 0.85       # ★ D at birth as a fraction of the wave PEAK. C&E: a fork element has
+                          # "D'ABORD une forte acrotonie et une grande dominance ... ENSUITE
+                          # diminution" — i.e. born STRONG, then decays. So EST_FLOOR is HIGH (the
+                          # "rise from low" is the seedling's juvenile phase, gated by AU_MIN_AGE, not
+                          # a fork element's). This is what makes the master persist: born well above
+                          # Phi_fork, it holds a dominant leader while D decays, and only forks when
+                          # decay (or hcap near H) brings D_eff under Phi. With headroom (l tier, hcap
+                          # ~1) it establishes several modules; at the ceiling (m/s, hcap<1) it rounds
+                          # over after one — so scaffold depth is tier-dependent and emergent. [PROV]
+# The SEED trunk starts at (near) full dominance — its juvenile establishment is already handled by
+# the AU_MIN_AGE fork gate — so it gets a SHORT rise window and is decay-dominated, forking near
+# iter-3's ~11 m. The RISE matters for the fork CHILDREN, which are born low (child_peak) and must
+# rebuild acrotony to persist as masters. A long seed window delayed the trunk fork up to 0.87*H,
+# eating the headroom masters need. [PROV]
+EST_WINDOW_SEED   = 1
+EST_WINDOW_REITER = 5     # a reiterate leader re-establishes over this many modules. [PROV]
+D_RESET      = 0.60       # a newborn wave's establishment PEAK = D_RESET * parent_peak. Lower each
+                          # wave -> the scaffold self-terminates at the periphery. [PROV/GAP-D0]
+D_MASTER_MIN = 0.30       # a fork child whose wave PEAK >= this is an orthotropic MASTER (cat-1,
+                          # "branche maîtresse comparable au tronc"); below it the fork elements are
+                          # terminal PLAGIOTROPIC secondaries (cat MAX_CAT). Replaces iter-3's birth-D
+                          # D_STOP test — the decision is now on the establishment PEAK, so a master
+                          # is judged by the leader it CAN build, not by its (low) birth dominance.
+                          # trunk peak 1.0 -> master 0.60 -> sub-master 0.36 -> 0.22<min = terminal:
+                          # ~2 orthotropic master orders then plagiotropic periphery (an OUTPUT). [PROV]
 # --- ★ iter-3: env_release (§7.5, the ratified F1 amendment). Light modulates RELAY DOMINANCE:
 # HIGH irradiance LOWERS D (co-equal relays -> forks early -> open-grown spreading form); LOW
 # light HOLDS D high (single dominant relay -> tall woodland leader). It is a GENTLE current-
@@ -116,9 +166,13 @@ ENV_LIGHT_K = 0.30       # strength of the light->D reduction. [PROV/GAP-env]
 ENV_MIN     = 0.70       # env_release floor: a fully-lit apex keeps >=70% of its dominance. [PROV]
 MAX_ORDER_GUARD = 7       # loop guard only; NOT a botanical cap (max_order is an output)
 
-# --- posture (§7.2): dtheta = righting_toward_GSA - sag_from_self_weight ---
+# --- posture (§7.2): ascend-then-arch. Young limb holds the ascending set-point (right » sag);
+# old long heavy limb loses to its own load and the tip droops (sag » right) -> the arch. ---
 SAG_K        = 0.055      # sag gain per (subtree mass * lever). [PROV/GAP-strain]
-RIGHT_K      = 0.16       # reaction-wood righting gain (∝ 1/r). [PROV/GAP-strain]
+RIGHT_K      = 0.16       # ~bounded reaction-wood righting gain (iter-4: constant, not ∝1/r —
+                          # the 1/r form pinned thin tips and prevented the arch). [PROV/GAP-strain]
+DROOP_K      = 0.55       # how much of the un-righted (sag-losing) fraction becomes downward arch
+                          # of the tip's growth direction each year. [PROV] Sets arch strength.
 
 # --- light / shadow grid (§7.3, F1). Palubicki coarse shadow propagation. ---
 VOX          = 0.6        # voxel size, m. [PROV]
@@ -186,14 +240,18 @@ class Node:
 
 class Axis:
     """One 'strand' == one apparent-order chain (a serie lineaire). §1.2."""
-    __slots__ = ("id", "cat", "order", "reit", "D", "alive", "apex", "nodes",
-                 "birth", "dirv", "gsa", "age", "forked", "D_at_fork", "_relay_host", "_D_eff")
-    def __init__(self, aid, cat, order, reit, D, apex, dirv, birth):
+    __slots__ = ("id", "cat", "order", "reit", "D", "D_peak", "est_window", "alive", "apex",
+                 "nodes", "birth", "dirv", "gsa", "age", "forked", "D_at_fork", "_relay_host", "_D_eff")
+    def __init__(self, aid, cat, order, reit, D, apex, dirv, birth,
+                 D_peak=None, est_window=EST_WINDOW_REITER):
         self.id = aid
         self.cat = cat                # apparent order rung 1..5 (A1..A5)
         self.order = order            # topological/apparent branching order for shading only
         self.reit = reit              # owning Reiterate id
-        self.D = D                    # relay dominance
+        self.D = D                    # relay dominance (current; = D_clean each year, for diagnostics)
+        self.D_peak = D if D_peak is None else D_peak   # ★ iter-4: the establishment PEAK this axis
+                                      # rises to before decaying (§2.1). Set per wave (D_RESET*parent).
+        self.est_window = est_window  # ★ iter-4: establishment length in modules (rise then decay)
         self.alive = True
         self.apex = apex              # node index of the active apex (or None once ended)
         self.nodes = [apex]           # node indices in growth order
@@ -216,7 +274,8 @@ class Grower:
         self.nodes.append(Node([0, 0, 0], -1, -1, 0))     # ground/root, node 0
         up = np.array([0.0, 1.0, 0.0])
         self.nodes.append(Node([0, INTERNODE, 0], 0, 0, 0))  # first trunk metamer, node 1
-        trunk = Axis(0, cat=1, order=0, reit=0, D=D0_SEED, apex=1, dirv=up, birth=0)
+        trunk = Axis(0, cat=1, order=0, reit=0, D=D0_SEED * EST_FLOOR, apex=1, dirv=up, birth=0,
+                     D_peak=D0_SEED, est_window=EST_WINDOW_SEED)
         self.nodes[1].axis = 0
         self.axes.append(trunk)
         self.reit_count = 1
@@ -259,12 +318,29 @@ class Grower:
         n = GU_NODES[ax.cat]
         # lay down n metamers along the current (posture-updated) direction
         d = ax.dirv.copy()
+        # ★ iter-4: crown rounding (§6 envelope soft bound). Above CEIL_FRAC*H, bend growth toward
+        # horizontal in proportion to how far past the ceiling the apex is, so leaders dome over near
+        # H instead of climbing past it. Applies to every axis; matters most for orthotropic leaders.
+        y_apex = self.nodes[ax.apex].pos[1]
+        ceil = CEIL_FRAC * self.H
+        if y_apex > ceil and d[1] > 0.0:
+            over = np.clip((y_apex - ceil) / (self.H * (1.0 - CEIL_FRAC) + 1e-6), 0.0, 1.0)
+            horiz = d.copy(); horiz[1] = 0.0
+            hn = np.linalg.norm(horiz)
+            if hn > 1e-6:
+                d = self._rot_toward(d, horiz / hn, 0.7 * over)
+                ax.dirv = d.copy()
         laterals_hosts = []       # (node_id, position_in_module) for the distal spiral zone
         spiral_start = int(math.floor(n * (1.0 - SPIRAL_FRAC)))
         base_az = self.rng.uniform(0, 360)
         for i in range(n):
             p_prev = self.nodes[ax.apex].pos
             newp = p_prev + INTERNODE * d
+            # ★ iter-4: a drooping limb cannot grow into the ground. C&E's veteran low limbs are
+            # "retombantes JUSQU'AU sol" (to the ground), so a floor of ~0 is right; below it is a
+            # posture artefact. Clamp to a small floor so ground-sweeping limbs rest just above soil.
+            if newp[1] < GROUND_FLOOR:
+                newp[1] = GROUND_FLOOR
             nid = self._new_node(newp, ax.apex, ax.id, year)
             ax.apex = nid
             ax.nodes.append(nid)
@@ -297,8 +373,9 @@ class Grower:
         relay_dir = self._azimuth_dir(d, math.degrees(kink), az)
         ax.dirv = relay_dir
         ax.age += 1
-        # dominance decays with age (acrotony wanes); light modulation applied in step()
-        ax.D *= (1.0 - D_DECAY_AGE)
+        # ★ iter-4: D is no longer a monotone per-year decay. Its clean age trajectory (rise during
+        # establishment, then decay) is computed on demand by D_clean(); light/height modulation is
+        # applied to it in step() as D_eff. ax.D is refreshed there for diagnostics.
         return relay_host, child_axes
 
     def _spawn_lateral(self, host_id, parent_ax, cat, azimuth, year):
@@ -326,6 +403,23 @@ class Grower:
         return math.sin(a) * horiz + math.cos(a) * np.array([0.0, 1.0, 0.0])
 
     # ======================================================================
+    # RELAY DOMINANCE D — the three-phase trajectory (§2.1, iter-4)
+    # ======================================================================
+    def D_clean(self, ax):
+        """Clean (light-independent) relay dominance as a function of the axis's age in modules.
+        §2.1 THREE phases: RISES during establishment (acrotony builds — "la dominance d'un relais
+        unique est de plus en plus marquée, l'acrotonie augmente"; a fork element "d'abord une forte
+        acrotonie et une grande dominance"), THEN decays (crown building — "ensuite diminution ...
+        diminution progressive"). The peak is ax.D_peak (set per wave; D_RESET*parent_peak -> 0 at
+        the periphery). iter-1..3 had only the decay limb, so fork children were born below Phi_fork
+        and could never establish a persistent master. env_release + hcap are applied on top in step()."""
+        a = ax.age
+        w = max(ax.est_window, 1)
+        if a <= w:                                     # establishment: rise from EST_FLOOR*peak to peak
+            return ax.D_peak * (EST_FLOOR + (1.0 - EST_FLOOR) * (a / w))
+        return ax.D_peak * (1.0 - D_DECAY_AGE) ** (a - w)   # crown-building: decay from peak
+
+    # ======================================================================
     # FIRING (§2) — a fork IS a reiteration
     # ======================================================================
     def terminal_fork(self, ax, relay_host, year):
@@ -334,13 +428,21 @@ class Grower:
         # how many co-equal masters (2 or 3) — light-equity among near-apex buds; here [PROV] 2/3
         M = 3 if self.rng.random() < 0.45 else 2      # [PROV] until light-equity wired
         d = ax.dirv
-        Dfork = getattr(ax, "D_at_fork", ax.D)
-        Dchild = D_RESET * Dfork
-        # ★ recursion terminates at the periphery: once inherited dominance is spent, the fork
-        # elements are pauperized terminal SECONDARIES (plagiotropic, sheddable), not new
-        # orthotropic leaders. This is C&E's "D -> nul" — max_order is an OUTPUT, not a cap.
-        terminal = Dchild < D_STOP
-        child_cat = MAX_CAT if terminal else ax.cat
+        # ★ iter-4: the wave decrement acts on the PEAK, not the (low) decayed birth-D. C&E: "d'une
+        # vague à l'autre le caractère dominant ... diminue" — it is the establishment dominance that
+        # falls wave to wave. A child rebuilds acrotony to child_peak, THEN forks (D_clean handles the
+        # rise). Whether the child is a persistent orthotropic MASTER or a terminal plagiotropic
+        # secondary is decided on child_peak (the leader it CAN build), not on its low birth dominance.
+        child_peak = D_RESET * ax.D_peak
+        # ★ iter-4: a leader forking AT the crown ceiling rounds the dome over into PLAGIOTROPIC
+        # branches, even if its peak could sustain a master — a tree does not keep throwing vertical
+        # leaders once it has reached its height. A fork with room above (D-decay, mid-crown) still
+        # makes orthotropic sub-masters. This is what makes the scaffold DEPTH scale with tier: a
+        # tall l tree forks masters for several waves before rounding over; a short s/m tree rounds
+        # over after one, so its crown is a broad dome on a shallow fork (both emergent).
+        at_ceiling = self.nodes[relay_host].pos[1] >= CEIL_FRAC * self.H
+        master = (child_peak >= D_MASTER_MIN) and not at_ceiling
+        child_cat = ax.cat if master else MAX_CAT     # master stays orthotropic (A1); else terminal
         new_axes = []
         for j in range(M):
             az = (j * 360.0 / M) + self.rng.uniform(-15, 15)
@@ -348,8 +450,9 @@ class Grower:
             p = self.nodes[relay_host].pos + INTERNODE * fd
             nid = self._new_node(p, relay_host, len(self.axes), year)
             self.reit_count += 1
-            child = Axis(len(self.axes), cat=child_cat, order=ax.order + (1 if terminal else 0),
-                         reit=self.reit_count, D=Dchild, apex=nid, dirv=fd, birth=year)
+            child = Axis(len(self.axes), cat=child_cat, order=ax.order + (0 if master else 1),
+                         reit=self.reit_count, D=child_peak * EST_FLOOR, apex=nid, dirv=fd, birth=year,
+                         D_peak=child_peak, est_window=EST_WINDOW_REITER)
             child.gsa = None if child_cat == 1 else self._gsa_target(fd)
             self.nodes[nid].axis = child.id
             self.axes.append(child)
@@ -407,8 +510,14 @@ class Grower:
             p = p0 + INTERNODE * fd
             cid = self._new_node(p, nid, len(self.axes), year)
             self.reit_count += 1
+            # ★ iter-4: a latent reiterate also RE-ESTABLISHES (§2.1). A basal s=1 total reiterate is
+            # a vigorous orthotropic leader (the veteran's heavy low limb) -> peak = D_RESET, it forks
+            # like a young trunk; a pauperized s>1 partial reiterate gets a lower peak (stays a
+            # plagiotropic spray). Peak, not a flat birth-D, so a basal reiterate can build a scaffold.
+            peak = D_RESET if s == 1 else D_RESET * (0.7 ** (s - 1))
             child = Axis(len(self.axes), cat=s, order=host_ax.order + 1, reit=self.reit_count,
-                         D=D_RESET, apex=cid, dirv=fd, birth=year)
+                         D=peak * EST_FLOOR, apex=cid, dirv=fd, birth=year,
+                         D_peak=peak, est_window=EST_WINDOW_REITER)
             child.gsa = gsa
             self.nodes[cid].axis = child.id
             self.axes.append(child)
@@ -544,21 +653,30 @@ class Grower:
         for ax in self.axes:
             if not ax.alive or ax.cat == 1 or ax.gsa is None:
                 continue
-            # current growth direction bends: righting toward GSA (∝1/r) minus sag (∝ mass*lever)
             tip = ax.apex
             if tip is None:
                 continue
-            r = max(radius[tip], R0)
+            # ★ iter-4: ASCEND-THEN-ARCH (§7.2). iter-3 used right = RIGHT_K/r; at a thin tip
+            # (r≈R0) that is a HUGE constant that pinned every limb to its set-point, so the
+            # accumulating sag could never droop the tip and the limb grew as a dead-straight spoke.
+            # The faithful picture: righting capacity is ~bounded (reaction wood), while sag grows
+            # with the limb's own accumulating LOAD × LEVER. So a YOUNG short limb (sag « right)
+            # holds its ascending set-point; an OLD long heavy limb (sag » right) loses the contest
+            # and the tip's growth direction progressively DROOPS — over years the axis traces an
+            # arch (proximal rising, distal drooping, C&E's "retombantes"). The set-point is
+            # moderately ascending again (GSA below), and the arch — not a flat set-point — is what
+            # keeps the crown from climbing away. Alméras & Fournier: without righting it would go
+            # fully weeping; the bounded right keeps a slow, non-collapsing arch.
             mass = subtree_mass.get(ax.nodes[0], 1.0)
             lever = np.linalg.norm(self.nodes[ax.apex].pos - self.nodes[ax.nodes[0]].pos)
             sag = SAG_K * mass * lever
-            right = RIGHT_K / r
-            frac_to_gsa = np.clip(right / (right + sag + 1e-6), 0.0, 0.9)
-            d = self._rot_toward(ax.dirv, ax.gsa, frac_to_gsa)
-            # then apply downward sag directly
-            d = d + np.array([0.0, -sag, 0.0]) * 0.1
-            d = d / (np.linalg.norm(d) + 1e-12)
-            ax.dirv = d
+            right = RIGHT_K                                   # ~bounded righting (was RIGHT_K/r)
+            frac_to_gsa = np.clip(right / (right + sag + 1e-6), 0.05, 0.9)
+            d = self._rot_toward(ax.dirv, ax.gsa, frac_to_gsa)     # pull toward ascending set-point
+            # the fraction NOT righted becomes downward arch — the tip droops as load wins
+            droop = np.clip((1.0 - frac_to_gsa) * DROOP_K, 0.0, 0.6)
+            d = self._rot_toward(d, np.array([0.0, -1.0, 0.0]), droop)
+            ax.dirv = d / (np.linalg.norm(d) + 1e-12)
 
     # ======================================================================
     # DERIVED-GRAPH UTILITIES
@@ -649,6 +767,10 @@ class Grower:
             #    crown-envelope soft cap (§6) collapses D_eff as an orthotropic apex nears H so
             #    leaders stop (by forking there — spine_top is thus an OUTPUT).
             for ax in live:
+                # ★ iter-4: the clean dominance is now the three-phase D_clean (rise then decay),
+                # refreshed onto ax.D for diagnostics. Establishment rise is what lets a master hold
+                # a single dominant relay for a few modules before it forks (persistent scaffold).
+                ax.D = self.D_clean(ax)
                 lt = self.light_at(self.nodes[ax.apex].pos, shadow, mn)
                 env = np.clip(1.0 - ENV_LIGHT_K * (lt / FULL_LIGHT), ENV_MIN, 1.0)
                 D_eff = ax.D * env
@@ -657,20 +779,21 @@ class Grower:
                     hcap = np.clip((self.H * 1.05 - y) / (self.H * H_SOFT_FRAC), 0.05, 1.0)
                     D_eff *= hcap
                 ax._D_eff = D_eff
-            # 4. FIRING — crown-building TERMINAL_FORK: orthotropic (A1) leaders where the EFFECTIVE
-            #    dominance collapsed past establishment. D_at_fork = D_eff so the fork's children
-            #    inherit the true current dominance (§2.3, D_reset·D_at_fork).
-            #    ⚠ iter-3 tried UNIVERSAL forking (every axis) + a wave-graded D reset to bound the
-            #    runaway A2 relay chains; both together exploded geometrically (branching factor
-            #    ramify × fork, shed can't keep up) — that is a larger redesign, not this iteration.
-            #    Reverted to A1-only + the D_RESET·D_at_fork wave; the env_release fix (step 3) and
-            #    shed grace stay. See docs/grower_prototype_iter1.md iter-3.
+            # 4. FIRING — crown-building TERMINAL_FORK: an orthotropic (A1) leader forks once it is
+            #    past establishment AND its EFFECTIVE dominance has decayed below Phi_fork. iter-4:
+            #    because D now RISES then decays, a master holds D_eff above Phi_fork through its
+            #    establishment window and only forks when it decays (or when hcap collapses it near H)
+            #    -> it persists as a real leader instead of re-forking at age 2. The wave decrement is
+            #    on the establishment PEAK (terminal_fork), so the scaffold self-terminates.
+            #    ⚠ STILL A1-only forking. iter-3's UNIVERSAL forking + wave-graded D reset exploded
+            #    geometrically (branching factor ramify × fork, shed can't keep up) — a documented
+            #    dead-end; DO NOT re-try. See docs/grower_prototype_iter1.md iter-3/iter-4.
             for ax in live:
                 if ax.cat != 1 or ax.forked:
                     continue
                 est = AU_MIN_AGE if ax.id == 0 else REITER_MIN_AGE
                 if ax.age >= est and ax._D_eff < PHI_FORK:
-                    ax.D_at_fork = ax._D_eff
+                    ax.D_at_fork = ax._D_eff        # diagnostic only (wave decrement is on the peak)
                     self.terminal_fork(ax, ax._relay_host, year)
             # 5. LATENT_BUD — sparse re-erection on old wood (ages the tree)
             self.latent_bud(year, shadow, mn)

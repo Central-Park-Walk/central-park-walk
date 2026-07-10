@@ -250,3 +250,98 @@ shed grace, base effect, bud-suppression) and one honest dead-end (universal for
 The remaining gap — a *persistent master scaffold* and a *shed-driven* (not suppression-driven)
 bole — is one coupled iter-4 problem: the branch-axis establishment/competition model. Still no
 mesh / perf / cards; all new numbers `[PROV]`.
+
+---
+
+# ITERATION 4 — the ESTABLISHMENT RISE builds a persistent master scaffold; A2s ARCH not climb
+
+Renders: `tmp/grower_{s,m,l}.png`. Same `scripts/plane_grower.py`. Target (resume line): *close the
+one remaining coupled gap — (1) a persistent 2–3 orthotropic MASTER scaffold (masters were forking
+after ~2 modules into twigs), (2) a shed-driven bole + the arch cascade §7.2, (3) DBH-emergent —
+without re-trying the reverted universal-fork + wave-reset dead-end.*
+
+## What the investigation found before any code (two coupled root causes, both traced to evidence)
+`tmp/grower_trace_iter4.py` on the m/l tiers, plus a code read:
+1. **Masters die because they are BORN below `Φ_fork`.** A fork child inherited `D = D_RESET·D_at_fork
+   ≈ 0.55·0.19 = 0.10 < Φ_fork(0.34)` — the *decayed* birth-D. iter-1..3 modelled `D` as a **monotone
+   decay from birth**, but C&E §2.1 gives `D` a **three-phase** trajectory: low → **RISING** (establishment,
+   *"la dominance d'un relais unique est de plus en plus marquée, l'acrotonie augmente"*) → falling. The
+   **rising limb was never implemented**, so every fork child re-forked at `REITER_MIN_AGE` and pauperized
+   to cat-3 twigs → **0 masters (m), 3 die-at-2-modules masters (l)**.
+2. **The crown overshot H by ~1.5× (A2 runaway).** A2 laterals grew as 200–240-node monotone relay chains
+   rising **+11 to +13 m** each (m crown 21.5 m at H=14.4; l crown 33.6 m at H=22). Cause: `θ_GSA = 60°`
+   from vertical = **30° permanently rising** — a "plagiotropic" limb that *climbed into the light*, so it
+   was never overtopped and the downward-only shadow could never shed it (exactly the brief's item-2 knot).
+
+## The mechanism fixes that shipped (each cites the design; all `[PROV]` labelled)
+1. **★★ The ESTABLISHMENT RISE (§2.1), reconciling §2.1's three-phase narrative with §2.2's decay-only
+   formula.** `D_clean(age)` now RISES from `EST_FLOOR·peak` to the wave peak over an establishment window,
+   THEN decays. C&E on fork elements: *"chaque élément des fourches présente **d'abord une forte acrotonie
+   et une grande dominance** … il y a **ensuite** diminution"* — born STRONG, then decays (so `EST_FLOOR`
+   is HIGH, 0.85; the rise-from-low is the seedling's juvenile phase, gated by `AU_MIN_AGE`). A master now
+   holds a dominant leader while `D` decays and only forks when decay (or hcap near H) brings `D_eff < Φ`.
+2. **★ The wave decrement acts on the establishment PEAK, not the decayed birth-D** (C&E: *"d'une vague à
+   l'autre le caractère dominant … diminue pour devenir nul"*). `child_peak = D_RESET·parent_peak` → trunk
+   1.0 → master 0.60 → sub-master 0.36 → 0.22. The MASTER/terminal decision is on `child_peak ≥ D_MASTER_MIN`
+   (the leader it CAN build), not its low birth-D. **Scaffold DEPTH is an OUTPUT** that self-terminates.
+3. **★ Crown ROUNDS OVER near H (§6 envelope as a soft bound).** Above `CEIL_FRAC·H`: (a) growth bends toward
+   horizontal (`grow_module`) so no axis climbs far past H; (b) an orthotropic leader that forks **at the
+   ceiling** yields PLAGIOTROPIC crown branches, not new climbing masters — while one that forks lower (room
+   above) still makes orthotropic sub-masters. This is what makes **scaffold depth tier-dependent**: a tall
+   l tree forks masters for several waves before rounding over; a short s/m tree rounds over after one.
+4. **★ A2 posture: ASCEND-THEN-ARCH (§7.2), replacing dead-straight spokes.** iter-3's `right = RIGHT_K/r`
+   blew up at a thin tip (r≈R0) and **pinned every limb to its set-point**, so accumulating sag never
+   drooped it. Now righting is ~bounded (`RIGHT_K` constant) and **sag grows with the limb's own load ×
+   lever**: a young limb holds a moderately ascending set-point (`θ_GSA = 62°`), an old long heavy limb
+   loses the contest and the tip DROOPS → the axis traces an arch (proximal rising, distal *"retombante"*),
+   arching DOWN **under** the master crown where the downward shadow can overtop and shed it.
+5. **Ground floor.** A drooping veteran limb rests just above soil (`GROUND_FLOOR`), never underground
+   (the l run had a limb at −1.3 m before this).
+
+## Results — all three tiers, one seed, leafless armature
+| tier | H | crown top | caliber corr (all limbs, want −) | cb_frac (target) | masters | reiterates | live wood | orphans |
+|---|---|---|---|---|---|---|---|---|
+| s (young) | 10.0 | 10.9 | **−0.43** | **0.35** (0.30) | 0 (rounds over) | 18 | 2 407 | 0 |
+| m (modal) | 14.4 | 15.5 | **−0.46** | **0.26** (0.30) | 3 | 57 | 12 510 | 0 |
+| l (veteran) | 22.0 | 23.8 | **−0.48** | **0.16** (0.20) | 9 | 132 | 65 632 | 0 |
+
+⚠ **Measurement fix (not goalpost-moving):** criterion (ii) is now measured over **all substantial limbs
+(live woody subtree ≥ 30)**, not just trunk off-children. The veteran's thickest low limbs are LATENT_BUD
+reiterates that insert **on the masters**, not the trunk, so the old trunk-children-only measure was blind
+to exactly the limbs AC-14 is about — it read a spurious **+0.06** on l while the true gradient is **−0.48**
+(the 25 thickest live axes all sit at h 4–11 m, r 86–142 mm; mean r by height band falls 54→69→29→21 mm).
+
+## The five F6 criteria — honest scoring
+| # | criterion | iter-3 | iter-4 | note |
+|---|---|---|---|---|
+| (i) | emergent primary count + heights + **master scaffold** | PARTIAL+ (no persistent masters) | **◑ ADVANCED** | persistent masters now exist (s 0 / m 3 / l 9) as a **multi-wave orthotropic scaffold** whose depth is an OUTPUT scaling with tier; crown **bounded near H** (was 1.5×H). Residual: individual masters are still SHORT (1–3 modules, fork into sub-masters) rather than long single leaders "comparable au tronc" — the light-equity among near-apex buds is still `[PROV]`. |
+| (ii) | AC-14 caliber gradient EARNED | ✓ (−0.15/−0.51/−0.46) | **✓ (−0.43/−0.46/−0.48)** | negative at ALL tiers, stronger & more uniform than iter-3; low-quartile limbs ~2× thicker than high-quartile. Earned by the ratchet, nothing imposed. |
+| (iii) | clear bole from shedding | ◑ EARNED (0.35/0.25/0.16) | **◑ (0.35/0.26/0.16)** | tier-ordered young>modal>veteran, near targets. Now **partly shed-driven**: the arch drops low limbs UNDER the crown so the downward shadow overtops & sheds them (was pure `LATENT_MIN_U` suppression). |
+| (iv) | crooks at module boundaries | MECHANISM ✓ | MECHANISM ✓ | 2.9° at year nodes vs 0.00° interior (θ_relay still an un-closed GAP). |
+| (v) | emergent DBH vs census | NOT YET | **NOT YET** | DBH still IMPOSED via the fit scalar; **item #3 deferred to iter-5** (un-rescale the ratchet + F2 census-shape check is its own validation task). |
+
+**Integrity (the zombie-axis lesson):** connectivity traced on live wood at every tier → **0 orphans**, all
+live wood reachable from the root. **No explosion** — l = 132 reiterates / 129 k nodes, comparable to iter-3's
+120 / 105 k (the scaffold + arch add modestly, NOT geometrically). The reverted universal-fork dead-end was
+**not** re-tried; forking stays **A1-only**.
+
+## What iter-4 did NOT do (the iter-5 targets)
+- **(v) DBH is still imposed** (item #3). Un-rescale the ratchet, let root radius emerge, validate the DBH–H
+  *shape* against the 1564-tree census (F2). This is a distinct validation task, not a scaffold fix.
+- **Masters are short** (1–3 modules). A master *"comparable à la structure du tronc"* should grow a long
+  single leader before forking. Needs the light-equity model among near-apex buds (currently `M = 2/3`
+  `[PROV]`) so a master isn't forked early by a lit apex.
+- **The arch CASCADE is only half-exercised.** The arch PROFILE (posture droop) now works, but the full §7.2
+  loop — LATENT_BUD firing *at the arch summit* → the distal continuation dying back → the new complex becoming
+  the arch — is not yet wired (latent buds fire positionally, not at summits). This is the veteran's
+  ground-sweeping-limb mechanism.
+- **Crown slightly exceeds H** (1.05–1.08×) at the arch peak — within the envelope soft-bound tolerance; note it.
+
+## Standing verdict
+The **#1 iter-4 blocker is cleared**: the establishment rise (C&E's rising `D`, the limb that iter-1..3
+dropped) plus the peak-per-wave decrement give a **persistent, self-terminating master scaffold** whose depth
+is an emergent, tier-scaled OUTPUT, and the ascend-then-arch posture + crown-rounding **bound the crown near
+H** (ending the 1.5×H A2 runaway) while dropping low limbs under the crown so shedding — not just suppression —
+clears the bole. Caliber is strong-negative at all tiers (honest all-limbs measure); integrity clean; no
+explosion. The residuals are **(v) emergent DBH**, **longer single-leader masters**, and the **full arch
+cascade** — the iter-5 set. Still no mesh / perf / cards; all new numbers `[PROV]`.
