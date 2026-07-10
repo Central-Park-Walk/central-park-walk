@@ -154,3 +154,99 @@ The developmental process now **runs to a stable crown at all three tiers** — 
 iter-1 could not reach. The remaining criteria (clear bole, caliber sign, Mode-2 veteran limbs) are
 a single coupled problem — *the low crown must shed and be rebuilt from latent buds* — and that is
 the iter-3 target. Still no mesh / perf / cards. All new numbers `[PROV]`.
+
+---
+
+# ITERATION 3 — LATENT_BUD fires; caliber sign FLIPPED; clear bole EARNED & tier-ordered
+
+Renders: `tmp/grower_{s,m,l}.png`. Same `scripts/plane_grower.py`. Target (from the resume line):
+*make Mode 2 fire so the low crown sheds and rebuilds from thick low reiterates — closing the two
+open criteria (clear bole 0.07→~0.30, caliber sign flip) and starting the veteran's low limbs.*
+
+## What the investigation found before any code (the diagnosis was bigger than the brief)
+Tracing iter-2's crown first (`tmp/grower_diag_iter3.py`, `tmp/grower_trunk_trace.py`):
+1. **Mode 2 was structurally inert** because its host set was *alive cat-1 axes only* — i.e. the
+   trunk, which forks and dies by age ~7. `reit_count` was stuck at 3-4 (the trunk fork alone).
+2. **There were NO orthotropic masters at all** (`cat-1 masters = 0`). The trunk's fork was
+   maximally pauperized (Dchild≈0 → cat-3 twigs). Cause, traced year-by-year: the trunk apex is
+   self-shaded from year 1 (`env_release` clipped to its 0.15 floor), and `env_release` was
+   **inverted vs the ratified design §7.5 AND compounding annually**, so it annihilated the apex's
+   dominance to ~0 within two years. By the time the age-6 fork gate opened, D had been 0 for years.
+3. **The whole crown was the trunk's establishment-window A2 laterals**, grown as *unbounded relay
+   chains* to 35 m (H=22, l tier) because only A1 forked — nothing bounded a plagiotropic axis.
+So "make latent buds fire" alone could not close (ii)/(iii): the crown had no scaffold, no masters,
+and low limbs that were thin runaway A2s the shed rule could never overtop.
+
+## The five edits that shipped (each cites the design; all `[PROV]` values labelled)
+1. **`env_release` sign + compounding fixed (§7.5).** High light now *lowers* D (open-grown forks
+   early); low light *holds* D (a self-shaded establishment leader stays a leader). Applied as a
+   **gentle current-conditions factor** on an effective `D_eff = D·env·hcap`, evaluated at the fork
+   decision, **not** compounded into the clean age-decayed `D` (§2.2). → the trunk now reaches the
+   fork gate at age 7-8 with D≈Φ_fork and *can* throw masters.
+2. **One-year shed GRACE.** Masters and latent-bud reiterates fire *after* the year's foliation
+   step, so a newborn has no foliage in its birth year → its subtree light is spuriously 0 → it was
+   shed the instant it appeared. A newly-released reiterate now gets one season to establish.
+3. **★ LATENT_BUD host set + firing rewritten (the brief's core).** Host = **old woody nodes on ANY
+   axis** — crucially the *dead* trunk and *dead* masters, whose wood persists after the axis stops
+   extending — not just alive cat-1 axes. Release is **positional**, biased LOW (§3.3/§7.2: the
+   basal reiterates are the heavy limbs), **not** a firing-time light gate (§2.3: C&E ties release
+   to position/arch-summit; light acts *after* birth via the shed rule). `start_order = s(u_ins)`.
+4. **Base effect (§4).** An orthotropic leader's first `BASE_MODULES=3` modules bear no released
+   laterals — the bare establishment zone from which the **clear bole emerges as an output** (the
+   trunk no longer sprouts a permanent limb at h≈1.4 in year 1 that pins cb at 0.10).
+5. **`LATENT_MIN_U=0.26`.** Dormant buds on the clear bole stay suppressed (apical dominance);
+   Mode-2 fires in the **low crown**, so its thick reiterates rebuild the low limbs *above* the
+   bole instead of re-populating it. This scalar is the calibration the design explicitly permits
+   (cf. §7.3's "one free scalar we allow ourselves to fit to cb").
+
+**⚠ What was tried and REVERTED (a genuine dead-end, recorded so it isn't re-attempted):**
+*universal forking* (every axis forks, §2.3) **+ a wave-graded D reset** to bound the runaway A2s.
+Correct on paper, but together they **explode geometrically** (branching factor = ramify × fork,
+each wave establishing long; shed can't keep up — s tier hit reit 1171/wood 16 k by year 12, l
+timed out). Bounding the A2s properly is a **larger redesign than iter-3** (it needs a real
+establishment/competition model, not a patch). Reverted to A1-only forking + the D_RESET·D_at_fork
+wave. **The A2-runaway is therefore still present** and is the #1 iter-4 blocker (below).
+
+## Results — all three tiers, one seed, leafless armature
+| tier | H | cb_frac (target) | caliber corr (want −) | reiterates | live wood | orphans |
+|---|---|---|---|---|---|---|
+| s (young, Upright Ovoid) | 10.0 | **0.35** (0.35) | −0.15 | 18 | 2 926 | 0 |
+| m (modal, Broad Dome) | 14.4 | **0.25** (0.30) | **−0.51** | 49 | 13 325 | 0 |
+| l (veteran, Low-Forked Spread) | 22.0 | **0.16** (0.20) | **−0.46** | 120 | 50 115 | 0 |
+
+## The five F6 criteria — honest scoring
+| # | criterion | iter-2 | iter-3 | note |
+|---|---|---|---|---|
+| (i) | emergent primary count + heights | PARTIAL | **PARTIAL+** | 15-20 primaries; now a real bole + tiered limbs + thick low reiterates. Still **no persistent 2-3 master fork** (masters fork after ~2 modules; crown carried by A2s + latent reiterates). |
+| (ii) | AC-14 caliber gradient EARNED | **wrong-signed** (+0.60) | **✓ FIXED** | corr **negative at all three tiers** (m −0.51, l −0.46); the thick limbs (r 120-154 mm) sit at h 5-8 m — the veteran's heavy low limbs, earned by the ratchet, nothing imposed. |
+| (iii) | clear bole from shedding | LOW (0.07-0.10) | **◑ EARNED, near target** | 0.35 / 0.25 / 0.16 and **correctly ORDERED young>modal>veteran** — the measured trend (cb DECREASES with age) falls out of more/lower latent buds over more years. Modal/veteran ~0.05 below target. |
+| (iv) | crooks at module boundaries | MECHANISM ✓ | MECHANISM ✓ | 2.9° at year nodes vs 0.00° interior (θ_relay still an un-closed GAP; reads straight). |
+| (v) | emergent DBH vs census | NOT YET | NOT YET | DBH still IMPOSED via the fit scalar; F2's emergent-DBH check deferred. |
+
+**Integrity (the zombie-axis lesson):** connectivity traced on live wood at every tier → **0
+orphans**, all live wood reachable from the root. No floating islands. No collapse, no runaway,
+no explosion; l grows to a stable 50 k-node crown over 35 years (111 s), shedding 12-27 subtrees/yr.
+
+## What iter-3 did NOT fix (the coupled iter-4 target)
+- **No persistent orthotropic masters.** The trunk fork now *starts* masters (env fix) but they
+  fork again after ~2 modules — there is no long-lived cat-1 scaffold. The crown is A2 laterals +
+  latent reiterates. A real master (C&E's "branche maîtresse, structure comparable au tronc") needs
+  a longer establishment, which is entangled with the reverted **A2-runaway / universal-fork**
+  problem: bounding branch axes *and* keeping a scaffold needs the establishment/competition model
+  the wave-reset dead-end was reaching for. **This is the #1 iter-4 blocker.**
+- **Clear bole ~0.05 below the modal/veteran targets**, and pinned by `LATENT_MIN_U` rather than by
+  shedding of overtopped low limbs — the light model still can't shade a low outward-spreading limb
+  (downward-only shadow, no side light), so the bole is *suppressed* into being rather than *shed*
+  into being. The arch cascade (§7.2 — sag → latent bud at the re-lit summit → dieback) is the
+  design's real low-limb mechanism and is still not exercised (posture produces little curvature).
+- **DBH still imposed; crown vase-not-dome** (foliage layer deferred, F6 scope).
+
+## Standing verdict
+The brief's core ask is **met**: LATENT_BUD fires robustly (reit 3→120), on old wood across dead
+and live axes, and it flips the **caliber sign** (the open criterion ii) at all three tiers while
+the **clear bole** becomes an earned, tier-ordered output near the measured targets (criterion iii,
+substantially advanced). Integrity is clean. The cost was four supporting mechanism fixes (env sign,
+shed grace, base effect, bud-suppression) and one honest dead-end (universal fork + wave reset).
+The remaining gap — a *persistent master scaffold* and a *shed-driven* (not suppression-driven)
+bole — is one coupled iter-4 problem: the branch-axis establishment/competition model. Still no
+mesh / perf / cards; all new numbers `[PROV]`.

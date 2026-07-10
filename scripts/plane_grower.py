@@ -71,6 +71,13 @@ MAX_CAT = 3               # deepest apparent order grown as skeleton (A3). A4/A5
 # BRANCH_GRADE: how many axillary buds of a module's spiral zone RELEASE as growing branches
 # this year (the rest stay dormant — proleptic; available to LATENT_BUD later). [PROV/GAP-grade]
 BRANCH_GRADE = {1: 2, 2: 1, 3: 0}
+# ★ iter-3: the BASE EFFECT (§4). "The first n_base modules of any axis bear few, weak laterals;
+# vigour rises acropetally out of the establishment zone." The trunk's first few modules stay
+# BARE, so the permanent crown starts above the establishment zone -> the CLEAR BOLE emerges as an
+# output (cb ~ where the bare zone ends), instead of the trunk sprouting a permanent limb in year
+# 1 at h~1.4 that never sheds and pins cb at 0.10. Applies to every axis (each limb gets its own
+# bare proximal zone — the design's "bare proximal limb"), but it matters most on the trunk.
+BASE_MODULES = 3          # first N modules of an axis bear no released laterals (base effect). [PROV]
 
 SPIRAL_FRAC = 0.60        # distal fraction of a module that bears laterals (acrotony). [PROV]
 DIVERG_SPIRAL = 137.5     # 2/5 spiral phyllotaxis divergence for orthotropic A1 (~144); use
@@ -95,6 +102,18 @@ D_RESET      = 0.55       # newborn wave inherits D_RESET * D_at_fork -> lower e
 D_STOP       = 0.12       # below this a fork's elements are terminal (peripheral pauperized
                           # secondaries, NOT new orthotropic leaders) -> recursion ends on its
                           # own, D->0 at the periphery (C&E). [PROV]
+# --- ★ iter-3: env_release (§7.5, the ratified F1 amendment). Light modulates RELAY DOMINANCE:
+# HIGH irradiance LOWERS D (co-equal relays -> forks early -> open-grown spreading form); LOW
+# light HOLDS D high (single dominant relay -> tall woodland leader). It is a GENTLE current-
+# conditions FACTOR on D (§2.2: D = D_0·decay·env_release), evaluated at the decision, NOT
+# compounded annually. iter-1/2 had it INVERTED **and** compounding (`ax.D *= clip(lt/FULL,
+# 0.15,1)` every year), which annihilated the self-shaded trunk apex's D to ~0 within two years
+# -> the age-6 establishment fork was maximally pauperized (Dchild~0 -> cat-3 twigs, NO masters).
+# With the sign corrected, a self-shaded establishment leader HOLDS its dominance and reaches the
+# fork gate with D still near Phi_fork -> Dchild > D_STOP -> 2-3 orthotropic MASTERS (C&E's
+# "fourche de 2 ou 3 branches maîtresses orthotropes ... complexes réitérés totaux").
+ENV_LIGHT_K = 0.30       # strength of the light->D reduction. [PROV/GAP-env]
+ENV_MIN     = 0.70       # env_release floor: a fully-lit apex keeps >=70% of its dominance. [PROV]
 MAX_ORDER_GUARD = 7       # loop guard only; NOT a botanical cap (max_order is an output)
 
 # --- posture (§7.2): dtheta = righting_toward_GSA - sag_from_self_weight ---
@@ -123,6 +142,31 @@ FOLIAGE_LIFE     = 3      # a leaf cohort persists this many years then abscisse
 FOLIAGE_PER_TIP  = 4      # A4 short shoots a lit tip puts out per year. [PROV]
 FOLIAGE_SPREAD   = 0.35   # how far (m) leaves sit off the bearing tip. [PROV]
 
+# --- ★ iter-3: LATENT_BUD (Mode 2), the re-erection of dormant buds on OLD WOOD (§2.3, §3.3,
+# §7.2). iter-1/2's Mode 2 was INERT (reit stuck at 3-4) because its host set was only ALIVE
+# cat-1 axes — i.e. the trunk, which forks and dies by age ~7, leaving no host. But the WOOD
+# PERSISTS after an axis stops extending: the forked trunk, the dead masters and the plagiotropic
+# limbs are all old wood bearing dormant buds. So the host set is OLD WOODY NODES on ANY axis.
+# Release is POSITIONAL, not a light threshold (§2.3: "C&E ties it to POSITION and to the arch
+# summit," not to a scheduled light gate) — light acts on the reiterate AFTER birth, through the
+# shed rule (an overtopped re-erection is shed; one that reaches light lives). Release is biased
+# LOW because C&E: "plus ils sont proches de la base des branches maîtresses ... plus ils sont
+# développés" — the basal reiterates are the veteran's heavy low limbs. start_order = s(u_ins)
+# (§3.3): basal insertion -> s=1 total reiterate (orthotropic, thick, big subtree); peripheral
+# -> s->5 M.A.U. (a spent short shoot). This is the crown's REBUILD mechanism and the source of
+# the caliber sign flip (thick reiterates low) and the veteran's arch-cascade low limbs.
+LATENT_MIN_AGE  = 5      # a node is "old wood" bearing a releasable dormant bud after this many yr. [PROV]
+LATENT_MIN_U    = 0.26   # ★ dormant buds on the CLEAR BOLE (u_ins < this) stay suppressed (apical
+                         # dominance; the establishment zone). C&E puts the heavy reiterates "à la
+                         # base des BRANCHES MAÎTRESSES", i.e. in the LOW CROWN, not on the bole.
+                         # Firing above the bole lets the thick reiterates OVERTOP and shed the thin
+                         # low A2s -> the bole clears AND the low crown rebuilds thick. [PROV]
+LATENT_RATE     = 0.85   # release prob for a candidate at LATENT_MIN_U (scaled by the low bias). [PROV]
+LATENT_LOW_BIAS = 2.5    # release weight (1-u_ins)^BIAS -> favour low-crown buds (the heavy limbs). [PROV]
+LATENT_MIN_SEP  = 1.5    # m; two buds may not release within this distance the same year. [PROV]
+MAX_LATENT_PER_YEAR = 4  # bounded release (ages the tree gradually, not a flush). [PROV]
+LATENT_START_AGE = 8     # the tree only re-erects latent buds once it is past establishment. [PROV]
+
 SEED = 20260710
 
 
@@ -143,7 +187,7 @@ class Node:
 class Axis:
     """One 'strand' == one apparent-order chain (a serie lineaire). §1.2."""
     __slots__ = ("id", "cat", "order", "reit", "D", "alive", "apex", "nodes",
-                 "birth", "dirv", "gsa", "age", "forked", "D_at_fork", "_relay_host")
+                 "birth", "dirv", "gsa", "age", "forked", "D_at_fork", "_relay_host", "_D_eff")
     def __init__(self, aid, cat, order, reit, D, apex, dirv, birth):
         self.id = aid
         self.cat = cat                # apparent order rung 1..5 (A1..A5)
@@ -234,6 +278,12 @@ class Grower:
         child_axes = []
         child_cat = ax.cat + 1
         grade = BRANCH_GRADE.get(ax.cat, 0)
+        # base effect (§4): an ORTHOTROPIC leader's first BASE_MODULES modules bear no released
+        # laterals — the bare establishment zone from which the clear bole emerges (cb an OUTPUT).
+        # Restricted to cat-1 leaders (trunk, masters, total reiterates): applying it to every twig
+        # over-thinned the crown fill. Plagiotropic A2/A3 ramify from their base (crown volume).
+        if ax.cat == 1 and ax.age < BASE_MODULES:
+            grade = 0
         if grade > 0 and child_cat <= MAX_CAT:
             # sub-jacent hosts, most-distal first (acrotony), excluding the relay host
             subjacent = list(reversed(laterals_hosts[:-1]))[:grade]
@@ -309,42 +359,60 @@ class Grower:
         ax.forked = True
         return new_axes
 
-    def latent_bud(self, year):
-        """Mode 2: dormant buds on OLD wood re-erect. start_order = s(u_ins) positional law
-        (§3.3): complete reiteration low on the trunk, pauperized toward the periphery. This
-        is what makes the lower limbs heavier (they start at a lower rung => bigger subtree)
-        and older (fire earlier => more ratchet). Fires sparsely, light-gated (F1)."""
-        # path length (root->node) for every node, for u_ins
+    def latent_bud(self, year, shadow=None, mn=None):
+        """Mode 2 (§2.3): dormant buds on OLD WOOD re-erect. The HOST SET is every old woody node
+        on ANY axis — crucially the DEAD trunk and dead masters, whose wood persists after they
+        stop extending — not just alive cat-1 axes (iter-1/2's inert restriction). Release is
+        POSITIONAL, biased LOW (§3.3, §7.2: the basal reiterates are the veteran's heavy low
+        limbs); survival is decided AFTER birth by the shed rule, not by a firing-time light gate.
+        start_order = s(u_ins): basal -> s=1 orthotropic total reiterate; peripheral -> pauperized.
+        Returns the reiterate leaders born this year."""
+        if year < LATENT_START_AGE:                   # no re-erection before the tree matures
+            return []
         pl = self._pathlen()
         maxpl = max(pl.values()) if pl else 1.0
-        births = []
-        MAX_PER_YEAR = 8                              # [PROV] bounded release
-        # candidate hosts: old-wood nodes (age>=4 yr) on orthotropic axes (trunk + masters)
-        for ax in list(self.axes):
-            if not ax.alive or ax.cat > 1:            # trunk + orthotropic master leaders only
+        # gather old-wood candidates on ANY axis, with a positional (low) release weight
+        cand = []
+        for nid in range(len(self.nodes)):
+            nd = self.nodes[nid]
+            if nid == 0 or not nd.alive or nd.foliage:
                 continue
-            for nid in ax.nodes:
-                if len(births) >= MAX_PER_YEAR:
-                    break
-                nd = self.nodes[nid]
-                if year - nd.birth < 4:               # must be old wood
-                    continue
-                if self.rng.random() > 0.0018:        # [PROV] sparse release rate
-                    continue
-                u = pl.get(nid, 0.0) / max(maxpl, 1e-6)
-                s = self._start_order(u)              # positional pauperization
-                # re-erect: orthotropic new leader
-                az = self.rng.uniform(0, 360)
-                fd = self._azimuth_dir(np.array([0.0, 1.0, 0.0]), 12.0, az)
-                p = nd.pos + INTERNODE * fd
-                cid = self._new_node(p, nid, len(self.axes), year)
-                self.reit_count += 1
-                child = Axis(len(self.axes), cat=s, order=ax.order + 1, reit=self.reit_count,
-                             D=D_RESET, apex=cid, dirv=fd, birth=year)
-                child.gsa = None if s == 1 else self._gsa_target(self._perp(np.array([0, 1.0, 0])))
-                self.nodes[cid].axis = child.id
-                self.axes.append(child)
-                births.append(child)
+            if year - nd.birth < LATENT_MIN_AGE:      # must be old wood
+                continue
+            u = pl.get(nid, 0.0) / max(maxpl, 1e-6)
+            if u < LATENT_MIN_U:                       # the clear bole stays suppressed (see above)
+                continue
+            w = (1.0 - u) ** LATENT_LOW_BIAS          # low-crown bias (C&E: base of masters = most developed)
+            cand.append((w, nid, u))
+        cand.sort(reverse=True)                        # most-basal first (deterministic)
+        births = []
+        placed = []
+        for w, nid, u in cand:
+            if len(births) >= MAX_LATENT_PER_YEAR:
+                break
+            if self.rng.random() > LATENT_RATE * w:    # positional release probability
+                continue
+            p0 = self.nodes[nid].pos
+            if any(np.linalg.norm(p0 - q) < LATENT_MIN_SEP for q in placed):
+                continue                               # space the year's releases out
+            placed.append(p0)
+            s = self._start_order(u)                   # positional pauperization -> AU rung
+            host_ax = self.axes[self.nodes[nid].axis]
+            if s == 1:                                 # total reiterate: a fresh orthotropic leader
+                fd = self._azimuth_dir(np.array([0.0, 1.0, 0.0]), 8.0, self.rng.uniform(0, 360))
+                gsa = None
+            else:                                      # partial reiterate: plagiotropic set-point
+                fd = self._azimuth_dir(np.array([0.0, 1.0, 0.0]), THETA_GSA_DEG, self.rng.uniform(0, 360))
+                gsa = self._gsa_target(fd)
+            p = p0 + INTERNODE * fd
+            cid = self._new_node(p, nid, len(self.axes), year)
+            self.reit_count += 1
+            child = Axis(len(self.axes), cat=s, order=host_ax.order + 1, reit=self.reit_count,
+                         D=D_RESET, apex=cid, dirv=fd, birth=year)
+            child.gsa = gsa
+            self.nodes[cid].axis = child.id
+            self.axes.append(child)
+            births.append(child)
         return births
 
     def _start_order(self, u):
@@ -431,7 +499,7 @@ class Grower:
     # ======================================================================
     # SHED (§7.3) — light_gathered/size < tau  => remove subtree, keep radius
     # ======================================================================
-    def shed(self, light, children):
+    def shed(self, light, children, year=None):
         order = self._topo_leaves_first(children)     # leaves first
         lg = {}; sz = {}
         for i in order:
@@ -450,6 +518,12 @@ class Grower:
             # gathers all the tree's light"). Every other axis — including reiterate leaders —
             # can be overtopped and shed (branch autonomy; C&E apical mortality).
             if not ax.alive or ax.id == 0:
+                continue
+            # ★ iter-3: one-year shed GRACE. An axis born THIS year has not yet foliated (masters
+            # and latent-bud reiterates fire AFTER the year's foliation step), so its subtree
+            # light is spuriously 0 -> it would shed the instant it appears. A newly-released
+            # reiterate gets one season to establish before the survival gate applies. [PROV]
+            if year is not None and ax.birth == year:
                 continue
             root = ax.nodes[0]
             if not self.nodes[root].alive:
@@ -569,34 +643,44 @@ class Grower:
             self.age_foliage(year)
             children = self._children(include_dead=True)
             shadow, mn = self.build_shadow(children)
-            # 3. LIGHT modulates D (F1 env_release): shaded apices lose dominance faster; AND the
-            #    crown-envelope soft cap (§6) collapses D as the apex nears H so leaders stop.
+            # 3. EFFECTIVE dominance D_eff = D(clean, age-decayed) · env_release(light) · hcap.
+            #    env_release (§7.5): HIGH light LOWERS D (open-grown forks early); LOW light HOLDS
+            #    D (woodland leader). GENTLE, evaluated NOW (not compounded into the clean D). The
+            #    crown-envelope soft cap (§6) collapses D_eff as an orthotropic apex nears H so
+            #    leaders stop (by forking there — spine_top is thus an OUTPUT).
             for ax in live:
                 lt = self.light_at(self.nodes[ax.apex].pos, shadow, mn)
-                ax.D *= np.clip(lt / FULL_LIGHT, 0.15, 1.0)
+                env = np.clip(1.0 - ENV_LIGHT_K * (lt / FULL_LIGHT), ENV_MIN, 1.0)
+                D_eff = ax.D * env
                 if ax.cat == 1:                        # orthotropic leaders feel the height cap
                     y = self.nodes[ax.apex].pos[1]
                     hcap = np.clip((self.H * 1.05 - y) / (self.H * H_SOFT_FRAC), 0.05, 1.0)
-                    ax.D *= hcap
-            # 4. FIRING — crown-building TERMINAL_FORK: orthotropic (A1) leaders only, where D
-            #    collapsed past establishment. A reiterate leader establishes far faster than
-            #    the seed trunk (it is born mature, not a seedling).
+                    D_eff *= hcap
+                ax._D_eff = D_eff
+            # 4. FIRING — crown-building TERMINAL_FORK: orthotropic (A1) leaders where the EFFECTIVE
+            #    dominance collapsed past establishment. D_at_fork = D_eff so the fork's children
+            #    inherit the true current dominance (§2.3, D_reset·D_at_fork).
+            #    ⚠ iter-3 tried UNIVERSAL forking (every axis) + a wave-graded D reset to bound the
+            #    runaway A2 relay chains; both together exploded geometrically (branching factor
+            #    ramify × fork, shed can't keep up) — that is a larger redesign, not this iteration.
+            #    Reverted to A1-only + the D_RESET·D_at_fork wave; the env_release fix (step 3) and
+            #    shed grace stay. See docs/grower_prototype_iter1.md iter-3.
             for ax in live:
                 if ax.cat != 1 or ax.forked:
                     continue
                 est = AU_MIN_AGE if ax.id == 0 else REITER_MIN_AGE
-                if ax.age >= est and ax.D < PHI_FORK:
-                    ax.D_at_fork = ax.D
+                if ax.age >= est and ax._D_eff < PHI_FORK:
+                    ax.D_at_fork = ax._D_eff
                     self.terminal_fork(ax, ax._relay_host, year)
             # 5. LATENT_BUD — sparse re-erection on old wood (ages the tree)
-            self.latent_bud(year)
+            self.latent_bud(year, shadow, mn)
             # 6. RATCHET radius (monotone), then POSTURE (needs radius), then SHED (foliage light).
             children = self._children(include_dead=True)
             radius = [0.0] * len(self.nodes)
             radius = self.ratchet(radius, children)
             self.posture(radius, children)
             shadow, mn = self.build_shadow(children)
-            nshed = self.shed(self.foliage_light(shadow, mn), children)
+            nshed = self.shed(self.foliage_light(shadow, mn), children, year)
             if verbose:
                 nlive = sum(1 for ax in self.axes if ax.alive)
                 nfol = sum(1 for nd in self.nodes if nd.alive and nd.foliage)
