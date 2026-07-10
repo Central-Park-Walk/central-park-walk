@@ -104,10 +104,24 @@ RIGHT_K      = 0.16       # reaction-wood righting gain (∝ 1/r). [PROV/GAP-str
 # --- light / shadow grid (§7.3, F1). Palubicki coarse shadow propagation. ---
 VOX          = 0.6        # voxel size, m. [PROV]
 SHADOW_A     = 1.0        # shadow deposited by one foliage site at its own voxel. [PROV]
-SHADOW_B     = 2.2        # decay base per voxel-level below a source. [PROV]  Δs = a*b^(-Δlvl)
-FULL_LIGHT   = 10.0       # unshaded light budget C. [PROV]
-TAU_SHED     = 0.13       # shed when light_gathered/size < TAU. [PROV/GAP-τ] — the ONE free
+SHADOW_B     = 1.4        # decay base per voxel-level below a source. [PROV]  Δs = a*b^(-Δlvl)
+                          # (lower => shade reaches further down => interior actually shades out)
+SHADOW_LEVELS = 9         # depth of the downward shadow cone, voxels. [PROV]
+FULL_LIGHT   = 6.0        # unshaded light budget C. [PROV]
+TAU_SHED     = 0.18       # shed when light_gathered/size < TAU. [PROV/GAP-τ] — the ONE free
                           # scalar we allow ourselves to fit to the measured cb_frac~0.30.
+
+# --- ★ iter-2: the CHEAP A4 FOLIAGE light-gatherer layer (closes the light loop). ---
+# The shed rule is a foliage-light rule; a leafless armature has nothing renewing light at the
+# lit periphery, so shedding grinds monotonically to bare (iter-1's l-tier collapse). So each
+# year every living structural TIP puts out a few transient A4 short-shoot "leaves". These are
+# NOT skinned and NOT wood (excluded from the ratchet) — they exist only to gather light and
+# cast shade. They shed fast (C&E: A4/A5 self-prune 1-4 yr), so a limb that stops reaching fresh
+# light loses its foliage and then sheds; a limb at the lit periphery keeps re-leafing and lives.
+# That birth-at-periphery / death-of-shaded-interior balance IS the crown equilibrium.
+FOLIAGE_LIFE     = 3      # a leaf cohort persists this many years then abscisses. [PROV, C&E 1-4]
+FOLIAGE_PER_TIP  = 4      # A4 short shoots a lit tip puts out per year. [PROV]
+FOLIAGE_SPREAD   = 0.35   # how far (m) leaves sit off the bearing tip. [PROV]
 
 SEED = 20260710
 
@@ -116,13 +130,14 @@ SEED = 20260710
 # GRAPH PRIMITIVES
 # ===========================================================================
 class Node:
-    __slots__ = ("pos", "parent", "axis", "birth", "alive")
-    def __init__(self, pos, parent, axis, birth):
+    __slots__ = ("pos", "parent", "axis", "birth", "alive", "foliage")
+    def __init__(self, pos, parent, axis, birth, foliage=False):
         self.pos = np.asarray(pos, float)
         self.parent = parent          # node index, or -1
         self.axis = axis              # owning Axis id
-        self.birth = birth            # year laid down
+        self.birth = birth            # year laid down (leaf cohort year, if foliage)
         self.alive = True
+        self.foliage = foliage        # True = transient A4 leaf marker (light-gatherer, not wood)
 
 
 class Axis:
@@ -343,31 +358,58 @@ class Grower:
     def ratchet(self, radius, children):
         order = self._topo_leaves_first(children)
         for i in order:
-            live_children = [c for c in children[i] if self.nodes[c].alive]
-            if not live_children:
+            if self.nodes[i].foliage:                 # leaves are not wood — no radius
+                continue
+            # only WOODY live children carry pipe area (foliage excluded)
+            wc = [c for c in children[i] if self.nodes[c].alive and not self.nodes[c].foliage]
+            if not wc:
                 r_live = R0
             else:
-                r_live = (sum(radius[c] ** PIPE_POWER for c in live_children)) ** (1.0 / PIPE_POWER)
+                r_live = (sum(radius[c] ** PIPE_POWER for c in wc)) ** (1.0 / PIPE_POWER)
             radius[i] = max(radius[i], r_live)        # THE RATCHET — never decreases
         return radius
 
     # ======================================================================
-    # LIGHT (§7.3, F1) — coarse shadow-propagation voxel grid
+    # FOLIAGE (§9.2, iter-2) — the transient A4 light-gatherer layer
     # ======================================================================
-    def light_per_node(self, children):
-        """Foliage sites (leafless proxy = live apex/terminal nodes) deposit shadow into
-        voxels below them; light at a site = max(FULL - shadow + a, 0)."""
-        term = [i for i, nd in enumerate(self.nodes)
-                if nd.alive and i != 0 and not any(self.nodes[c].alive for c in children[i])]
-        if not term:
-            return {}
-        P = np.array([self.nodes[i].pos for i in term])
-        mn = P.min(0) - VOX;
+    def grow_foliage(self, year, children):
+        """Every living structural TIP (a woody node with no living woody children) puts out a
+        cohort of FOLIAGE_PER_TIP transient A4 leaves. These are the light-gatherers/shaders;
+        they are not wood. Only tips foliate, so a limb that stops extending stops re-leafing."""
+        tips = [i for i, nd in enumerate(self.nodes)
+                if nd.alive and not nd.foliage and i != 0
+                and not any(self.nodes[c].alive and not self.nodes[c].foliage for c in children[i])]
+        for t in tips:
+            base = self.nodes[t].pos
+            for k in range(FOLIAGE_PER_TIP):
+                off = self.rng.normal(0, 1, 3); off /= (np.linalg.norm(off) + 1e-9)
+                p = base + FOLIAGE_SPREAD * off
+                self.nodes.append(Node(p, t, self.nodes[t].axis, year, foliage=True))
+
+    def age_foliage(self, year):
+        """Leaf cohorts abscisse after FOLIAGE_LIFE years (C&E: A4/A5 self-prune 1-4 yr)."""
+        for nd in self.nodes:
+            if nd.foliage and nd.alive and year - nd.birth >= FOLIAGE_LIFE:
+                nd.alive = False
+
+    # ======================================================================
+    # LIGHT (§7.3, F1) — shadow-propagation voxel grid seeded by FOLIAGE
+    # ======================================================================
+    def build_shadow(self, children):
+        """Living foliage deposits shadow into voxels below it (Palubicki cone). Returns
+        (shadow dict, grid origin). Falls back to structural tips before any foliage exists."""
+        src = [i for i, nd in enumerate(self.nodes) if nd.alive and nd.foliage]
+        if not src:
+            src = [i for i, nd in enumerate(self.nodes)
+                   if nd.alive and i != 0 and not any(self.nodes[c].alive for c in children[i])]
+        if not src:
+            return {}, np.zeros(3)
+        P = np.array([self.nodes[i].pos for i in src])
+        mn = P.min(0) - VOX
         gi = np.floor((P - mn) / VOX).astype(int)
         shadow = {}
-        # deposit: each site shadows voxels directly below within a downward cone (Palubicki)
         for (gx, gy, gz) in gi:
-            for dl in range(0, 6):                    # 6 levels down [PROV]
+            for dl in range(0, SHADOW_LEVELS):
                 s = SHADOW_A * SHADOW_B ** (-dl)
                 if s < 0.02:
                     break
@@ -375,11 +417,16 @@ class Grower:
                     for dz in range(-dl, dl + 1):
                         key = (gx + dx, gy - dl, gz + dz)
                         shadow[key] = shadow.get(key, 0.0) + s * math.exp(-(dx*dx+dz*dz)/(2*(dl+1)))
-        light = {}
-        for i, (gx, gy, gz) in zip(term, gi):
-            s = shadow.get((gx, gy, gz), 0.0)
-            light[i] = max(FULL_LIGHT - s + SHADOW_A, 0.0)
-        return light
+        return shadow, mn
+
+    def light_at(self, pos, shadow, mn):
+        g = tuple(np.floor((pos - mn) / VOX).astype(int))
+        return max(FULL_LIGHT - shadow.get(g, 0.0) + SHADOW_A, 0.0)
+
+    def foliage_light(self, shadow, mn):
+        """Light gathered by each living leaf."""
+        return {i: self.light_at(nd.pos, shadow, mn)
+                for i, nd in enumerate(self.nodes) if nd.alive and nd.foliage}
 
     # ======================================================================
     # SHED (§7.3) — light_gathered/size < tau  => remove subtree, keep radius
@@ -388,8 +435,10 @@ class Grower:
         order = self._topo_leaves_first(children)     # leaves first
         lg = {}; sz = {}
         for i in order:
-            l = light.get(i, 0.0)
-            s = 1
+            if self.nodes[i].foliage:                 # a leaf: contributes light, no "size"
+                lg[i] = light.get(i, 0.0); sz[i] = 0
+                continue
+            l = 0.0; s = 1                            # a woody internode: size 1
             for c in children[i]:
                 if self.nodes[c].alive:
                     l += lg.get(c, 0.0); s += sz.get(c, 0)
@@ -513,19 +562,23 @@ class Grower:
             for ax in live:
                 relay_host, _ = self.grow_module(ax, year)
                 ax._relay_host = relay_host
-            # 2. LIGHT modulates D (F1 env_release): shaded apices lose dominance faster;
-            #    AND the crown-envelope soft cap (§6) collapses D as the apex nears H, so
-            #    orthotropic leaders stop extending near the target height.
+            # 2. FOLIAGE — living tips put out this year's transient leaf cohort; old cohorts
+            #    abscisse. Foliage is the light-gatherer/shader and the shed rule's source.
             children = self._children(include_dead=True)
-            light = self.light_per_node(children)
+            self.grow_foliage(year, children)
+            self.age_foliage(year)
+            children = self._children(include_dead=True)
+            shadow, mn = self.build_shadow(children)
+            # 3. LIGHT modulates D (F1 env_release): shaded apices lose dominance faster; AND the
+            #    crown-envelope soft cap (§6) collapses D as the apex nears H so leaders stop.
             for ax in live:
-                lt = light.get(ax.apex, FULL_LIGHT)
+                lt = self.light_at(self.nodes[ax.apex].pos, shadow, mn)
                 ax.D *= np.clip(lt / FULL_LIGHT, 0.15, 1.0)
                 if ax.cat == 1:                        # orthotropic leaders feel the height cap
                     y = self.nodes[ax.apex].pos[1]
                     hcap = np.clip((self.H * 1.05 - y) / (self.H * H_SOFT_FRAC), 0.05, 1.0)
                     ax.D *= hcap
-            # 3. FIRING — crown-building TERMINAL_FORK: orthotropic (A1) leaders only, where D
+            # 4. FIRING — crown-building TERMINAL_FORK: orthotropic (A1) leaders only, where D
             #    collapsed past establishment. A reiterate leader establishes far faster than
             #    the seed trunk (it is born mature, not a seedling).
             for ax in live:
@@ -535,18 +588,20 @@ class Grower:
                 if ax.age >= est and ax.D < PHI_FORK:
                     ax.D_at_fork = ax.D
                     self.terminal_fork(ax, ax._relay_host, year)
-            # 4. LATENT_BUD — sparse re-erection on old wood (ages the tree)
+            # 5. LATENT_BUD — sparse re-erection on old wood (ages the tree)
             self.latent_bud(year)
-            # 5. RATCHET radius (monotone), then POSTURE (needs radius), then SHED.
-            #    Rebuild children: firing + latent_bud added nodes.
+            # 6. RATCHET radius (monotone), then POSTURE (needs radius), then SHED (foliage light).
             children = self._children(include_dead=True)
             radius = [0.0] * len(self.nodes)
             radius = self.ratchet(radius, children)
             self.posture(radius, children)
-            nshed = self.shed(self.light_per_node(children), children)
+            shadow, mn = self.build_shadow(children)
+            nshed = self.shed(self.foliage_light(shadow, mn), children)
             if verbose:
                 nlive = sum(1 for ax in self.axes if ax.alive)
-                print(f"yr {year:2d}: nodes={len(self.nodes):5d} axes_live={nlive:4d} "
+                nfol = sum(1 for nd in self.nodes if nd.alive and nd.foliage)
+                nwood = sum(1 for nd in self.nodes if nd.alive and not nd.foliage)
+                print(f"yr {year:2d}: wood={nwood:5d} foliage={nfol:5d} axes={nlive:4d} "
                       f"shed={nshed:3d} reiter={self.reit_count:3d}")
         return self.finalize()
 
@@ -564,14 +619,16 @@ class Grower:
         strand = [self.nodes[i].axis if self.nodes[i].axis >= 0 else 0
                   for i in range(len(self.nodes))]
         alive = [nd.alive for nd in self.nodes]
+        foliage = [nd.foliage for nd in self.nodes]
         out = dict(
-            nodes=[dict(pos=nd.pos, parent=nd.parent, radius=radius[i],
-                        strand=strand[i], alive=nd.alive, axis=nd.axis, birth=nd.birth)
+            nodes=[dict(pos=nd.pos, parent=nd.parent, radius=radius[i], strand=strand[i],
+                        alive=nd.alive, axis=nd.axis, birth=nd.birth, foliage=nd.foliage)
                    for i, nd in enumerate(self.nodes)],
-            root=0, radius=radius, strand=strand, alive=alive,
+            root=0, radius=radius, strand=strand, alive=alive, foliage=foliage,
             H=self.H, DBH_target_m=self.DBH_target_m,
-            n_nodes=len(self.nodes), n_axes=len(self.axes),
-            n_reiterates=self.reit_count,
+            n_nodes=len(self.nodes), n_axes=len(self.axes), n_reiterates=self.reit_count,
+            n_wood_live=sum(1 for nd in self.nodes if nd.alive and not nd.foliage),
+            n_foliage_live=sum(1 for nd in self.nodes if nd.alive and nd.foliage),
         )
         return out
 
@@ -596,8 +653,7 @@ if __name__ == "__main__":
     tier = sys.argv[1] if len(sys.argv) > 1 else "m"
     g = grow_tier(tier, verbose=True)
     r = np.array(g["radius"])
-    live = np.array(g["alive"])
-    print(f"\n[{tier}] nodes={g['n_nodes']} (live {int(live.sum())}) axes={g['n_axes']} "
-          f"reiterates={g['n_reiterates']}")
+    print(f"\n[{tier}] wood_live={g['n_wood_live']} foliage_live={g['n_foliage_live']} "
+          f"axes={g['n_axes']} reiterates={g['n_reiterates']}")
     print(f"    trunk_r={r[0]*1000:.0f}mm  DBH={r[0]*2/0.0254:.1f}in  "
           f"r=[{r[r>0].min()*1000:.1f}..{r.max()*1000:.0f}]mm")

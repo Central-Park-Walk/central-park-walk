@@ -103,3 +103,54 @@ be checked against the census and Genoyer 1999, not tuned results.
 **Next:** review this checkpoint, then iter-2 = the shed-equilibrium fix (top priority), higher/
 stronger first fork into masters, and the DBH-emergent + census-shape validation. No mesh / perf /
 cards until the five criteria pass on the skeleton.
+
+---
+
+# ITERATION 2 — the shed rule reaches EQUILIBRIUM (the #1 blocker is cleared)
+
+Renders: `tmp/grower_iter2_{m,l}.png`. Same `scripts/plane_grower.py`.
+
+## Root cause of the iter-1 collapse, and the fix
+The shed rule is a **foliage-light** rule, but iter-1 ran it on a **leafless** armature — nothing
+renewed light at the lit periphery, so shedding ground monotonically to bare (l tier → 86 nodes).
+Fix (Chris's call, "cheap A4 layer purely as light-gatherers"): a **transient A4 foliage layer**.
+Each year every living structural tip puts out `FOLIAGE_PER_TIP` short-shoot "leaves"; cohorts
+abscisse after `FOLIAGE_LIFE` years (C&E: A4/A5 self-prune 1–4 yr). Foliage is **not wood** —
+excluded from the ratchet, never skinned — it exists only to **gather light and cast shade**. The
+shadow grid is now seeded by foliage; `light_gathered(subtree)` sums foliage light. A tip that stops
+extending stops re-leafing → its limb loses foliage → it sheds. A tip at the lit periphery keeps
+re-leafing → it lives. **That birth-at-periphery / death-of-shaded-interior balance is the crown
+equilibrium**, and it is now a mechanism, not a tuned target.
+
+## Result: equilibrium, both failure modes gone
+Tuning the shadow so shade actually reaches the interior (`SHADOW_B` 2.2→1.4, `SHADOW_LEVELS` 9,
+`FULL_LIGHT` 6, `τ` 0.18 — all `[PROV]`), the l tier (35 yr) now:
+- **does NOT collapse** (was 86 nodes) and **does NOT run away** (was 57 k with shed=0),
+- **sheds continuously** through maturity (6–11 subtrees/yr) while the crown persists,
+- settles into a growing-but-trimmed regime: l wood 22 k (was 86), m wood ~9 k.
+
+| tier | wood live | shed behaviour | verdict |
+|---|---|---|---|
+| m (20 yr) | ~9.2 k | continuous | stable crown |
+| l (35 yr) | ~22 k | continuous 6–11/yr | **stable — no collapse, no runaway** |
+
+## What iter-2 did NOT yet fix (the next layer, coupled)
+- **(iii) clear bole still LOW** (cb 0.07–0.10 vs 0.30). The trunk's low A2 laterals survive because
+  their *own* foliage spreads outward into light — the crown above never overtops them enough to
+  shed them. Raising the bole needs the low limbs to be genuinely overtopped (more self-shading of
+  low-limb foliage), or the low laterals to be suppressed at birth and the low crown rebuilt later
+  from `LATENT_BUD` reiterates (which is also how the veteran's low limbs should arise).
+- **(ii) caliber gradient now wrong-signed** (m +0.60, l +0.18 — higher=thicker). Same root cause:
+  the surviving low limbs are the *thin original laterals*, not thick old reiterates. Fixing the
+  clear-bole mechanism (low limbs shed; low crown rebuilt from latent buds) should also flip this.
+- **LATENT_BUD barely fires** (reiter stuck at 3 = just the trunk fork). The veteran's low heavy
+  limbs + arch cascade (the *arbre du passé*) need Mode 2 firing to actually happen — currently its
+  old-wood host set is tiny (only cat-1 axes) and its rate is low. Iter-3 territory.
+- **DBH still imposed**; arch still weak; crown vase-not-domed (foliage layer deferred for the
+  woody-armature scope — re-judge fill once real cards replace the light-only A4 markers).
+
+## Standing verdict
+The developmental process now **runs to a stable crown at all three tiers** — the equilibrium that
+iter-1 could not reach. The remaining criteria (clear bole, caliber sign, Mode-2 veteran limbs) are
+a single coupled problem — *the low crown must shed and be rebuilt from latent buds* — and that is
+the iter-3 target. Still no mesh / perf / cards. All new numbers `[PROV]`.
