@@ -345,3 +345,71 @@ H** (ending the 1.5×H A2 runaway) while dropping low limbs under the crown so s
 clears the bole. Caliber is strong-negative at all tiers (honest all-limbs measure); integrity clean; no
 explosion. The residuals are **(v) emergent DBH**, **longer single-leader masters**, and the **full arch
 cascade** — the iter-5 set. Still no mesh / perf / cards; all new numbers `[PROV]`.
+
+---
+
+## iter-7 — the crown bound is APICAL CONTROL, not a length (`35d092b`, WIP)
+
+**Two things settled, one still open.**
+
+### 1. C&E 1990 has no lengths. At all.
+Checked the paper end to end. It gives **node counts** per growth unit (A2≈15, A3≈10, A4=7,
+A5=5 — the **A1 cell is genuinely blank**, so our `GU_NODES[1]=14` has no support) and three
+whole-tree heights (5–8 m *arbre d'avenir*, ~10 m *présent*, up to 30 m *passé*). It contains
+**no growth-unit length, no internode length, and no figure to read one off** — the Planches are
+schematic drawings with no scale bar. So `INTERNODE` **cannot be sourced from C&E**, and the
+plan to "re-derive it as a true metamer length" has no source to derive it from.
+
+Re-fitting `INTERNODE` was never going to work regardless: a plane is ~14 m tall with a crown
+**radius** of 6–9 m, so vertical reach is ~2× horizontal. **No single shared reach identity can
+produce both.** The trunk/limb asymmetry has to come from mechanism.
+
+### 2. The between-axis pauperization was being divided back out.
+`D_clean(ax) == ax.D_peak * shape(age)`, so iter-6's `vigour = D_clean/D_peak` is **pure shape** —
+it starts at `EST_FLOOR`, rises to 1, decays, *identically for every axis in the tree*. The wave
+decrement (`D_peak = D_RESET*parent_peak`) survived only in the **fork** test, which reads an
+absolute `D`. For **extension** it cancelled. A 3rd-wave lateral (peak 0.36) therefore laid down
+internodes at the trunk's full length, every axis inherited the trunk's reach, and crown radius
+came out ≈ tree height (measured: m `r_max` 12.4 m vs H 12.7 m — and 12.4 m sits right on the
+reach identity `GU_NODES·INTERNODE/D_DECAY_AGE` = 12.7 m).
+
+### ⛔ The obvious fix is wrong — reading vigour on the absolute D scale
+Kept here because it cost a real iteration. It makes *capability* a second multiplier on top of
+*affordability* `f(v)`, and it double-penalizes exactly the axes that have **neither yet**: a
+newborn axis bears no foliage, so its share is already small, and ×0.36 vigour drives `ext` under
+`EXT_MIN` → `DORMANT_ABORT` → the outer crown is **amputated**, not pauperized. Measured: every
+wave below the trunk **dead at mean age <2.3 yr of 20**, m spread collapsed to **5.9 m**, half the
+tree's wood gone (3008 → 1360 nodes). **Length is the wrong place for it.**
+
+### The fix: D belongs in the SPLIT
+`D` is **relay dominance = apical control**, and in Borchert–Honda apical control acts on the
+**resource split**, not on the internode. The bid is now `Q × rank_weight × D_clean`.
+
+This is the missing half of the ADR's economy. iter-6 split the pool by **light alone**, which is
+precisely why the economy could not bound the crown on its own: the allocation telescoped to
+light-proportional, a bud at the sunlit **periphery kept f≈1 forever**, and light *rewarded*
+lateral runaway. Weighting the bid by dominance lets a leader **outbid** a subordinate lateral for
+a finite pool — and resource is **conserved**: what the lateral doesn't get, the leader does. So
+the periphery is pauperized **without starving**.
+
+m tier — all four metrics move together, none imposed:
+
+| | iter-6 | iter-7 | target |
+|---|---|---|---|
+| spread | 24.8 m | **20.2 m** | 12–18 m |
+| H | 12.7 m | **13.1 m** | 14.4 m |
+| nodes | 3008 | **3404** | (denser, not amputated) |
+| DBH | 6.5 in | **7.3 in** | 15 in @ m |
+
+### ⏳ OPEN — the strength of apical control
+Still too wide, and H still short: **one error with one sign** — apical control is too weak, so
+the leader under-bids and the laterals over-bid. The **mechanism** is now in the right place; what
+remains is its **strength**, which is a legitimately species-fitted Borchert–Honda parameter
+(`W_MIN` is already declared "[FIT] the HABIT knob", from Palubicki's own scheme).
+
+**NEXT = sweep the habit knob** (`W_MIN` 0.02→0.001, then `KAPPA`, then `APICAL_OFF_YEAR`) on the
+**m tier only** (fast), pick the smallest change that puts m at H≈14.4 / spread 12–18 **without
+node collapse** (a drop to ~1500 nodes = axes dying = FAILURE, not a win), then run **s and l once**
+at that setting. s and l are **not fitted**, so their numbers are the real test. Harness:
+`tmp/measure_grower.py` (crown radius, H, spread/H, nodes, DBH); axis-level survival probe:
+`tmp/probe_axes.py`. ⛔ Never clamp crown radius — width must EMERGE. **Do not ship.**
