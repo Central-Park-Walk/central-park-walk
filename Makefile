@@ -1,7 +1,12 @@
 GODOT   ?= godot
 VERSION := $(shell git describe --tags --always 2>/dev/null || echo dev)
 
-.PHONY: data import export-linux export-windows release clean
+.PHONY: data import test export-linux export-windows export-macos release clean
+
+# ---------- Tests ----------
+
+test:
+	$(GODOT) --headless --path . -s scripts/test_almanac.gd
 
 # ---------- Data pipeline (run locally, commit .bin files to LFS) ----------
 

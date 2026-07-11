@@ -76,13 +76,19 @@ jobs:
         run: |
           # Godot's headless --import cannot do VRAM texture compression (no rendering device).
           # Pre-built .ctex files (S3TC + ETC2) are committed in prebuilt/terrain_ctex/.
-          mkdir -p .godot/imported
+          mkdir -p .godot/imported tmp
           cp prebuilt/terrain_ctex/* .godot/imported/
           echo "Installed $(ls .godot/imported/*.ctex 2>/dev/null | wc -l) pre-built terrain ctex files"
-          # Run headless import for everything else (GLB scenes, SVG icons, etc.)
-          godot --headless --import > /dev/null 2>&1 || true
-          godot --headless --import > /dev/null 2>&1 || true
+          # Run headless import for everything else (GLB scenes, SVG icons, etc.).
+          # Godot's exit code is not a usable gate here: a headless import reports
+          # errors for the VRAM compression it cannot do, so it can exit non-zero on
+          # a perfectly good run. We keep the log and gate on ARTIFACTS instead --
+          # a missing output file is unambiguous, a log line is not.
+          godot --headless --import 2>&1 | tee -a tmp/import.log || true
+          godot --headless --import 2>&1 | tee -a tmp/import.log || true
           echo "Total: $(ls .godot/imported/*.ctex 2>/dev/null | wc -l) ctex files after import"
+          echo "--- import errors (informational; gates are below) ---"
+          grep -i 'error' tmp/import.log | sort -u | head -30 || echo "(none)"
           # Verify terrain textures are present
           missing=0
           for f in textures/terrain3d/*.png; do
@@ -98,6 +104,25 @@ jobs:
             exit 1
           fi
           echo "All terrain textures verified"
+          # Verify compute shaders imported. A .glsl that fails to import yields no
+          # .res and the export ships a sky/cloud pass that silently does nothing.
+          shaders_missing=0
+          for f in $(find . -name '*.glsl' -not -path './.godot/*'); do
+            base=$(basename "$f")
+            found=$(ls .godot/imported/${base}-*.res 2>/dev/null | wc -l)
+            if [ "$found" -eq 0 ]; then
+              echo "MISSING: no imported .res for $f"
+              shaders_missing=$((shaders_missing + 1))
+            fi
+          done
+          if [ "$shaders_missing" -gt 0 ]; then
+            echo "ERROR: $shaders_missing compute shaders failed to import"
+            exit 1
+          fi
+          echo "All compute shaders verified"
+
+      - name: Run tests
+        run: godot --headless --path . -s scripts/test_almanac.gd
 
       - name: Export Linux
         run: |

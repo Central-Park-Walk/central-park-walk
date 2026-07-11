@@ -83,9 +83,9 @@ func _init() -> void:
 	check("map south x", d.x, 0.0, 0.01)
 	check("map south y", d.y, sin(deg_to_rad(55.0)), 0.01)
 	check("map south z", d.z, cos(deg_to_rad(55.0)), 0.01)
-	# East = -X
+	# East = +X (fixed 2026-06-26; the old -X mirrored the sky against the world)
 	d = Almanac.dir_from_horizontal(Vector2(0.0, 90.0))
-	check("map east x", d.x, -1.0, 0.01)
+	check("map east x", d.x, 1.0, 0.01)
 
 	print("---")
 	print("FAILS: %d" % fails)
