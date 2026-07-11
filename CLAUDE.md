@@ -5,14 +5,19 @@ data (NYC LiDAR, OpenStreetMap, NYC Tree Census, building footprints) and interp
 Claude. Godot 4.6.1, Forward+, GDScript. Branch **master**. No objectives — just a place.
 
 ## Read at session start (in order)
-0. **[`docs/standing_rules.md`](docs/standing_rules.md)** — permanent, all-projects rules that outlive
-   any session. Currently: (1) the three roles (Planner/Engineer/Critic) are RESEARCHER-roles — every
-   role reads before it acts; (2) **prior art first, forever** — when the HOW isn't obvious, read the
-   prior work BEFORE proposing/building/judging (the leaf-back hollow lantern was a published Fig. 7).
+Your standing rules — token discipline, the Triumvirate (Planner-Evaluator / Engineer / **Advisor**),
+prior-art-first, simulate-the-process — load automatically from `~/.claude/CLAUDE.md` and
+`~/.claude/rules/`. They are **not repeated here**, so this file can't contradict them. Auto memory
+(the `MEMORY.md` index plus its topic files) loads on its own too; no path to chase.
+
 1. **`DESIGN.md`** — the single source of truth for what this project is supposed to be.
-2. **Memory** — `~/.claude/projects/-home-chris/memory/MEMORY.md` (the index) + the linked
-   file for whatever you're touching.
-3. **The active resume/plan** referenced in MEMORY.md's "Active project context".
+2. **The active resume/plan** referenced in MEMORY.md's "Active project context", plus the memory
+   topic file for whatever you're touching.
+3. **[`docs/standing_rules.md`](docs/standing_rules.md)** — read the relevant section **when a rule
+   is in play.** It holds the *derivations* behind the global rules: why the Critic seat was retired
+   and what had to survive it, the published Fig. 7 that cost us multiple sessions of trial-and-error,
+   and the four separate times this project re-learned that a derived quantity is an **OUTPUT, not a
+   parameter.** Expect a fifth; look for it early.
 
 Then state the session's target in one sentence before writing any code.
 

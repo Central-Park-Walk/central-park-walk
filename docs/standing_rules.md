@@ -1,9 +1,20 @@
-# Standing Rules — project-wide, all-projects, no expiration
+# Standing Rules — the derivations
 
-These are **permanent** operating rules. They are not scoped to one task, one subsystem, or one
-project — they apply to every Claude, every role, every project, forever. A fresh Claude should read
-these at session start (linked from `CLAUDE.md`). Adding a rule here is a deliberate act; rules leave
-only by explicit decision.
+**The rules themselves now live in `~/.claude/CLAUDE.md` and `~/.claude/rules/`,** which load
+automatically into every session of every project. You do not need to read this file to *know* the
+rules — you already have them.
+
+**This file is why they exist.** It holds the derivation, the evidence, and the worked examples
+behind each one: what it cost us to learn, and the specific failure that made the rule necessary.
+The global file states Rule 3 in two lines; the cost of ignoring it is documented here, in full.
+
+Read the relevant section **when a rule is actually in play** — when you're about to fit a number to
+a thin anchor, or skip a paper because the task looks obvious, or let a passing metric talk you out
+of a defect you can see. The compressed rule will not stop you. The story behind it might.
+
+Adding a rule is a deliberate act; rules leave only by explicit decision. If a rule here is
+generalized to all projects, promote the *statement* to `~/.claude/CLAUDE.md` and leave the
+*derivation* here.
 
 ---
 
