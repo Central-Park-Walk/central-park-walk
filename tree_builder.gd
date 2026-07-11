@@ -298,7 +298,7 @@ const TIER_BOUNDS := {
 	"honeylocust":   [14.0, 22.0],
 	"callery_pear":  [10.0, 18.0],
 	"ginkgo":        [14.0, 22.0],
-	"london_plane":  [12.0, 18.0],  # BUCKET MIGRATION 2026-07-06: [13,25]→[12,18]. s≤12=Upright Ovoid, 12-18=Broad Dome, >18=Low-Forked Spread. Upper break dropped hard (old _m/_l retargeted down). docs/smla_bucket_migration.md §2
+	"london_plane":  [12.0, 18.0],  # BUCKET MIGRATION 2026-07-06: [13,25]→[12,18]. s≤12, 12-18=m, >18=l. Upper break dropped hard (old _m/_l retargeted down). docs/smla_bucket_migration.md §2
 	"linden":        [14.0, 22.0],
 	"willow":        [14.0, 999.0], # no _l tier (0 in census); only _s and _m
 	"magnolia":      [0.0, 0.0],    # only _s tier (41 in census, all small)

@@ -352,4 +352,4 @@ a genuine step up from the v1 placeholder, not a fully reconstructed volume.
 
 **STOPPING here per the task gate.** Crown-type buckets were the next conversation —
 now **adopted in [`docs/crown_type_buckets.md`](crown_type_buckets.md)** (3 buckets:
-Upright Ovoid / Broad Dome / Low-Forked Spread).
+s tier / m tier / l tier).

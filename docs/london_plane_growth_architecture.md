@@ -16,7 +16,7 @@ which is exactly why prior-art-first is the rule. See [[feedback_check_prior_art
 ## 0. The reframe, and a sharper diagnosis than "arc-interpolation"
 
 The task's reframe is correct and I adopt it: **keep the envelope target, replace the connection
-method.** The crown envelope per tier (Upright Ovoid / Broad Dome / Low-Forked Spread), fit from the
+method.** The crown envelope per tier (s tier / m tier / l tier), fit from the
 iNaturalist silhouette data, is *where* each tree must end up; what's broken is *how* branches get from
 trunk to that shell.
 
@@ -227,11 +227,11 @@ buckets sample only the open-grown series.**
 
 Read the bucket parameters as an ontogenetic series (`leafback_skeleton.py:326`):
 
-| tier | name | H (m) | DBH | `cb_frac` | `aspect` (W/H) | profile — widest at height *t* |
+| tier | age class | H (m) | DBH | `cb_frac` | `aspect` (W/H) | profile — widest at height *t* |
 |------|------|------:|----:|----------:|---------------:|-------------------------------|
-| s | Upright Ovoid | 10.0 | 7″ | 0.35 | 0.80 | t ≈ 0.55 (**above** mid) |
-| m | Broad Dome | 14.4 | 15″ | 0.30 | 1.00 | t ≈ 0.50 (mid) |
-| l | Low-Forked Spread | 22.0 | 28″ | 0.20 | 1.20 | t ≈ 0.33 (**below** mid) |
+| s | young | 10.0 | 7″ | 0.35 | 0.80 | t ≈ 0.55 (**above** mid) |
+| m | middle | 14.4 | 15″ | 0.30 | 1.00 | t ≈ 0.50 (mid) |
+| l | mature | 22.0 | 28″ | 0.20 | 1.20 | t ≈ 0.33 (**below** mid) |
 
 Every parameter moves **monotonically**, and each move is exactly what decaying apical dominance predicts:
 - **aspect 0.80 → 1.00 → 1.20**: crown broadens with age (dominance decay → co-dominant laterals spread).
@@ -331,8 +331,8 @@ downstream), and it does not by itself solve perf (§4).
 
 ## 4. Perf — honest accounting (growth does not escape the density budget)
 
-**Per-tier LOD0 vertex budgets** (blocking, from `docs/leafback_lod0_density_escalation.md`): Upright Ovoid
-≤ 3 k · Broad Dome ≤ 6 k · Low-Forked Spread ≤ 10 k v/tree. Current line-C skin **fails ~5× on m and ~10×
+**Per-tier LOD0 vertex budgets** (blocking, from `docs/leafback_lod0_density_escalation.md`): s tier
+≤ 3 k · m tier ≤ 6 k · l tier ≤ 10 k v/tree. Current line-C skin **fails ~5× on m and ~10×
 on l** (measured `l ≈ 71 k`). The escalation doc establishes `bark_verts ≈ skeleton_nodes × RING(24)`, so
 **node count is the driver.**
 
@@ -375,7 +375,7 @@ future spec so the density problem is designed-in, not rediscovered.
 ## 5. Reuse confirmation (explicit)
 
 **SURVIVES — confirmed by reading the code:**
-- **Envelope targets** (Ovoid / Broad Dome / Low-Forked Spread) and the **iNaturalist silhouette data**:
+- **Envelope targets** (s / m / l tiers) and the **iNaturalist silhouette data**:
   reused as the growth boundary + per-tier checkpoint (§2, §3-G3).
 - **Per-bucket profile tables** (`leafback_skeleton.py:318` `_T_*/_P_*`): repurposed from
   interpolation shells into **growth boundaries / volumetric fill bounds** — same numbers, new role.
@@ -417,7 +417,7 @@ future spec so the density problem is designed-in, not rediscovered.
 ## 6. Verify-gap — the contract needs a LEADER-CONTINUITY check (applies to ANY generator)
 
 **Finding (grounded in `docs/leafback_meshdisconnect_diagnosis.md`):** the integrity gate's
-`components == 1` check is **blind to a severed leader**, and the current Broad Dome's visible upper-trunk
+`components == 1` check is **blind to a severed leader**, and the current m tier's visible upper-trunk
 discontinuity is a live instance of this blind spot.
 
 - The **actually-rendered** trunk-scaffold mesh had **62 connected components**, while the integrity
@@ -473,3 +473,722 @@ This is independent of the growth-vs-interpolation decision — it must exist fo
   break is a live instance.
 
 *No code written, no build run, no protected file edited, nothing committed. Deliverable is this document.*
+
+---
+
+# 8. RECOVERY REFRAME — leaves-as-attractors (the amputated Step 2)
+
+> ## ⛔ SUPERSEDED 2026-07-09 — READ THIS BEFORE §8
+> **Leaf-back is DEPRECATED as a generation strategy** (Chris's decision; full record:
+> [`docs/grower_reiterate_design.md`](grower_reiterate_design.md) §13.3). §8 below is **retained as history, not
+> as a plan.** Do not implement it.
+>
+> Leaf-back existed to fix one thing: *coherent trees that did not read, at distance, as what they were.* The
+> **developmental grower** fixes that same thing better — **the tree looks right because it GROWS right;
+> appearance is a consequence of a correct process** (standing Rule 3) — and it **dissolves the problems
+> leaf-back created**: skeleton-meets-cards, leaf clustering, and the World-A/World-B chicken-and-egg. A grown
+> tree puts leaves at twig terminals **by construction**.
+>
+> **Therefore there is no separate leaf field to place, shape, or time.** §8.3's authored clumping/margin terms
+> (honestly labelled there as "literature-shaped, not species-measured") are **no longer needed at all** —
+> irregularity comes from growth reaching an uneven light field.
+>
+> **What survives:** the three per-tier **crown envelopes** (`_T_*/_P_*`) as growth boundaries + validation
+> checkpoints; the measured DBH/height/tier distributions as **validation targets**; and
+> `scripts/leafback_skinner.py` + the 5-attribute contract, **unchanged** — *a skeleton is a skeleton*. The
+> "leafback" prefix on that file is now a historical artifact, not a description.
+>
+> **What dies:** the persisted leaf field, leaves-as-attractors, the clumping/margin terms, the World-A framing,
+> and `dk` as the "economy knob."
+>
+> Leaf-back is **not wrong** — it was the right answer to a real defect, it produced the crown envelopes we still
+> use, it forced the *depth-is-an-output* lesson, and its failures taught us the connection had to be a *process*.
+> It is **superseded**, which is the good outcome for a scaffold.
+
+> **Planner addendum, 2026-07-08 (this session).** Everything below is a PROPOSAL for Chris's sign-off.
+> Nothing built, no protected file edited, nothing committed. This section *sharpens* §0–§7, it does not
+> retract it: G1 (volumetric fill) and G2a (`di_near=2.0`) still stand as the validated base; the recovery
+> is a change to what the attractor field *is and does*, layered on that base.
+
+## 8.0 The reframe — a RECOVERY, not a new direction
+
+Chris's ORIGINAL leaf-back was **three** steps, and step 2 was amputated during the rebuilds. That single
+amputation is the root cause of **both** the hollow lantern (§0.5, Runions Fig. 7) **and** the too-neat
+lollipop silhouette — they are the same wound.
+
+1. **CARVE THE SHELL** — the crown's final outer shape. *We have this:* the three iNat crown-type envelopes.
+2. **FILL THE SHELL WITH LEAVES** — distribute leaf-card positions *through the volume*, naturalistically /
+   unevenly. **These positions are BOTH the render leaves AND the growth attractors — one unified set.**
+   *This is the dropped step.*
+3. **BRANCH THE SKELETON OUT TO REACH THE LEAVES** — grow branches from trunk to the step-2 leaves; leaves
+   render at the branch terminals they were grown to.
+
+What got built instead is **steps 1 + 3 with step 2 missing**: a throwaway attractor cloud, then leaves
+re-derived from the grown bark. *"We were bending skeleton to fit the shell; we should be branching skeleton
+to reach the leaves."* The space-colonization machinery is **not a new paradigm** — it is the *implementation
+of step 3* Chris always intended, and it only behaves once step 2 feeds it a **leaf field** instead of a bare
+uniform cloud that gets discarded.
+
+**Why this is "World A" by construction:** the leaf positions are determined FIRST, independent of the
+skeleton, by filling the shell; the skeleton grows TO them. No chicken-and-egg — the leaves exist before
+growth and *are* the growth targets. The current pipeline drifted into deriving leaves *from* the grown
+skeleton (§8.1); recovering step 2 puts leaf determination back where Chris designed it, before the branches.
+
+## 8.1 (a) I1 — the amputation is CONFIRMED in code; the G1 cloud IS convertible
+
+Traced the full leaf-back path (`leafback_graph.py` → `leafback_skeleton.py` → `build_leafback_skeletons.py`
+→ `generate_trees_mtree.py`). Findings, with evidence:
+
+- **Leaf-card render positions are derived FROM the grown skeleton, post-growth** — case (c), not an
+  independent pre-growth field and not shell-surface placement. `_card_placements_per_branch`
+  (`generate_trees_mtree.py:2832–2955`) selects **thin-twig bark-mesh vertices** of the *skinned grown
+  skeleton* (`eligible = finite & (radii < max_radius)`, `:2893`; tip-first per-`stem_id` pick of
+  `coords[vi]`, `:2948–2955`) and orients cards by the `direction` attr. Call site `:4558–4565`.
+- **The G1 attractor cloud is DISCARDED.** `leafback_graph.py` builds the volume-uniform sprig cloud
+  (`rr = R*np.sqrt(U)`, `:55`; Poisson-thinned, `:57–69`); `leafback_skeleton.py:341–342` takes only the
+  sprig *positions* as space-colonization attractors, which are **killed** as branches reach them
+  (`alive_local[killed]=False`, `:193`). `save_skeleton` (`build_leafback_skeletons.py:29–41`) persists only
+  the grown nodes (`pos/parent/radius/strand/trunk_ids/origin_ids/fork/root/…`) — **no sprig/attractor array
+  is written**. The pre-growth field never reaches the npz and is never used for rendering.
+- **Step 2 is MISSING.** There is no single coordinate set that is simultaneously the render leaves and the
+  growth attractors; the two are decoupled, and the pre-growth field is the *discarded* one.
+- **Convertible: YES — it is already a proto leaf field.** The sprigs are points sampled inside the crown
+  envelope (exactly the coordinate type cards want). To recover step 2: (i) **persist** the sprig positions
+  in the npz; (ii) **render cards at those positions** (or a naturalistically redistributed version) instead
+  of re-deriving from bark verts; (iii) **redistribute** from uniform-in-volume to a naturalistic field
+  (§8.3). Only (iii) is substantive; (i)/(ii) are plumbing.
+
+## 8.2 (b) I2 — Step 3 is the canonical algorithm as-configured; cluster-sharing is FREE
+
+Re-read Runions et al. 2007 and Palubicki et al. 2009 from the PDFs (not summaries). Verdict:
+
+- **Attractors ARE the marker cloud.** Palubicki §4.1: "a set S of **marker points M** … uniform
+  distribution … at the beginning of the simulation"; Runions §2: points "signal the availability of empty
+  space … removed when reached by a branch." Not abstract voxels — the concrete seeded cloud.
+- **Kill distance `dk` does both jobs.** (a) termination: "An attraction point s is removed when there is at
+  least one tree node v closer to s than a threshold **kill distance dk**"; (b) clump capture: "with larger
+  kill distance values, the **set of attraction points affecting individual branch tips increases**."
+- **Cluster-sharing emerges for free — it is the defining behaviour, no extra machinery.** It falls out of
+  (influence-set averaging, Runions §2: v′ grows toward the *normalized average* of vectors to all
+  `s ∈ S(v)`) + (closest-node association, Palubicki §4.1: a marker seen by several buds "is associated with
+  the **closest** of these buds") + (`dk`). Adjacent leaves ahead of one node advance the shared parent, then
+  split across child tips → **adjacent leaves descend from one forking upstream branch.** *This is exactly
+  Chris's "adjacent leaves draw from a single branch," and it is not bolted on — it is the core dynamic.*
+- **Non-uniform / clumpy distribution is explicitly supported.** Runions §2: "the **distribution of the
+  attraction points is a user-controlled attribute of the method**"; §3 grades density near the envelope to
+  make outer-crown branch concentration. **But the markers must fill the VOLUME** — shell-only is the named
+  degenerate **Figure 7** (our old cage).
+- **Economy levers are standard configuration, not new code:** `N` (attractor count) + `dk` set sparseness;
+  `di` sets trunk-vs-ramified + smoothness; `D` is the node-count/resolution unit. Age/woodland axes have
+  named knobs (Palubicki BH-`λ`, priority model, shedding).
+
+**Verdict: step 3 is the canonical Runions space-colonization algorithm as-configured — configuration, not
+new code — and adjacent-leaf cluster-sharing comes free from the capture radius + closest-node association.**
+
+## 8.3 (c) I3 — DATA for a naturalistic plane leaf distribution (the crux)
+
+**Bottom line: the repo has the outer OUTLINE (real, iNat-measured) but ZERO measured *internal* density for
+Platanus. No source — repo or published — gives a Platanus-specific 3D leaf-area-density (LAD) profile.**
+The current fill is deliberately **volume-uniform** (`leafback_graph.py:55`, β=0.5). But there *is* enough to
+**shape** the fill non-arbitrarily, so a naturalistic field is **data-informed, not free-handed**:
+
+- **iNat imagery cannot yield internal density.** Only the outer silhouette was ever extracted
+  (`docs/first_mould_leafback_prototype.md` Part C → crown aspect + clear-bole per bucket). Of 311 obs, ~4
+  clean summer whole-crowns + 2–3 bare winter silhouettes survive triage — single-angle, different trees, no
+  aerials, no multi-angle specimen. Supports the 2D outline (already used) and at most a weak 2D projected
+  opacity read; **not a recoverable 3D LAD field.** Extracting "more" is low-yield.
+- **Repo canopy data gives the SHAPE, not numbers** (`reference_tree_canopy_data.md` §11, sourced USDA
+  Silvics / i-Tree / ISA): LAI 4.0–6.0; light transmission **8–15%** (heavy shade → dense near-opaque outer
+  canopy); ~59 k leaves; **"leaves tend to be concentrated in the outer crown shell," "layered parasol
+  effect."** → **shell-weighting is data-backed for planes.**
+- **Published broadleaf LAD gives the vertical shape:** vertical LAD is **unimodal for small trees, bimodal
+  for large**; **open-grown/dominant trees concentrate leaf area in the sunlit UPPER crown**, thinning to the
+  base (Ulmus laevis, Trees 2012; TLS LAD, Remote Sensing 2018). The **beta function** is the standard fit
+  for vertical crown profiles. Radial: the canonical primitive is a **voxel turbid-medium** crown carrying
+  LAD (TLS/Beer–Lambert) — the same shell-weighting the repo's "8–15% transmission / outer-shell" describes.
+- **Procedural prior art confirms the density field IS the authored lever** (Runions/Palubicki): the crown is
+  seeded uniform by default but "any kind of distribution" is allowed, and **denser marker regions develop
+  finer/denser branching** — precisely the knob the repo already exposes (`SPRIG_SPACE` + the `rr` radial
+  sampler at `leafback_graph.py:55`).
+
+**Minimal data-shaped density function** (the recovered Step-2 fill; replaces uniform β=0.5):
+
+1. **Radial: shell-weighted, non-zero to the core.** Replace `rr = R·√U` with an outer-biased radial CDF,
+   `rr = R · U^p`, **p ≈ 0.35–0.5** (p<0.5 pushes points outward; p=0.5 = today's uniform), with a non-zero
+   interior floor per G1 (so it never regresses to the Fig. 7 shell). *Shape = data-grounded (§11 outer-shell
+   + transmission).*
+2. **Vertical: beta-function weight on normalized crown height, mode ≈ 0.55–0.70** (unimodal; allow bimodal
+   for the veteran `l` spread). *Shape = data-grounded (open-grown upper-crown LAD).*
+3. **Irregularity — the silhouette-breaking term — is AUTHORED, and I flag it as such.** Neither a smooth
+   shell-weight nor a smooth beta is enough on its own: both are radially symmetric and will still yield a
+   *smooth* lollipop. The outline breaks up only if the field is **clumped/uneven azimuthally and vertically**
+   (denser lobes, gaps at the margin). The repo/literature justify shell + vertical *shape* but give **no
+   Platanus-specific clumping data**, so the clumping term (e.g. low-frequency blue/Perlin-noise density
+   modulation + a jittered margin) is **literature-shaped, NOT species-measured** — pick parameters to match
+   the general broadleaf look and tune against reference crown renders; label them honestly. Margin/lobe
+   raggedness *of the branch outline itself* additionally emerges from the growth grammar reaching an uneven
+   field (§8.2), not only from the fill.
+
+**Honesty ledger for the fill:** *shape* (shell-weighted radial + upper-mid vertical peak + beta form) =
+**data-grounded**; exact parameter values (`p`, beta mode/shape, clumping amplitude/frequency) =
+**literature-shaped, not Platanus-measured** — tune-and-label, do not call them "data."
+
+## 8.4 PROPOSAL — the recovered three-step pipeline (marked)
+
+> PROPOSAL for sign-off. Drops into the existing stages; emits the same npz the skinner already consumes.
+
+- **STEP 1 — SHELL (reuse, confirmed).** The three iNat crown envelopes (`_T_*/_P_*` profile tables,
+  `leafback_skeleton.py:318`) remain the soft bound on where leaves may go. Same numbers, unchanged role.
+- **STEP 2 — FILL WITH A LEAF FIELD (the recovery).** Generate ONE coordinate set that is **both the render
+  leaves and the growth attractors**, distributed by the §8.3 data-shaped field (shell-weighted radial +
+  beta vertical + authored clumping). **Persist it in the npz.** This is where irregularity is injected —
+  make that explicit in any spec: *the silhouette is won here, not in the grower.*
+- **STEP 3 — GROW TO THE FIELD (canonical, §8.2).** Space colonization over the step-2 field; `dk` makes tips
+  terminate at leaves and adjacent leaves share a forking branch. Skinner + 5-attribute contract consume the
+  grown graph **unchanged** (§5, re-confirmed by I1). **Cards render at the step-2 positions the tips grew
+  to** — replacing the post-hoc bark-vertex re-derivation (`_card_placements_per_branch`), so leaves sit
+  exactly where the tree was grown to carry them.
+- **ECONOMY control (Chris: "not excessive").** Lever = **`dk` (capture/kill radius)** primarily, with `N`
+  (attractor/leaf count) and `di` (perception) secondary: larger `dk` → each tip captures more of a
+  leaf-cluster → **fewer, more-shared limbs per cluster** (Runions §3). Tune `dk` up until the wire-fan
+  collapses into legible shared limbs but before coverage drops — one lever, measured on the leafless
+  skeleton (§8.8).
+
+## 8.5 REUSE / REPLACE ledger (update to §5)
+
+- **G1 volumetric cloud → REPURPOSED as the persisted leaf field** (not discarded). This is the core of the
+  recovery. β=0.5 uniform → §8.3 data-shaped field.
+- **Crown envelope → REUSED as soft bound** (Step 1), unchanged.
+- **`leafback_skinner.py` + 5-attribute contract → UNCHANGED** (I1 re-confirms it derives all attrs from the
+  grown graph; a leaves-as-attractors grower still emits `(pos, parent, radius, strand)`).
+- **`_card_placements_per_branch` (post-hoc bark-vertex card derivation) → REPLACED** by rendering at the
+  persisted step-2 leaf positions the tips grew to. *(This is the one downstream change vs. §3, which had
+  left foliage untouched.)*
+- **`di_near=2.0` / G2a → still relevant, partially subsumed.** `di` remains the perception radius (now in
+  the literature 1.4–2.1 m range); its old *leader-hack* rationale (`di_near=6.0` to cross an empty core) is
+  gone once the volume is a real leaf field. **Capture-based termination (`dk`) becomes the primary economy
+  knob; `di` reverts to plain perception.** G1+G2a remain the validated base this builds on.
+- **Post-hoc shell coarsening (AC-7 `SPRIG_SPACE` up-tune) → still superseded** by grow-to-node-budget (§4),
+  now expressed as tuning `N`/`dk` of the leaf field.
+
+## 8.6 PERF honesty — cluster-sharing plausibly LOWERS node count
+
+Leaf/card count is ~fixed by the shell fill (the target foliage). The open question is grower **node** count.
+Expectation, stated for later measurement (not claimed): **growing to *clusters* should raise coverage
+efficiency and LOWER node count vs. the uniform volumetric fill**, because (a) shell-weighting puts fewer
+attractors in the deep interior than uniform-in-volume, and (b) cluster-sharing merges several leaves onto
+one upstream limb (fewer shared limbs). If so, the recovery **fixes the silhouette AND eases the vertex
+budget** in the same move. This does **not** retire §4: node budget stays a first-class per-tier growth
+target (tune `N`/`dk`/`D`), and the radius-scaled RING (Lever 2) is still reused unchanged. Measure
+before/after on the leafless m skeleton (nodes, LOD0 verts, attractor reach) to confirm the direction.
+
+## 8.7 (verify-gap) The upper-trunk break survived the 352 mm trace — why, and the fix
+
+**Instance:** the break visible looking down from above PASSED the leader-continuity trace (352.3 mm max
+span, "1 D-seg, PASS") — the **second** trunk break to survive the gate. Read the trace code to find why.
+
+**Root cause — the trace is GRAPH-level; the break is MESH-level.** `tmp/g2a/measure_g2a.py:72–79` computes,
+for every `strand==0` node, `‖pos[i] − pos[parent[i]]‖`, and reports the max. That is a **node-graph
+parent-link distance**, which is ~`D=350 mm` *by construction* — the grower steps one segment of length `D`
+at a time, so consecutive strand-0 nodes are always ~one segment apart and the check is **near-vacuous for
+the leader** (it can essentially only "fail" if a node were dropped entirely). It **never touches the
+rendered mesh**, so it is structurally blind to the actual defect:
+
+1. **Ring-framing gaps that `stitch` refuses to weld (§6).** `stitch_bark_islands` has a `stem_id`
+   *same-branch skip*: it declines to weld junctions *within one strand* (to preserve twig ring
+   cross-sections). The trunk/leader is a single strand (`stem_id==0`). So the ring-to-ring gaps along the
+   leader (gap ∝ radius, worst at the thick trunk — up to ~25 mm vs the ~32 mm weld tol) are the very ones
+   stitch **won't touch**. The node graph is continuous there; the *tube mesh* is cracked.
+2. **The trace only walks `strand==0`.** A break at a **scaffold origin** (cross-strand trunk→limb junction)
+   or where a **sympodial relay** hands the axis to a different strand id near the apex is *off* the strand-0
+   path entirely — invisible to this trace even in principle.
+
+**Proposed check that WOULD catch it (design note; applies to any grower):** run continuity on the
+**rendered mesh with attributes**, not the node graph.
+- **Mesh-loop continuity along each strand:** order each strand's ring cross-sections by arc-length and
+  assert consecutive rings are topologically joined (share the quad band) OR their nearest-vertex distance
+  ≤ weld tol. Report per-strand, per-junction **max gap** — do NOT inherit stitch's same-strand skip (that
+  skip is the very thing to audit).
+- **Scaffold-origin attachment:** assert each scaffold-origin ring is welded to the trunk surface within tol
+  (the cross-strand junctions the strand-0 walk never visits).
+- **Relay-aware trunk trace:** trace the load-bearing axis by **pipe-model-thickest child** root→apex (which
+  follows a sympodial relay across strand-id changes), not by `stem_id==0` alone.
+- Run on the **rendered** attribute set (with `radius`+`stem_id`) — the diagnosis (`components 62` real vs
+  `3` attribute-stripped) shows a graph/stripped check under-reports disconnection ~20×.
+
+This is independent of the growth decision and must exist for any skeleton→skin path. It also implicates a
+**fix, not just a gate**: the same-branch skip on `stem_id==0` should weld thick-trunk ring gaps that exceed
+tol (the skip's rationale — preserving *twig* rings — does not apply at trunk caliber).
+
+## 8.8 Report-back summary (this addendum)
+
+- **(a) I1 — amputation CONFIRMED:** leaf cards are derived post-growth from bark-mesh verts
+  (`generate_trees_mtree.py:2832–2955`); the G1 attractor cloud is killed during growth and **never saved**
+  (`build_leafback_skeletons.py:29–41`). Step 2 (an independent pre-growth field that IS the attractors) is
+  missing. The G1 cloud **is convertible** — already a proto leaf field; recovery = persist + render-there +
+  redistribute (only the last is substantive).
+- **(b) I2 — Step 3 is canonical, off-the-shelf:** attractors ARE the marker cloud; `dk` terminates tips at
+  leaves and captures adjacent leaves at a clump; **cluster-sharing is FREE** (influence-set averaging +
+  closest-node association + `dk`); non-uniform/clumpy fill is explicitly supported *provided it fills the
+  volume* (shell-only = Fig. 7). Configuration, not new code.
+- **(c) I3 — DATA (the crux):** no Platanus-specific 3D LAD exists; iNat imagery can't supply it. But the
+  fill *shape* is data-grounded — **shell-weighted radial** (repo §11: outer-shell concentration, 8–15%
+  transmission) + **upper-mid vertical peak, beta form** (broadleaf LAD literature). Exact parameters and the
+  silhouette-breaking **clumping/margin term are authored (literature-shaped, not species-measured)** — must
+  be labelled so and tuned against reference renders.
+- **Verify-gap:** the 352 mm trace passed because it is a graph-level `strand==0` parent-link check
+  (~`D` by construction), blind to the mesh-level ring gap that `stitch` skips within a strand and to
+  off-strand-0 breaks. Fix = mesh-loop + scaffold-origin + relay-aware continuity on the rendered attribute
+  set (§8.7).
+
+*No code written, no build run, no protected file edited, nothing committed. Deliverable is this addendum.*
+
+---
+
+# 9. The LOLLIPOP diagnosis — is the crown aspect-bucketed, or one shape + an aspect scalar?
+
+> **Planner addendum, 2026-07-08 (this session).** Investigation of the m-tier "lollipop" (compact, roughly
+> spherical crown, aspect ≈ 1) vs. the m tier's then-assumed form (broad, wider than tall — an assumption §10 overturns). PROPOSAL only; nothing
+> built, edited, or committed. This does **not** re-litigate the July-6 distribution decision — it asks
+> whether that distribution was split *by shape/aspect*, which it turns out it never was.
+
+## 9.1 (a) ONE mould or THREE? — THREE profiles + THREE aspect scalars in code, but the shape is essentially ONE
+
+At the code level there **are** three profile tables and three aspect scalars, per tier
+(`leafback_skeleton.py:318–330`):
+
+| tier | age class | aspect W/H | profile | widest at *t* |
+|------|------|-----------:|---------|--------------:|
+| s | young | **0.80** | `_P_S` | 0.55 |
+| m | middle | **1.00** | `_P_M` | 0.50 |
+| l | mature | **1.20** | `_P_L` | 0.33 |
+
+So the literal "one averaged blob applied to all tiers" hypothesis is **false** — the tiers carry distinct
+aspects. **But the profile *shapes* are essentially one mould with two hand-drawn variations, and the tiers
+differ almost entirely by the aspect scalar:**
+
+- `_P_M` is the real data-derived shape — the v2 mould, its **radial profile sampled from a single
+  specimen, `obs75867287`** (`first_mould_leafback_prototype.md` Part D:317). Its widest point is exact
+  **mid-crown (t=0.50)**, a symmetric bump (0.14→1.00→0.18).
+- `_P_S` and `_P_L` are **hand-authored variations** of `_P_M` — the validation script says so in
+  its own comments (`tmp/leafback_bucket_validation.py`: the s profile is widest slightly ABOVE mid
+  (~0.55), the l profile widest LOW (~0.33)). The s and m profiles (widest 0.55 and 0.50) are **nearly
+  identical shapes**; only `_P_L` is genuinely different.
+
+**Verdict: not one mould, but not three data-bucketed moulds either — one data-sampled shape (from a single
+specimen) + two hand variations, differentiated mainly by an aspect scalar (0.80 / 1.00 / 1.20).** The
+"shape-UNbucketed" half of the hypothesis is essentially correct.
+
+## 9.2 (b) Provenance — the m tier shape came from a YOUNG OVOID specimen, and was NARROWED to spherical
+
+The crown target was **not** derived from all 311 silhouettes pooled, and **not** from an aspect-matched
+per-bucket subset. It came from **three hand-measured anchor specimens** (`first_mould_leafback_prototype.md`
+Part C:295–301), of which the mould geometry used exactly **one**:
+
+- Part C measured only **3 clean crowns**: `obs75867287` (young-mature ovoid, **W/H ≈ 0.85**), `obs122865830`
+  (mature, "wide low-spreading," *crown top out of frame — no number*), `obs11670158` (veteran, **W/H > 1.2**).
+- Part B's v1 representative from the **mode (mature-dome) bucket measured W/H_crown ≈ 1.16** — *wider than
+  tall* (`Part B:176`).
+- Part D rebuilt the mould with its **profile sampled from `obs75867287`** (the young **ovoid**, 0.85) and
+  its **aspect explicitly reduced 1.16 → 1.00** ("was 1.16", `Part D:317–325`).
+
+So the modal "m tier" mould has its **shape taken from a young ovoid specimen** and its **aspect
+narrowed from a measured 1.16 down to a spherical 1.00.** The Part D note calls this "broadened toward the
+measured distribution," but 1.16 → 1.00 is a *narrowing* — that line is internally contradictory, and the
+net effect moved the modal crown *toward a sphere, away from the broad dome the v1 mode specimen measured.*
+
+## 9.3 (c) The measured aspect of the current m-tier target — the smoking gun
+
+**m-tier crown aspect = 1.00 (W/H), spherical.** Confirmed from `BUCKETS["m"]` (`leafback_skeleton.py:328`)
+and the envelope math `RX = aspect·CH/2` (`:345`): for m (H=14.4, cb_frac=0.30 → CB=4.32, CH=10.08),
+crown width = aspect·CH = **10.08 m**, crown height = **10.08 m** → a bounding box as wide as tall, widest at
+exact mid (`_P_M`) → **a sphere. That is the lollipop, and it is aspect = 1.00 by construction.**
+
+Two things are simultaneously true and both point at aspect 1.00 as the defect:
+- It is *literally spherical* (W/H = 1), regardless of any averaging story.
+- It also *equals the arithmetic mean* of the three bucket aspects (mean(0.80, 1.00, 1.20) = 1.00) — so the
+  cross-bucket-mean intuition lands on the same number. But the mechanism is not a runtime average; m was
+  independently set to 1.00 by narrowing the measured 1.16 (§9.2).
+
+Either framing, the fix is the same: **the m tier must be wider than tall.** *(⚠ direction SUPERSEDED by
+§10.0 — the hybrid is taller-than-wide; this §9 conclusion is retained only as the record of the reasoning
+that §10 then corrects.)*
+
+## 9.4 (d) Do the 311 carry per-observation aspect? — NO. Re-bucketing 311 by aspect is INFEASIBLE
+
+The 311 do **not** carry per-observation aspect, and cannot be cheaply re-bucketed by shape:
+- `tmp/inat_lp/candidates.json` = **68** observations, keys `[id, qg, n, urls, desc]` — metadata + photo
+  URLs only, **no aspect, no crown geometry.**
+- `tmp/inat_lp/crown/meta.json` = ~20 curated crowns, keys `[file, season, place]` — **no aspect.**
+- **Only 3 specimens were ever hand-measured for aspect** (Part C table). Of the full 311, triage leaves
+  **≈4 usable summer whole-crowns + ≈2–3 bare winter silhouettes** — mostly ID close-ups (bark/leaf/seed-ball).
+
+So the brief's premise ("the pull produced per-observation aspect; re-bucket the 311 by aspect") does **not
+hold** — the shape data for 311 does not exist, and extracting it from the imagery is exactly the low-yield
+single-angle problem Part C already hit. **A re-bucket-the-311 proposal is not actionable with data in hand.**
+
+## 9.5 PROPOSAL (marked) — fix the aspect first; it is a one-lever, data-in-hand change
+
+> PROPOSAL for Chris's sign-off. No new pull, no clumping work, no new photos.
+
+**The re-bucket-311-by-aspect path is dead (§9.4).** But the diagnosis yields a cleaner, cheaper fix that
+uses only data already in hand:
+
+1. **Raise the m tier aspect from 1.00 to the measured mode value (≥ 1.16, wider than tall).** This
+   *restores* a real measurement — the v1 mode-bucket specimen's W/H_crown ≈ 1.16 (`Part B:176`) — that was
+   narrowed to 1.00 in the v2 rebuild (§9.2). It is a **single scalar** in `BUCKETS["m"]`
+   (`leafback_skeleton.py:328`), measured-before-changed. (Sanity-bracket: s = 0.80 ovoid, l = 1.20 spread;
+   a mature dome at ~1.15–1.25 sits correctly between "balanced" and "veteran spread" and stops reading as a
+   ball.)
+2. **Differentiate the m profile from the s profile.** `_P_M` (widest at mid, from a young s-stage specimen)
+   is nearly identical to `_P_S`; the m tier should be **widest slightly below mid with a flatter,
+   broader top**. This is a profile-table edit (`_P_M`), shaped to the qualitative rounded-crown description
+   (reference_tree_canopy_data §11: "broad, spreading, rounded"), flagged **authored-not-measured** (no
+   mature-dome silhouette was ever measured — Part C's mature anchor had its crown top out of frame).
+3. **Order of operations — aspect is PRIMARY; margin-irregularity and interior-clumping are SECONDARY.** A
+   proportion defect cannot be fixed by un-smoothing a margin: un-smoothing a sphere gives a *lumpy* sphere,
+   still not a m tier. So the §8 recovery work (naturalistic leaf-field clumping, ragged margin) is a
+   refinement that only pays off **after** the per-tier aspect is right. Sequence: (i) fix m aspect → (ii)
+   verify it reads as a broad dome on the leafless skeleton → (iii) then apply the §8 leaf-field/clumping.
+4. **Structural reuse — unaffected.** Only the aspect scalar and the `_P_M` numbers change.
+   `build_bucket_skeleton` → `build_graph` → `leafback_skinner` all consume the same envelope contract; the
+   envelope→skinner path is structurally identical (§5). No plumbing change.
+
+**Honesty ledger:** aspect 1.16 is a *measured* value being restored (data-in-hand); the exact target
+(≥1.16) and the dome-profile reshape are *shape-informed, tune-and-verify* — no mature-dome silhouette was
+ever measured, so do not label the final numbers "data," label them "restored measurement + shaped-to-
+description, verified on render."
+
+## 9.6 Report-back summary (this addendum)
+
+- **(a) ONE or THREE:** three aspect scalars + three profile tables in code, but the *shape* is one
+  data-sampled mould (`_P_M`, from `obs75867287`) + two hand-authored variations; tiers differ mainly by
+  the aspect scalar. Shape was effectively **not** bucketed from data.
+- **(b) Pooling:** neither all-311-pooled nor per-bucket-fit — the mould geometry came from **one** young
+  **ovoid** specimen, with the m tier aspect **narrowed 1.16 → 1.00** in the v2 rebuild.
+- **(c) m-tier aspect = 1.00 (W/H), spherical — the smoking gun confirmed.** The lollipop is a proportion
+  defect: the m tier is built as a ball.
+- **(d) The 311 do NOT carry per-observation aspect** (candidates.json 68 obs = metadata only; only 3 hand-
+  measured; ~6–7 usable crowns). Re-bucketing the 311 by aspect is infeasible with data in hand.
+- **Proposal:** skip the re-bucket; **raise the m tier aspect to the measured ~1.16 (one scalar) + reshape
+  `_P_M` to a genuine below-mid-widest dome**, verify on the leafless skeleton, and treat margin/clumping
+  (§8) as a strictly secondary refinement. Envelope→skinner path unaffected.
+
+*No code written, no build run, no protected file edited, no new data pulled, nothing committed. Deliverable
+is this addendum.*
+
+---
+
+# 10. FORM MODEL — a grounded understanding of London plane crown form, with its gaps left open
+
+> **Planner addendum, 2026-07-08 (this session).** COMPREHENSION deliverable, not a build. The task: describe
+> the crown well enough to *sculpt* it, grounded in botanical authority — and **where the understanding
+> genuinely isn't there, LEAVE THE GAP AND NAME IT** rather than fit a number to fake completeness (fitting a
+> number to a thin anchor is exactly what produced the lollipop, §9). Nothing built, edited, or committed.
+> Sources: our own docs (§10.1), the primary tree-architecture + dendrology literature (§10.2–10.4), and
+> direct visual study of the on-disk specimen imagery (my own pixel reads, §10.3). Authority tags on claims:
+> **[PS]** plane-specific & sourced · **[BG]** broadleaf-general & sourced · **[?]** assumption/uncertain.
+
+## 10.0 ★ The premise correction — the deleted m-tier shape-name assumed "wider than tall", which is WRONG for the hybrid; it retracts §9.5
+
+The single most important finding, and it **corrects my own §9 proposal.** The documented central tendency
+of the *hybrid* London plane crown is **taller-than-wide to roughly balanced (W/H ≈ 0.65–0.85), a rounded /
+broad-pyramidal head** — **not** a wide, flat, squat dome. "The crown tends to grow **taller than wide**,
+particularly in older clones" **[PS — Trees & Shrubs Online / Bean, *Platanus × hispanica*]**; horticultural
+dimension sheets give ~70–100 ft tall × 60–80 ft wide → **W/H ≈ 0.65–0.85 [PS — Morton Arboretum; Missouri
+Botanical Garden; NC State Extension]**. The **wider-than-tall, low, flat-spreading** form belongs to the
+*isolated parents* — *P. orientalis* ("a remarkably spreading tree, and often a low one") and open-grown
+*P. occidentalis* (crown to 30 m diameter) **[PS — Trees & Shrubs Online; USDA Silvics]** — which the hybrid
+only approaches at **extreme age / open exposure**.
+
+**Consequences:**
+- The lollipop (aspect 1.00 sphere) is wrong, but **not because it should be broader.** If anything the mature
+  hybrid is **taller than wide (~0.75–0.85)**, not spherical and not wide-flat.
+- **§9.5 is RETRACTED on direction.** My proposal there to "raise the m tier aspect toward ≥1.16 (wider
+  than tall)" read the bucket's *name* literally and reasoned from the v1 1.16 measurement **without botanical
+  grounding** — it would have propagated the very "wider than tall" assumption this task exists to kill. The
+  §9 code-provenance findings (aspect narrowed 1.16→1.00, shape sampled from a young ovoid, 311 carry no
+  aspect) all still stand; only the *proposed target direction* is wrong and is replaced by §10 below.
+- The current code aspect series **0.80 → 1.00 → 1.20** runs **too wide across the board and crosses 1.0 too
+  early** (at the mature tier). The grounded series stays **≤ ~0.85 until the veteran stage.**
+
+## 10.1 (a) What our OWN docs already established (prior-art-first)
+
+- **Measured (but thin — 3 single-angle anchor specimens, `first_mould_leafback_prototype.md:296–301`):** the
+  cross-age *trend directions* — clear-bole fraction **falls** 0.33→0.30→0.20 (trees fork *lower* with age),
+  aspect **rises** 0.85→>1.2, widest-point **descends** 0.55→0.50→0.33; the veteran W/H > 1.2 (one winter tree
+  `obs11670158`); the young ~0.85 (one tree `obs75867287`). Sourced **foliage-density** (not proportion): LAI
+  4–6, light transmission 8–15%, ~59 k leaves, "leaves concentrated in the **outer crown shell**, layered
+  **parasol** effect" **[PS — reference_tree_canopy_data §11, USDA Silvics/i-Tree/ISA]**.
+- **Authored / landmine:** the modal **m tier aspect 1.00** (narrowed from a measured 1.16, its *shape
+  sampled from the young ovoid* `obs75867287` — §9.2), the young aspect 0.80, both hand-authored profile
+  tables (`_P_S`/`_P_L` are variations of `_P_M`), the 4-primary fork count (emergent), all branch
+  angles, and the entire internal leaf-density field.
+- **Gaps our docs ALREADY name:** ★ **no mature-dome crown was ever measured** (the one mature anchor
+  `obs122865830` had its crown top out of frame); only 3 anchors / ~4 summer + ~2–3 winter usable of 311; no
+  multi-angle or aerial of any tree; the "per-angle typicality is automatic" retirement of the multi-angle gap
+  (`crown_data_audit.md`, Part D) is **undercut** by the §8–§9 lollipop diagnosis and should be treated as
+  optimistic; the woodland/drawn-up light axis is entirely absent (open-grown series only).
+
+## 10.2 The architectural model — the frame the whole life-history hangs on
+
+Édelin's architectural analysis assigns *Platanus* to **Massart's model**: a **monopodial, rhythmically
+growing orthotropic (vertical) trunk bearing plagiotropic (near-horizontal / wide-angle) branches produced in
+rhythmic tiers** **[PS — Édelin, *Architecture et dynamique de croissance du platane*; model def. Hallé,
+Oldeman & Tomlinson 1978 / CIRAD GreenLab]**. The mature and veteran crowns are **not primary shapes** — they
+are **emergent**, produced by **crown metamorphosis + reiteration**: the leader's dominance breaks up, several
+scaffold limbs each **reiterate the whole architectural unit** (behaving like new "trees" on the old frame),
+and juvenile plagiotropic branches partly **re-erect** (secondary orthotropy) into the rounded head. A subtle
+but load-bearing point for us: the architecture is **monopodial in organization but sympodial in module
+function** (each visible axis is a relay of short annual modules) — this is *why* the plane tolerates pollard/
+pruning, and it is the botanical justification for the sympodial-relay + reiteration language in §1.3/§2.
+
+**Sculpting consequence:** the mature crown must be built as an **aggregation of several heavy, reiterated
+limb-systems**, not as one smooth envelope. This is exactly the §8 "grow to a leaf field, don't impose a
+shell" recovery, now independently grounded in the species' architectural model. It is also *why* the smooth
+lollipop reads so wrong — a single smooth shell erases the "several trees fused" massing that is the plane's
+mature identity.
+
+## 10.3 (b) The form model — three stages as ONE developing form (gaps marked inline)
+
+### STAGE 1 — YOUNG "Upright Pyramidal" (≈7–12 m)
+- **Proportion:** clearly **taller than wide** — upright, **broad-pyramidal to conical** (young trees read
+  "straggly, leaves too large for the tree"). W/H **< 1** (direction grounded; a rough ~0.7–0.8 is plausible
+  but **not pinned**). **WHY:** strong apical dominance/control keeps a dominant leader and a vertically-biased
+  crown **[PS — Morton; T&SO]** **[BG — excurrent form under apical dominance]**.
+- **Branch architecture:** Massart signature — a **single dominant orthotropic leader**; **plagiotropic
+  branches in rhythmic tiers** spaced along the bole, leaving the trunk at wide angles; **few, thin, evenly
+  angled scaffolds**; branching is **rhythmic/periodic**, not continuous **[PS — Édelin; UF/IFAS ENH643
+  "develops a dominant central leader"]**.
+- **Reads as young because:** a clean single leader + a tapering, tiered, vertically-biased crown + few thin
+  scaffolds — not yet heavy crooked limbs.
+- **Plane-specific vs generic:** the **rhythmic TIERING of plagiotropic branches along a persistent leader** is
+  the diagnostic juvenile cue — more organized/layered than a generic young-broadleaf blob. A smooth lollipop
+  erases it.
+- **GAPS:** exact young aspect unpinned (0.80 is authored); **no young-ovoid whole-crown exists on disk** (§10.3
+  imagery); tier spacing / scaffold-count per growth cycle for this hybrid unknown → needs the full Édelin
+  monograph (paywalled) or branch-order fieldwork.
+
+### STAGE 2 — MATURE (the workhorse; the tier that carried the now-deleted crown-form label)
+- **Proportion:** **rounded to broad-pyramidal / oval**, **taller-than-wide to balanced, W/H ≈ 0.65–0.85**,
+  **rounded (not flat) top**. **Not spherical, not wide-flat.** **WHY:** apical dominance weakens with size so
+  the crown fills out and rounds, but in the *hybrid* it does **not** collapse into a squat dome the way
+  isolated *orientalis* does **[PS — T&SO "taller than wide"; Morton/MoBot/NC State dims]** **[BG — dominance
+  decay → decurrent rounding]**.
+  - ⚠ **Tension to hold honestly:** the best on-disk CP summer whole-crown (`S_286898477`) reads to my eye
+    (and the imagery agent's) as **balanced to *slightly* wider than tall** — softer/wider than the 0.65–0.85
+    horticultural prior. Possible causes: a spreading clone, real age, or distance-flattening/over-read width.
+    So the *CP-specific* value is genuinely between "~0.8 taller-than-wide" (literature) and "~1.0 balanced"
+    (thin local imagery) — **unpinned**, direction only.
+- **Branch architecture:** a **few large, heavy, crooked, TWISTING spreading limbs** (coarse branching — "a
+  huge rounded head of somewhat contorted branches"); major limbs **ascend then arch**, with **weeping /
+  pendulous OUTER tips** in large trees (the dominant 'Media' clone: "twisting major limbs and rather weeping
+  outer branches"); crown assembled from **several reiterated Massart units** (metamorphosis) → an irregular,
+  "several trees fused" massing; often a relatively **short bole** carrying strong branches **[PS — T&SO;
+  MoBot; Édelin]**.
+- **Reads as mature because:** loss of a single clean leader; several **co-dominant reiterated limb systems**;
+  heavy crooked twisting scaffolds; **weeping tips**; a full rounded/oval head.
+- **Plane-specific vs generic (the exact axis the lollipop got wrong):** (a) **weeping outer twigs on ascending
+  heavy limbs**; (b) **few large crooked twisting scaffolds**, not many fine even ramifications; (c) crown from
+  **discrete reiterated units** → irregular massing, not a smooth uniform shell; (d) **taller-than-wide /
+  balanced**, not wide-flat.
+- **GAPS (the load-bearing one — SHOULD stay open):** ★ **no clean mature-dome crown has ever been measured**
+  (the one CP mature anchor is top-cropped and grove-context; the horticultural W/H is a cultivar/context
+  average, not open-grown crown geometry). The **exact open-grown mature aspect for CP planes is an
+  off-computer gap** → closes only with **LiDAR/QSM or photogrammetric crown measurement** of a sample of CP
+  open-grown specimens. Compounding gap: **clone identity of CP's planes is unknown**, and form varies sharply
+  by clone ('Media' twisting/weeping vs 'Pyramidalis' stiff vs 'Tremonia' spire) → closes with field/records
+  clone ID. Branch insertion angles and tip-weep geometry are documented **qualitatively only**.
+
+### STAGE 3 — VETERAN "l tier" (≈18–28 m)
+- **Proportion:** irregular, increasingly **broad and spreading**; here the crown **can** finally become
+  **as-wide-as or wider than tall**, approaching the parental habit — but **asymmetric and gappy**, not a tidy
+  dome. Exact hybrid veteran aspect **[?] not quantified in sources found** (the >1.2 in our docs is *one*
+  winter silhouette, foreshortened). **WHY:** full dominance decay + reiteration + epicormic rebuild **[PS —
+  extrapolated from veteran *P. orientalis*; T&SO]**.
+- **Branch architecture:** "a tangle of crooked, widely spreading limbs," some **low / near-horizontal**
+  (sometimes layering toward the ground); **epicormic / partial reiteration** (sprout clusters, secondary
+  crowns) progressively builds and repairs the crown; **low multi-stem fork** **[PS — T&SO *orientalis*
+  analogue]** **[BG — partial reiteration in veterans, Édelin/Hallé]**.
+- **Reads as veteran because:** heavy low twisting limbs, crown asymmetry + dieback gaps, epicormic sprout
+  masses, a gnarled tangled silhouette.
+- **Plane-specific vs generic:** crooked/contorted heavy limbs + **retained pendulous fine tips** + **profuse
+  epicormic sprouting** distinguish a veteran plane from, e.g., a veteran oak's blockier framework.
+- **GAPS:** exact hybrid veteran aspect unquantified; the best on-disk winter veterans (`W_11648420`,
+  `W_11999230`) are foreshortened → soft on proportion.
+
+### Cross-stage — the developing form as ONE process
+One **Massart architecture** undergoing progressive **dominance-decay + reiteration + metamorphosis**: aspect
+moves **clearly-taller-than-wide (young) → taller-to-balanced (mature) → balanced-to-wider & asymmetric
+(veteran)**; **clear-bole fraction falls** (forks lower with age — our measured trend, and consistent with the
+botany); **widest point descends**. This validates "three buckets = one growth process" (§2) on the age axis
+**and** re-grounds it in the species' actual architectural model — but with the **magnitudes shifted narrower**
+than the current code (which crosses W/H = 1 at the mature tier; the grounded form stays ≤ ~0.85 until the
+veteran). Woodland/drawn-up remains a separate, still-unrepresented light axis (§2).
+
+### My own image reads (pixel-level, for the record)
+- `S_75867287` (the specimen the dome mould was sampled from): **broad, roughly balanced, widest ~mid, clear
+  bole ~2–3 m, divides low into several ascending co-dominant limbs — NOT a tall narrow ovoid.** The "0.85
+  ovoid" label is shakier than its number. (Upward foreshortening likely inflates height, so true crown may be
+  even broader.)
+- `S_122865830` (mature anchor): **crown top out of frame — W/H unmeasurable — and grove-edge (competition
+  context), not clean open-grown.** Confirms the load-bearing gap.
+- Winter bares: architecture legible (clear bole; few heavy sinuous ascending-then-arching primaries) but every
+  crown top cropped or the tree is a leaner → **no measurable full silhouette on disk.**
+
+## 10.4 (c) Representative form per bucket + candidate reference image (image confirms; it is not the source)
+Each candidate needs a human/vision pass on the actual pixels before it is an acceptance criterion (WebFetch
+cannot see images; on-disk frames all carry a hazard).
+- **Young:** upright broad-pyramidal, single leader + rhythmic plagiotropic tiers, few thin scaffolds, W/H < 1.
+  *Candidate ref:* the Weyerhaeuser-campus young plane on Trees & Shrubs Online (**unverified** — no clean
+  young whole-crown on disk).
+- **Mature:** rounded/oval, taller-than-wide-to-balanced head of a **few heavy crooked twisting ascending-then-
+  arching limbs with weeping tips**, "several trees fused" massing. *Candidate ref:* on-disk `S_286898477`
+  (best summer, but distance-flattened) cross-checked against a Monumental-Trees open-grown Paris specimen
+  (**unverified**).
+- **Veteran:** low multi-fork, heavy widely-spreading crooked twisting limbs, asymmetric & gappy, epicormic
+  sprouts. *Candidate ref:* on-disk `W_11648420` (winter veteran, foreshortened) / the Mottisfont plane on
+  Trees & Shrubs Online (**unverified**).
+- **Imagery-infrastructure gap:** `reference_photos/london_plane/` **does not exist**; all LP imagery lives in
+  gitignored `tmp/inat_lp/` and would vanish on a clean checkout — promote the usable frames into the repo if
+  this form model is to be the standing acceptance reference.
+
+## 10.5 THE HONESTY GATE — sculpt-readiness per bucket (gaps are expected and are a success)
+
+- **YOUNG — PARTIAL (architecture sculpt-ready; proportion direction-only).** *Sculpt-ready:* the Massart
+  juvenile form (single leader + rhythmic plagiotropic tiers + few thin wide-angle scaffolds, taller-than-wide)
+  is well enough understood to sculpt. *Named gap:* the exact aspect value and a **verified young whole-crown
+  reference** (none on disk; the web candidate is unverified) — closes with a vision pass on a good young
+  specimen photo (on-computer, cheap).
+- **MATURE — NOT-YET on proportion; PARTIAL on architecture (the crux, and the gap SHOULD stay open).**
+  *Sculpt-ready (qualitative):* the architectural form — a rounded, **taller-than-wide-to-balanced** head built
+  as an **aggregation of a few heavy crooked twisting ascending limbs with weeping outer tips**, coarse
+  branching, "several trees fused" — is now grounded enough to sculpt the *character*. *Named off-computer
+  gap:* the **exact open-grown mature crown aspect (W/H) for CP planes is not pinned** — no clean mature crown
+  was ever measured, the horticultural prior (0.65–0.85) and the thin local imagery (~0.8–1.0) disagree, and
+  **clone identity is unknown**. This closes only with **LiDAR/QSM or photogrammetric crown measurement of CP
+  open-grown specimens + clone ID** — genuine fieldwork we cannot do from here. **Leave it open.** Interim
+  guidance for any build: use **taller-than-wide (~0.80), rounded top**, and *do not* re-fit a single number
+  as if it were measured — the architecture (aggregated twisting limbs + weeping tips) carries the identity far
+  more than the exact ratio, and is the thing to get right first.
+- **VETERAN — PARTIAL (architecture sculpt-ready; proportion direction-only).** *Sculpt-ready:* low multi-fork,
+  heavy widely-spreading crooked/twisting limbs, asymmetric & gappy, epicormic sprouting. *Named gap:* the
+  exact hybrid veteran aspect (best local refs foreshortened; the >1.2 is one winter tree) — closes with a
+  vision pass on good veteran silhouettes and/or the same crown measurement as the mature bucket.
+
+**Net verdict:** the **architecture/branch-habit** understanding is now grounded enough to sculpt the
+qualitative form at all three stages (and it decisively kills the smooth lollipop — the plane's mature crown
+is an aggregation of few heavy crooked twisting limbs with weeping tips, taller-than-wide, not a ball and not a
+wide flat dome). The **exact crown proportion** is grounded in *direction* but **not pinned in magnitude** for
+the CP hybrid at any stage; the mature-tier aspect specifically is a **legitimate off-computer gap** (needs
+crown-measurement fieldwork + clone ID) that **should remain open and flagged**, not filled with another fitted
+number. That open gap is the correct, honest state — and naming it is the outcome that prevents the next
+lollipop.
+
+*No tree built, no code changed, no data pulled, nothing committed. Deliverable is this addendum.*
+
+---
+
+## 10.6 Label cleanup + standing next-steps (2026-07-08)
+
+**Crown-form SHAPE NAMES deleted repo-wide.** The three descriptive crown-form labels formerly attached to
+the s/m/l tiers are removed everywhere they were used as an identifier or display string. Rationale: a
+two-word name can't hold a form model, so it held an *assumption* instead — and here the m-tier label's
+assumption (that the mature crown is wider than tall) was botanically wrong for the hybrid (§10.0) and
+re-taught the wrong shape to whoever read it (it drove the lollipop and mis-led §9.5). **`s`/`m`/`l` are the only tier labels** — neutral keys that
+make no shape claim and force the reader to *this* form model. The grounded form knowledge is preserved here,
+keyed to the tiers (§10.2–10.5); the **architecture** description (young: leader + rhythmic plagiotropic
+tiers; m: aggregation of heavy crooked twisting ascending-then-arching limbs with weeping outer tips; l: low
+multi-fork, heavy widely-spreading crooked limbs, asymmetric/gappy, epicormic; all under Massart's model)
+survives, not just the aspect scalar.
+
+**m-tier aspect — recorded PROVISIONAL.** m aspect = **~0.80 (taller-than-wide)** per §10 interim guidance —
+explicitly **provisional, pending off-computer crown measurement (LiDAR/QSM or crown photogrammetry of CP
+open-grown specimens + clone ID; NYC data trip, post-revenue).** Do **not** re-fit this number to any thin
+anchor — **identity is carried by the ARCHITECTURE** (aggregated heavy crooked twisting limbs + weeping tips),
+not the scalar. The live code scalar is left at its legacy **1.00** (`leafback_skeleton.py` BUCKETS,
+`generate_trees_mtree.py` crown_bucket) and flagged in-line; **changing it belongs to the sculpt cut**, not
+this label round.
+
+**Files changed this round (label cleanup only; nothing committed):**
+- Code: `scripts/leafback_skeleton.py` (BUCKETS names→age-class; `_P_OVOID/_DOME/_SPREAD`→`_P_S/_M/_L`),
+  `scripts/generate_trees_mtree.py` (dropped inert `crown_bucket["name"]` ×3), `scripts/leafback_graph.py`
+  (docstring/comments), `scripts/build_leafback_skeletons.py`, `scripts/leafback_skinner.py`, `tree_builder.gd`,
+  `eval_plot_builder.gd` (comments).
+- Docs: this file (§0–§10 re-keyed to s/m/l, architecture preserved), `docs/crown_type_buckets.md`,
+  `docs/smla_bucket_migration.md`, `docs/leafback_bucket_validation.md` (+ its result table),
+  `docs/leafback_lod0_density_escalation.md`, `docs/leafback_tree_planner_spec.md`,
+  `docs/leafback_trunkscaffold_prototype.md`, `docs/first_mould_leafback_prototype.md`,
+  `docs/leafback_critique_iter2.md`, `docs/leafback_topology_redesign_plan.md`,
+  `docs/leafback_spacecolonization_prototype.md`, `docs/leafback_skin_spike_phaseA.md`,
+  `docs/mtree_skeleton_input_investigation.md`.
+- **NOT touched (correctly):** `TIER_BOUNDS`, GLB/impostor filenames, the `london_plane_m`→`rfind("_")` suffix
+  parse, and the cross-species s/m/l schema — the structural keys are unchanged. `tmp/` working scripts
+  (gitignored, not shipped; `tmp/leafback_graph.py` is the protected never-edit original) retain historical
+  names by design — out of the committed surface.
+
+---
+
+## 10.7 ★ The PART level now exists — see the sibling doc (2026-07-09)
+
+§10 grounded the **crown**; §0.5–§8 hold the **engine**. The level between them —
+*what developmental process produces each part, and why the same part-type differs by position* — is now
+written up in **[`docs/london_plane_part_model.md`](london_plane_part_model.md)**. Read it before any
+sculpt/generator cut. Headlines that bear on THIS doc:
+
+- **★ Citation correction to §10.2.** The plane architecture paper is **Caraglio, Y. & Édelin, C. (1990)**,
+  *Bull. Soc. Bot. France, Lettres Bot.* **137(4–5): 279–291** — **Caraglio is first author**, not "Édelin".
+  Its **body has never been read** by this project (403-blocked); both §10.2 claims (Massart's model; crown
+  metamorphosis) rest on **secondary sources** and should be tagged as such.
+- **A second, better plane source was found and is unread:** **Genoyer, Atger, Edelin & Caraglio (1999)**,
+  "Some architectural markers of plane tree development…", *Acta Hort.* **496**: 209–220, **DOI
+  [10.17660/ActaHortic.1999.496.26](https://doi.org/10.17660/ActaHortic.1999.496.26)** — the plane's
+  **reference ontogenic sequence**. Its abstract states that a plane's developmental state is read off its
+  **primary limbs** (`branches maîtresses`): their orientation, growth direction, **order of total
+  reiteration**, and growth-unit morphology. Highest-value unread source we have. ★ Its own volume also
+  contains **Fournier-Djimbi & Chanson, "Biomechanics of trees and wood…", 496:197–208**
+  ([…496.25](https://doi.org/10.17660/ActaHortic.1999.496.25)) — **one volume closes two named gaps.**
+- **§10.2's "aggregation of reiterated Massart units" is confirmed and sharpened** — and the part model shows
+  the current `N_PRIMARIES = 4` scaffolds-off-one-spine **structurally cannot** produce it (scaffolds are
+  laterals; reiterates are sub-trees). §10's mature crown is unreachable at any parameter setting.
+- **★ 2026-07-09 — the reiterate is now DESIGN-READY, and §10's crown series is mechanized.** Barthélémy &
+  Caraglio 2007 is **open access** (PMC2802949); its **figures** (not just captions) were read. Crown-building
+  reiteration is **"automatic"/sequential** — fired "*after a definite threshold of differentiation*," and
+  explicitly "*not… a move backwards… but rather **part of [the developmental] sequence***." Reiterates are
+  placed and **truncated by the PAUPERIZATION GRADIENT**: complete at the trunk base → partial mid-crown →
+  **Minimal Architectural Unit** at the apex/periphery. Fig. 26 draws the whole §10 series (unit expressed →
+  duplicated → mature crown = "*a succession of reiterated complexes*"), with the **lower branches re-erecting**
+  into the reiterates that build it. **So ovoid→rounded→spread is reiterate accumulation, not envelope
+  interpolation.** Genoyer et al. 1999 drops from **blocker → refinement** (it holds plane's staging *numbers*).
+- **Two plane-specific B&C figures confirm/extend §10.2's citations.** Fig. 18C (*Platanus*, citing Caraglio &
+  Édelin 1990) — verified verbatim, **and** it shows plane labelled by **apparent** branching order, apex
+  mortality at every axis, and a **short-shoot (S) axis category** we never modelled. Fig. 9B — **plane is the
+  textbook exemplar of *delayed* (proleptic) branching** (short first internode + prophyll-α scar), which closes
+  the part model's "syllepsis unconfirmed" gap.
+- ⚠ **Pruning imagery, hardened rule.** Genoyer et al. studied *traumatised* planes and found their development
+  **departs from the reference ontogenic sequence**. Cut-limb/pollard photos are evidence for limb **geometry**
+  (taper, fork caliber step, insertion angle, crook-at-node), **never** for developmental **sequence**
+  (reiterate order, crown assembly). A pollard is a tree whose ontogeny has been overwritten.
+- **Two engine-level conflicts the part model exposes**, both explaining defects already in this doc's record:
+  the pipe model is applied as a *snapshot* when it must be a **ratchet over history** (this is why limbs read
+  "thin/wire" and why AC-14 needed a hand-weighted partition), and the grower steps by a fixed length `D` when
+  *Platanus* extends by **annual sympodial modules** (this is why twigs are straight — plane has **no terminal
+  bud**, and a relay kink per year is the species' crooked identity).
+- `cb_frac` is imposed as an envelope input, but **clear bole is an output of shedding** — the next instance of
+  this project's own retired lesson, *"depth is an OUTPUT, not a parameter."*
+
+**★ STANDING NEXT-STEPS (parked here so the next round opens from them — NOT done this round):**
+1. **Sculpt the m crown to its grounded ARCHITECTURE (the real §10 win, and the substance).** §10.2 grounded
+   the mature form as Massart's model: build the crown as an **aggregation of several heavy crooked twisting
+   ascending-then-arching limbs with weeping outer tips** — NOT one smooth envelope. §10 notes this
+   **independently grounds the §8 "grow to a leaf field" recovery** (architecture research and growth-mechanism
+   research converged). Next cut = sculpt the m crown to this architecture (provisional ~0.80 aspect, identity
+   in the limb character), folded into the §8 leaf-field growth. This is the substance the rename cleared the
+   way for.
+2. **Representative reference image per tier — the standing visual acceptance criterion — OPEN, BLOCKED.** §10
+   found only ~2 summer + ~2 winter proportion-readable frames on disk, all hazarded, no young whole-crown at
+   all. Blocked on the **same imagery gap as the m aspect** — closes with the post-revenue NYC data trip. Keep
+   the acceptance-criterion thread visible; pick it up when imagery improves.
+
+*Label cleanup only. Structural keys untouched. Form knowledge preserved keyed to s/m/l. Nothing committed —
+awaiting Chris's sign-off on the change set.*

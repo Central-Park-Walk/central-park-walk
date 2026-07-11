@@ -193,7 +193,7 @@ bursts into hierarchical bifurcating forks. Full-crown promotion follows in Stag
 ---
 
 ## Stage 2 — full-crown promotion (2026-07-06, uncommitted)
-Ran `build_graph_v2()` on the **full Broad Dome crown: 781 sprigs** (the "809" on record was
+Ran `build_graph_v2()` on the **full m tier crown: 781 sprigs** (the "809" on record was
 the v1 placeholder dome; 781 is the v2 real-crown fill). **Tuned params → `R0=0.7, GROW=1.35,
 step_frac=0.6`** (now the generator defaults): chosen over two other sweeps as the most
 **bifurcation-dominant** (valence-2 the majority) with the **widest median sibling angle**.

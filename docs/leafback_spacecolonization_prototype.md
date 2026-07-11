@@ -26,7 +26,7 @@
 
 ## What is reused unchanged (apples-to-apples)
 - **The 781-sprig attractor cloud** — `leafback_graph.build_graph()` default output
-  (`seed=20260706`), positions `nodes[0..n_sprigs-1]`. Same crown envelope (Broad Dome,
+  (`seed=20260706`), positions `nodes[0..n_sprigs-1]`. Same crown envelope (m tier,
   widest ~mid), same density (Poisson `SPRIG_SPACE=0.65 m`), same seed. **No changes to that
   stage.** Measured: 781 points, crown `y ∈ [4.32, 14.38]`, max radius **5.03 m**, mean
   radius 3.55 m, nearest-neighbour spacing min **0.65** / median 0.675 m.
@@ -258,10 +258,54 @@ tree-shaped artifact class than proximity-merge, and its residual is a coherent 
 (denser branching) rather than a sequence of unrelated geometric patches. **Space colonization
 is the confirmed direction to carry forward** over the merge line.
 
+## Sweep results (2026-07-07) — tuning ran; ceiling found; root cause is upstream
+The `di`/`θ_spawn` sweep above was run (`tmp/leafback_spacecol_sweep.py`), holding the 781-sprig
+cloud, `dk=0.55` and `D=0.35` fixed. `%v1` = share of internal nodes that are valence-1
+pass-throughs (baseline 69.7 %; **lower = denser branching**). All guards must stay clean.
+
+| di  | θ  | nodes | leaves | %v1 ↓ | fork% ↑ | vmax | run-len ↓ | unreached | e>3m | eMax | sib-min | fork-bend |
+|-----|----|-------|--------|-------|---------|------|-----------|-----------|------|------|---------|-----------|
+| 1.0 | 25 | 839   | 172    | 76.3  | 23.7    | 3    | 3.7       | 36 (5 %)  | 0    | 0.36 | 26.0°   | 43.3°     |
+| 1.2 | 25 | 847   | 204    | 71.7  | 28.3    | 4    | 2.9       | 36 (5 %)  | 0    | 0.36 | 34.8°   | 17.0°     |
+| 1.5 | 25 | 870   | 228    | 67.9  | 32.1    | 4    | 2.8       | 30 (4 %)  | 0    | 0.36 | 39.9°   | 12.1°     |
+| 1.7 | 25 | 898   | 237    | 67.5  | 32.5    | 3    | 2.8       | 36 (5 %)  | 0    | 0.36 | 30.1°   | 6.2°      |
+| **1.9** | **25** | **905** | **243** | **67.2** | **32.8** | **4** | **2.8** | **34 (4 %)** | **0** | **0.36** | **40.2°** | **2.4°** |
+| 2.2 | 25 | 891   | 217    | 69.7  | 30.3    | 3    | 3.1       | 22 (3 %)  | 0    | 0.36 | 40.0°   | 7.3°      |
+
+- **`θ_spawn` is a near-no-op for density.** At di=1.1, θ ∈ {15,20,25} give identical node
+  counts / %v1 / fork% (74.3 %); only `sib-min` moves (28.5°→15.4°, i.e. *tighter, worse*
+  siblings). The spawn guard was never the bottleneck — the plan-doc hypothesis on θ is
+  **falsified**. Keep θ=25.
+- **`di` has a shallow optimum at ~1.5–1.9**, not "smaller is better". `di ≤ 1.2` is *worse*
+  (tips race one cluster; %v1 climbs, unreached rises) and **`di = 0.8` collapses** — 770/781
+  unreached, because the bole top sits >0.8 m from the nearest crown-shell sprig and nothing is
+  ever within influence range. Best density candidate = **di = 1.9, θ = 25**: %v1 69.7→67.2,
+  leaf tips 217→**243 (+12 %)**, fork% 30.3→32.8, fork-bend 7.3°→**2.4°**, **every structural
+  guard still clean** (0 edges > 3 m, sib-min 40.2°, vmax 4 emergent — no cap added).
+- **But the gain is modest and the "lantern" is not cured.** Root cause found by measuring the
+  attractor cloud radially: **it is a pure shell — 0 % of the 781 sprigs lie in the crown
+  interior (ρ<0.6); 99.4 % sit on the outer shell (ρ 0.6–1.0).** Space colonization only grows
+  toward attractors, so a hollow shell of targets *must* yield a cage of surface ribs with an
+  empty core. **No `di`/`θ_spawn` value can branch into a core that contains zero attractors** —
+  tuning densifies the *shell ribs* only. (Conversely the merge line *looks* volume-filling
+  precisely because it bridges the empty core with interior chords — which is the very source of
+  its elbow/long-edge/collapse defects. The two artifacts are two responses to the same shell
+  input.)
+- **Actionable next lever is upstream, not in this generator: add interior/volumetric attractors**
+  (jittered fill inside the crown envelope) so space colonization has something to grow *into* —
+  it would then fill volume *and* stay structurally clean. That is an attractor-stage change,
+  prototyped separately, and is the recommended direction over any further `di`/`θ` tuning.
+
+**Adopted for the space-col line: `di = 1.9, θ_spawn = 25`** (strict improvement, no regression),
+pending sign-off, with the interior-attractor change flagged as the real fix for hollowness.
+
 ## Status
 Prototype only — **not committed except this doc**, nothing in the merge line touched, the 3
-shared mesh functions unmodified. Committed: `docs/leafback_spacecolonization_prototype.md` (this
-file). Uncommitted working artifacts (all in gitignored `tmp/`): `leafback_spacecol.py`
-(generator), `leafback_spacecol_measure.py` (metrics/sweep), `leafback_spacecol_render.py`
-(Blender render), `leafback_spacecol_graph.npz` (saved skeleton), and the `leafback_spacecol_*` /
-`_cmp_*` PNGs. **Paused for the night — next session runs the `di`/`θ_spawn` sweep above.**
+shared mesh functions unmodified. Committed previously: `docs/leafback_spacecolonization_prototype.md`.
+This sweep section is **prepared but NOT yet committed — held for review.** Uncommitted working
+artifacts (all in gitignored `tmp/`): `leafback_spacecol.py` (generator, untouched),
+`leafback_spacecol_sweep.py` (sweep + metrics, new), `leafback_spacecol_render_tuned.py` (render,
+new), `leafback_spacecol_graph_tuned.npz` (di=1.9 skeleton), the `leafback_spacecol_tuned_*` PNGs
+(crown ×3, transition ×2), and the 3-way montages `leafback_spacecol_tuned_cmp_{crown,transition}.png`
+(merge-line / space-col baseline / space-col tuned). Baseline di=2.2 renders preserved as
+`leafback_spacecol_*_baseline.png`.

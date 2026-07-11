@@ -117,7 +117,7 @@ generator** — the skeleton is validated, skinning is Blender-native, and the w
 card/export tail already exists. Realistic shape of the work:
 
 - **Phase A (spike, small):** leaf-back graph → pipe-radius → Blender curve-bevel → one
-  raw bark mesh for a single Broad Dome specimen. Proves the skinning path end-to-end.
+  raw bark mesh for a single m tier specimen. Proves the skinning path end-to-end.
 - **Phase B (moderate):** bark UVs matching `tree_bark`, junction fusion via the existing
   stitch/weld tools, min-twig floor — a bark mesh that reads as well as ManifoldMesher's.
 - **Phase C (moderate):** write the `radius`/`hierarchy_depth`/`stem_id` attributes and
@@ -174,7 +174,7 @@ growth model**, so it moves a little with parameters but cannot be *targeted* �
 input that says "make this crown 21 m wide (aspect 1.2)."
 
 **Bearing on the decision:** even if we kept Mtree's skeleton step for something, it
-**structurally cannot hit the Low-Forked Spread's aspect 1.2** — there is no aspect input
+**structurally cannot hit the l tier's aspect 1.2** — there is no aspect input
 and the crown model tops out near square. This is the concrete reason the migration's
 `aspect_wh` field had nowhere to plug in, and it is why "replace the skeleton" (not "feed
 Mtree a target") is the only path to real bucket forms.
@@ -192,7 +192,7 @@ scratchpad dir, not the repo.
 "Wire the mould into generation" is **not** a next-step wiring task — it is a **new
 skeleton→mesh subsystem** (skeleton done, skinning Blender-native, ~half the tail reusable,
 bark-UVs + attribute-wiring + junction-quality the real work). Recommend a **Phase-A spike
-first** (leaf-back graph → pipe-radius → curve-bevel → one raw Broad Dome bark mesh) to
+first** (leaf-back graph → pipe-radius → curve-bevel → one raw m tier bark mesh) to
 de-risk the junction/skinning quality against ManifoldMesher **before** committing to the
 full build. Keeping Mtree is not an option for real bucket forms: it has no external-skeleton
 input, and its crown model has no width/aspect target (Q4).

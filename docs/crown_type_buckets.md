@@ -78,9 +78,9 @@ extrapolated across the three anchor specimens.
 
 | # | Name | Height range | Centre | Clear-bole frac | Aspect W/H | Crown form |
 |---|---|---|---|---|---|---|
-| 1 | **Upright Ovoid** | 7 – 12 m | ~10 m | **~0.35** | **~0.80** | Young. High-forked, single straight mottled bole; crown taller than wide, a rounded ovoid pinched at the base. Often the pruned-up young street/lawn plane. |
-| 2 | **Broad Dome** | 12 – 18 m | ~14–15 m | **~0.30** | **~1.00** | Mature, and the **modal CP plane**. Balanced rounded dome, roughly as wide as tall, widest near mid-crown. **This is the built leaf-back mould v2** (H 14.4 m, clear-bole 0.30, aspect 1.0). |
-| 3 | **Low-Forked Spread** | 18 – 28 m | ~22 m | **~0.20** | **~1.2+** | Old / veteran "great tree". Low fork, heavy near-horizontal low primaries, crown wider than tall and wide-spreading. The hero London-plane silhouette. |
+| 1 | **s tier** | 7 – 12 m | ~10 m | **~0.35** | **~0.80** | Young. High-forked, single straight mottled bole; crown taller than wide, a rounded ovoid pinched at the base. Often the pruned-up young street/lawn plane. |
+| 2 | **m tier** | 12 – 18 m | ~14–15 m | **~0.30** | **~1.00** | Mature, and the **modal CP plane**. Balanced rounded dome, roughly as wide as tall, widest near mid-crown. **This is the built leaf-back mould v2** (H 14.4 m, clear-bole 0.30, aspect 1.0). |
+| 3 | **l tier** | 18 – 28 m | ~22 m | **~0.20** | **~1.2+** | Old / veteran "great tree". Low fork, heavy near-horizontal low primaries, crown wider than tall and wide-spreading. The hero London-plane silhouette. |
 
 Notes:
 - **28 m is the real upper edge.** The Part A height tail past ~28 m (52 m max) is
@@ -125,7 +125,7 @@ angle capture as a task.** (Pointer-retired in the prototype doc and in
 ## 4. Migration scope note — s/m/l → buckets (DO NOT execute yet)
 
 > **★ Validated 2026-07-06** — the leaf-back method was run unchanged at both size
-> extremes (Upright Ovoid H10 + Low-Forked Spread H22, plus a 7→28 m edge sweep) and
+> extremes (s tier H10 + l tier H22, plus a 7→28 m edge sweep) and
 > generalizes with no parameter fragility or degenerate cases →
 > [`docs/leafback_bucket_validation.md`](leafback_bucket_validation.md), **GO for
 > migration**. Two tuning inputs carried forward (young bucket wants a *tighter* depth
@@ -150,7 +150,7 @@ tiers. Moderate, not trivial.
    drops hard, 25 → 18.**
 2. **Old `_m` straddles the new bucket-2/3 break and must split.** The current `_m`
    tier is `height_range [15,25], target_h 22` — that single tier spans **both** new
-   Broad Dome (12–18) **and** Low-Forked Spread (18–28), and its target (22 m) actually
+   m tier (12–18) **and** l tier (18–28), and its target (22 m) actually
    lands in the *new bucket 3*. The old middle tier fractures across two new buckets;
    its `sub_start_radius` (0.45 weld), `card_rule_depth_keep`, and `tier_fraction`
    (0.40) were tuned for one 22 m tree and now have to serve two distinct forms.
@@ -162,7 +162,7 @@ tiers. Moderate, not trivial.
    to ~22 m, not a straight rename.
 4. **Old `_s` ≈ new bucket 1, nearly (still not exact).** `_s` is `height_range [7,13],
    target_h 9` with `sub_start_radius 0.7` (the weld-survival fix) and `min_twig_diameter
-   {s:0.04}`. New Upright Ovoid is 7–12, centre ~10 — the closest of the three to a
+   {s:0.04}`. New s tier is 7–12, centre ~10 — the closest of the three to a
    straight rename, but the top edge shifts 13→12 and target 9→~10.
 5. **NEW crown-envelope params have nowhere to live yet.** Clear-bole *fraction* and
    *aspect W/H* (the table in §2) are the leaf-back mould's inputs and **encode form,

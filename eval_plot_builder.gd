@@ -94,8 +94,8 @@ const GRID_TIERS := [
 	# clean per-specimen silhouette is needed to diagnose the impostor↔lod0 size/
 	# density handoff (each gap ≳ one crown width at that tier's stature).
 	["_s", 10.0, 200.0, 16.0],
-	["_m", 15.0, 160.0, 30.0],   # BUCKET MIGRATION 2026-07-06: 22→15 (Broad Dome centre). docs/smla_bucket_migration.md §2
-	["_l", 22.0, 110.0, 44.0],   # BUCKET MIGRATION 2026-07-06: 30→22 (Low-Forked Spread centre)
+	["_m", 15.0, 160.0, 30.0],   # BUCKET MIGRATION 2026-07-06: 22→15 (m-tier centre). docs/smla_bucket_migration.md §2
+	["_l", 22.0, 110.0, 44.0],   # BUCKET MIGRATION 2026-07-06: 30→22 (l-tier centre)
 ]
 
 # TIER MATCH garden (user 2026-06-28): one s/m/l of the matched species in EACH of
