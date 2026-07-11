@@ -54,6 +54,11 @@ from scipy.spatial import cKDTree
 # ---------------------------------------------------------------------------
 PIPE_POWER = 2.3          # da Vinci exponent (reused from leafback line; [PROV] for plane)
 R0         = 0.004        # 4 mm terminal-bud seed radius (reused)
+# ★ iter-5, residual (v): the SINGLE fitted scalar for EMERGENT DBH (§5.3, F2). Multiplies every
+# radius on every tier; fitted ONCE so the modal m tier -> census median 15 in. s/l DBH then EMERGE
+# (~p27/p90). Physically = leaf-load per leafless-armature tip (the deferred A4/A5 foliage each A3 tip
+# stands in for). The old per-tier root->DBH_target rescale is DELETED (it imposed the answer). [FIT]
+DBH_CALIB  = 4.37         # [FIT] set so m -> 15.0 in; see docs/grower_prototype_iter1.md iter-5.
 
 # --- module / growth-unit lengths, in NODES (metamers). C&E measured for A2..A5. ---
 GU_NODES = {1: 14,        # A1 trunk. [GAP-A1GU] — C&E's cell is BLANK; do NOT interpolate
@@ -165,10 +170,25 @@ D_MASTER_MIN = 0.30       # a fork child whose wave PEAK >= this is an orthotrop
 ENV_LIGHT_K = 0.30       # strength of the light->D reduction. [PROV/GAP-env]
 ENV_MIN     = 0.70       # env_release floor: a fully-lit apex keeps >=70% of its dominance. [PROV]
 MAX_ORDER_GUARD = 7       # loop guard only; NOT a botanical cap (max_order is an output)
+# ★ iter-5: LIGHT-EQUITY among near-apex buds (§2.1 acrotony / §7.5 F1-amendment). Makes masters hold
+# a LONG single leader (they were forking after 1-3 modules) and makes fork multiplicity M emergent.
+DOM_RING_R    = 1.2      # m; radius of the crown-plane light ring sampled around the apex. [PROV]
+DOM_HOLD      = 1.10     # apex_dominance above this => the apex is an emergent leader that HOLDS
+                        # (its acrotony is strong; it does NOT fork this year even if D dipped). [PROV]
+DOM_D_BONUS   = 0.30     # a dominant apex's D_eff is boosted up to this fraction (bounded "acrotonie
+                        # augmente") so a strong single leader establishes LONGER before decaying to
+                        # the fork gate — the master "comparable au tronc". [PROV]
+DOM_EQUITY_TOL = 0.06    # a near-apex bud within this light fraction of the brightest counts as a
+                        # co-equal relay -> sets emergent M (2 vs 3). [PROV]
 
 # --- posture (§7.2): ascend-then-arch. Young limb holds the ascending set-point (right » sag);
 # old long heavy limb loses to its own load and the tip droops (sag » right) -> the arch. ---
-SAG_K        = 0.055      # sag gain per (subtree mass * lever). [PROV/GAP-strain]
+SAG_K        = 0.50       # ★ iter-5: sag gain per (subtree mass * lever). Raised from 0.055 so a long
+                          # heavy old limb's sag genuinely DOMINATES its bounded righting -> the tip
+                          # weeps below an interior SUMMIT (a real §7.2 arch), not the iter-4
+                          # ascend-then-LEVEL (which never made an interior summit, so the arch cascade
+                          # could not fire and limbs ran to a 26 m reach). Young/short limbs still hold
+                          # the ascending set-point (small mass*lever). [PROV/GAP-strain]
 RIGHT_K      = 0.16       # ~bounded reaction-wood righting gain (iter-4: constant, not ∝1/r —
                           # the 1/r form pinned thin tips and prevented the arch). [PROV/GAP-strain]
 DROOP_K      = 0.55       # how much of the un-righted (sag-losing) fraction becomes downward arch
@@ -221,6 +241,25 @@ LATENT_MIN_SEP  = 1.5    # m; two buds may not release within this distance the 
 MAX_LATENT_PER_YEAR = 4  # bounded release (ages the tree gradually, not a flush). [PROV]
 LATENT_START_AGE = 8     # the tree only re-erects latent buds once it is past establishment. [PROV]
 
+# --- ★ iter-5: the ARCH CASCADE (§7.2). C&E's veteran low limbs are "une succession de complexes
+# réitérés partiels s'étant affaissés. Le complexe réitéré suivant s'est développé AU SOMMET DE
+# L'ARCURE ... d: dépérissement de la partie distale de l'axe affaissé." The full loop:
+#   a limb arches under its own load (posture, already wired) ->
+#   a LATENT_BUD reiterate re-erects AT THE ARCH SUMMIT (epitony, upper side) ->
+#   it grows up and takes the light ->
+#   the distal continuation BEYOND the summit is overtopped and DIES BACK (the shed rule) ->
+#   the new complex becomes the arch. repeat.
+# iter-4 fired latent buds POSITIONALLY (biased low) but never AT SUMMITS, so this loop — the
+# veteran's ground-sweeping-limb mechanism — was only half-exercised (the arch profile without the
+# cascade). This wires the summit firing + the registered distal dieback. NOTHING here is authored:
+# the summit is where posture drooped the axis, the re-erection is Mode 2, the dieback is §7.3's tau.
+ARCH_MIN_AGE      = 6    # a limb must be this many modules old to have arched over. [PROV]
+ARCH_DROP         = 0.9  # m; summit-minus-apex height drop that marks a real arch (not a straight limb). [PROV]
+ARCH_REFRACTORY   = 3    # years before the SAME axis may sprout another summit reiterate. [PROV]
+ARCH_MAX_PER_YEAR = 3    # bounded (the cascade ages the tree gradually, not a flush). [PROV]
+ARCH_MIN_SUMMIT_Y = 1.5  # m; ignore summits at ground-twig height. [PROV]
+ARCH_MIN_INTERIOR = 3    # summit must be at least this many nodes from the apex (a real distal continuation). [PROV]
+
 SEED = 20260710
 
 
@@ -241,7 +280,8 @@ class Node:
 class Axis:
     """One 'strand' == one apparent-order chain (a serie lineaire). §1.2."""
     __slots__ = ("id", "cat", "order", "reit", "D", "D_peak", "est_window", "alive", "apex",
-                 "nodes", "birth", "dirv", "gsa", "age", "forked", "D_at_fork", "_relay_host", "_D_eff")
+                 "nodes", "birth", "dirv", "gsa", "age", "forked", "D_at_fork", "_relay_host", "_D_eff",
+                 "_last_spiral", "_dom", "_arched_at")
     def __init__(self, aid, cat, order, reit, D, apex, dirv, birth,
                  D_peak=None, est_window=EST_WINDOW_REITER):
         self.id = aid
@@ -260,6 +300,9 @@ class Axis:
         self.gsa = None               # set-point direction target (plagiotropic axes)
         self.age = 0                  # modules grown
         self.forked = False
+        self._last_spiral = []        # ★ iter-5: node ids of the last module's near-apex spiral buds
+        self._dom = 1.0               # ★ iter-5: apex light-dominance vs its crown-plane neighbours
+        self._arched_at = -99         # ★ iter-5: year an arch-summit reiterate last fired on this axis
 
 
 class Grower:
@@ -270,6 +313,8 @@ class Grower:
         self.nodes = []
         self.axes = []
         self.reit_count = 0
+        self._arch_distal = []   # ★ iter-5: (distal_root_node, host_axis) — arch-summit dieback
+                                 # candidates; the shed rule kills each once its offspring overtop it.
         # seed: ground node + trunk apex one internode up
         self.nodes.append(Node([0, 0, 0], -1, -1, 0))     # ground/root, node 0
         up = np.array([0.0, 1.0, 0.0])
@@ -346,6 +391,9 @@ class Grower:
             ax.nodes.append(nid)
             if i >= spiral_start:
                 laterals_hosts.append((nid, i))
+        # ★ iter-5: the near-apex spiral buds of THIS (top) module are the co-equal relay
+        # candidates for the light-equity fork test (§2.1/§7.5). Store them for the firing step.
+        ax._last_spiral = [h for (h, _) in laterals_hosts]
         # --- acrotony: emit laterals at the distal spiral zone (§4) ---
         # most-distal host is reserved for the relay; a small branching-grade of the
         # sub-jacent buds RELEASE this year (most distal first = acrotony), the rest stay
@@ -422,11 +470,11 @@ class Grower:
     # ======================================================================
     # FIRING (§2) — a fork IS a reiteration
     # ======================================================================
-    def terminal_fork(self, ax, relay_host, year):
+    def terminal_fork(self, ax, relay_host, year, M=2):
         """D fell below Phi_fork at this axis's tip: replace the single relay with 2-3
-        co-equal reiterates (start_order = the forking axis's OWN rung). The axis ENDS."""
-        # how many co-equal masters (2 or 3) — light-equity among near-apex buds; here [PROV] 2/3
-        M = 3 if self.rng.random() < 0.45 else 2      # [PROV] until light-equity wired
+        co-equal reiterates (start_order = the forking axis's OWN rung). The axis ENDS.
+        ★ iter-5: M is now EMERGENT from light-equity among the near-apex buds (fork_multiplicity),
+        passed in by the firing step — not a [PROV] coin flip."""
         d = ax.dirv
         # ★ iter-4: the wave decrement acts on the PEAK, not the (low) decayed birth-D. C&E: "d'une
         # vague à l'autre le caractère dominant ... diminue" — it is the establishment dominance that
@@ -529,6 +577,55 @@ class Grower:
         # linear map, rounded, clamped [1,5]; complete low, pauperized high.
         return int(np.clip(round(1 + u * 4.0), 1, 5))
 
+    def arch_cascade(self, year):
+        """★ iter-5: Mode 2 at ARCH SUMMITS (§7.2). For each arched plagiotropic limb (its apex has
+        drooped >= ARCH_DROP below its own highest node), re-erect an ORTHOTROPIC reiterate at the
+        summit (epitony — the upper/convex side, C&E "au sommet de l'arcure"), and register the distal
+        continuation beyond the summit as a dieback candidate (the shed rule kills it once the new
+        vertical complex overtops it). This is what turns a single sagging beam into the veteran's
+        CHAIN of sagged complexes reaching the ground. Bounded per year; refractory per axis."""
+        if year < LATENT_START_AGE:
+            return []
+        births = []
+        cands = []
+        for ax in self.axes:
+            if not ax.alive or ax.cat == 1 or ax.age < ARCH_MIN_AGE:
+                continue
+            if year - ax._arched_at < ARCH_REFRACTORY:
+                continue
+            live_nodes = [n for n in ax.nodes if self.nodes[n].alive]
+            if len(live_nodes) < ARCH_MIN_INTERIOR + 2:
+                continue
+            ys = [self.nodes[n].pos[1] for n in live_nodes]
+            si = int(np.argmax(ys))                       # summit = highest live node on the axis
+            summit = live_nodes[si]
+            apex_y = ys[-1]
+            # arched iff the summit is interior (a distal continuation exists) AND the tip drooped below it
+            if si > len(live_nodes) - 1 - ARCH_MIN_INTERIOR:
+                continue
+            if ys[si] < ARCH_MIN_SUMMIT_Y or (ys[si] - apex_y) < ARCH_DROP:
+                continue
+            cands.append((ys[si] - apex_y, ax, summit, live_nodes[si + 1]))
+        cands.sort(reverse=True)                          # deepest arches first (most developed limbs)
+        for drop, ax, summit, distal_root in cands[:ARCH_MAX_PER_YEAR]:
+            # re-erect: a fresh orthotropic total reiterate springs up from the summit (epitony)
+            fd = self._azimuth_dir(np.array([0.0, 1.0, 0.0]), 8.0, self.rng.uniform(0, 360))
+            p = self.nodes[summit].pos + INTERNODE * fd
+            cid = self._new_node(p, summit, len(self.axes), year)
+            self.reit_count += 1
+            child = Axis(len(self.axes), cat=1, order=self.axes[self.nodes[summit].axis].order + 1,
+                         reit=self.reit_count, D=D_RESET * EST_FLOOR, apex=cid, dirv=fd, birth=year,
+                         D_peak=D_RESET, est_window=EST_WINDOW_REITER)
+            child.gsa = None                              # orthotropic (re-erection, C5)
+            self.nodes[cid].axis = child.id
+            self.axes.append(child)
+            births.append(child)
+            ax._arched_at = year
+            # register the distal continuation for dieback: it is overtopped by the new complex and
+            # sheds via the SAME tau gate (§7.3), timing emergent (it dies when the reiterate shades it).
+            self._arch_distal.append((distal_root, ax))
+        return births
+
     # ======================================================================
     # RATCHET (§5) — radius = monotone max over history
     # ======================================================================
@@ -606,6 +703,39 @@ class Grower:
                 for i, nd in enumerate(self.nodes) if nd.alive and nd.foliage}
 
     # ======================================================================
+    # ★ iter-5: APEX LIGHT-DOMINANCE (§2.1 "l'acrotonie augmente" / §7.5 light-equity)
+    # ======================================================================
+    def apex_dominance(self, pos, shadow, mn):
+        """How much more light the apex gets than the crown PLANE around it at the same height.
+        An EMERGENT leader poking above the crown sees its apex » its lateral neighbours -> strong
+        acrotony -> a single dominant relay -> it HOLDS a long leader (C&E: "la dominance d'un relais
+        unique est de plus en plus marquée"). A leader buried level in the crown sees apex ~= neighbours
+        -> co-equal relays -> it FORKS (C&E: "milieu très ensoleillé -> fourches orthotropes"). This is
+        the light-EQUITY the ratified F1 amendment (§7.5) names — NOT absolute light. Ratio > 1 = the
+        apex wins its light; ~1 = co-equal."""
+        L_apex = self.light_at(pos, shadow, mn)
+        ring = []
+        for az in (0.0, 90.0, 180.0, 270.0):
+            a = math.radians(az)
+            q = pos + DOM_RING_R * np.array([math.cos(a), 0.0, math.sin(a)])
+            ring.append(self.light_at(q, shadow, mn))
+        L_local = float(np.mean(ring)) if ring else L_apex
+        return L_apex / (L_local + 1e-6)
+
+    def fork_multiplicity(self, ax, shadow, mn):
+        """EMERGENT M (2 or 3, C&E's "fourche de 2 ou 3"): the number of near-apex spiral buds that
+        are within DOM_EQUITY_TOL of the brightest — the co-equally-lit relay candidates. Replaces
+        the [PROV] coin flip. Light-equity: an even light field over the top module -> 3 co-equal
+        relays; a slightly acrotonic one -> 2. Clamped to [2,3] per C&E."""
+        buds = [h for h in ax._last_spiral if 0 <= h < len(self.nodes) and self.nodes[h].alive]
+        if len(buds) < 2:
+            return 2
+        L = [self.light_at(self.nodes[h].pos, shadow, mn) for h in buds]
+        Lmax = max(L)
+        coeq = sum(1 for x in L if x >= Lmax * (1.0 - DOM_EQUITY_TOL))
+        return int(np.clip(coeq, 2, 3))
+
+    # ======================================================================
     # SHED (§7.3) — light_gathered/size < tau  => remove subtree, keep radius
     # ======================================================================
     def shed(self, light, children, year=None):
@@ -643,7 +773,24 @@ class Grower:
         for root, ax in shed_roots:
             self._kill_subtree(root, children)
             ax.alive = False
-        return len(shed_roots)
+        # ★ iter-5: ARCH-CASCADE DIEBACK (§7.2). The distal continuation beyond an arch summit is a
+        # subtree that is NOT its own axis root, so the per-axis gate above cannot reach it. Evaluate
+        # it here on the SAME tau ratio: once the summit reiterate has grown up and overtopped it, its
+        # light/size falls below tau and it dies back. Timing is emergent (it dies when shaded), not
+        # scheduled. Keep the radius (ratchet) — the dead distal wood already baked its girth in.
+        n_arch = 0
+        still = []
+        for droot, ax in self._arch_distal:
+            if droot >= len(self.nodes) or not self.nodes[droot].alive:
+                continue                                   # already gone (parent shed, or reprocessed)
+            ratio = lg.get(droot, 0.0) / max(sz.get(droot, 1), 1)
+            if ratio < TAU_SHED:
+                self._kill_subtree(droot, children)
+                n_arch += 1
+            else:
+                still.append((droot, ax))                  # not yet overtopped — re-check next year
+        self._arch_distal = still
+        return len(shed_roots) + n_arch
 
     # ======================================================================
     # POSTURE (§7.2) — plagiotropic axes sag then right; A1 stays orthotropic
@@ -771,11 +918,23 @@ class Grower:
                 # refreshed onto ax.D for diagnostics. Establishment rise is what lets a master hold
                 # a single dominant relay for a few modules before it forks (persistent scaffold).
                 ax.D = self.D_clean(ax)
-                lt = self.light_at(self.nodes[ax.apex].pos, shadow, mn)
-                env = np.clip(1.0 - ENV_LIGHT_K * (lt / FULL_LIGHT), ENV_MIN, 1.0)
-                D_eff = ax.D * env
+                apex_pos = self.nodes[ax.apex].pos
+                # ★ iter-5: env_release is now LIGHT-EQUITY, not absolute light (§7.5). iter-4 used
+                # absolute apex light, so ANY well-lit leader forked early — which is exactly why the
+                # masters were short (1-3 modules): a master poking into the light was penalised for
+                # the light that makes it a leader. C&E's fork-inducing case is a CO-EQUAL light field
+                # ("milieu très ensoleillé -> fourches"), i.e. the apex NOT dominating its neighbours.
+                # So high light lowers D only when the apex is co-equal (dom~1); an emergent apex that
+                # dominates its crown plane (dom>1) HOLDS its dominance (acrotonie augmente) and even
+                # gets a bounded D bonus, so it establishes a LONG single leader before forking.
+                ax._dom = self.apex_dominance(apex_pos, shadow, mn) if ax.cat == 1 else 1.0
+                lt = self.light_at(apex_pos, shadow, mn)
+                equity = np.clip(ax._dom - 1.0, 0.0, 1.0)          # 0 = co-equal, ->1 = emergent
+                env = np.clip(1.0 - ENV_LIGHT_K * (lt / FULL_LIGHT) * (1.0 - equity), ENV_MIN, 1.0)
+                hold = 1.0 + DOM_D_BONUS * equity                  # dominant leader establishes longer
+                D_eff = ax.D * env * hold
                 if ax.cat == 1:                        # orthotropic leaders feel the height cap
-                    y = self.nodes[ax.apex].pos[1]
+                    y = apex_pos[1]
                     hcap = np.clip((self.H * 1.05 - y) / (self.H * H_SOFT_FRAC), 0.05, 1.0)
                     D_eff *= hcap
                 ax._D_eff = D_eff
@@ -792,11 +951,21 @@ class Grower:
                 if ax.cat != 1 or ax.forked:
                     continue
                 est = AU_MIN_AGE if ax.id == 0 else REITER_MIN_AGE
-                if ax.age >= est and ax._D_eff < PHI_FORK:
+                # ★ iter-5: an emergent leader whose apex dominates its crown plane HOLDS — it does not
+                # fork even if D_eff dipped below Phi. Its acrotony is strong (a single dominant relay),
+                # so it keeps extending a long single leader "comparable au tronc". It forks only when it
+                # is overtopped/level (dom drops) or the height cap collapses D_eff near H (rounding over).
+                # NB the seed trunk's establishment fork (age>=AU_MIN_AGE) is NOT held-suppressed — an
+                # open-grown young plane DOES fork its trunk into masters; hold applies to the masters.
+                held = (ax.id != 0) and (ax._dom >= DOM_HOLD) and (self.nodes[ax.apex].pos[1] < CEIL_FRAC * self.H)
+                if ax.age >= est and ax._D_eff < PHI_FORK and not held:
                     ax.D_at_fork = ax._D_eff        # diagnostic only (wave decrement is on the peak)
-                    self.terminal_fork(ax, ax._relay_host, year)
-            # 5. LATENT_BUD — sparse re-erection on old wood (ages the tree)
+                    M = self.fork_multiplicity(ax, shadow, mn)
+                    self.terminal_fork(ax, ax._relay_host, year, M=M)
+            # 5. LATENT_BUD — sparse re-erection on old wood (ages the tree); + the ARCH CASCADE
+            #    (§7.2): summit re-erection on arched limbs, distal continuation registered for dieback.
             self.latent_bud(year, shadow, mn)
+            self.arch_cascade(year)
             # 6. RATCHET radius (monotone), then POSTURE (needs radius), then SHED (foliage light).
             children = self._children(include_dead=True)
             radius = [0.0] * len(self.nodes)
@@ -819,9 +988,14 @@ class Grower:
         children = self._children(include_dead=True)
         radius = [0.0] * len(self.nodes)
         radius = self.ratchet(radius, children)
-        # fit DBH: scale so root radius == DBH_target/2 (F2: fit ONE scalar, then check shape)
-        scale = (self.DBH_target_m * 0.5) / max(radius[0], 1e-6)
-        radius = [r * scale for r in radius]
+        # ★ iter-5, residual (v): DBH is now EMERGENT (§5.3, F2 ratified). The per-tier rescale
+        # (root -> DBH_target/2) is DELETED — that IMPOSED the census median on every tier. Instead ONE
+        # global scalar DBH_CALIB (the leaf-load per leafless-armature tip, standing in for the deferred
+        # A4/A5 foliage layer) multiplies ALL radii on ALL tiers; it is fitted ONCE so the modal m tier
+        # lands on the census median (15 in). The young/veteran DBHs are then OUTPUTS: with the raw
+        # ratchet they emerge at ~9.4 / 15 / 25 in for s/m/l — i.e. census ~p27 / p50 / p90 — WITHOUT
+        # being told (only the median anchor is fit). The falsifiable part is that SHAPE across tiers.
+        radius = [r * DBH_CALIB for r in radius]
         # strand ids from the grower's OWN axis ids (not a max-radius guess)
         strand = [self.nodes[i].axis if self.nodes[i].axis >= 0 else 0
                   for i in range(len(self.nodes))]
