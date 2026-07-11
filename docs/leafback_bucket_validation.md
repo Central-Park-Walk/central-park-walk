@@ -1,4 +1,4 @@
-# Leaf-Back Mould — Bucket Validation (Upright Ovoid + Low-Forked Spread)
+# Leaf-Back Mould — Bucket Validation (s tier + l tier)
 
 > **Status:** VALIDATION COMPLETE. **Verdict: GO** for pipeline migration. The
 > leaf-back method (sprig fill → agglomerative inward merge, emergent hop count)
@@ -7,13 +7,13 @@
 > **Date:** 2026-07-06 · **By:** Opus 4.8 (1M). Follows
 > [`docs/crown_type_buckets.md`](crown_type_buckets.md) and
 > [`docs/first_mould_leafback_prototype.md`](first_mould_leafback_prototype.md)
-> (the Broad Dome build). **No s/m/l pipeline code was touched** — this is validation.
+> (the m tier build). **No s/m/l pipeline code was touched** — this is validation.
 
 ---
 
 ## 0. What this tested and why
 
-The mould method had only ever run on **one** specimen — the Broad Dome bucket
+The mould method had only ever run on **one** specimen — the m tier bucket
 (v2, H 14.4 m). Before the (expensive) migration that rewires weld values,
 `card_rule_depth_keep`, and LOD handoff onto the three buckets, we wanted the same
 method actually run at the two **size extremes**, which span a far bigger shape range
@@ -42,9 +42,9 @@ widest low ~0.33 with a fuller base (the veteran's near-horizontal low primaries
 
 | Specimen | H | DBH | clear-bole | aspect W/H | fork | width | profile widest |
 |---|---|---|---|---|---|---|---|
-| **Upright Ovoid** (bkt 1) | 10 m | ~7 in | 0.35 | 0.80 | 3.5 m | 5.2 m | ~0.55 (above mid) |
-| **Broad Dome** (bkt 2, ref) | 14.4 m | 15 in | 0.30 | 1.00 | 4.3 m | 10.1 m | ~0.50 (mid) |
-| **Low-Forked Spread** (bkt 3) | 22 m | ~28 in | 0.20 | 1.20 | 4.4 m | 21.1 m | ~0.33 (low, full base) |
+| **s tier** (bkt 1) | 10 m | ~7 in | 0.35 | 0.80 | 3.5 m | 5.2 m | ~0.55 (above mid) |
+| **m tier** (bkt 2, ref) | 14.4 m | 15 in | 0.30 | 1.00 | 4.3 m | 10.1 m | ~0.50 (mid) |
+| **l tier** (bkt 3) | 22 m | ~28 in | 0.20 | 1.20 | 4.4 m | 21.1 m | ~0.33 (low, full base) |
 
 (DBH affects only the drawn trunk cylinder, not the merge — young ~7 in, veteran ~28 in
 are distribution-plausible for those heights.)
@@ -53,7 +53,7 @@ are distribution-plausible for those heights.)
 
 ## 2. Results
 
-| | Upright Ovoid | **Broad Dome (ref)** | Low-Forked Spread |
+| | s tier | **m tier (ref)** | l tier |
 |---|---|---|---|
 | sprig cards | **206** | 781 | **2865** |
 | primaries at fork | **4** | 4 | **4** |
@@ -64,7 +64,7 @@ are distribution-plausible for those heights.)
 | mean hops | 4.69 | 5.37 | 7.54 |
 | degeneracy flags | **none** | none | **none** |
 
-The Broad Dome column **reproduces last session** (781 sprigs, 4 primaries, med 5) —
+The m tier column **reproduces last session** (781 sprigs, 4 primaries, med 5) —
 same seed, same machinery, so the harness is sound.
 
 ### Structural sanity — visually confirmed
@@ -84,13 +84,13 @@ Running the frozen machinery across the whole adopted range (`leafback_edge_swee
 
 ```
 bucket @ H                cb   W/H  sprigs  prim  minLoad  hop med (min-max)
-Ovoid FLOOR @7          0.35  0.80      92     4       21      4 (2-5)
-Ovoid centre @10        0.35  0.80     221     4       50      5 (3-5)
-Ovoid|Dome edge @12     0.32  0.90     426     4      103      5 (3-5)
-Dome centre @14.4       0.30  1.00     781     4      191      5 (2-6)
-Dome|Spread edge @18    0.25  1.10    1576     4      380      6 (2-8)
-Spread centre @22       0.20  1.20    2843     4      704      7 (2-8)
-Spread CEIL @28         0.20  1.25    4556     4     1129      8 (2-8)
+s FLOOR @7          0.35  0.80      92     4       21      4 (2-5)
+s centre @10        0.35  0.80     221     4       50      5 (3-5)
+s|m edge @12     0.32  0.90     426     4      103      5 (3-5)
+m centre @14.4       0.30  1.00     781     4      191      5 (2-6)
+m|l edge @18    0.25  1.10    1576     4      380      6 (2-8)
+l centre @22       0.20  1.20    2843     4      704      7 (2-8)
+l CEIL @28         0.20  1.25    4556     4     1129      8 (2-8)
 ```
 
 Every height from 7 m to 28 m converges to **exactly 4 balanced primaries**, with the
@@ -104,15 +104,15 @@ scaling, no discontinuity.** (The sweep uses one profile for simplicity — it t
 ## 3. What actually happened — honest read
 
 **The headline holds: depth is an emergent output.** Across a 3× height / 4× width
-range, hop count tracked crown size with **zero parameters touched** — Ovoid 5, Dome 5,
-Spread 8. A bigger crown funnels through more merge levels to reach the trunk; a small
+range, hop count tracked crown size with **zero parameters touched** — s 5, m 5,
+l 8. A bigger crown funnels through more merge levels to reach the trunk; a small
 one through fewer. This is the depth-as-output principle confirmed at the extremes, not
 just interpolated near the dome.
 
 **Two honest notes — neither is a method break, both are migration inputs:**
 
 1. **Small-bucket depth doesn't *drop* much below the dome — its *range* narrows
-   instead.** Ovoid median hops = 5, same as the dome's 5; what changes is the spread
+   instead.** s median hops = 5, same as the dome's 5; what changes is the spread
    (3–5 vs the dome's 2–6). A compact young crown still needs ~5 merges from shell to
    trunk — it is simply more *uniform* in depth, not dramatically shallower. That is
    botanically fine (a 10 m plane genuinely has ~5 ramification orders) and it means the
@@ -123,7 +123,7 @@ just interpolated near the dome.
    For *skeleton derivation* this is correct and harmless (more crown surface = more
    sprigs). But the veteran's mould carries ~6× the dome's sprigs and ~50× the young
    tree's, so the **downstream card-thinning must scale per bucket** in the migration —
-   `tier_fraction` + `card_rule_depth_keep` have to pull harder on Low-Forked Spread or
+   `tier_fraction` + `card_rule_depth_keep` have to pull harder on l tier or
    its final LOD0 will carry a large absolute card count (a real geometry cost). This is
    a **tuning task on already-existing parameters**, not a gap in the method. Flagging it
    so the migration budgets for it rather than discovering it in a frame-time regression.
@@ -134,9 +134,9 @@ all three specimens and every edge case.
 
 ---
 
-## 4. Comparison against the Broad Dome baseline
+## 4. Comparison against the m tier baseline
 
-| | Ovoid (H10) | Dome (H14.4) | Spread (H22) | trend |
+| | s (H10) | m (H14.4) | l (H22) | trend |
 |---|---|---|---|---|
 | sprigs | 206 | 781 | 2865 | ↑ ~size² (surface) |
 | primaries | 4 | 4 | 4 | **invariant** ✓ |
@@ -156,13 +156,13 @@ middle — they don't contradict it.**
 **GO.** The method generalizes across the full adopted bucket range (7–28 m) with no
 merge-parameter fragility and no degenerate output. The two extremes — a much bigger
 shape range than anything previously tested — produced structurally sane, form-correct
-skeletons using the identical machinery that built the Broad Dome. The migration can
+skeletons using the identical machinery that built the m tier. The migration can
 proceed on the assumption that leaf-back construction is bucket-agnostic.
 
 **Carry into the migration (from §3, not blockers):**
 - Expect the young bucket to want a *tighter* skeleton-depth range, not a shallower
   median — don't hand-set a low depth for it.
-- Scale `tier_fraction` / `card_rule_depth_keep` per bucket so Low-Forked Spread's
+- Scale `tier_fraction` / `card_rule_depth_keep` per bucket so l tier's
   large raw sprig cloud thins to a sane LOD0 card count. Budget this as tuning.
 - Migration scope itself is unchanged from `crown_type_buckets.md` §4 (medium: 3→3 slot
   rename + moved boundary + new form fields).

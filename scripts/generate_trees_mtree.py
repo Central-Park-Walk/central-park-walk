@@ -1547,6 +1547,14 @@ SPECIES = {
     # ----- Tall open -----
     "london_plane": {
         "name": "London Plane (Platanus x acerifolia)",
+        # LEAF-BACK CROWN SKELETON (2026-07-08, AC-8): the crown skeleton is NOT built by
+        # Mtree — it is the space-colonization trunk-scaffold (line C) built offline in system
+        # python (scripts/build_leafback_skeletons.py -> models/trees/leafback_skeletons/
+        # london_plane_{s,m,l}.npz) and skinned here by scripts/leafback_skinner.py. Single
+        # variant per tier (skeleton is deterministic; no seed-variant machinery yet). The Mtree
+        # skeleton params below are retained for provenance/reference but are UNUSED for LP while
+        # this flag is set. See docs/leafback_tree_planner_spec.md (AC-8) + the crown-mould memory.
+        "leafback_skeleton": True,
         "crown_shape": "Spherical",
         # DECURRENT CANDELABRA habit (2026-06-21, skeleton sweep lp_candelabra vs
         # the wireframe refs london-plane-tree-01-02/09-02.jpg + Lincoln's Inn
@@ -1772,8 +1780,8 @@ SPECIES = {
             # upright conical young habit — but DENSE (not a sparse whip): the ref
             # 3D model shows juveniles clad with twigs from low trunk to a leafy
             # apex. Tier ramps leader-dominance down + spread up s→m→l.
-            "s": {"target_h": 10, "height_range": [7, 12],  # BUCKET: Upright Ovoid (was 9 / [7,13]) — docs/crown_type_buckets.md
-                  "crown_bucket": {"name": "Upright Ovoid", "clear_bole_frac": 0.35, "aspect_wh": 0.80},
+            "s": {"target_h": 10, "height_range": [7, 12],  # s tier (was 9 / [7,13]) — form model: docs/london_plane_growth_architecture.md §10
+                  "crown_bucket": {"clear_bole_frac": 0.35, "aspect_wh": 0.80},  # inert metadata; form/shape → §10 (keyed to s)
                 # REFERENCE-GROUNDED PROPORTION (2026-06-21, size-chart 6e6cb11fdc):
                 # a real young plane is a BROAD DENSE cone (aspect ~0.4-0.45) clad
                 # from ~1.5-2m, trunk mostly hidden — NOT the narrow (aspect 0.16)
@@ -1901,8 +1909,8 @@ SPECIES = {
             # 10 drove the lean, and the species (mature) variant_spans clobbered its
             # skeleton_overrides. Fix: own variant_spans (younger ranges) + width/bole/
             # density overrides. Form verified via explore lp_m_full.
-            "m": {"target_h": 15, "height_range": [12, 18],  # BUCKET: Broad Dome (was 22 / [15,25]) — retargeted DOWN to the validated v2 mould centre (H14.4). Old 22m .glb SUPERSEDED. docs/smla_bucket_migration.md §2
-                  "crown_bucket": {"name": "Broad Dome", "clear_bole_frac": 0.30, "aspect_wh": 1.00},
+            "m": {"target_h": 15, "height_range": [12, 18],  # m tier (was 22 / [15,25]) — retargeted DOWN to the validated v2 mould centre (H14.4). Old 22m .glb SUPERSEDED. docs/smla_bucket_migration.md §2
+                  "crown_bucket": {"clear_bole_frac": 0.30, "aspect_wh": 1.00},  # inert; aspect 1.00 LEGACY — §10 provisional ~0.80 (taller-than-wide), pending crown measurement
                 "variant_spans": {
                     "branch_angle": [52, 60],            # more upright than mature l
                     "branch_start": [0.26, 0.34],        # higher, cleaner young-adult bole
@@ -1947,8 +1955,8 @@ SPECIES = {
             # prunes geometry past tertiary/quaternary directly (height-independent),
             # so the card sits at the terminal tip with no bare filaments past it.
             # m/s don't need it — their shorter limbs are already capped by split-prob.
-            "l": {"target_h": 22, "height_range": [18, 28],  # BUCKET: Low-Forked Spread (was 30 / [25,35]) — retargeted DOWN to the veteran centre ~22m, real ceiling ~28m. Old 30m .glb SUPERSEDED. docs/smla_bucket_migration.md §2
-                  "crown_bucket": {"name": "Low-Forked Spread", "clear_bole_frac": 0.20, "aspect_wh": 1.20},
+            "l": {"target_h": 22, "height_range": [18, 28],  # l tier (was 30 / [25,35]) — retargeted DOWN to the veteran centre ~22m, real ceiling ~28m. Old 30m .glb SUPERSEDED. docs/smla_bucket_migration.md §2
+                  "crown_bucket": {"clear_bole_frac": 0.20, "aspect_wh": 1.20},  # inert metadata; form/shape → §10 (keyed to l)
                   # L-TIER = PARSIMONIOUS (v2) DENSITY (Chris 2026-07-02): the big
                   # crowns get the thinner, less-backlit-opaque canopy while s/m keep
                   # the fuller v1 look. These 3 card levers override the species-level
@@ -2389,6 +2397,55 @@ def generate_tree_skeleton(sp, height, seed):
     mesher.radial_n_points = sp.get("radial_pts", RADIAL_PTS)
     mesher.smooth_iterations = SMOOTH_ITER
     return mesher.mesh_tree(tree)
+
+
+# RING=24 = production radial resolution (spec v4 AC-15; the ~6.5% fork self-intersection at
+# this ring is the known-accepted non-blocking residual, remedied later by smoothing).
+LEAFBACK_RING = 24
+
+
+def _build_leafback_trunk(species_name, tier_name, out_idx, bark_mat, ring=LEAFBACK_RING):
+    """Drop-in replacement for generate_tree_skeleton()+create_mesh_from_cpp() on the leaf-back
+    path (london_plane). Loads the pre-generated line-C trunk-scaffold skeleton .npz and skins it
+    with the production per-strand skinner scripts/leafback_skinner.py. Returns a Blender object
+    carrying the SAME five POINT attributes the downstream cleaners / card placement / wind bake
+    read (radius, stem_id, hierarchy_depth, branch_extent, direction), in real metres, oriented
+    Z-up exactly like the Mtree meshes — so the rest of generate_species_tier runs unchanged."""
+    _here = os.path.dirname(os.path.abspath(__file__))
+    if _here not in sys.path:
+        sys.path.insert(0, _here)
+    import leafback_skinner as _lbs
+    npz = os.path.join(MODEL_DIR, "leafback_skeletons", f"{species_name}_{tier_name}.npz")
+    if not os.path.exists(npz):
+        raise FileNotFoundError(
+            f"leaf-back skeleton missing: {npz}\n"
+            f"  regenerate: python3 scripts/build_leafback_skeletons.py  (system python; needs scipy)")
+    g = _lbs.load_graph_npz(npz)
+    obj = _lbs.build_tube_mesh(g, ring=ring, name=f"{species_name}_{tier_name}_v{out_idx}")
+    me = obj.data
+    # The leaf-back skeleton is Y-up (height along +Y). The CPW tree pipeline is Z-up:
+    # clean_nan_vertices reads the z-extent as height and the normalize/centre steps use min_z.
+    # Rotate +90 deg about X so old-Y -> new-Z (proper rotation, det +1, face winding preserved):
+    #   (x, y, z) -> (x, -z, y)
+    for v in me.vertices:
+        x, y, z = v.co.x, v.co.y, v.co.z
+        v.co.x = x; v.co.y = -z; v.co.z = y
+    # Rotate the per-vertex 'direction' vectors identically so sprig cards aim correctly in the
+    # rotated frame (the card path reads 'direction' to orient each twig outward).
+    da = me.attributes.get("direction")
+    if da is not None:
+        n = len(me.vertices)
+        vv = np.zeros(n * 3)
+        da.data.foreach_get("vector", vv)
+        vv = vv.reshape(-1, 3)
+        rot = np.empty_like(vv)
+        rot[:, 0] = vv[:, 0]
+        rot[:, 1] = -vv[:, 2]
+        rot[:, 2] = vv[:, 1]
+        da.data.foreach_set("vector", rot.reshape(-1))
+    me.update()
+    obj.data.materials.append(bark_mat)
+    return obj
 
 
 def _extract_leaf_positions_tips(mesh_obj, sp, target_height, rng, tier="l"):
@@ -4329,6 +4386,18 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
     # are per species-tier, so >5 is free downstream.
     n_variants = sp.get("n_variants", N_VARIANTS)
 
+    # LEAF-BACK single-variant (2026-07-08, AC-8): the leaf-back crown skeleton is deterministic
+    # (one .npz per tier) with no seed-variant machinery yet, so LP ships ONE variant per tier.
+    # Forcing n_variants=1 makes _gen_indices=[0] below and the runtime picker
+    # (tree_builder.gd `n_variants = meshes.size()`) see a single mesh -> every tree uses it (same
+    # effect as pin_variant). Cross-tree variety is a queued follow-up, not part of the AC-8 gate.
+    # CPW_FORCE_MTREE=1 forces the legacy Mtree path even for a leaf-back species — used to
+    # rebuild the Mtree baseline GLBs (for perf A/B + the scene-vert arithmetic) without editing
+    # the species flag. Reversible; no effect on a normal build.
+    _leafback = bool(sp.get("leafback_skeleton")) and not os.environ.get("CPW_FORCE_MTREE")
+    if _leafback:
+        n_variants = 1
+
     # ASSET-LEVEL SINGLE-VARIANT PIN (user 2026-06-26, "go to extremes"). A species
     # may declare `pin_variant: <idx>` to ship ONLY its one approved variant. We then
     # iterate just that index but KEEP n_variants as the spanning denominator, so the
@@ -4379,7 +4448,7 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
 
         # --- Find a safe seed via fork-test, then generate ---
         seed = base_seed
-        if not skip_fork_test:
+        if not skip_fork_test and not _leafback:
             MAX_SEED_RETRIES = 8
             for attempt in range(MAX_SEED_RETRIES):
                 if _test_seed_safe(sp_variant, target_h, seed):
@@ -4392,15 +4461,21 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
 
         rng = random.Random(seed)
         t0 = time.time()
-        cpp_mesh = generate_tree_skeleton(sp_variant, target_h, seed)
+        if _leafback:
+            # Leaf-back crown skeleton (AC-8): skin the pre-generated line-C trunk-scaffold
+            # .npz instead of Mtree. Returns trunk_obj directly — linked, Z-up, real metres,
+            # carrying the 5 POINT attrs + bark material — so everything below is unchanged.
+            trunk_obj = _build_leafback_trunk(species_name, tier_name, _out_idx, bark_mat)
+        else:
+            cpp_mesh = generate_tree_skeleton(sp_variant, target_h, seed)
 
-        # Name by OUTPUT index (not the source `vi`): a pinned single variant ships
-        # as `_v0` so the GLB's lone mesh is index 0, matching the runtime picker.
-        mesh = bpy.data.meshes.new(f"{species_name}_{tier_name}_v{_out_idx}")
-        trunk_obj = bpy.data.objects.new(f"{species_name}_{tier_name}_v{_out_idx}", mesh)
-        bpy.context.collection.objects.link(trunk_obj)
-        create_mesh_from_cpp(mesh, cpp_mesh)
-        trunk_obj.data.materials.append(bark_mat)
+            # Name by OUTPUT index (not the source `vi`): a pinned single variant ships
+            # as `_v0` so the GLB's lone mesh is index 0, matching the runtime picker.
+            mesh = bpy.data.meshes.new(f"{species_name}_{tier_name}_v{_out_idx}")
+            trunk_obj = bpy.data.objects.new(f"{species_name}_{tier_name}_v{_out_idx}", mesh)
+            bpy.context.collection.objects.link(trunk_obj)
+            create_mesh_from_cpp(mesh, cpp_mesh)
+            trunk_obj.data.materials.append(bark_mat)
 
         # --- Clean NaN vertices and get bbox ---
         actual_h, actual_w = clean_nan_vertices(trunk_obj)
@@ -4410,7 +4485,9 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
         # terminal twig sprig) sits at the real tip. Height-independent — the only
         # lever that bounds depth on long-limbed tiers where split-prob can't (see
         # cap_skeleton_depth). Opt-in per tier/species; no-op when unset.
-        _max_depth = sp_tier.get("skeleton_max_depth")
+        # Leaf-back skips the cap: its depth is EMERGENT (branch order out of space
+        # colonization, spec's depth-as-output) — capping it would sever crown sub-trees.
+        _max_depth = None if _leafback else sp_tier.get("skeleton_max_depth")
         if _max_depth is not None:
             _capped = cap_skeleton_depth(trunk_obj, _max_depth)
             actual_h, actual_w = clean_nan_vertices(trunk_obj)  # bbox after the cut
@@ -4460,7 +4537,23 @@ def generate_species_tier(species_name, tier_name, sp, tier_cfg, skip_fork_test=
             # drop stray fragments, so no branch (or the card that would ride it)
             # floats detached (user 2026-07-02). AFTER the min-twig floor (thicker
             # twigs overlap more) and BEFORE foliage (cards anchor to trunk-wood).
-            _stitch_stats = stitch_bark_islands(trunk_obj, actual_h, min_twig_m=_twig_d)
+            _weld_tol = _twig_d
+            if _leafback:
+                # LEAF-BACK weld tol (2026-07-08, AC-8): the per-strand skinner's child base
+                # ring welds to its parent only if a base vertex lands within the stitch tol of a
+                # parent-ring vertex. At RING=LEAFBACK_RING the azimuthal vertex spacing on a
+                # node of radius r is 2*pi*r/RING, so on a THICK trunk that spacing exceeds twice
+                # the 32mm twig-floor tol and whole scaffold sub-crowns orphan (diagnosed on the l
+                # tier: trunk r=356mm -> 93mm spacing >> 32mm -> 4 components). Scale the weld tol
+                # to half the max-node azimuthal spacing (+10% margin) so thick junctions always
+                # weld; thin tiers (m/s) stay at the 32mm floor unchanged. Scaffolds are >=35 deg
+                # apart (>200mm surface separation on the trunk) so this can't bridge distinct limbs.
+                _ra = trunk_obj.data.attributes.get("radius")
+                if _ra is not None and len(trunk_obj.data.vertices):
+                    _rv = np.zeros(len(trunk_obj.data.vertices))
+                    _ra.data.foreach_get("value", _rv)
+                    _weld_tol = max(_twig_d, math.pi * float(_rv.max()) / LEAFBACK_RING * 1.1)
+            _stitch_stats = stitch_bark_islands(trunk_obj, actual_h, min_twig_m=_weld_tol)
             placements = None
             if sp_variant.get("card_leaf_rule"):
                 # THE LEAF RULE on cards: deterministic tip-weighted per-branch

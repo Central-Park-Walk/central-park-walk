@@ -1,4 +1,4 @@
-# Phase-A Skeleton→Mesh Spike — Broad Dome (result + go/no-go)
+# Phase-A Skeleton→Mesh Spike — m tier (result + go/no-go)
 
 > **Status:** SPIKE COMPLETE. **Read:** the skinning *primitive* works, but junction
 > quality does **NOT** hold up against ManifoldMesher on the current leaf-back skeleton —
@@ -10,7 +10,7 @@
 > Not production code — spike scripts + renders in `tmp/`.
 
 ## What was built
-The full proposed pipeline, end to end, for the exact Broad Dome validation specimen
+The full proposed pipeline, end to end, for the exact m tier validation specimen
 (H 14.4 m, DBH 15 in):
 
 1. **Leaf-back skeleton → node graph** (`tmp/leafback_graph.py`): the frozen merge
@@ -52,7 +52,7 @@ correctly.
 
 ## Junction quality — honest assessment (the actual risk being tested)
 **It does not hold up against ManifoldMesher.** The gross structure reads (trunk → fork →
-primaries → broad dome crown — the correct Broad Dome envelope), but **in close-up the
+primaries → broad dome crown — the correct m tier envelope), but **in close-up the
 junctions are a pile of interpenetrating straight sticks, not organic forks**
 (`leafback_bark_junction0/1.png`):
 
