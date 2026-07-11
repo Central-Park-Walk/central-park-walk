@@ -429,8 +429,14 @@ class Grower:
         #       vigorous and it finally stops. This is D_clean's own rise-then-decay, which we already
         #       compute and until now spent only on the fork decision. Because the decay is geometric,
         #       an axis's total extension is a CONVERGENT series -> limb length is BOUNDED, and bounded
-        #       as an OUTPUT of C&E's differentiation, not by any cap on radius. Normalised by D_peak
-        #       so the wave decrement is not double-counted (it already pauperizes via D_peak itself).
+        #       as an OUTPUT of C&E's differentiation, not by any cap on radius.
+        #
+        # vigour is normalised by the axis's own D_peak ON PURPOSE, and it carries only ONE of the two
+        # pauperizations: WITHIN-AXIS senescence (an axis's successive modules get less vigorous until
+        # it stops — a convergent series, so a single axis's own extension is bounded). The BETWEEN-AXIS
+        # pauperization — a wave-1 lateral must not reach as far as the trunk — is NOT here: it lives in
+        # the dominance-weighted resource split (see _distribute). Putting it here as well, by reading D
+        # on the absolute scale, double-penalizes (capability x affordability) and amputates the crown.
         n = GU_NODES[ax.cat]
         vigour = np.clip(self.D_clean(ax) / max(ax.D_peak, 1e-6), 0.0, 1.0)
         ext = min(1.0, ax._v / V_SAT) * vigour
@@ -910,7 +916,22 @@ class Grower:
                 if t[2] == "apex":
                     cands.insert(0, cands.pop(i))
                     break
-        wq = [t[1] * self._prio_weight(i, len(cands)) for i, t in enumerate(cands)]
+        # ★ iter-7: DOMINANCE-WEIGHTED SPLIT. The share is Q (light earned) x rank weight x D — the
+        # candidate's RELAY DOMINANCE. This is where C&E's D belongs and where iter-6 was missing it.
+        # iter-6 split the pool by light alone, so the split "telescoped to light-proportional": a bud
+        # at the sunlit periphery kept f~1 forever and light REWARDED lateral runaway, which is why no
+        # economy could bound the crown. But D is precisely apical control (the dominance of the relay),
+        # and in Borchert-Honda apical control acts on the SPLIT, not on the internode. A leader (D~1)
+        # now outbids a subordinate lateral (wave-1 D~0.6, wave-2 ~0.36) for the same finite pool.
+        # Resource is CONSERVED: what a lateral does not get, the leader does — so this pauperizes the
+        # crown periphery without starving it. (Making D a second MULTIPLIER on internode length instead
+        # — capability x affordability — was tried and is wrong: it double-penalizes the axes that have
+        # neither yet, drives ext under EXT_MIN at birth, and DORMANT_ABORT then amputates the outer
+        # crown. Measured: every wave below the trunk died at mean age <2.3 yr of 20, spread 5.9 m.)
+        # D_clean (not D_eff) on purpose: light already enters via Q, and D_clean is defined for a
+        # newborn (peak * EST_FLOOR), whereas D_eff is a year stale here and unset at birth.
+        wq = [t[1] * self._prio_weight(i, len(cands)) * max(self.D_clean(self.axes[t[3]]), 1e-3)
+              for i, t in enumerate(cands)]
         tot = sum(wq)
         if tot <= 0.0:
             return
