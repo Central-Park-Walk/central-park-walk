@@ -89,6 +89,52 @@ SPIRAL_FRAC = 0.60        # distal fraction of a module that bears laterals (acr
 DIVERG_SPIRAL = 137.5     # 2/5 spiral phyllotaxis divergence for orthotropic A1 (~144); use
                           # golden as the continuous stand-in [PROV-ish; C&E says spiral 2/5]
 
+# --- ★ iter-6: the BORCHERT-HONDA RESOURCE ECONOMY (Palubicki 2009 §4.2, the "priority model").
+# THE FIX for the iter-5 slab. Until now grow_module() did `n = GU_NODES[cat]`: every axis extended a
+# fixed module every year regardless of light, so limb length -- and hence CROWN RADIUS -- was a
+# de-facto PARAMETER (the 5th OUTPUT-not-parameter; see docs/adr_grower_resource_economy.md).
+# We had implemented Palubicki's shadow grid and skipped the half that makes it mean anything.
+#
+# The economy: light Q accumulates BASIPETALLY to the base; the tree's total resource is
+# v_base = ALPHA * Q_base -- FINITE AND SHARED. It flows back ACROPETALLY, split at each axis among
+# its own apex and the child axes it supports, by the priority model:
+#       v_i = v * (Q_i * w_i) / SUM_j(Q_j * w_j)
+# ranked by mean light per bud (Q_i / nbuds_i), with the terminal bud placed FIRST while apical
+# control lasts. As the bud count grows, per-apex v FALLS. Extension stops when the light the tree
+# actually captured can no longer pay for it -> lateral reach is EARNED, with no cap anywhere.
+#
+# ★ ADR position B: we do NOT adopt the paper's n = floor(v) for the METAMER COUNT -- that would
+# discard C&E's MEASURED, species-specific growth units (the reason this is a plane and not a generic
+# self-organizing tree), AND it destroys ramification: every metamer is a lateral bud site, so scaling
+# n away grows a bare pole with a few whips (measured -- see iter-6 in the prototype doc). C&E's
+# GU_NODES stays the metamer count. Resource is spent on the INTERNODE LENGTH instead, which is what
+# the paper's l = v/n really controls: a starved bud lays down its FULL set of buds on a short shoot.
+# Density (n) and reach (l) are thus decoupled -- which is the whole trick.
+#
+# ⚠ THE RESOURCE ALONE DOES NOT BOUND THE CROWN. Because the allocation telescopes to
+# light-proportional, a bud's share is ~the light its own leaves caught, so a bud at the sunlit
+# PERIPHERY keeps f~1 forever: light-based extension REWARDS lateral runaway. The bound comes from
+# C&E's ONTOGENETIC PAUPERIZATION (see grow_module) -- D_clean's geometric decay makes an axis's total
+# extension a convergent series. Radius is bounded as an OUTPUT of the A1..A5 differentiation sequence.
+ALPHA      = 1.0   # v_base = ALPHA * Q_base. FIXED AT 1: only the ratio ALPHA/V_SAT affects f(v),
+                   # so the two are degenerate -- this leaves exactly ONE new fitted scalar (V_SAT).
+V_SAT      = 20.0  # [FIT] resource share at which an apex extends at C&E's FULL internode (f=1).
+                   # Fitted so a young, uncrowded apex saturates; see docs/grower_prototype_iter1.md.
+EXT_MIN    = 0.02  # [PROV] below this extension fraction the bud cannot extend at all -> dormant.
+W_MAX      = 1.0    # priority weights, Palubicki Fig. 8c / Fig. 9 (their published values).
+W_MIN      = 0.02   # [FIT] the HABIT knob: large weights on a few branches => excurrent (their
+                    # published 0.006 makes conifers); flatter => decurrent. A plane is decurrent.
+KAPPA      = 0.5    # rank fraction over which w falls W_MAX -> W_MIN. Bigger kappa = more excurrent.
+APICAL_OFF_YEAR = 12  # [PROV] apical control (terminal bud first in the priority list, irrespective
+                      # of its light) is REMOVED after this year. Palubicki: this is what drives the
+                      # "progression from the excurrent form of the young tree to the decurrent form
+                      # of the old tree" (citing Barthelemy & Caraglio -- C&E's own school). ONE
+                      # threshold gives the whole tier progression: s (10 yr) never loses it and stays
+                      # excurrent (correct for a sapling); m and l lose it and spread.
+DORMANT_ABORT   = 3   # [PROV] consecutive years at n=0 (resource cannot buy even one metamer) before
+                      # the apex aborts. Palubicki's 4th bud fate. Shed (Takenaka) still removes the
+                      # whole branch separately once it becomes a net liability.
+
 # --- angles ---
 THETA_RELAY_DEG = 4.0     # kink of the relay ("prolongement", near-straight). [PROV/GAP-θrelay]
 THETA_LATERAL_DEG = 60.0  # insertion angle of subjacent laterals ("ouvert"). [PROV]
@@ -281,7 +327,7 @@ class Axis:
     """One 'strand' == one apparent-order chain (a serie lineaire). §1.2."""
     __slots__ = ("id", "cat", "order", "reit", "D", "D_peak", "est_window", "alive", "apex",
                  "nodes", "birth", "dirv", "gsa", "age", "forked", "D_at_fork", "_relay_host", "_D_eff",
-                 "_last_spiral", "_dom", "_arched_at")
+                 "_last_spiral", "_dom", "_arched_at", "_v", "_dormant")
     def __init__(self, aid, cat, order, reit, D, apex, dirv, birth,
                  D_peak=None, est_window=EST_WINDOW_REITER):
         self.id = aid
@@ -303,6 +349,8 @@ class Axis:
         self._last_spiral = []        # ★ iter-5: node ids of the last module's near-apex spiral buds
         self._dom = 1.0               # ★ iter-5: apex light-dominance vs its crown-plane neighbours
         self._arched_at = -99         # ★ iter-5: year an arch-summit reiterate last fired on this axis
+        self._v = 0.0                 # ★ iter-6: BH resource allocated to this axis's apex this year
+        self._dormant = 0             # ★ iter-6: consecutive years the apex could not buy a metamer
 
 
 class Grower:
@@ -313,6 +361,7 @@ class Grower:
         self.nodes = []
         self.axes = []
         self.reit_count = 0
+        self._shadow, self._mn = {}, np.zeros(3)   # ★ iter-6: last year's light field (banked)
         self._arch_distal = []   # ★ iter-5: (distal_root_node, host_axis) — arch-summit dieback
                                  # candidates; the shed rule kills each once its offspring overtop it.
         # seed: ground node + trunk apex one internode up
@@ -360,7 +409,36 @@ class Grower:
     # ONE MODULE (one year) of one axis   (§8 + §4 + §2 relay)
     # ======================================================================
     def grow_module(self, ax, year):
+        # ★ iter-6. The module has TWO independent quantities and they must be spent separately:
+        #
+        #   n (METAMER COUNT)  -> DENSITY. Every metamer is a lateral bud site, so n is what ramifies
+        #       the crown. It stays C&E's MEASURED growth unit, unscaled. (Scaling n instead was the
+        #       first thing I tried: it destroys ramification and grows a bare pole with a few whips.)
+        #   l (INTERNODE LENGTH) -> REACH. This is what the tree spends resource and vigour on, and
+        #       what bounds crown radius. Palubicki does exactly this (n = floor(v), l = v/n): a
+        #       starved bud lays down its full set of buds on a 2 cm shoot instead of a 1 m one.
+        #       That is the real short-shoot/long-shoot (brachyblast/auxiblast) distinction.
+        #
+        # l is scaled by TWO factors, and it takes both to bound the crown:
+        #   f(v) = min(1, v/V_SAT)  — the BH RESOURCE share (what the axis can AFFORD). Necessary but
+        #       NOT sufficient on its own: because the allocation telescopes to light-proportional,
+        #       a bud's share is ~the light its own leaves caught, and a bud at the sunlit crown
+        #       PERIPHERY keeps f~1 forever. Light alone therefore REWARDS lateral runaway.
+        #   vigour(age)             — C&E's ONTOGENETIC PAUPERIZATION (what the axis is CAPABLE of).
+        #       An axis differentiates along the A1..A5 sequence: its successive modules get less
+        #       vigorous and it finally stops. This is D_clean's own rise-then-decay, which we already
+        #       compute and until now spent only on the fork decision. Because the decay is geometric,
+        #       an axis's total extension is a CONVERGENT series -> limb length is BOUNDED, and bounded
+        #       as an OUTPUT of C&E's differentiation, not by any cap on radius. Normalised by D_peak
+        #       so the wave decrement is not double-counted (it already pauperizes via D_peak itself).
         n = GU_NODES[ax.cat]
+        vigour = np.clip(self.D_clean(ax) / max(ax.D_peak, 1e-6), 0.0, 1.0)
+        ext = min(1.0, ax._v / V_SAT) * vigour
+        if ext < EXT_MIN:
+            ax._dormant += 1                    # cannot extend at all this year (a dormant bud)
+            return None, []
+        ax._dormant = 0
+        step = INTERNODE * ext
         # lay down n metamers along the current (posture-updated) direction
         d = ax.dirv.copy()
         # ★ iter-4: crown rounding (§6 envelope soft bound). Above CEIL_FRAC*H, bend growth toward
@@ -380,7 +458,7 @@ class Grower:
         base_az = self.rng.uniform(0, 360)
         for i in range(n):
             p_prev = self.nodes[ax.apex].pos
-            newp = p_prev + INTERNODE * d
+            newp = p_prev + step * d
             # ★ iter-4: a drooping limb cannot grow into the ground. C&E's veteran low limbs are
             # "retombantes JUSQU'AU sol" (to the ground), so a floor of ~0 is right; below it is a
             # posture artefact. Clamp to a small floor so ground-sweeping limbs rest just above soil.
@@ -738,6 +816,111 @@ class Grower:
     # ======================================================================
     # SHED (§7.3) — light_gathered/size < tau  => remove subtree, keep radius
     # ======================================================================
+    # ======================================================================
+    # ★ iter-6: THE RESOURCE ECONOMY (Palubicki 2009 §4.2 — extended Borchert-Honda,
+    # priority model). Sets ax._v for every live axis. See the constants block.
+    # ======================================================================
+    def _axis_tree(self):
+        """children-axis lists + the root axis, from the node parent links."""
+        kids = {ax.id: [] for ax in self.axes}
+        roots = []
+        for ax in self.axes:
+            pnode = self.nodes[ax.nodes[0]].parent
+            pax = self.nodes[pnode].axis if pnode >= 0 else -1
+            if pax >= 0 and pax != ax.id:
+                kids[pax].append(ax.id)
+            else:
+                roots.append(ax.id)
+        return kids, roots
+
+    def _prio_weight(self, rank, n):
+        """Palubicki Fig. 8c: piecewise-linear weight, W_MAX at the head of the priority list
+        falling to W_MIN by rank fraction KAPPA. Large weights to the few most productive
+        branches => more excurrent; flatter => more decurrent."""
+        if n <= 1:
+            return W_MAX
+        x = rank / (n - 1)
+        if x >= KAPPA:
+            return W_MIN
+        return W_MAX + (W_MIN - W_MAX) * (x / KAPPA)
+
+    def allocate_resource(self, shadow, mn, year):
+        """BASIPETAL: light gathered by living foliage accumulates to the base (Q per axis subtree,
+        plus the bud count). ACROPETAL: v_base = ALPHA*Q_base is redistributed down the axis tree by
+        the priority model. The tree can only spend the light it actually caught, so as the bud count
+        rises the per-apex share falls and extension self-limits. Crown radius is an OUTPUT."""
+        for ax in self.axes:
+            ax._v = 0.0
+        kids, roots = self._axis_tree()
+        # --- basipetal pass: Q (light gathered) and nbuds, per axis SUBTREE ---
+        q_own = {ax.id: 0.0 for ax in self.axes}
+        for nd in self.nodes:
+            if nd.alive and nd.foliage and nd.axis >= 0:
+                q_own[nd.axis] += self.light_at(nd.pos, shadow, mn)
+        order = []                                   # children-before-parents
+        stack = list(roots)
+        while stack:
+            a = stack.pop()
+            order.append(a)
+            stack.extend(kids[a])
+        q_sub, n_sub = {}, {}
+        for a in reversed(order):
+            ax = self.axes[a]
+            live_apex = 1 if (ax.alive and ax.apex is not None) else 0
+            q_sub[a] = q_own[a] + sum(q_sub[c] for c in kids[a])
+            n_sub[a] = live_apex + sum(n_sub[c] for c in kids[a])
+        # BOOTSTRAP: before any foliage exists (year 1) the tree has caught no light. A seedling
+        # grows on its stored reserves — give every apex a saturating share for that one step.
+        if not roots or sum(q_sub[r] for r in roots) <= 0.0:
+            for ax in self.axes:
+                if ax.alive and ax.apex is not None:
+                    ax._v = V_SAT
+            return
+        # --- acropetal pass: distribute v down the axis tree ---
+        apical = year <= APICAL_OFF_YEAR
+        for r in roots:
+            self._distribute(r, ALPHA * q_sub[r], kids, q_own, q_sub, n_sub, apical)
+
+    def _distribute(self, a, v, kids, q_own, q_sub, n_sub, apical):
+        ax = self.axes[a]
+        # the candidates competing for this axis's resource: its OWN terminal bud (a single-metamer
+        # branch, per the paper) and each child axis it supports.
+        # ⚠ The apex's Q is the light gathered by the FOLIAGE THIS AXIS BEARS (q_own) — NOT the point
+        # exposure light_at(apex). Using the point value leaks the axis's own foliage out of the
+        # economy (it is inside q_sub but assigned to no candidate) and scores a single bud, on a 0..7
+        # point scale, against sibling SUBTREE sums in the hundreds — so every apex is crushed by its
+        # own children and the whole tree starves. With q_own, sum(candidate Q) == q_sub[a] exactly,
+        # the allocation telescopes, and each bud ends up with roughly what its own leaves caught.
+        cands = []                                   # (priority_key, Q, kind, id)
+        if ax.alive and ax.apex is not None:
+            q_apex = q_own[a]                        # one bud, so this is also its mean-light-per-bud
+            cands.append((q_apex, q_apex, "apex", a))
+        for c in kids[a]:
+            if n_sub[c] <= 0:                        # a dead subtree buys nothing
+                continue
+            cands.append((q_sub[c] / n_sub[c], q_sub[c], "axis", c))   # key = mean light per bud
+        if not cands:
+            return
+        cands.sort(key=lambda t: -t[0])
+        # APICAL CONTROL (§ the excurrent->decurrent progression): while it lasts, the terminal bud
+        # heads the priority list irrespective of its light. Removing it with age is what turns the
+        # young excurrent leader into the old decurrent, spreading crown.
+        if apical:
+            for i, t in enumerate(cands):
+                if t[2] == "apex":
+                    cands.insert(0, cands.pop(i))
+                    break
+        wq = [t[1] * self._prio_weight(i, len(cands)) for i, t in enumerate(cands)]
+        tot = sum(wq)
+        if tot <= 0.0:
+            return
+        for (key, q, kind, cid), w in zip(cands, wq):
+            vi = v * w / tot
+            if kind == "apex":
+                self.axes[cid]._v = vi
+            else:
+                self._distribute(cid, vi, kids, q_own, q_sub, n_sub, apical)
+
     def shed(self, light, children, year=None):
         order = self._topo_leaves_first(children)     # leaves first
         lg = {}; sz = {}
@@ -895,12 +1078,21 @@ class Grower:
     # ======================================================================
     def run(self, years, verbose=False):
         for year in range(1, years + 1):
-            # 1. GROWTH — every alive axis with an active apex grows one module
+            # 0. ★ iter-6: RESOURCE. Allocate the light the tree caught LAST year (photosynthate is
+            #    banked before it is spent) among this year's apices. Finite and shared, so the crown
+            #    self-limits: no cap on reach exists or is wanted. See ADR + the constants block.
+            self.allocate_resource(self._shadow, self._mn, year)
+            # 1. GROWTH — every alive axis with an active apex grows one module IT CAN AFFORD.
+            #    An apex whose share cannot buy a single metamer stays dormant; DORMANT_ABORT years
+            #    of that and it aborts (Palubicki's 4th bud fate). Shed still removes whole branches.
             live = [ax for ax in self.axes if ax.alive and ax.apex is not None]
             fork_queue = []
             for ax in live:
                 relay_host, _ = self.grow_module(ax, year)
-                ax._relay_host = relay_host
+                ax._relay_host = relay_host if relay_host is not None else ax.apex
+                if ax._dormant >= DORMANT_ABORT:
+                    ax.apex = None                     # bud abort
+            live = [ax for ax in live if ax.alive and ax.apex is not None]
             # 2. FOLIAGE — living tips put out this year's transient leaf cohort; old cohorts
             #    abscisse. Foliage is the light-gatherer/shader and the shed rule's source.
             children = self._children(include_dead=True)
@@ -973,6 +1165,7 @@ class Grower:
             self.posture(radius, children)
             shadow, mn = self.build_shadow(children)
             nshed = self.shed(self.foliage_light(shadow, mn), children, year)
+            self._shadow, self._mn = shadow, mn     # ★ iter-6: bank it — next year's growth spends it
             if verbose:
                 nlive = sum(1 for ax in self.axes if ax.alive)
                 nfol = sum(1 for nd in self.nodes if nd.alive and nd.foliage)
