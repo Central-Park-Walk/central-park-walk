@@ -911,3 +911,33 @@ first time this thread has had a two-sided one.
 which means 3 seeds was mis-sampling the tails. Mean uncertainty ≈ spread/√n ⇒ `s` span's 0.76×
 carries roughly ±0.10. The three `s` moves (+0.26, +0.51, +0.11) all clear that margin, so the
 verdict stands — but **no claim finer than ~10–15% is supported at 8 seeds.**
+
+### ⛔ iter-10 POSTSCRIPT: the leading candidate is REFUTED, by our own source, before any code
+
+The candidate above — *`N_def` accumulates with a tip's own age* — is **dead.** It was checked
+against the paper the grower is already built on, and **C&E measure A4/A5 short shoots
+self-pruning in 1–4 years.** That is not a new source; it is the same observation that put
+`FOLIAGE_LIFE = 3` in the code (see iter-2, "cohorts abscisse after `FOLIAGE_LIFE` years").
+
+⇒ The deferred A4/A5 spray reaches **steady state in ~4 yr**. It **cannot** accumulate for decades,
+so it cannot be what distinguishes a 15-yr sapling's tip from a 104-yr tree's tip. **The two-sided
+caliber residual is not explained by the price of a tip.** Refuted on paper, at zero cost. This is
+the sixth mechanism this thread did *not* build.
+
+### ⇒ The iter-11 question is the ARMATURE'S TIP BUDGET, not the tip's price
+
+If `N_def` per tip really is ~constant, then `DBH = 2*R_TIP*n_tips^(1/PIPE_POWER)` puts the whole
+residual in **`n_tips`**. Inverting the measured ratios (`PIPE_POWER` = 2.3):
+
+    s @15 yr:  DBH 1.96x  =>  n_tips is  1.96^2.3 = ~4.5x TOO MANY armature tips for its size
+    l @104 yr: DBH 0.73x  =>  n_tips is  0.73^2.3 = ~0.47x, i.e. ~2.1x TOO FEW
+
+So the sapling carries far too many armature tips and the centenarian far too few. That is a
+question about **how the armature budgets its tips** — the shed rule, the `MAX_CAT = 3` truncation,
+the reiteration rate — and *not* about what a tip costs. Note it also has a plausible single cause
+(a shed/renewal rule that is too weak when young and too strong when old, or vice versa), so the
+two-sided target survives intact.
+
+⚠ **Derive it. Measure `n_tips` per tier against a real twig-count estimate first.** Five mechanisms
+have been built and refuted on this thread; a sixth was just avoided by spending one grep on the
+source. Keep doing that.

@@ -91,10 +91,17 @@ DBH_CALIB  = 12.85        # [FIT] 4.37 * 2.94; see docs/grower_prototype_iter1.m
 # ⛔ Do NOT re-propose r_tip ∝ n_foliage^(1/p): already falsified on paper (every LIT tip carries the
 #    same FOLIAGE_PER_TIP*FOLIAGE_LIFE = 12 markers, so it thins only SHADED interior tips -- it
 #    would hurt m/l and do nothing at all for an all-lit sapling).
-# ⚠ The leading candidate (N_def ACCUMULATES with a tip's own age: a limb that stopped elongating
-#    decades ago has built up a short-shoot spray, a shoot laid down this year has none) rests on an
-#    UNSOURCED botanical claim about Platanus short-shoot accumulation. Five mechanisms have already
-#    been built and refuted on unsourced intuition on this thread. SOURCE IT BEFORE CODING IT.
+# ⛔ Do NOT propose "N_def ACCUMULATES with a tip's own age" (an old limb builds up a short-shoot
+#    spray, a new shoot has none). It has the right two-sided sign and it is REFUTED BY OUR OWN
+#    SOURCE: C&E measure A4/A5 short shoots SELF-PRUNING IN 1-4 YEARS (it is why FOLIAGE_LIFE=3
+#    exists at all). The deferred spray reaches STEADY STATE in ~4 yr; it cannot accumulate for
+#    decades. Refuted on paper, iter-10, before any code. Do not re-derive it.
+#
+# ⇒ N_def per tip really may be ~constant. Then the residual is NOT in R_TIP but in n_tips: since
+#   DBH = 2*R_TIP*n_tips^(1/PIPE_POWER), s is carrying ~4.5x too many armature tips for its size and
+#   l about 2.1x too few. THAT is the iter-11 question, and it is a question about the ARMATURE's
+#   tip budget (shed rule? MAX_CAT truncation? reiteration rate?), not about the tip's price.
+#   ⚠ Derive it. Do not code a sixth mechanism on a hunch.
 R_TIP      = DBH_CALIB * R0     # effective terminal-bud radius (= the deferred tips' worth)
 
 # --- ★ iter-8, POSITION A: SELF-SUPPORT COST (ADR docs/adr_grower_crown_bound.md; falsification
