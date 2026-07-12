@@ -1,6 +1,9 @@
 # ADR — What bounds the crown?
 
-**Status:** PROPOSED, awaiting sign-off (canonical design change)
+**Status:** ✅ **SIGNED OFF 2026-07-11 (Chris) — FALSIFY-FIRST.** Position A is the direction, but the
+§5 falsification runs **before** any production code: measure on the existing iter-7 tree whether
+self-support cost outruns a spreading limb's light income. Cost/income rises with reach ⇒ build A.
+It doesn't ⇒ A is dead on paper, go to B. B held for later, C and E rejected, D = validation target only.
 **Date:** 2026-07-11
 **Context:** `scripts/plane_grower.py` iter-7. Supersedes nothing; extends
 `docs/adr_grower_resource_economy.md` (signed off, still correct — it just doesn't reach this far).
