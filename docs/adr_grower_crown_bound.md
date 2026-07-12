@@ -5,6 +5,28 @@
 self-support cost outruns a spreading limb's light income. Cost/income rises with reach ⇒ build A.
 It doesn't ⇒ A is dead on paper, go to B. B held for later, C and E rejected, D = validation target only.
 **Date:** 2026-07-11
+
+> ### ✅ §5 FALSIFICATION RUN 2026-07-11 — **A SURVIVES. BUILD IT.**
+> Full result: [`grower_selfsupport_falsification.md`](grower_selfsupport_falsification.md).
+> At **fixed limb size**, demanded support wood ~ lever^**+1.09** while light income ~ lever^**+0.27**
+> (R² 0.96, 3 seeds) ⇒ **cost/income ~ lever^+0.82.** Income *does* rise with reach (the runaway reward
+> of failure 2, quantified) and is **swamped 4:1**. The **support tax** — thickening ÷ (thickening +
+> extension), *both in m³, so no exchange-rate constant is needed* — runs **0.48 → 0.96** from the trunk
+> out to 10 m: a far limb lays **22 m³ of wood just to keep standing for every 1 m³ it reaches further**,
+> against ~1× at the bole. A ~25× swing in the price of a marginal metamer. **The bound is real, and
+> steep.**
+>
+> ★ **Two things the falsification changed about the build — read §4 and §6 of the report before coding:**
+> 1. **`DBH_CALIB = 4.37` would make A INERT.** It multiplies *every* radius uniformly and is uniformly
+>    *larger* than the mechanical demand ⇒ a naive `max(r_pipe, r_mech)` never binds, in **0 %** of limbs
+>    at every reach. The mechanical term must sit **ahead** of it: `r = max(r_pipe_raw, r_mech)`.
+>    Mechanics then supplies exactly the wood `DBH_CALIB` was faking, **in the right shape** (×1 at the
+>    bole, ×4.5 in the crown) ⇒ **A retires a [FIT] constant in the crown.** It survives for the *bole*:
+>    static self-weight cannot derive trunk DBH (a symmetric crown exerts ~zero net moment there), and
+>    it shouldn't.
+> 2. The bound is **economic, not structural** — the fixed point never diverged, Greenhill safety 2.7×.
+>    Mechanics doesn't forbid a 20 m crown, it prices it. So **width emergence must be re-measured after
+>    the build, not assumed** — and on **≥ 3 seeds** (this run: 19.6 / 22.6 / 16.1 m).
 **Context:** `scripts/plane_grower.py` iter-7. Supersedes nothing; extends
 `docs/adr_grower_resource_economy.md` (signed off, still correct — it just doesn't reach this far).
 
