@@ -54,18 +54,29 @@ from scipy.spatial import cKDTree
 # ---------------------------------------------------------------------------
 PIPE_POWER = 2.3          # da Vinci exponent (reused from leafback line; [PROV] for plane)
 R0         = 0.004        # 4 mm terminal-bud seed radius (reused)
-# ★ iter-5, residual (v): the SINGLE fitted scalar for EMERGENT DBH (§5.3, F2). Fitted ONCE so the
-# modal m tier -> census median 15 in. s/l DBH then EMERGE (~p27/p90). Physically = the deferred
-# A4/A5 foliage layer each leafless A3 tip stands in for. [FIT]
-DBH_CALIB  = 4.37         # [FIT] set so m -> 15.0 in; see docs/grower_prototype_iter1.md iter-5.
+# ★ iter-5, residual (v): the SINGLE fitted scalar for EMERGENT DBH (§5.3, F2). Physically = the
+# deferred A4/A5 foliage layer each leafless A3 tip stands in for. [FIT]
+# ★ iter-9: REFIT, jointly with ALPHA, at the CENSUS-DERIVED tier ages. The old 4.37 was fitted so
+# the m tier hit the census median DBH -- but it was fitted at a 20 yr m tier, and the m tier is
+# really ~40 yr (see grow_tier). At the true age the same 4.37 left the trunk 3x TOO THIN (0.34x).
+# The refit is a DERIVATION, not a search: R_TIP prices extension (l_afford = v/(n*pi*R_TIP^2), and
+# it seeds the pipe model, so under R_TIP -> k*R_TIP with ALPHA -> k^2*ALPHA the cost per unit
+# length is unchanged => length/height/crown are INVARIANT while every radius scales by k. DBH was
+# 0.34x => k = 2.94. Verified: m DBH 14.7 -> 43.0 cm = 1.00x target, H and span held.
+DBH_CALIB  = 12.85        # [FIT] 4.37 * 2.94; see docs/grower_prototype_iter1.md iter-9.
 # ★ iter-8: DBH_CALIB is applied AT THE TIP, not as a post-hoc multiply in finalize(). The two are
 # EXACTLY equivalent -- the pipe model r=(SUM r_c^p)^(1/p) is homogeneous of degree 1 in the tip
 # radius, so seeding every tip at k*R0 scales every radius by k -- but the tip form says what the
-# constant physically IS: one armature tip stands in for DBH_CALIB^PIPE_POWER ~ 30 real A4/A5 tips.
+# constant physically IS: one armature tip stands in for DBH_CALIB^PIPE_POWER real A4/A5 tips.
 # This matters now, because the mechanical radius (below) has to be compared against the pipe radius
 # the tree ACTUALLY BUILDS. Against the post-hoc-multiplied one that comparison cannot even be
-# written down; against the raw one it is wrong by 4.37x. See docs/grower_prototype_iter1.md iter-8.
-R_TIP      = DBH_CALIB * R0     # 17.5 mm effective terminal-bud radius (= 30 deferred tips' worth)
+# written down; against the raw one it is wrong by DBH_CALIB. See docs/grower_prototype_iter1.md.
+# ⚠ iter-9 OPEN DEFECT: R_TIP is a CONSTANT, but the deferred foliage system it stands for is not.
+# A mature A3 limb tip carries a big A4/A5 subtree; a sapling's A1/A2 tip carries almost none. So a
+# constant R_TIP over-thickens the young tree -- which is exactly what the s tier now shows (DBH
+# 1.80x target at age 8, while its crown is 0.21x). Do NOT "fix" this by lowering DBH_CALIB; that
+# would re-break m and l. It wants R_TIP to depend on the tip's CATEGORY. See iter-9 in the doc.
+R_TIP      = DBH_CALIB * R0     # effective terminal-bud radius (= the deferred tips' worth)
 
 # --- ★ iter-8, POSITION A: SELF-SUPPORT COST (ADR docs/adr_grower_crown_bound.md; falsification
 # docs/grower_selfsupport_falsification.md). The crown-width bound is not in Palubicki (whose
@@ -148,10 +159,13 @@ DIVERG_SPIRAL = 137.5     # 2/5 spiral phyllotaxis divergence for orthotropic A1
 # an apex no longer saturates at a fitted resource level, it saturates when it can afford C&E's full
 # internode, and the price of an internode is just the wood in it (pi*R_TIP^2*l). So the economy
 # still has exactly ONE fitted scalar, and it is now the photosynthetic yield.
-ALPHA      = 3.0e-5  # [FIT] m^3 of wood per unit of light gathered per year. v_base = ALPHA*Q_base.
-                     # Replaces V_SAT (which it also subsumes: the two were degenerate). Fitted so
-                     # height still EMERGES at ~H on the s and m tiers -- iter-6's win, which the
-                     # new thickening sink must not cost us. See docs/grower_prototype_iter1.md.
+ALPHA      = 2.59e-4 # [FIT] m^3 of wood per unit of light gathered per year. v_base = ALPHA*Q_base.
+                     # Replaces V_SAT (which it also subsumes: the two were degenerate).
+                     # ★ iter-9: 3.0e-5 -> 2.59e-4 = 3.0e-5 * k^2, k = 2.94. NOT an independent fit --
+                     # it is the partner of the DBH_CALIB refit above. R_TIP prices extension as
+                     # 1/R_TIP^2, so thickening the tip by k without paying ALPHA*k^2 would have
+                     # shrunk the tree ~9x. The pair is one calibration with one free scalar (k),
+                     # pinned by the census DBH. See docs/grower_prototype_iter1.md iter-9.
 EXT_MIN    = 0.02  # [PROV] below this extension fraction the bud cannot extend at all -> dormant.
 W_MAX      = 1.0    # priority weights, Palubicki Fig. 8c / Fig. 9 (their published values).
 W_MIN      = 0.02   # [FIT] the HABIT knob: large weights on a few branches => excurrent (their
@@ -1414,17 +1428,39 @@ class Grower:
         return out
 
 
-# --- m-tier config (envelope tables live in leafback_skeleton; here only H + DBH target). ---
-# DBH_target is a FIT SCALAR for iter 1 (F2 recommends emergent+validate; iter 1 imposes the
-# median to check the DBH-vs-H SHAPE across tiers, which is the falsifiable part). m = middle.
-TIERS = {"s": (10.0, 7 * 0.0254), "m": (14.4, 15 * 0.0254), "l": (22.0, 28 * 0.0254)}
+# --- tier config. H = the crown-envelope CEILING (still an imposed soft bound, see CEIL_FRAC).
+# DBH_target is now a pure VALIDATION TARGET -- nothing rescales to it (F2: DBH is emergent). ---
+# ★ iter-9: both columns re-derived from the CENSUS, not guessed. tree_builder.gd picks a tier from
+# `desired_h`, which is a monotone lerp of the census DBH, so the tier buckets invert to DBH cuts
+# (s < 10.1 in <= m < 24.3 in <= l). Taking the MEDIAN measured DBH inside each bucket over the 1595
+# Central Park planes gives 5 / 17 / 28 in -- the caliber each tier must actually hit.
+# (tmp/tier_calibration.py regenerates this from lidar_data/central_park_trees.json.)
+TIERS = {"s": (10.0, 5 * 0.0254), "m": (14.4, 17 * 0.0254), "l": (22.0, 28 * 0.0254)}
+
+# ★ iter-9: THE TIER AGES, and they were the whole "crown is 2x too wide" bug.
+# Feeding each tier's measured median DBH through the Urban Tree Database's age<->size curve for
+# Platanus x acerifolia (McPherson/van Doorn/Peper 2016, PSW-GTR-253, zone NoEast = Queens NY, 376
+# measured trees -- the right climate zone for Central Park) gives the tree's REAL age:
+#
+#     tier   median DBH        real age     UTD H      UTD crown dia
+#     s       5 in / 12.7 cm     8 yr        6.9 m       5.2 m
+#     m      17 in / 43.2 cm    40 yr       14.2 m      12.6 m
+#     l      28 in / 71.1 cm    97 yr       19.1 m      16.9 m
+#
+# We were growing them for 12 / 20 / 35 yr -- building a 40 yr tree in 20. That forced ALPHA up, and
+# a cranked ALPHA is what pumped the crown to 25 m. At the TRUE ages with the SHIPPED parameters the
+# crown measures 1.07x (m) and 1.05x (l) of the real one: the width defect never existed. Five
+# mechanistic "width bounds" were chasing an artifact of this table. Do not add a sixth.
+# ⚠ l's 97 yr is EXTRAPOLATED past the UTD fit's 61.8 cm ceiling (its park subset has no tree over
+# ~50 yr), by carrying the curve's age-60 growth rate forward. It is corroborated by the obvious:
+# Central Park's big planes were planted in the early 20th century, so they ARE ~90-120 yr old.
+TIER_AGES = {"s": 8, "m": 40, "l": 97}
 
 
 def grow_tier(tier, years=None, verbose=False, seed=SEED):
     H, DBH = TIERS[tier]
     if years is None:
-        # developmental age scales with tier: young/middle/mature. [PROV]
-        years = {"s": 12, "m": 20, "l": 35}[tier]
+        years = TIER_AGES[tier]
     g = Grower(H, DBH, seed=seed)
     return g.run(years, verbose=verbose)
 

@@ -714,3 +714,91 @@ actually describes. Its verdict is age-dependent.
    done, and every conclusion since iter-5 rests on it.
 4. **Then, and only then, re-measure the crown.** Chase DBH (3×) and the seed variance (74%) first;
    a +30% width overshoot is the smallest of the three errors and may not survive the recalibration.
+
+---
+
+# iter-9 — THE CALIBRATION. Ages from the census; `ALPHA`+`DBH_CALIB` from a scaling symmetry
+
+iter-8b's RESUME (§5 above) is **executed**. Every item 1–3 is closed, and the answer to item 4 is
+that **the crown overshoot did not survive the recalibration — it was never there.**
+
+Repro: `tmp/tier_calibration.py` (targets, from the census + UTD) and
+`tmp/grower_calib_measure.py` (measures the grower against them; takes `--set K=V` overrides so a
+question never requires editing the grower).
+
+## 1. The tier ages, derived instead of guessed
+
+We never needed to guess an age. `tree_builder.gd` assigns a tier from `desired_h`, and `desired_h`
+is a monotone lerp of the **census DBH** — so the tier buckets invert exactly to DBH cuts, and the
+census tells us the caliber each tier must hit:
+
+| tier | bucket (census DBH) | n | median DBH | **real age** (UTD) | UTD H | UTD crown |
+|---|---|---:|---:|---:|---:|---:|
+| s | < 10.1 in | 437 (27%) | 5 in / 12.7 cm | **8 yr** | 6.9 m | 5.2 m |
+| m | 10.1–24.3 in | 976 (61%) | 17 in / 43.2 cm | **40 yr** | 14.2 m | 12.6 m |
+| l | ≥ 24.3 in | 182 (11%) | 28 in / 71.1 cm | **97 yr** | 19.1 m | 16.9 m |
+
+(n = 1595 Central Park planes. Age/H/crown from the Urban Tree Database, zone NoEast = Queens NY.)
+
+We were growing them **12 / 20 / 35 yr**. ⚠ `l`'s 97 yr is **extrapolated** past the UTD fit's
+61.8 cm ceiling — its park subset holds no tree over ~50 yr — by carrying the curve's age-60 growth
+rate forward. It is corroborated by the obvious: Central Park's big planes were planted in the early
+20th century and **are** 90–120 yr old.
+
+## 2. ★★★ The crown was never too wide
+
+At the corrected ages, with the **shipped, unmodified** parameters:
+
+| tier | H | DBH | **crown span** |
+|---|---|---|---|
+| m @ 40 yr | 0.85× | **0.34×** | **1.07×** |
+| l @ 97 yr | 1.00× | **0.34×** | **1.05×** |
+
+The crown lands on the real tree to within 7%. **Five mechanistic width bounds were built and
+refuted against an artifact of a wrong age table.** The one real defect is caliber — and note it is
+the *same* 0.34× in both tiers, which is the signature of a mis-set scalar, not of a missing
+mechanism.
+
+## 3. The refit is a DERIVATION, not a grid search
+
+`DBH_CALIB` stopped being a free post-hoc multiply in iter-8: `R_TIP = DBH_CALIB·R0` now **prices
+extension**, `l_afford = v / (n·π·R_TIP²)`, as well as seeding the pipe model. So it cannot be
+tripled on its own — that would have shrunk the tree ~9×. But those two roles give the model an
+exact **scaling symmetry**:
+
+> under `R_TIP → k·R_TIP` with `ALPHA → k²·ALPHA`, the cost per unit length is unchanged
+> ⇒ **length, height and crown are invariant, while every radius scales by k.**
+
+DBH was 0.34× ⇒ **k = 2.94**, with no search: `DBH_CALIB` 4.37 → **12.85**, `ALPHA` 3.0e-5 →
+**2.59e-4**. The pair is *one* calibration with *one* free scalar, and the census DBH pins it.
+
+**Shipped result (defaults, 3 seeds):**
+
+| tier | H | DBH | crown span |
+|---|---|---|---|
+| s @ 8 yr | 0.57× | **1.80×** | **0.21×** |
+| m @ 40 yr | **0.87×** | **1.00×** | **0.89×** |
+| l @ 97 yr | **1.01×** | 0.76× | 0.87× |
+
+`m` and `l` — 88% of the census — now sit within ~13% on all three axes, against 3× before. The
+symmetry held to the digit on `m` (DBH 14.7 → 43.0 cm vs a 43.2 target) and the small crown
+give-back (1.07× → 0.89×) is the predicted place it *doesn't* hold: where the **cantilever** term,
+not the pipe, sets the radius, radii do not scale with `k`, so the support bill shifts.
+
+## 4. What iter-9 leaves open
+
+1. **★ The `s` tier is genuinely broken** — and this is a *real* developmental defect, newly exposed
+   rather than newly caused: crown span **0.21×** (1.1 m vs a real 5.2 m), H 0.57×, DBH **1.80×**.
+   An 8-yr tree in the model is a thick stubby whip; the real one is a small spreading tree. The
+   diagnosis on the table: **`R_TIP` is a constant, but the deferred A4/A5 system it stands for is
+   not.** A mature A3 limb tip carries a large foliage subtree; a sapling's A1/A2 tip carries almost
+   none — so a constant `R_TIP` over-thickens the young tree, which is exactly the 1.80×. ⛔ Do not
+   "fix" it by lowering `DBH_CALIB`: that re-breaks `m` and `l`. It wants `R_TIP` to depend on the
+   tip's **category**. Falsify on paper first.
+2. **Seed variance is still the limiting instrument.** Spreads at fixed parameters: `s` span **79%**,
+   `m` span 31%, `l` H 25%. It improved with the caliber fix (m H 39% → 16%) but any claim finer than
+   ~25% is still not measurable at 3 seeds. Raise the seed count before trusting a small effect.
+3. `l` DBH 0.76× — the one place the pipe under-delivers. Plausibly the same cantilever/`k` story as
+   the crown give-back; unconfirmed, and inside the variance envelope. Do not chase it before (2).
+4. The `H` column of `TIERS` is still an **imposed** ceiling (`CEIL_FRAC·H`), i.e. the 6th
+   output-that-is-a-parameter. `l` is the only tier growing anywhere near its cap. Untouched here.
