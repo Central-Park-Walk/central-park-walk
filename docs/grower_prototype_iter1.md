@@ -802,3 +802,24 @@ not the pipe, sets the radius, radii do not scale with `k`, so the support bill 
    the crown give-back; unconfirmed, and inside the variance envelope. Do not chase it before (2).
 4. The `H` column of `TIERS` is still an **imposed** ceiling (`CEIL_FRAC·H`), i.e. the 6th
    output-that-is-a-parameter. `l` is the only tier growing anywhere near its cap. Untouched here.
+
+## 5. Two diagnostics recorded at the close of iter-9 (not acted on)
+
+**(a) The UTD's "age" is years AFTER PLANTING, not from seed.** Sourced, not assumed: McPherson &
+Peper state age is *"the number of years after planting"*, taken from city records, historic imagery
+and coring. Our grower starts from a **seed at year 0**, and the UTD curve's own intercept puts its
+age-0 tree at ~2.4 cm DBH already. ⇒ **the tier ages in `TIER_AGES` are systematically LOW by the
+nursery years.** The offset is negligible on `l` (97) and small on `m` (40); it is large on `s` (8).
+⚠ It does NOT rescue the `s` tier's caliber — see (b).
+
+**(b) ★ The trunk is PIPE-dominated in ALL THREE tiers — the cantilever term never binds at the
+base.** Measured `r_struct == r_pipe` exactly at node 0 for s, m and l. Two consequences:
+- **`R_TIP` sets DBH directly, everywhere.** This is why the k-scaling of §3 worked so cleanly, and
+  it confirms open item 1: a *constant* `R_TIP` is a floor on trunk caliber (`DBH >= 2·R_TIP` =
+  10.3 cm for **any** tree, at any age).
+- **`s` DBH is AGE-INVARIANT**: 22.8 cm @ 8 yr → 23.3 cm @ 16 yr, while span climbs 1.1 → 3.8 m.
+  So growing `s` longer fixes its crown and height and leaves the trunk 1.8× too fat. **The `s`
+  defect is an `R_TIP` defect, not an age defect.** The nursery offset (a) and the `R_TIP` fix (1)
+  are independent, and both are needed.
+- ⚠ It also means iter-8's self-support/cantilever machinery, whatever else it does, is **not what
+  builds the bole** in any shipped tier. Note it before anyone reasons from it again.
