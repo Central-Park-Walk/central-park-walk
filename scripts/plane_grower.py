@@ -71,11 +71,30 @@ DBH_CALIB  = 12.85        # [FIT] 4.37 * 2.94; see docs/grower_prototype_iter1.m
 # This matters now, because the mechanical radius (below) has to be compared against the pipe radius
 # the tree ACTUALLY BUILDS. Against the post-hoc-multiplied one that comparison cannot even be
 # written down; against the raw one it is wrong by DBH_CALIB. See docs/grower_prototype_iter1.md.
-# ⚠ iter-9 OPEN DEFECT: R_TIP is a CONSTANT, but the deferred foliage system it stands for is not.
-# A mature A3 limb tip carries a big A4/A5 subtree; a sapling's A1/A2 tip carries almost none. So a
-# constant R_TIP over-thickens the young tree -- which is exactly what the s tier now shows (DBH
-# 1.80x target at age 8, while its crown is 0.21x). Do NOT "fix" this by lowering DBH_CALIB; that
-# would re-break m and l. It wants R_TIP to depend on the tip's CATEGORY. See iter-9 in the doc.
+# ⚠ THE ONE OPEN DEFECT (iter-9, sharpened by iter-10): R_TIP is a CONSTANT, but the deferred A4/A5
+# system it stands in for is NOT. At the calibrated DBH_CALIB, one armature tip is priced as
+# DBH_CALIB^PIPE_POWER = 12.85^2.3 = ~354 real twigs. That is a MATURE-CROWN number applied to every
+# tip of every tree at every age: it says an 8-yr sapling's ~6 armature tips stand in for ~2200 real
+# twigs. It is one scalar with two consequences, because R_TIP both seeds the pipe model AND prices
+# extension (l_afford = v/(n*pi*R_TIP^2)): too-fat tips make the bole too thick AND make every
+# internode too expensive to buy.
+#
+# ★ iter-10 MEASURED THE RESIDUAL AND IT IS TWO-SIDED, which is the real finding:
+#     s (15 yr): DBH 1.96x  -- the young tree is too THICK
+#     l (104 yr): DBH 0.73x -- the old tree is too THIN
+# A constant N_def over-serves the sapling and under-serves the centenarian, in one monotone
+# direction. So the fix is not a category lookup and not a smaller constant -- it is that N_def must
+# GROW, and any mechanism that makes it grow correctly must push s DOWN and l UP with the SAME term.
+# That is a far stronger falsification target than either defect alone; a fix that only mends s is
+# refuted on l for free.
+# ⛔ Do NOT "fix" this by lowering DBH_CALIB -- that scales every radius at once and re-breaks m/l.
+# ⛔ Do NOT re-propose r_tip ∝ n_foliage^(1/p): already falsified on paper (every LIT tip carries the
+#    same FOLIAGE_PER_TIP*FOLIAGE_LIFE = 12 markers, so it thins only SHADED interior tips -- it
+#    would hurt m/l and do nothing at all for an all-lit sapling).
+# ⚠ The leading candidate (N_def ACCUMULATES with a tip's own age: a limb that stopped elongating
+#    decades ago has built up a short-shoot spray, a shoot laid down this year has none) rests on an
+#    UNSOURCED botanical claim about Platanus short-shoot accumulation. Five mechanisms have already
+#    been built and refuted on unsourced intuition on this thread. SOURCE IT BEFORE CODING IT.
 R_TIP      = DBH_CALIB * R0     # effective terminal-bud radius (= the deferred tips' worth)
 
 # --- ★ iter-8, POSITION A: SELF-SUPPORT COST (ADR docs/adr_grower_crown_bound.md; falsification
@@ -1454,7 +1473,29 @@ TIERS = {"s": (10.0, 5 * 0.0254), "m": (14.4, 17 * 0.0254), "l": (22.0, 28 * 0.0
 # ⚠ l's 97 yr is EXTRAPOLATED past the UTD fit's 61.8 cm ceiling (its park subset has no tree over
 # ~50 yr), by carrying the curve's age-60 growth rate forward. It is corroborated by the obvious:
 # Central Park's big planes were planted in the early 20th century, so they ARE ~90-120 yr old.
-TIER_AGES = {"s": 8, "m": 40, "l": 97}
+#
+# ★ iter-10: THOSE AGES ARE UTD's, AND UTD's CLOCK STARTS AT PLANTING, NOT AT THE SEED.
+# McPherson & Peper measure age as YEARS SINCE PLANTING. Their age-0 tree is not a germinating
+# seed -- it is a nursery whip, and the curve says so in two places at once: utd_dbh_cm(0) = 2.40 cm
+# and utd_height_m(2.40) = 4.01 m, which is also exactly the stated floor of their height fit's
+# applicability range. A 4 m, 1-inch-caliper B&B whip is precisely what a street/park planting is.
+# We grow from a SEED, so our clock must be offset by the nursery years:
+#
+#     age_from_seed = UTD_age + NURSERY_YEARS
+#
+# NURSERY_YEARS is DERIVED, not chosen: it is the grower's own age when it reaches the whip. Mean H
+# crosses 4.01 m at 6.72 yr, identically in all three tiers (max-min = 0.00 yr -- the tiers are
+# bit-identical through the juvenile phase, since the CEIL_FRAC*H cap cannot engage on a 6-year-old).
+# Measured over 8 seeds by tmp/nursery_offset_probe.py; full tables in tmp/iter10_nursery_offset.md.
+#
+# ⚠ THE ALIGNMENT IS ON HEIGHT ALONE, AND IT HAS TO BE. At 6.72 yr our trunk is 21.4 cm DBH against
+# the whip's 2.40 cm (8.9x). That is not a fit error: a constant R_TIP floors DBH at 2*R_TIP =
+# 10.3 cm for ANY tree at ANY age (see the R_TIP defect note above), which is already 4.3x the whip.
+# There is no age at which this grower IS a nursery whip, so caliber cannot align the clock -- and
+# no clock correction can fix caliber. The two defects look independent and are not.
+NURSERY_YEARS = 7          # [DERIVED] 6.72, rounded. See above.
+TIER_AGES = {tier: utd_age + NURSERY_YEARS
+             for tier, utd_age in {"s": 8, "m": 40, "l": 97}.items()}   # -> 15 / 47 / 104
 
 
 def grow_tier(tier, years=None, verbose=False, seed=SEED):

@@ -823,3 +823,91 @@ base.** Measured `r_struct == r_pipe` exactly at node 0 for s, m and l. Two cons
   are independent, and both are needed.
 - ⚠ It also means iter-8's self-support/cantilever machinery, whatever else it does, is **not what
   builds the bole** in any shipped tier. Note it before anyone reasons from it again.
+
+---
+
+## iter-10 — THE CLOCK. UTD's age starts at PLANTING, and the `s` crown was mostly a clock error
+
+Rigs: `tmp/nursery_offset_probe.py` (new), `tmp/grower_calib_measure.py` (extended with
+`--age-offset`). Full tables: `tmp/iter10_nursery_offset.md`. **No tree mechanism was changed** —
+this iteration moved one number, and derived it.
+
+### The finding
+
+`TIER_AGES` were taken straight from the Urban Tree Database. **UTD measures age as YEARS SINCE
+PLANTING** (McPherson & Peper), and its age-0 tree is not a germinating seed — it is a nursery whip.
+The curve says so in two independent places: `utd_dbh_cm(0)` = **2.40 cm** and
+`utd_height_m(2.40)` = **4.01 m**, which is *also* exactly the stated floor of the applicability
+range of their height fit. A 4 m, ~1-inch-caliper B&B whip is precisely what a NYC street or park
+planting is. Our grower starts from a **seed**. So:
+
+    age_from_seed = UTD_age + NURSERY_YEARS
+
+`NURSERY_YEARS` is **derived, not chosen**: it is the grower's own age when it reaches the whip.
+Mean height crosses 4.01 m at **6.72 yr**, and *identically in all three tiers* (max−min = 0.00 yr),
+because the tiers are bit-identical through the juvenile phase — the `CEIL_FRAC*H` cap cannot engage
+on a 6-year-old. Rounded: **`NURSERY_YEARS = 7`**, giving `TIER_AGES` **15 / 47 / 104 yr**.
+
+### ⚠ The alignment is on HEIGHT alone, and it has to be
+
+At 6.72 yr our trunk is **21.4 cm DBH against the whip's 2.40 cm — 8.9×**. That is not a fit error.
+A constant `R_TIP` floors DBH at `2*R_TIP` = **10.3 cm for any tree at any age**, already 4.3× the
+whip. **There is no age at which this grower *is* a nursery whip.** Caliber therefore cannot align
+the clock, and no clock correction can fix caliber.
+
+⇒ **CORRECTION to iter-9:** it recorded the nursery offset and the `R_TIP` floor as "two independent
+causes" of the `s` defect. **They are not independent.** The floor is *what makes the clock
+unalignable on caliber*. Only the height axis was ever available.
+
+### Result (8 seeds, ratio vs the census/UTD target)
+
+| tier | H before | H after | DBH before | DBH after | span before | span after |
+|---|---|---|---|---|---|---|
+| **s** (8→15 yr) | 0.62× | **0.88×** | 1.85× | **1.96×** | 0.25× | **0.76×** |
+| **m** (40→47 yr) | 0.85× | 0.87× | 1.00× | 1.01× | 0.93× | 1.06× |
+| **l** (97→104 yr) | 0.95× | 0.98× | 0.72× | 0.73× | 0.79× | 0.76× |
+
+- ★★ **The `s` tier's "crown 0.21×" was mostly a CLOCK error, not a mechanism error.** Span
+  0.25× → **0.76×** and H 0.62× → **0.88×** from moving one number. m and l barely move (every ratio
+  shifts ≤0.03 except m span, +0.13 to a slight 1.06× overshoot), exactly as expected — 7 yr is small
+  next to 40 and 97.
+- ✅ **The pre-registered prediction was CONFIRMED on all three legs**: the age fix improves `s`'s H
+  and span while making its **DBH ratio WORSE** (1.85× → **1.96×**). Tips only accumulate, DBH is
+  monotone in tip count, and the `R_TIP` floor is age-invariant. This cleanly separates the two
+  causes: what survives the clock correction is *purely* caliber.
+
+### ★★★ What is left, and why it is now a much better target
+
+The residual is **caliber, and it is TWO-SIDED**:
+
+    s  (15 yr):  DBH 1.96×   -- the young tree is too THICK
+    l (104 yr):  DBH 0.73×   -- the old tree is too THIN
+
+One armature tip is priced at `DBH_CALIB^PIPE_POWER` = 12.85^2.3 ≈ **354 real A4/A5 twigs**, constant
+for every tip of every tree at every age — a mature-crown number that says an 8-yr sapling's ~6
+armature tips stand in for ~2200 twigs. **A constant `N_def` over-serves the sapling and under-serves
+the centenarian, in one monotone direction.**
+
+⇒ The fix is not a category lookup and not a smaller constant. **`N_def` must GROW, and the correct
+mechanism must push `s` DOWN and `l` UP with the same term.** A fix that only mends `s` is refuted on
+`l` for free. That is a far stronger falsification target than either defect alone, and it is the
+first time this thread has had a two-sided one.
+
+- ⛔ Do **not** lower `DBH_CALIB` — it scales every radius at once and re-breaks m/l.
+- ⛔ Do **not** re-propose `r_tip ∝ n_foliage^(1/p)` — already falsified on paper (every *lit* tip
+  carries the same `FOLIAGE_PER_TIP*FOLIAGE_LIFE` = 12 markers, so it thins only *shaded interior*
+  tips: it would hurt m/l and do nothing for an all-lit sapling).
+- ⚠ **Leading candidate, NOT YET SOURCED:** `N_def` accumulates with a **tip's own age** — a limb
+  that stopped elongating decades ago has built up a short-shoot spray; a shoot laid down this year
+  has none. This has the right two-sided sign. But it rests on a botanical claim about *Platanus*
+  short-shoot accumulation that **has not been checked against primary literature**, and five
+  mechanisms have already been built and refuted on unsourced intuition on this thread.
+  **SOURCE IT BEFORE CODING IT.**
+
+### ⚠ The instrument is still the limit
+
+8 seeds is not enough for fine claims. Spreads `(max−min)/mean`: `s` span **126%**, m span 92%, m H
+70%, l H 66%, best is m DBH at 23%. Several spreads *grew* going from 3 to 8 seeds (m DBH 23%→50%),
+which means 3 seeds was mis-sampling the tails. Mean uncertainty ≈ spread/√n ⇒ `s` span's 0.76×
+carries roughly ±0.10. The three `s` moves (+0.26, +0.51, +0.11) all clear that margin, so the
+verdict stands — but **no claim finer than ~10–15% is supported at 8 seeds.**
