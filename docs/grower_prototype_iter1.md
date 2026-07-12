@@ -615,3 +615,102 @@ missing bound on width. So:
 **★ RESUME: validate the AGE↔SIZE trajectory (H, W, DBH vs age) against real plane allometry before
 proposing any mechanism. The next step is still a derivation, not an edit — but it is an allometric
 one, not a search for a missing bound.**
+
+---
+
+# iter-8b — THE ALLOMETRY VALIDATION. The "crown is 2× too wide" premise is an ARTIFACT.
+
+**Status: the RESUME item above is DONE, and it invalidates the measurement baseline of iter-6/7/8.
+No mechanism was missing. The reference was wrong, the tier ages were wrong, and every recorded
+crown number was measured at an `ALPHA` that is not the one the code ships.**
+
+Probe: `tmp/allometry_probe.py`. Reference data: **Urban Tree Database** (McPherson, van Doorn &
+Peper 2016, USDA PSW-GTR-253, doi:10.2737/RDS-2016-0005) — 376 measured *Platanus × acerifolia*,
+zone **NoEast = Queens, NY** (n=49–53), the correct climate zone for Central Park. Corroborated by
+Moser-Vosshage/Rötzer/Pretzsch et al., *Arb. & Urban Forestry* 47(4):150 (2021), German *P. ×
+hispanica*.
+
+## 1. The real trajectory (NoEast, Queens NY) — this is now the validation target
+
+    age -> dbh(cm) : 2.40322 + 1.29420*a - 0.00705*a^2            quad, R2=.889
+    dbh -> ht(m)   : 3.29515 + 0.30021*d - 0.00109*d^2            quad, R2=.892
+    dbh -> cdia(m) : exp(-0.75195 + 2.41418*ln(ln(d+1)) + .0703)  loglogw1, R2=.942
+
+| age | DBH cm | H m | crown dia m | **H/W** |
+|---|---|---|---|---|
+| 10 | 14.6 | 7.5 | 5.8 | **1.28** |
+| 20 | 25.5 | 10.2 | 8.9 | 1.15 |
+| 30 | 34.9 | 12.4 | 11.0 | 1.13 |
+| 40 | 42.9 | 14.2 | 12.5 | 1.13 |
+| 60 | 54.7 | 16.5 | 14.5 | **1.13** |
+
+**Chris's field observation is CONFIRMED — with a bound.** W/H rises **0.65–0.78 (young) → ~0.88
+(mature)**, a real ~+30% rise, in the raw measured trees *and* in 5 of 6 usable zone fits, and in the
+German study (0.62 → 0.71). Park and street trees converge on the same mature ratio (~0.86–0.89), so
+it is not a pruning artifact. **But the widening SATURATES by ~age 30** and is flat thereafter. It is
+*not* unbounded. ⚠ **The UTD park subset has NO trees over ~50 yr** — the old open-grown regime, which
+is exactly Central Park's `l` tier, is *not* directly measured by this data. There, Chris's field
+observation remains the better evidence and the curve above is an extrapolation.
+
+## 2. ★★ THE TIER AGES ARE WRONG — and that is what manufactured the "too wide" crown
+
+Invert the curve on each tier's own `(H, DBH)` target (`TIERS` in `plane_grower.py`):
+
+| tier | target H / DBH | **implied real age** | age we grow it for |
+|---|---|---|---|
+| s | 10.0 m / 17.8 cm | ~13–19 yr | 12 ✓ |
+| m | 14.4 m / 38.1 cm | **~34–41 yr** | **20** ✗ |
+| l | 22.0 m / 71.1 cm | **~80+ yr** | **35** ✗ |
+
+We were asking the grower to build a **37-year-old tree in 20 years**. The only way to do that is to
+raise `ALPHA` — and a raised `ALPHA` is precisely what pumps the crown out to 25 m. The crown was
+"too wide" *because the tree was being force-grown to a mature size in half the time it takes.*
+
+## 3. ★★★ Every recorded iter-8 crown number was measured at a NON-SHIPPED `ALPHA`
+
+Master is clean at `5cef1f9`; `ProbeGrower` only snapshots (it calls `super().shed()`), so it does not
+alter growth. Yet at the **shipped** `ALPHA = 3.0e-5`, master does **not** reproduce the recorded
+numbers at all:
+
+| m tier, yr 20, 3 seeds | recorded (§iter-8) | **master, shipped ALPHA** |
+|---|---|---|
+| H | 13–15 m | **7.6 – 12.1 m** |
+| crown | 19–28 m | **10.6 – 10.7 m** |
+| identity `2·n·l/decay` | 25.4 m ✓ matched | 25.4 m — **span is 10.7 m. NOT matched.** |
+
+⇒ **The "crown width is an arithmetic identity the economy cannot see" conclusion DOES NOT HOLD at the
+shipped parameters.** The identity is the *ceiling* on reach — what you get when the resource pool is
+rich enough for every axis to spend its full `GU_NODES` budget. At a realistic `ALPHA` the economy
+**does** limit width (10.7 m « 25.4 m). `DBH_CALIB = 4.37` is stale for the same reason: it was fitted
+to make the m tier hit 15 in, and at shipped `ALPHA` the m tier reaches **13 cm, not 38 cm**.
+
+## 4. What is ACTUALLY wrong, measured at the CORRECT ages and the shipped `ALPHA`
+
+| | m tier @ 37 yr (3 seeds) | real @ 37 | verdict |
+|---|---|---|---|
+| **DBH** | **13.1 – 14.4 cm** | 40.6 cm | ✗✗ **~3× TOO THIN — the biggest defect** |
+| H | **7.7 – 13.4 m** | 13.7 m | ✗ best seed lands; 2 of 3 are ~40% short |
+| crown span | 14.0 – 17.7 m | 12.1 m | ~ **only +30%, not 2×** |
+
+(l @ 60 yr: DBH 12.9–20.9 vs 54.7; H 7.4–13.0 vs 16.5; span 8.5–16.3 vs 14.5 — same shape of error.)
+
+- The **H/W deficit decomposes**: roughly 60% of it is a HEIGHT SHORTFALL, only ~40% a width excess.
+  We have been hunting a width bound to fix what is mostly a height-and-wood problem.
+- ⚠ **SEED VARIANCE IS ITSELF AN UNLOGGED DEFECT:** H ranges **7.7 → 13.4 m at identical parameters.**
+  A 74% spread makes every 3-seed mean we have ever quoted nearly meaningless.
+
+## 5. RESUME — calibrate before you mechanise
+
+⛔ **Do NOT code a width mechanism.** Five have failed and the premise for a sixth is now gone.
+⛔ Do not act on the "⭐ APICAL_K≈2 fixes l-tier H (13.4 → 20.3 m)" note until the ages are fixed:
+20.3 m is far too tall for a 35-yr tree (real 13.4 m) but reasonable for the 80-yr tree the l tier
+actually describes. Its verdict is age-dependent.
+
+1. **Adopt §1 as the validation target** — H, W, DBH vs age, not a single H/W snapshot.
+2. **Fix the tier ages** (s≈15, m≈37, l≈80), or better: re-derive each tier's `(H, DBH)` from the
+   **NYC census DBH distribution of Central Park's actual planes** and read H/W off the curve. The
+   census gives us measured DBH; we never needed to guess an age at all.
+3. **Refit `ALPHA` and `DBH_CALIB` at the corrected ages** — this honest calibration has never been
+   done, and every conclusion since iter-5 rests on it.
+4. **Then, and only then, re-measure the crown.** Chase DBH (3×) and the seed variance (74%) first;
+   a +30% width overshoot is the smallest of the three errors and may not survive the recalibration.
