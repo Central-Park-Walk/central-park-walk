@@ -54,11 +54,37 @@ from scipy.spatial import cKDTree
 # ---------------------------------------------------------------------------
 PIPE_POWER = 2.3          # da Vinci exponent (reused from leafback line; [PROV] for plane)
 R0         = 0.004        # 4 mm terminal-bud seed radius (reused)
-# ★ iter-5, residual (v): the SINGLE fitted scalar for EMERGENT DBH (§5.3, F2). Multiplies every
-# radius on every tier; fitted ONCE so the modal m tier -> census median 15 in. s/l DBH then EMERGE
-# (~p27/p90). Physically = leaf-load per leafless-armature tip (the deferred A4/A5 foliage each A3 tip
-# stands in for). The old per-tier root->DBH_target rescale is DELETED (it imposed the answer). [FIT]
+# ★ iter-5, residual (v): the SINGLE fitted scalar for EMERGENT DBH (§5.3, F2). Fitted ONCE so the
+# modal m tier -> census median 15 in. s/l DBH then EMERGE (~p27/p90). Physically = the deferred
+# A4/A5 foliage layer each leafless A3 tip stands in for. [FIT]
 DBH_CALIB  = 4.37         # [FIT] set so m -> 15.0 in; see docs/grower_prototype_iter1.md iter-5.
+# ★ iter-8: DBH_CALIB is applied AT THE TIP, not as a post-hoc multiply in finalize(). The two are
+# EXACTLY equivalent -- the pipe model r=(SUM r_c^p)^(1/p) is homogeneous of degree 1 in the tip
+# radius, so seeding every tip at k*R0 scales every radius by k -- but the tip form says what the
+# constant physically IS: one armature tip stands in for DBH_CALIB^PIPE_POWER ~ 30 real A4/A5 tips.
+# This matters now, because the mechanical radius (below) has to be compared against the pipe radius
+# the tree ACTUALLY BUILDS. Against the post-hoc-multiplied one that comparison cannot even be
+# written down; against the raw one it is wrong by 4.37x. See docs/grower_prototype_iter1.md iter-8.
+R_TIP      = DBH_CALIB * R0     # 17.5 mm effective terminal-bud radius (= 30 deferred tips' worth)
+
+# --- ★ iter-8, POSITION A: SELF-SUPPORT COST (ADR docs/adr_grower_crown_bound.md; falsification
+# docs/grower_selfsupport_falsification.md). The crown-width bound is not in Palubicki (whose
+# Discussion says outright they "ignored passive bending of branches under their weight") and not in
+# C&E (which has no lengths). It is BIOMECHANICAL: a vertical axis is a column in compression and
+# pays ~nothing to stand up; a horizontal limb is a CANTILEVER and must lay down d^3 ∝ M·L/sigma of
+# wood just to hold itself out. Until iter-7 the grower got that wood FREE (radius was computed in
+# finalize() AFTER the fact; the economy only bought internode LENGTH), so reach cost nothing and
+# nothing bounded it. Now the economy buys WOOD VOLUME, and the support bill is paid out of the same
+# finite pool as extension -> reach is priced, height is not, and the asymmetry falls out of
+# statics rather than out of a fitted constant. Measured (size-controlled, R2 0.96): support wood
+# ~ lever^+1.09 vs light income ~ lever^+0.27 => cost/income ~ lever^+0.82.
+# These are PUBLISHED constants, not fits.
+RHO_GREEN  = 900.0        # kg/m3, green Platanus wood (basic SG ~0.47 at ~90% MC). Wood Handbook.
+MOR_GREEN  = 45.0e6       # Pa, modulus of rupture, green American sycamore (~6500 psi).
+SAFETY     = 4.0          # trees hold a constant safe stress ~MOR/4 (Mattheck; Niklas).
+SIGMA      = MOR_GREEN / SAFETY     # 11.25 MPa allowable bending stress
+GRAV       = 9.81
+LEAF_KG    = 0.010        # kg per foliage marker. Wood dominates the moment; see falsification §5.
 
 # --- module / growth-unit lengths, in NODES (metamers). C&E measured for A2..A5. ---
 GU_NODES = {1: 14,        # A1 trunk. [GAP-A1GU] — C&E's cell is BLANK; do NOT interpolate
@@ -116,10 +142,16 @@ DIVERG_SPIRAL = 137.5     # 2/5 spiral phyllotaxis divergence for orthotropic A1
 # PERIPHERY keeps f~1 forever: light-based extension REWARDS lateral runaway. The bound comes from
 # C&E's ONTOGENETIC PAUPERIZATION (see grow_module) -- D_clean's geometric decay makes an axis's total
 # extension a convergent series. Radius is bounded as an OUTPUT of the A1..A5 differentiation sequence.
-ALPHA      = 1.0   # v_base = ALPHA * Q_base. FIXED AT 1: only the ratio ALPHA/V_SAT affects f(v),
-                   # so the two are degenerate -- this leaves exactly ONE new fitted scalar (V_SAT).
-V_SAT      = 20.0  # [FIT] resource share at which an apex extends at C&E's FULL internode (f=1).
-                   # Fitted so a young, uncrowded apex saturates; see docs/grower_prototype_iter1.md.
+# ★ iter-8: v IS NOW A WOOD VOLUME (m^3/yr), not an abstract resource. That single change is what
+# lets self-support be PRICED: thickening (holding the limb out) and extension (reaching further)
+# are both m^3, so they compete for one pool at no invented exchange rate. It also RETIRES V_SAT --
+# an apex no longer saturates at a fitted resource level, it saturates when it can afford C&E's full
+# internode, and the price of an internode is just the wood in it (pi*R_TIP^2*l). So the economy
+# still has exactly ONE fitted scalar, and it is now the photosynthetic yield.
+ALPHA      = 3.0e-5  # [FIT] m^3 of wood per unit of light gathered per year. v_base = ALPHA*Q_base.
+                     # Replaces V_SAT (which it also subsumes: the two were degenerate). Fitted so
+                     # height still EMERGES at ~H on the s and m tiers -- iter-6's win, which the
+                     # new thickening sink must not cost us. See docs/grower_prototype_iter1.md.
 EXT_MIN    = 0.02  # [PROV] below this extension fraction the bud cannot extend at all -> dormant.
 W_MAX      = 1.0    # priority weights, Palubicki Fig. 8c / Fig. 9 (their published values).
 W_MIN      = 0.02   # [FIT] the HABIT knob: large weights on a few branches => excurrent (their
@@ -371,6 +403,12 @@ class Grower:
         self.axes = []
         self.reit_count = 0
         self._shadow, self._mn = {}, np.zeros(3)   # ★ iter-6: last year's light field (banked)
+        # ★ iter-8: banked alongside the light field, and spent the same way — a year in arrears.
+        # _r_prev = last year's structural girth per node (the baseline the thickening bill is
+        # measured against); _bill = last year's support demand per axis, which this year's
+        # allocation pays before it grows anything. Trees do thicken in arrears; so does this.
+        self._r_prev = np.zeros(0)
+        self._bill = {}
         self._arch_distal = []   # ★ iter-5: (distal_root_node, host_axis) — arch-summit dieback
                                  # candidates; the shed rule kills each once its offspring overtop it.
         # seed: ground node + trunk apex one internode up
@@ -429,7 +467,7 @@ class Grower:
         #       That is the real short-shoot/long-shoot (brachyblast/auxiblast) distinction.
         #
         # l is scaled by TWO factors, and it takes both to bound the crown:
-        #   f(v) = min(1, v/V_SAT)  — the BH RESOURCE share (what the axis can AFFORD). Necessary but
+        #   the RESOURCE share the apex can AFFORD, in m^3 of wood, AFTER its axis paid its support bill.
         #       NOT sufficient on its own: because the allocation telescopes to light-proportional,
         #       a bud's share is ~the light its own leaves caught, and a bud at the sunlit crown
         #       PERIPHERY keeps f~1 forever. Light alone therefore REWARDS lateral runaway.
@@ -446,9 +484,16 @@ class Grower:
         # pauperization — a wave-1 lateral must not reach as far as the trunk — is NOT here: it lives in
         # the dominance-weighted resource split (see _distribute). Putting it here as well, by reading D
         # on the absolute scale, double-penalizes (capability x affordability) and amputates the crown.
+        # ★ iter-8: the apex's share _v is now a WOOD VOLUME (m^3), and it is what is LEFT after the
+        # axis paid this year's self-support bill (see _distribute). A metamer is a cylinder of tip
+        # radius R_TIP and length l, so the module costs n*pi*R_TIP^2*l -- the length it can afford
+        # is a division, and C&E's INTERNODE is the ceiling on it (the species' full long shoot; a
+        # bud cannot lay down more internode than its genotype has, however rich it is). That
+        # ceiling is what V_SAT used to be, so V_SAT is retired: the saturation is now structural.
         n = GU_NODES[ax.cat]
         vigour = np.clip(self.D_clean(ax) / max(ax.D_peak, 1e-6), 0.0, 1.0)
-        ext = min(1.0, ax._v / V_SAT) * vigour
+        l_afford = ax._v / (n * math.pi * R_TIP ** 2)
+        ext = min(1.0, l_afford / INTERNODE) * vigour
         if ext < EXT_MIN:
             ax._dormant += 1                    # cannot extend at all this year (a dormant bud)
             return None, []
@@ -730,11 +775,116 @@ class Grower:
             # only WOODY live children carry pipe area (foliage excluded)
             wc = [c for c in children[i] if self.nodes[c].alive and not self.nodes[c].foliage]
             if not wc:
-                r_live = R0
+                r_live = R_TIP                        # ★ iter-8: the tip seed carries DBH_CALIB
             else:
                 r_live = (sum(radius[c] ** PIPE_POWER for c in wc)) ** (1.0 / PIPE_POWER)
             radius[i] = max(radius[i], r_live)        # THE RATCHET — never decreases
         return radius
+
+    # ======================================================================
+    # ★ iter-8 — STRUCTURAL RADIUS = max(pipe, self-support).  Position A.
+    # ======================================================================
+    def structural_radius(self, children, r_pipe):
+        """The wood the tree must actually build: the pipe-model radius OR the cantilever radius
+        its own self-weight demands, whichever is larger.
+
+            M_i = g * || SUM_j m_j (p_j - p_i)_xz ||   over i's subtree      (bending moment)
+            r_mech = (4 M / pi sigma)^(1/3)                                  (Metzger uniform stress)
+
+        The loads are PARALLEL and VERTICAL, so the moment is a VECTOR sum: a symmetric vertical
+        axis cancels to ~0 and pays nothing, while a limb held out sideways pays d^3 ∝ M·L. The
+        2:1 height/width asymmetry is therefore a CONSEQUENCE of the statics, not an assumption.
+
+        m_j depends on the radii, which depend on M, so this is a FIXED POINT -- and it must be
+        solved on the STRUCTURAL radius (max of both terms), not on r_mech alone. Solving it on
+        r_mech alone understates the mass by the pipe term and makes the whole mechanical demand
+        look ~4x smaller than it is; that error is what made the ADR falsification's T3 report the
+        mechanical term as INERT. It is not: against the pipe radius the tree really builds, it
+        binds on 42-62% of load-bearing wood (lever > 2 m) and on 0% at the bole. Re-derived in
+        tmp/grower_selfconsistent_check.py.
+        """
+        order = self._topo_leaves_first(children)     # leaves-first
+        N = len(self.nodes)
+        pos = np.array([nd.pos for nd in self.nodes], dtype=float)
+        wood = np.array([nd.alive and not nd.foliage for nd in self.nodes])
+        leaf = np.array([nd.alive and nd.foliage for nd in self.nodes])
+        seglen = np.zeros(N)
+        for i in range(1, N):
+            p = self.nodes[i].parent
+            if p >= 0:
+                seglen[i] = np.linalg.norm(pos[i] - pos[p])
+        r_pipe = np.asarray(r_pipe, dtype=float) * wood
+        leafm = np.where(leaf, LEAF_KG, 0.0)
+        kids = [[c for c in children[i] if self.nodes[c].alive] for i in range(N)]
+
+        r = r_pipe.copy()
+        for _ in range(60):
+            m = np.where(wood, RHO_GREEN * math.pi * r ** 2 * seglen, 0.0) + leafm
+            M_sub = np.zeros(N)                       # subtree mass
+            S_sub = np.zeros((N, 3))                  # subtree first moment of mass
+            for i in order:
+                ms, ss = m[i], m[i] * pos[i]
+                for c in kids[i]:
+                    ms += M_sub[c]; ss += S_sub[c]
+                M_sub[i] = ms; S_sub[i] = ss
+            off = S_sub - M_sub[:, None] * pos        # SUM_j m_j (p_j - p_i)
+            Mb = GRAV * np.linalg.norm(off[:, [0, 2]], axis=1)   # horizontal lever arm only
+            r_mech = np.where(wood, (4.0 * Mb / (math.pi * SIGMA)) ** (1.0 / 3.0), 0.0)
+            r_new = np.maximum(r_pipe, r_mech)
+            if not np.all(np.isfinite(r_new)) or r_new.max() > 5.0:
+                break                                 # cannot hold itself up — keep the last iterate
+            d = np.abs(r_new - r).max()
+            r = 0.5 * r + 0.5 * r_new                 # damped, for a stable fixed point
+            if d < 1e-6:
+                break
+        return r, seglen
+
+    def support_bill(self, children, r_struct, r_pipe, seglen):
+        """★ iter-8 — THE PRICE OF STANDING UP, per axis, this year, in m^3 of wood.
+
+        ⚠ THE BILL IS THE MECHANICAL SURCHARGE, NOT THE WHOLE THICKENING BILL:
+
+            surcharge_i = pi * (r_struct^2 - r_pipe^2) * L        (>0 only where statics wins)
+
+        Charging the FULL thickening — pipe wood included — was tried first and is WRONG, in a way
+        worth recording because it looks right. Pipe wood is the tree's PLUMBING: the pipe model
+        makes it proportional to the leaf area it feeds, so it is self-financing, and above all it
+        is LEVER-INDEPENDENT — a limb's pipe radius depends on how many tips it carries, not on how
+        far out it holds them. Charging it therefore adds no crown bound at all, and it does active
+        harm: the trunk's pipe bill is the largest in the tree and is charged at the ROOT, so it
+        chokes the whole crown uniformly instead of taxing the limbs that overreach. Measured: no
+        ALPHA existed at which H reached 14 m and the crown stayed under 18 m — the two scaled
+        together, and the crown came out WIDER than iter-7 (26-34 m). The lever-independent tax
+        swamped the lever-dependent one, which is the entire content of Position A.
+
+        The surcharge is the part statics demands OVER what the plumbing would have laid down
+        anyway. It is ~0 for a near-vertical axis (whose moment cancels — see structural_radius)
+        and rises as lever^+1.09 (falsification T2). That asymmetry is the mechanism.
+
+        Every axis pays its own out of its own share (_distribute), so the bills telescope and no
+        wood is charged twice. A newborn section's baseline is R_TIP, not 0: the wood inside the
+        tip seed was already bought as EXTENSION when the metamer was laid down (pi*R_TIP^2*l, see
+        grow_module)."""
+        N = len(self.nodes)
+        wood = np.array([nd.alive and not nd.foliage for nd in self.nodes])
+        prev = np.full(N, R_TIP)
+        n_old = len(self._r_prev)
+        prev[:n_old] = self._r_prev                   # sections that existed last year keep their girth
+        prev = np.where(wood, prev, 0.0)
+        r_pipe = np.asarray(r_pipe, dtype=float)
+        # the surcharge already standing (last year's, on last year's plumbing) is not re-charged:
+        # bill only the INCREASE in mechanical excess over the pipe radius.
+        excess_now = np.maximum(r_struct ** 2 - r_pipe ** 2, 0.0)
+        excess_was = np.maximum(prev ** 2 - r_pipe ** 2, 0.0)
+        dv = np.where(wood, math.pi * np.maximum(excess_now - excess_was, 0.0) * seglen, 0.0)
+        bill = {ax.id: 0.0 for ax in self.axes}
+        for i in range(1, N):
+            a = self.nodes[i].axis
+            if a >= 0 and dv[i] > 0.0:
+                bill[a] = bill.get(a, 0.0) + float(dv[i])
+        self._r_prev = np.maximum(prev, r_struct)     # the ratchet applies to the baseline too
+        self._bill_total = float(dv.sum())            # diagnostics: is the mechanism biting at all?
+        return bill
 
     # ======================================================================
     # FOLIAGE (§9.2, iter-2) — the transient A4 light-gatherer layer
@@ -885,19 +1035,35 @@ class Grower:
             q_sub[a] = q_own[a] + sum(q_sub[c] for c in kids[a])
             n_sub[a] = live_apex + sum(n_sub[c] for c in kids[a])
         # BOOTSTRAP: before any foliage exists (year 1) the tree has caught no light. A seedling
-        # grows on its stored reserves — give every apex a saturating share for that one step.
+        # grows on its stored reserves — give every apex enough to buy one full module.
         if not roots or sum(q_sub[r] for r in roots) <= 0.0:
             for ax in self.axes:
                 if ax.alive and ax.apex is not None:
-                    ax._v = V_SAT
+                    ax._v = GU_NODES[ax.cat] * math.pi * R_TIP ** 2 * INTERNODE
             return
         # --- acropetal pass: distribute v down the axis tree ---
         apical = year <= APICAL_OFF_YEAR
+        self._v_base = ALPHA * sum(q_sub[r] for r in roots)   # diagnostic: the whole year's pool
         for r in roots:
             self._distribute(r, ALPHA * q_sub[r], kids, q_own, q_sub, n_sub, apical)
 
     def _distribute(self, a, v, kids, q_own, q_sub, n_sub, apical):
         ax = self.axes[a]
+        # ★ iter-8, POSITION A — THE SUPPORT BILL IS PAID FIRST, off the top, before anything this
+        # axis carries can be spent on growing. The wood that holds an axis out is not optional and
+        # it is not free: it comes out of the same finite pool as extension. A near-vertical axis
+        # cancels its own moment and is charged ~nothing; a limb held out 8 m pays ~22 m^3 of
+        # thickening per 1 m^3 it reaches further (falsification T4), so its apex is left with
+        # almost nothing and its extension collapses to a short shoot. That -- not a cap, not a
+        # tropism, not a fitted taper -- is what bounds the crown.
+        #
+        # Each axis pays only for ITS OWN sections; every descendant axis pays its own out of the
+        # share it receives, so the bills telescope to the tree's total annual thickening exactly.
+        # If the bill exceeds what reaches the axis, the whole subtree gets nothing this year: it
+        # is spending everything it earns on standing up. Repeat that and the shed rule takes it.
+        v = max(0.0, v - self._bill.get(a, 0.0))
+        if v <= 0.0:
+            return
         # the candidates competing for this axis's resource: its OWN terminal bud (a single-metamer
         # branch, per the paper) and each child axis it supports.
         # ⚠ The apex's Q is the light gathered by the FOLIAGE THIS AXIS BEARS (q_own) — NOT the point
@@ -1189,10 +1355,16 @@ class Grower:
             #    (§7.2): summit re-erection on arched limbs, distal continuation registered for dieback.
             self.latent_bud(year, shadow, mn)
             self.arch_cascade(year)
-            # 6. RATCHET radius (monotone), then POSTURE (needs radius), then SHED (foliage light).
+            # 6. RATCHET radius (monotone), then the SELF-SUPPORT radius on top of it (★ iter-8:
+            #    r = max(pipe, cantilever) — the wood the tree must actually build), then POSTURE
+            #    (needs radius), then SHED (foliage light). The support BILL for the girth added
+            #    this year is banked, and next year's allocation pays it before it grows anything.
             children = self._children(include_dead=True)
             radius = [0.0] * len(self.nodes)
             radius = self.ratchet(radius, children)
+            r_struct, seglen = self.structural_radius(children, radius)
+            self._bill = self.support_bill(children, r_struct, radius, seglen)
+            radius = list(r_struct)
             self.posture(radius, children)
             shadow, mn = self.build_shadow(children)
             nshed = self.shed(self.foliage_light(shadow, mn), children, year)
@@ -1201,8 +1373,11 @@ class Grower:
                 nlive = sum(1 for ax in self.axes if ax.alive)
                 nfol = sum(1 for nd in self.nodes if nd.alive and nd.foliage)
                 nwood = sum(1 for nd in self.nodes if nd.alive and not nd.foliage)
+                vb = getattr(self, "_v_base", 0.0)
+                bt = getattr(self, "_bill_total", 0.0)
                 print(f"yr {year:2d}: wood={nwood:5d} foliage={nfol:5d} axes={nlive:4d} "
-                      f"shed={nshed:3d} reiter={self.reit_count:3d}")
+                      f"shed={nshed:3d} reiter={self.reit_count:3d} "
+                      f"pool={vb:8.4f} m3  support_bill={bt:8.4f} m3 ({100*bt/max(vb,1e-12):5.1f}% of pool)")
         return self.finalize()
 
     # ======================================================================
@@ -1212,14 +1387,15 @@ class Grower:
         children = self._children(include_dead=True)
         radius = [0.0] * len(self.nodes)
         radius = self.ratchet(radius, children)
-        # ★ iter-5, residual (v): DBH is now EMERGENT (§5.3, F2 ratified). The per-tier rescale
-        # (root -> DBH_target/2) is DELETED — that IMPOSED the census median on every tier. Instead ONE
-        # global scalar DBH_CALIB (the leaf-load per leafless-armature tip, standing in for the deferred
-        # A4/A5 foliage layer) multiplies ALL radii on ALL tiers; it is fitted ONCE so the modal m tier
-        # lands on the census median (15 in). The young/veteran DBHs are then OUTPUTS: with the raw
-        # ratchet they emerge at ~9.4 / 15 / 25 in for s/m/l — i.e. census ~p27 / p50 / p90 — WITHOUT
-        # being told (only the median anchor is fit). The falsifiable part is that SHAPE across tiers.
-        radius = [r * DBH_CALIB for r in radius]
+        # ★ iter-5, residual (v): DBH is EMERGENT (§5.3, F2 ratified). The per-tier rescale
+        # (root -> DBH_target/2) is DELETED — that IMPOSED the census median on every tier. ONE global
+        # scalar DBH_CALIB (the deferred A4/A5 foliage layer each leafless tip stands in for) is fitted
+        # ONCE so the modal m tier lands on the census median (15 in); s/l DBH are then OUTPUTS
+        # (~p27/p90). ★ iter-8: it is no longer a post-hoc multiply here — it rides on R_TIP inside the
+        # ratchet, which is exactly equivalent (the pipe model is homogeneous in the tip radius) but
+        # leaves a radius the mechanical term can be compared against. The final girth is the larger
+        # of the pipe and self-support demands, so the crown's wood is now DERIVED, not calibrated.
+        radius = list(self.structural_radius(children, radius)[0])
         # strand ids from the grower's OWN axis ids (not a max-radius guess)
         strand = [self.nodes[i].axis if self.nodes[i].axis >= 0 else 0
                   for i in range(len(self.nodes))]

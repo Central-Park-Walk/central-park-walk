@@ -168,3 +168,34 @@ will have paid one hour instead of another iteration.
   extension its own Discussion asks for. That should be stated in `docs/grower_reiterate_design.md`.
 - ⚠ **All width results must be replicated across ≥3 seeds from here on.** The single-seed grid in
   iter-7 looked like control and was noise.
+
+---
+
+## ADDENDUM 2026-07-11 — **POSITION A IS REFUTED IN THE BUILD.**
+
+A was built exactly as §6 specifies (iter-8; see `docs/grower_prototype_iter1.md` iter-8 for the full
+account). It does not bound the crown, and two of §6's five build instructions were wrong.
+
+1. **§6.1 and §6.4 are WITHDRAWN.** They rest on T3's finding that the mechanical term is inert
+   against `DBH_CALIB`. T3 solved the fixed point against a mass computed from `r_mech` itself, which
+   understates the tree's real (calibrated) mass ~19×. Re-solved self-consistently, the mechanical
+   term binds on **42–62%** of load-bearing wood, and against the *raw* pipe radius it demands **2.3×**
+   more wood — so §6.1 ("mechanics ahead of `DBH_CALIB`") would have made every crown limb 2.3× too
+   thin. The calibrated pipe radius and the mechanical demand *agree* in the crown (×0.93–1.04), which
+   is the standard real-tree result and validates both.
+
+2. **A is refuted on MAGNITUDE.** The mechanical surcharge is **1–3% of the annual resource pool**.
+   §5's `cost/income ~ lever^+0.82` is real and still holds — but a rising ratio on a 2% line item
+   cannot bound a budget. **The falsification tested the SCALING of the cost and never its SHARE OF
+   THE BUDGET.** That is the lesson: for a cost to be a bound, test its magnitude, not only its slope.
+
+3. **What crown width actually is:** the arithmetic identity `reach = GU_NODES·INTERNODE/D_DECAY_AGE`,
+   which predicts the measured width to ~10% across a 2× sweep of `INTERNODE` on 3 seeds. No mechanism
+   in this ADR — nor in the four diagnoses before it — appears in that identity, which is why none of
+   them ever moved the number. `INTERNODE` is nonetheless a **scale** knob, not a shape knob (H/W is
+   flat at ~0.55 across the sweep), so correcting it does not fix the tree either.
+
+⇒ **Position B (limb breakage) is NOT promoted by A's failure** — it is a bound of the same family and
+would be a sixth variant of "the crown is bounded by what a limb can carry". The open question is now
+different and sharper: **height is bounded only because `H` is imposed, and width is bounded by
+nothing at all.** One mechanism must bound both. That derivation, not another build, is the next step.

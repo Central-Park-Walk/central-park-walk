@@ -468,3 +468,123 @@ is the candidate explanation for why a plane reaches ~14 m up but only ~6–9 m 
 
 ⇒ This is a canonical design change. **ADR: `docs/adr_grower_crown_bound.md`. Do not code a fourth
 variant of the refuted diagnosis. Do not ship.**
+
+---
+
+# iter-8 — POSITION A BUILT, AND **REFUTED**. Crown width is an ARITHMETIC IDENTITY.
+
+**Status: the ADR's Position A is dead in the build. Crown width has a fifth diagnosis, and this
+one is measured, closed-form, and predicts the number.** Not shipped; criterion (vi) still unmet.
+
+## 1. Two corrections found before the build (both real, both kept)
+
+**(a) The falsification's mechanical radius was solved against the wrong mass.**
+`tmp/grower_selfsupport_falsify.py` solved the fixed point `r_mech = f(mass(r_mech))` — but the tree
+does not *build* `r_mech`, it builds `DBH_CALIB · r_pipe`, which is 4.37× thicker and therefore ~19×
+heavier. The moment a limb carries is set by the wood that is **actually there**, so the honest fixed
+point is on the structural radius, `r_struct = max(r_pipe, r_mech(mass(r_struct)))`. Re-solved that
+way (`tmp/grower_selfconsistent_check.py`, 3 seeds):
+
+| lever arm | r_mech / r_pipe_raw | r_mech / r_pipe_built (calibrated) |
+| --- | --- | --- |
+| 0–2 m (the bole) | ×1.00 (78% bind) | ×0.29 (**0%** bind) |
+| 2–10 m | ×2.1 – ×2.7 (**100%** bind) | ×0.93 – ×1.04 (42–62% bind) |
+
+⇒ **T3's "the mechanical term is INERT, 0% of limbs" was an artifact of the understated mass.** It is
+not inert; it binds on roughly half of all load-bearing wood. But the table also **overturns ADR §6.1**
+("mechanics ahead of `DBH_CALIB`, compared against the *raw* pipe radius"): against the raw pipe,
+statics demands 2.3× more wood on every limb, so §6.1 would have made every crown limb ~2.3× too
+thin. The calibrated pipe radius and the mechanical demand **agree** in the crown (×0.93–1.04) — which
+is the known real-tree result (pipe-model and uniform-stress sizing coincide), and is a quiet
+validation of both. §6.1 and §6.4 (scope `DBH_CALIB` to the bole) are **withdrawn**.
+
+**(b) `DBH_CALIB` is not a post-hoc fudge — it is a TIP-COUNT correction, and it now says so.**
+The pipe model is homogeneous of degree 1 in the tip radius, so multiplying every radius by 4.37 in
+`finalize()` is *exactly* the same as seeding every tip at `R_TIP = 4.37·R0 = 17.5 mm`. The second
+form states what the constant physically **is**: one leafless armature tip stands in for
+`4.37^2.3 ≈ 30` deferred A4/A5 tips. Moved to the tip (`R_TIP`); output unchanged; the mechanical
+term now has a radius it can legitimately be compared against.
+
+## 2. The build (as specified, ADR §6.2/§6.3)
+
+- `structural_radius()` — `r = max(r_pipe, r_mech)`, self-consistent fixed point, `M_i = g·‖Σ m_j
+  (p_j−p_i)_xz‖` (parallel vertical loads ⇒ vector sum ⇒ a symmetric vertical axis cancels to ~0).
+- The economy's `v` now buys **wood volume (m³)**, not internode length. A metamer costs `π·R_TIP²·l`,
+  so the length an apex can afford is a division and C&E's `INTERNODE` is the ceiling on it.
+  ⇒ **`V_SAT` is RETIRED** (saturation is now structural, not fitted). The economy keeps exactly one
+  fitted scalar, now the photosynthetic yield `ALPHA` (m³ of wood per unit light).
+- `support_bill()` — each axis pays its own self-support bill off the top, before anything it carries
+  can grow (`_distribute`).
+
+⚠ **The bill must be the MECHANICAL SURCHARGE (`π(r_struct²−r_pipe²)L`), not the whole thickening
+bill.** Charging the full thickening was tried first and is wrong in a way that looks right: pipe wood
+is *plumbing* — proportional to the leaf area it feeds, hence self-financing and, decisively,
+**lever-independent** (a limb's pipe radius depends on how many tips it carries, not how far out it
+holds them). It adds no bound, and it does harm: the trunk's pipe bill is the largest in the tree and
+is charged at the root, choking the whole crown uniformly. Measured: **no `ALPHA` existed at which
+H reached 14 m and the crown stayed under 18 m** — the two scaled together and the crown came out
+*wider* than iter-7 (26–34 m).
+
+## 3. ★ THE RESULT: A IS REFUTED. The support cost is **1–3% of the pool.**
+
+Instrumented per year (`pool` = `ALPHA·Q_base`, `support_bill` = the year's mechanical surcharge):
+
+```
+yr 15: wood= 1491  pool=0.8589 m3  support_bill=0.0252 m3 ( 2.9% of pool)
+yr 20: wood= 2807  pool=1.3908 m3  support_bill=0.0427 m3 ( 3.1% of pool)
+```
+
+**Mechanics does not price the crown. It barely registers.** The ADR §5 falsification survived on a
+*ratio* — cost/income ~ lever^+0.82 — and that ratio is real and still holds. But **a rising ratio on
+a 2% line item cannot bound a budget**, and the falsification never asked what share of the budget
+the cost actually was. That is the methodological lesson: *for a cost to be a bound, test its
+MAGNITUDE, not only its SCALING.* A ratio test is necessary and nowhere near sufficient.
+
+Measured (m tier, 3 seeds, yr 20): crown **19–28 m**, H 13–15 m, H/W **0.50–0.60** — no better than
+iter-7, and worse than iter-7 at matched `ALPHA`. Reference: H 14.4 m, crown 12–18 m, H/W ~0.96.
+
+## 4. ★★ WHAT CROWN WIDTH ACTUALLY IS: an arithmetic identity, not a mechanism
+
+The identity flagged (unclaimed) at the end of iter-6 —
+
+> `axis reach = GU_NODES[cat] · INTERNODE / D_DECAY_AGE` (a convergent geometric series)
+
+— **predicts the measured crown width across a 2× sweep, on every seed** (m tier, 3 seeds, yr 20):
+
+| `INTERNODE` | predicted width `2·n·l/decay` | measured crown width |
+| --- | --- | --- |
+| **0.11** (current) | 25.4 m | 24.3 / 25.5 / 28.0 m |
+| 0.08 | 18.5 m | 20.5 / 20.7 / 23.7 m |
+| 0.06 | 13.8 m | 12.9 / 15.6 / 16.4 m |
+
+⇒ **This is why FIVE successive mechanistic diagnoses all failed to move the width.** Economy (iter-6),
+dominance-on-length (iter-7a), dominance-on-split (iter-7b), posture (refuted twice) and now
+self-support cost (iter-8) — **none of those quantities appear in `n·l/decay`.** The width was being
+set directly by a fitted length constant the whole time, and `INTERNODE = 0.11 m` is flagged in this
+very document as back-fitted *"so the m-tier trunk reaches ~14 m"*. A real plane metamer is 0.06–0.08 m.
+
+**But `INTERNODE` is a SCALE knob, not a SHAPE knob, so it does not fix the tree.** Across that same
+sweep H/W moves only 0.52 → 0.58 → 0.59 (reference 0.96): shrinking the metamer shrinks the *whole
+tree*, proportions intact. It is still the wrong number and should be corrected to a true metamer
+length — but as a *separate* correction that will drag H down with it, not as the crown fix.
+
+## 5. ⇒ THE SIXTH DIAGNOSIS (the one to falsify next)
+
+**Height is BOUNDED and width is UNBOUNDED, and that is backwards.** Height stops because a soft
+ceiling at `CEIL_FRAC·H` rounds the leaders over — i.e. **H is IMPOSED** (its own OUTPUT-not-parameter
+violation, the sixth). Width has no ceiling of any kind: it accumulates along *chains* of axes and
+keeps growing with age — measured **25 m → 38 m from year 20 to year 45** at `INTERNODE=0.11`, while
+height saturates at H. A real open-grown plane bounds *both*, and bounds them with the same
+mechanism. Until one mechanism bounds both, every fix will keep landing on the scale and missing the
+shape.
+
+⚠ **Do not code a sixth variant before it is falsified on paper.** Five have now failed. The next
+step is a derivation, not an edit.
+
+## 6. State
+
+Code is on master and **is not an improvement** — at matched `ALPHA` the crown is *wider* than iter-7
+(the new extension law saturates more easily, and `ALPHA` has not been refit; refitting it is
+pointless while the width is set by an identity the economy cannot see). Kept because
+`structural_radius()`, the self-consistent solver, the `R_TIP` re-expression and the retirement of
+`V_SAT` are all correct and independent of the refutation. **Criterion (vi) unmet. Do not ship.**
