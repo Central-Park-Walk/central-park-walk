@@ -413,3 +413,58 @@ node collapse** (a drop to ~1500 nodes = axes dying = FAILURE, not a win), then 
 at that setting. s and l are **not fitted**, so their numbers are the real test. Harness:
 `tmp/measure_grower.py` (crown radius, H, spread/H, nodes, DBH); axis-level survival probe:
 `tmp/probe_axes.py`. ⛔ Never clamp crown radius — width must EMERGE. **Do not ship.**
+
+### ✅ RESOLVED — apical-control strength is NOT the crown-width lever (seed-replicated refutation)
+
+The strength knob was made explicit (`APICAL_K`, the exponent on relay dominance in the split:
+share = `Q · rank_weight · D_clean**APICAL_K`; K=1 reproduces iter-7's first cut) and swept on the
+m tier, K ∈ [1, 6]. The open item above is now **closed as refuted**, and the finding is a good deal
+more useful than the knob would have been.
+
+**Raising K does exactly two things, and neither is the one we wanted:**
+1. **It raises H** — real, and biggest on the *unfitted* l tier (H 13.4 → **20.3 m** at K=2, into the
+   low end of the 22–24 m reference, at no cost in node count). That is a genuine, separate result.
+2. **It destroys wood** — total nodes fall monotonically, on every seed: −46 % by K=6.
+
+**It does NOT narrow the crown.** Spread is *non-monotone* in K and dominated by seed noise: at K=3
+three seeds give **14.3 / 27.4 / 28.1 m**. The tidy "K=2 → spread 14.6 m" reading on the default seed
+is **luck on the one seed the grower is fitted to** — the single-seed grid looked like control and was
+not. (A robust width measure, 2 × 95th-pct radius, tracks max spread, so the wide crowns are bulk-wide,
+not one escaping limb.) Sweep + table: `tmp/apical_k_sweep.py`, `tmp/apical_k_sweep.txt`.
+⚠ **Method note, worth keeping:** every previous crown-width number in this document was read off a
+single seed. **Replicate across seeds before believing a width result.**
+
+### ★★ THE THIRD STRIKE — and the root cause of all three
+
+One diagnosis underlies iter-6 and both halves of iter-7: *"crown width is bounded by dominance /
+resource allocation."* It has now failed three times, in three different places:
+
+| attempt | where D / the economy acted | outcome |
+| --- | --- | --- |
+| iter-6 | light-driven economy alone | allocation telescopes to light-proportional; a peripheral bud keeps f≈1 forever ⇒ **no bound** |
+| iter-7a | D as a **length** multiplier | ext falls under `EXT_MIN` at birth, `DORMANT_ABORT` fires ⇒ **amputation** (spread 5.9 m, half the wood dead) |
+| iter-7b | D on the **split**, any strength | **no bound** (above), and node loss buys nothing |
+
+**Root cause (prior art, checked end to end): the model we are implementing does not contain a
+crown-width bound, and never claimed to.** Palubicki 2009 §Discussion, in its own words:
+
+> "In our model, we **ignored changes in branch position and orientation over time**. Such changes,
+> due to active reorientation or **passive bending of branches under their weight, play an essential
+> role in the development of some tree forms**." (their remedy: Costes et al. 2008, biomechanics)
+
+Within Palubicki there are exactly **two** levers on crown extent, and both are already spent here:
+- **the shadow/space environment** — cannot bound an **open-grown** tree, because its peripheral bud
+  is never shaded. (This is iter-6's finding, restated: light *rewards* lateral runaway.)
+- **tropism / growth direction** (their Fig. 12–13: downward tropism ⇒ wider spread) — this is
+  **posture**, which was **TESTED and REFUTED** here (θ_GSA 40° vs 62° → 25.6 / 27.4 m; SAG_K 0.10 vs
+  0.50 ≈ nil).
+
+So the bound is **not** in Borchert–Honda, and it is **not** in C&E either (whose D is apical control,
+and which contains no lengths at all — see the iter-7 section above). **It has to come from outside
+both, and the paper names the missing piece: the mechanical cost of holding a limb out.** A vertical
+axis grows as a column in compression and pays almost nothing; a horizontal limb is a **cantilever**
+whose self-support wood scales super-linearly with its lever arm. That asymmetry — not dominance —
+is the candidate explanation for why a plane reaches ~14 m up but only ~6–9 m out.
+
+⇒ This is a canonical design change. **ADR: `docs/adr_grower_crown_bound.md`. Do not code a fourth
+variant of the refuted diagnosis. Do not ship.**

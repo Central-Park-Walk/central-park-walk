@@ -131,6 +131,15 @@ APICAL_OFF_YEAR = 12  # [PROV] apical control (terminal bud first in the priorit
                       # of the old tree" (citing Barthelemy & Caraglio -- C&E's own school). ONE
                       # threshold gives the whole tier progression: s (10 yr) never loses it and stays
                       # excurrent (correct for a sapling); m and l lose it and spread.
+APICAL_K   = 1.0    # ★ iter-7: the STRENGTH of apical control on the split. The share is
+                    # Q * rank_weight * D_clean**APICAL_K, so this is the exponent on relay
+                    # dominance -- the one knob that says how hard a leader outbids a subordinate
+                    # lateral for the same finite pool. K=0 is iter-6 (light alone: the crown cannot
+                    # be bounded, a peripheral bud keeps f~1 forever); K=1 was iter-7's first cut and
+                    # measured too WEAK (m spread 20.2 m vs a 12-18 m reference, H 13.1 vs 14.4 --
+                    # both errors have the SAME sign, which is what says the fault is strength and
+                    # not placement). Raising it pauperizes the periphery WITHOUT starving it,
+                    # because resource is conserved: what the lateral does not get, the leader does.
 DORMANT_ABORT   = 3   # [PROV] consecutive years at n=0 (resource cannot buy even one metamer) before
                       # the apex aborts. Palubicki's 4th bud fate. Shed (Takenaka) still removes the
                       # whole branch separately once it becomes a net liability.
@@ -930,7 +939,8 @@ class Grower:
         # crown. Measured: every wave below the trunk died at mean age <2.3 yr of 20, spread 5.9 m.)
         # D_clean (not D_eff) on purpose: light already enters via Q, and D_clean is defined for a
         # newborn (peak * EST_FLOOR), whereas D_eff is a year stale here and unset at birth.
-        wq = [t[1] * self._prio_weight(i, len(cands)) * max(self.D_clean(self.axes[t[3]]), 1e-3)
+        wq = [t[1] * self._prio_weight(i, len(cands))
+              * max(self.D_clean(self.axes[t[3]]), 1e-3) ** APICAL_K
               for i, t in enumerate(cands)]
         tot = sum(wq)
         if tot <= 0.0:
