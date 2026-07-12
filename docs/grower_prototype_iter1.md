@@ -588,3 +588,30 @@ Code is on master and **is not an improvement** — at matched `ALPHA` the crown
 pointless while the width is set by an identity the economy cannot see). Kept because
 `structural_radius()`, the self-consistent solver, the `R_TIP` re-expression and the retirement of
 `V_SAT` are all correct and independent of the refutation. **Criterion (vi) unmet. Do not ship.**
+
+## 7. ⚠ AMENDMENT (Chris, field observation, 2026-07-11) — §5's framing is WRONG
+
+§5 called it "backwards" that height saturates while width keeps growing. **Chris's field
+observation of real planes says the opposite: an older tree carries MORE width for its height than a
+younger one** — crown spread goes on widening long after height has levelled off. Field observation
+is ground truth and it beats my model of the model.
+
+⇒ **The model's qualitative allometry is CORRECT** (H saturates, W keeps growing with age — measured
+25 m → 38 m from yr 20 → 45). The defect is the **RATE and the SCALE**, not the sign, and not a
+missing bound on width. So:
+
+- ⛔ **Do NOT go looking for a mechanism that "bounds width like height is bounded."** That was my
+  error, and it would have been the sixth failed variant.
+- The question is now **quantitative and ontogenetic**: at a given AGE, what H/W does a real plane
+  have, and does ours match that TRAJECTORY? Our H/W ~0.55 vs a reference ~0.96 is a snapshot at one
+  assumed age (`{s:12, m:20, l:35}` yr, all `[PROV]` and never validated). **If the m tier is really a
+  20-year tree, ours is too wide; if the reference 14.4 m / 12–18 m plane is 35–45 years old, ours may
+  be reaching the right shape at the wrong age.** That is checkable against the census + the tiers'
+  ages, and it must be checked BEFORE any mechanism is proposed.
+- The identity `reach = GU_NODES·INTERNODE/D_DECAY_AGE` still stands, and `INTERNODE` is still
+  back-fitted. It sets the SCALE of the whole tree — which is exactly the free parameter that a
+  proper age/allometry check would pin down.
+
+**★ RESUME: validate the AGE↔SIZE trajectory (H, W, DBH vs age) against real plane allometry before
+proposing any mechanism. The next step is still a derivation, not an edit — but it is an allometric
+one, not a search for a missing bound.**
