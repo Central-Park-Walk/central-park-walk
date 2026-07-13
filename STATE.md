@@ -33,6 +33,19 @@ F_S goes 10 → 31 → 41 over 15/47/104 yr (**m→l = ×1.32**) while the real 
    since iter-9; iter-14 is the first *quantitative* indictment of it. **2–4 are downstream and cannot
    be read until it is fixed.** ⚠ It does NOT contradict iter-11's exoneration of the tip budget — the
    ARMATURE count is fine; what must scale is the deferred A4/A5 foliage each tip *stands for*.
+   - **★★ 2026-07-13 — MEASURED, and it is worse and cleaner than "a constant is wrong"**
+     (`docs/grower_saturation_diagnosis.md`, `tmp/iter15_saturation_probe.py`). The armature tip count
+     **NEVER GROWS**: 8–25 from yr 20 to yr 104, ~5 born and ~5 shed a year (458 reiterates, zero
+     accumulation), with **30–50% of live apices DORMANT** — unable to buy one metamer — at every age.
+     **Why: THE ECONOMY IS SCALE-FREE IN TIPS.** Each tip carries exactly 12 foliage markers ⇒
+     `Q_base = 12·n_tips·L̄` ⇒ **mean income per apex = ALPHA·12·L̄, independent of `n_tips`**
+     (measured `L̄` flat: 1.38 → 1.22 units/marker, yr 24 → 104), while cost per apex
+     `n·π·R_TIP²·INTERNODE` is *also* constant. Income ∝ tips, cost ∝ tips — **they cancel; `n_tips`
+     has no growth term anywhere** and sits at iter-9's calibrated fixed point for ever. Pool ×2.1
+     over 80 yr vs a census basal area ×2.71.
+   - ⚠ **SECONDARY FLAG (not chased):** `_bill_total` — the iter-8 self-support bill — reads **0.0000 m³
+     in every one of the 104 years** (<0.05% of the pool). It bills only the structural *excess over
+     pipe*, and pipe dominates ⇒ **self-support is not biting at all.** Not the cause of (1).
 2. **`DBH_CALIB` is stale** (fitted heartwood-free) — the one legitimate re-centring scalar. Refit
    ONCE, and only *after* (1). It cannot fix (1); see the rails.
 3. **Caliber splay** — s 5.15 / m 3.37 / l 3.36 (all ~3.4× too thick in absolute terms; that part is
@@ -42,6 +55,14 @@ F_S goes 10 → 31 → 41 over 15/47/104 yr (**m→l = ×1.32**) while the real 
 5. Criterion vi unmet ⇒ **do not ship.**
 
 ## NEXT — iter-15: MAKE `N_def` SIZE-DEPENDENT. Derive it; do not fit it.
+
+**★★ 2026-07-13 — THE TARGET IS NOW SPECIFIC: `N_def` MUST ENTER THE LIGHT INCOME, NOT JUST THE LEDGER.**
+Today it sits on the **cost** side (`R_TIP = DBH_CALIB·R0`) and in the DBH/heartwood **ledger**, and is
+**absent from `grow_foliage()` and `build_shadow()`** — so a tip pays 354 twigs' worth of wood to extend
+and earns **1 tip's worth of light**. ⛔ **A size-dependent `N_def` in the LEDGER ALONE will move the
+sapwood number and leave the crown exactly as pinned** (the fixed point above is an income/cost identity,
+and the ledger is not in it). A tip standing for N twigs must **intercept N twigs' worth of light and cast
+N twigs' worth of shade.** Same term on both sides — still an OUTPUT, still no new fit.
 
 The deferred A4/A5 twig system a tip stands for must grow as the tree does. **It is an OUTPUT, not a
 parameter** — so do not reach for a lookup or a fitted exponent. The honest routes, in order:
