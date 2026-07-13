@@ -294,10 +294,43 @@ N_DEF_REF    = DBH_CALIB ** PIPE_POWER   # = 354 real twigs: what one armature t
 #    ⛔ BUT NOT GATED ON "WHERE STATICS BINDS": statics binds in 2 of s's 16 years and NEVER at the bole,
 #       and r^3/lever on a pipe-set radius is the 1.30 cube runaway rebuilt by accident. Code M_sub
 #       DIRECTLY — defined at every node in every year, and equal to the capacity wherever statics binds.
-TWIG_DENSITY = None       # [DERIVED] 44.51 twigs per m^3 of crown — but OFF; see above. None => the
-                          # iter-14 model exactly (verified: DBH 5.15/3.37/3.36x, sapwood 18.3/9.9/4.7%).
-S_MIN        = 0.02       # a crown cannot stand for less than ~1/50 of the anchor's twigs (guards
-                          # the seedling years, when V_crown is one voxel and n_tips is 1–2).
+TWIG_DENSITY = None       # ⛔ RETIRED (iter-15's refuted numerator). The V_crown route is gone; the
+                          # constant is kept at None only so the refutation above has a name to point at.
+#
+# ★★ iter-19 — THE NUMERATOR, CODED. N_def ∝ M_sub, the mass the tree already holds up:
+#
+#     N_def(t) = MASS_CAP * M_sub_root(t) / n_tips(t)          S(t) = N_def(t) / N_DEF_REF
+#
+# so the tree's TOTAL real twig count is N_def*n_tips = MASS_CAP * M_sub — the twigs its standing
+# wood can cantilever out, which is iter-18's `N_cap`, with the lever cancelled. M_sub is read off
+# LAST year's converged structural fixed point (structural_radius), i.e. it is wood laid down in past
+# years: EXOGENOUS to this year's income, which is the whole property V_crown lacked. Measured loop
+# gain 0.69 (max 0.866, structurally < 1 while wood dominates the moment). Divide by n_tips exactly as
+# iter-15 did: N_def is PER ARMATURE TIP, and the division is a NEGATIVE feedback (more tips => each
+# stands for fewer twigs), never a positive one.
+# ⛔ NOT gated on "where statics binds" — see the iter-18 block above. M_sub is defined at every node
+#    in every year and EQUALS the cantilever capacity wherever statics binds; gating it on the binding
+#    set puts r on the pipe and rebuilds iter-16's 1.30 cube runaway by accident.
+MASS_CAP     = None       # [DERIVED] real twigs per kg of supported mass. Pinned ONCE by S(m) = 1 at
+                          # the m anchor — NOT a new degree of freedom: it re-expresses DBH_CALIB in
+                          # the currency of standing mass. None => the iter-17 model exactly
+                          # (DBH 1.43/0.93/0.94x census, sapwood 20.9/9.5/4.4%).
+#
+# ⛔ iter-19 — 0.6400 IS THE WRONG PIN, AND THE WAY IT IS WRONG IS THE FINDING. (LEDGER 19.)
+# It was measured OPEN-LOOP: N_DEF_REF * n_tips(m) / M_sub(m) read off the S == 1 tree. But the tree
+# that RUNS with the term does not have the S == 1 tree's mass — S < 1 through its whole youth, so it
+# arrives at the anchor lighter, thinner, and with MORE (cheaper) tips. Closed loop, S(m @ 47 yr) came
+# out 0.171, not 1.0, and DBH collapsed to 0.24x of baseline on all three tiers UNIFORMLY.
+#
+# ★ AND THE LOOP AMPLIFIES ITS OWN CONSTANT. With loop gain g = 0.69-0.87, d log S / d log MASS_CAP =
+#   1/(1-g) = 3.2 to 7.7. A gain under 1 bought STABILITY; it did not buy INSENSITIVITY. So MASS_CAP
+#   cannot be measured off a tree grown without it — it must be SOLVED as a fixed point: find the
+#   MASS_CAP whose OWN closed-loop m tier lands on S(m) = 1. That is still one constant pinned once by
+#   the same demand; only the way of imposing it changes. (iter-20.)
+S_MIN        = 0.02       # ⚠ iter-19: the floor BOUND for 16 straight years, at N_def = 0.4 real twigs
+                          # per armature tip — i.e. a tip standing for LESS THAN ITSELF, which is not a
+                          # small number, it is an incoherent one. The floor must be N_def >= 1, i.e.
+                          # S_MIN = 1/N_DEF_REF. Fix it WITH the closed-loop pin, not before it.
 # The two sides S acts on, separable ON PURPOSE — the iter-15 refutation is a statement about WHICH
 # side breaks, and you cannot make that statement without being able to switch them independently.
 S_IN_LIGHT   = True       # a marker INTERCEPTS the light of the N_def twigs it stands for
@@ -681,6 +714,7 @@ class Grower:
         self.c_heart = C_HEART        # live heartwood per lost unit = HEART_RATIO*pi*r_tip^2
         self._crown_vol = 0.0         # occupied-voxel volume of the live foliage cloud, m^3
         self._n_tips    = 0           # live leaf units (what grow_foliage foliates)
+        self._m_sub     = 0.0         # ★ iter-19: subtended mass at the root, kg — N_def's numerator
         self._bill = {}
         self._arch_distal = []   # ★ iter-5: (distal_root_node, host_axis) — arch-summit dieback
                                  # candidates; the shed rule kills each once its offspring overtop it.
@@ -1199,6 +1233,10 @@ class Grower:
             r = 0.5 * r + 0.5 * r_new                 # damped, for a stable fixed point
             if d < 1e-6:
                 break
+        # ★ iter-19: M_sub at the ROOT — the mass the tree already holds up, wood + foliage. This is
+        # N_def's numerator (see update_n_def): it falls out of THIS fixed point for free, it is
+        # HISTORY (wood laid down in past years), and it is what iter-18 measured the loop gain on.
+        self._m_sub = float(M_sub[0])
         return r, seglen
 
     def support_bill(self, children, r_struct, r_pipe, seglen):
@@ -1679,18 +1717,24 @@ class Grower:
         The branch carrying capacity of Hellström et al. 2018 (Eq. 1), realized the way that paper
         says it really is realized — "through other factors, such as light or nutrient limitation"
         (Discussion, p. E45) — and NOT as the age lookup alpha*(n+1)^d, which would make DBH an
-        analytic function of age. A tip stands for the twigs that FIT in the crown volume it owns:
+        analytic function of age. It is a SIZE term, and it is an OUTPUT: what a tip stands for is
+        set by what the tree has already built.
 
-            N_def = TWIG_DENSITY * V_crown / n_tips        S = N_def / N_DEF_REF
+        ★ iter-19 — THE NUMERATOR. iter-15 read it off the live crown volume (N_def = TWIG_DENSITY *
+        V_crown / n_tips) and that was REFUTED: V_crown is the economy's own product, so income was
+        measured from what income had just bought — a positive feedback, gain > 1. iter-18 showed the
+        cantilever capacity r^3/lever reduces IDENTICALLY to the subtended mass, and THAT is
+        exogenous — last year's wood, which this year's income cannot bid up:
 
-        Both inputs are EARNED (the crown volume the economy paid to reach; the tips it kept alive),
-        so N_def is an OUTPUT. Read off LAST year's crown — banked before it is spent, like the light
+            N_def = MASS_CAP * M_sub_root / n_tips        S = N_def / N_DEF_REF
+
+        M_sub_root is banked by structural_radius at the END of last year, exactly like the light
         field and the support bill. S then scales, in the same year and by the same factor: the light
         a marker intercepts, the shade it casts, the pipe its tip seeds (r_tip), and the heartwood it
         wills to the trunk when it dies (c_heart). Same term, every side."""
-        if TWIG_DENSITY is None or self._n_tips <= 0 or self._crown_vol <= 0.0:
+        if MASS_CAP is None or self._n_tips <= 0 or self._m_sub <= 0.0:
             return                                    # anchor probe / seedling years: S stays 1
-        n_def = TWIG_DENSITY * self._crown_vol / self._n_tips
+        n_def = MASS_CAP * self._m_sub / self._n_tips
         self.s_def   = max(n_def / N_DEF_REF, S_MIN)
         self.n_def   = self.s_def * N_DEF_REF
         self.r_tip   = R0 * DBH_CALIB * self.s_def ** (1.0 / PIPE_POWER)
@@ -1851,7 +1895,7 @@ class Grower:
         # A4/A5 tip count — the quantity Hellström's b(n) = beta*(n+1)^d predicts, and therefore the
         # independent check on this whole mechanism (it is a validator, never an input).
         out.update(S=self.s_def, N_def=self.n_def, crown_vol=self._crown_vol, n_tips=self._n_tips,
-                   real_tips=self.n_def * self._f_live[0])
+                   m_sub=self._m_sub, real_tips=self.n_def * self._f_live[0])
         return out
 
 

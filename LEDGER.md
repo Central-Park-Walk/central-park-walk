@@ -376,6 +376,93 @@ verdict: PENDING
 
 ---
 
+## 19 — THE TERM, CODED: `N_def ∝ M_sub`. **PRE-REGISTERED BEFORE THE RUN.**
+
+`MASS_CAP` pinned ONCE by `S(m) = 1` at the m anchor (`tmp/iter19_anchor.py`, term OFF, the iter-17
+model): baseline `M_sub` = **113.2 / 848.6 / 2782.2 kg** (reproduces iter-18 exactly), `n_tips` =
+**10 / 25 / 34**, so **`MASS_CAP` = 21.7 x 25 / 848.6 = 0.6400 real twigs per kg of supported mass**.
+It re-expresses `DBH_CALIB`; it is not a new degree of freedom.
+
+**Open-loop `S` off that baseline: `s` 0.333 · `m` 1.000 · `l` 2.411.** Note `s`'s per-tip ratio is
+**0.333, not the 0.133 of the raw mass** — `n_tips` falls with the tree too (10 vs 25), and the
+denominator is half the term. STATE's over-correction worry is therefore SMALLER than it looked.
+
+**PRE-REGISTRATION — written before `MASS_CAP` was switched on. Baseline: DBH 1.43 / 0.93 / 0.94x
+census, sapwood 20.9 / 9.5 / 4.4%.**
+
+1. **`s` DBH FALLS, and defect 4 moves.** `r_tip ∝ S^(1/p)` ⇒ x0.63 open-loop ⇒ ~0.90x census; the
+   negative feedback through `n_tips` should hold it above that. **Predict `s` in 0.90–1.20x** (from
+   1.43x). If it lands under 0.85x the term OVER-serves and the anchor is wrong, not the mechanism.
+2. **★ `l` DBH RISES — this is the one that can kill it.** `S(l) = 2.41` ⇒ `r_tip` x1.46 open-loop ⇒
+   ~1.37x census, from 0.94x. **Predict `l` in 1.10–1.40x.** Above ~1.4x the term over-serves the
+   centenarian and `DBH_CALIB` needs the one-time re-centring — that is a CALIBRATION verdict, not a
+   refutation. It is only a REFUTATION if `l` runs away (> 2x) — the gain says it cannot.
+3. **★★ THE ONE THAT DECIDES IT — `l` SAPWOOD MUST RISE.** This is defect 1, and it is why a scalar
+   could never do it: heartwood is willed at `c_heart(t)` of the year a unit DIED — early, when `S`
+   was small — while today's sapwood is priced at today's LARGE `r_tip`. A *rising* `S` therefore
+   shrinks the historic heart against the live sap, which no uniform multiplier can. **Predict `l`
+   sapwood > 8% (from 4.4%), `m` > 11% (from 9.5%).** If sapwood does NOT rise, the mechanism is
+   REFUTED for defect 1 and `M_sub` is only a DBH re-centring in disguise — do not rescue it.
+4. **`m` is NOT invariant.** `S = 1` holds at the anchor *year*, but `S < 1` through m's youth, so m
+   DBH falls a little. **Predict `m` in 0.82–0.95x** (from 0.93x).
+5. **RAILS I EXPECT TO HOLD** (read the refutation for what it exonerates): no runaway (gain 0.69) —
+   `l` crown neither explodes nor collapses as it did under `V_crown`; heights unchanged; the
+   caliber splay `s 1.54 / m 1.00 / l 1.01` narrows from the `s` end, not the `l` end.
+
+
+**RESULT — EVERY PRE-REGISTERED RAIL BROKE, AND THEY BROKE THE SAME WAY. THE PIN IS REFUTED; THE
+MECHANISM IS NOT.** (`tmp/iter14_measure.py` with `MASS_CAP = 0.64`; `tmp/iter19_s_trace.py`.)
+
+| | DBH vs census | | sapwood | | F_H |
+|---|---|---|---|---|---|
+| | baseline | term ON | baseline | term ON | term ON |
+| s | 1.43x | **0.34x** | 20.9% | 57.3% | **0** |
+| m | 0.93x | **0.24x** | 9.5% | 67.8% | **0** |
+| l | 0.94x | **0.23x** | 4.4% | 55.9% | **0** |
+
+Prediction 1 said `s` in 0.90–1.20x; 2 said `l` in 1.10–1.40x (RISING); 4 said `m` in 0.82–0.95x.
+The tree instead came out **4x too THIN everywhere**, with **no heartwood at all** — and the sapwood
+"win" is worthless: `F_H = 0` means not one leaf unit ever died, so 100%-of-pipe sapwood is the
+reading of a tree too starved to self-shade, not of a tree with wide sapwood.
+
+**★ THE TELL IS IN THE RATIOS: 0.24 / 0.26 / 0.24 of baseline — a UNIFORM thinning.** A size term
+that thins all three tiers by the same factor has not acted as a size term at all. `tmp/iter19_s_trace.py`
+says why: **`S` sits ON THE `S_MIN` FLOOR (0.020) for the first 16 YEARS**, and at the m anchor
+reaches only **`S = 0.171`, not the 1.000 it was pinned to.** All three tiers spend most of their
+lives at the floor, so all three get the same scalar — the shape never gets to speak.
+
+**★★ WHY — AND IT IS A LESSON, NOT A TYPO. THE ANCHOR WAS MEASURED ON A TREE THAT NEVER EXISTS.**
+`MASS_CAP` was pinned off the S == 1 baseline's `M_sub(m) = 848.6 kg`. But the tree that RUNS with
+the term does not have that mass: it is thinner all through its youth (`S < 1`), so it arrives at the
+anchor **lighter** (455 kg at yr 46, not 848), and — the half I did not see coming — with **MORE
+tips** (77, not 25), because tips that stand for fewer twigs are CHEAP. Both terms of
+`S = MASS_CAP·M_sub/n_tips` move the wrong way at once. **The pin must be a FIXED POINT of the loop
+it closes, not a measurement taken outside it.**
+
+**★ AND THE GAIN CUTS BOTH WAYS — the one thing iter-18 did not say.** `d log S / d log MASS_CAP =
+1/(1-g)` = **3.2 to 7.7** at g = 0.69–0.87. A loop gain under 1 bought STABILITY (no runaway — and
+indeed nothing ran away: the crown neither exploded nor collapsed, rail 5 held). **It did not buy
+INSENSITIVITY.** The size term makes DBH 3–8x more sensitive to its own constant than the scale-free
+model ever was. That is the *price* of the term, it is now measured, and it is affordable — but only
+if the constant is solved, never estimated.
+
+**What it exonerates** (read the refutation for this, not only for what it kills): the gain analysis
+(no runaway — the failure is a LOW fixed point, not a high one); `M_sub` as an exogenous numerator;
+the negative feedback through `n_tips` (it worked — it is what ate the tip budget); and the
+size-dependence itself — `S` at the m tier still climbs monotonically 0.02 → 0.17 with the tree, so
+the SHAPE is there, suppressed under a bad scalar and a floor, not absent.
+
+**A second, independent defect, found by the trace:** `S_MIN = 0.02` puts `N_def` at **0.4 real twigs
+per armature tip** — a tip standing for less than *itself*. That is not a small number, it is an
+incoherent one, and it is what held the sapling on the floor for 16 years. The floor must be
+`N_def >= 1` ⇒ `S_MIN = 1/N_DEF_REF`. (`N_DEF_REF` is only 21.7 twigs since iter-17 re-centred the
+pipe — the term now lives at a scale where the floor is *reachable*, which it never was at 354.)
+
+`MASS_CAP` is reverted to `None` in the shipped model: the repo tree is the iter-17 tree, verified
+unchanged after the revert (`s` DBH 18.2 cm, sapwood 20.9%). The term stays CODED and OFF.
+
+verdict: PENDING
+
 ## Staged lessons
 
 One line each. Raw, unpromoted. `/distill` empties this section — `/work` may only append to it,
@@ -385,4 +472,6 @@ and may never edit `~/.claude/rules/`, `CLAUDE.md`, or `MEMORY.md` on its own.
 `ledger_archive/2026-07.md`.)*
 
 - **ALGEBRA BEFORE INSTRUMENTATION — reduce the proposed quantity before you measure it, or you will measure a disguise.** `N_cap ∝ r³/lever` *is* the subtended mass, identically: the lever the proposal divides by is the same lever the moment multiplied by. Two iterations argued about a "cantilever capacity" that was a mass in a costume. One line of algebra, done before the probe, told us what the probe was for. (iter-18)
+- **A CONSTANT INSIDE A FEEDBACK LOOP MUST BE SOLVED, NOT MEASURED — and gain < 1 does NOT mean insensitive.** Pinning it on the open-loop system (the model with the term OFF) measures a tree that never exists once the term is on: the loop moves the very quantities the pin was read from. And the DC amplification is `1/(1-g)` — at gain 0.69 a 25% error in the constant becomes a 4x error in the output. Stability and insensitivity are different properties, and only the first one follows from g < 1. (iter-19)
+- **A UNIFORM RESPONSE FALSIFIES A SIZE TERM NO MATTER WHAT THE MEAN DOES.** Three tiers thinned by 0.24/0.26/0.24 is a SCALAR wearing a size term's clothes — read the ratios across the tiers before reading any one tier's number. The floor, not the law, was doing the talking. (iter-19)
 - **A LOOP GAIN IS AN EXPONENT, AND THE EXPONENT IS SET BY WHERE YOU READ THE RADIUS.** Same mechanism, same tree, same year: `r` from the pipe ⇒ gain `3/p` = 1.30 (runaway); `r` from statics ⇒ gain ≤ `2/p` = 0.870 (regulator). A cube law vs a square law, with 1.0 sitting between them because `p = 2.3`. When a gain comes out on the wrong side of 1, ask which law set the variable you read — the mechanism may be innocent. (iter-18)
