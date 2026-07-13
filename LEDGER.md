@@ -313,6 +313,69 @@ scalar.
 
 ---
 
+## 18 — THE GATE, MEASURED: THE LEVER CANCELS, AND `N_cap` CANNOT RUN AWAY. GAIN 0.69. **CODE THE TERM.**
+
+`tmp/iter18_gain_probe.py` (+ `tmp/iter18_gain_probe.out`). A **reporting** pass over the converged
+fixed point of `structural_radius` — no mechanism changed, not one constant touched.
+
+**Hypothesis (pre-registered in STATE):** now that statics, not the pipe, sets `r` on 55–72% of
+load-bearing wood, the loop gain of `N_cap ∝ r³/lever` is no longer iter-16's 1.30. If it is < 1
+with margin, the size term is admissible; if ≈ 1 it is a knife edge and we stop.
+
+**★ THE DERIVATION CAME FIRST, AND IT COLLAPSED THE PROPOSAL.** On a statics-bound node the grower
+forms `r_mech³ ∝ M_b = g·|V_i|`, and the lever the proposal divides by is *by its own definition*
+`lever_i ≡ |V_i| / M_sub,i`. Therefore
+
+> **`N_cap ∝ r³/lever  ≡  M_sub,i` — the SUBTENDED MASS, exactly. The lever cancels.**
+
+"Cantilever capacity" was never a third mechanism. It is *the mass the node already holds up* — and
+mass is **history**: wood laid down in past years, which this year's income cannot bid up within the
+year. That is the exogenous quantity iter-15 has been asking for since it refuted `V_crown`.
+
+**The gain is then exact, not fitted** — a leaves-first elasticity recursion over the same tree, each
+mass carrying the elasticity of *its own law*: foliage `∝ T` ⇒ 1.000 · pipe wood `∝ r_pipe² ∝ T^(2/p)`
+⇒ **0.870** · statics wood `∝ r_mech² ∝ |V|^(2/3)` ⇒ `(2/3)·ε(|V|)`, with `ε(|V|)` the exact projected
+flux. Then `d log N_cap/d log T = ε(M_sub) = A_i/M_sub,i`.
+
+**Measured, on binding load-bearing wood (lever > 2 m), all three tiers:**
+
+| | binding yrs | moment: wood / leaf | gain (mass-wt) | gain range | `M_sub`(root) @ tier age |
+|---|---|---|---|---|---|
+| s | 2/16 | 0.95 / 0.05 | 0.866 | — | 113.2 kg |
+| m | 34/48 | 0.96 / 0.04 | 0.639 – 0.866, **med 0.696** | p10–p90 0.61–0.81 | 848.6 kg |
+| l | 91/105 | 0.96 / 0.04 | 0.504 – 0.866, **med 0.687** | p10–p90 0.57–0.78 | 2782.2 kg |
+
+- **iter-8 §5's assertion — "wood dominates the moment" — is now MEASURED: 95–97%.** It was right.
+  It was also eight iterations old and load-bearing; iter-16 is the whole lesson about that.
+- **GAIN 0.69, and it never once exceeded 0.866 in 127 binding tier-years.** That ceiling is
+  **structural, not empirical**: every component elasticity is ≤ 1 (leaf 1.000, pipe 0.870, statics
+  ≤ 0.667), so their mass-weighted mean is ≤ 1, and it can only *reach* 1 if the mass went ~all-leaf —
+  against a measured 96% wood. **The gain cannot reach 1 while wood holds up the tree.**
+- **★ WHY iter-16 CAME OUT AT 1.30 AND THIS COMES OUT AT 0.69 — it is one exponent.** Read off a
+  PIPE radius, `r³ ∝ T^(3/p)`: a **CUBE** law, gain `3/p` = 1.30 > 1, a runaway. Read off STATICS,
+  `r³ ∝ |V| ∝ mass ∝ T^(2/p)` at worst: a **SQUARE** law, gain ≤ `2/p` = 0.870 < 1, a regulator.
+  **`p = 2.3` is what puts 1.0 between them.** iter-16 was not refuted by the cantilever; it was
+  refuted by the cube.
+
+**And the scale landed where the ground truth wanted it, with nothing fitted.** `M_sub`(root)
+**m→l = 2782.2 / 848.6 = ×3.28** — against defect 1's independent ground truth of **×3.09**
+(Hellström b(n)) and **×2.71** (census basal area). Inside the ~10–15% instrument floor of the
+better one. This is an *observation*, not yet a result: nothing was tuned to produce it, and it is
+`M_sub` itself, not the per-tip `N_def` that will actually be coded. **iter-19 must pre-register
+against it, not celebrate it.** `s` is the open question — `M_sub(s)/M_sub(m) = 0.133`, and whether
+that is defect 4's cure or an over-correction is exactly what iter-19 must predict *before* running.
+
+**★ A CONSEQUENCE FOR WHAT GETS CODED, AND IT IS NOT A DETAIL.** Statics binds on only **2 of s's 16
+years**, and **never at the bole** (the root is pipe-bound in every tier-year, gain 0.85). So the term
+**must not be gated on "where statics binds"** — read `r³/lever` on a *pipe*-set radius and you are
+back on the cube law and the 1.30 runaway, which is iter-16 rebuilt by accident. **Code `M_sub`
+directly** — the supported mass. It is defined in every node in every year, it *equals* the statics
+capacity wherever statics binds, and it is the quantity the gain above was actually measured on.
+
+verdict: PENDING
+
+---
+
 ## Staged lessons
 
 One line each. Raw, unpromoted. `/distill` empties this section — `/work` may only append to it,
@@ -320,3 +383,6 @@ and may never edit `~/.claude/rules/`, `CLAUDE.md`, or `MEMORY.md` on its own.
 
 *(Emptied 2026-07-13 by `/distill` — iters 14–17 promoted. Raw entries and where each one went:
 `ledger_archive/2026-07.md`.)*
+
+- **ALGEBRA BEFORE INSTRUMENTATION — reduce the proposed quantity before you measure it, or you will measure a disguise.** `N_cap ∝ r³/lever` *is* the subtended mass, identically: the lever the proposal divides by is the same lever the moment multiplied by. Two iterations argued about a "cantilever capacity" that was a mass in a costume. One line of algebra, done before the probe, told us what the probe was for. (iter-18)
+- **A LOOP GAIN IS AN EXPONENT, AND THE EXPONENT IS SET BY WHERE YOU READ THE RADIUS.** Same mechanism, same tree, same year: `r` from the pipe ⇒ gain `3/p` = 1.30 (runaway); `r` from statics ⇒ gain ≤ `2/p` = 0.870 (regulator). A cube law vs a square law, with 1.0 sitting between them because `p = 2.3`. When a gain comes out on the wrong side of 1, ask which law set the variable you read — the mechanism may be innocent. (iter-18)

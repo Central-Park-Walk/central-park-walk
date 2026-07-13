@@ -272,6 +272,28 @@ N_DEF_REF    = DBH_CALIB ** PIPE_POWER   # = 354 real twigs: what one armature t
 #   that carries an absolute length scale. Statics is the only non-scale-free thing we own; the pipe,
 #   the light-per-marker and the tip budget are all scale-free. That is why iter-17 refits DBH_CALIB
 #   FIRST, reversing the order STATE has held since iter-12. See STATE.md / LEDGER 16.
+#
+# ★★ iter-18 — THE BLOCK ABOVE IS SUPERSEDED ON BOTH GROUNDS. THE CANTILEVER IS ADMISSIBLE, AND IT IS
+#    A MASS. (tmp/iter18_gain_probe.py; LEDGER 18.) Ground (b) died with iter-17: the pipe was re-centred
+#    and statics now BINDS on 55-72% of load-bearing wood. Ground (a) died with one line of algebra:
+#
+#      r_mech^3 ∝ |V_i|   and   lever_i ≡ |V_i| / M_sub,i   (its own definition)
+#      =>  N_cap ∝ r^3 / lever  ≡  M_sub,i      -- THE SUBTENDED MASS. THE LEVER CANCELS.
+#
+#    So "cantilever capacity" was never a third mechanism: it is the mass the node ALREADY HOLDS UP —
+#    history, wood laid down in past years, which this year's income cannot bid up. Exogenous by
+#    construction. And the gain follows from WHERE r IS READ, which is the whole of iter-16's error:
+#
+#      r from the PIPE:    r^3 ∝ T^(3/p)              => gain 3/p = 1.30   CUBE law   -> RUNAWAY
+#      r from STATICS:     r^3 ∝ |V| ∝ mass ∝ T^(2/p) => gain <= 2/p = 0.87 SQUARE law -> REGULATOR
+#
+#    MEASURED (elasticity recursion over the converged fixed point, all 3 tiers, 127 binding tier-years):
+#    mass-weighted gain 0.63-0.75, median 0.69, MAX 0.866 — and that ceiling is structural, since every
+#    component elasticity is <= 1 (leaf 1.000 / pipe 0.870 / statics <= 0.667) and the moment is a
+#    measured 96% WOOD. It cannot reach 1 while wood holds the tree up. => CODE THE TERM (iter-19).
+#    ⛔ BUT NOT GATED ON "WHERE STATICS BINDS": statics binds in 2 of s's 16 years and NEVER at the bole,
+#       and r^3/lever on a pipe-set radius is the 1.30 cube runaway rebuilt by accident. Code M_sub
+#       DIRECTLY — defined at every node in every year, and equal to the capacity wherever statics binds.
 TWIG_DENSITY = None       # [DERIVED] 44.51 twigs per m^3 of crown — but OFF; see above. None => the
                           # iter-14 model exactly (verified: DBH 5.15/3.37/3.36x, sapwood 18.3/9.9/4.7%).
 S_MIN        = 0.02       # a crown cannot stand for less than ~1/50 of the anchor's twigs (guards
