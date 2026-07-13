@@ -105,3 +105,60 @@ Append-only. One entry per unit of work: hypothesis → change → measurement �
   working from a summary of it rather than from its figures. **Prior art is job 1: read the paper
   before touching this again.**
 - **Verdict: PENDING**
+
+## 14 — Bank LOST LEAF UNITS, not dead branch sections (the counting fix)
+
+**Hypothesis.** `ratchet()` banked each dead branch's whole cross-section — which already contained
+that branch's own heartwood, which contained its dead children's sections: a recursive double-count.
+Aye, Brännström & Carlsson 2022 (Tree Physiology 42(11):2174-2185, PMC9652016 — the paper iter-12/13
+mis-cited as "Kubo 2022" and never opened) banks **lost LEAF UNITS** (its Eq. 6): each leaf unit that
+dies contributes c_H exactly once, ever. Predicted: remove the recursion and the runaway heartwood
+(96% of basal area at 104 yr) collapses toward the ~50% sapwood a real plane carries.
+
+**Change.** `ratchet()` now counts the leaf-unit census straight off the skeleton — F_S = live wood
+terminals above a node (Eq. 5), F_H = dead wood terminals (Eq. 6) — and sizes the two banks from it:
+`r_sap = R_TIP·F_S^(1/p)` (algebraically identical to the old p-sum recursion; the live taper law is
+UNCHANGED) and `A_heart = c_H·F_H` (a pure count — it cannot recurse, because a leaf unit dies once).
+Eqs 2-4 are Hellström's statistical bookkeeping for trees you cannot simulate; we simulate, so κ comes
+free from the real topology. New constant `HEART_RATIO` = c_H/c_S. New diagnostic: `sap_frac`, F_S, F_H
+— the metric iter-12 and iter-13 were both judged on and which was never actually printed.
+
+**Verification.** All three tiers grown (15/47/104 yr).
+
+    tier   F_S live   F_H lost   lost/live   sapwood %   DBH vs census
+    s          10         33        3.3        18.3%        5.15x
+    m          31        180        5.8         9.9%        3.37x
+    l          41        514       12.5         4.7%        3.36x
+
+**verdict: REFUTED — and the refutation is the finding.** Sapwood at l went 3.7% -> 4.7%, against a
+target of 50%. The double-count was real but nearly inert: the old code banked each dead branch at
+`π·r_sap(death)²` with r_sap already SUBLINEAR in its tip count (p = 2.3), and that understatement was
+silently cancelling the recursion. Removing both makes heartwood slightly LARGER, so l's DBH drifted
+3.11x -> 3.36x. The heartwood law is now right, and it was never the defect.
+
+**What the fix bought — a decisive, two-sided falsification.** With the count clean, c_H is pinned by
+two independent routes that agree: the paper's physics (heartwood IS the disused sapwood pipe, so
+c_H = c_S) and the census (solving for the measured m->l basal-area growth, x2.71, demands
+c_H/c_S = 1.07). The 50% sapwood target would demand 0.049 — **22x apart. One constant cannot serve
+both, and the census has first claim.** So hold c_H = c_S and ask what F_S the 50% target needs:
+F_S = F_H^(p/2) = **1311 live leaf units at l. We carry 41.**
+
+**⇒ The live crown is ~32x too small; the dead bank is correct.** F_S goes 10 -> 31 -> 41 over
+15/47/104 yr (m->l = x1.32) while the real trunk's basal area grows x2.71 over the same span. The
+model's leaf area SATURATES and a real plane's does not. That is not the heartwood law and no scalar
+touches it: it is the constant-`N_def` defect the module header has flagged since iter-9 — one armature
+tip stands in for a FIXED 354 real twigs at every age and size, which over-serves the sapling and
+under-serves the centenarian. It does NOT contradict iter-11's exoneration of the tip budget: the
+ARMATURE count is fine; what must scale with size is the deferred A4/A5 foliage each tip stands for.
+
+Do not ship (criterion vi still unmet). Two-strike fires: three iterations have now been spent inside
+the heartwood law. **Stop working on the heartwood law. It is done.**
+
+## Staged lessons
+
+- A recursive double-count and a sublinear aggregation can CANCEL. "The mechanism is wrong" and "the
+  number is wrong" are different claims — fixing a real category error is allowed to move a metric by
+  nothing, and that is not evidence the error wasn't there.
+- When one free constant is demanded by two ground truths and they disagree by 22x, that is not a
+  calibration problem — it is a structural falsification, and it is the cheapest one you will ever get.
+  Solve for the constant under BOTH targets before you fit it under either.

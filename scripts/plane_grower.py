@@ -139,6 +139,25 @@ DBH_CALIB  = 12.85        # [FIT] 4.37 * 2.94; see docs/grower_prototype_iter1.m
 #     12.7 cm. The sapling is pinned near the floor. Do not expect one term to mend both.
 R_TIP      = DBH_CALIB * R0     # effective terminal-bud radius (= the deferred tips' worth)
 
+# ★ iter-14: c_H — THE SECOND PIPE-AREA CONSTANT (Aye, Brännström & Carlsson 2022, Eq. 6; their
+# Table 1 fits c_S and c_H SEPARATELY). See ratchet(). c_S is not a free constant here — the pipe
+# model is seeded at the tip, so c_S == pi*R_TIP^2 (one live leaf unit's worth of pipe). c_H is the
+# area of DISUSED pipe a LOST leaf unit walls off as heartwood, and it is expressed as a ratio to
+# c_S because that is the only thing the pair means physically: the heartwood a dead unit leaves
+# behind, per pipe it once fed. iter-12's "no new constant" was FALSE — the paper carries two, and
+# assuming c_H == c_S (a dead pipe frozen at its full living bore) is a CHOICE, not the paper's.
+# ★ It is NOT a fitted knob, and iter-14 declined to use it as one. Two independent routes pick the
+# same value: (a) the paper's own physics — "pipes that previously connected discarded leaves or
+# branches FORM the heartwood", i.e. it is the SAME pipe, disused, so c_H == c_S and their Table 1
+# fits the pair separately only to absorb per-dataset scaling; (b) the CENSUS — solving the model
+# for the measured m->l basal-area growth (43.2 -> 71.1 cm DBH, x2.71 in area) demands
+# c_H/c_S = 1.07. Fitting c_H to the 50% sapwood target instead would demand 0.049 — the two ground
+# truths pick c_H 22x apart, so ONE constant cannot serve both and this one is already spoken for.
+# ⛔ Do NOT turn HEART_RATIO down to buy sapwood fraction. That is the fit the census forbids, and
+#    the deficient term is the LIVE crown, not the dead bank. See STATE.md (iter-14).
+HEART_RATIO = 1.0         # [DERIVED] c_H == c_S — the same pipe, now disused. See above.
+C_HEART     = HEART_RATIO * math.pi * R_TIP ** 2      # c_H: heartwood area per LOST leaf unit
+
 # --- ★ iter-8, POSITION A: SELF-SUPPORT COST (ADR docs/adr_grower_crown_bound.md; falsification
 # docs/grower_selfsupport_falsification.md). The crown-width bound is not in Palubicki (whose
 # Discussion says outright they "ignored passive bending of branches under their weight") and not in
@@ -494,6 +513,8 @@ class Grower:
         # Both are frozen at death: they are only ever rewritten for a node that is still alive.
         self._r_sap  = []
         self._a_dead = []
+        # ★ iter-14: the leaf-unit census the two banks are now counted in (Eqs 5 & 6).
+        self._f_live, self._f_lost = [], []
         self._bill = {}
         self._arch_distal = []   # ★ iter-5: (distal_root_node, host_axis) — arch-summit dieback
                                  # candidates; the shed rule kills each once its offspring overtop it.
@@ -854,69 +875,82 @@ class Grower:
     # RATCHET (§5) — radius = monotone max over history
     # ======================================================================
     def ratchet(self, radius, children):
-        """★ iter-13 — SAPWOOD (a taper law) + HEARTWOOD (an AREA). Two laws, kept separate.
+        """★ iter-14 — SAPWOOD = LIVE leaf units; HEARTWOOD = LOST leaf units. A COUNTING law.
 
-        Shinozaki's pipe model sizes the ACTIVE (sapwood) area by the leaf area it feeds; the pipes
-        of a branch that dies are not reabsorbed, they stay in the stem as DISUSED pipes and are
-        walled off as heartwood. Aye, Brännström & Carlsson 2022 (Tree Physiology 42(11):2174-2185,
-        "Prediction of tree sapwood and heartwood profiles using pipe model and branch thinning
-        theory") predicts the whole heartwood profile from branch death.
+        Aye, Brännström & Carlsson 2022 (Tree Physiology 42(11):2174-2185, "Prediction of tree
+        sapwood and heartwood profiles using pipe model and branch thinning theory", PMC9652016)
+        predicts the whole sapwood/heartwood profile from branch death, on Shinozaki's pipe model
+        (1964) plus Hellström et al. 2018's branch thinning. Its two load-bearing equations:
 
-        ⚠ CITED WRONGLY AS "KUBO ET AL. 2022" UNTIL 2026-07-13, AND NEVER ACTUALLY READ. Two claims
-        made here on its authority are FALSE, and this function implements both:
-          - "no new constant" — the paper carries TWO pipe-area constants, c_S (sapwood per pipe)
-            and c_H (heartwood per pipe), fitted SEPARATELY (its Table 1). Banking a dead pipe at
-            its full living area silently assumes c_H == c_S; the authors do not assert that.
-          - the bank unit — the paper accumulates LOST LEAF UNITS (its Eq. 6), each contributing
-            c_H exactly ONCE. We bank each dead branch's whole CROSS-SECTION, which already contains
-            that branch's own heartwood, which contains its dead children's sections: a recursive
-            double-count. That, not the metric, is why heartwood grows without bound (96% at 104 yr).
-        See STATE.md "NEXT" for the derivation. Do not trust this docstring's model; fix the count.
+            (5)  A_S(h) = c_S * F_S(h)      F_S = LIVE leaf units above h
+            (6)  A_H(h) = c_H * F_H(h)      F_H = LOST leaf units above h   (cumulative, forever)
 
-        iter-12 added the dead branches' wood but summed it in the LIVE metric, r**PIPE_POWER. That
-        is wrong, and it is the reason the implied sapwood fraction came out at 10-16% of basal area
-        while Platanus is noted for WIDE sapwood. PIPE_POWER = 2.3 is a TAPER law: it is a statement
-        about how a living, branching plumbing system loses conductive area upward. Dead wood does
-        not branch and does not taper — it is a fossil. Its cross-section is simply AREA, and area is
-        CONSERVED (p = 2). Mixing the two in one sum is a category error, and it also double-dips:
-        a live child's radius already contains its own heartwood, and the p = 2.3 aggregation then
-        re-inflates that heartwood at every level on the way up the stem.
+        ⚠ It was cited here as "Kubo et al. 2022" until 2026-07-13 and had never been opened; iter-12
+        and iter-13 were both built on a GUESS at its mechanism, and both were refuted. It is now
+        read. The two claims those iterations made on its authority are false, and this is the fix:
 
-        So the node carries two quantities, and they never meet in the same metric:
+          - THE BANK UNIT (Eq. 6). The unit is a LOST LEAF UNIT, and each one contributes c_H
+            exactly ONCE, ever. iter-13 banked each dead branch's whole CROSS-SECTION — which
+            already contained that branch's own heartwood, which already contained its dead
+            children's sections. A recursive double-count. Heartwood therefore grew without bound
+            (96% of a 104 yr basal area) and NO scalar could move it, because the defect was in the
+            recursion, not in a constant. A count cannot recurse: a leaf unit dies once.
+          - c_H != c_S. The paper carries TWO pipe-area constants, fitted separately (its Table 1).
+            iter-12's "no new constant" was simply wrong. c_H is the second constant, and it is the
+            knob for the sapwood fraction (Platanus is noted for WIDE sapwood, ~50% of basal area).
 
-            SAPWOOD    r_sap = ( SUM_live-children r_sap_c ** p ) ** (1/p)     p = PIPE_POWER
-            HEARTWOOD  A_dead = SUM_children A_dead_c
-                              + SUM_dead-children pi * r_sap_c(death)**2       (its whole section)
-            TOTAL      pi * r**2 = pi * r_sap**2 + A_dead
+        We do NOT implement its Eqs 2-4: those are Hellström's STATISTICAL bookkeeping, there to
+        estimate leaf counts for a tree you cannot simulate. We simulate — so we count F_S and F_H
+        straight off the real skeleton, and the ramification factor kappa (its Eqs 7-8) comes for
+        free from the actual topology. Simulate the process; let the appearance emerge.
 
-        A dying branch hands its ENTIRE frozen basal area (its own sapwood plus whatever heartwood
-        it had already accumulated) to the parent's dead bank, where it stays, unaltered, forever.
-        Both banks are frozen at death: a dead node's r_sap and A_dead are never rewritten.
-        The ratchet on the TOTAL still stands as the guard — girth can never fall."""
+        A LEAF UNIT is a woody terminal — exactly what grow_foliage() foliates (a live wood node
+        with no live wood children) and exactly what the pipe model seeds at R_TIP. So:
+
+            F_S(i) = # live wood terminals in i's subtree      -> r_sap = R_TIP * F_S**(1/p)
+            F_H(i) = # dead wood terminals in i's subtree      -> A_dead = C_HEART * F_H
+            TOTAL    pi * r**2 = pi * r_sap**2 + A_dead
+
+        r_sap is algebraically identical to iter-13's p-sum recursion (the pipe model is homogeneous
+        in the tip radius, so SUM_live r_sap_c**p telescopes to R_TIP**p * F_S) — the live taper law
+        is UNCHANGED and still stands. Only the dead bank changed, and it is now a pure count, so it
+        is monotone by construction (a killed subtree is never resurrected: _kill_subtree takes the
+        whole subtree, so dead => every descendant dead). The ratchet on the TOTAL stays as a guard.
+
+        Dead wood is still skinned as a FOSSIL: its radius is frozen at its girth on the year it
+        died, never rewritten."""
         n = len(self.nodes)
         hist, r_sap, a_dead = self._r_hist, self._r_sap, self._a_dead
-        for arr in (hist, r_sap, a_dead):
+        f_live, f_lost = self._f_live, self._f_lost
+        for arr in (hist, r_sap, a_dead, f_live, f_lost):
             if len(arr) < n:
                 arr.extend([0.0] * (n - len(arr)))
         order = self._topo_leaves_first(children)
         for i in order:
-            if self.nodes[i].foliage:                 # leaves are not wood — no radius
+            nd = self.nodes[i]
+            if nd.foliage:                            # leaves are not wood — no radius, no pipe
                 continue
-            if not self.nodes[i].alive:               # dead wood is a FOSSIL: frozen, still skinned
+            # --- the leaf-unit census (Eqs 5 & 6). Foliage children carry no pipe and are skipped.
+            kids = [c for c in children[i] if not self.nodes[c].foliage]
+            live_kids = [c for c in kids if self.nodes[c].alive]
+            if nd.alive:
+                # a live terminal IS one live leaf unit (it is what grow_foliage foliates); a live
+                # internode owns none of its own — it just sums what stands above it.
+                fl = 1.0 if not live_kids else sum(f_live[c] for c in kids)
+                fh = sum(f_lost[c] for c in kids)
+            else:
+                # dead wood: no live units above it (a shed takes the whole subtree). A dead TERMINAL
+                # is one lost leaf unit — counted ONCE, forever. A dead internode was never a leaf
+                # unit at death; it only carries the lost units of its own dead tips. No recursion.
+                fl = 0.0
+                fh = 1.0 if not kids else sum(f_lost[c] for c in kids)
+            f_live[i], f_lost[i] = fl, fh
+            if not nd.alive:                          # dead wood is a FOSSIL: frozen, still skinned
                 radius[i] = max(radius[i], hist[i])
                 continue
-            pipes, dead, n_wood = 0.0, 0.0, 0
-            for c in children[i]:
-                if self.nodes[c].foliage:             # foliage is not wood — carries no pipe
-                    continue
-                n_wood += 1
-                dead += a_dead[c]                     # heartwood passes up as AREA, always
-                if self.nodes[c].alive:
-                    pipes += r_sap[c] ** PIPE_POWER   # ...the live pipes taper (p = 2.3)
-                else:
-                    dead += math.pi * r_sap[c] ** 2   # ...a dead child's whole section is disused
-            r_s = R_TIP if n_wood == 0 else pipes ** (1.0 / PIPE_POWER)
-            r_sap[i], a_dead[i] = r_s, dead           # ★ iter-8: the tip seed carries DBH_CALIB
+            r_s = R_TIP * fl ** (1.0 / PIPE_POWER)    # ★ iter-8: the tip seed carries DBH_CALIB
+            dead = C_HEART * fh                       # ...and each lost unit is worth c_H, once
+            r_sap[i], a_dead[i] = r_s, dead
             r_tot = math.sqrt(r_s * r_s + dead / math.pi)
             radius[i] = max(radius[i], hist[i], r_tot)    # THE RATCHET — never decreases
             hist[i] = radius[i]                           # ...and it is remembered, so it can't
@@ -1552,6 +1586,16 @@ class Grower:
             n_wood_live=sum(1 for nd in self.nodes if nd.alive and not nd.foliage),
             n_foliage_live=sum(1 for nd in self.nodes if nd.alive and nd.foliage),
         )
+        # ★ iter-14: the sapwood/heartwood split at the BASE — the metric iter-12/13 were judged on
+        # and never actually printed. F_S / F_H are the leaf-unit counts (Eqs 5 & 6); sap_frac is
+        # measured against the wood the tree really builds (r[0], pipe OR cantilever), which is what
+        # an increment corer would read. Platanus ground truth: ~50% sapwood, and it is noted for
+        # WIDE sapwood, so a low number here is a FAIL however good the DBH looks.
+        a_sap, a_dead_0 = math.pi * self._r_sap[0] ** 2, self._a_dead[0]
+        a_built = math.pi * radius[0] ** 2
+        out.update(F_S=self._f_live[0], F_H=self._f_lost[0], a_sap=a_sap, a_heart=a_dead_0,
+                   sap_frac=a_sap / max(a_built, 1e-12),
+                   sap_frac_pipe=a_sap / max(a_sap + a_dead_0, 1e-12))
         return out
 
 
@@ -1623,3 +1667,7 @@ if __name__ == "__main__":
           f"axes={g['n_axes']} reiterates={g['n_reiterates']}")
     print(f"    trunk_r={r[0]*1000:.0f}mm  DBH={r[0]*2/0.0254:.1f}in  "
           f"r=[{r[r>0].min()*1000:.1f}..{r.max()*1000:.0f}]mm")
+    print(f"    DBH vs census: {r[0]*2/TIERS[tier][1]:.2f}x   "
+          f"leaf units: F_S={g['F_S']:.0f} live / F_H={g['F_H']:.0f} lost   "
+          f"SAPWOOD={100*g['sap_frac']:.1f}% of built basal area "
+          f"({100*g['sap_frac_pipe']:.1f}% of pipe area)   [target ~50%]")
