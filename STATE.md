@@ -1,8 +1,7 @@
 # STATE — cpw / london-plane
 
 The developmental grower: `scripts/plane_grower.py`. Grow a plane from a seed by simulating
-development; let crown, caliber and depth **emerge**. Deep history: memory file
-`project_london_plane_crown_mould.md`. Ledger: `LEDGER.md`.
+development; let crown, caliber and depth **emerge**. Deep history: `project_london_plane_crown_mould.md`.
 
 ## Where we are
 
@@ -16,8 +15,7 @@ feeding it.
 constant) and the two-sided caliber error **survives a perfect tip budget: 1.36× / 0.87× / 0.68×.**
 ⇒ the defect is not how many tips we grow, it is **what the pipe layer does with them.**
 
-**Just changed (2026-07-13):** thread bound, `STATE.md` + `LEDGER.md` seeded (`5275fc6`). No grower
-code touched.
+**Just changed (2026-07-13):** thread bound; `STATE.md` + `LEDGER.md` seeded. No grower code touched.
 
 ## Open defects
 
