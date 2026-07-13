@@ -45,7 +45,6 @@ two-sided sign, size-dependent, published not invented. **Derive before coding.*
 - ⛔ **`N_def` accumulating with a tip's own age: REFUTED by our own source** (C&E: A4/A5 self-prune in
   1–4 yr ⇒ steady state by ~4 yr).
 - ⚠ **Suspect the CLOCK before the MECHANISM** — that has been the answer twice.
-- ⚠ **Instrument limit:** seed variance 126% on `s` span, ~100% on `n_tips` at 8 seeds. Nothing finer
-  than ~10–15% is measurable. Do not chase a smaller difference.
+- ⚠ **Instrument limit:** seed variance 126% (`s` span) / ~100% (`n_tips`) at 8 seeds ⇒ nothing finer than ~10–15% is measurable. Do not chase less.
 
 ## Open for Chris — two abandoned agent branches hold unmerged work: **ginkgo**, **magnolia**.
