@@ -16,6 +16,8 @@ constant) and the two-sided caliber error **survives a perfect tip budget: 1.36Ã
 â‡’ the defect is not how many tips we grow, it is **what the pipe layer does with them.**
 
 **Just changed (2026-07-13):** thread bound; `STATE.md` + `LEDGER.md` seeded. No grower code touched.
+The **cold start is CONFIRMED** (iter-0b): a blank session rebuilt the whole picture from this file in
+three tool calls, never opening the 1400-line memory file. Iterate from here; don't go back to memory.
 
 ## Open defects
 
