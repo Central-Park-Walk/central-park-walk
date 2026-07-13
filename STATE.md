@@ -46,6 +46,4 @@ two-sided sign, size-dependent, published not invented. **Derive before coding.*
 - ⚠ **Instrument limit:** seed variance 126% on `s` span, ~100% on `n_tips` at 8 seeds. Nothing finer
   than ~10–15% is measurable. Do not chase a smaller difference.
 
-## Open for Chris
-
-Two abandoned agent branches hold unmerged work: **ginkgo**, **magnolia**.
+## Open for Chris — two abandoned agent branches hold unmerged work: **ginkgo**, **magnolia**.
