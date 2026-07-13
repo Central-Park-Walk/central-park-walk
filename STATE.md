@@ -29,14 +29,44 @@ heartwood**, where a real plane is ~50% and is noted for WIDE sapwood. The one g
    so `s` is pinned near the floor and *cannot* be thin. **One term won't mend both this and (3).**
 5. Criterion vi unmet ⇒ **do not ship.**
 
-## NEXT — the one hypothesis: READ KUBO 2022 FIRST. No code until then.
+## NEXT — iter-14: BANK LOST LEAF UNITS, NOT DEAD BRANCH SECTIONS. The paper is READ.
 
-Kubo et al. 2022, *Tree Physiology* 42:2174 — sapwood/heartwood profiles from pipe model + branch
-thinning. I have been working from a summary of its mechanism, not from its figures, and two
-iterations have now been spent guessing at it. **Prior art is job 1.** The specific question to put to
-the paper: *does a disused pipe persist at the stem base at its full living diameter?* If it does,
-then branch death is far too cheap in our model and the shed rule is the suspect. If it does not, the
-missing mechanism is in the paper and there is no need to invent one. **Derive, then measure.**
+⚠ **"KUBO ET AL. 2022" NEVER EXISTED.** The real paper is **Aye, Tin Nwe; Brännström, Åke; Carlsson,
+Linus (2022), "Prediction of tree sapwood and heartwood profiles using pipe model and branch thinning
+theory", *Tree Physiology* 42(11):2174-2185** — the same volume:page we had, under a **fabricated
+author name**. iter-12 and iter-13 were both built on a *guess* at its mechanism. It is now READ
+(full text + all 8 equations; local copy in `tmp/papers/`, gitignored — re-fetch: **PMC9652016**,
+`https://www.ebi.ac.uk/europepmc/webservices/rest/PMC9652016/fullTextXML`). **Every "Kubo" claim
+below is superseded.**
+⚠ Its equations are **GIF images**, not text — a text-only read returns the prose with all the numbers
+silently deleted. That is almost certainly how the guessing started. **Look at the equations.**
+
+**Its model** (branch thinning = *Hellström et al. 2018*, not Kubo; pipe model = Shinozaki 1964):
+
+    (1) A(h)   = c · F(h)                     pipe model of plant form
+    (5) F_S    = live leaf units above h   ⇒  sapwood area = c_S · F_S
+    (6) F_H    = LOST leaf units above h   ⇒  heartwood area = c_H · F_H
+    (7,8) trunk share = κ^(log2 g(h,n)) · area      κ = pipes kept per ramification
+
+**THE FIX — it is a COUNTING change, not a new mechanism.** The paper banks **lost LEAF UNITS**: each
+leaf unit that dies contributes **one pipe of area c_H, once, ever.** `ratchet()` banks each dead
+branch's **whole cross-section** — which already contains that branch's own heartwood, which contains
+its dead children's sections. **A recursive double-count.** Unbounded heartwood growth is the
+signature of that recursion, not of a bad constant — which is why no scalar could ever move it
+(consistent with the rails, and it explains them).
+
+⚠ **c_H ≠ c_S.** The paper carries **two** pipe-area constants, fitted separately (its Table 1). Our
+"dead pipes frozen at full living diameter" assumes `c_H = c_S`. That is an assumption we CHOSE, not
+one the paper makes — and "**No new constant**" (LEDGER iter-12) is simply false. c_H is the second
+constant, and it is the natural knob for the sapwood fraction (plane ≈ 50%, wide sapwood).
+
+**We do not need Eqs 2-6 at all.** They are Hellström's *statistical* bookkeeping, there to ESTIMATE
+live/lost leaf counts for a tree you cannot simulate. **We simulate** — so we count F_S and F_H
+directly off the real skeleton as it grows and sheds, and we get κ for free from the actual topology.
+*Simulate the process; let the appearance emerge.* One new constant (c_H), no fitted α/d/μ/κ.
+
+**Ground truth to hit:** sapwood ≈ 50% of basal area at 104 yr (not 4%), DBH splay to ~1.0.
+**The `s` floor (defect 4) is still separate and will NOT be fixed by this.**
 
 ## Rails — each cost a session; do not re-litigate
 

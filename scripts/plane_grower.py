@@ -858,9 +858,20 @@ class Grower:
 
         Shinozaki's pipe model sizes the ACTIVE (sapwood) area by the leaf area it feeds; the pipes
         of a branch that dies are not reabsorbed, they stay in the stem as DISUSED pipes and are
-        walled off as heartwood. Kubo et al. 2022 (Tree Physiology 42:2174, "sapwood and heartwood
-        profiles from pipe model and branch thinning theory") predicts the whole heartwood profile
-        from branch death alone — no new constant, which is why this term is free.
+        walled off as heartwood. Aye, Brännström & Carlsson 2022 (Tree Physiology 42(11):2174-2185,
+        "Prediction of tree sapwood and heartwood profiles using pipe model and branch thinning
+        theory") predicts the whole heartwood profile from branch death.
+
+        ⚠ CITED WRONGLY AS "KUBO ET AL. 2022" UNTIL 2026-07-13, AND NEVER ACTUALLY READ. Two claims
+        made here on its authority are FALSE, and this function implements both:
+          - "no new constant" — the paper carries TWO pipe-area constants, c_S (sapwood per pipe)
+            and c_H (heartwood per pipe), fitted SEPARATELY (its Table 1). Banking a dead pipe at
+            its full living area silently assumes c_H == c_S; the authors do not assert that.
+          - the bank unit — the paper accumulates LOST LEAF UNITS (its Eq. 6), each contributing
+            c_H exactly ONCE. We bank each dead branch's whole CROSS-SECTION, which already contains
+            that branch's own heartwood, which contains its dead children's sections: a recursive
+            double-count. That, not the metric, is why heartwood grows without bound (96% at 104 yr).
+        See STATE.md "NEXT" for the derivation. Do not trust this docstring's model; fix the count.
 
         iter-12 added the dead branches' wood but summed it in the LIVE metric, r**PIPE_POWER. That
         is wrong, and it is the reason the implied sapwood fraction came out at 10-16% of basal area

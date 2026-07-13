@@ -34,7 +34,17 @@ Append-only. One entry per unit of work: hypothesis → change → measurement �
 - **Verdict: PENDING** (Chris on the thread shape; the cold start itself is now CONFIRMED).
 
 ---
-## 2026-07-13 — iter-12: HEARTWOOD = disused pipes (Shinozaki; Kubo 2022 branch thinning)
+## 2026-07-13 — iter-12: HEARTWOOD = disused pipes (Shinozaki; "Kubo 2022" branch thinning)
+
+> ⚠ **CORRECTION, 2026-07-13 (same day, later).** "**Kubo et al. 2022" IS A FABRICATED CITATION** —
+> no such paper. The real one, at the identical *Tree Physiology* 42:2174, is **Aye, Brännström &
+> Carlsson 2022**; the branch-thinning theory in it is **Hellström et al. 2018**. It had **never been
+> read** when iter-12 and iter-13 were built on it. Now read (`tmp/papers/`). **Both claims below that
+> rest on it are FALSE:** (a) "costs NO new constant" — the paper fits **two** pipe-area constants,
+> c_S and c_H, separately (its Table 1); (b) the bank unit — it accumulates **lost LEAF UNITS** (Eq. 6),
+> each worth c_H **once**, whereas we bank each dead branch's whole **cross-section**, a recursive
+> double-count (it already contains its own dead children's sections). *That* is the unbounded
+> heartwood. See STATE.md → NEXT. Kept as written below for the record.
 
 - **Hypothesis:** the pipe layer has no heartwood. Shinozaki sizes SAPWOOD by leaf area; the pipes of
   a dead branch are not reabsorbed — they stay in the stem as DISUSED pipes and wall off as
