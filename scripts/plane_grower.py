@@ -46,7 +46,8 @@ documented gotcha). Frame is y-up (like leafback_skeleton); the generator rotate
 """
 import math
 import numpy as np
-from scipy.spatial import cKDTree
+from scipy.spatial import cKDTree, ConvexHull
+from scipy.spatial import QhullError
 
 # ---------------------------------------------------------------------------
 # PARAMETERS.  measured = from Caraglio & Edelin 1990 (C&E).  [PROV]/[GAP] = not known
@@ -157,6 +158,90 @@ R_TIP      = DBH_CALIB * R0     # effective terminal-bud radius (= the deferred 
 #    the deficient term is the LIVE crown, not the dead bank. See STATE.md (iter-14).
 HEART_RATIO = 1.0         # [DERIVED] c_H == c_S — the same pipe, now disused. See above.
 C_HEART     = HEART_RATIO * math.pi * R_TIP ** 2      # c_H: heartwood area per LOST leaf unit
+# ⚠ iter-15: R_TIP and C_HEART above are now only the REFERENCE (anchor) values. The live ones are
+# self.r_tip / self.c_heart, which ride on N_def(t). See the N_def block immediately below.
+
+# ======================================================================
+# ★ iter-15 — N_def: WHAT ONE ARMATURE TIP STANDS FOR, AND IT IS NOT A CONSTANT
+# ======================================================================
+# THE DEFECT (iter-14's finding; measured in docs/grower_saturation_diagnosis.md). The economy is
+# SCALE-FREE IN TIPS. Each armature tip carries FOLIAGE_PER_TIP*FOLIAGE_LIFE = 12 foliage markers, so
+# income per apex = ALPHA*12*Lbar — independent of n_tips — while cost per apex = n*pi*R_TIP^2*
+# INTERNODE is ALSO independent of n_tips. Income ∝ tips, cost ∝ tips: THEY CANCEL. No growth term in
+# the tip count exists anywhere in the model, so it sits at iter-9's fixed point for ever (8–25 tips
+# from yr 20 to yr 104, with 30–50% of apices dormant at every age) and the live crown SATURATES:
+# F_S grows x1.32 from m to l where the census demands a x2.71 basal area.
+#
+# THE LAW. Hellström, Carlsson, Falster, Westoby & Brännström 2018, "Branch Thinning and the
+# Large-Scale, Self-Similar Structure of Trees", Am. Nat. 192(1):E37–E47 (doi:10.1086/697429) — the
+# branch-thinning companion to the Aye/Brännström/Carlsson 2022 pipe-and-heartwood paper the ratchet
+# already builds on. Local copy: tmp/papers/hellstrom2018_branch_thinning.pdf (gitignored).
+#
+#     K(n) = alpha*(n+1)^d              (their Eq. 1)  the branch CARRYING CAPACITY, in tips
+#     b(n) = min{mu^n, beta*(n+1)^d}    (their Eq. 4)  tips actually borne by a branch of age n
+#
+# A branch multiplies its tips by mu each growth cycle and then THINS back to its capacity, so in the
+# thinning region the tip count is a POWER LAW IN AGE. Fitted to Wilson (1966)'s red maple long-shoot
+# counts (their Fig. 8 — the paper's only broadleaf): beta = 6.69, d = 1.44, mu = 1.42, R^2 = 0.98.
+# Over OUR census ages that law predicts an m->l tip growth of (105/48)^1.44 = 3.09x, against the
+# 2.71x basal-area growth the census independently demands. That is the growth term we are missing.
+#
+# ⛔ AND WE DO NOT IMPLEMENT IT AS (n+1)^d. Taking K(n) as a lookup on age would make DBH an ANALYTIC
+# FUNCTION OF AGE — a parameter wearing an output's clothes, which is the mistake this project has
+# now made four separate times (docs/standing_rules.md). The paper itself forbids it, in as many
+# words (Discussion, p. E45): "The phenomenological carrying capacity assumed here is in reality
+# realized through other factors, such as light or nutrient limitation." We HAVE a light field. So we
+# realize the capacity through SPACE AND LIGHT, and Hellström's b(n) becomes the VALIDATOR, not the
+# input:
+#
+#     N_def(t) = TWIG_DENSITY * V_crown(t) / n_tips(t)
+#
+# The deferred A4/A5 twig system one armature tip stands for is the twigs that FIT IN THE CROWN
+# VOLUME THAT TIP OWNS. V_crown is the occupied-voxel volume of the live foliage cloud (read straight
+# off the light grid we already build) and n_tips is the live leaf-unit count. Both are EARNED by the
+# economy, so N_def is an OUTPUT. Total real tips = N_def*n_tips = TWIG_DENSITY*V_crown: the crown
+# fills the space it can reach, its own shade closes the interior, and a carrying capacity EMERGES.
+# Simulate the process; let the appearance emerge.
+#
+# ★ IT ENTERS THE LIGHT, NOT JUST THE LEDGER. Until now N_def sat only on the COST side (R_TIP =
+# DBH_CALIB*R0) and in the DBH/heartwood LEDGER: a tip paid 354 twigs' worth of wood to extend and
+# earned ONE tip's worth of light. A ledger-only N_def cannot break the fixed point above, because
+# the fixed point is an income/cost identity and the ledger is not in it. A tip that stands for N
+# twigs must INTERCEPT N twigs' worth of light and CAST N twigs' worth of shade. Same term, both
+# sides. Then income per apex ∝ N_def while cost per apex ∝ R_TIP^2 ∝ N_def^(2/p), and since
+# p = 2.3 > 2 THE EXPONENTS NO LONGER CANCEL. The economy stops being scale-free.
+#
+# Everything rides on the RATIO S(t) = N_def(t)/N_DEF_REF, so S == 1 at the anchor and the entire
+# iter-9 calibration (ALPHA, DBH_CALIB, SHADOW_A/B, TAU) is preserved there UNCHANGED — only the
+# SHAPE with size is new. TWIG_DENSITY is therefore NOT a new degree of freedom: it is pinned ONCE by
+# demanding S(m-tier) = 1. It RE-EXPRESSES DBH_CALIB; it does not re-fit it. (Defect 2 — the one
+# legitimate re-centring of DBH_CALIB — is still owed, and still comes AFTER this.)
+N_DEF_REF    = DBH_CALIB ** PIPE_POWER   # = 354 real twigs: what one armature tip stands for AT the
+                                         # anchor. iter-8's reading of DBH_CALIB, unchanged.
+# [DERIVED] twigs per m^3 of crown, pinned by S(m) = 1 against the iter-14 model at the m-tier age:
+# TWIG_DENSITY = N_DEF_REF * n_tips / V_crown, measured at yr 47 by tmp/iter15_anchor.py.
+# Measured 2026-07-13: at the m anchor the iter-14 crown is a 215.5 m^3 hull carrying 27 live leaf
+# units, so one tip owns 7.98 m^3 and must stand for N_DEF_REF = 355 twigs => 44.5 twigs/m^3, i.e.
+# ~9.6 A4/A5 tips per 0.6 m cube of crown. (tmp/iter15_anchor.py re-measures it.)
+#
+# ⛔ OFF — iter-15 REFUTED THIS NUMERATOR, and the refutation is specific: V_crown IS NOT EXOGENOUS.
+# N_def is read off the live crown; income scales with N_def; income buys the extension that GROWS
+# the live crown. That is a POSITIVE FEEDBACK LOOP ON INCOME, MEASURED FROM ITS OWN PRODUCT, and it
+# is unstable in both directions — the m crown sprawled to 466 m^3 against a 215 m^3 baseline, and
+# the l crown then collapsed (358 m^3, or 62 m^3 with S_IN_SHADE). Crown growth m->l came out x0.77
+# where it must be ~x2.7. Turning S_IN_SHADE off tames the violence but NOT the loop.
+# ⚠ The SIZE-DEPENDENCE ITSELF IS RIGHT AND IT IS NOT IN QUESTION: with N_def free to be SMALL for a
+#   small tree (13 twigs, not 355), the s tier went 5.15x -> 1.15x of its census DBH. That is open
+#   defect 4 — the constant-R_TIP floor — moving for the first time. Keep the mechanism; the numerator
+#   is what must change. It must be a quantity THIS YEAR'S INCOME CANNOT BID UP. See STATE.md.
+TWIG_DENSITY = None       # [DERIVED] 44.51 twigs per m^3 of crown — but OFF; see above. None => the
+                          # iter-14 model exactly (verified: DBH 5.15/3.37/3.36x, sapwood 18.3/9.9/4.7%).
+S_MIN        = 0.02       # a crown cannot stand for less than ~1/50 of the anchor's twigs (guards
+                          # the seedling years, when V_crown is one voxel and n_tips is 1–2).
+# The two sides S acts on, separable ON PURPOSE — the iter-15 refutation is a statement about WHICH
+# side breaks, and you cannot make that statement without being able to switch them independently.
+S_IN_LIGHT   = True       # a marker INTERCEPTS the light of the N_def twigs it stands for
+S_IN_SHADE   = True       # ...and CASTS their shade. ⚠ This is the destabilising one — see LEDGER 15.
 
 # --- ★ iter-8, POSITION A: SELF-SUPPORT COST (ADR docs/adr_grower_crown_bound.md; falsification
 # docs/grower_selfsupport_falsification.md). The crown-width bound is not in Palubicki (whose
@@ -448,7 +533,7 @@ SEED = 20260710
 # GRAPH PRIMITIVES
 # ===========================================================================
 class Node:
-    __slots__ = ("pos", "parent", "axis", "birth", "alive", "foliage")
+    __slots__ = ("pos", "parent", "axis", "birth", "alive", "foliage", "death_c")
     def __init__(self, pos, parent, axis, birth, foliage=False):
         self.pos = np.asarray(pos, float)
         self.parent = parent          # node index, or -1
@@ -456,6 +541,9 @@ class Node:
         self.birth = birth            # year laid down (leaf cohort year, if foliage)
         self.alive = True
         self.foliage = foliage        # True = transient A4 leaf marker (light-gatherer, not wood)
+        self.death_c = 0.0            # ★ iter-15: c_H on the year this unit died — the disused pipe
+                                      # area it walls off as heartwood. Stamped by _kill_subtree, and
+                                      # never rewritten: a leaf unit dies once, at ONE size.
 
 
 class Axis:
@@ -515,6 +603,20 @@ class Grower:
         self._a_dead = []
         # ★ iter-14: the leaf-unit census the two banks are now counted in (Eqs 5 & 6).
         self._f_live, self._f_lost = [], []
+        # ★ iter-15: the DISUSED pipe AREA (not the count) lost below each node. A unit that died when
+        # the tree was small walled off a SMALLER pipe than one that died last year, so heartwood can
+        # no longer be a count times a global c_H — each lost unit is banked at the c_H prevailing on
+        # the year it died (Node.death_c). Same law (Aye Eq. 6, c_H per lost unit), size-aware.
+        self._a_lost = []
+        # ★ iter-15: N_def(t) — see the constants block. S is the ratio to the anchor (S == 1 at m),
+        # and it is what the light income, the shade, the tip pipe and the heartwood all ride on.
+        # Both inputs are OUTPUTS of the economy, read off last year's crown.
+        self.s_def   = 1.0            # S(t) = N_def(t)/N_DEF_REF
+        self.n_def   = N_DEF_REF      # real twigs one armature tip stands for, this year
+        self.r_tip   = R_TIP          # live tip-seed radius   = R0*DBH_CALIB*S^(1/p)
+        self.c_heart = C_HEART        # live heartwood per lost unit = HEART_RATIO*pi*r_tip^2
+        self._crown_vol = 0.0         # occupied-voxel volume of the live foliage cloud, m^3
+        self._n_tips    = 0           # live leaf units (what grow_foliage foliates)
         self._bill = {}
         self._arch_distal = []   # ★ iter-5: (distal_root_node, host_axis) — arch-summit dieback
                                  # candidates; the shed rule kills each once its offspring overtop it.
@@ -599,7 +701,7 @@ class Grower:
         # ceiling is what V_SAT used to be, so V_SAT is retired: the saturation is now structural.
         n = GU_NODES[ax.cat]
         vigour = np.clip(self.D_clean(ax) / max(ax.D_peak, 1e-6), 0.0, 1.0)
-        l_afford = ax._v / (n * math.pi * R_TIP ** 2)
+        l_afford = ax._v / (n * math.pi * self.r_tip ** 2)
         ext = min(1.0, l_afford / INTERNODE) * vigour
         if ext < EXT_MIN:
             ax._dormant += 1                    # cannot extend at all this year (a dormant bud)
@@ -921,8 +1023,8 @@ class Grower:
         died, never rewritten."""
         n = len(self.nodes)
         hist, r_sap, a_dead = self._r_hist, self._r_sap, self._a_dead
-        f_live, f_lost = self._f_live, self._f_lost
-        for arr in (hist, r_sap, a_dead, f_live, f_lost):
+        f_live, f_lost, a_lost = self._f_live, self._f_lost, self._a_lost
+        for arr in (hist, r_sap, a_dead, f_live, f_lost, a_lost):
             if len(arr) < n:
                 arr.extend([0.0] * (n - len(arr)))
         order = self._topo_leaves_first(children)
@@ -938,18 +1040,22 @@ class Grower:
                 # internode owns none of its own — it just sums what stands above it.
                 fl = 1.0 if not live_kids else sum(f_live[c] for c in kids)
                 fh = sum(f_lost[c] for c in kids)
+                ah = sum(a_lost[c] for c in kids)
             else:
                 # dead wood: no live units above it (a shed takes the whole subtree). A dead TERMINAL
                 # is one lost leaf unit — counted ONCE, forever. A dead internode was never a leaf
                 # unit at death; it only carries the lost units of its own dead tips. No recursion.
+                # ★ iter-15: the AREA it banks is the c_H of the year it died (nd.death_c), because
+                # N_def — and so c_H — grows with the tree. The count fh is kept for diagnostics.
                 fl = 0.0
                 fh = 1.0 if not kids else sum(f_lost[c] for c in kids)
-            f_live[i], f_lost[i] = fl, fh
+                ah = nd.death_c if not kids else sum(a_lost[c] for c in kids)
+            f_live[i], f_lost[i], a_lost[i] = fl, fh, ah
             if not nd.alive:                          # dead wood is a FOSSIL: frozen, still skinned
                 radius[i] = max(radius[i], hist[i])
                 continue
-            r_s = R_TIP * fl ** (1.0 / PIPE_POWER)    # ★ iter-8: the tip seed carries DBH_CALIB
-            dead = C_HEART * fh                       # ...and each lost unit is worth c_H, once
+            r_s = self.r_tip * fl ** (1.0 / PIPE_POWER)   # ★ iter-8/15: the tip seed carries N_def(t)
+            dead = ah                                     # ...and each lost unit was worth c_H(death)
             r_sap[i], a_dead[i] = r_s, dead
             r_tot = math.sqrt(r_s * r_s + dead / math.pi)
             radius[i] = max(radius[i], hist[i], r_tot)    # THE RATCHET — never decreases
@@ -1042,7 +1148,7 @@ class Grower:
         grow_module)."""
         N = len(self.nodes)
         wood = np.array([nd.alive and not nd.foliage for nd in self.nodes])
-        prev = np.full(N, R_TIP)
+        prev = np.full(N, self.r_tip)
         n_old = len(self._r_prev)
         prev[:n_old] = self._r_prev                   # sections that existed last year keep their girth
         prev = np.where(wood, prev, 0.0)
@@ -1071,6 +1177,7 @@ class Grower:
         tips = [i for i, nd in enumerate(self.nodes)
                 if nd.alive and not nd.foliage and i != 0
                 and not any(self.nodes[c].alive and not self.nodes[c].foliage for c in children[i])]
+        self._n_tips = len(tips)      # ★ iter-15: the live leaf-unit count — N_def's denominator
         for t in tips:
             base = self.nodes[t].pos
             for k in range(FOLIAGE_PER_TIP):
@@ -1099,10 +1206,24 @@ class Grower:
         P = np.array([self.nodes[i].pos for i in src])
         mn = P.min(0) - VOX
         gi = np.floor((P - mn) / VOX).astype(int)
+        # ★ iter-15: THE CROWN VOLUME — the space the live crown CLAIMS: the convex hull of the live
+        # foliage cloud. It is N_def's numerator, and it is an OUTPUT: the tree earned every cubic
+        # metre of it by paying for the extension that reached there.
+        # ⚠ NOT the occupied-voxel count. Our armature carries only ~10–30 tips × 12 markers, so the
+        # voxels those markers happen to touch is a measure of the SAMPLING, and it is bounded by
+        # 12*n_tips voxels — which would make N_def saturate at a ceiling of its own. That is the
+        # very disease iter-15 exists to cure (a fixed point in tips). The deferred A4/A5 twigs are
+        # exactly the ones that FILL the space between the sampled tips, so the volume they fill is
+        # the envelope, not the samples.
+        self._crown_vol = self._hull_volume(P)
+        # ★ iter-15: and each marker now casts the shade of the N_def twigs it STANDS FOR, not of one
+        # twig. S == 1 at the anchor, so SHADOW_A/B keep their calibrated meaning there; a big tree
+        # (S > 1) shades its own interior harder, and that self-shading is what closes the crown and
+        # makes a carrying capacity EMERGE instead of being looked up (Hellström, Discussion p. E45).
         shadow = {}
         for (gx, gy, gz) in gi:
             for dl in range(0, SHADOW_LEVELS):
-                s = SHADOW_A * SHADOW_B ** (-dl)
+                s = (self.s_def if S_IN_SHADE else 1.0) * SHADOW_A * SHADOW_B ** (-dl)
                 if s < 0.02:
                     break
                 for dx in range(-dl, dl + 1):
@@ -1111,9 +1232,24 @@ class Grower:
                         shadow[key] = shadow.get(key, 0.0) + s * math.exp(-(dx*dx+dz*dz)/(2*(dl+1)))
         return shadow, mn
 
+    @staticmethod
+    def _hull_volume(P):
+        """Volume of the crown envelope: the convex hull of the live foliage cloud (scipy Qhull).
+        Degenerate while the seedling's leaves are still coplanar/collinear — fall back to the
+        bounding volume of the marker cloud, which is what a handful of leaves really claims."""
+        if len(P) >= 4:
+            try:
+                return float(ConvexHull(P).volume)
+            except QhullError:                        # coplanar seedling crown
+                pass
+        span = P.max(0) - P.min(0)
+        return float(np.prod(np.maximum(span, VOX)))
+
     def light_at(self, pos, shadow, mn):
         g = tuple(np.floor((pos - mn) / VOX).astype(int))
-        return max(FULL_LIGHT - shadow.get(g, 0.0) + SHADOW_A, 0.0)
+        # the + term un-shades a site from its OWN deposit, so it tracks the S-scaled deposit (iter-15)
+        own = (self.s_def if S_IN_SHADE else 1.0) * SHADOW_A
+        return max(FULL_LIGHT - shadow.get(g, 0.0) + own, 0.0)
 
     def foliage_light(self, shadow, mn):
         """Light gathered by each living leaf."""
@@ -1196,7 +1332,13 @@ class Grower:
         q_own = {ax.id: 0.0 for ax in self.axes}
         for nd in self.nodes:
             if nd.alive and nd.foliage and nd.axis >= 0:
-                q_own[nd.axis] += self.light_at(nd.pos, shadow, mn)
+                # ★ iter-15: a marker INTERCEPTS the light of the N_def twigs it stands for. This is
+                # the half that was missing: N_def was on the cost side and in the ledger, never in
+                # the income, so a tip paid 354 twigs' worth of wood and earned one twig's worth of
+                # light. With both sides scaled, income ∝ N_def and cost ∝ N_def^(2/p) — and p > 2,
+                # so they no longer cancel and the tip count is no longer a fixed point.
+                gain = self.s_def if S_IN_LIGHT else 1.0
+                q_own[nd.axis] += gain * self.light_at(nd.pos, shadow, mn)
         order = []                                   # children-before-parents
         stack = list(roots)
         while stack:
@@ -1214,7 +1356,7 @@ class Grower:
         if not roots or sum(q_sub[r] for r in roots) <= 0.0:
             for ax in self.axes:
                 if ax.alive and ax.apex is not None:
-                    ax._v = GU_NODES[ax.cat] * math.pi * R_TIP ** 2 * INTERNODE
+                    ax._v = GU_NODES[ax.cat] * math.pi * self.r_tip ** 2 * INTERNODE
             return
         # --- acropetal pass: distribute v down the axis tree ---
         apical = year <= APICAL_OFF_YEAR
@@ -1432,6 +1574,8 @@ class Grower:
         while stack:
             i = stack.pop()
             self.nodes[i].alive = False
+            # ★ iter-15: bank the heartwood at the size it died at, not at today's size.
+            self.nodes[i].death_c = self.c_heart
             killed.append(i)
             for c in children[i]:
                 if self.nodes[c].alive:
@@ -1448,8 +1592,34 @@ class Grower:
     # ======================================================================
     # THE YEAR LOOP
     # ======================================================================
+    def update_n_def(self):
+        """★ iter-15 — N_def(t): the real A4/A5 twigs ONE armature tip stands for, this year.
+
+        The branch carrying capacity of Hellström et al. 2018 (Eq. 1), realized the way that paper
+        says it really is realized — "through other factors, such as light or nutrient limitation"
+        (Discussion, p. E45) — and NOT as the age lookup alpha*(n+1)^d, which would make DBH an
+        analytic function of age. A tip stands for the twigs that FIT in the crown volume it owns:
+
+            N_def = TWIG_DENSITY * V_crown / n_tips        S = N_def / N_DEF_REF
+
+        Both inputs are EARNED (the crown volume the economy paid to reach; the tips it kept alive),
+        so N_def is an OUTPUT. Read off LAST year's crown — banked before it is spent, like the light
+        field and the support bill. S then scales, in the same year and by the same factor: the light
+        a marker intercepts, the shade it casts, the pipe its tip seeds (r_tip), and the heartwood it
+        wills to the trunk when it dies (c_heart). Same term, every side."""
+        if TWIG_DENSITY is None or self._n_tips <= 0 or self._crown_vol <= 0.0:
+            return                                    # anchor probe / seedling years: S stays 1
+        n_def = TWIG_DENSITY * self._crown_vol / self._n_tips
+        self.s_def   = max(n_def / N_DEF_REF, S_MIN)
+        self.n_def   = self.s_def * N_DEF_REF
+        self.r_tip   = R0 * DBH_CALIB * self.s_def ** (1.0 / PIPE_POWER)
+        self.c_heart = HEART_RATIO * math.pi * self.r_tip ** 2
+
     def run(self, years, verbose=False):
         for year in range(1, years + 1):
+            # 0. ★ iter-15: N_def FIRST — what one tip stands for is set by last year's crown, and
+            #    everything this year (income, shade, pipe, heartwood) is priced against it.
+            self.update_n_def()
             # 0. ★ iter-6: RESOURCE. Allocate the light the tree caught LAST year (photosynthate is
             #    banked before it is spent) among this year's apices. Finite and shared, so the crown
             #    self-limits: no cap on reach exists or is wanted. See ADR + the constants block.
@@ -1596,6 +1766,11 @@ class Grower:
         out.update(F_S=self._f_live[0], F_H=self._f_lost[0], a_sap=a_sap, a_heart=a_dead_0,
                    sap_frac=a_sap / max(a_built, 1e-12),
                    sap_frac_pipe=a_sap / max(a_sap + a_dead_0, 1e-12))
+        # ★ iter-15: N_def and the crown it is read from. real_tips = N_def*F_S is the tree's TOTAL
+        # A4/A5 tip count — the quantity Hellström's b(n) = beta*(n+1)^d predicts, and therefore the
+        # independent check on this whole mechanism (it is a validator, never an input).
+        out.update(S=self.s_def, N_def=self.n_def, crown_vol=self._crown_vol, n_tips=self._n_tips,
+                   real_tips=self.n_def * self._f_live[0])
         return out
 
 

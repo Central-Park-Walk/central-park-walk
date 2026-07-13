@@ -162,3 +162,76 @@ the heartwood law. **Stop working on the heartwood law. It is done.**
 - When one free constant is demanded by two ground truths and they disagree by 22x, that is not a
   calibration problem — it is a structural falsification, and it is the cheapest one you will ever get.
   Solve for the constant under BOTH targets before you fit it under either.
+
+## 15 — N_def size-dependent, realized through the light field (Hellström et al. 2018)
+
+**Prior art, read first and read properly** (the mandate STATE carried into this session). Hellström,
+Carlsson, Falster, Westoby & Brännström 2018, "Branch Thinning and the Large-Scale, Self-Similar
+Structure of Trees", *Am. Nat.* 192(1):E37–E47, doi:10.1086/697429 — the branch-thinning companion to
+the Aye 2022 pipe/heartwood paper the ratchet already builds on. PDF opened, not summarised from
+snippets (`tmp/papers/hellstrom2018_branch_thinning.pdf`, gitignored).
+
+    K(n) = alpha*(n+1)^d            (Eq. 1)  the branch CARRYING CAPACITY, in tips
+    b(n) = min{mu^n, beta*(n+1)^d}  (Eq. 4)  tips actually borne by a branch of age n
+
+Fitted to Wilson (1966)'s red maple long-shoot counts (Fig. 8, the paper's only broadleaf):
+**beta = 6.69, d = 1.44, mu = 1.42, R² = 0.98.** Over our census ages that predicts m->l tip growth of
+(105/48)^1.44 = **3.09x**, against the **2.71x** basal-area growth the census independently demands —
+two unrelated sources agreeing inside our instrument. That is the growth term the model lacks.
+
+**Hypothesis.** The crown saturates because the economy is scale-free in tips (income ∝ tips, cost ∝
+tips, they cancel — iter-14). Give `N_def` a size term and put it on BOTH sides — a tip that stands
+for N twigs must *intercept* N twigs' worth of light and *cast* N twigs' worth of shade, not just pay
+N twigs' worth of wood — and the cancellation breaks (income ∝ N_def, cost ∝ N_def^(2/p), p = 2.3 > 2).
+
+**⛔ Not as an age lookup.** `K(n) = alpha*(n+1)^d` would make DBH an analytic function of age — a
+parameter wearing an output's clothes, the mistake this project has made four times. The paper itself
+forbids it (Discussion, p. E45): *"The phenomenological carrying capacity assumed here is in reality
+realized through other factors, such as light or nutrient limitation."* We have a light field. So the
+capacity is realized through **space and light**, and Hellström's b(n) becomes the **validator**:
+
+    N_def(t) = TWIG_DENSITY * V_crown(t) / n_tips(t)        S(t) = N_def/N_DEF_REF
+
+**Change.** `V_crown` = convex hull of the live foliage cloud (NOT the occupied-voxel count, which is
+bounded by 12*n_tips and so would install a new fixed point of its own). S scales, in the same year:
+the light a marker intercepts, the shade it casts, the tip pipe (`self.r_tip`), and the heartwood a
+unit wills to the trunk when it dies (`self.c_heart`). Heartwood is consequently banked as an AREA at
+the c_H of the year of death (`Node.death_c`), not a count times a global constant — same law (Aye
+Eq. 6), now size-aware. `TWIG_DENSITY` = 44.51 twigs/m³ is not a new degree of freedom: it is pinned
+ONCE by demanding S(m) = 1 (`tmp/iter15_anchor.py`), so it RE-EXPRESSES DBH_CALIB rather than
+re-fitting it, and at the anchor the model is unchanged. New diagnostic switches `S_IN_LIGHT` /
+`S_IN_SHADE`, because "which side breaks" is not a claim you can make without isolating them.
+
+**Verification.** All three tiers grown, both variants, against the S≡1 baseline.
+
+    variant                    s DBH    m DBH    l DBH   V_crown s/m/l (m³)   real_tips m->l   sap l
+    baseline (iter-14)         5.15x    3.37x    3.36x    19 / 216 / 597           —            4.7%
+    S in light + shade         6.83x    4.00x    3.90x   547 / 121 /  62         x0.63          1.0%
+    S in light, shade off      1.15x    3.56x    4.02x     5 / 466 / 358         x0.83          3.8%
+                                                                        (Hellström demands x3.09)
+
+**verdict: REFUTED — the numerator is not exogenous.** `N_def` is read off the live crown; income
+scales with `N_def`; income buys the extension that *grows the live crown*. **That is a positive
+feedback loop on income, measured from its own product.** It is unstable in both directions: the m
+crown sprawled to 466 m³ against a 215 m³ baseline, then the l crown collapsed (358 m³, or 62 m³ with
+the shade term). Crown growth m->l came out **x0.77** where it must be ~x2.7. The S-scaled shade makes
+the instability *violent* — a linear, clamped-at-zero light field responds savagely to a multiplied
+deposit: a small tree (S<1) has its shade *relieved* and sprawls, a big one (S>1) blacks out its own
+interior and sheds — but switching it off does **not** remove the loop, only its teeth. Model reverted
+to iter-14 (`TWIG_DENSITY = None`, verified bit-identical), mechanism and switches kept.
+
+**What it bought — the sapling, and it is not a small thing.** With `N_def` free to be SMALL for a
+small tree (13 twigs, not 355), **the s tier went 5.15x -> 1.15x of its census DBH.** That is open
+defect 4 — the constant-`R_TIP` floor that pins a 12.7 cm sapling at 2*R_TIP = 10.3 cm — moving for
+the first time in six iterations, and it confirms the SIZE-DEPENDENCE ITSELF is right. The mechanism
+stands; only its numerator is refuted. What must change is where the size term is READ FROM: it has to
+be a quantity **this year's income cannot bid up.**
+
+## Staged lessons
+
+- **A derived quantity fed back into the economy that derives it is a positive feedback loop, not a
+  derivation.** "It is an OUTPUT, not a parameter" is necessary but NOT sufficient: an output read
+  from the very loop it then drives is a fifth way to get the same class of error. The size term has
+  to be *earned and settled* (ratcheted structure, already-built wood), not *currently being bought*.
+- A refutation that moves an unrelated open defect by 4.5x is telling you the mechanism is right and
+  the wiring is wrong. Do not throw the mechanism away with the wiring.
