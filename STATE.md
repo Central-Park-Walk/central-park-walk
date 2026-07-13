@@ -21,8 +21,7 @@ constant) and the two-sided caliber error **survives a perfect tip budget: 1.36�
 
 1. **★ Caliber, two-sided** — `s` too thick, `l` too thin. The live one. Required exponent **p = 1.37**, not 2.3.
 2. **`s` floor (separate, smaller)** — constant `R_TIP` floors DBH at 2·R_TIP = 10.3 cm at any age;
-   `s`'s census DBH is 12.7 cm, so the sapling is pinned near the floor and *cannot* be thin.
-   **Do not expect one term to mend both.**
+   `s`'s census DBH is 12.7 cm ⇒ pinned near the floor, *cannot* be thin. **One term won't mend both.**
 3. Criterion vi unmet ⇒ **do not ship.**
 
 ## NEXT — the one hypothesis: iter-12 = HEARTWOOD
@@ -41,8 +40,8 @@ two-sided sign, size-dependent, published not invented. **Derive before coding.*
 - ⛔ **The crown was never 2× too wide** (the tier ages were guessed). Five width mechanisms built and
   refuted against an artifact — **never add a sixth.**
 - ⛔ **Shed rule, `MAX_CAT`, reiteration rate: EXONERATED.** Do not tune them for this.
-- ⛔ **`N_def` accumulating with a tip's own age: REFUTED by our own source** (C&E: A4/A5 self-prune
-  in 1–4 yr ⇒ the spray is in steady state by ~4 yr).
+- ⛔ **`N_def` accumulating with a tip's own age: REFUTED by our own source** (C&E: A4/A5 self-prune in
+  1–4 yr ⇒ steady state by ~4 yr).
 - ⚠ **Suspect the CLOCK before the MECHANISM** — that has been the answer twice.
 - ⚠ **Instrument limit:** seed variance 126% on `s` span, ~100% on `n_tips` at 8 seeds. Nothing finer
   than ~10–15% is measurable. Do not chase a smaller difference.
