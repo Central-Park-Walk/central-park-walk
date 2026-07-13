@@ -64,7 +64,23 @@ R0         = 0.004        # 4 mm terminal-bud seed radius (reused)
 # it seeds the pipe model, so under R_TIP -> k*R_TIP with ALPHA -> k^2*ALPHA the cost per unit
 # length is unchanged => length/height/crown are INVARIANT while every radius scales by k. DBH was
 # 0.34x => k = 2.94. Verified: m DBH 14.7 -> 43.0 cm = 1.00x target, H and span held.
-DBH_CALIB  = 12.85        # [FIT] 4.37 * 2.94; see docs/grower_prototype_iter1.md iter-9.
+DBH_CALIB  = 3.813        # [DERIVED] 12.85 / 3.37; see the iter-17 block below.
+# ★★ iter-17 — THE RE-CENTRING, AND IT IS A DERIVATION, NOT A SEARCH. The iter-9 refit above was
+# made against a grower with NO HEARTWOOD. Iters 12-14 then added the heartwood ratchet, which lays
+# down wood the iter-9 fit had no way to know about, and nobody re-centred: measured, the pipe came
+# out 5.15 / 3.37 / 3.36x the census DBH. The SAME invariance the iter-9 refit rode on runs in
+# reverse -- R_TIP -> k*R_TIP with ALPHA -> k^2*ALPHA leaves the cost of a unit of extension
+# (l_afford = v/(n*pi*R_TIP^2)) unchanged, so length/height/crown are INVARIANT, the economy is
+# preserved EXACTLY, and every radius scales by k. Every cross-section in the model is homogeneous
+# of degree 2 in R_TIP (c_S == pi*R_TIP^2 seeds the pipe; C_HEART == HEART_RATIO*pi*R_TIP^2), so
+# this is exact, not approximate -- with ONE exception, and it is the entire point: the mechanical
+# radius r_mech = (4M/pi.sigma)^(1/3) does NOT scale with k, because SIGMA/GRAV/RHO_GREEN carry an
+# ABSOLUTE LENGTH SCALE. The transform is exactly economy-preserving only while the support bill is
+# zero -- which iter-16 measured it to be. So k = 1/3.37, taken from the m (calibration) tier.
+# ⚠ IT DOES NOT FIX DEFECT 1 AND IT IS NOT ASKED TO. A scalar slides all three tiers together; it
+# can only CENTRE the two-sided splay, never cure it (l. 121). What it is asked to do is STOP HIDING
+# it: statics is the ONLY law in this model with an absolute length scale, and a 3.4x-too-fat pipe
+# drowns it (see the iter-16 block at l. 252). This re-centring is the falsification instrument.
 # ★ iter-8: DBH_CALIB is applied AT THE TIP, not as a post-hoc multiply in finalize(). The two are
 # EXACTLY equivalent -- the pipe model r=(SUM r_c^p)^(1/p) is homogeneous of degree 1 in the tip
 # radius, so seeding every tip at k*R0 scales every radius by k -- but the tip form says what the
@@ -346,7 +362,11 @@ DIVERG_SPIRAL = 137.5     # 2/5 spiral phyllotaxis divergence for orthotropic A1
 # an apex no longer saturates at a fitted resource level, it saturates when it can afford C&E's full
 # internode, and the price of an internode is just the wood in it (pi*R_TIP^2*l). So the economy
 # still has exactly ONE fitted scalar, and it is now the photosynthetic yield.
-ALPHA      = 2.59e-4 # [FIT] m^3 of wood per unit of light gathered per year. v_base = ALPHA*Q_base.
+ALPHA      = 2.281e-5 # [DERIVED] iter-17: 2.59e-4 * k^2, k = 1/3.37. The PARTNER of the DBH_CALIB
+                     # re-centring above — thinning the tip by k without dividing ALPHA by k^2 would
+                     # have made every internode 11x cheaper and grown a monstrous tree. One scalar,
+                     # two constants; see the iter-17 block at DBH_CALIB. Was, before iter-17:
+                     # [FIT] m^3 of wood per unit of light gathered per year. v_base = ALPHA*Q_base.
                      # Replaces V_SAT (which it also subsumes: the two were degenerate).
                      # ★ iter-9: 3.0e-5 -> 2.59e-4 = 3.0e-5 * k^2, k = 2.94. NOT an independent fit --
                      # it is the partner of the DBH_CALIB refit above. R_TIP prices extension as
@@ -1106,13 +1126,22 @@ class Grower:
         binds on 42-62% of load-bearing wood (lever > 2 m) and on 0% at the bole. Re-derived in
         tmp/grower_selfconsistent_check.py.
 
-        ⛔ THAT LAST CLAIM IS STALE AND IT IS NOW FALSE — it was measured in iter-8, BEFORE iter-9
-        refit DBH_CALIB to 12.85 (R_TIP = 5.1 cm) and before the heartwood ratchet. Re-measured over
-        every wood node of every year of all three tiers (iter-16, tmp/iter16_mech_probe.py): statics
-        binds on 0/0, 9/958 and 26/10917 load-bearing nodes (s/m/l) and exceeds the pipe by at most
-        3%. Median r_mech/r_pipe = 0.14 / 0.20 / 0.23. THE MECHANICAL TERM IS INERT, and it is inert
-        BECAUSE THE PIPE IS 3.4x TOO FAT. That is why the bill below reads 0.0000 m^3 in all 104
-        years: there is no excess over pipe to charge. Fix the pipe and the statics wakes up.
+        ⚠ THE ITER-8 CLAIM ABOVE WENT STALE, AND THE HISTORY IS THE LESSON. Re-measured at the
+        iter-9/iter-14 constants (iter-16, tmp/iter16_mech_probe.py), statics bound on 9/958 and
+        26/10917 load-bearing nodes and exceeded the pipe by at most 3%: median r_mech/r_pipe =
+        0.14 / 0.20 / 0.23, and the bill below read 0.0000 m^3 in all 104 years. The term looked DEAD.
+        It was not dead — IT WAS DROWNED, by a DBH_CALIB left stale across the heartwood ratchet
+        (the pipe was 3.4x too fat, and r_mech falls only as r_pipe^(2/3) where wood mass dominates
+        the moment and NOT AT ALL where leaf mass does).
+
+        ★ iter-17 re-centred the pipe (k = 1/3.37) and THE TERM WOKE UP. Same probe, unmodified:
+        median r_mech/r_pipe = 0.22 / 0.56 / 0.52, max 2.54, and on load-bearing wood (lever > 2 m)
+        it BINDS on 55% (m) and 72% (l) of nodes. The bill leaves zero for the first time: on l it is
+        non-zero in 86 of 104 years and takes 4.8% of the annual pool at yr 20, 20.7% at yr 47 and
+        49-64% past yr 60 — while remaining 0.0% at yr 10. It is the ONLY law in this model with an
+        absolute length scale (SIGMA, GRAV, RHO), hence the only one that is not scale-free, hence
+        the only available source of a SIZE term. Before you retire a mechanism for reading zero,
+        ask what else in the model sets the scale it is measured against.
         """
         order = self._topo_leaves_first(children)     # leaves-first
         N = len(self.nodes)

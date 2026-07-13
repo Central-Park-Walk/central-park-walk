@@ -296,3 +296,65 @@ bole and up to 3.4x on the distal limbs** — exactly where the leverage is. Def
   every scalar not only *what does it move* but *what does it hide*.
 - **Re-measure the claim in the docstring before you build on it.** iter-8's "binds on 42-62% of
   load-bearing wood" was true when written and false by iter-9. The whole iter-16 plan rested on it.
+
+## 17 — THE PIPE RE-CENTRED (a derivation), AND STATICS WAKES UP. THE FALSIFICATION FAILED TO KILL IT.
+
+**The change — two constants, one scalar, zero searches.** `DBH_CALIB 12.85 -> 3.813` and
+`ALPHA 2.59e-4 -> 2.281e-5`, i.e. `R_TIP -> k*R_TIP` with `ALPHA -> k^2*ALPHA` at `k = 1/3.37`, taken
+from the m (calibration) tier's measured DBH. Baseline re-measured first, not recalled: **5.15 / 3.37
+/ 3.36x**. The transform leaves the cost of a unit of extension (`l_afford = v/(n*pi*R_TIP^2)`)
+unchanged, so lengths are invariant and every radius scales by `k`; every cross-section in the model
+is homogeneous of degree 2 in `R_TIP` (`c_S == pi*R_TIP^2` seeds the pipe, `C_HEART == HEART_RATIO *
+pi*R_TIP^2`), so it is **exact** — *while the support bill is zero*, which iter-16 measured it to be.
+The one non-homogeneous term in the model is the one we were trying to un-suppress. That is the whole
+design of the instrument.
+
+**The hard falsification, stated in STATE before the run: if statics still does not wake up, the
+mechanical term is dead for good, and we say so and stop.**
+
+**It woke up.** `tmp/iter16_mech_probe.py`, unmodified, every wood node, every year:
+
+| tier | median `r_mech/r_pipe` | max | load-bearing wood (lever > 2 m) that BINDS |
+| --- | --- | --- | --- |
+| s | 0.14 -> **0.22** | 0.65 -> **1.03** | 0/958 -> **8/140** (6%) |
+| m | 0.20 -> **0.56** | 1.03 -> **2.13** | 9/958 -> **4134/7494** (55%) |
+| l | 0.23 -> **0.52** | 1.03 -> **2.54** | 26/10917 -> **17712/24699** (72%) |
+
+And the number iter-16 said would move first: **`_bill_total` leaves 0.0000 for the first time in the
+project's history.** On `l`: non-zero in **86 of 104 years**, **0.2586 m^3** of support wood bought,
+and it takes **4.8% of the annual pool at yr 20, 20.7% at yr 47, 63.7% at yr 60, 49.2% at yr 104.**
+It is zero at yr 10. **A magnitude, not a slope** — and one that is *absent in a sapling and dominant
+in a centenarian*, which is the shape defect 1 has been asking for since iter-10.
+
+**verdict: the prediction is CONFIRMED and the term is ALIVE.** Statics is no longer a decoration.
+
+**★ AND THE TWO RAILS HELD, WHICH IS HOW WE KNOW THE INSTRUMENT IS HONEST.** A scalar may CENTRE and
+UN-SUPPRESS; it may never FIX. Predicted in STATE, then measured:
+
+- **DBH 1.43 / 0.93 / 0.94x.** Re-centred on m: **s 1.54, l 1.01** — against the pre-registered
+  prediction of **s 1.53, l 1.00.** The two-sided splay is *untouched*. Defect 1 is exactly as alive
+  as it was this morning, and defect 3 is now honestly stated instead of being buried under a 3.4x.
+- **Sapwood 20.9 / 9.5 / 4.4%** (was 18.3 / 9.9 / 4.7). Unmoved, as the "`DBH_CALIB` CANCELS" rail
+  says it must be. It is a structural error and no scalar was ever going to touch it.
+
+The tiers are not *bit*-identical to the invariant prediction (m: 800 wood nodes vs 655; DBH 0.93
+not 1.00) and **that residual IS the mechanism**: the bill is now being paid, so wood is diverted from
+extension, posture stiffens, the light field shifts, and the trajectory legitimately diverges. The ~7%
+DBH shortfall below the invariant prediction is the price of standing up. Do not "fix" it with another
+scalar.
+
+## Staged lessons
+
+- **★ A NEGATIVE RESULT CAN BE AN INSTRUMENT FAULT.** iter-8 built the mechanical term; iters 8-16
+  read `_bill_total = 0.0000` for eight iterations and concluded, twice, that the term was dead —
+  once as a wiring bug, once as structure. It was neither. It was **being drowned by a stale
+  calibration constant three screens away in the same file.** Before you retire a mechanism for
+  reading zero, ask what else in the model sets the scale it is measured against.
+- **★ A "REFUTED" ITERATION CAN BE THE MOST VALUABLE ONE.** iter-16 coded nothing and killed its own
+  plan — and the *diagnosis it produced while dying* (the fat pipe suppresses the only non-scale-free
+  law we own) is what made iter-17 a 20-minute derivation with a pre-registered prediction that landed
+  to 1%. The refutation was worth more than the feature would have been.
+- **Pre-register the prediction, including the rails you expect to HOLD.** "s 1.53, l 1.00, sapwood
+  unmoved" was written down *before* the run. It came back 1.54 / 1.01 / unmoved. That is what let us
+  say, without a second run, that the term woke up because the pipe thinned and **not** because we had
+  quietly broken something.
