@@ -1,50 +1,58 @@
 # STATE — cpw / london-plane
 
 The developmental grower: `scripts/plane_grower.py`. Grow a plane from a seed; let crown, caliber and
-depth **emerge**. Deep history: `project_london_plane_crown_mould.md` (not needed — see below).
+depth **emerge**. Deep history: `project_london_plane_crown_mould.md` (not needed — iterate from here).
 
 ## Where we are
 
-**iter-11 DONE** (`621fd52`). The tip budget was measured against an *independent* ground truth
-(twig count from leaf area — touches no pipe-model constant): the armature is **2.37× / 1.47× /
-1.14×**, right where it was accused. The old "`l` has 2.1× too few tips" was an **artifact** — read
-off the pipe layer's own demand, which assumes the pipe model and then blames the budget for not
-feeding it.
+**iter-12 DONE** (`ffc3496`). The pipe layer had **no heartwood**, and the cause was a real bug:
+`ratchet()` summed only LIVE children into a `radius` array rebuilt from zero every year, so a shed
+branch's wood **vanished** from its parent's cross-section. The trunk was pure sapwood at every age.
+Fixed per Shinozaki's disused pipes / Kubo 2022 branch-thinning: sum ALL woody children, dead ones
+frozen at their radius at death. **No new constant.**
 
-**The parameter-free test is the finding.** Hand the pipe layer the *true* twig count (no fitted
-constant) and the two-sided caliber error **survives a perfect tip budget: 1.36× / 0.87× / 0.68×.**
-⇒ the defect is not how many tips we grow, it is **what the pipe layer does with them.**
+**It works, and it is not a scalar** — the falsifier passed. Per-tier DBH multiplier **2.02× / 2.49× /
+3.14×**, monotone in age. The two-sided splay s/l fell **2.68× → 1.73×**.
 
-**Just changed (2026-07-13):** thread bound; `STATE.md` + `LEDGER.md` seeded. No grower code touched.
-The **cold start is CONFIRMED** (iter-0b): a blank session rebuilt the whole picture from this file in
-three tool calls, never opening the 1400-line memory file. Iterate from here; don't go back to memory.
+    DBH vs census    before: s 1.96  m 1.00  l 0.73     after: s 3.96  m 2.49  l 2.29
+    re-centred on m                                     after: s 1.59  m 1.00  l 0.92
+
+⚠ But absolute girth now **overshoots ~2.5×**: `DBH_CALIB` was fitted in a heartwood-free world and is
+stale. **Do not ship.**
 
 ## Open defects
 
-1. **★ Caliber, two-sided** — `s` too thick, `l` too thin. The live one. Required exponent **p = 1.37**, not 2.3.
-2. **`s` floor (separate, smaller)** — constant `R_TIP` floors DBH at 2·R_TIP = 10.3 cm at any age;
-   `s`'s census DBH is 12.7 cm ⇒ pinned near the floor, *cannot* be thin. **One term won't mend both.**
-3. Criterion vi unmet ⇒ **do not ship.**
+1. **`DBH_CALIB` is stale** — the one legitimate re-centring scalar, and it must be refit ONCE now that
+   the size-dependent term exists. (A scalar can't fix a splay; it is exactly the right tool to centre one.)
+2. **★ The sapwood fraction is wrong** — the model now implies sapwood = 16% (m) / 10% (l) of basal
+   area. Platanus is noted for **WIDE** sapwood. So the dead sum is **over-counting**: disused pipes are
+   being summed in the **p = 2.3 metric, which is not area-conserving**. Heartwood is AREA.
+3. **Caliber splay, residual** — after re-centring, s 1.59 / l 0.92. `l` has come home; **`s` is the
+   one left**, and that is defect 4.
+4. **`s` floor** — constant `R_TIP` floors DBH at 2·R_TIP at any age; `s`'s census DBH is 12.7 cm ⇒ `s`
+   is pinned near the floor and *cannot* be thin. (Refitting `DBH_CALIB` moves this floor too — watch it.)
+5. Criterion vi unmet ⇒ **do not ship.**
 
-## NEXT — the one hypothesis: iter-12 = HEARTWOOD
+## NEXT — the one hypothesis: iter-13 = SUM THE DEAD PIPES AS AREA
 
-Shinozaki's pipe model sizes **sapwood** by leaf area. This grower equates the *whole* cross-section
-with sapwood — its trunk *is* its plumbing. A real trunk is plumbing **+ a dead heartwood core whose
-fraction grows with age**, which is exactly why real leaf area scales ~DBH^1.4, not DBH^2.3. Right
-two-sided sign, size-dependent, published not invented. **Derive before coding.**
+Defect 2 is the lever, and it is coupled to the overshoot. Live pipes branch with p = 2.3 (da Vinci
+taper); **disused pipes are dead wood — they are conserved AREA (p = 2), not a taper law.** Bank the
+dead term as `A_dead` (area) and combine `A = π·r_live² + A_dead` while the LIVE sum keeps p = 2.3.
+Predicts: less over-count, a bigger sapwood fraction, and less of the 2.5× overshoot — *before* any
+refit. Refit `DBH_CALIB` **once, after** that, and only then read the residual splay. **Derive first.**
 
 ## Rails — each cost a session; do not re-litigate
 
-- ⛔ **No scalar can fix a two-sided error.** `R0`, `DBH_CALIB`, `R_TIP`, constant `N_def` are all
-  uniform DBH multipliers: they slide the tiers together, they can only *centre* a splay. **The sign
-  pattern of the residual tells you the RANK of the fix.**
-- ⛔ **LAI cannot rescue 2.3** — it would need 2.45 → 6.96 → 12.18; plane's range is 4.0–6.0.
-- ⛔ **The crown was never 2× too wide** (the tier ages were guessed). Five width mechanisms built and
-  refuted against an artifact — **never add a sixth.**
-- ⛔ **Shed rule, `MAX_CAT`, reiteration rate: EXONERATED.** Do not tune them for this.
-- ⛔ **`N_def` accumulating with a tip's own age: REFUTED by our own source** (C&E: A4/A5 self-prune in
-  1–4 yr ⇒ steady state by ~4 yr).
+- ⛔ **No scalar can FIX a two-sided error** (`R0`, `DBH_CALIB`, `R_TIP`, constant `N_def` are uniform
+  DBH multipliers) — but a scalar is the right tool to **CENTRE** one, *after* a size-dependent term exists.
+- ⛔ **LAI cannot rescue p = 2.3** — it would need 2.45 → 6.96 → 12.18; plane's range is 4.0–6.0.
+- ⛔ **The tip budget is EXONERATED** (iter-11, measured against an independent ground truth). The old
+  "`l` has 2.1× too few tips" was an artifact of reading the pipe layer's own demand.
+- ⛔ **The crown was never 2× too wide** — five width mechanisms built and refuted against an artifact.
+  **Never add a sixth.**
+- ⛔ **Shed rule, `MAX_CAT`, reiteration rate, `N_def` accumulating with tip age: EXONERATED / REFUTED.**
 - ⚠ **Suspect the CLOCK before the MECHANISM** — that has been the answer twice.
-- ⚠ **Instrument limit:** seed variance 126% (`s` span) / ~100% (`n_tips`) at 8 seeds ⇒ nothing finer than ~10–15% is measurable. Do not chase less.
+- ⚠ **Instrument limit:** seed spread is 127% (`s` span) / 69–78% (H) ⇒ nothing finer than ~10–15% is
+  measurable. **DBH is the tight one (9–19%)** — it is the only metric worth reading closely.
 
 ## Open for Chris — two abandoned agent branches hold unmerged work: **ginkgo**, **magnolia**.
