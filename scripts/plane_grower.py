@@ -488,6 +488,12 @@ class Grower:
         # zero every year, so the old max() only ever ratcheted within one bottom-up pass), and it
         # is where a DEAD child's pipe area is frozen so its parent can keep carrying it.
         self._r_hist = []
+        # ★ iter-13: the two components the ratchet now keeps SEPARATE, because they obey different
+        # laws (see ratchet()). _r_sap = the ACTIVE pipe radius (Shinozaki, p = PIPE_POWER, live
+        # children only); _a_dead = the DISUSED pipe AREA walled off as heartwood (p = 2, conserved).
+        # Both are frozen at death: they are only ever rewritten for a node that is still alive.
+        self._r_sap  = []
+        self._a_dead = []
         self._bill = {}
         self._arch_distal = []   # ★ iter-5: (distal_root_node, host_axis) — arch-summit dieback
                                  # candidates; the shed rule kills each once its offspring overtop it.
@@ -848,7 +854,7 @@ class Grower:
     # RATCHET (§5) — radius = monotone max over history
     # ======================================================================
     def ratchet(self, radius, children):
-        """★ iter-12 — SAPWOOD + DISUSED PIPES (= heartwood).
+        """★ iter-13 — SAPWOOD (a taper law) + HEARTWOOD (an AREA). Two laws, kept separate.
 
         Shinozaki's pipe model sizes the ACTIVE (sapwood) area by the leaf area it feeds; the pipes
         of a branch that dies are not reabsorbed, they stay in the stem as DISUSED pipes and are
@@ -856,34 +862,52 @@ class Grower:
         profiles from pipe model and branch thinning theory") predicts the whole heartwood profile
         from branch death alone — no new constant, which is why this term is free.
 
-        Until now this layer summed only LIVE children, into a radius array rebuilt from zero every
-        year: a shed branch's wood simply VANISHED from its parent's cross-section, so the trunk was
-        pure sapwood at every age. That is the missing size-dependent term. A 15 yr sapling has shed
-        almost nothing and is nearly all sapwood; a 104 yr tree is a century of self-pruning, and
-        most of its trunk is the plumbing of branches that are long dead.
+        iter-12 added the dead branches' wood but summed it in the LIVE metric, r**PIPE_POWER. That
+        is wrong, and it is the reason the implied sapwood fraction came out at 10-16% of basal area
+        while Platanus is noted for WIDE sapwood. PIPE_POWER = 2.3 is a TAPER law: it is a statement
+        about how a living, branching plumbing system loses conductive area upward. Dead wood does
+        not branch and does not taper — it is a fossil. Its cross-section is simply AREA, and area is
+        CONSERVED (p = 2). Mixing the two in one sum is a category error, and it also double-dips:
+        a live child's radius already contains its own heartwood, and the p = 2.3 aggregation then
+        re-inflates that heartwood at every level on the way up the stem.
 
-        So: sum over ALL woody children — the live ones at this year's pipe radius, the dead ones
-        FROZEN at the radius they carried when they died. The sum is exactly conserved across a
-        death (the term moves from the live side to the dead side), and it can never fall."""
-        hist = self._r_hist
-        if len(hist) < len(self.nodes):
-            hist.extend([0.0] * (len(self.nodes) - len(hist)))
+        So the node carries two quantities, and they never meet in the same metric:
+
+            SAPWOOD    r_sap = ( SUM_live-children r_sap_c ** p ) ** (1/p)     p = PIPE_POWER
+            HEARTWOOD  A_dead = SUM_children A_dead_c
+                              + SUM_dead-children pi * r_sap_c(death)**2       (its whole section)
+            TOTAL      pi * r**2 = pi * r_sap**2 + A_dead
+
+        A dying branch hands its ENTIRE frozen basal area (its own sapwood plus whatever heartwood
+        it had already accumulated) to the parent's dead bank, where it stays, unaltered, forever.
+        Both banks are frozen at death: a dead node's r_sap and A_dead are never rewritten.
+        The ratchet on the TOTAL still stands as the guard — girth can never fall."""
+        n = len(self.nodes)
+        hist, r_sap, a_dead = self._r_hist, self._r_sap, self._a_dead
+        for arr in (hist, r_sap, a_dead):
+            if len(arr) < n:
+                arr.extend([0.0] * (n - len(arr)))
         order = self._topo_leaves_first(children)
         for i in order:
             if self.nodes[i].foliage:                 # leaves are not wood — no radius
                 continue
-            pipes, n_wood = 0.0, 0
+            if not self.nodes[i].alive:               # dead wood is a FOSSIL: frozen, still skinned
+                radius[i] = max(radius[i], hist[i])
+                continue
+            pipes, dead, n_wood = 0.0, 0.0, 0
             for c in children[i]:
                 if self.nodes[c].foliage:             # foliage is not wood — carries no pipe
                     continue
                 n_wood += 1
-                r_c = radius[c] if self.nodes[c].alive else hist[c]   # dead => frozen at death
-                pipes += r_c ** PIPE_POWER
-            if n_wood == 0:
-                r_live = R_TIP                        # ★ iter-8: the tip seed carries DBH_CALIB
-            else:
-                r_live = pipes ** (1.0 / PIPE_POWER)
-            radius[i] = max(radius[i], hist[i], r_live)   # THE RATCHET — never decreases
+                dead += a_dead[c]                     # heartwood passes up as AREA, always
+                if self.nodes[c].alive:
+                    pipes += r_sap[c] ** PIPE_POWER   # ...the live pipes taper (p = 2.3)
+                else:
+                    dead += math.pi * r_sap[c] ** 2   # ...a dead child's whole section is disused
+            r_s = R_TIP if n_wood == 0 else pipes ** (1.0 / PIPE_POWER)
+            r_sap[i], a_dead[i] = r_s, dead           # ★ iter-8: the tip seed carries DBH_CALIB
+            r_tot = math.sqrt(r_s * r_s + dead / math.pi)
+            radius[i] = max(radius[i], hist[i], r_tot)    # THE RATCHET — never decreases
             hist[i] = radius[i]                           # ...and it is remembered, so it can't
         return radius
 

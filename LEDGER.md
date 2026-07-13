@@ -61,3 +61,37 @@ Append-only. One entry per unit of work: hypothesis → change → measurement �
   little**: Platanus is noted for WIDE sapwood. Suspect the p=2.3 metric inflates the dead sum
   (summing disused pipes in a non-area metric is not area-conserving). See NEXT.
 - **Verdict: PENDING**
+
+---
+## 2026-07-13 — iter-13: the disused pipes are AREA, not a taper law — REFUTED (the metric was not the fault)
+
+- **Hypothesis:** iter-12 summed the dead branches in the LIVE metric (`r**2.3`). PIPE_POWER is a
+  TAPER law — a statement about how a living, *branching* plumbing system sheds conductive area
+  upward. Dead wood is a fossil: it does not branch and does not taper, so its section is conserved
+  AREA (p = 2). Predicted: summing it as area would **raise the sapwood fraction** toward Platanus's
+  wide-sapwood norm and **shrink the ~2.5x girth overshoot**, before any refit.
+- **Change:** `ratchet()` now keeps two banks that never meet in the same metric — `r_sap`
+  (Shinozaki, p = 2.3, over LIVE children only, tip seed R_TIP) and `A_dead` (p = 2, conserved).
+  A dying branch hands its ENTIRE frozen section (its sapwood plus its own heartwood) to the parent's
+  dead bank, once, forever; `pi*r^2 = pi*r_sap^2 + A_dead`. Both banks freeze at death. Still no new
+  constant. (`scripts/plane_grower.py`: one function, two arrays.)
+- **Measurement** (`tmp/grower_calib_measure.py`, 8 seeds; sapwood read off the banks at the root):
+      DBH vs census   iter-12:  s 3.96x  m 2.49x  l 2.29x   | re-centred on m:  s 1.59  l 0.92
+                      iter-13:  s 4.81x  m 3.41x  l 3.11x   | re-centred on m:  s 1.41  l 0.91
+      sapwood % of basal area   iter-12:  ~16% (m)  ~10% (l)
+                                iter-13:   7.5% (m)   3.7% (l)     [s 17.2%]
+- **BOTH predictions REFUTED.** The overshoot got *worse* (~2.5x -> ~3.3x) and the sapwood fraction
+  got *worse*: a 104 yr trunk is now 96% heartwood, where a real plane is ~50%. The area law is still
+  the physically correct one, and it bought the one real gain — the re-centred splay fell 1.59 -> 1.41
+  — but **the metric was never the fault.** The over-count is in the AMOUNT of dead wood banked.
+- **★ NEW RAIL — DBH_CALIB cannot answer this either, because it CANCELS.** Live sapwood scales as
+  `R_TIP * n_live**(1/p)`, the dead bank as `R_TIP**2 * SUM n_c**(2/p)`, so the sapwood FRACTION is
+  independent of R_TIP and hence of DBH_CALIB. It is a pure structural statement: the model has
+  accumulated ~26x more dead pipe area than it has live pipe. No scalar can move that ratio.
+- **What that leaves:** the model banks every dead branch's full living section forever, so heartwood
+  grows without bound while the live crown does not. Real heartwood does not behave that way. Either
+  branch death is far too cheap, or — the live suspect — **a disused pipe does not persist at the base
+  at its full living diameter.** That is a claim about Kubo 2022's actual mechanism, and I have been
+  working from a summary of it rather than from its figures. **Prior art is job 1: read the paper
+  before touching this again.**
+- **Verdict: PENDING**
