@@ -39,6 +39,16 @@ or the doc updates in the same commit):
 - **Visual changes are tested against reference images, not feeling.** "Looks better"
   without a reference comparison is not done.
 
+## Taste and sources (this project's, not global)
+- **Post-processing look:** soft contrast, naturalistic saturation, haze for depth. Keep tone
+  mapping **data-driven** rather than stylized by feel.
+- **Verify botany against PRIMARY sources** — FNA, USDA, FEIS, `reference_photos/`. Never against
+  our own older docs: they may have inherited an error.
+- **Decline deep research here** — low ROI. Reserve it for external facts we genuinely can't derive.
+- **README stays concise**; only 4 screenshots in the repo.
+- **Headless captures have an LOD confound** — when a headless capture and an interactive one
+  disagree, **trust the interactive one**. (→ `feedback_headless_capture_lod_confound.md`)
+
 ## Operating rules
 - **Investigate before you code.** State what was investigated, the evidence, the cause —
   no "likely/probably" before evidence. Two failed iterations means the diagnosis is wrong.

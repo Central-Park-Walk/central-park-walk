@@ -119,8 +119,39 @@ looks right, from every angle, at every distance, at every age — because appea
 **Practically:**
 - Anything a real tree (or river, or sward, or sky) *derives*, we derive. If a quantity is a fact about a
   history — crown depth, clear bole, primary count, trunk caliber, branch-order depth — it is an **OUTPUT**, not
-  a parameter. This project has now had to learn that lesson four separate times (`skeleton_max_depth`,
-  `cb_frac`, `N_PRIMARIES`, `DBH`). Expect a fifth; look for it early.
+  a parameter. This project has now had to learn that lesson **five** separate times (`skeleton_max_depth`,
+  `cb_frac`, `N_PRIMARIES`, `DBH`, and `N_def` — below). Expect a sixth; look for it early.
+
+### 3a — THE FIFTH INSTANCE, and why it is the subtle one: OUTPUT-not-parameter is NECESSARY, NOT SUFFICIENT
+
+**It arrived exactly where this file said to look, and it wore a disguise: it was already an output.**
+
+The grower's crown saturated because the economy is scale-free in tips (income ∝ tips, cost ∝ tips — they
+cancel, iter-14). The missing growth term had to come from a size-dependent `N_def`. Two honest attempts,
+both **correctly** derived rather than fitted, both **refuted**:
+
+- **iter-15 — `N_def` read from the live crown volume** (`V_crown`, the convex hull of the foliage cloud).
+  A genuine output, not a parameter. **But income scales with `N_def`, and income buys the extension that
+  grows the crown that `N_def` is read from.** That is a **positive feedback loop measured from its own
+  product**. It was unstable in both directions: the `m` crown sprawled to 466 m³, then the `l` crown
+  collapsed to 62 m³. Crown growth came out **x0.77** where the census demands **~x2.7**.
+- **iter-16 — `N_def` read from the self-support capacity** (`r³/lever`: built, ratcheted, paid-for wood —
+  *settled and exogenous*, which is precisely what iter-15 said the fix required). **Still a runaway.**
+  Refuted analytically, *before it was coded*, in one page: the pipe sets `r ∝ T^0.435` while statics
+  demands only `r ∝ T^0.33`, so a cantilever capacity `r³/lever ∝ T^1.30` **grows faster than the T^1.0
+  load it carries.** Feed it back and it amplifies instead of regulating.
+
+**⇒ The rule, sharpened (now promoted to `~/.claude/CLAUDE.md` §1):** "it is an OUTPUT, not a parameter" is
+**necessary but not sufficient.** An output read from the very loop it then drives is a *fifth* way to get
+the same class of error, and *"settled, earned, already-built"* does not save you either. The test is the
+**LOOP GAIN**: if the capacity you feed back grows faster than the load it must bound, it cannot bound it.
+**Compute the gain before you code the term.** It cost one probe, not one iteration — the cheapest
+refutation this project has ever bought.
+
+**And the mechanism survived its wiring.** iter-15's refutation moved an *unrelated* open defect — the
+sapling's DBH, stuck for six iterations, went 5.15x → 1.15x of census. That is the mechanism saying *the
+size-dependence itself is right; my numerator is not.* The idea was kept; only its input was re-sourced.
+(Full story: `lessons_refutation_discipline.md`, `lessons_null_result_instrument_fault.md`.)
 - Fitting a number to a thin anchor to make a shape come out right is the failure mode. When the number is not
   measured, **name the gap** (see Rule 2) rather than fitting it.
 - **This is never-ending by design.** Realism grows with our understanding of the process and with the compute
