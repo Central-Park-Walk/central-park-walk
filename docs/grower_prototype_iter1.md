@@ -941,3 +941,86 @@ two-sided target survives intact.
 ⚠ **Derive it. Measure `n_tips` per tier against a real twig-count estimate first.** Five mechanisms
 have been built and refuted on this thread; a sixth was just avoided by spending one grep on the
 source. Keep doing that.
+
+---
+
+## iter-11 — THE TIP BUDGET. Measured, and **the premise was wrong**: the defect is the PIPE LAYER
+
+`tmp/iter11_tip_budget.py` (8 seeds × 3 tiers). iter-10 closed by demanding a measurement before any
+sixth mechanism: *"measure `n_tips` per tier against a real twig-count estimate first."* Done — and
+it **refutes the question it was asked**.
+
+### The instrument
+
+Three independent estimates of ONE physical quantity — the tree's real terminal twig count:
+
+| leg | how | what it leans on |
+|---|---|---|
+| **(M) measured** | the grower's own live armature tips × `N_def` (= `DBH_CALIB^PIPE_POWER` = 355) | the grower |
+| **(P) pipe** | `N = (DBH_census / 2·R0)^PIPE_POWER` | the pipe model. **`DBH_CALIB` cancels** — `R_TIP = DBH_CALIB·R0`, so the iter-9 caliber fit is not in this leg at all. Its only constant is `R0` = 4 mm, a physical bud radius |
+| **(B) botany** | `N = LAI · π(span/2)² / (leaf_area · leaves_per_twig)` | **no pipe-model constant whatsoever.** LAI 5.0, leaf 150 cm², 6 leaves/twig (`GU_NODES` A4=7/A5=5), span from the UTD |
+
+A "tip" is a live woody node with no live woody child — exactly the set `ratchet()` seeds with `R_TIP`
+and `grow_foliage()` foliates. Recounted from the returned graph; **the grower was not modified.**
+
+### 1. Is the tip budget wrong at all?
+
+| tier | measured tips | 8-seed spread | pipe **wants** | vs pipe | botany **wants** | **vs botany** |
+|---|---:|---:|---:|---:|---:|---:|
+| s | 7.9 | 102% | 1.6 | 4.84× | 3.3 | **2.37×** |
+| m | 28.8 | 101% | 27.2 | 1.06× | 19.5 | **1.47×** |
+| l | 39.9 | 105% | 85.5 | **0.47×** | 35.1 | **1.14×** |
+
+★ **The "`l` is 2.1× too few tips" finding was an artifact.** It was read off the *pipe layer's own
+demand* — i.e. it assumed the pipe model, then blamed the budget for failing to feed it. Against the
+real crown's actual twig count, `l`'s armature carries **1.14×** what it should: with a ~100% seed
+spread, that is **indistinguishable from correct**. Only `s` (2.37×) is outside the instrument.
+
+⛔ **There is no two-sided tip-budget error. The shed rule, `MAX_CAT` and the reiteration rate are
+NOT indicted** — every candidate iter-10 named is exonerated. Do not go tune them for this.
+
+### 2. ★★★ The parameter-free test — the two-sided error survives a PERFECT tip budget
+
+Hand the pipe layer the **true** twig count and ask what DBH it produces.
+`DBH = 2·R0·N^(1/PIPE_POWER)` — **not one fitted constant is in play**:
+
+| tier | N (botany) | DBH predicted | DBH census | ratio |
+|---|---:|---:|---:|---:|
+| s | 1180 | 17.3 cm | 12.7 cm | **1.36×** |
+| m | 6927 | 37.4 cm | 43.2 cm | **0.87×** |
+| l | 12462 | 48.3 cm | 71.1 cm | **0.68×** |
+
+**The same two-sided splay — thick sapling, thin centenarian — with a flawless tip count.** The
+error is therefore not in *how many tips we grow*. It is in *what the pipe layer does with them*.
+
+### 3. ★★ No scalar can ever fix a two-sided error — that is a statement about the RANK of the fix
+
+`R0`, `DBH_CALIB`, `R_TIP`, a constant `N_def` are all **uniform multipliers on DBH**. They slide all
+three tiers together, so they can only ever **centre** a splayed error on the calibration tier. That
+is exactly what the iter-9 refit did — and it was *right* to, because pre-clock the error was
+same-sign (0.34× on both m and l). The clock fix (iter-10) exposed `s` and made the residual
+two-sided, and **the moment an error splays either side of the calibration tier, every remaining
+scalar is spent.** The fix must be **size-dependent**.
+
+The exponent that *would* reconcile census DBH with real leaf area, s→l, is **p = 1.37**, not 2.3.
+
+⛔ **LAI cannot rescue p = 2.3.** To do so it would have to climb **2.45 → 6.96 → 12.18** across the
+tiers. The literature range for London plane is **4.0–6.0**; LAI 12 is closed-canopy rainforest.
+Refuted — the soft number was checked, and it does not bear the load.
+
+### ★★★ What iter-12 is: THE PIPE LAYER HAS NO HEARTWOOD
+
+The pipe model (Shinozaki) says **sapwood** area tracks leaf area. This grower equates the **whole
+cross-section** with sapwood — its trunk *is* its plumbing. A real trunk is plumbing **plus a dead
+heartwood core**, and the heartwood fraction **grows with age**. That is precisely why real leaf area
+scales as ~DBH^1.4 rather than DBH^2.3, and it has the right two-sided sign for free: it thickens an
+old trunk beyond its pipes (`l`, 0.68× too thin) while leaving a sapling — nearly all sapwood — close
+to pure pipe.
+
+It is the **one size-dependent term the pipe layer is missing**, and it is **published, not
+invented**. Derive it before coding it.
+
+⚠ **`s` is a separate, smaller defect and probably not heartwood.** A constant `R_TIP` floors DBH at
+`2·R_TIP` = **10.3 cm for any tree at any age**, and `s`'s entire census DBH is **12.7 cm** — the
+sapling is pinned near the floor and cannot be thin. **Do not expect one term to mend both**; that
+expectation is what produced five refuted width mechanisms.

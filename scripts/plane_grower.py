@@ -99,9 +99,44 @@ DBH_CALIB  = 12.85        # [FIT] 4.37 * 2.94; see docs/grower_prototype_iter1.m
 #
 # ⇒ N_def per tip really may be ~constant. Then the residual is NOT in R_TIP but in n_tips: since
 #   DBH = 2*R_TIP*n_tips^(1/PIPE_POWER), s is carrying ~4.5x too many armature tips for its size and
-#   l about 2.1x too few. THAT is the iter-11 question, and it is a question about the ARMATURE's
-#   tip budget (shed rule? MAX_CAT truncation? reiteration rate?), not about the tip's price.
-#   ⚠ Derive it. Do not code a sixth mechanism on a hunch.
+#   l about 2.1x too few. THAT was the iter-11 question -- and iter-11 MEASURED IT AND IT IS WRONG.
+#
+# ★★★ iter-11 — THE TIP BUDGET IS NOT THE DEFECT. THE PIPE LAYER IS. (tmp/iter11_tip_budget.py)
+# The "l has 2.1x too few tips" claim was read off the PIPE layer's own demand -- it assumed the pipe
+# model, then blamed the budget for not feeding it. Measured against an INDEPENDENT ground truth (the
+# real crown's twig count, from leaf area: LAI * crown area / (leaf_area * leaves_per_twig), which
+# touches no pipe-model constant), the armature's tip budget is basically RIGHT where it was accused:
+#     s 2.37x too many | m 1.47x | l 1.14x  (8 seeds; but n_tips seed spread is ~100%, so only s is
+#                                            outside the instrument -- l is indistinguishable from 1)
+# ⛔ So the shed rule, MAX_CAT and the reiteration rate are NOT indicted. Do not touch them for this.
+#
+# THE PARAMETER-FREE TEST, and it is the whole finding. Hand the pipe layer the TRUE twig count and
+# ask what DBH it says -- DBH = 2*R0*N^(1/PIPE_POWER), R0 = 4 mm is a physical bud radius and
+# DBH_CALIB cancels, so not one fitted constant is in play:
+#     s 1.36x  |  m 0.87x  |  l 0.68x
+# The two-sided error SURVIVES A PERFECT TIP BUDGET. It is not in how many tips we grow. It is in
+# what the pipe layer does with them.
+#
+# ★★ AND NO SCALAR CAN EVER FIX IT. R0, DBH_CALIB, R_TIP, a constant N_def are all UNIFORM
+# multipliers on DBH -- they slide all three tiers together and can only ever CENTRE a two-sided
+# error on the middle one. That is exactly what the iter-9 refit did (and it was right to: at the
+# time, pre-clock, the error was same-sign 0.34x on both m and l). Once an error splays either side
+# of the calibration tier, the remaining fix must be SIZE-DEPENDENT. That is a statement about the
+# RANK of the fix, and it is what makes this a much narrower target than "some mechanism".
+# The exponent that WOULD reconcile census DBH with real leaf area, s->l, is p = 1.37, not 2.3.
+# ⛔ And LAI cannot rescue p=2.3: it would have to run 2.45 -> 6.96 -> 12.18 across the tiers. The
+#    literature range for plane is 4.0-6.0, and LAI 12 is closed-canopy rainforest. Refuted.
+#
+# ⇒ THE PIPE LAYER HAS NO HEARTWOOD, and that is the one size-dependent term it is missing. The pipe
+#   model (Shinozaki) says SAPWOOD area tracks leaf area. This grower equates the WHOLE cross-section
+#   with sapwood, so its trunk IS its plumbing. A real trunk is plumbing PLUS a dead heartwood core,
+#   and the heartwood fraction GROWS with age -- which is precisely why real leaf area scales as
+#   ~DBH^1.4 and not DBH^2.3. It makes an old trunk thicker than its pipes (l: 0.68x too thin) while
+#   a sapling, nearly all sapwood, stays close to pure pipe. That is the iter-12 hypothesis, it has
+#   the right two-sided sign, and it is PUBLISHED, not invented. Derive it before coding it.
+#   ⚠ The `s` residual is a SEPARATE, SMALLER defect and probably not heartwood at all: a constant
+#     R_TIP floors DBH at 2*R_TIP = 10.3 cm for ANY tree at ANY age, and s's whole census DBH is
+#     12.7 cm. The sapling is pinned near the floor. Do not expect one term to mend both.
 R_TIP      = DBH_CALIB * R0     # effective terminal-bud radius (= the deferred tips' worth)
 
 # --- ★ iter-8, POSITION A: SELF-SUPPORT COST (ADR docs/adr_grower_crown_bound.md; falsification
