@@ -43,12 +43,11 @@ refit. Refit `DBH_CALIB` **once, after** that, and only then read the residual s
 - ⛔ **No scalar can FIX a two-sided error** (`R0`, `DBH_CALIB`, `R_TIP`, constant `N_def` are uniform
   DBH multipliers) — but a scalar is the right tool to **CENTRE** one, *after* a size-dependent term exists.
 - ⛔ **LAI cannot rescue p = 2.3** — it would need 2.45 → 6.96 → 12.18; plane's range is 4.0–6.0.
-- ⛔ **The tip budget is EXONERATED** (iter-11, measured against an independent ground truth). The old
-  "`l` has 2.1× too few tips" was an artifact of reading the pipe layer's own demand.
+- ⛔ **The tip budget is EXONERATED** (iter-11, vs an independent ground truth); the old "`l` has 2.1×
+  too few tips" was an artifact of reading the pipe layer's own demand. So are the **shed rule,
+  `MAX_CAT`, reiteration rate**, and **`N_def` accumulating with tip age** (REFUTED).
 - ⛔ **The crown was never 2× too wide** — five width mechanisms built and refuted against an artifact.
   **Never add a sixth.**
-- ⛔ **Shed rule, `MAX_CAT`, reiteration rate, `N_def` accumulating with tip age: EXONERATED / REFUTED.**
-- ⚠ **Suspect the CLOCK before the MECHANISM** — that has been the answer twice.
 - ⚠ **Instrument limit:** seed spread is 127% (`s` span) / 69–78% (H) ⇒ nothing finer than ~10–15% is
   measurable. **DBH is the tight one (9–19%)** — the only metric worth reading closely.
 
