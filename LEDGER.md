@@ -34,3 +34,30 @@ Append-only. One entry per unit of work: hypothesis → change → measurement �
 - **Verdict: PENDING** (Chris on the thread shape; the cold start itself is now CONFIRMED).
 
 ---
+## 2026-07-13 — iter-12: HEARTWOOD = disused pipes (Shinozaki; Kubo 2022 branch thinning)
+
+- **Hypothesis:** the pipe layer has no heartwood. Shinozaki sizes SAPWOOD by leaf area; the pipes of
+  a dead branch are not reabsorbed — they stay in the stem as DISUSED pipes and wall off as
+  heartwood. Kubo et al. 2022 (Tree Physiology 42:2174) predicts the whole heartwood profile from
+  branch death alone, so the term costs NO new constant. If that is the missing size-dependent term,
+  it must thicken `l` (a century of self-pruning) far more than `s` (15 yr, almost nothing shed).
+- **Found (the real defect):** `ratchet()` summed only LIVE children into a `radius` array rebuilt
+  from zero every year (`run()`), so the §5 "monotone max over history" was a **NO-OP across years**:
+  a shed branch's wood *vanished* from its parent's cross-section. The trunk was pure sapwood at
+  every age, and dead wood — which cannot dissolve — contributed nothing.
+- **Change:** `ratchet()` now sums over ALL woody children — live ones at this year's pipe radius,
+  dead ones FROZEN at the radius they carried at death (`self._r_hist`, which also makes the ratchet
+  genuinely monotone across years). The sum is exactly conserved across a death: the term moves from
+  the live side to the dead side. One function, no new constant.
+- **Measurement** (`tmp/grower_calib_measure.py --tiers s m l --seeds 8`), DBH vs census:
+      before:  s 1.96x  m 1.00x  l 0.73x   (splay s/l = 2.68x)
+      after:   s 3.96x  m 2.49x  l 2.29x   (splay s/l = 1.73x)
+      the heartwood MULTIPLIER per tier: 2.02x / 2.49x / 3.14x — **monotone in age.**
+  ⇒ the term is REAL and SIZE-DEPENDENT, right sign, and **not a scalar** (that was the falsifier).
+  It removes 35% of the two-sided splay. Re-centred on m it would read s 1.59 / m 1.00 / l 0.92 —
+  `l` comes home from 0.73 to 0.92; `s` stays thick, which is defect 2 (the R_TIP floor), as predicted.
+- **But it overshoots absolute girth ~2.5x**, because `DBH_CALIB` was fitted in a heartwood-free
+  world. ⚠ And the implied sapwood fraction is now only 16% (m) / 10% (l) of basal area — **too
+  little**: Platanus is noted for WIDE sapwood. Suspect the p=2.3 metric inflates the dead sum
+  (summing disused pipes in a non-area metric is not area-conserving). See NEXT.
+- **Verdict: PENDING**

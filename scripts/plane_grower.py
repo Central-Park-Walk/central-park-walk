@@ -483,6 +483,11 @@ class Grower:
         # measured against); _bill = last year's support demand per axis, which this year's
         # allocation pays before it grows anything. Trees do thicken in arrears; so does this.
         self._r_prev = np.zeros(0)
+        # ★ iter-12: the pipe radius each node carried LAST year. Two jobs, both load-bearing:
+        # it makes the §5 ratchet actually monotone ACROSS years (the radius array is rebuilt from
+        # zero every year, so the old max() only ever ratcheted within one bottom-up pass), and it
+        # is where a DEAD child's pipe area is frozen so its parent can keep carrying it.
+        self._r_hist = []
         self._bill = {}
         self._arch_distal = []   # ★ iter-5: (distal_root_node, host_axis) — arch-summit dieback
                                  # candidates; the shed rule kills each once its offspring overtop it.
@@ -843,17 +848,43 @@ class Grower:
     # RATCHET (§5) — radius = monotone max over history
     # ======================================================================
     def ratchet(self, radius, children):
+        """★ iter-12 — SAPWOOD + DISUSED PIPES (= heartwood).
+
+        Shinozaki's pipe model sizes the ACTIVE (sapwood) area by the leaf area it feeds; the pipes
+        of a branch that dies are not reabsorbed, they stay in the stem as DISUSED pipes and are
+        walled off as heartwood. Kubo et al. 2022 (Tree Physiology 42:2174, "sapwood and heartwood
+        profiles from pipe model and branch thinning theory") predicts the whole heartwood profile
+        from branch death alone — no new constant, which is why this term is free.
+
+        Until now this layer summed only LIVE children, into a radius array rebuilt from zero every
+        year: a shed branch's wood simply VANISHED from its parent's cross-section, so the trunk was
+        pure sapwood at every age. That is the missing size-dependent term. A 15 yr sapling has shed
+        almost nothing and is nearly all sapwood; a 104 yr tree is a century of self-pruning, and
+        most of its trunk is the plumbing of branches that are long dead.
+
+        So: sum over ALL woody children — the live ones at this year's pipe radius, the dead ones
+        FROZEN at the radius they carried when they died. The sum is exactly conserved across a
+        death (the term moves from the live side to the dead side), and it can never fall."""
+        hist = self._r_hist
+        if len(hist) < len(self.nodes):
+            hist.extend([0.0] * (len(self.nodes) - len(hist)))
         order = self._topo_leaves_first(children)
         for i in order:
             if self.nodes[i].foliage:                 # leaves are not wood — no radius
                 continue
-            # only WOODY live children carry pipe area (foliage excluded)
-            wc = [c for c in children[i] if self.nodes[c].alive and not self.nodes[c].foliage]
-            if not wc:
+            pipes, n_wood = 0.0, 0
+            for c in children[i]:
+                if self.nodes[c].foliage:             # foliage is not wood — carries no pipe
+                    continue
+                n_wood += 1
+                r_c = radius[c] if self.nodes[c].alive else hist[c]   # dead => frozen at death
+                pipes += r_c ** PIPE_POWER
+            if n_wood == 0:
                 r_live = R_TIP                        # ★ iter-8: the tip seed carries DBH_CALIB
             else:
-                r_live = (sum(radius[c] ** PIPE_POWER for c in wc)) ** (1.0 / PIPE_POWER)
-            radius[i] = max(radius[i], r_live)        # THE RATCHET — never decreases
+                r_live = pipes ** (1.0 / PIPE_POWER)
+            radius[i] = max(radius[i], hist[i], r_live)   # THE RATCHET — never decreases
+            hist[i] = radius[i]                           # ...and it is remembered, so it can't
         return radius
 
     # ======================================================================
