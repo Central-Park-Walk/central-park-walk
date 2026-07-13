@@ -7,12 +7,10 @@ depth **emerge**. Deep history: `project_london_plane_crown_mould.md` (not neede
 
 **iter-12 DONE** (`ffc3496`). The pipe layer had **no heartwood**, and the cause was a real bug:
 `ratchet()` summed only LIVE children into a `radius` array rebuilt from zero every year, so a shed
-branch's wood **vanished** from its parent's cross-section. The trunk was pure sapwood at every age.
-Fixed per Shinozaki's disused pipes / Kubo 2022 branch-thinning: sum ALL woody children, dead ones
-frozen at their radius at death. **No new constant.**
-
-**It works, and it is not a scalar** — the falsifier passed. Per-tier DBH multiplier **2.02× / 2.49× /
-3.14×**, monotone in age. The two-sided splay s/l fell **2.68× → 1.73×**.
+branch's wood **vanished** from the trunk — pure sapwood at every age. Fixed per Shinozaki's disused
+pipes / Kubo 2022 branch-thinning: sum ALL woody children, dead ones frozen at their death radius.
+**No new constant.** It works, and **it is not a scalar** — the falsifier passed. Per-tier DBH
+multiplier **2.02× / 2.49× / 3.14×**, monotone in age; splay s/l fell **2.68× → 1.73×**.
 
     DBH vs census    before: s 1.96  m 1.00  l 0.73     after: s 3.96  m 2.49  l 2.29
     re-centred on m                                     after: s 1.59  m 1.00  l 0.92
@@ -53,6 +51,6 @@ refit. Refit `DBH_CALIB` **once, after** that, and only then read the residual s
 - ⛔ **Shed rule, `MAX_CAT`, reiteration rate, `N_def` accumulating with tip age: EXONERATED / REFUTED.**
 - ⚠ **Suspect the CLOCK before the MECHANISM** — that has been the answer twice.
 - ⚠ **Instrument limit:** seed spread is 127% (`s` span) / 69–78% (H) ⇒ nothing finer than ~10–15% is
-  measurable. **DBH is the tight one (9–19%)** — it is the only metric worth reading closely.
+  measurable. **DBH is the tight one (9–19%)** — the only metric worth reading closely.
 
-## Open for Chris — two abandoned agent branches hold unmerged work: **ginkgo**, **magnolia**.
+## Open for Chris — abandoned agent branches hold unmerged work: **ginkgo**, **magnolia**.
