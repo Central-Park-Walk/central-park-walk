@@ -234,6 +234,28 @@ N_DEF_REF    = DBH_CALIB ** PIPE_POWER   # = 354 real twigs: what one armature t
 #   small tree (13 twigs, not 355), the s tier went 5.15x -> 1.15x of its census DBH. That is open
 #   defect 4 — the constant-R_TIP floor — moving for the first time. Keep the mechanism; the numerator
 #   is what must change. It must be a quantity THIS YEAR'S INCOME CANNOT BID UP. See STATE.md.
+#
+# ⛔⛔ iter-16 — AND IT CANNOT BE THE CANTILEVER EITHER. THE MECHANICAL TERM IS INERT.
+# iter-15's successor plan was to read N_def off the self-support capacity: the twigs the already-built
+# wood CAN HOLD OUT (N_cap ∝ r^3/lever, from Hellström Eq. 10's McMahon & Kronauer basis — "the branch
+# radius r grows as branch length to the power 3/2 ... M_n ∝ r^2 ∝ n^3"). Settled wood, income cannot
+# bid it up. It is refuted on TWO independent grounds, neither of which required coding it:
+#
+#   (a) ANALYTIC — the loop gain is > 1. The pipe sets r ∝ T^(1/p) = T^0.435 (T = real twigs), so a
+#       capacity r^3/lever ∝ T^(3/p) = T^1.30 GROWS FASTER THAN THE LOAD IT CARRIES. Feeding that back
+#       into N_def is a RUNAWAY, not a regulator — the same error as V_crown, one derivative up.
+#   (b) MEASURED — tmp/iter16_mech_probe.py, all 3 tiers, every wood node, every year. Statics NEVER
+#       BINDS: median r_mech/r_pipe = 0.14 / 0.20 / 0.23 (s/m/l), max 0.65 / 1.03 / 1.03, and on the
+#       "load-bearing wood" (lever > 2 m) where iter-8 claimed 42-62% binding it now binds on 9/958 and
+#       26/10917 nodes — 0.2%, and by 3%. _bill_total = 0.0000 is STRUCTURAL, not a wiring bug.
+#
+# ★ WHY IT WENT INERT, AND THIS IS THE LEAD: THE PIPE IS 3.4x TOO FAT (defects 2/3). r_mech only falls
+#   as r_pipe^(2/3) where wood mass dominates the moment, and NOT AT ALL where leaf mass does. So a
+#   census-correct pipe would raise r_mech/r_pipe by 1.5x at the bole and up to 3.4x on the distal
+#   limbs — where the leverage is. The over-thick pipe has been SUPPRESSING the one law in this model
+#   that carries an absolute length scale. Statics is the only non-scale-free thing we own; the pipe,
+#   the light-per-marker and the tip budget are all scale-free. That is why iter-17 refits DBH_CALIB
+#   FIRST, reversing the order STATE has held since iter-12. See STATE.md / LEDGER 16.
 TWIG_DENSITY = None       # [DERIVED] 44.51 twigs per m^3 of crown — but OFF; see above. None => the
                           # iter-14 model exactly (verified: DBH 5.15/3.37/3.36x, sapwood 18.3/9.9/4.7%).
 S_MIN        = 0.02       # a crown cannot stand for less than ~1/50 of the anchor's twigs (guards
@@ -1083,6 +1105,14 @@ class Grower:
         mechanical term as INERT. It is not: against the pipe radius the tree really builds, it
         binds on 42-62% of load-bearing wood (lever > 2 m) and on 0% at the bole. Re-derived in
         tmp/grower_selfconsistent_check.py.
+
+        ⛔ THAT LAST CLAIM IS STALE AND IT IS NOW FALSE — it was measured in iter-8, BEFORE iter-9
+        refit DBH_CALIB to 12.85 (R_TIP = 5.1 cm) and before the heartwood ratchet. Re-measured over
+        every wood node of every year of all three tiers (iter-16, tmp/iter16_mech_probe.py): statics
+        binds on 0/0, 9/958 and 26/10917 load-bearing nodes (s/m/l) and exceeds the pipe by at most
+        3%. Median r_mech/r_pipe = 0.14 / 0.20 / 0.23. THE MECHANICAL TERM IS INERT, and it is inert
+        BECAUSE THE PIPE IS 3.4x TOO FAT. That is why the bill below reads 0.0000 m^3 in all 104
+        years: there is no excess over pipe to charge. Fix the pipe and the statics wakes up.
         """
         order = self._topo_leaves_first(children)     # leaves-first
         N = len(self.nodes)

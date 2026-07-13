@@ -235,3 +235,64 @@ be a quantity **this year's income cannot bid up.**
   to be *earned and settled* (ratcheted structure, already-built wood), not *currently being bought*.
 - A refutation that moves an unrelated open defect by 4.5x is telling you the mechanism is right and
   the wiring is wrong. Do not throw the mechanism away with the wiring.
+
+## 16 — THE CANTILEVER CANNOT CARRY THE SIZE TERM: STATICS IS INERT, AND THE FAT PIPE IS WHY
+
+**Hypothesis (from iter-15's NEXT).** The size term in `N_def` must be read from *earned and settled*
+wood, not from the live crown income bids up. Hellström's Eq. 10 prices a growth module by McMahon &
+Kronauer elastic similarity (*"the branch radius r grows as branch length to the power 3/2; thus
+n^(3/2) ∝ r and M_n ∝ r^2, which combine to M_n ∝ r^2 ∝ n^3"* — read, p. E44), and we already own that
+mechanism: the iter-8 self-support bill. So `N_def` = the twigs the built wood **can hold out**,
+`N_cap ∝ r^3 / lever`. The bill reading **0.0000 m^3 in all 104 years** was taken as the sign that the
+mechanism was merely un-wired.
+
+**★ It is refuted, and it was refuted BEFORE it was coded — on two independent grounds.**
+
+**(a) Analytic — the loop gain is greater than 1.** The pipe sets `r ∝ T^(1/p) = T^0.435` (T = real
+twigs, p = 2.3), while statics demands only `r ∝ (T·lever)^(1/3) = T^0.33`. So a cantilever capacity
+`r^3/lever ∝ T^(3/p) = T^1.30` **grows faster than the load it carries.** Feed that back into `N_def`
+and it amplifies instead of regulating — the *same* error as `V_crown`, one derivative up. A capacity
+read off a pipe radius can never bound the tips that set the pipe radius.
+
+**(b) Measured — `tmp/iter16_mech_probe.py`,** every live wood node, every year, all three tiers. It
+re-runs the converged fixed point of `structural_radius()` and compares `r_mech` against `r_pipe`:
+
+    tier   live wood   yrs where statics binds   max r_mech/r_pipe   median   lever>2m: binding/total
+      s        346            0 / 16                   0.653          0.136          0 / 0
+      m        655            3 / 48                   1.028          0.201          9 / 958
+      l       1356           10 / 105                  1.033          0.230         26 / 10917
+
+**STATICS NEVER BINDS.** The pipe is 4-7x thicker than the cantilever demands at the median node; on
+the "load-bearing wood" where the iter-8 docstring claimed **42-62% binding**, it binds on **0.2%** of
+nodes and exceeds pipe by **3%**. `_bill_total = 0.0000` is therefore **STRUCTURAL, not a wiring bug**
+— there is no excess over pipe to charge, anywhere, ever. (The iter-8 claim was measured *before*
+iter-9 refit `DBH_CALIB` to 12.85 — R_TIP = 5.1 cm — and before the heartwood ratchet. It is stale;
+both docstrings now say so.)
+
+**verdict: REFUTED — and it hands over the lead.**
+
+**★ WHY STATICS WENT INERT IS THE FINDING: THE PIPE IS 3.4x TOO FAT, AND IT HAS BEEN SUPPRESSING THE
+ONLY NON-SCALE-FREE LAW IN THE MODEL.** Everything else we own is scale-free — the pipe (homogeneous
+in r_tip), the light per marker (12 markers per tip, any size), the tip budget (exonerated, iter-11).
+**Statics is the one law with an absolute length scale in it** (SIGMA, GRAV, RHO — a metre means
+something), which is precisely why it is the only place a size term can come from. And we have been
+drowning it: `r_mech` falls only as `r_pipe^(2/3)` where wood mass dominates the moment, and **not at
+all** where leaf mass dominates it. So a census-correct pipe raises `r_mech/r_pipe` by **1.5x at the
+bole and up to 3.4x on the distal limbs** — exactly where the leverage is. Defect 2 (stale
+`DBH_CALIB`) is not downstream of defect 1 after all: **it is what has been hiding defect 1's cure.**
+
+**Nothing else changed.** Two stale docstrings corrected; the probe is `tmp/`-only (gitignored).
+
+## Staged lessons
+
+- **A "settled, exogenous" input is still a runaway if its LOOP GAIN exceeds 1.** iter-15 said the size
+  term must be a quantity income cannot bid up; that is necessary, not sufficient. `r^3/lever` is
+  built, ratcheted, paid-for wood — and it still diverges, because the pipe makes strength grow as
+  `T^1.30` against a load of `T^1.0`. **Compute the gain before you code the term.** It cost one probe,
+  not one iteration.
+- **A calibration scalar can SUPPRESS A MECHANISM, not just mis-centre an output.** "No scalar can fix
+  a two-sided error" is true and it made `DBH_CALIB` look inert — so it sat, stale, for four
+  iterations, silently drowning the only law in the model that could supply the missing term. Ask of
+  every scalar not only *what does it move* but *what does it hide*.
+- **Re-measure the claim in the docstring before you build on it.** iter-8's "binds on 42-62% of
+  load-bearing wood" was true when written and false by iter-9. The whole iter-16 plan rested on it.
