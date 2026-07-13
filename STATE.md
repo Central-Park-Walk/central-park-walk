@@ -20,15 +20,14 @@ stale. **Do not ship.**
 
 ## Open defects
 
-1. **`DBH_CALIB` is stale** — the one legitimate re-centring scalar, and it must be refit ONCE now that
-   the size-dependent term exists. (A scalar can't fix a splay; it is exactly the right tool to centre one.)
-2. **★ The sapwood fraction is wrong** — the model now implies sapwood = 16% (m) / 10% (l) of basal
-   area. Platanus is noted for **WIDE** sapwood. So the dead sum is **over-counting**: disused pipes are
-   being summed in the **p = 2.3 metric, which is not area-conserving**. Heartwood is AREA.
-3. **Caliber splay, residual** — after re-centring, s 1.59 / l 0.92. `l` has come home; **`s` is the
-   one left**, and that is defect 4.
+1. **★ The sapwood fraction is wrong** — the model now implies sapwood = 16% (m) / 10% (l) of basal
+   area, but Platanus is noted for **WIDE** sapwood ⇒ the dead sum **over-counts**: disused pipes are
+   summed in the **p = 2.3 metric, which is not area-conserving**. Heartwood is AREA. This is iter-13.
+2. **`DBH_CALIB` is stale** — the one legitimate re-centring scalar; refit ONCE, but only *after* (1).
+3. **Caliber splay, residual** — re-centred: s 1.59 / l 0.92. `l` has come home; **`s` is the one left**.
 4. **`s` floor** — constant `R_TIP` floors DBH at 2·R_TIP at any age; `s`'s census DBH is 12.7 cm ⇒ `s`
-   is pinned near the floor and *cannot* be thin. (Refitting `DBH_CALIB` moves this floor too — watch it.)
+   is pinned near the floor and *cannot* be thin. This is why `s` stays thick. (A `DBH_CALIB` refit
+   moves the floor too — watch it.) **One term won't mend both this and (3).**
 5. Criterion vi unmet ⇒ **do not ship.**
 
 ## NEXT — the one hypothesis: iter-13 = SUM THE DEAD PIPES AS AREA
