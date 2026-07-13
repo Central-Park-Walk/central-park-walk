@@ -1,7 +1,7 @@
 # STATE — cpw / london-plane
 
-The developmental grower: `scripts/plane_grower.py`. Grow a plane from a seed by simulating
-development; let crown, caliber and depth **emerge**. Deep history: `project_london_plane_crown_mould.md`.
+The developmental grower: `scripts/plane_grower.py`. Grow a plane from a seed; let crown, caliber and
+depth **emerge**. Deep history: `project_london_plane_crown_mould.md` (not needed — see below).
 
 ## Where we are
 
