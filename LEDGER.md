@@ -949,7 +949,8 @@ and then set aside on a counting technicality.**
 The census numbers are read from the UTD table in the source, not estimated. No model change: this
 iteration is a REFUTATION, and it retires a family.
 
-verdict: PENDING
+verdict: ACCEPTED (Chris: "continue working on london plane") — the refutation stands; iter-27
+         goes measuring for the missing 27%, as STATE directs.
 
 ## Staged lessons (iter-26)
 
@@ -970,3 +971,55 @@ verdict: PENDING
   a shell, ∝ R²·H" is true of a TRUNK CROSS-SECTION and false of a SUM OVER A CROWN (measured:
   Σ r_sap² grows 2.19x against the count's 1.91x). The pipe model was not wrong — the transfer was.
   Measure the quantity you are actually going to sum. (iter-26)
+
+## 27 — THE CROWN STOPS WIDENING. THE BULK RADIUS *FALLS* m→l. (investigation; no model change)
+
+**Pre-registered** (`tmp/iter27_prereg.md`, written before the run): the −27% income deficit is a
+crown **FILL** defect — hull census-sized (iter-9), columns sparse inside it, fill FALLING m→l.
+Probe `tmp/iter27_columns.py` (read-only, m + l to census age). Rails held: DBH 47.1 / 76.5 cm
+(1.09x / 1.08x), sap_frac 22.0 / 13.8% — unchanged, so the instrument is sound.
+
+**★ BOTH PRE-REGISTERED PREDICTIONS ARE REFUTED, and the third outcome is the true one.**
+
+**1. FILL IS CONSTANT.** columns/hull = 0.341 (m) → 0.344 (l), lever **1.010**. The crown does *not*
+empty with size. iter-23's "it is emptier" is dead as a *size* explanation.
+
+**2. THE COLUMN FRAME HOLDS.** income per occupied column 8.72 → 8.01 (lever **0.919**) — Beer–Lambert
+bounds it, as STATE said. So income ≈ 8.4 × columns, and **income is exactly as short as the columns
+are**: columns lever **1.430** · income lever **1.314** · census bar **1.799**.
+
+**3. ★★★ AND THE COLUMNS ARE SHORT BECAUSE THE CROWN STOPS WIDENING.** The radial distribution of the
+live foliage about the trunk axis (m → l, against census R 6.3 → 8.45 m, which demands **×1.34**):
+
+      p50   6.67 → 6.22 m   lever 0.933   (1.06x → 0.74x census)   ← THE BULK MOVES *INWARD*
+      p75   9.12 → 9.27     lever 1.017
+      p90  11.02 → 11.66    lever 1.058
+      p100 14.68 → 18.77    lever 1.278   (2.33x → 2.22x census)   ← the tail runs away
+      woody armature p50: 6.64 → 5.63 m (lever 0.849) — the WOOD does it too, not just the leaves
+
+**The median leaf is at the same 6–6.7 m from the trunk at 47 yr and at 104 yr.** The tree adds its
+new foliage *inside* (interior short shoots, iter-24's A5 layer) and along a few runaway limbs, and
+almost none of it out at a widening periphery. Meanwhile height goes 15.25 → 22.98 m (×1.51, and
+1.20x the UTD H of 19.1). **The `l` tree grows UP, not OUT.**
+
+**4. ⇒ THE iter-9 HULL RAIL IS REFUTED — AND IT WAS RIGHT FOR THE WRONG REASON.** The hull is not
+short; it is *oversized* (area-equiv. radius 1.51x / 1.34x census, hull area 2.29x / 1.80x the census
+disc) — inflated by the p95–p100 tail. **A hull can be right — or too big — while its BULK is short.**
+The pre-registered mirror of iter-23's lesson, and the hull was the instrument both times.
+
+**5. And this is why every economic term failed.** The gate, the numerator, the denominator, the light
+law: none of them can be wrong, because **the income shortfall is not economic at all — it is
+GEOMETRIC.** The tree cannot earn a census income from a crown whose leaves never leave a 6 m radius.
+
+verification: `tmp/iter27_columns.log`. Read-only; nothing shipped, nothing to regress.
+verdict: PENDING
+
+## Staged lessons (iter-27)
+
+- ★ **A HULL / A MEAN / A MAX IS NOT A DISTRIBUTION.** Two rails (iter-9's crown width, iter-23's
+  emptiness) were both artifacts of measuring a crown by its *envelope*. The p50 and the p100 moved in
+  OPPOSITE directions here. Read the percentiles, always — the statistic you came for hides the shape.
+- ★ **WHEN EVERY ECONOMIC TERM IS EXONERATED, THE DEFECT IS NOT IN THE ECONOMY.** Iters 15–26 spent
+  twelve sessions inside the light/gate/allocation economy because the deficit was *stated* in
+  economic units (income, wood). It was geometric the whole time. Ask what SHAPE the ground truth
+  demands before asking what the tree can afford.
