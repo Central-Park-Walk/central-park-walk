@@ -447,10 +447,34 @@ DIVERG_SPIRAL = 137.5     # 2/5 spiral phyllotaxis divergence for orthotropic A1
 # an apex no longer saturates at a fitted resource level, it saturates when it can afford C&E's full
 # internode, and the price of an internode is just the wood in it (pi*R_TIP^2*l). So the economy
 # still has exactly ONE fitted scalar, and it is now the photosynthetic yield.
-ALPHA      = 2.281e-5 # [DERIVED] iter-17: 2.59e-4 * k^2, k = 1/3.37. The PARTNER of the DBH_CALIB
-                     # re-centring above — thinning the tip by k without dividing ALPHA by k^2 would
-                     # have made every internode 11x cheaper and grown a monstrous tree. One scalar,
-                     # two constants; see the iter-17 block at DBH_CALIB. Was, before iter-17:
+ALPHA      = 1.026e-5 # [DERIVED] iter-30: 0.45 * 2.281e-5. ★★ THE LEAK WAS THE CALIBRATION. Every
+                     # value below was fitted against a `_distribute` that DISCARDED 95% of its pool
+                     # at the apex clamp (iter-28 measured it; iter-29 conserved it). Once the spill
+                     # made the budget real, income was 2.2x too rich: DBH ran 1.41x (m) / 1.89x (l)
+                     # census. Re-derived by SWEEP (tmp/iter30_alpha_sweep.log, prereg
+                     # tmp/iter30_prereg.md), solved under BOTH ground truths at once — census DBH
+                     # *and* the m->l lever — because satisfying either alone proves nothing.
+                     # ⚠ AND THE iter-11 RAIL DOES NOT APPLY HERE, which is the finding. "No uniform
+                     # scalar can fix a size-dependent error" is true of R0/R_TIP/DBH_CALIB — static
+                     # multipliers on DBH. ALPHA is not one: it multiplies INCOME, and income
+                     # COMPOUNDS developmentally (poorer tree -> fewer apices -> less light -> fewer
+                     # apices still). So it bites l harder than m and it BENDS THE LEVER:
+                     #     k:          1.00    0.65    0.45    0.30
+                     #     DBH m:     1.41x   1.17x   1.12x   0.91x
+                     #     DBH l:     1.89x   1.38x   1.15x   1.00x
+                     #     DBH lever:  2.21    1.95   [1.69]   1.81      <- census 1.65
+                     # k = 0.45 lands BOTH tiers inside the instrument (DBH seed spread 9-19%), with
+                     # height 1.02x/1.04x and crown r_p50 0.91x/1.05x census. Not fitted finer: the
+                     # +12/+15% residual IS the instrument, and one seed cannot resolve it.
+                     # ⛔ Do NOT cut further. At k = 0.30 the tree STARVES: H 0.79x/0.83x, crown
+                     #    0.67x/0.81x -- DBH looks perfect (0.91x/1.00x) on a tree that is a stick.
+                     #    DBH alone will happily certify a starved tree; that is why we solve on two.
+                     # Was, before iter-30: 2.281e-5 -- iter-17: 2.59e-4 * k^2, k = 1/3.37. The
+                     # PARTNER of the DBH_CALIB re-centring above — thinning the tip by k without
+                     # dividing ALPHA by k^2 would have made every internode 11x cheaper and grown a
+                     # monstrous tree. One scalar, two constants; see the iter-17 block at DBH_CALIB.
+                     # That pairing STILL HOLDS — iter-30 rescales the pair's shared free scalar, it
+                     # does not unpick it. Was, before iter-17:
                      # [FIT] m^3 of wood per unit of light gathered per year. v_base = ALPHA*Q_base.
                      # Replaces V_SAT (which it also subsumes: the two were degenerate).
                      # ★ iter-9: 3.0e-5 -> 2.59e-4 = 3.0e-5 * k^2, k = 2.94. NOT an independent fit --

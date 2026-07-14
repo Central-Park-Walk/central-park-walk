@@ -1131,7 +1131,9 @@ reopens — NOT because a gate/light/TAU term is needed (all still exonerated), 
 scale was fitted to a leaking sink. **The spill is KEPT: a discarded budget is a bug, and reverting
 restores it.**
 
-verdict: PENDING
+verdict: ACCEPTED (Chris, 2026-07-14) — **the spill stays in, with the tree currently oversized.**
+His call, explicitly: a conserved budget is correct even while the magnitudes are 1.4-1.9x over.
+The scale is iter-30's problem; the mechanism is not reverted.
 
 ## Staged lessons (iter-29)
 
@@ -1142,3 +1144,66 @@ verdict: PENDING
   however hot its per-cycle gain looks — compute `pool / Σcapacity` before fearing (or trusting) G.
 - ★ **"THE CLASS IS RICH" ≠ "THE MEMBER IS FUNDED"** (iter-28) has a twin: capping at the SPEND and
   capping at the CLAMP are different edits. Only the clamp cap is provably free at the margin.
+
+## 30 — THE INCOME REFIT — AND THE INSTRUMENT THAT COULD NOT MEASURE IT.
+
+**Verdict on 29: ACCEPTED (Chris).** The spill stays in with the tree oversized. So the scale, not the
+mechanism, was iter-30's target.
+
+**Hypothesis.** ALPHA (m^3 wood per unit light) was fitted at iter-17 against a `_distribute` that
+discarded 95% of its pool. Close the leak (iter-29) and the constant fitted under it is invalidated:
+income is too rich, and DBH runs 1.41x (m) / 1.89x (l) census. Re-derive the ONE scalar.
+
+**★ Solved under BOTH ground truths before fitting under either** (rail; `tmp/iter30_prereg.md`).
+The question was never "what k centres the error" but "is there ONE k that lands census DBH at m AND
+at l?" — because a scalar that centres the magnitude while leaving the lever at 2.21 is the iter-9
+mistake with a better conscience.
+
+**PRE-REGISTERED, and REFUTED — twice, in both directions.**
+
+1. *I predicted the DBH lever would be FLAT in k* (iter-11 rail: no uniform scalar fixes a
+   size-dependent error) ⇒ a structural falsification, and no fit permitted. **It was not flat**
+   (2.21 → 1.95 → 1.69 → 1.81 across k = 1.0/0.65/0.45/0.30). **The rail does not apply to ALPHA**:
+   it governs R0/R_TIP/DBH_CALIB — *static* multipliers on DBH. ALPHA multiplies INCOME, and income
+   COMPOUNDS developmentally (poorer tree → fewer apices → less light → fewer apices still), so it
+   bites `l` harder than `m` and it BENDS the lever. **A scalar on a stock is not a scalar on a flow.**
+2. *I predicted sap_frac would be unchanged* (iter-17: no scalar moves it, DBH_CALIB cancels). It
+   moved 8.2% → ~16%, toward the ~50% census. Same reason: that rail is about DBH_CALIB, not ALPHA.
+
+**Change (one).** `ALPHA 2.281e-5 → 1.026e-5` (k = 0.45), swept in `tmp/iter30_alpha_sweep.py`
+(`.log`). At k = 0.30 the tree STARVES — H 0.79x/0.83x, crown 0.67x/0.81x — while DBH reads a
+*perfect* 0.91x/1.00x. **DBH alone will happily certify a stick; that is why we solve on two.**
+
+**★★★ VERIFICATION — AND IT FAILED THE FIT, WHICH IS THE FINDING** (`tmp/iter30_verify_seeds.log`,
+3 seeds x {m, l}, at the committed ALPHA):
+
+- **THE DEFAULT SEED IS THE RICHEST TREE OF THE THREE** (3822 foliage markers at m, vs 1386 / 1692).
+  **Every number iters 27-30 turned on was read off that one tree.**
+- **★★ THE m→l LEVER IS NOT A MEASURABLE QUANTITY AT n = 1.** Per-seed crown lever: **1.86 / 3.40 /
+  1.78**. It is a RATIO OF TWO NOISY NUMBERS and its spread is ~±50%. iter-29's celebrated "crown
+  lever 1.297 vs census 1.34" was INSIDE THE NOISE — and so was this session's own P-KEY. The single
+  seed's k=0.45 row (DBH 1.12x/1.15x, lever 1.69) does not reproduce: 3-seed means are **1.07x /
+  1.27x**, lever **1.95**, crown lever **2.21**.
+- **WHAT SURVIVES: DBH at m is a TIGHT instrument (7.4% seed spread), and there the refit is REAL —
+  1.41x → 1.07x census.** l DBH 1.27x (spread 22.7%). Height 1.00x / 1.05x (leader NOT starved),
+  F_H = 191 / 742 > 0, self-pruning alive. sap_frac ~16% (was 8.2%).
+
+**⇒ ALPHA = 1.026e-5 is KEPT, but PROVISIONAL — justified by DBH MAGNITUDE alone, never by the lever
+that motivated it.** The crown at m now reads 0.71x census (possibly too narrow) and the levers are
+unmeasured, not met. ⛔ **NO further magnitude fitting until the instrument is rebuilt**: the whole
+family has been fitted, for four iterations, to the noise of one lucky tree.
+
+verdict: PENDING
+
+## Staged lessons (iter-30)
+
+- ★★★ **AN n = 1 INSTRUMENT CANNOT MEASURE A RATIO.** A lever is a quotient of two noisy quantities,
+  so it compounds their spreads — it is the LAST thing a single sample can resolve and the FIRST
+  thing we trusted. Before a number becomes the tell a whole iteration turns on, **measure its seed
+  spread**, and check that the default seed is not the outlier. Ours was.
+- ★★ **A SCALAR ON A STOCK IS NOT A SCALAR ON A FLOW.** "No uniform scalar can fix a size-dependent
+  error" is true of a static multiplier (R_TIP, DBH_CALIB) and FALSE of one on an income that
+  compounds through a feedback. Check which kind a constant is before you invoke the rail — the rail
+  nearly forbade a fit that worked.
+- ★★ **ONE GROUND TRUTH WILL CERTIFY A CORPSE.** At k = 0.30 census DBH is met almost exactly, by a
+  starved stick with a 0.67x crown. A fit is only as honest as its SECOND observable.
