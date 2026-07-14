@@ -548,6 +548,78 @@ mistake. And **compute the gain of the WHOLE-CROWN loop before writing the term*
 
 verdict: PENDING
 
+## 21 — THE PAPER SAYS THE ¾ IS AN ARTIFACT; THE PROBE SAYS THE TWO GROUND TRUTHS AGREE
+
+**Hypothesis (as planned):** the numerator must be sub-linear in mass, `L ∝ M^(3/4)` (WBE/Enquist).
+
+**★ THE PAPER, OPENED (the rail held, and it killed the plan).**
+Berry, Anfodillo, Castorena, Echeverría & Olson (2024), *J. Exp. Bot.* 75(13):3993–4004,
+"Scaling of leaf area with biomass in trees reconsidered". Fig. 3: metabolically-active sapwood
+volume per unit leaf area is **CONSTANT with height growth** (slope 0.97, isometric), while
+traditionally-measured sapwood volume scales at 0.84. Their conclusion, verbatim in effect: the
+hypoallometric leaf-vs-mass scaling **"reflects heartwood accumulation, not metabolic constraints."**
+⇒ **`M^(3/4)` IS NOT A LAW, IT IS AN OUTPUT.** Coding it would have been FITTING THE APPEARANCE —
+the one thing this project forbids. (And the empirical exponent isn't ¾ anyway: Xu, Li & Wang 2014,
+PLoS One, measure **0.873, 95% CI 0.851–0.895** across Chinese forests — above ¾, below 1.)
+
+**★ AND THE GAIN, COMPUTED BEFORE A LINE WAS CODED (the rail again).** Reduce first. The model's own
+pipe law already gives, exactly:
+
+    A_sap = pi*r_tip^2 * F_S^(2/p),  r_tip = R_TIP*S^(1/p)   =>   A_sap = const * (S*F_S)^(2/p)
+                                                              =>   A_sap = const * L^(2/p)
+
+`S` and `F_S` enter ONLY AS THEIR PRODUCT `L` = the total real leaf count. So the model ALREADY
+contains the pipe relation between leaf count and sapwood area (`A_sap ∝ L^0.870` at p=2.3). Impose
+Berry's isometric `L ∝ V_sap ≈ A_sap·h` ON TOP of that and the system is OVER-DETERMINED:
+
+    L = K*A_sap*h = K'*L^(2/p)*h    =>    L ∝ h^(1/(1-2/p)) = h^7.67
+
+**A tree that doubles in height gets 200x the leaves.** Reading `N_def` from sapwood VOLUME detonates
+worse than iter-20. Zero CPU-seconds spent. Both candidate numerators dead before the editor opened.
+
+**Change:** none to the model. `tmp/iter21_sapwood_split.py` — a probe reading an instrument that has
+existed since iter-14 (line 1925) and was **never once looked at**: `sap_frac_pipe` (sapwood vs the
+pipe the tree owns) alongside `sap_frac` (sapwood vs the wood it BUILDS, incl. the cantilever).
+
+**Verification (all 3 tiers, one run):**
+
+    tier age   DBH    A_built    A_sap  A_heart  sap/built  sap/pipe  pipe/built   F_S   F_H
+      s   15  1.43x    258.7c    54.1c   204.6c     20.9%     20.9%      100.0%    10    28
+      m   47  0.93x   1260.1c   120.1c  1140.1c      9.5%      9.5%      100.0%    25   156
+      l  104  0.94x   3492.6c   152.8c  3339.8c      4.4%      4.4%      100.0%    33   457
+
+**★ REFUTED, AND IT EXONERATES THE STATICS.** `pipe/built = 100.0%` in every tier: the cantilever is
+NEVER binding at the base. The trunk is 100% pipe+heartwood, so `sap_frac == sap_frac_pipe` identically.
+The suspicion that defect 1 was really a statics artifact is **dead**, and six iterations of numerator-
+hunting are hereby confirmed to have been aimed at the RIGHT mechanism. A refutation that exonerates.
+
+**★★★ THE FINDING — TWO GROUND TRUTHS, NEVER BEFORE COMPARED, AGREE TO 7%.**
+Hold `A_built` (DBH is good: 0.93x / 0.94x) and demand the ~50% sapwood the census requires. Since
+`A_sap ∝ L^(2/p)`, invert for the total real leaf count `L` each tier must carry:
+
+    tier   A_sap now -> needed      L now  ->  L needed
+      m       120c   ->    630c     8,850  ->    59,700      (ratio 5.25 => L x 6.75)
+      l       153c   ->  1,746c    11,682  ->   192,700      (ratio 11.43 => L x 16.5)
+
+    ==>  L(l)/L(m) = 3.23      and the INDEPENDENT Hellström real-tip census says  x3.0.
+
+The sapwood-fraction target and the twig-count target are **THE SAME TARGET**. They have never been
+solved against each other, and they do not disagree — they agree to 7%. So `N_def` is not mis-shaped;
+it is **ANCHORED ~6.75x TOO LOW**. `S(m) ≈ 6.75`, `S(l) ≈ 16.5`, ratio **2.44**.
+
+**★ AND THE MECHANISM CLOSES ITSELF — ONE TERM MOVES BOTH GROUND TRUTHS, IN OPPOSITE DIRECTIONS.**
+`c_H` is banked at the `S` prevailing ON THE YEAR A UNIT DIED (`nd.death_c`, already coded, iter-15).
+So a RISING `S(t)` makes the early deaths — which are MOST of them (F_H: 28 -> 457) — bank a SMALLER
+heartwood area, while the live tips carry a LARGER sapwood one. `A_sap` UP and `A_heart` DOWN from the
+SAME term. That is how sap_frac can reach 50% while `A_built`, and therefore DBH, holds. Nothing else
+in the model can do that, and no scalar can do it at all.
+
+**★ The target is a RATIO, so it is scalar-proof.** `A_sap/A_heart = 1` at m AND at l (it is 0.105 and
+0.046 today). `DBH_CALIB` cancels in a ratio — the iter-17 rail says a scalar may CENTRE but never FIX,
+and a ratio target is immune to the thing that cancels. Pre-registered at BOTH ends of size.
+
+verdict: PENDING
+
 ## Staged lessons
 
 One line each. Raw, unpromoted. `/distill` empties this section — `/work` may only append to it,
@@ -564,3 +636,8 @@ and may never edit `~/.claude/rules/`, `CLAUDE.md`, or `MEMORY.md` on its own.
 - **EXOGENOUS IS NECESSARY, NOT SUFFICIENT — what must be bounded is the EXPONENT, not the timing of the read.** A numerator read from *last* year's wood is still a positive feedback if it is PROPORTIONAL to the tree's own product: the delay changes the phase, not the gain. Only a sub-linear exponent (`M^q`, q < 1) bounds it. (iter-20)
 - **A KNIFE-EDGE ROOT IS A FALSIFICATION, NOT A CALIBRATION — read the SENSITIVITY at the root, not just the root.** The bisection converged; that proved nothing. `d log out / d log const` ≈ 100 means the fixed point is finer than the model's own noise, i.e. UNSOLVABLE. **A root-find that succeeds can still be the refutation — always report the local slope with the answer.** (iter-20)
 - **WHEN A TERM IS A SIZE TERM, TEST IT AT BOTH ENDS OF SIZE BEFORE BELIEVING THE ANCHOR.** The constant that gave the m tier its anchor left s starved on the floor AND detonated l to a 24-metre trunk. Age was the bifurcation parameter. One tier's success is not evidence; the SPREAD across tiers is the whole claim. (iter-20)
+
+- **AN INSTRUMENT THAT EXISTS AND IS NEVER READ IS THE SAME AS NO INSTRUMENT.** `sap_frac_pipe` was coded in iter-14 and printed by nobody for SEVEN iterations; it took one glance to exonerate the statics and confirm the numerator hunt was aimed correctly. Before building a new probe, **grep for the one you already built.** (iter-21)
+- **★★ CHECK YOUR GROUND TRUTHS AGAINST EACH OTHER *BEFORE* FITTING TO EITHER — THEY MAY AGREE, AND THAT AGREEMENT IS THE STRONGEST EVIDENCE YOU WILL EVER GET.** The 50%-sapwood census and the Hellström ×3.0 twig count had never been compared; inverted through the pipe law they demand L(l)/L(m) = 3.23 vs 3.0 — a 7% match. The companion rail (`one_constant_two_truths`) says a big DISAGREEMENT is a structural falsification; its other half is that a tight AGREEMENT between two independent truths *pins the mechanism* and tells you the term is merely mis-anchored, not mis-shaped. Two sessions of hunting the wrong shape were avoided by one line of arithmetic on numbers already printed. (iter-21)
+- **★ THE LITERATURE'S EXPONENT MAY BE AN *OUTPUT* OF THE MECHANISM YOU ALREADY MODEL — CODING IT WOULD BE FITTING THE APPEARANCE.** `M^(3/4)` for leaf-vs-mass is not a metabolic law: Berry et al. 2024 show it EMERGES from heartwood accumulation, which this model already simulates. Before importing a published exponent as a rule, ask whether your own process **derives** it. If it does, importing it double-counts and over-determines the system. (iter-21)
+- **★ REDUCE THE PROPOSED LAW AGAINST THE LAWS ALREADY IN THE MODEL, NOT JUST AGAINST ITSELF.** Berry's `leaf ∝ sapwood volume` is sound in isolation; laid on top of the pipe law the model already had (`A_sap ∝ L^(2/p)`), it over-determines the system and gives `L ∝ h^7.67`. A new term's gain must be computed **in the presence of the existing terms** — a law that is stable alone can detonate in company. (iter-21)
