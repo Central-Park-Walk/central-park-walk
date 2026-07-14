@@ -1207,3 +1207,47 @@ verdict: PENDING
   nearly forbade a fit that worked.
 - ★★ **ONE GROUND TRUTH WILL CERTIFY A CORPSE.** At k = 0.30 census DBH is met almost exactly, by a
   starved stick with a 0.67x crown. A fit is only as honest as its SECOND observable.
+
+## 31 — THE INSTRUMENT. n SEEDS, IN PARALLEL, WITH A RESOLUTION ATTACHED TO EVERY NUMBER.
+
+**Hypothesis.** Not a model change — a measurement one. iter-30 established that an n=1 instrument
+cannot measure a ratio: the m→l crown lever came out 1.86 / 3.40 / 1.78 across three seeds, so
+every magnitude fitted in iters 27–30 was fitted inside its own noise. The claim under test is
+therefore about the *method*: **a mean without a resolution is the same lie in nicer clothes**, and
+until every observable carries the seed count that would resolve it, no further fitting is honest.
+
+**Change.** New tool `scripts/plane_bench.py` (`5fcc208`) — kept, not a tmp script.
+- n seeds × tiers as **independent processes**. The grower is `np.random.default_rng(seed)` per
+  instance, so the sweep is embarrassingly parallel: **wall clock = the single slowest run, not the
+  sum.** The cost objection STATE raised against an n-seed harness (2–3 h) was an artifact of doing
+  it serially on a 24-thread box. 15 runs ≈ one `l` run ≈ 20–25 min.
+- Every observable reports its residual against census **in units of the instrument** — the
+  half-width `2·SEM = 2·sd/√n`. Bigger ⇒ `** RESOLVED **`. Smaller ⇒ `-- noise --`, *plus*
+  `n_req = (2·sd/residual)²`: the seeds it would take to see it, or `never`.
+- **Levers are paired per seed**, then averaged. A ratio of two means discards the pairing and
+  understates the spread — which is exactly how the ±50% lever spread stayed invisible.
+- Fits go through `--set KEY=VAL`; runs cache to `.npz` for `--load` re-reporting at zero compute.
+
+**Measurement.** Smoke (3 seeds × `s`, 3 s wall) — the report shape is right and it immediately
+resolves three defects at `s` that no one had put a number on: DBH **1.58x** census (the R_TIP
+floor: 2·R_TIP = 10.3 cm floors DBH for any tree at any age), height **0.67x**, crown r_p50
+**0.30x**. Foliage count at `s` has a **112% seed spread** — it is not an instrument at all.
+The 5-seed × {s,m,l} run is IN FLIGHT → `tmp/iter31_bench.log`, `tmp/iter31_bench.npz`.
+
+**Correction to the record.** STATE claimed the default seed was the richest of iter-30's three
+(3822 foliage). It is not — the log says default `20260710` = 1692 foliage (the *middle* tree);
+`SEED+2` is the 3822 one. iter-30's conclusion is untouched (an n=1 instrument still cannot measure
+a ratio), but the reason is the spread, **not** a lucky default. Fixed in STATE.
+
+verdict: PENDING
+
+## Staged lessons (iter-31)
+
+- ★★ **A MEAN WITHOUT A RESOLUTION IS THE SAME LIE IN NICER CLOTHES.** Report every residual in
+  units of `2·SEM`, and print the `n` that would resolve the ones that aren't. A quantity below its
+  own noise floor may never be the tell an iteration turns on.
+- ★★ **CHECK WHETHER THE EXPENSIVE THING IS ACTUALLY SERIAL.** "5 seeds × 2 tiers ≈ 2–3 h" was a
+  real cost estimate and a wrong one: the runs are independent, the box has 24 threads, and the
+  true cost is the slowest single run. An instrument was deferred for a session by a cost that
+  didn't exist.
+- ★ **A RATIO OF MEANS IS NOT A MEAN OF RATIOS.** Pair the samples, or the spread hides.
