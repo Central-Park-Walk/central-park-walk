@@ -609,6 +609,43 @@ FOLIAGE_LIFE     = 3      # a leaf cohort persists this many years then abscisse
 FOLIAGE_PER_TIP  = 4      # A4 short shoots a lit tip puts out per year. [PROV]
 FOLIAGE_SPREAD   = 0.35   # how far (m) leaves sit off the bearing tip. [PROV]
 
+# ★★ iter-24: THE A5 SHORT-SHOOT LAYER — the deferral of §7.1, paid at last. LIVE (not a
+# retired term; see the kill-switch rail in STATE).
+#
+#   THE DEFECT IT ANSWERS (iter-23): foliage lived ONLY at armature apices, so a limb's income
+#   could not grow with the limb. The shed gate counts income at TIP resolution and cost at
+#   INTERNODE resolution (light(subtree) / woody_internodes(subtree) < TAU_SHED), so an l-tier
+#   axis carried 8.5x more wood per live tip than an m-tier one, sat 3.4x closer to the cliff,
+#   and its tips' LIFETIME halved. A real plane bears short shoots along its whole LIT length,
+#   so its income scales with lit branch length. Ours did not.
+#
+#   THE RULE, AND IT INVENTS NO CONSTANT: a live woody internode of LAST year's wood or older,
+#   standing in light >= TAU_SHED, bears short-shoot foliage at the SAME LINEAR DENSITY the
+#   model already asserts for a lit shoot — a tip puts out FOLIAGE_PER_TIP markers for the
+#   GU_NODES[cat] internodes of shoot it makes in a year, so
+#
+#       P(short shoot on a lit internode, per year) = FOLIAGE_PER_TIP / GU_NODES[cat]   (~0.27-0.40)
+#
+#   and the cohort self-prunes on the existing FOLIAGE_LIFE = 3 (C&E measure A4/A5 short shoots
+#   self-pruning in 1-4 yr — that constant was ALWAYS this layer's, it just had nothing to prune).
+#   ⚠ Only wood born BEFORE this year bears them: this year's shoot IS the tip cohort, and
+#   foliating it twice would double-count. Botanically exact — a proleptic A5 short shoot breaks
+#   from a lateral bud on the PREVIOUS year's wood.
+#   ⛔ NOT "a full FOLIAGE_PER_TIP cohort per internode". INTERNODE is 0.11 m against VOX = 0.6 m,
+#   so that is 22 markers per voxel of limb per year: a 30x inflation of an income that ALPHA and
+#   TAU_SHED were calibrated against. The density is the thing that must be conserved, not the count.
+#
+#   ★ THE LOOP GAIN, COMPUTED BEFORE THE TERM WAS CODED (tmp/iter24_gate.py, on the shipped tree):
+#   income now scales with LIT foliated length. The light field over live woody internodes is
+#   BIMODAL — 40% of them stand at exactly zero light — so the gate bites on its own and EVERY
+#   theta in [0.0, 0.25] selects the same set. It is not a fitted constant.
+#       lit internodes   m 481 -> l 1101   = x2.29   (the lit SURFACE, x2.23 — not total wood)
+#       => q = ln(2.29)/ln(3.28 mass) = 0.70   =>   amplification 1/(1-q) = 3.3x   — STABLE.
+#   The 12x bifurcation regime (q = 0.92) was the one where income tracks TOTAL wood; the light
+#   gate is exactly what keeps us off it, and interior self-shading is the negative feedback.
+SHORT_SHOOT_LIGHT = TAU_SHED   # the SAME economic bar, one level down: a unit of wood keeps its
+                               # foliage if it stands in TAU_SHED of light per unit. [DERIVED]
+
 # --- ★ iter-3: LATENT_BUD (Mode 2), the re-erection of dormant buds on OLD WOOD (§2.3, §3.3,
 # §7.2). iter-1/2's Mode 2 was INERT (reit stuck at 3-4) because its host set was only ALIVE
 # cat-1 axes — i.e. the trunk, which forks and dies by age ~7, leaving no host. But the WOOD
@@ -744,6 +781,7 @@ class Grower:
         self.c_heart = C_HEART        # live heartwood per lost unit = HEART_RATIO*pi*r_tip^2
         self._crown_vol = 0.0         # occupied-voxel volume of the live foliage cloud, m^3
         self._n_tips    = 0           # live leaf units (what grow_foliage foliates)
+        self._n_short_shoots = 0      # ★ iter-24: A5 short shoots borne on older lit wood this year
         self._m_sub     = 0.0         # ★ iter-19: subtended mass at the root, kg — N_def's numerator
         self._bill = {}
         self._arch_distal = []   # ★ iter-5: (distal_root_node, host_axis) — arch-summit dieback
@@ -1321,8 +1359,14 @@ class Grower:
     # ======================================================================
     def grow_foliage(self, year, children):
         """Every living structural TIP (a woody node with no living woody children) puts out a
-        cohort of FOLIAGE_PER_TIP transient A4 leaves. These are the light-gatherers/shaders;
-        they are not wood. Only tips foliate, so a limb that stops extending stops re-leafing."""
+        cohort of FOLIAGE_PER_TIP transient A4 leaves — this year's shoot.
+
+        ★ iter-24: AND every OLDER live internode still standing in the light bears A5 SHORT
+        SHOOTS, at the same linear density (FOLIAGE_PER_TIP per GU_NODES[cat] internodes). That
+        is what makes a limb's income grow with the limb; see the SHORT_SHOOT_LIGHT block. The
+        light field is LAST year's banked one (iter-6) — a bud breaks on the light it stood in
+        when it was set, which is exactly the right causality."""
+        n_new = len(self.nodes)       # short shoots may only sit on wood that already existed
         tips = [i for i, nd in enumerate(self.nodes)
                 if nd.alive and not nd.foliage and i != 0
                 and not any(self.nodes[c].alive and not self.nodes[c].foliage for c in children[i])]
@@ -1333,6 +1377,24 @@ class Grower:
                 off = self.rng.normal(0, 1, 3); off /= (np.linalg.norm(off) + 1e-9)
                 p = base + FOLIAGE_SPREAD * off
                 self.nodes.append(Node(p, t, self.nodes[t].axis, year, foliage=True))
+        # --- ★ iter-24: the A5 short-shoot layer, on OLDER LIT WOOD ---
+        tipset = set(tips)
+        n_shoots = 0
+        for i in range(1, n_new):
+            nd = self.nodes[i]
+            if not nd.alive or nd.foliage or i in tipset:
+                continue
+            if nd.birth >= year:                      # this year's shoot: the tip cohort IS its foliage
+                continue
+            if self.light_at(nd.pos, self._shadow, self._mn) < SHORT_SHOOT_LIGHT:
+                continue                              # a dark internode bears no leaves — a clean bole
+            cat = self.axes[nd.axis].cat if nd.axis >= 0 else 1
+            if self.rng.random() >= FOLIAGE_PER_TIP / GU_NODES.get(cat, GU_NODES[MAX_CAT]):
+                continue                              # the linear density, sampled
+            off = self.rng.normal(0, 1, 3); off /= (np.linalg.norm(off) + 1e-9)
+            self.nodes.append(Node(nd.pos + FOLIAGE_SPREAD * off, i, nd.axis, year, foliage=True))
+            n_shoots += 1
+        self._n_short_shoots = n_shoots               # diagnostic: is the layer bearing?
 
     def age_foliage(self, year):
         """Leaf cohorts abscisse after FOLIAGE_LIFE years (C&E: A4/A5 self-prune 1-4 yr)."""
@@ -1931,8 +1993,17 @@ class Grower:
         # ★ iter-15: N_def and the crown it is read from. real_tips = N_def*F_S is the tree's TOTAL
         # A4/A5 tip count — the quantity Hellström's b(n) = beta*(n+1)^d predicts, and therefore the
         # independent check on this whole mechanism (it is a validator, never an input).
+        # ★ iter-24: THE LIT FOLIATED LENGTH — the quantity the A5 layer makes income scale with,
+        # and the one STATE demands be reported WITH the result (its m->l ratio is the loop's q).
+        woody_live = [i for i, nd in enumerate(self.nodes)
+                      if nd.alive and not nd.foliage and i != 0]
+        n_lit = sum(1 for i in woody_live
+                    if self.light_at(self.nodes[i].pos, self._shadow, self._mn) >= SHORT_SHOOT_LIGHT)
         out.update(S=self.s_def, N_def=self.n_def, crown_vol=self._crown_vol, n_tips=self._n_tips,
-                   m_sub=self._m_sub, real_tips=self.n_def * self._f_live[0])
+                   m_sub=self._m_sub, real_tips=self.n_def * self._f_live[0],
+                   n_woody_live=len(woody_live), n_lit=n_lit,
+                   lit_frac=(n_lit / len(woody_live) if woody_live else 0.0),
+                   n_short_shoots=self._n_short_shoots)
         return out
 
 

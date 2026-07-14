@@ -5,65 +5,61 @@ depth **emerge**. Deep history: `project_london_plane_crown_mould.md` (not neede
 
 ## Where we are
 
-**iter-23 DONE — investigation, no model change. The mechanism is found, and it is NEITHER of the two
-things we suspected.** Shipped model is still the iter-17 tree. Probe: `tmp/iter23_survival.py`.
+**iter-24 SHIPPED the A5 short-shoot layer** (`grow_foliage` + the `SHORT_SHOOT_LIGHT` block). Every
+live internode of OLDER wood standing in `light >= TAU_SHED` now bears short-shoot foliage at the
+linear density the model already asserted for a lit shoot (`FOLIAGE_PER_TIP / GU_NODES[cat]`), self-
+pruning on the existing `FOLIAGE_LIFE = 3`. **It invents no constant.** Income now scales with LIT
+BRANCH LENGTH, not with tip count. Probes: `tmp/iter24_gate.py` (pre-registration), `tmp/iter24_run.py`.
 
-- **★ FACT 0, read from the code:** `MASS_CAP is None` ⇒ `update_n_def()` returns immediately ⇒
-  **`s_def == 1.0` everywhere.** The iter-15 S-scaled shade is NOT LIVE in the shipped tree. Entries
-  since iter-20 reasoned about a term that is switched off. **Check the flag before the theory.**
-- **★★ SELF-SHADING IS REFUTED** (iter-20's pre-registered suspect). The l crown is **BRIGHTER**:
-  light/marker 1.219 → 1.592 (**x1.30**); light per live tip 8.08 → 14.32 (**x1.77**).
-- **★★ "BUDS FIRED INTO THE DARK" IS REFUTED.** The stillbirth fraction is **FLAT: 68% → 70%.**
-  Births scale x2.70 (census wants x3.0); dark births x2.78. Birth is not the defect.
-- **★★★ THE CROWN IS NOT DARKER — IT IS EMPTIER.**
+      LIVE TIPS F_S      l/m  1.32 -> 1.61x   <- THE TARGET MOVES (census wants ~3.0)
+      SAPWOOD            m 9.5 -> 10.4% | l 4.4 -> 5.6%   BOTH ROSE — the pre-registered rail HELD
+      DBH vs census      1.48 / 0.93 / 0.95x  (was 1.43 / 0.93 / 0.94)  <- HELD, l/m ratio 1.021
+      LIT FOLIATED LEN   l/m  1.81x          (census bar 3.23)  <- SHORT
+      LOOP GAIN q = 0.50, amplification 2.0x  (pre-registered 0.70 / 3.3x — stable, more damped)
 
-      crown envelope area   230.7 -> 515.0 m2  = x2.23
-      LIVE tips (F_S)          25 ->     33    = x1.32
-      tip density on the lit surface           = x0.59   <- HALVES
-      => mean tip LIFETIME  (1.32 / 2.70)      = x0.49   <- HALVES
+- **★ THE PRE-REGISTERED VERDICT BINDS: lit length did not reach x3.23, so THE DEFECT SURVIVES.** The
+  first term in nine iterations to move the target at all without breaking a rail — and it delivers
+  about **half** of what is needed. A partial. **Do not call it the fix.**
+- **★★ THE LAYER SHADES ITSELF OUT** — the finding, and it was not predicted. Lit fraction of live wood
+  **60% (m) / 74% (l) → 30% / 30%.** The new foliage's own shade halved its own lit surface: the
+  realised lit-length ratio 1.81 came in BELOW the static 2.29, and q damped 0.70 → 0.50. **The
+  feedback that keeps us off the bifurcation is the same one capping the income.**
+- **★★★ AND THE DEFECT HAS MOVED.** Lit length now tracks total live wood almost exactly (x1.81 vs
+  x1.77) ⇒ **income DOES scale with the limb now; that half is genuinely fixed.** What remains:
 
-  Live tips = births x lifetime. **Births are right; the LIFETIME halves.** The l crown is a bigger,
-  sparser, brighter shell — which is *why* light per marker went UP: fewer neighbours to shade you.
-- **★★★ AND WHY LIFETIME HALVES: income is counted at TIP resolution, cost at INTERNODE resolution.**
-  The gate is `light(subtree)/size(subtree) < TAU_SHED (0.18)`. Its numerator counts only the 12
-  markers on each ARMATURE TIP; its denominator counts EVERY WOODY INTERNODE. At l an axis carries
-  **8.5x more wood per live tip** (tips/internode 1.000 → 0.118), so its gate ratio sits 3.4x closer to
-  the cliff (1.810 → 0.593) and an overtopped tip has no margin left. **A real plane's limb bears short
-  shoots along its whole lit length, so its income grows with the limb. Ours does not.** The deferred
-  A4/A5 layer is exactly the foliage that would pay that bill — the SAME deferral iter-22 indicted for
-  `N_def`, arriving from the other side.
-- ⚠ **What the evidence FORBIDS:** wood-per-tip is the **margin**, not the killer. 96% of the axes the
-  gate actually sheds are zero-light single-internode **stillbirths** (median L/tip = 0.000), ~82% of
-  all shed events in both tiers. **A fix must lengthen tip LIFETIME — not merely lower the rent.**
+      live woody internodes   m 1087 -> l 1920  = x1.77
+      tree mass                                 = x3.28
+      axes BORN               m  186 -> l  516  = x2.77   (births were never the problem)
+
+  **The l tree carries 3.28x the mass on 1.77x the live wood. IT IS NOT KEEPING THE LIMB IT BUILDS.**
 
 ## Open defects
 
-1. **★★ THE LIT CROWN SURFACE IS UNDER-POPULATED WITH FOLIAGE** — tip density x0.59, tip lifetime
-   x0.49. Defect 1 restated correctly. It is **not** `N_def`, **not** shade, **not** the birth rate.
-2. **Caliber splay** — `s 1.43, m 0.93, l 0.94`. One-sided, all in `s`.
-3. **`s` floor** — a constant `N_def` over-serves the sapling. Free when (1) lands.
+1. **★★ THE TREE SHEDS TOO MUCH OF THE LIMB IT BUILDS** — Defect 1, restated for the third time and
+   now on the *retention* side. Not income scaling (fixed), not shade level, not the birth rate.
+2. **Caliber splay** — `s 1.48, m 0.93, l 0.95`. One-sided, all in `s` (a constant `N_def` over-serves
+   the sapling). Unchanged by iter-24.
+3. **Sapwood is 10.4% / 5.6% against a ~50% census.** Moving, and nowhere near.
 4. Criterion vi unmet ⇒ **do not ship.**
 
-## NEXT — iter-24: DERIVE THE A5 SHORT-SHOOT LAYER (the deferral, paid at last)
+## NEXT — iter-25: WHY DOES THE TREE NOT KEEP ITS LIMB? MEASURE BEFORE YOU CODE.
 
-- **★ The hypothesis:** foliage lives only at armature apices, so a limb's income cannot grow with the
-  limb. Give every **live internode standing in light** its own short-shoot foliage cohort (C&E A5:
-  space-filling twigs that self-prune in 1–4 yr — `FOLIAGE_LIFE = 3` already encodes exactly that;
-  reuse `FOLIAGE_PER_TIP`, **invent no new constant**). Then income scales with **lit branch LENGTH**,
-  the wood/tip divergence closes, and the leaf count becomes an OUTPUT of the lit surface.
-- **★★ COMPUTE THE LOOP GAIN BEFORE YOU CODE THE TERM** (the standing rail). Income ∝ lit foliated
-  length. Against mass (x3.28 m→l): if lit length tracks the **lit SURFACE** (x2.23) ⇒ `q = 0.68`,
-  amplification **3.1x — stable**, and the self-shading of interior short shoots is the negative
-  feedback that keeps it there. If it tracks **TOTAL wood** (n_nodes, x2.98) ⇒ `q = 0.92`,
-  amplification **12x — the iter-20 bifurcation regime.** ⇒ **Short shoots MUST be gated on light, and
-  the gate must BITE.** Measure the lit/total foliated-length ratio and report `q` WITH the result.
-- **★ The rails to PRE-REGISTER:** DBH must HOLD (0.93/0.94x — the tight instrument, 9–19%). `sap_frac`
-  must rise at **BOTH** m and l. Tip **lifetime** must rise (that is the target); tip **birth** rate
-  must NOT (already right at x2.70). The census bar is `L(l)/L(m) = 3.23` — ⚠ the lit surface today is
-  only x2.23, so **if the new crown's lit length does not reach x3.23, the defect survives.** Say so
-  before the run, not after.
-- ⛔ **Do NOT touch TAU_SHED.** Lowering the rent is the fitted-constant shortcut, and (C) says it would
-  spare stillbirths, not lengthen lifetimes.
+- **★ This is an INVESTIGATION, not a term.** iter-23's lesson: *decomposing a statistic tells you where
+  it moved; only looking at the individual EVENTS tells you what it did.* Extend
+  `tmp/iter23_survival.py` to the iter-24 tree and ask the shed gate, per event, at m and at l:
+  **which axes now die, at what age, against what ratio?** Re-read the stillbirth share first (96% of
+  kills at iter-23) — **the A5 layer cannot have touched it**, because a single-internode newborn has no
+  old wood to bear short shoots on. **If stillbirths are still ~96% of kills, then the retention defect
+  and the lifetime defect were never the same defect**, and the one we just half-fixed was the smaller.
+- **★ The concrete suspect — but PROVE IT FIRST:** short shoots are placed **isotropically**
+  (`FOLIAGE_SPREAD` in a random direction), so roughly half fire INWARD into the limb's own shade —
+  paying shade, earning nothing. A real A5 short shoot is borne on the lit flank. If the probe says the
+  interior markers gather ~0, orienting the shoot away from the local shade gradient is a principled,
+  constant-free fix, and it attacks the 60/74% → 30/30% collapse directly.
+- **⚠ Two candidate defects are now live (retention, self-shading) and they are entangled.** Measure
+  which one owns the x1.77 before coding either.
+- ⛔ **Still do NOT touch TAU_SHED**, and do not re-fit `ALPHA`/`DBH_CALIB` to chase a level — **DBH
+  HELD, so there is nothing to centre.** A scalar may CENTRE and UN-SUPPRESS; it may never FIX.
 
 ## Rails — each cost a session; do not re-litigate
 
@@ -71,31 +67,38 @@ things we suspected.** Shipped model is still the iter-17 tree. Probe: `tmp/iter
   than the x3.23 the census demands ⇒ every `L = K*X^q` has gain >= 0.987. **Do not propose a seventh
   numerator.** Dead: `V_crown` (15), `M_sub` linear (20), `V_sap` (21), `M^q` (22). ⚠ The family test
   assumes the tree's X-trajectory is FIXED — deriving a deferred LAYER changes X itself, so it is not a
-  member. But it must clear the same bar: **tabulate the ratio before coding.**
+  member. iter-24 was exactly such a layer, and it cleared the bar the family could not.
 - ⛔ **★ …AND DO NOT CODE `M^(3/4)`.** It is an **output** of the heartwood law we already simulate
   (Berry 2024, opened), not an input.
+- ⛔ **★ COMPUTE THE LOOP GAIN BEFORE YOU CODE THE TERM** (iter-20; honoured by iter-24). ★ And read the
+  probe's DISTRIBUTION, not only the statistic you came for: iter-24's light field is **bimodal** (40%
+  of woody internodes at exactly zero light), which is why **the A5 gate's constant cannot be fitted at
+  all** — every theta in [0, 0.25] selects the same set.
+- ⛔ **★ A DENSITY IS THE THING TO CONSERVE, NOT A COUNT** (iter-24). `INTERNODE` = 0.11 m against
+  `VOX` = 0.6 m — a full cohort per internode would have been a **30x** inflation of the income the
+  economy's constants were calibrated against.
 - ⛔ **★ Solve a loop's constant INSIDE the loop** (iter-19). ★ A root-find that CONVERGES can still be
   the refutation: report the local SENSITIVITY with the root. >=10x means unsolvable.
 - ⛔ **★ No age lookup.** `K(n) = alpha(n+1)^d` makes DBH an analytic function of age. **b(n) is the
   VALIDATOR, never the input.**
 - ⛔ **★ THE HEARTWOOD LAW IS DONE** (iters 12–14). ⚠ `F_H = 0` is a STARVATION signature, never a win.
-- ⛔ **NO SCALAR CAN MOVE THE SAPWOOD FRACTION — `DBH_CALIB` CANCELS** (iter-17). A scalar may **CENTRE**
-  and **UN-SUPPRESS**; it may never **FIX**. ⇒ **target a RATIO.**
+- ⛔ **NO SCALAR CAN MOVE THE SAPWOOD FRACTION — `DBH_CALIB` CANCELS** (iter-17). ⇒ **target a RATIO.**
 - ⛔ **STATICS IS EXONERATED** (iter-21): `pipe/built = 100.0%` in all three tiers.
-- ⛔ **LAI cannot rescue p = 2.3.** ⚠ `p = 2.3` is load-bearing twice (it also puts 1.0 between the cube
-  gain 1.30 and the square gain 0.87).
+- ⛔ **SELF-SHADING AS THE *LIFETIME* KILLER IS REFUTED** (iter-23) — the shipped l crown was BRIGHTER.
+  ⚠ iter-24 re-opens self-shading on a **different charge** (the A5 layer shading its own lit surface),
+  on a different tree, with new evidence. Do not confuse the two.
+- ⛔ **LAI cannot rescue p = 2.3.** ⚠ `p = 2.3` is load-bearing twice.
 - ⛔ **EXONERATED FOR CROWN WIDTH — do not re-indict *for width*:** the tip budget (iter-11), the shed
   rule, `MAX_CAT`, the reiteration rate, `N_def` accumulating with tip AGE, the statics. **The crown was
-  never 2x too wide.** ⚠ iter-23 re-indicts the shed gate's *resolution* for TIP LIFETIME — a different
-  charge, on new evidence. If the width verdict is ever threatened, STOP.
+  never 2x too wide.** If the width verdict is ever threatened, STOP.
 - ⚠ **NEVER cite a paper you have not OPENED.** "Kubo 2022" was fabricated and cost iters 12 AND 13. On
   disk (`tmp/papers/`, gitignored): Aye 2022 (equations are GIF images), Hellström 2018. Berry 2024 +
   Xu 2014 opened in iter-21 (web).
 - ⚠ **Instrument limit:** seed spread is 127% (`s`) / 69–78% (H) ⇒ nothing finer than ~10–15% is
   measurable. **DBH is the tight one (9–19%).**
-- ⚠ **★ CHECK THE FLAG BEFORE THE THEORY** (iter-23): `MASS_CAP`, `S_IN_SHADE`, `S_IN_LIGHT`, `MAX_CAT`.
-  A retired term reads exactly like a live one in the source, and three iterations theorised about
-  `s_def` while it was pinned at 1.0.
+- ⚠ **★ CHECK THE FLAG BEFORE THE THEORY** (iter-23): `MASS_CAP` is **None** ⇒ `s_def == 1.0` always, so
+  the iter-15 S-scaled shade is NOT live. Also `S_IN_SHADE`, `S_IN_LIGHT`, `MAX_CAT`. A retired term
+  reads exactly like a live one in the source.
 
 ## Housekeeping
 

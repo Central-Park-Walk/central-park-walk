@@ -780,8 +780,79 @@ death. A fix must lengthen tip lifetime; it must not merely lower the rent.
 **Verification:** three probes in one script, two tier grows, zero model change. The shipped tree
 is still the iter-17 tree. Every number above is printed by `tmp/iter23_survival.py`.
 
-verdict: PENDING
+verdict: ACCEPTED — the mechanism stood, and iter-24 built on it directly. (Chris: "continue"; an
+investigation with no model change has nothing to look at, so acceptance is the proceed.)
 
 - **★★★ A RATIO THAT FALLS HAS TWO SUSPECTS, AND THE ONE THAT COLLAPSES NEED NOT BE THE ONE THAT KILLS.** The shed gate's ratio fell x0.33 from m to l, entirely through its denominator (wood per tip, x8.5) — an airtight decomposition that named the wrong culprit. Asking the *next* question ("so which axes does the gate actually shed?") showed 96% of the kills were **zero-light stillbirths**, and the collapsing denominator was setting the **margin**, not causing the death. **Decomposing a statistic tells you where it moved; only looking at the individual EVENTS tells you what it did.** Never stop at the decomposition. (iter-23)
 - **★★ CHECK THE FLAG BEFORE THE THEORY — A RETIRED TERM READS EXACTLY LIKE A LIVE ONE.** `MASS_CAP` was set to `None` at iter-20, which makes `update_n_def()` return immediately and pins `s_def == 1.0` in every tier. Three iterations then theorised about S-scaled self-shading — a mechanism that was **switched off** — because the code, the comments and the ledger all still described it in the present tense. **A one-line guard clause silently deletes every downstream mechanism, and nothing in the source announces it.** Grep the kill-switch constants before building a theory on the machinery they gate. (iter-23)
 - **★ WHEN AN OUTPUT IS "TOO LOW", ASK WHETHER IT IS A RATE OR A STEADY STATE.** Six iterations attacked a live-tip count as if the tree were failing to MAKE tips. It was making them at x2.70 (census: x3.0). A steady-state population is `birth rate x lifetime` — and the whole defect was in the **lifetime**, which halved. **Factor the stock into its flow and its residence time before you go looking for the flow.** (iter-23)
+
+## 24 — THE A5 SHORT-SHOOT LAYER. THE TARGET MOVES (F_S 1.32 → 1.61x) AND THE DEFECT SURVIVES.
+
+**Hypothesis (iter-23's mechanism, coded):** foliage lived only at armature apices, so a limb's
+income could not grow with the limb, while the shed gate charged it for every woody internode —
+so tip LIFETIME halved from m to l. Give every live internode of OLDER wood standing in light its
+own A5 short-shoot cohort, and income scales with LIT BRANCH LENGTH instead of with tip count.
+
+**The change** (`scripts/plane_grower.py`, `grow_foliage` + the `SHORT_SHOOT_LIGHT` block). **It
+invents no constant:**
+- Gate: `light_at(internode) >= TAU_SHED` — the SAME economic bar the shed rule already applies,
+  one level down (a unit of wood keeps its foliage if it stands in TAU_SHED of light per unit).
+- Density: `P(short shoot per lit internode per year) = FOLIAGE_PER_TIP / GU_NODES[cat]` — the
+  linear foliage density the model ALREADY asserts for a lit shoot (a tip bears FOLIAGE_PER_TIP
+  markers for the GU_NODES internodes of shoot it makes in a year). ⛔ NOT a full cohort per
+  internode: INTERNODE is 0.11 m against VOX 0.6 m, so that is 22 markers per voxel of limb — a
+  **30x inflation of the very income ALPHA and TAU_SHED were calibrated against.**
+- Only wood born BEFORE this year bears them (this year's shoot IS the tip cohort; foliating it
+  twice double-counts). Botanically exact: a proleptic A5 breaks from a lateral bud on old wood.
+- Cohorts self-prune on the existing `FOLIAGE_LIFE = 3` — C&E's measured A4/A5 1–4 yr. **That
+  constant was always this layer's; it just had nothing to prune.**
+
+**★ LOOP GAIN, COMPUTED BEFORE THE TERM WAS CODED** (`tmp/iter24_gate.py`, on the shipped tree —
+the standing rail). The light field over live woody internodes is **BIMODAL**: 40% of them stand at
+**exactly zero** light. So the gate BITES on its own, and every theta in [0.0, 0.25] selects the
+identical set — **the gate is not a fitted constant**, and that is the strongest form of this result.
+Lit internodes m 481 → l 1101 = **x2.29** (the lit SURFACE, x2.23 — not total wood) ⇒ `q = 0.70`,
+amplification **3.3x, STABLE** — off the q = 0.92 / 12x bifurcation regime by exactly the light gate.
+
+**Result** (`tmp/iter24_run.py`, all three tiers):
+
+      LIVE TIPS F_S      m 25 -> 28 | l 33 -> 45      l/m  1.32 -> 1.61x   <- THE TARGET, IT MOVES
+      LIT FOLIATED LEN   m 324      | l 585           l/m         1.81x    (census bar 3.23)
+      => LOOP GAIN q = 0.50, amplification 2.0x       (pre-registered 0.70 / 3.3x — MORE damped)
+      SAPWOOD FRACTION   m 9.5 -> 10.4% | l 4.4 -> 5.6%   BOTH ROSE  <- the pre-registered rail
+      DBH vs census      s 1.48x  m 0.93x  l 0.95x    (was 1.43 / 0.93 / 0.94)  <- HELD
+      DBH l/m ratio      1.021                        (was 1.011)              <- HELD
+
+**★ THE VERDICT I PRE-REGISTERED, AND IT BINDS: the lit length did not reach x3.23, SO THE DEFECT
+SURVIVES.** F_S l/m is 1.61 against the census's ~3.0. This is a partial — the first term in nine
+iterations to move the target AT ALL without breaking a rail, and it delivers about half of what
+is needed. It is not the fix.
+
+**★★ THE SURPRISE, AND IT IS THE FINDING — THE LAYER SHADES ITSELF OUT.** The lit fraction of live
+wood **collapsed from 60% (m) / 74% (l) on the shipped tree to 30% / 30%.** The new short shoots'
+own shade halved their own lit surface, which is why the realised lit-length ratio (1.81) came in
+BELOW the static prediction (2.29) and why q was damped to 0.50. **The negative feedback that keeps
+us off the bifurcation is the same thing capping the income.** It is not a bug — it is the physics
+we asked for — but its magnitude was not predicted.
+
+**★★★ AND THE FLAT 30% MOVES THE DEFECT.** Lit length now tracks **total live wood** almost exactly
+(x1.81 vs x1.77) — so income DOES scale with limb length now; that half is genuinely fixed. But:
+
+      live woody internodes   m 1087 -> l 1920  = x1.77
+      tree mass                                 = x3.28
+      axes born               m  186 -> l  516  = x2.77   (births were never the problem)
+
+**The l tree carries 3.28x the mass on 1.77x the live wood. It is not KEEPING enough limb.** The
+question is no longer "why doesn't income scale with the limb" (it does) but **"why does the tree
+still shed so much of the limb it built?"**
+
+**Verification:** all three tiers grown to their census ages (`tmp/iter24_run.py`, 2m27s, exit 0).
+Every number above is printed by that script. DBH and sapwood rails read from the model, not
+estimated; the sapwood baselines are iter-21's `A_sap/A_heart` = 0.105 / 0.046 inverted.
+
+verdict: PENDING
+
+- **★★ COMPUTE THE LOOP GAIN BEFORE YOU CODE THE TERM — AND THE PROBE MAY ALSO TELL YOU THE GATE IS FREE.** The pre-registration probe was run to get `q`. It also showed the light field over woody internodes is BIMODAL (40% at exactly zero), so every threshold in [0, 0.25] selects the same set — **the gate's constant does not matter, and a constant that cannot be fitted cannot be the fit.** A probe run for one number can retire a whole class of "but you tuned it" objections for free. Look at the DISTRIBUTION, not just the summary statistic you came for. (iter-24)
+- **★★ A DENSITY IS THE THING TO CONSERVE, NOT A COUNT.** The obvious coding of "foliate every lit internode" was to give each one a tip's cohort — which, at INTERNODE 0.11 m against VOX 0.6 m, is 22 markers per voxel of limb and a **30x inflation of the income that the economy's constants were calibrated against.** The change would have "worked" and detonated every calibration downstream. When extending a quantity to a new unit, carry over its **density per unit of the thing it lives on**, and check that density against the resolution of the grid that will consume it. (iter-24)
+- **★ A STABILISING FEEDBACK AND AN INCOME CAP CAN BE THE SAME TERM.** The light gate is what kept the loop gain at 0.50 instead of 0.92 — and it is also why the layer delivered half the income needed: the new foliage's own shade halved its own lit surface (lit fraction 60/74% → 30/30%). **The mechanism that saves you from the bifurcation is the mechanism that starves you.** Expect any self-shading negative feedback to under-deliver against its static prediction, and measure how much BEFORE reading the shortfall as a separate defect. (iter-24)
