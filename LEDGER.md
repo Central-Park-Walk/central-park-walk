@@ -620,6 +620,67 @@ and a ratio target is immune to the thing that cancels. Pre-registered at BOTH e
 
 verdict: PENDING
 
+
+## 23 — THE CROWN IS NOT DARKER. IT IS EMPTIER. (investigation; no model change)
+
+**Mandate (from iter-22):** live-tip survival halves from m to l (13.8% -> 6.7%). *Get the
+mechanism.* Pre-registered suspect (iter-20): the crown shades itself harder at l, because shade
+is cast at MARKER resolution. **Probe:** `tmp/iter23_survival.py` — decompose the shed gate
+(`ratio = light(subtree)/size(subtree) < TAU_SHED` -> shed) on the shipped iter-17 model, m and l.
+
+**★ FACT 0, read from the code and not assumed:** `MASS_CAP is None` (retired at iter-20), so
+`update_n_def()` returns immediately and **`s_def == 1.0` in every tier, every year.** The S-scaled
+shade of iter-15 is NOT LIVE in the shipped tree. Whatever halves survival, it is not an N_def
+feedback. (Every ledger entry since iter-20 has reasoned about a term that is switched off.)
+
+**★★ SUSPECT 1 — SELF-SHADING — REFUTED. The l crown is BRIGHTER, not darker.**
+
+      mean light per living foliage marker    m 1.219  ->  l 1.592   = x1.30   (FULL_LIGHT = 6.0)
+      light per live tip, at the gated axes   m 8.08   ->  l 14.32   = x1.77
+
+**★★ SUSPECT 2 — BUDS FIRED INTO THE DARK — REFUTED. The stillbirth rate is FLAT.**
+
+      axes born over the life        182 -> 492   = x2.70   (the census wants x3.0)
+      of those, born into L = 0      123 -> 342   = x2.78
+      stillbirth fraction           68%  -> 70%             <- FLAT. Not the mechanism.
+
+**★★★ WHAT IT ACTUALLY IS — THE CROWN IS UNDER-POPULATED.**
+
+      crown envelope area (hull)   230.7 m2 -> 515.0 m2  = x2.23
+      LIVE tips (F_S)                 25   ->    33      = x1.32
+      TIP DENSITY ON THE LIT SURFACE 0.108 ->  0.064 /m2 = x0.59   <- HALVES
+      => mean tip LIFETIME = 1.32 / 2.70                 = x0.49   <- HALVES
+
+The tree BIRTHS tips at very nearly the census rate (x2.70 vs x3.0) and its buds land in the light
+at an unchanged rate. But its live tips are spread over a crown envelope that grew **x2.23**, so the
+l crown is not a denser, darker crown — **it is a bigger, SPARSER, BRIGHTER shell.** That is why the
+light per marker went UP: fewer neighbours to shade you. The live tip count is a steady state
+(births x lifetime), births are right, so **the whole defect is in the LIFETIME, and it halves.**
+
+**★★★ AND WHY THE LIFETIME HALVES — INCOME IS COUNTED AT TIP RESOLUTION, COST AT INTERNODE
+RESOLUTION.** At the axes the gate evaluates:
+
+      live tips per woody internode   m 1.000  ->  l 0.118   = x0.118   <- 8.5x more wood per tip
+      the gate ratio itself           m 1.810  ->  l 0.593   = x0.327   (TAU_SHED = 0.18)
+
+An l-tier axis carries 8.5x more wood per live tip, so its gate ratio sits **3.4x closer to the
+cliff** — and any tip that is momentarily overtopped has no margin left and goes. Note what the
+gate is made of: the numerator counts the foliage of the ARMATURE TIPS (12 markers each, and
+nothing else on the axis); the denominator counts EVERY WOODY INTERNODE in the subtree. A real
+plane's limb bears short shoots along its whole lit length — so its income grows with the limb.
+Ours does not. **The A4/A5 layer we deferred is exactly the foliage that would have paid that
+bill.** This is the SAME deferral iter-22 indicted for `N_def`, arriving from the other side.
+
+⚠ **The one thing (C) forbids:** do NOT read "wood per tip" as the proximate killer. 96% of the
+axes the gate actually sheds are **zero-light single-internode stillbirths** (median L/tip = 0.000),
+and they are ~82% of all shed events in both tiers. Wood-per-tip sets the MARGIN, not the cause of
+death. A fix must lengthen tip lifetime; it must not merely lower the rent.
+
+**Verification:** three probes in one script, two tier grows, zero model change. The shipped tree
+is still the iter-17 tree. Every number above is printed by `tmp/iter23_survival.py`.
+
+verdict: PENDING
+
 ## Staged lessons
 
 One line each. Raw, unpromoted. `/distill` empties this section — `/work` may only append to it,
@@ -721,3 +782,7 @@ verdict: PENDING
 - **★★★ A LOOP GAIN IS SET BY THE DATA, NOT BY THE MECHANISM — SO YOU CAN REFUTE A WHOLE FAMILY OF MECHANISMS IN ONE TABLE.** For any law `output = K·X^q` fitted to a target ratio `T`, the exponent the data forces is `q = ln T / ln(X_hi/X_lo)`, so the gain is `< 1` **iff the variable grows faster than the target must**. That is a one-line test, and it can be run against EVERY readable variable at once. Six iterations were spent building and refuting members of a family (V_crown, M_sub, V_sap, M^q) that was EMPTY — one table, costing zero CPU-seconds, showed no variable in the model clears the bar. **Before hunting the next candidate term, tabulate the ratio the target demands against the ratio every candidate offers.** (iter-22)
 - **★★ WHEN NO MULTIPLIER CAN FIX A COUNT, THE COUNT IS THE DEFECT — LOOK AT WHAT YOU DEFERRED.** `N_def` (what one armature tip "stands in for") existed only to patch a layer the model deliberately does not grow. It is a **parameter in an output's clothes**, and the standing rule ("anything the real thing derives, we derive") had already been broken the moment it was written. The tell was visible for six iterations in a number nobody divided: the tree makes tips at x2.71 (census x3.0) and keeps only x1.32 of them. **A stand-in factor is a shortcut with a loop in it; when it will not solve, suspect the deferral, not the factor.** (iter-22)
 - **★ A CONSTANT'S DOCSTRING IS A DATED CLAIM — AND A REFIT ORPHANS EVERY ABSOLUTE NUMBER DOWNSTREAM OF IT.** `N_DEF_REF = 354` was written when `DBH_CALIB` was 12.85; iter-17 refit it to 3.813 and the true value became 21.7. Six iterations quoted the stale one. Ratios were immune (the factor cancels) so nothing was refuted — but the numbers in four ledger entries are wrong on their face. **When you refit a calibration constant, grep for every comment that quotes a number derived from it, in the same commit.** (iter-22)
+
+- **★★★ A RATIO THAT FALLS HAS TWO SUSPECTS, AND THE ONE THAT COLLAPSES NEED NOT BE THE ONE THAT KILLS.** The shed gate's ratio fell x0.33 from m to l, entirely through its denominator (wood per tip, x8.5) — an airtight decomposition that named the wrong culprit. Asking the *next* question ("so which axes does the gate actually shed?") showed 96% of the kills were **zero-light stillbirths**, and the collapsing denominator was setting the **margin**, not causing the death. **Decomposing a statistic tells you where it moved; only looking at the individual EVENTS tells you what it did.** Never stop at the decomposition. (iter-23)
+- **★★ CHECK THE FLAG BEFORE THE THEORY — A RETIRED TERM READS EXACTLY LIKE A LIVE ONE.** `MASS_CAP` was set to `None` at iter-20, which makes `update_n_def()` return immediately and pins `s_def == 1.0` in every tier. Three iterations then theorised about S-scaled self-shading — a mechanism that was **switched off** — because the code, the comments and the ledger all still described it in the present tense. **A one-line guard clause silently deletes every downstream mechanism, and nothing in the source announces it.** Grep the kill-switch constants before building a theory on the machinery they gate. (iter-23)
+- **★ WHEN AN OUTPUT IS "TOO LOW", ASK WHETHER IT IS A RATE OR A STEADY STATE.** Six iterations attacked a live-tip count as if the tree were failing to MAKE tips. It was making them at x2.70 (census: x3.0). A steady-state population is `birth rate x lifetime` — and the whole defect was in the **lifetime**, which halved. **Factor the stock into its flow and its residence time before you go looking for the flow.** (iter-23)
