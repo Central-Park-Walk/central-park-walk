@@ -1295,3 +1295,76 @@ verdict: PENDING
   next fit, not after the next three.
 - ★★ **A RESIDUAL THAT WORSENS MONOTONICALLY WITH SIZE IS A LAW ERROR, NOT A CALIBRATION ERROR.**
   Sapwood 0.58x → 0.40x → 0.33x across s/m/l is the signature of a wrong exponent, not a wrong scalar.
+
+## 32 — THE SINGLE-TERM STORY IS DEAD. SAPWOOD AND HEARTWOOD ARE WRONG IN OPPOSITE DIRECTIONS.
+
+**Shinozaki 1964 (I) OPENED** — the last unopened paper on the critical path, and it was load-bearing.
+`tmp/papers/shinozaki1964_I.pdf` + `_II.pdf` (J-Stage, free). Kichiro Shinozaki, Kyoji Yoda, Kazuo
+Hozumi, Tatuo Kira, *Jap. J. Ecol.* **14**(3):97–105. What it actually says:
+- **Eq. 2, `F(z) = L·C(z)`** — leaf amount ABOVE a level ∝ the WORKING pipe cross-section AT it.
+  Table 1 gives the specific pipe length `L` per species: deciduous broadleaves **32–74 cm** (dry wt;
+  *Ficus* 66, *Triadica* 62, *Betula* 55, *Ulmus* 45). Table 2 / Fig. 11: `L` is **not** a species
+  constant — it moves with growth stage and stand density.
+- **Fig. 7 + Fig. 8** — in TREES the `F~C` line is an oblique part PLUS a **long horizontal part**:
+  the leafless bole, where disused pipes keep accumulating and NO leaf is added. Heartwood is a
+  **stock of history**; the pipe model constrains only the **oblique** term (sapwood ∝ live leaf).
+⇒ The pipe model is a law about **sapwood AREA**, never about the sapwood *fraction*. `sap_frac` is a
+  ratio of two independent quantities and has no business being read as one observable.
+
+**Hypothesis (iter-31's, under test):** DBH-too-high and sapwood-frac-too-low are ONE defect — too
+much wood, nearly all of it heartwood. Its hard prediction: sapwood AREA is then ~correct.
+
+**Change:** none to the model. **No parameter moved. Nothing fitted** — this was the falsification
+Chris asked for, and it is free: `tmp/iter32_areas.py` re-reads the cached `tmp/iter31_bench.npz`
+(n=5 × s/m/l) and splits the built basal area into sapwood and heartwood, each with its own residual
+in units of the instrument (half-width = 2·SEM), the same rule `plane_bench` applies.
+
+**Verification — ALL SIX LINES `** RESOLVED **`:**
+
+| tier | basal area | SAPWOOD area | heartwood area |
+|---|---|---|---|
+| s | 2.31x | **1.32x** | **3.30x** |
+| m | 1.11x | **0.45x** | **1.77x** |
+| l | 1.57x | **0.51x** | **2.63x** |
+
+**REFUTED, and not narrowly.** Sapwood area is not "~correct" — at `m`/`l` it is **HALF** the census.
+The tree builds too LITTLE sapwood and 1.8–2.6x too MUCH heartwood, and at `m` the two nearly cancel
+— which is the ONLY reason DBH ever read as a mild 1.05x that looked like a calibration problem.
+
+**And the residual's SHAPE inverts under the split.** iter-31 read `sap_frac` 0.58 → 0.40 → 0.33x and
+called it "worsening monotonically with size ⇒ a law error". Decomposed: **sapwood area is FLAT at
+~0.5x** across m and l (scalar-shaped), while **heartwood grows 1.77 → 2.63x** (size-shaped). The
+monotone worsening was an artifact of dividing two independently-wrong numbers. *A ratio inherits the
+shape of neither of its parts.*
+
+**Third, independent corroboration that the 50% census target is the right one — from the paper.**
+Shinozaki Eq. 2 at Table 1's `L ≈ 60 cm` (ρ_Platanus ≈ 0.62 g/cm³): our `m` trunk's working pipe
+claims **12.3 kg** dry leaf; the census trunk claims **27.2 kg**. Crown geometry gets there
+independently — r_p50 6.3 m, LAI ≈ 3, LMA ≈ 75 g/m² ⇒ ~26 kg. Two routes that share no constant
+agree on the census and disagree with us by ~2x. ⚠ The `0.50` target is nonetheless still an
+UNSOURCED literal in `plane_bench.py:65` — it now carries a lot of weight and owes a citation.
+
+**What this costs `HEART_RATIO`'s derivation** (`plane_grower.py`, comment amended in this commit):
+its route (b) — solving c_H/c_S = 1.07 from the measured m→l basal-area growth — was done while the
+model's sapwood was carrying half its share, so the fit handed the missing growth to c_H. **A
+CONSTANT FITTED AGAINST A LEAK IS THE LEAK'S TWIN** (iter-29). The 22x gap between that 1.07 and the
+0.049 the sapwood target demands was never a coincidence to be argued away — it was this defect,
+visible from iter-14, waiting to be read. ⛔ HEART_RATIO is still NOT a knob: route (a), the paper's
+own physics (Fig. 8 — the disused pipe is the SAME pipe), is untouched. Fix what FEEDS the bank.
+
+verdict: PENDING
+
+## Staged lessons (iter-32)
+
+- ★★★ **DECOMPOSE A RATIO BEFORE YOU READ ITS SHAPE.** `sap_frac` "worsening with size" was two
+  errors — one flat, one growing — in opposite directions. A ratio inherits the shape of neither part,
+  and the trend you diagnose from it can be an artifact of the division. Split it into its numerator
+  and denominator, resolve each against the census SEPARATELY, and only then name the law.
+- ★★★ **TWO ERRORS THAT CANCEL LOOK LIKE ONE SMALL ERROR.** DBH read 1.05x at `m` — the healthiest
+  number on the board — while its two components sat at 0.45x and 1.77x. A near-census aggregate is
+  not evidence of a near-census model; it is evidence of nothing until you split it.
+- ★★ **OPEN THE PAPER BEFORE YOU BUILD THE OBSERVABLE.** Shinozaki says the pipe model is a law on
+  sapwood AREA; we had been measuring, arguing over, and preparing to fit a sapwood FRACTION the paper
+  never makes a claim about. Three sessions of a defect defined in the wrong units.
+- ★ **A FIT IS CONTAMINATED BY EVERY LEAK UPSTREAM OF ITS GROUND TRUTH** — c_H was fitted to total
+  basal-area growth while sapwood leaked half of it, so c_H absorbed the leak and then *certified* it.

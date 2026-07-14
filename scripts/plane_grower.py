@@ -175,6 +175,19 @@ R_TIP      = DBH_CALIB * R0     # effective terminal-bud radius (= the deferred 
 # truths pick c_H 22x apart, so ONE constant cannot serve both and this one is already spoken for.
 # ⛔ Do NOT turn HEART_RATIO down to buy sapwood fraction. That is the fit the census forbids, and
 #    the deficient term is the LIVE crown, not the dead bank. See STATE.md (iter-14).
+# ★★ iter-32 — THE 22x DISAGREEMENT ABOVE IS A STRUCTURAL FALSIFICATION, AND IT HAS NOW BEEN READ.
+# Splitting the basal area (n=5 bench, tmp/iter31_bench.npz) puts BOTH halves resolved-wrong, in
+# OPPOSITE directions: SAPWOOD area 1.32 / 0.45 / 0.51x census (s/m/l), HEARTWOOD area 3.30 / 1.77 /
+# 2.63x. They partly cancel, which is the only reason DBH ever read as a mild 1.05x at m.
+# ⇒ route (b) above is CONTAMINATED: it solved for m->l basal-area growth while the model's sapwood
+#   was carrying half its share, so the fit handed the missing growth to c_H. A CONSTANT FITTED
+#   AGAINST A LEAK IS THE LEAK'S TWIN (iter-29). c_H/c_S = 1.07 is the twin; it is NOT independent
+#   corroboration of route (a), and the two routes never agreed in the first place.
+# ⇒ iter-14 was HALF right: the live crown IS deficient (0.5x sapwood, flat in size) -- and the dead
+#   bank is ALSO over-full (1.8 -> 2.6x, worsening in size). TWO terms, two different laws.
+# ⛔ Still do NOT tune HEART_RATIO. Route (a) — the paper's physics — is untouched by any of this:
+#    Shinozaki 1964 Fig.8 says the disused pipe is the SAME pipe. Fix what FEEDS the bank (the rate
+#    of leaf-unit loss), not the price of a unit in it.
 HEART_RATIO = 1.0         # [DERIVED] c_H == c_S — the same pipe, now disused. See above.
 C_HEART     = HEART_RATIO * math.pi * R_TIP ** 2      # c_H: heartwood area per LOST leaf unit
 # ⚠ iter-15: R_TIP and C_HEART above are now only the REFERENCE (anchor) values. The live ones are
