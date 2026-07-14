@@ -1251,3 +1251,47 @@ verdict: PENDING
   true cost is the slowest single run. An instrument was deferred for a session by a cost that
   didn't exist.
 - ★ **A RATIO OF MEANS IS NOT A MEAN OF RATIOS.** Pair the samples, or the spread hides.
+
+### 31 — RESULT. The 5-seed run landed (`tmp/iter31_bench.log`, wall 1213 s for 15 grows).
+
+**Instrument bugfix first:** `n_req` was coded as `4·(half/resid)²` — correct only at n=4. The true
+count is `n·(half/resid)²`. The tool's entire purpose is to say how many seeds a number needs, so
+that number had to be right before anything was read off it. Fixed; re-reported from cache (free).
+
+**★★★ THE CROWN-AT-`m` DEFICIT IS DEAD. IT WAS NOISE.** Open defect #1 — "crown at `m` = 0.71x
+census, the tree may be too NARROW", the thing STATE had queued as the next chase — reads **0.86x at
+n=5, `-- noise --`, needs n~14.** Its seed spread is **85%**. Three sessions of geometry theory were
+aimed at a number the instrument cannot see. This is what the bench was built for, and it paid for
+itself on its first run.
+
+**★★★ WHAT IS ACTUALLY RESOLVED, AND IS THEREFORE ALLOWED TO BE THE NEXT TELL:**
+- **sapwood fraction — RESOLVED LOW AT ALL THREE TIERS, AND IT WORSENS MONOTONICALLY WITH SIZE:**
+  **0.58x / 0.40x / 0.33x** census (29.2% / 20.2% / 16.7% vs ~50%). Every tier clears its half-width
+  by 3–11x. **This is not a scalar error — it is size-dependent**, which is exactly the shape a
+  scalar cannot fix and iter-30's rail says to check for.
+- **DBH lever m→l = 1.950 ± 0.181 vs census 1.646 — RESOLVED (1.18x too steep).** First time this
+  lever has ever been measurable. The tree gains caliber too fast with age.
+- **DBH magnitude: 1.05x at `m` (resolved, barely), 1.25x at `l` (resolved).** Too much wood, and
+  more so at the top.
+
+**WHAT IS NOT AN INSTRUMENT, AND MAY NOT BE A TELL AGAIN:**
+- **crown r_p50 lever m→l: 1.98 ± 0.83 vs 1.34 — `-- noise --`, needs n~7.** Closer than crown@m,
+  but NOT yet resolved. It is 5 grows from being a tell; it is not one today.
+- **height, everywhere: 1.01x (`m`), 1.03x (`l`), both `-- noise --` (needs n~31 / n~18).** The
+  leader is not starved and never was. Rail.
+- **foliage count: 90–112% seed spread.** Not an instrument at any tier. Stop quoting it.
+
+**`s` IS BROKEN ACROSS THE BOARD** (new, all RESOLVED): DBH **1.52x**, height **0.63x**, crown
+**0.43x**; s→m levers all resolved-wrong (DBH 0.70x, crown 2.30x, height 1.64x). The DBH half is
+structural and known — `2*R_TIP` floors DBH at 10.3 cm for any tree at any age — but the height and
+crown halves are new findings. `s` has never been examined; it should not ship as it stands.
+
+verdict: PENDING
+
+### Staged lessons (iter-31, from the result)
+
+- ★★★ **THE INSTRUMENT PAID FOR ITSELF ON ITS FIRST RUN.** The defect at the top of the queue —
+  three sessions of theory behind it — was noise (85% seed spread). Build the instrument BEFORE the
+  next fit, not after the next three.
+- ★★ **A RESIDUAL THAT WORSENS MONOTONICALLY WITH SIZE IS A LAW ERROR, NOT A CALIBRATION ERROR.**
+  Sapwood 0.58x → 0.40x → 0.33x across s/m/l is the signature of a wrong exponent, not a wrong scalar.

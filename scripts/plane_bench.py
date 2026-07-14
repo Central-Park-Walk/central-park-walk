@@ -112,15 +112,16 @@ def _stats(v):
     return v.mean(), sd, 2.0 * sd / np.sqrt(n), n     # mean, sd, half-width (2*SEM), n
 
 
-def _verdict(mean, half, census):
+def _verdict(mean, half, census, n):
     """Is the residual against census bigger than the instrument's half-width?"""
     if census is None:
         return f"(no census)   +/-{100*half/abs(mean) if mean else 0:.0f}% instr"
     resid = mean - census
     if abs(resid) > half:
         return f"{mean/census:5.2f}x census   ** RESOLVED **  (residual {resid:+.3g} > +/-{half:.3g})"
-    n_req = (half / abs(resid)) ** 2 * 4 if resid else float("inf")   # half = 2sd/sqrt(n) -> n_req
-    req = "never" if n_req > 999 else f"n~{n_req:.0f}"
+    # We need 2*sd/sqrt(n_req) = |resid|, and half = 2*sd/sqrt(n)  =>  n_req = n*(half/resid)^2.
+    n_req = n * (half / abs(resid)) ** 2 if resid else float("inf")
+    req = "never" if n_req > 999 else f"needs n~{n_req:.0f}"
     return f"{mean/census:5.2f}x census   -- noise --   (residual {resid:+.3g} < +/-{half:.3g}, {req})"
 
 
@@ -139,11 +140,11 @@ def report(recs, tiers, seeds, overrides):
         print(f"\n── tier {t}   (age {G.TIER_AGES[t]} yr, {len(rs)} seeds)")
         for key, label, unit, sc, cens in OBS:
             v = np.array([r[key] for r in rs])
-            mean, sd, half, _ = _stats(v)
+            mean, sd, half, nn = _stats(v)
             c = cens(t)
             spread = (v.max() - v.min()) / mean if mean else 0.0
             print(f"   {label:16s} {sc*mean:8.2f} +/-{sc*sd:6.2f} {unit:2s}  "
-                  f"[spread {100*spread:4.1f}%]  {_verdict(mean, half, c)}")
+                  f"[spread {100*spread:4.1f}%]  {_verdict(mean, half, c, nn)}")
 
     # ── Levers: PAIRED per seed. A ratio of means is not a mean of ratios.
     if len(tiers) > 1:
@@ -158,13 +159,13 @@ def report(recs, tiers, seeds, overrides):
                 a = {r["seed"]: r[key] for r in by[lo]}
                 b = {r["seed"]: r[key] for r in by[hi]}
                 lev = np.array([b[s] / a[s] for s in seeds if s in a and s in b and a[s]])
-                mean, sd, half, _ = _stats(lev)
+                mean, sd, half, nn = _stats(lev)
                 c = CENSUS_LEVER.get((lo, hi), {}).get(key)
                 lab = dict(dbh="DBH", rp50="crown r_p50", h="height", nfol="foliage")[key]
                 per = "  ".join(f"{x:.2f}" for x in lev)
                 print(f"   {lab:16s} {mean:6.3f} +/-{sd:5.3f}   per-seed [{per}]")
                 if c:
-                    print(f"   {'':16s} vs census {c:5.3f}     {_verdict(mean, half, c)}")
+                    print(f"   {'':16s} vs census {c:5.3f}     {_verdict(mean, half, c, nn)}")
 
     print("\n  ⚠ A quantity printed `-- noise --` MAY NOT BE THE TELL AN ITERATION TURNS ON.")
 
