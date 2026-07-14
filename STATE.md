@@ -79,8 +79,13 @@ R_TIP derivation is back on the table.
 
 ## Housekeeping
 
-- **TODO:** the `0.50` sapwood-fraction census target is an UNSOURCED literal (`plane_bench.py:65`).
-  It now carries real weight (two independent routes agree with it) — give it a citation.
+- ✅ **DONE (distill, 2026-07-14):** the `0.50` sapwood target is now SOURCED in `plane_bench.py`
+  (Shinozaki Eq. 2 + crown geometry, two routes, no shared constant) — and the same comment marks
+  `sap` as a **smoke alarm, not a fit target** (a fraction is a ratio the pipe model never claims).
+- **Distilled 2026-07-14:** iters 18–32's staged lessons are promoted and archived
+  (`ledger_archive/2026-07.md`); LEDGER's staging section is empty. Two rules reached Tier 0 —
+  *a ratio is not a fact* and *a mean without a resolution is a lie* — so the rails below marked
+  ⛔★★★ now have full write-ups in `~/.claude/rules/practices.md`. **Nothing else changed.**
 - ALPHA = 1.026e-5 remains PROVISIONAL — fitted on DBH@m magnitude alone, and iter-32 just showed
   DBH@m is the number most corrupted by cancellation. **Treat ALPHA as unfitted.**
 - Open for Chris — abandoned agent branches hold unmerged work: **ginkgo**, **magnolia**.

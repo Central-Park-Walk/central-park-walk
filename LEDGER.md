@@ -620,28 +620,6 @@ and a ratio target is immune to the thing that cancels. Pre-registered at BOTH e
 
 verdict: PENDING
 
-## Staged lessons
-
-One line each. Raw, unpromoted. `/distill` empties this section — `/work` may only append to it,
-and may never edit `~/.claude/rules/`, `CLAUDE.md`, or `MEMORY.md` on its own.
-
-*(Emptied 2026-07-13 by `/distill` — iters 14–17 promoted. Raw entries and where each one went:
-`ledger_archive/2026-07.md`.)*
-
-- **ALGEBRA BEFORE INSTRUMENTATION — reduce the proposed quantity before you measure it, or you will measure a disguise.** `N_cap ∝ r³/lever` *is* the subtended mass, identically: the lever the proposal divides by is the same lever the moment multiplied by. Two iterations argued about a "cantilever capacity" that was a mass in a costume. One line of algebra, done before the probe, told us what the probe was for. (iter-18)
-- **A CONSTANT INSIDE A FEEDBACK LOOP MUST BE SOLVED, NOT MEASURED — and gain < 1 does NOT mean insensitive.** Pinning it on the open-loop system (the model with the term OFF) measures a tree that never exists once the term is on: the loop moves the very quantities the pin was read from. And the DC amplification is `1/(1-g)` — at gain 0.69 a 25% error in the constant becomes a 4x error in the output. Stability and insensitivity are different properties, and only the first one follows from g < 1. (iter-19)
-- **A UNIFORM RESPONSE FALSIFIES A SIZE TERM NO MATTER WHAT THE MEAN DOES.** Three tiers thinned by 0.24/0.26/0.24 is a SCALAR wearing a size term's clothes — read the ratios across the tiers before reading any one tier's number. The floor, not the law, was doing the talking. (iter-19)
-- **A LOOP GAIN IS AN EXPONENT, AND THE EXPONENT IS SET BY WHERE YOU READ THE RADIUS.** Same mechanism, same tree, same year: `r` from the pipe ⇒ gain `3/p` = 1.30 (runaway); `r` from statics ⇒ gain ≤ `2/p` = 0.870 (regulator). A cube law vs a square law, with 1.0 sitting between them because `p = 2.3`. When a gain comes out on the wrong side of 1, ask which law set the variable you read — the mechanism may be innocent. (iter-18)
-- **AN AGGREGATE LOOP IS NOT BOUNDED BY A PER-ELEMENT GAIN — and a division that CANCELS is not a feedback.** `N_def = C·M/n_tips` looks like it is regulated by `n_tips`, but `N_def·n_tips ≡ C·M`: the divisor cancels in the total, so it only *parcels out* the resource, it cannot change how much there is. The measured per-tip gain was 0.69; the aggregate gain was 1.0 and the system bifurcated. **Reduce the term to the quantity that actually closes the loop, and take the gain THERE.** (iter-20)
-- **EXOGENOUS IS NECESSARY, NOT SUFFICIENT — what must be bounded is the EXPONENT, not the timing of the read.** A numerator read from *last* year's wood is still a positive feedback if it is PROPORTIONAL to the tree's own product: the delay changes the phase, not the gain. Only a sub-linear exponent (`M^q`, q < 1) bounds it. (iter-20)
-- **A KNIFE-EDGE ROOT IS A FALSIFICATION, NOT A CALIBRATION — read the SENSITIVITY at the root, not just the root.** The bisection converged; that proved nothing. `d log out / d log const` ≈ 100 means the fixed point is finer than the model's own noise, i.e. UNSOLVABLE. **A root-find that succeeds can still be the refutation — always report the local slope with the answer.** (iter-20)
-- **WHEN A TERM IS A SIZE TERM, TEST IT AT BOTH ENDS OF SIZE BEFORE BELIEVING THE ANCHOR.** The constant that gave the m tier its anchor left s starved on the floor AND detonated l to a 24-metre trunk. Age was the bifurcation parameter. One tier's success is not evidence; the SPREAD across tiers is the whole claim. (iter-20)
-
-- **AN INSTRUMENT THAT EXISTS AND IS NEVER READ IS THE SAME AS NO INSTRUMENT.** `sap_frac_pipe` was coded in iter-14 and printed by nobody for SEVEN iterations; it took one glance to exonerate the statics and confirm the numerator hunt was aimed correctly. Before building a new probe, **grep for the one you already built.** (iter-21)
-- **★★ CHECK YOUR GROUND TRUTHS AGAINST EACH OTHER *BEFORE* FITTING TO EITHER — THEY MAY AGREE, AND THAT AGREEMENT IS THE STRONGEST EVIDENCE YOU WILL EVER GET.** The 50%-sapwood census and the Hellström ×3.0 twig count had never been compared; inverted through the pipe law they demand L(l)/L(m) = 3.23 vs 3.0 — a 7% match. The companion rail (`one_constant_two_truths`) says a big DISAGREEMENT is a structural falsification; its other half is that a tight AGREEMENT between two independent truths *pins the mechanism* and tells you the term is merely mis-anchored, not mis-shaped. Two sessions of hunting the wrong shape were avoided by one line of arithmetic on numbers already printed. (iter-21)
-- **★ THE LITERATURE'S EXPONENT MAY BE AN *OUTPUT* OF THE MECHANISM YOU ALREADY MODEL — CODING IT WOULD BE FITTING THE APPEARANCE.** `M^(3/4)` for leaf-vs-mass is not a metabolic law: Berry et al. 2024 show it EMERGES from heartwood accumulation, which this model already simulates. Before importing a published exponent as a rule, ask whether your own process **derives** it. If it does, importing it double-counts and over-determines the system. (iter-21)
-- **★ REDUCE THE PROPOSED LAW AGAINST THE LAWS ALREADY IN THE MODEL, NOT JUST AGAINST ITSELF.** Berry's `leaf ∝ sapwood volume` is sound in isolation; laid on top of the pipe law the model already had (`A_sap ∝ L^(2/p)`), it over-determines the system and gives `L ∝ h^7.67`. A new term's gain must be computed **in the presence of the existing terms** — a law that is stable alone can detonate in company. (iter-21)
-
 ## 22 — q MEASURED = 0.987 ⇒ THE NUMERATOR FAMILY IS CLOSED. THE DEFECT MOVES TO TIP SURVIVAL.
 
 **Hypothesis (pre-registered, iter-21):** `N_def` is mis-ANCHORED, not mis-shaped. A rising
@@ -952,26 +930,6 @@ iteration is a REFUTATION, and it retires a family.
 verdict: ACCEPTED (Chris: "continue working on london plane") — the refutation stands; iter-27
          goes measuring for the missing 27%, as STATE directs.
 
-## Staged lessons (iter-26)
-
-- **★★★ CHECK YOUR "STRUCTURAL THEOREM" AGAINST THE DATA BEFORE YOU BUILD ON IT.** iter-25 proved
-  a beautiful theorem — income ∝ R², cost ∝ R³, so the gate condemns bigness by construction — and
-  it was TRUE. It was also true of the real tree: the census's own numbers give the SAME falling
-  ratio (0.664 vs our 0.686). **A derivation that indicts the model can be indicting reality, and a
-  scaling argument is only a defect if the ground truth does NOT show the same scaling.** The census
-  was on disk the whole time; the theorem cost a full iteration because nobody divided two numbers
-  from it. Ratios of ground-truth quantities are the cheapest falsification there is — run them
-  BEFORE the derivation becomes load-bearing. (iter-26)
-- **★★ A SHORTFALL THAT IS EQUAL ON BOTH SIDES OF A RATIO IS INVISIBLE IN THE RATIO — AND IT IS THE
-  DEFECT.** Income −27%, wood −29%: the gate ratio looked fine (and was fine) while the tree was
-  uniformly too small. **When a ratio is healthy, measure its NUMERATOR AND DENOMINATOR against
-  ground truth SEPARATELY, in absolute terms.** Every iteration since 15 optimised the ratio; none
-  ever asked whether both of its terms were 30% short. (iter-26)
-- **★ AN ANALOGY IMPORTED FROM A PAPER MUST BE RE-DERIVED IN THE MODEL'S OWN GEOMETRY.** "Sapwood is
-  a shell, ∝ R²·H" is true of a TRUNK CROSS-SECTION and false of a SUM OVER A CROWN (measured:
-  Σ r_sap² grows 2.19x against the count's 1.91x). The pipe model was not wrong — the transfer was.
-  Measure the quantity you are actually going to sum. (iter-26)
-
 ## 27 — THE CROWN STOPS WIDENING. THE BULK RADIUS *FALLS* m→l. (investigation; no model change)
 
 **Pre-registered** (`tmp/iter27_prereg.md`, written before the run): the −27% income deficit is a
@@ -1013,16 +971,6 @@ GEOMETRIC.** The tree cannot earn a census income from a crown whose leaves neve
 
 verification: `tmp/iter27_columns.log`. Read-only; nothing shipped, nothing to regress.
 verdict: PENDING
-
-## Staged lessons (iter-27)
-
-- ★ **A HULL / A MEAN / A MAX IS NOT A DISTRIBUTION.** Two rails (iter-9's crown width, iter-23's
-  emptiness) were both artifacts of measuring a crown by its *envelope*. The p50 and the p100 moved in
-  OPPOSITE directions here. Read the percentiles, always — the statistic you came for hides the shape.
-- ★ **WHEN EVERY ECONOMIC TERM IS EXONERATED, THE DEFECT IS NOT IN THE ECONOMY.** Iters 15–26 spent
-  twelve sessions inside the light/gate/allocation economy because the deficit was *stated* in
-  economic units (income, wood). It was geometric the whole time. Ask what SHAPE the ground truth
-  demands before asking what the tree can afford.
 
 ## 28 — THE APICES: THE RIM STARVES BESIDE A LEAK. 95% OF THE EXTENSION BUDGET EVAPORATES.
 
@@ -1078,18 +1026,6 @@ verification: `tmp/iter28_apices.log` (rails + all five sections), `tmp/iter28_r
 per-year log). Read-only; nothing shipped, nothing to regress.
 verdict: PENDING
 
-## Staged lessons (iter-28)
-
-- ★★ **A CLAMPED SINK IS A LEAK.** `min(1, ...)` on the only thing resource can buy silently discards the
-  surplus. Nothing in the ledger, nothing in the income, no error — just 95% of the budget gone. **Audit
-  every saturating term for what happens to the REMAINDER**, and make conservation an assertion, not a
-  comment: if a pool is conserved, MEASURE `allocated − spent` and print it.
-- ★★ **"THE CLASS IS RICH" IS NOT "THE MEMBER IS FUNDED."** The rim held 60–85% of the pool and its median
-  member had 0.000. A per-class mean is the same instrument error as a hull (iter-27), one level up:
-  **when a group statistic and an individual outcome disagree, measure the GINI.**
-- ★ **CHECK THE CITED PRIOR ART'S EQUATION, NOT ITS NAME.** The code cites Palubicki's `n = floor(v)` in a
-  comment and then implements a FIXED `n`. The deviation was in the docstring the whole time.
-
 ## 29 — THE SPILL. THE RIM FUNDS, THE CROWN WIDENS — AND THE LEAK WAS THE CALIBRATION.
 
 **Hypothesis.** iter-28 measured the leak: `ext = min(1, l_afford/INTERNODE)` discards every m3 an
@@ -1134,16 +1070,6 @@ restores it.**
 verdict: ACCEPTED (Chris, 2026-07-14) — **the spill stays in, with the tree currently oversized.**
 His call, explicitly: a conserved budget is correct even while the magnitudes are 1.4-1.9x over.
 The scale is iter-30's problem; the mechanism is not reverted.
-
-## Staged lessons (iter-29)
-
-- ★★★ **A CONSTANT FITTED AGAINST A LEAK IS THE LEAK'S TWIN.** Close the leak and every constant
-  calibrated under it is invalidated at once — the mechanism can be RIGHT and the scale 1.9x wrong
-  in the same run. Before fitting anything, ask what the model DISCARDS.
-- ★★ **A SATURATED SINK HAS LOOP GAIN ZERO.** A feedback whose sink is already full cannot run away
-  however hot its per-cycle gain looks — compute `pool / Σcapacity` before fearing (or trusting) G.
-- ★ **"THE CLASS IS RICH" ≠ "THE MEMBER IS FUNDED"** (iter-28) has a twin: capping at the SPEND and
-  capping at the CLAMP are different edits. Only the clamp cap is provably free at the margin.
 
 ## 30 — THE INCOME REFIT — AND THE INSTRUMENT THAT COULD NOT MEASURE IT.
 
@@ -1195,19 +1121,6 @@ family has been fitted, for four iterations, to the noise of one lucky tree.
 
 verdict: PENDING
 
-## Staged lessons (iter-30)
-
-- ★★★ **AN n = 1 INSTRUMENT CANNOT MEASURE A RATIO.** A lever is a quotient of two noisy quantities,
-  so it compounds their spreads — it is the LAST thing a single sample can resolve and the FIRST
-  thing we trusted. Before a number becomes the tell a whole iteration turns on, **measure its seed
-  spread**, and check that the default seed is not the outlier. Ours was.
-- ★★ **A SCALAR ON A STOCK IS NOT A SCALAR ON A FLOW.** "No uniform scalar can fix a size-dependent
-  error" is true of a static multiplier (R_TIP, DBH_CALIB) and FALSE of one on an income that
-  compounds through a feedback. Check which kind a constant is before you invoke the rail — the rail
-  nearly forbade a fit that worked.
-- ★★ **ONE GROUND TRUTH WILL CERTIFY A CORPSE.** At k = 0.30 census DBH is met almost exactly, by a
-  starved stick with a 0.67x crown. A fit is only as honest as its SECOND observable.
-
 ## 31 — THE INSTRUMENT. n SEEDS, IN PARALLEL, WITH A RESOLUTION ATTACHED TO EVERY NUMBER.
 
 **Hypothesis.** Not a model change — a measurement one. iter-30 established that an n=1 instrument
@@ -1240,17 +1153,6 @@ The 5-seed × {s,m,l} run is IN FLIGHT → `tmp/iter31_bench.log`, `tmp/iter31_b
 a ratio), but the reason is the spread, **not** a lucky default. Fixed in STATE.
 
 verdict: PENDING
-
-## Staged lessons (iter-31)
-
-- ★★ **A MEAN WITHOUT A RESOLUTION IS THE SAME LIE IN NICER CLOTHES.** Report every residual in
-  units of `2·SEM`, and print the `n` that would resolve the ones that aren't. A quantity below its
-  own noise floor may never be the tell an iteration turns on.
-- ★★ **CHECK WHETHER THE EXPENSIVE THING IS ACTUALLY SERIAL.** "5 seeds × 2 tiers ≈ 2–3 h" was a
-  real cost estimate and a wrong one: the runs are independent, the box has 24 threads, and the
-  true cost is the slowest single run. An instrument was deferred for a session by a cost that
-  didn't exist.
-- ★ **A RATIO OF MEANS IS NOT A MEAN OF RATIOS.** Pair the samples, or the spread hides.
 
 ### 31 — RESULT. The 5-seed run landed (`tmp/iter31_bench.log`, wall 1213 s for 15 grows).
 
@@ -1287,14 +1189,6 @@ structural and known — `2*R_TIP` floors DBH at 10.3 cm for any tree at any age
 crown halves are new findings. `s` has never been examined; it should not ship as it stands.
 
 verdict: PENDING
-
-### Staged lessons (iter-31, from the result)
-
-- ★★★ **THE INSTRUMENT PAID FOR ITSELF ON ITS FIRST RUN.** The defect at the top of the queue —
-  three sessions of theory behind it — was noise (85% seed spread). Build the instrument BEFORE the
-  next fit, not after the next three.
-- ★★ **A RESIDUAL THAT WORSENS MONOTONICALLY WITH SIZE IS A LAW ERROR, NOT A CALIBRATION ERROR.**
-  Sapwood 0.58x → 0.40x → 0.33x across s/m/l is the signature of a wrong exponent, not a wrong scalar.
 
 ## 32 — THE SINGLE-TERM STORY IS DEAD. SAPWOOD AND HEARTWOOD ARE WRONG IN OPPOSITE DIRECTIONS.
 
@@ -1354,17 +1248,10 @@ own physics (Fig. 8 — the disused pipe is the SAME pipe), is untouched. Fix wh
 
 verdict: PENDING
 
-## Staged lessons (iter-32)
+## Staged lessons
 
-- ★★★ **DECOMPOSE A RATIO BEFORE YOU READ ITS SHAPE.** `sap_frac` "worsening with size" was two
-  errors — one flat, one growing — in opposite directions. A ratio inherits the shape of neither part,
-  and the trend you diagnose from it can be an artifact of the division. Split it into its numerator
-  and denominator, resolve each against the census SEPARATELY, and only then name the law.
-- ★★★ **TWO ERRORS THAT CANCEL LOOK LIKE ONE SMALL ERROR.** DBH read 1.05x at `m` — the healthiest
-  number on the board — while its two components sat at 0.45x and 1.77x. A near-census aggregate is
-  not evidence of a near-census model; it is evidence of nothing until you split it.
-- ★★ **OPEN THE PAPER BEFORE YOU BUILD THE OBSERVABLE.** Shinozaki says the pipe model is a law on
-  sapwood AREA; we had been measuring, arguing over, and preparing to fit a sapwood FRACTION the paper
-  never makes a claim about. Three sessions of a defect defined in the wrong units.
-- ★ **A FIT IS CONTAMINATED BY EVERY LEAK UPSTREAM OF ITS GROUND TRUTH** — c_H was fitted to total
-  basal-area growth while sapwood leaked half of it, so c_H absorbed the leak and then *certified* it.
+One line each. Raw, unpromoted. `/distill` empties this section — `/work` may only append to it,
+and may never edit `~/.claude/rules/`, `CLAUDE.md`, or `MEMORY.md` on its own.
+
+*(Emptied 2026-07-14 by `/distill` — iters 18–32 promoted. Raw entries, and where each one went:
+`ledger_archive/2026-07.md`.)*

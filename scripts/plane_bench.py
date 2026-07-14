@@ -55,6 +55,18 @@ import plane_grower as G  # noqa: E402
 # tier's height). Crown radius is UTD's crown DIAMETER for the same tier ages (PSW-GTR-253,
 # zone NoEast): 5.2 / 12.6 / 16.9 m, halved.
 CENSUS_R = {"s": 2.6, "m": 6.3, "l": 8.45}
+
+# The 0.50 sapwood target (iter-32 sourced it; it had been a bare literal). Two independent routes
+# agree on it, sharing no constant:
+#   (a) Shinozaki 1964 (I) Eq. 2, F = L*C, at Table 1's L ~= 60 cm for deciduous broadleaves and
+#       rho_Platanus ~= 0.62 g/cm3  =>  the census `m` trunk's working pipe carries ~27.2 kg dry leaf.
+#   (b) crown geometry, independently: r_p50 6.3 m, LAI ~= 3, LMA ~= 75 g/m2  =>  ~26 kg.
+# ⛔ BUT `sap` IS A FRACTION, AND THE PIPE MODEL MAKES NO CLAIM ABOUT A FRACTION (Shinozaki's law is
+# on sapwood AREA; heartwood is a stock of history -- the horizontal part of Fig. 7/8, outside the
+# law). A fraction is a ratio of two independently-wrong numbers and it INHERITS THE SHAPE OF NEITHER:
+# read as `sap_frac` the defect looked size-dependent (0.58/0.40/0.33x) and it is not -- decomposed,
+# sapwood AREA is flat at ~0.5x and heartwood AREA grows 1.77->2.63x. Keep this line as a SMOKE
+# ALARM; do not fit against it. Decompose first (`tmp/iter32_areas.py`).
 OBS = [
     #  key       label            unit  scale(to unit)   census lookup
     ("dbh",   "DBH",              "cm", 100.0, lambda t: G.TIERS[t][1]),
