@@ -1023,3 +1023,69 @@ verdict: PENDING
   twelve sessions inside the light/gate/allocation economy because the deficit was *stated* in
   economic units (income, wood). It was geometric the whole time. Ask what SHAPE the ground truth
   demands before asking what the tree can afford.
+
+## 28 — THE APICES: THE RIM STARVES BESIDE A LEAK. 95% OF THE EXTENSION BUDGET EVAPORATES.
+
+hypothesis (pre-registered, `tmp/iter28_prereg.md`): the crown's bulk radius stalls (0.93x m→l vs the
+census's 1.34x) because of the **extension geometry** — either P1 the arch/droop aims new growth down
+instead of out, P2 the rim is unfunded, or P3 (lead) the `vigour` decay makes each axis's reach a
+convergent series so nothing is born at the rim.
+
+change: **NONE. Read-only probe** (`tmp/iter28_apices.py`), a `Grower` subclass instrumenting three
+hooks (`grow_module`, `posture`, `shed`). Rails reproduce iter-27 exactly ⇒ the instrument is sound:
+DBH 47.1 / 76.5 cm = **1.09x / 1.08x** census · sap_frac **22.0 / 13.8%** · crown p50 **6.67 → 6.22 m**
+· self-pruning alive (6 shed in the final year).
+
+**1. ALL THREE PRE-REGISTERED PREDICTIONS ARE REFUTED.**
+- **P1 DROOP — DEAD.** `posture()` does not move existing nodes; it only rotates `ax.dirv`. And at the
+  rim it *raises* it: dy `−0.339 → −0.266`. Peripheral apices aim solidly **outward** (out = +0.24 to
+  +0.66). The arch is not eating the reach. ⇒ `arch`/`DROOP_K` is **exonerated as the geometric root.**
+- **P3 VIGOUR CEILING — DEAD.** Peripheral vigour holds **0.69–0.83** through the late decades. The
+  senescence decay is not what stops the rim.
+- **P2 STARVATION — REFUTED AS STATED, AND TRUE OF THE INDIVIDUAL.** The rim as a *class* is **rich**:
+  it takes **60–85% of the whole year's pool** while being ~20% of apices. Yet only ~20% of individual
+  peripheral apices can afford one internode. **The class is rich and the median member has nothing.**
+
+**2. ★★★ THE RIM'S BUDGET IS WINNER-TAKE-ALL.** `l_afford / INTERNODE` among peripheral apices, l run:
+from decade 41 on the **median is 0.000** while the **max reaches 20–83 internodes**. Gini **0.83–0.96**;
+the **top THREE apices take 39–100%** of the rim's entire budget. The dormancy floor is ~0.025, so the
+median rim apex is two orders of magnitude below being able to move at all → dormant → `DORMANT_ABORT`
+(3 yr) kills it. **The widening front is not a front. It is three limbs.** (⇒ iter-27's p100 runaway at
+18.8 m / 2.2x census and its 0.74x starved bulk are ONE phenomenon, not two.)
+
+**3. ★★★ AND THE WINNERS CANNOT SPEND IT. THE POOL LEAKS.** `ext = min(1, l_afford/INTERNODE) · vigour`
+— an apex holding **83 internodes' worth grows exactly the same module as one holding 1.0**, and
+`allocate_resource()` zeroes `_v` every year, so the surplus is **discarded, not banked**. Measured over
+the whole `l` run (`tmp/iter28_raw.npz`): allocated to terminal buds **3,491,679 cm³**, actually spent on
+extension **173,142 cm³** ⇒ **95.0% EVAPORATES**, rising 33% → **98.8%** by the last decade, and **99.7%
+of the loss is at apices sitting OVER the clamp.** (A floor, not a point estimate: the formula credits
+dormant apices with phantom spending.) `_v` is set only for `kind == "apex"` (line 1687), so the shares
+telescope and this is not a double-count.
+
+**4. ⇒ THE DEVIATION FROM THE PRIOR ART IS THE LEAK.** The code comments cite Palubicki, where
+**`n = floor(v)`, `l = v/n`** — a rich apex buys **MORE METAMERS**. Here `n = GU_NODES[cat]` is **FIXED**
+and only `l` scales, capped at `INTERNODE`. So resource has exactly one sink, and it saturates. Line 1671
+says *"Resource is CONSERVED: what a lateral does not get, the leader does"* — **true of the SPLIT, false
+of the SPEND.** The leader gets it and burns it against the clamp.
+
+**5. ⇒ THIS IS WHY TWELVE ITERATIONS OF ECONOMICS DID NOTHING, AND IT DOES NOT RE-OPEN THEM.** Every one
+of them changed the SIZE of the pool. **95% of the pool is thrown away at the clamp regardless of its
+size** — doubling income doubles the waste and moves the crown almost not at all. The economy's
+exoneration (iters 22/25/26) is *explained*, not contradicted: the defect is in the **SPEND LAW and the
+VARIANCE of the split**, neither of which is a gate, a light term, a denominator, or a TAU.
+
+verification: `tmp/iter28_apices.log` (rails + all five sections), `tmp/iter28_raw.npz` (raw per-apex
+per-year log). Read-only; nothing shipped, nothing to regress.
+verdict: PENDING
+
+## Staged lessons (iter-28)
+
+- ★★ **A CLAMPED SINK IS A LEAK.** `min(1, ...)` on the only thing resource can buy silently discards the
+  surplus. Nothing in the ledger, nothing in the income, no error — just 95% of the budget gone. **Audit
+  every saturating term for what happens to the REMAINDER**, and make conservation an assertion, not a
+  comment: if a pool is conserved, MEASURE `allocated − spent` and print it.
+- ★★ **"THE CLASS IS RICH" IS NOT "THE MEMBER IS FUNDED."** The rim held 60–85% of the pool and its median
+  member had 0.000. A per-class mean is the same instrument error as a hull (iter-27), one level up:
+  **when a group statistic and an individual outcome disagree, measure the GINI.**
+- ★ **CHECK THE CITED PRIOR ART'S EQUATION, NOT ITS NAME.** The code cites Palubicki's `n = floor(v)` in a
+  comment and then implements a FIXED `n`. The deviation was in the docstring the whole time.
