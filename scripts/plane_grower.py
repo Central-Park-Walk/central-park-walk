@@ -90,9 +90,12 @@ DBH_CALIB  = 3.813        # [DERIVED] 12.85 / 3.37; see the iter-17 block below.
 # written down; against the raw one it is wrong by DBH_CALIB. See docs/grower_prototype_iter1.md.
 # ⚠ THE ONE OPEN DEFECT (iter-9, sharpened by iter-10): R_TIP is a CONSTANT, but the deferred A4/A5
 # system it stands in for is NOT. At the calibrated DBH_CALIB, one armature tip is priced as
-# DBH_CALIB^PIPE_POWER = 12.85^2.3 = ~354 real twigs. That is a MATURE-CROWN number applied to every
-# tip of every tree at every age: it says an 8-yr sapling's ~6 armature tips stand in for ~2200 real
-# twigs. It is one scalar with two consequences, because R_TIP both seeds the pipe model AND prices
+# DBH_CALIB^PIPE_POWER real twigs. ⚠ iter-22: this line USED to read "12.85^2.3 = ~354", which was
+# true only until iter-17 REFIT DBH_CALIB to 3.813. The live value is 3.813^2.3 = ~21.7 real twigs
+# per armature tip. Every RATIO in iters 15-21 is unaffected (the factor cancels), but any ABSOLUTE
+# twig count quoted from before iter-22 is 16.3x too large. It is a MATURE-CROWN number applied to
+# every tip of every tree at every age, and that is still the defect.
+# It is one scalar with two consequences, because R_TIP both seeds the pipe model AND prices
 # extension (l_afford = v/(n*pi*R_TIP^2)): too-fat tips make the bole too thick AND make every
 # internode too expensive to buy.
 #
@@ -232,8 +235,10 @@ C_HEART     = HEART_RATIO * math.pi * R_TIP ** 2      # c_H: heartwood area per 
 # SHAPE with size is new. TWIG_DENSITY is therefore NOT a new degree of freedom: it is pinned ONCE by
 # demanding S(m-tier) = 1. It RE-EXPRESSES DBH_CALIB; it does not re-fit it. (Defect 2 — the one
 # legitimate re-centring of DBH_CALIB — is still owed, and still comes AFTER this.)
-N_DEF_REF    = DBH_CALIB ** PIPE_POWER   # = 354 real twigs: what one armature tip stands for AT the
-                                         # anchor. iter-8's reading of DBH_CALIB, unchanged.
+N_DEF_REF    = DBH_CALIB ** PIPE_POWER   # = 21.7 real twigs (3.813^2.3): what one armature tip stands
+                                         # for AT the anchor. iter-8's reading of DBH_CALIB, unchanged
+                                         # in FORM — but ⚠ the VALUE fell 16.3x at iter-17's refit. Do
+                                         # not quote "354" from an old comment; recompute it.
 # [DERIVED] twigs per m^3 of crown, pinned by S(m) = 1 against the iter-14 model at the m-tier age:
 # TWIG_DENSITY = N_DEF_REF * n_tips / V_crown, measured at yr 47 by tmp/iter15_anchor.py.
 # Measured 2026-07-13: at the m anchor the iter-14 crown is a 215.5 m^3 hull carrying 27 live leaf

@@ -641,3 +641,83 @@ and may never edit `~/.claude/rules/`, `CLAUDE.md`, or `MEMORY.md` on its own.
 - **★★ CHECK YOUR GROUND TRUTHS AGAINST EACH OTHER *BEFORE* FITTING TO EITHER — THEY MAY AGREE, AND THAT AGREEMENT IS THE STRONGEST EVIDENCE YOU WILL EVER GET.** The 50%-sapwood census and the Hellström ×3.0 twig count had never been compared; inverted through the pipe law they demand L(l)/L(m) = 3.23 vs 3.0 — a 7% match. The companion rail (`one_constant_two_truths`) says a big DISAGREEMENT is a structural falsification; its other half is that a tight AGREEMENT between two independent truths *pins the mechanism* and tells you the term is merely mis-anchored, not mis-shaped. Two sessions of hunting the wrong shape were avoided by one line of arithmetic on numbers already printed. (iter-21)
 - **★ THE LITERATURE'S EXPONENT MAY BE AN *OUTPUT* OF THE MECHANISM YOU ALREADY MODEL — CODING IT WOULD BE FITTING THE APPEARANCE.** `M^(3/4)` for leaf-vs-mass is not a metabolic law: Berry et al. 2024 show it EMERGES from heartwood accumulation, which this model already simulates. Before importing a published exponent as a rule, ask whether your own process **derives** it. If it does, importing it double-counts and over-determines the system. (iter-21)
 - **★ REDUCE THE PROPOSED LAW AGAINST THE LAWS ALREADY IN THE MODEL, NOT JUST AGAINST ITSELF.** Berry's `leaf ∝ sapwood volume` is sound in isolation; laid on top of the pipe law the model already had (`A_sap ∝ L^(2/p)`), it over-determines the system and gives `L ∝ h^7.67`. A new term's gain must be computed **in the presence of the existing terms** — a law that is stable alone can detonate in company. (iter-21)
+
+## 22 — q MEASURED = 0.987 ⇒ THE NUMERATOR FAMILY IS CLOSED. THE DEFECT MOVES TO TIP SURVIVAL.
+
+**Hypothesis (pre-registered, iter-21):** `N_def` is mis-ANCHORED, not mis-shaped. A rising
+`S ∝ M^q`, with `q` MEASURED from the tiers' mass ratio against the required `S(l)/S(m) = 2.44`,
+drives `A_sap/A_heart → 1` at both m and l while DBH holds. **The deliverable is `q`, not the tree.**
+iter-21 predicted: "if `M(l)/M(m) ≈ 8–10`, then `q ≈ 0.4`" ⇒ tame gain, amplification 1.7×.
+
+**Change:** NONE to the model. Two probes: `tmp/iter22_q.py`, `tmp/iter22_family.py`.
+
+**★ STEP 1 — THE MEASUREMENT REFUTES THE LAW BEFORE A LINE OF IT WAS CODED (`tmp/iter22_q.py`):**
+
+    tier  age    M_sub    F_S    L now    A_sap -> needed     L NEEDED
+      s    15   113.2kg    10      217    54.1c ->  129.4c        592
+      m    47   848.6kg    25      543   120.1c ->  630.1c      3,655
+      l   104  2782.2kg    33      717   152.8c -> 1746.3c     11,803
+
+      M(l)/M(m)          = 3.279      <- the model's own mass ratio
+      L(l)/L(m) REQUIRED = 3.230      <- the census, via the model's own pipe law
+      ==>  q = 0.9873    LOOP GAIN 0.987    amplification 1/(1-q) = 78.8x
+
+The mass ratio is **3.28, not the 8–10 the pre-registration expected.** So the exponent the census
+forces is **the linear one iter-20 already killed**, and the knife-edge amplification (79x) is
+iter-20's own signature: a fixed point finer than the model's 10-15% seed noise. **Unsolvable, not
+unsolved.** (S implied: s 2.30 / m 6.73 / l 16.46 — reproduces iter-21's 6.75/16.5 exactly.)
+
+⚠ **A STALE DOCSTRING, CAUGHT:** iter-21's absolute `L` figures (8,850 / 59,700 / 192,700) were 16.3x
+too large — they used `N_DEF_REF = 12.85^2.3 = 354`, but `DBH_CALIB` has been **3.813** since iter-17,
+so `N_DEF_REF = 21.7`. The comment at line 93 was true when written. **Every RATIO — and so every
+conclusion of iter-21 — is unaffected** (the factor cancels), but the numbers were wrong on their face.
+
+**★★ STEP 2 — AND THE GENERALISATION IS TESTABLE, SO I TESTED IT (`tmp/iter22_family.py`).**
+For ANY numerator read off something the tree owns, `L = K*X^q`, the census forces
+`q(X) = ln(3.23)/ln(X(l)/X(m))`. So **gain < 1 requires exactly one thing: `X(l)/X(m) > 3.23`** —
+the variable must grow FASTER than the leaf count must. That is a property of the DATA, not of the
+mechanism. Ask it of every readable size at once:
+
+      X  (read off the tree)      m         l    X(l)/X(m)  q forced  1/(1-q)   verdict
+      M_sub  standing mass     848.6    2782.2      3.279     0.987     78.8   knife-edge
+      wood volume               0.94      3.09      3.279     0.987     78.8   knife-edge
+      crown volume             202.6     600.8      2.966     1.078      inf   RUNAWAY
+      n_nodes (armature)        5597     16693      2.982     1.073      inf   RUNAWAY
+      F_H  dead leaf units       156       457      2.929     1.091      inf   RUNAWAY
+      A_built  basal area       0.13      0.35      2.772     1.150      inf   RUNAWAY
+      F_S+F_H  ever-made         181       490      2.707     1.177      inf   RUNAWAY
+      age                         47       104      2.213     1.476      inf   RUNAWAY
+      crown surface ~ V^2/3     34.5      71.2      2.064     1.618      inf   RUNAWAY
+      height                    7.62     13.68      1.795     2.004      inf   RUNAWAY
+      F_S  live leaf units        25        33      1.320     4.223      inf   RUNAWAY
+
+**NOT ONE VARIABLE CLEARS THE BAR.** Mass and wood volume tie it (by 1.5% — the knife edge);
+everything else forces `q > 1` outright. **⇒ THERE IS NO NUMERATOR WITH GAIN < 1. THE FAMILY IS
+CLOSED** — V_crown (15), M_sub linear (20), V_sap (21), M^q (22), and every member never written.
+Six iterations were spent looking for a member of an empty set.
+
+**★★★ AND THE SAME TABLE SAYS WHERE THE DEFECT REALLY IS. TWO ROWS:**
+
+      tips EVER MADE  (F_S+F_H)   181 -> 490   = x2.71     <- the census wants x3.0 (Hellstrom)
+      tips STILL ALIVE     (F_S)    25 ->  33   = x1.32
+      live-tip survival           13.8% -> 6.7%            <- IT HALVES
+
+**The tree MAKES tips at very nearly the right rate. It then KILLS them.** Six iterations have been
+trying to compensate for a collapsing survival fraction with a MULTIPLIER (`N_def`) on a frozen live
+count — and the multiplier is now proven not to exist. Hold survival at m's 13.8% and l carries 67.6
+live tips (x2.71 vs m) with **`N_def` CONSTANT, S ≡ 1, no new law and no new constant** — 84% of the
+census's 3.23 with nothing added to the model at all.
+
+**★ THIS IS THE SHORTCUT THE STANDING RULE NAMES.** `N_def` is what one armature tip *stands in for*:
+a **parameter in an output's clothes**, patching the deferred A4/A5 layer. The real tip count is
+DERIVED by a real tree — from branching and from SURVIVAL — so it must be derived here. Six iterations
+of making a parameter behave like an output, while the actual output (the live tip count) sat frozen.
+
+**Verification:** two probes, three tier grows each, zero model change, ~0 CPU-minutes. The refutation
+is arithmetic on numbers the model already prints. The shipped tree is still the iter-17 tree.
+
+verdict: PENDING
+
+- **★★★ A LOOP GAIN IS SET BY THE DATA, NOT BY THE MECHANISM — SO YOU CAN REFUTE A WHOLE FAMILY OF MECHANISMS IN ONE TABLE.** For any law `output = K·X^q` fitted to a target ratio `T`, the exponent the data forces is `q = ln T / ln(X_hi/X_lo)`, so the gain is `< 1` **iff the variable grows faster than the target must**. That is a one-line test, and it can be run against EVERY readable variable at once. Six iterations were spent building and refuting members of a family (V_crown, M_sub, V_sap, M^q) that was EMPTY — one table, costing zero CPU-seconds, showed no variable in the model clears the bar. **Before hunting the next candidate term, tabulate the ratio the target demands against the ratio every candidate offers.** (iter-22)
+- **★★ WHEN NO MULTIPLIER CAN FIX A COUNT, THE COUNT IS THE DEFECT — LOOK AT WHAT YOU DEFERRED.** `N_def` (what one armature tip "stands in for") existed only to patch a layer the model deliberately does not grow. It is a **parameter in an output's clothes**, and the standing rule ("anything the real thing derives, we derive") had already been broken the moment it was written. The tell was visible for six iterations in a number nobody divided: the tree makes tips at x2.71 (census x3.0) and keeps only x1.32 of them. **A stand-in factor is a shortcut with a loop in it; when it will not solve, suspect the deferral, not the factor.** (iter-22)
+- **★ A CONSTANT'S DOCSTRING IS A DATED CLAIM — AND A REFIT ORPHANS EVERY ABSOLUTE NUMBER DOWNSTREAM OF IT.** `N_DEF_REF = 354` was written when `DBH_CALIB` was 12.85; iter-17 refit it to 3.813 and the true value became 21.7. Six iterations quoted the stale one. Ratios were immune (the factor cancels) so nothing was refuted — but the numbers in four ledger entries are wrong on their face. **When you refit a calibration constant, grep for every comment that quotes a number derived from it, in the same commit.** (iter-22)
