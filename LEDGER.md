@@ -1089,3 +1089,56 @@ verdict: PENDING
   **when a group statistic and an individual outcome disagree, measure the GINI.**
 - ★ **CHECK THE CITED PRIOR ART'S EQUATION, NOT ITS NAME.** The code cites Palubicki's `n = floor(v)` in a
   comment and then implements a FIXED `n`. The deviation was in the docstring the whole time.
+
+## 29 — THE SPILL. THE RIM FUNDS, THE CROWN WIDENS — AND THE LEAK WAS THE CALIBRATION.
+
+**Hypothesis.** iter-28 measured the leak: `ext = min(1, l_afford/INTERNODE)` discards every m3 an
+apex is allocated above its clamp — 95.0% of the pool. The winners are ALREADY at the clamp, so
+their surplus is worth ZERO reach to them and a whole module to a starving rim apex. Conserve it
+and the rim funds, and the crown widens.
+
+**LOOP GAIN, before the term was coded** (rail, iter-20; `tmp/iter29_prereg.md`). Per module per
+year, `G = ALPHA·FOLIAGE_PER_TIP·L / (n·pi·R_TIP^2·INTERNODE)` = 0.081·L … 0.227·L ⇒ at the unshaded
+rim (L = 6.0) **G = 0.49 … 1.36** — at or above unity. But the clamp BOUNDS it: from the iter-28
+`.npz`, `alloc/Σcaps` is **1.0–4.9 from year 26 on** ⇒ post-spill the sink is SATURATED and extra
+income buys nothing. **Loop gain of the spill channel = 0 in the regime that matters.** No runaway.
+
+**Change (one).** `_distribute` WATER-FILLS instead of dividing: a basipetal capacity pass
+(`cap_sub` = bill + apex clamp + children's caps), each candidate's weighted share clipped at its
+capacity, the clipped remainder re-split among candidates still below theirs, iterating. The
+priority weights are UNCHANGED — they still decide who fills FIRST (the whole of the habit); they
+no longer decide who is STARVED by a winner with no use for the money. Cap = the CLAMP POINT
+`n·pi·r_tip^2·INTERNODE`, not the spend: `vigour` scales what the money BUYS, not what the apex may
+be GIVEN (capping at the spend would shorten the module to vigour^2 — a behaviour change, not a
+conservation). Root residue is now discarded EXPLICITLY and REPORTED (`spill_log`).
+
+**Verification** (`tmp/iter29_spill.log`; A/B on the UNCHANGED `tmp/iter27_columns.py` →
+`tmp/iter29_columns_AFTER.log` vs `tmp/iter27_columns.log`). All three predictions CONFIRMED:
+
+- **P1 rim funded** — median rim `l_afford/INTERNODE` **0.000 → 1.000**; gini **0.83-0.96 → 0.00-0.45**.
+- **P2 spend** — `spend/alloc` **5.0% → 53.8%**; residue 5.1% of pool. Self-pruning ALIVE (98/104 yr).
+- **P3 THE CROWN WIDENS** — bulk p50 radius m→l lever **0.933 → 1.297** (census demands **1.34**).
+  ★ The SCALING defect is DEAD: reach IS bought with resource, and iter-27/28's diagnosis stands.
+
+**RAIL BROKEN, exactly where the prereg named it at risk.** l DBH **1.08x → 1.89x** census (rail:
+< 1.30x); m 1.09x → 1.41x; DBH lever m→l **1.62 → 2.21** (census 1.65). p50 radius 1.59x/1.54x
+census. Foliage 3,872 → 35,863; apices 16-42 → 167-199; sap_frac 13.8% → 8.2%.
+
+**⇒ THE FINDING, and it is bigger than the iteration: THE LEAK WAS THE CALIBRATION.** ALPHA and its
+partners were derived (iter-17) against a model that threw away 95% of its pool. The mechanism is
+now right and the SCALE is wrong by ~1.5-1.9x. The magnitude family, declared closed at iter-26,
+reopens — NOT because a gate/light/TAU term is needed (all still exonerated), but because the income
+scale was fitted to a leaking sink. **The spill is KEPT: a discarded budget is a bug, and reverting
+restores it.**
+
+verdict: PENDING
+
+## Staged lessons (iter-29)
+
+- ★★★ **A CONSTANT FITTED AGAINST A LEAK IS THE LEAK'S TWIN.** Close the leak and every constant
+  calibrated under it is invalidated at once — the mechanism can be RIGHT and the scale 1.9x wrong
+  in the same run. Before fitting anything, ask what the model DISCARDS.
+- ★★ **A SATURATED SINK HAS LOOP GAIN ZERO.** A feedback whose sink is already full cannot run away
+  however hot its per-cycle gain looks — compute `pool / Σcapacity` before fearing (or trusting) G.
+- ★ **"THE CLASS IS RICH" ≠ "THE MEMBER IS FUNDED"** (iter-28) has a twin: capping at the SPEND and
+  capping at the CLAMP are different edits. Only the clamp cap is provably free at the margin.

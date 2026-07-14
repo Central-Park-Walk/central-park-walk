@@ -822,6 +822,7 @@ class Grower:
         self._n_short_shoots = 0      # ★ iter-24: A5 short shoots borne on older lit wood this year
         self._m_sub     = 0.0         # ★ iter-19: subtended mass at the root, kg — N_def's numerator
         self._bill = {}
+        self._alloc_year = self._spend_year = self._spill_residue = 0.0   # ★ iter-29 diagnostics
         self._arch_distal = []   # ★ iter-5: (distal_root_node, host_axis) — arch-summit dieback
                                  # candidates; the shed rule kills each once its offspring overtop it.
         # seed: ground node + trunk apex one internode up
@@ -912,6 +913,11 @@ class Grower:
             return None, []
         ax._dormant = 0
         step = INTERNODE * ext
+        # ★ iter-29 diagnostic: what the apex was GIVEN vs what its extension actually BUYS. The gap
+        # is the leak (95.0% of the pool, iter-28). The `vigour` share of it survives the spill --
+        # named, and left standing, on purpose: it is a CAPABILITY limit, not an unspent budget.
+        self._alloc_year += ax._v
+        self._spend_year += n * math.pi * self.r_tip ** 2 * step
         # lay down n metamers along the current (posture-updated) direction
         d = ax.dirv.copy()
         # ★ iter-4: crown rounding (§6 envelope soft bound). Above CEIL_FRAC*H, bend growth toward
@@ -1598,12 +1604,20 @@ class Grower:
             a = stack.pop()
             order.append(a)
             stack.extend(kids[a])
-        q_sub, n_sub = {}, {}
+        q_sub, n_sub, cap_sub = {}, {}, {}
         for a in reversed(order):
             ax = self.axes[a]
             live_apex = 1 if (ax.alive and ax.apex is not None) else 0
             q_sub[a] = q_own[a] + sum(q_sub[c] for c in kids[a])
             n_sub[a] = live_apex + sum(n_sub[c] for c in kids[a])
+            # ★ iter-29: THE CAPACITY PASS. What is the most this subtree can actually SPEND?
+            # An apex's extension saturates at l_afford == INTERNODE (ext hits its min(1, .) clamp),
+            # so resource allocated above that buys ZERO further reach and is silently discarded --
+            # 95.0% of the whole pool, measured (iter-28). Capacity is therefore the clamp point,
+            # it is additive up the axis tree, and _distribute water-fills against it.
+            cap_sub[a] = (self._bill.get(a, 0.0)
+                          + (self._apex_cap(ax) if live_apex else 0.0)
+                          + sum(cap_sub[c] for c in kids[a] if n_sub[c] > 0))
         # BOOTSTRAP: before any foliage exists (year 1) the tree has caught no light. A seedling
         # grows on its stored reserves — give every apex enough to buy one full module.
         if not roots or sum(q_sub[r] for r in roots) <= 0.0:
@@ -1614,10 +1628,20 @@ class Grower:
         # --- acropetal pass: distribute v down the axis tree ---
         apical = year <= APICAL_OFF_YEAR
         self._v_base = ALPHA * sum(q_sub[r] for r in roots)   # diagnostic: the whole year's pool
+        self._spill_residue = 0.0        # pool above the WHOLE TREE's capacity: nothing can buy it
         for r in roots:
-            self._distribute(r, ALPHA * q_sub[r], kids, q_own, q_sub, n_sub, apical)
+            self._distribute(r, ALPHA * q_sub[r], kids, q_own, q_sub, n_sub, apical, cap_sub)
 
-    def _distribute(self, a, v, kids, q_own, q_sub, n_sub, apical):
+    def _apex_cap(self, ax):
+        """★ iter-29: the CLAMP POINT — the allocation at which l_afford == INTERNODE and this
+        apex's extension saturates. One more m3 above this buys exactly zero further reach, so
+        spilling it to a starving sibling costs the winner NOTHING. (vigour scales what the money
+        BUYS, not what the apex can be GIVEN, so it is deliberately absent here: capping at the
+        spend rather than at the clamp would shorten the module to vigour^2 -- a behaviour change,
+        not a conservation.)"""
+        return GU_NODES[ax.cat] * math.pi * self.r_tip ** 2 * INTERNODE
+
+    def _distribute(self, a, v, kids, q_own, q_sub, n_sub, apical, cap_sub):
         ax = self.axes[a]
         # ★ iter-8, POSITION A — THE SUPPORT BILL IS PAID FIRST, off the top, before anything this
         # axis carries can be spent on growing. The wood that holds an axis out is not optional and
@@ -1681,12 +1705,47 @@ class Grower:
         tot = sum(wq)
         if tot <= 0.0:
             return
-        for (key, q, kind, cid), w in zip(cands, wq):
-            vi = v * w / tot
+        # ★★★ iter-29: WATER-FILLING, not division. THE CLAMP IS A CONSTRAINT, NOT A DISCARD.
+        # Until now every candidate took its weighted share whatever it could do with it, and the
+        # share above its clamp was thrown away: the rim as a class took 60-85% of the pool and its
+        # MEDIAN member was funded at 0.000, because the top 3 apices took 39-100% of it (gini 0.96)
+        # -- and then could not spend it (95.0% of the pool evaporated). The winners are ALREADY at
+        # the clamp, so what they cannot spend is worth zero reach to them and a whole module to a
+        # starving sibling. So: clip each share at the candidate's capacity, re-split the clipped
+        # remainder among the candidates still below theirs, and iterate. The priority weights are
+        # UNCHANGED -- they still decide who fills FIRST, which is the whole of the habit; they no
+        # longer decide who is starved by a winner that had no use for the money.
+        # (Palubicki 2009 §4.2 gives the surplus a botanical sink instead -- `n = floor(v)`, more
+        # metamers. That was tried at iter-6 and grows a bare pole with a few whips. Spill first: it
+        # is the conservative half, and it CONSERVES what the paper's split already assumed.)
+        caps = [self._apex_cap(self.axes[cid]) if kind == "apex" else cap_sub[cid]
+                for (key, q, kind, cid) in cands]
+        alloc = [0.0] * len(cands)
+        active = [i for i in range(len(cands)) if caps[i] > 0.0 and wq[i] > 0.0]
+        rem = v
+        while rem > 1e-15 and active:
+            tw = sum(wq[i] for i in active)
+            if tw <= 0.0:
+                break
+            spilled = 0.0
+            still = []
+            for i in active:
+                give = rem * wq[i] / tw
+                room = caps[i] - alloc[i]
+                take = min(give, room)
+                alloc[i] += take
+                spilled += give - take
+                if caps[i] - alloc[i] > 1e-15:
+                    still.append(i)
+            rem, active = spilled, still
+        self._spill_residue += rem       # every candidate is saturated: this cannot be spent at all
+        for i, (key, q, kind, cid) in enumerate(cands):
+            if alloc[i] <= 0.0:
+                continue
             if kind == "apex":
-                self.axes[cid]._v = vi
+                self.axes[cid]._v = alloc[i]
             else:
-                self._distribute(cid, vi, kids, q_own, q_sub, n_sub, apical)
+                self._distribute(cid, alloc[i], kids, q_own, q_sub, n_sub, apical, cap_sub)
 
     def shed(self, light, children, year=None):
         order = self._topo_leaves_first(children)     # leaves first
@@ -1882,7 +1941,9 @@ class Grower:
         self.c_heart = HEART_RATIO * math.pi * self.r_tip ** 2
 
     def run(self, years, verbose=False):
+        self.spill_log = []                 # ★ iter-29: (year, pool, alloc, spend, residue) per year
         for year in range(1, years + 1):
+            self._alloc_year = self._spend_year = self._spill_residue = 0.0
             # 0. ★ iter-15: N_def FIRST — what one tip stands for is set by last year's crown, and
             #    everything this year (income, shade, pipe, heartwood) is priced against it.
             self.update_n_def()
@@ -1980,15 +2041,19 @@ class Grower:
             shadow, mn = self.build_shadow(children)
             nshed = self.shed(self.foliage_light(shadow, mn), children, year)
             self._shadow, self._mn = shadow, mn     # ★ iter-6: bank it — next year's growth spends it
+            self.spill_log.append((year, float(getattr(self, "_v_base", 0.0)), self._alloc_year,
+                                   self._spend_year, self._spill_residue, nshed))
             if verbose:
                 nlive = sum(1 for ax in self.axes if ax.alive)
                 nfol = sum(1 for nd in self.nodes if nd.alive and nd.foliage)
                 nwood = sum(1 for nd in self.nodes if nd.alive and not nd.foliage)
                 vb = getattr(self, "_v_base", 0.0)
                 bt = getattr(self, "_bill_total", 0.0)
+                al, sp, rs = self._alloc_year, self._spend_year, self._spill_residue
                 print(f"yr {year:2d}: wood={nwood:5d} foliage={nfol:5d} axes={nlive:4d} "
                       f"shed={nshed:3d} reiter={self.reit_count:3d} "
-                      f"pool={vb:8.4f} m3  support_bill={bt:8.4f} m3 ({100*bt/max(vb,1e-12):5.1f}% of pool)")
+                      f"pool={vb:8.4f} m3  support_bill={bt:8.4f} m3 ({100*bt/max(vb,1e-12):5.1f}% of pool)"
+                      f"  spend/alloc={100*sp/max(al,1e-12):5.1f}%  residue={100*rs/max(vb,1e-12):5.1f}% of pool")
         return self.finalize()
 
     # ======================================================================
