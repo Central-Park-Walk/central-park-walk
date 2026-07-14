@@ -311,26 +311,51 @@ TWIG_DENSITY = None       # ⛔ RETIRED (iter-15's refuted numerator). The V_cro
 # ⛔ NOT gated on "where statics binds" — see the iter-18 block above. M_sub is defined at every node
 #    in every year and EQUALS the cantilever capacity wherever statics binds; gating it on the binding
 #    set puts r on the pipe and rebuilds iter-16's 1.30 cube runaway by accident.
-MASS_CAP     = None       # [DERIVED] real twigs per kg of supported mass. Pinned ONCE by S(m) = 1 at
-                          # the m anchor — NOT a new degree of freedom: it re-expresses DBH_CALIB in
-                          # the currency of standing mass. None => the iter-17 model exactly
-                          # (DBH 1.43/0.93/0.94x census, sapwood 20.9/9.5/4.4%).
+MASS_CAP     = None       # ⛔⛔ RETIRED (iter-20). NOT a bad constant — A BAD NUMERATOR. No value of it
+                          # exists. None => the iter-17 model exactly (DBH 1.43/0.93/0.94x census,
+                          # sapwood 20.9/9.5/4.4%). Keep the term CODED so the refutation has a name.
 #
-# ⛔ iter-19 — 0.6400 IS THE WRONG PIN, AND THE WAY IT IS WRONG IS THE FINDING. (LEDGER 19.)
-# It was measured OPEN-LOOP: N_DEF_REF * n_tips(m) / M_sub(m) read off the S == 1 tree. But the tree
-# that RUNS with the term does not have the S == 1 tree's mass — S < 1 through its whole youth, so it
-# arrives at the anchor lighter, thinner, and with MORE (cheaper) tips. Closed loop, S(m @ 47 yr) came
-# out 0.171, not 1.0, and DBH collapsed to 0.24x of baseline on all three tiers UNIFORMLY.
+# ⛔⛔ iter-20 — `N_def ∝ M_sub` IS STRUCTURALLY REFUTED. THE LINEAR-IN-MASS NUMERATOR HAS NO STABLE
+#     INTERIOR FIXED POINT. Do not re-pin it, do not re-solve it, do not "just try a lower cap".
 #
-# ★ AND THE LOOP AMPLIFIES ITS OWN CONSTANT. With loop gain g = 0.69-0.87, d log S / d log MASS_CAP =
-#   1/(1-g) = 3.2 to 7.7. A gain under 1 bought STABILITY; it did not buy INSENSITIVITY. So MASS_CAP
-#   cannot be measured off a tree grown without it — it must be SOLVED as a fixed point: find the
-#   MASS_CAP whose OWN closed-loop m tier lands on S(m) = 1. That is still one constant pinned once by
-#   the same demand; only the way of imposing it changes. (iter-20.)
-S_MIN        = 0.02       # ⚠ iter-19: the floor BOUND for 16 straight years, at N_def = 0.4 real twigs
-                          # per armature tip — i.e. a tip standing for LESS THAN ITSELF, which is not a
-                          # small number, it is an incoherent one. The floor must be N_def >= 1, i.e.
-                          # S_MIN = 1/N_DEF_REF. Fix it WITH the closed-loop pin, not before it.
+# ★ THE ALGEBRA, WHICH SHOULD HAVE COME BEFORE THE CODE (it is one line):
+#
+#       N_def * n_tips  ==  MASS_CAP * M_sub          <- THE n_tips DIVISION CANCELS IN THE TOTAL.
+#
+#   The tree's TOTAL real twig count — the thing that actually earns the light income — is therefore
+#   proportional to ITS OWN STANDING MASS, with no n_tips in it at all. Income drives mass accretion,
+#   so dM/dt ∝ MASS_CAP * M: a LINEAR POSITIVE FEEDBACK ON MASS whose rate constant IS MASS_CAP.
+#   ⇒ The "negative feedback through n_tips" iter-19 leaned on is a REDISTRIBUTION, NOT A REGULATOR.
+#   The only thing bounding the loop was self-shading — and shade is cast at MARKER resolution, so as
+#   n_tips collapses the shade evaporates while the income does not. The regulator dies exactly when
+#   it is needed.
+#
+# ★★ MEASURED (tmp/iter20_solve.py, closed-loop root-find on S(m@47yr) = 1, S_MIN already fixed):
+#       MASS_CAP  2.1832 -> S(m)   0.58 | n_tips 100 | M_sub    628 kg
+#       MASS_CAP  2.2105 -> S(m)   1.14 | n_tips  65 | M_sub    877 kg
+#       MASS_CAP  2.2568 -> S(m)   9.73 | n_tips  12 | M_sub   1601 kg
+#       MASS_CAP  3.1443 -> S(m) 1102   | n_tips   7 | M_sub  66648 kg   (a 66-TONNE "tree")
+#   d log S / d log MASS_CAP ≈ 80-130 at the root ⇒ LOOP GAIN g ≈ 0.99, NOT the 0.69 of iter-18.
+#   It is a TRANSCRITICAL BIFURCATION at MASS_CAP ≈ 2.205, not a calibration: below it the tree starves
+#   onto the floor, above it it explodes. iter-18's gain was computed for ONE tip's radius; the loop
+#   that actually runs is the WHOLE CROWN's leaf count against the WHOLE TREE's mass, and its gain is 1.
+#
+# ★★ AND THE THREE TIERS CANNOT BE SANE AT ONCE — the real killer (tmp/iter20_measure.py @ 2.2059):
+#       s (15yr) DBH 0.52x census, S = 0.054 — STILL PINNED ON THE FLOOR, F_H = 0 (starved)
+#       m (47yr) DBH 0.76x census, S = 0.769 — does not even reproduce its own solved root of 1.000
+#       l (104yr) DBH 33.6x census (a 23.9 METRE trunk), S = 51817 — DIVERGED
+#   A constant that gives the m tier its anchor detonates the l tier, BY CONSTRUCTION: bigger tree =>
+#   more mass => more leaves => more mass. Age IS the bifurcation parameter. And note m's 0.769: at an
+#   amplification of ~100, the fixed point is FINER THAN THE MODEL'S OWN NOISE. Unsolvable, not unsolved.
+#
+# ⇒ iter-21: THE NUMERATOR MUST BE SUB-LINEAR IN MASS. Total leaf ∝ M^q with q < 1 is the only shape
+#   that can have g < 1 robustly (q is then a factor ON the gain, and the standard allometry puts leaf
+#   mass ∝ M^(3/4) — WBE/Enquist, WHICH MUST BE OPENED AND READ BEFORE IT IS CODED, not cited from
+#   memory). ★ COMPUTE THE LOOP GAIN OF THE WHOLE-CROWN LOOP, NOT ONE TIP'S, BEFORE WRITING THE LINE.
+S_MIN        = 1.0 / N_DEF_REF   # = 0.046. ★ iter-20: A TIP CANNOT STAND FOR LESS THAN ONE REAL TWIG.
+                          # The old 0.02 put N_def at 0.4 twigs/tip — not a small number, an incoherent
+                          # one — and bound the sapling there for 16 years. Inert while MASS_CAP is
+                          # None; it is the floor's DEFINITION, not a tuning knob, so it ships anyway.
 # The two sides S acts on, separable ON PURPOSE — the iter-15 refutation is a statement about WHICH
 # side breaks, and you cannot make that statement without being able to switch them independently.
 S_IN_LIGHT   = True       # a marker INTERCEPTS the light of the N_def twigs it stands for
@@ -1731,7 +1756,14 @@ class Grower:
         M_sub_root is banked by structural_radius at the END of last year, exactly like the light
         field and the support bill. S then scales, in the same year and by the same factor: the light
         a marker intercepts, the shade it casts, the pipe its tip seeds (r_tip), and the heartwood it
-        wills to the trunk when it dies (c_heart). Same term, every side."""
+        wills to the trunk when it dies (c_heart). Same term, every side.
+
+        ⛔⛔ iter-20 — AND THIS NUMERATOR IS REFUTED TOO, structurally. `N_def * n_tips == MASS_CAP *
+        M_sub` identically, so the crown's TOTAL leaf count is proportional to the tree's own mass and
+        the n_tips division cancels: a linear positive feedback on mass, loop gain ~= 0.99, a
+        bifurcation at MASS_CAP ~= 2.205, and no constant that leaves s, m and l all sane. Exogeneity
+        was NECESSARY BUT NOT SUFFICIENT — M_sub is exogenous within the year and still runs away
+        across the years. The numerator must be SUB-LINEAR in mass. See the MASS_CAP block up top."""
         if MASS_CAP is None or self._n_tips <= 0 or self._m_sub <= 0.0:
             return                                    # anchor probe / seedling years: S stays 1
         n_def = MASS_CAP * self._m_sub / self._n_tips

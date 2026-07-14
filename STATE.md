@@ -5,65 +5,65 @@ depth **emerge**. Deep history: `project_london_plane_crown_mould.md` (not neede
 
 ## Where we are
 
-**iter-19 DONE — the size term is CODED (`N_def ∝ M_sub`, both sides, `MASS_CAP`), and it is OFF.**
-The mechanism survives; **the PIN was refuted, and its failure is the whole finding.** Shipped model =
-the iter-17 tree, verified unchanged after the revert (`s` DBH 18.2 cm, sapwood 20.9%).
+**iter-20 DONE — `MASS_CAP` was SOLVED in the closed loop, and the solve REFUTED THE NUMERATOR.** The
+size term stays CODED and OFF. Shipped model = the iter-17 tree, re-verified unchanged after the edit
+(DBH 1.43 / 0.93 / 0.94x census, sapwood 20.9 / 9.5 / 4.4%).
 
-- **Switched on at `MASS_CAP = 0.6400`, the tree came out 4x TOO THIN on every tier** — DBH
-  0.34 / 0.24 / 0.23x census (baseline 1.43 / 0.93 / 0.94), `F_H = 0` (not one leaf unit ever died,
-  so the 56–68% "sapwood" is a starved stick, not a win).
-- **★ The ratios to baseline are 0.24 / 0.26 / 0.24 — a UNIFORM thinning.** A size term that scales
-  all three tiers alike did not act as a size term. `tmp/iter19_s_trace.py`: **`S` sits ON THE
-  `S_MIN` FLOOR (0.020) for 16 years** and reaches only **0.171 at the m anchor it was pinned to 1.0**.
-- **★★ WHY: the pin was measured OPEN-LOOP, on a tree that never exists once the term runs.**
-  `MASS_CAP = N_DEF_REF·n_tips(m)/M_sub(m)` was read off the S ≡ 1 tree. The tree that *runs* the term
-  is thinner all through its youth ⇒ arrives at the anchor **lighter** (455 kg, not 848) and with
-  **MORE tips** (77, not 25 — cheap tips: the `n_tips` negative feedback doing its job). Both terms of
-  `S = MASS_CAP·M_sub/n_tips` move the wrong way at once.
-- **★ Gain < 1 bought STABILITY, not INSENSITIVITY.** `d log S / d log MASS_CAP = 1/(1−g)` = **3.2–7.7**.
-  Nothing ran away (rail 5 held; the crown neither exploded nor collapsed) — it fell into a **LOW**
-  fixed point. The constant must be **SOLVED**, never estimated.
-- **Exonerated:** iter-18's gain analysis · `M_sub` as the exogenous numerator · the `n_tips` negative
-  feedback · **the size shape itself** — `S` still climbs monotonically 0.02 → 0.17 with the tree.
+- **The root exists and it is a KNIFE EDGE.** `MASS_CAP ≈ 2.205` is a **transcritical bifurcation**:
+  2.1832 → `S(m)` = 0.58; 2.2568 → 9.73; 3.14 → 1102 and a **66-tonne** tree with 7 tips.
+  `d log S / d log MASS_CAP` ≈ **80–130** ⇒ **loop gain ≈ 0.99**, not iter-18's 0.69.
+- **★★ NO CONSTANT LEAVES ALL THREE TIERS SANE.** At the solved root (2.2059): `s` DBH **0.52x** and
+  still **on the floor** (`F_H` = 0, starved) · `m` 0.76x, `S` = 0.769 — it does not even reproduce its
+  own solved root of 1.000 · `l` **33.6x — a 23.9 METRE trunk**, `S` = 51,817. **Age is the bifurcation
+  parameter.**
+- **★ THE ALGEBRA THAT KILLS IT — one line, available before a single CPU-second was spent:**
+  `N_def · n_tips ≡ MASS_CAP · M_sub` — **the `n_tips` division CANCELS in the total.** So the crown's
+  total leaf count ∝ the tree's own mass ⇒ `dM/dt ∝ MASS_CAP·M`, a **linear positive feedback on mass**.
+  **`n_tips` is a REDISTRIBUTION, NOT A REGULATOR** — it parcels the twigs out; it cannot change how many
+  there are. Self-shading was the only bound, and shade is cast at *marker* resolution, so as `n_tips`
+  collapses (287 → 7) the regulator evaporates exactly when it is needed.
+- **★ iter-18's gain of 0.69 was not wrong — it was of the WRONG LOOP** (one tip's radius). The loop that
+  runs is the whole crown's leaf count against the whole tree's mass, and its gain is the **exponent on
+  `M_sub`**, i.e. 1.0. A per-element gain does not bound an aggregate loop.
+- **Shipped and kept:** `S_MIN = 1/N_DEF_REF` (0.046) — a tip stands for **at least one real twig**. A
+  definition, not a knob. (The old 0.02 = 0.4 twigs/tip was incoherent.) Inert while the term is off.
+- **Exonerated:** `M_sub` really is exogenous *within* the year. That property held. It is not enough.
 
 ## Open defects
 
-1. **★★ THE LIVE LEAF-UNIT COUNT SATURATES — still THE defect, still `N_def`.** The numerator is
-   settled (`M_sub`, gain 0.69). **What is open is now purely the CALIBRATION: `MASS_CAP` + `S_MIN`.**
-   Ground truth: real tips ×~3.0 m→l ⇒ sapwood ≈ 50% at 104 yr.
-2. **★ NEW (iter-19): `S_MIN = 0.02` is INCOHERENT, not merely small.** It puts `N_def` at **0.4 real
-   twigs per armature tip** — a tip standing for less than itself. The floor must be `N_def ≥ 1` ⇒
-   `S_MIN = 1/N_DEF_REF` (= 0.046; `N_DEF_REF` is only 21.7 twigs since iter-17 re-centred the pipe).
-3. **Caliber splay** — `s 1.43, m 0.93, l 0.94` (term off). One-sided, all in `s`. Same thing as (4).
-4. **`s` floor** — a constant `N_def` over-serves the sapling. Free when (1) lands.
-5. Criterion vi unmet ⇒ **do not ship.**
+1. **★★ THE LIVE LEAF-UNIT COUNT SATURATES — still THE defect, still `N_def`, and THE NUMERATOR IS OPEN
+   AGAIN.** Ground truth: real tips ×~3.0 m→l ⇒ sapwood ≈ 50% at 104 yr (today 4.4%).
+2. **Caliber splay** — `s 1.43, m 0.93, l 0.94` (term off). One-sided, all in `s`. Same thing as (3).
+3. **`s` floor** — a constant `N_def` over-serves the sapling. Free when (1) lands.
+4. Criterion vi unmet ⇒ **do not ship.**
 
-## NEXT — iter-20: SOLVE `MASS_CAP` AS A FIXED POINT OF THE LOOP IT CLOSES.
+## NEXT — iter-21: A SUB-LINEAR NUMERATOR. THE EXPONENT *IS* THE GAIN.
 
-- **Fix the floor FIRST, in the same change:** `S_MIN = 1.0 / N_DEF_REF`. Not a tuning knob — it is the
-  statement that a tip stands for at least one twig. The 16 floor-bound years are its work.
-- **Then root-find `MASS_CAP`** on `S(m @ 47 yr) = 1` in the **closed loop** (`tmp/iter19_s_trace.py`
-  prints `S` at any year; an m-tier run is ~45 s, so a ~6-eval bisection is ~5 min). It is monotone in
-  `MASS_CAP`, so bisection is safe. **Bracket it first** — with a 3–8x amplification the useful range is
-  NARROW: 0.64 gave S = 0.171, so expect the root within ~1.2–2x of 0.64, not 6x it.
-- **★ PRE-REGISTER again — and this time the falsifiable claim is the SHAPE, not the mean.** With the
-  anchor solved, `S(s)/S(m)/S(l)` must SPREAD; that is the entire point of the term. Write the predicted
-  `s`/`m`/`l` DBH **and `l` sapwood** down before running. ⚠ **A uniform response = the term is inert.**
-- ⚠ The mean is now cheap to hit and is therefore not evidence. **Defect 1 is decided by `l` sapwood
-  (4.4% → must move materially toward ~50%) and the m→l real-tip ratio (must be ~×3.0).**
+- Total leaf ∝ `M^q` with **`q < 1`** is the only shape that bounds the loop **structurally** rather than
+  by luck. The standard allometry puts leaf mass ∝ `M^(3/4)` (WBE / Enquist).
+- ⚠ **READ THE PAPER FIRST — West, Brown & Enquist is a MEMORY right now, not a citation.** This project
+  has already paid two iterations for a fabricated author line. Open it, read the figures, then code.
+- ★ **Compute the gain of the WHOLE-CROWN loop before writing the line.** Reduce the term algebraically
+  first (`N_def · n_tips = ?`) and take the gain of *that*, not of one tip's radius.
+- ★ **Pre-register at BOTH ENDS of size.** One tier's anchor is not evidence; the SPREAD is the claim. A
+  sane `m` flanked by a starved `s` and a detonated `l` is what a bad exponent looks like.
 
 ## Rails — each cost a session; do not re-litigate
 
-- ⛔ **★ `N_def` MUST NOT BE READ FROM THE LIVE CROWN** (`V_crown`, iter-15) — positive feedback on
-  income, measured from its own product. **COMPUTE THE LOOP GAIN BEFORE YOU CODE THE TERM.**
-- ⛔ **★ …AND SOLVE THE CONSTANT INSIDE THE LOOP** (iter-19). An open-loop pin measures a tree that never
-  exists. Stability (g < 1) is not insensitivity (`1/(1−g)` = 3–8).
+- ⛔ **★ `N_def` MUST NOT BE READ FROM THE LIVE CROWN** (`V_crown`, iter-15) — positive feedback on income,
+  measured from its own product.
+- ⛔ **★ …AND EXOGENOUS IS NOT ENOUGH** (iter-20). `N_def ∝ M_sub` is **structurally refuted**: the divisor
+  cancels, the aggregate gain is 1.0, and no constant exists. **Do not re-pin it, do not re-solve it, do
+  not "just try a lower cap".** The fix is the EXPONENT, not the constant.
+- ⛔ **★ …AND SOLVE A LOOP'S CONSTANT INSIDE THE LOOP** (iter-19) — an open-loop pin measures a tree that
+  never exists. But ★ **a root-find that CONVERGES can still be the refutation: report the local
+  SENSITIVITY with the root.** ~100 means unsolvable, not solved.
 - ⛔ **★ No age lookup.** `K(n) = alpha(n+1)^d` makes DBH an analytic function of age — a parameter in an
   output's clothes. The paper forbids it (p. E45). **b(n) is the VALIDATOR, never the input.**
 - ⛔ **★ THE HEARTWOOD LAW IS DONE** (iters 12–14); its constant is pinned twice. Do NOT turn `HEART_RATIO`
   down to buy sapwood. ⚠ And `F_H = 0` is a STARVATION signature, never a heartwood win.
 - ⛔ **NO SCALAR CAN MOVE THE SAPWOOD FRACTION — `DBH_CALIB` CANCELS** (iter-17). A scalar may **CENTRE**
-  and **UN-SUPPRESS**; it may never **FIX**. `DBH_CALIB` is spent. The remaining error is structural.
+  and **UN-SUPPRESS**; it may never **FIX**. The remaining error is structural.
 - ⛔ **LAI cannot rescue p = 2.3** (needs 2.45 → 6.96 → 12.18; plane is 4.0–6.0). ⚠ `p = 2.3` is also what
   puts 1.0 *between* the cube gain (1.30) and the square gain (0.87) — it is load-bearing twice.
 - ⛔ **EXONERATED — do not re-indict:** the tip budget (iter-11), the shed rule, `MAX_CAT`, the reiteration

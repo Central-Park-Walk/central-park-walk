@@ -461,6 +461,91 @@ pipe — the term now lives at a scale where the floor is *reachable*, which it 
 `MASS_CAP` is reverted to `None` in the shipped model: the repo tree is the iter-17 tree, verified
 unchanged after the revert (`s` DBH 18.2 cm, sapwood 20.9%). The term stays CODED and OFF.
 
+verdict: ACCEPTED (Chris, 2026-07-13) — the diagnosis stands: the pin was open-loop. He set
+iter-20 himself: fix `S_MIN` to `1/N_DEF_REF`, then root-find `MASS_CAP` closed-loop on `S(m) = 1`.
+
+## 20 — SOLVE `MASS_CAP` IN THE LOOP → THE LOOP HAS NO SOLUTION. `N_def ∝ M_sub` IS REFUTED.
+
+**Hypothesis (pre-registered, `tmp/iter20_prereg.md`, written before the solve returned):** `S` was
+suppressed because (a) the floor `S_MIN = 0.02` is incoherent — it puts `N_def` at 0.4 real twigs per
+armature tip, a tip standing for less than *itself* — and (b) `MASS_CAP` was pinned open-loop. Fix the
+floor to `S_MIN = 1/N_DEF_REF` (= 0.046) and solve `MASS_CAP` as a fixed point of `S(m @ 47 yr) = 1` in
+the closed loop, and `S` will **SPREAD** across the tiers (`S(s) < 1 < S(l)`, predicted `S(l) ≥ 1.5`),
+narrowing the caliber splay from the `s` end and — the decider — lifting `l` sapwood from 4.4% past 8%.
+
+**Change:** `tmp/iter20_solve.py` — bracket + log-space bisection on the *closed-loop* m tier (11 evals,
+~9 min). `tmp/iter20_measure.py` — the three tiers at the solved constant. No model change was shipped
+from the solve: `MASS_CAP` stays `None`.
+
+**RESULT — ★★ THE ROOT EXISTS AND IT IS A KNIFE EDGE. THE TERM IS NOT MIS-CALIBRATED, IT IS THE WRONG
+SHAPE.** (`tmp/iter20_solve.log`, `tmp/iter20_measure.log`.)
+
+| MASS_CAP | S(m @ 47 yr) | n_tips | M_sub |
+|---|---|---|---|
+| 2.1832 | 0.58 | 100 | 628 kg |
+| 2.2014 | 0.69 | 74 | 537 kg |
+| **2.2105** | **1.14** | 65 | 877 kg |
+| 2.2197 | 2.03 | 36 | 1057 kg |
+| 2.2568 | 9.73 | 12 | 1601 kg |
+| 3.1443 | **1102** | 7 | **66,648 kg** — a 66-tonne "tree" |
+
+`d log S / d log MASS_CAP` ≈ **80–130** at the root ⇒ **loop gain g ≈ 0.99**, against iter-18's 0.69 and
+iter-19's predicted amplification of 3.2–7.7. This is a **transcritical bifurcation at MASS_CAP ≈ 2.205**:
+below it the tree starves onto the floor, above it it detonates.
+
+**★★ AND THE THREE TIERS CANNOT BE SANE AT ONCE — this is the actual falsification** (@ MASS_CAP = 2.2059,
+the solved root):
+
+| | DBH vs census | S | n_tips | F_H | sapwood |
+|---|---|---|---|---|---|
+| s (15 yr) | **0.52x** | 0.054 — **STILL ON THE FLOOR** | 97 | **0** | 92.7% (starved) |
+| m (47 yr) | 0.76x | **0.769** — not the 1.000 it was solved to | 97 | 214 | 35.4% |
+| l (104 yr) | **33.6x** — a **23.9 METRE** trunk | **51,817** | 7 | 575 | 11.1% |
+
+Every pre-registered prediction failed, and the *l* tier failed in the opposite direction from iter-19's.
+Not one of them was a near miss.
+
+**★ THE ALGEBRA THAT KILLS IT — ONE LINE, AND IT WAS AVAILABLE BEFORE A SINGLE CPU-SECOND WAS SPENT:**
+
+    N_def · n_tips  ≡  MASS_CAP · M_sub          — the n_tips division CANCELS IN THE TOTAL.
+
+The crown's **total** real-twig count — the thing that earns the light income — is therefore proportional
+to **the tree's own standing mass**, with no `n_tips` in it at all. Income drives mass accretion, so
+`dM/dt ∝ MASS_CAP · M`: a **linear positive feedback on mass**, whose rate constant *is* `MASS_CAP`.
+⇒ **The `n_tips` "negative feedback" that iter-19 leaned on is a REDISTRIBUTION, NOT A REGULATOR.** It
+sets how the twigs are *parcelled out* among markers; it cannot change how many there are. The only
+thing bounding the loop was self-shading — and shade is cast at **marker** resolution, so as `n_tips`
+collapses (287 → 7 across the bracket) the shade evaporates while the income does not. **The regulator
+dies exactly when it is needed.** That is the runaway, and 7 markers standing for 24,000 twigs each is
+its signature.
+
+**★ WHY iter-18's GAIN OF 0.69 WAS NOT WRONG, IT WAS OF THE WRONG LOOP.** It is the gain of ONE TIP's
+radius. The loop that actually runs is the WHOLE CROWN's leaf count against the WHOLE TREE's mass, and
+its gain is 1 by construction — the exponent on `M_sub` *is* the gain. A per-element gain does not bound
+an aggregate loop.
+
+**★ EXOGENOUS WAS NECESSARY, NOT SUFFICIENT.** `M_sub` is genuinely exogenous *within* the year (banked
+by last year's `structural_radius` — that property is real and survives). It still runs away *across* the
+years, because year-on-year the mass it reports is the mass its own income built. Iter-15's rail said
+"don't read the numerator from the live crown". The rail was necessary and too weak: **an exogenous
+numerator that is still PROPORTIONAL to the tree's own product is a positive feedback with a one-year
+delay.** What must be bounded is not the *timing* of the read but the *exponent*.
+
+**And `S(m) = 0.769` at its own solved root is the last nail:** at an amplification of ~100, the fixed
+point is **finer than the model's own stochastic noise**. Even if a sane root existed, it would not be
+reproducible. `MASS_CAP` is **unsolvable**, not merely unsolved.
+
+**What survives:** `S_MIN = 1/N_DEF_REF` — shipped, and it is a *definition* (a tip stands for at least
+one twig), not a knob. The size term stays CODED and OFF. The shipped model is the iter-17 tree,
+re-verified after the edit. Defect 1 (the saturating leaf-unit count) is **wide open again**, and the
+numerator hunt is back to square one — but square one now has three rails on it instead of one.
+
+**NEXT (iter-21): THE NUMERATOR MUST BE SUB-LINEAR IN MASS.** Total leaf ∝ `M^q`, `q < 1` — `q` *is* the
+loop gain, so it is the only structural way to get `g < 1` robustly rather than by luck. The standard
+allometry puts leaf mass ∝ `M^(3/4)` (WBE / Enquist). ⚠ **That paper must be OPENED AND READ before the
+line is coded** — it is currently a memory, not a citation, and this project has paid twice for that
+mistake. And **compute the gain of the WHOLE-CROWN loop before writing the term**, not one tip's.
+
 verdict: PENDING
 
 ## Staged lessons
@@ -475,3 +560,7 @@ and may never edit `~/.claude/rules/`, `CLAUDE.md`, or `MEMORY.md` on its own.
 - **A CONSTANT INSIDE A FEEDBACK LOOP MUST BE SOLVED, NOT MEASURED — and gain < 1 does NOT mean insensitive.** Pinning it on the open-loop system (the model with the term OFF) measures a tree that never exists once the term is on: the loop moves the very quantities the pin was read from. And the DC amplification is `1/(1-g)` — at gain 0.69 a 25% error in the constant becomes a 4x error in the output. Stability and insensitivity are different properties, and only the first one follows from g < 1. (iter-19)
 - **A UNIFORM RESPONSE FALSIFIES A SIZE TERM NO MATTER WHAT THE MEAN DOES.** Three tiers thinned by 0.24/0.26/0.24 is a SCALAR wearing a size term's clothes — read the ratios across the tiers before reading any one tier's number. The floor, not the law, was doing the talking. (iter-19)
 - **A LOOP GAIN IS AN EXPONENT, AND THE EXPONENT IS SET BY WHERE YOU READ THE RADIUS.** Same mechanism, same tree, same year: `r` from the pipe ⇒ gain `3/p` = 1.30 (runaway); `r` from statics ⇒ gain ≤ `2/p` = 0.870 (regulator). A cube law vs a square law, with 1.0 sitting between them because `p = 2.3`. When a gain comes out on the wrong side of 1, ask which law set the variable you read — the mechanism may be innocent. (iter-18)
+- **AN AGGREGATE LOOP IS NOT BOUNDED BY A PER-ELEMENT GAIN — and a division that CANCELS is not a feedback.** `N_def = C·M/n_tips` looks like it is regulated by `n_tips`, but `N_def·n_tips ≡ C·M`: the divisor cancels in the total, so it only *parcels out* the resource, it cannot change how much there is. The measured per-tip gain was 0.69; the aggregate gain was 1.0 and the system bifurcated. **Reduce the term to the quantity that actually closes the loop, and take the gain THERE.** (iter-20)
+- **EXOGENOUS IS NECESSARY, NOT SUFFICIENT — what must be bounded is the EXPONENT, not the timing of the read.** A numerator read from *last* year's wood is still a positive feedback if it is PROPORTIONAL to the tree's own product: the delay changes the phase, not the gain. Only a sub-linear exponent (`M^q`, q < 1) bounds it. (iter-20)
+- **A KNIFE-EDGE ROOT IS A FALSIFICATION, NOT A CALIBRATION — read the SENSITIVITY at the root, not just the root.** The bisection converged; that proved nothing. `d log out / d log const` ≈ 100 means the fixed point is finer than the model's own noise, i.e. UNSOLVABLE. **A root-find that succeeds can still be the refutation — always report the local slope with the answer.** (iter-20)
+- **WHEN A TERM IS A SIZE TERM, TEST IT AT BOTH ENDS OF SIZE BEFORE BELIEVING THE ANCHOR.** The constant that gave the m tier its anchor left s starved on the floor AND detonated l to a 24-metre trunk. Age was the bifurcation parameter. One tier's success is not evidence; the SPREAD across tiers is the whole claim. (iter-20)
