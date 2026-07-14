@@ -856,3 +856,117 @@ verdict: PENDING
 - **★★ COMPUTE THE LOOP GAIN BEFORE YOU CODE THE TERM — AND THE PROBE MAY ALSO TELL YOU THE GATE IS FREE.** The pre-registration probe was run to get `q`. It also showed the light field over woody internodes is BIMODAL (40% at exactly zero), so every threshold in [0, 0.25] selects the same set — **the gate's constant does not matter, and a constant that cannot be fitted cannot be the fit.** A probe run for one number can retire a whole class of "but you tuned it" objections for free. Look at the DISTRIBUTION, not just the summary statistic you came for. (iter-24)
 - **★★ A DENSITY IS THE THING TO CONSERVE, NOT A COUNT.** The obvious coding of "foliate every lit internode" was to give each one a tip's cohort — which, at INTERNODE 0.11 m against VOX 0.6 m, is 22 markers per voxel of limb and a **30x inflation of the income that the economy's constants were calibrated against.** The change would have "worked" and detonated every calibration downstream. When extending a quantity to a new unit, carry over its **density per unit of the thing it lives on**, and check that density against the resolution of the grid that will consume it. (iter-24)
 - **★ A STABILISING FEEDBACK AND AN INCOME CAP CAN BE THE SAME TERM.** The light gate is what kept the loop gain at 0.50 instead of 0.92 — and it is also why the layer delivered half the income needed: the new foliage's own shade halved its own lit surface (lit fraction 60/74% → 30/30%). **The mechanism that saves you from the bifurcation is the mechanism that starves you.** Expect any self-shading negative feedback to under-deliver against its static prediction, and measure how much BEFORE reading the shortfall as a separate defect. (iter-24)
+
+## 25 — THE LIGHT LAW WAS SATURATED (Beer–Lambert). THE FIELD IS REPAIRED AND THE DEFECT SURVIVES.
+*(backfilled 2026-07-13: iter-25 shipped as `b6381e0` + `bf3fdb2` but its LEDGER entry was never
+written — the STATE rewrite was mistaken for the record. Append-only means APPEND, every time.)*
+
+**Hypothesis (pre-registered, `tmp/iter25_prereg.md`):** the tree does not KEEP the limb it builds
+(kept% m 56.7 / l 41.2) because the shed gate's numerator is read through a SATURATED instrument.
+`light_at` was `max(C - shadow + own, 0)` — Palubicki, coded faithfully — and it CLAMPS: the clamp
+sits at 7 while the shadow field runs to 30, so past 7 the law returns 0.000 at EVERY depth. **73%
+(m) / 69% (l) of live woody internodes read EXACTLY zero light.** The shed gate is a RATIO test on
+that numerator, so it never measured light — it read a saturation flag.
+
+**Change:** `light_at` = `C * exp(-(s - own)/C)` — Beer–Lambert, the unique exponential TANGENT to
+the old law at s = own, so the calibrated lit regime is preserved to first order and NO constant is
+invented. Runs became ~4x slower (s+m+l: 2m26 → 9m46).
+
+**Verification** (`tmp/iter25_retention.py`, `tmp/iter25c_saturation.py`):
+
+      P1 [TARGET]  live wood l/m   1.77 -> 1.91x     FAIL   (pre-registered PASS >= 2.40x)
+      P2  kept%   m 56.7 -> 66.0 | l 41.2 -> 59.6    PASS ; KILLED l/m 3.30 -> 2.52x  PASS
+      P3 [UNTARGETED]  sapwood  m 10.4 -> 22.0% | l 5.6 -> 13.8% | s 21.1 -> 50.4%    PASS
+      R1  DBH/census 0.93/0.95 -> 1.09/1.08 (7% under -> 8% over; l/m HELD 1.02 -> 0.99)
+      R2  self-pruning alive, no runaway                                              PASS
+
+**★★★ F1 FIRED, AND THAT IS THE FINDING: the light field is now sound and THE DEFECT IS STILL
+THERE ⇒ THE DEFECT WAS NEVER IN THE LIGHT.** The whole shading/light family (15, 20, 23, 24, 25) is
+CLOSED. The A5 isotropic-placement suspect is refuted with it (mirror/here = 0.98/1.00 — no gradient
+to climb), and iter-23's stillbirth finding is true by COUNT and irrelevant by WOOD (53–60% of kill
+events, only 10–13% of the lost wood).
+
+verdict: ACCEPTED (Chris: "let's continue") — the repair stands; iter-26 tested the theory it left.
+
+## 26 — THE DENOMINATOR, MEASURED: EVERY FORM FAILS — AND THE CENSUS REFUTES THE THEOREM ITSELF.
+
+**Hypothesis (STATE's, from iter-25):** income is bounded per column (Beer–Lambert) ⇒ ∝ R²; the
+gate's denominator is an internode COUNT ⇒ ∝ crown volume ∝ R³; so the gate ratio ∝ 1/R and **the
+gate condemns bigness by construction.** The fix: bill only LIVING tissue (heartwood is dead and
+costs nothing) — sapwood is a shell ∝ R²·H, so the ratio becomes size-invariant. STATE bound this
+iteration to MEASURE the lever before coding the term. It was measured (`tmp/iter26_denominator.py`,
+`tmp/iter26b_leafgate.py`, read-only, both tiers to census age).
+
+**(1) EVERY DENOMINATOR THE TREE OWNS FAILS — including the two STATE proposed:**
+
+      denominator                    m        l     lever l/m   gate ratio l/m
+      INCOME   L (live light)    2353.6   3091.6      1.314          —
+      count    Σ1                2224     4256        1.914        0.686   <- today
+      sap_frac Σ r_s²/r²         1889.3   3112.8      1.648        0.797   <- 16% relief only
+      sap_vol  Σ π r_s² ℓ         1.35 m³  2.96 m³    2.189        0.600   <- WORSE than the count
+      LEAVES   F (live markers)  2310     3872        1.676        0.784   <- branch autonomy
+
+- **The unit-preserving `Σ sap_frac` is the weak lever STATE feared:** fine twigs are ~100% sapwood
+  (mean D1/D0 = 0.999 on single-internode subtrees), so the sum is 85% (m) / 73% (l) of the count.
+- **★ SAPWOOD IS NOT A SHELL IN THIS MODEL — its volume grows FASTER than the internode count
+  (2.189x vs 1.914x).** Summed over a crown, `Σ r_sap²` is super-linear: the l tree's limbs are
+  thicker and its paths longer. The pipe-model `R²·H` intuition is about a TRUNK CROSS-SECTION, not
+  a crown sum. The "honest denominator" makes the gate TIGHTER with size. **REFUTED.**
+- **And the physiologically correct bill — the LEAVES (branch autonomy: a limb dies when its own
+  foliage cannot pay for its own foliage) — fails too:** 0.784. Mean light per leaf falls 22% m→l,
+  because foliage (1.676) also outgrows income (1.314).
+
+**(2) ★★★ THE CENSUS REFUTES THE THEOREM.** From the UTD table already in the grower (McPherson/van
+Doorn/Peper 2016, PSW-GTR-253, `plane_grower.py:2065`): real m = DBH 43.2 cm, crown dia 12.6 m; real
+l = DBH 71.1 cm, crown dia 16.9 m.
+
+      real crown PROJECTED AREA   l/m = (16.9/12.6)² = 1.80
+      real BASAL AREA             l/m = (71.1/43.2)² = 2.71
+      => REAL light per unit wood l/m = 1.80/2.71   = 0.664
+         MODEL light per unit wood l/m              = 0.686      <- WE ALREADY MATCH IT
+
+**A real London plane's intercepted light per unit of standing wood ALSO falls ~1.5x from m to l.
+The R²/R³ "exponent error" is not a defect — it is physics, and the census has the same exponent.
+The gate's size-scaling was already correct.** Ten iterations of numerator work and this iteration's
+entire denominator plan were aimed at a quantity that was never broken.
+
+**(3) ⇒ THE DEFECT IS THE LEVEL, NOT THE SLOPE — AND IT IS ONE DEFICIT, NOT TWO:**
+
+      quantity      model l/m    census l/m    shortfall
+      income  L       1.314        1.80          -27%
+      live wood S     1.914        2.71          -29%
+
+**The l tree is short by ~28% in income AND in wood, in the SAME proportion.** The gate ratio is
+right precisely because both sides shrank together. There is no economic term to add: the tree
+simply never gets big enough. Under Beer–Lambert income ≈ C/(1-e^(-1/C)) × OCCUPIED COLUMNS ≈ the
+crown's projected area — so a 27% income shortfall IS a 27% projected-area shortfall, and iter-9's
+"crown width matches census (1.07x / 1.05x)" was measured on the HULL. **A hull can be right while
+its columns are empty — which is exactly what iter-23 saw ("the crown is not darker, it is emptier")
+and then set aside on a counting technicality.**
+
+**Verification:** both probes grew m and l to census age (47 / 104 yr) under the shipped grower, exit
+0; every number above is printed by them (`tmp/iter26_denominator.log`, `tmp/iter26b_leafgate.log`).
+The census numbers are read from the UTD table in the source, not estimated. No model change: this
+iteration is a REFUTATION, and it retires a family.
+
+verdict: PENDING
+
+## Staged lessons (iter-26)
+
+- **★★★ CHECK YOUR "STRUCTURAL THEOREM" AGAINST THE DATA BEFORE YOU BUILD ON IT.** iter-25 proved
+  a beautiful theorem — income ∝ R², cost ∝ R³, so the gate condemns bigness by construction — and
+  it was TRUE. It was also true of the real tree: the census's own numbers give the SAME falling
+  ratio (0.664 vs our 0.686). **A derivation that indicts the model can be indicting reality, and a
+  scaling argument is only a defect if the ground truth does NOT show the same scaling.** The census
+  was on disk the whole time; the theorem cost a full iteration because nobody divided two numbers
+  from it. Ratios of ground-truth quantities are the cheapest falsification there is — run them
+  BEFORE the derivation becomes load-bearing. (iter-26)
+- **★★ A SHORTFALL THAT IS EQUAL ON BOTH SIDES OF A RATIO IS INVISIBLE IN THE RATIO — AND IT IS THE
+  DEFECT.** Income −27%, wood −29%: the gate ratio looked fine (and was fine) while the tree was
+  uniformly too small. **When a ratio is healthy, measure its NUMERATOR AND DENOMINATOR against
+  ground truth SEPARATELY, in absolute terms.** Every iteration since 15 optimised the ratio; none
+  ever asked whether both of its terms were 30% short. (iter-26)
+- **★ AN ANALOGY IMPORTED FROM A PAPER MUST BE RE-DERIVED IN THE MODEL'S OWN GEOMETRY.** "Sapwood is
+  a shell, ∝ R²·H" is true of a TRUNK CROSS-SECTION and false of a SUM OVER A CROWN (measured:
+  Σ r_sap² grows 2.19x against the count's 1.91x). The pipe model was not wrong — the transfer was.
+  Measure the quantity you are actually going to sum. (iter-26)
