@@ -597,6 +597,44 @@ FULL_LIGHT   = 6.0        # unshaded light budget C. [PROV]
 TAU_SHED     = 0.18       # shed when light_gathered/size < TAU. [PROV/GAP-τ] — the ONE free
                           # scalar we allow ourselves to fit to the measured cb_frac~0.30.
 
+# ★★★ iter-25 — THE LIGHT LAW IS BEER–LAMBERT, NOT A CLAMPED SUBTRACTION.
+#
+# Until iter-25 light_at() returned `max(C - s + own, 0)` — Palubicki's published shadow
+# propagation, implemented faithfully. It CLAMPS. C is an absolute constant (6.0) while `s` is an
+# unbounded SUM over every foliage marker above the point. Measured on the shipped tree (iter-25c):
+# the clamp sits at 7 and THE FIELD RUNS TO 30. Past 7 the law returns 0.000 at EVERY depth, so 15,
+# 30 and 60 units of shade are indistinguishable — ~77% of the field's dynamic range is discarded.
+#   * 73% (m) / 69% (l) of LIVE WOODY INTERNODES read EXACTLY zero light.
+#   * 49% (m) / 56% (l) of LIVE FOLIAGE MARKERS read EXACTLY zero.
+# The shed gate is a RATIO test on that clamped numerator, so it never measured light at all — it
+# read a saturation flag. Hence: every dying limb at L = 0.00 exactly, a bimodal light field, and
+# iter-24's unfittable A5 gate ("every theta in [0, 0.25] selects the same set"). AN UNFITTABLE
+# CONSTANT IS THE SIGNATURE OF A SATURATED INSTRUMENT.
+#
+# ★ AND IT IS WHY THE TREE CANNOT SCALE. The clamp gives the crown a LIT SHELL OF FIXED OPTICAL
+# DEPTH: light exists only within ~7 markers'-worth of the crown surface, and everything deeper
+# earns nothing however much foliage stands there. So INCOME scales with crown SURFACE while the
+# shed gate's COST — every woody internode maintained — scales with crown VOLUME. A surface-fed,
+# volume-billed tree has a hard size ceiling and must amputate its own interior to stay solvent.
+# That is the defect chased since iter-15: builds 2.43x, keeps 1.77x, kills 3.30x (census: 3.23x).
+#
+#     light_at:   max(C - s + own, 0)      ->      C * exp(-(s - own) / C)
+#
+# ⛔ NOT A SCALAR RE-FIT. Raising C from 6 to 60 merely MOVES the clamp, and is exactly the move
+# the rails forbid (a scalar may CENTRE and UN-SUPPRESS; it may never FIX). This changes the
+# FUNCTIONAL FORM: the dead zone where the regulator has ZERO authority ceases to exist at any
+# depth, because dI/ds = -I/C is never zero.
+#
+# ★ AND IT INVENTS NO CONSTANT. k = 1/C is the UNIQUE extinction coefficient whose exponential is
+# TANGENT to the old law at s = own: same value (C) and same slope (-1) there. So the LIT regime —
+# where TAU_SHED, ALPHA, DBH_CALIB and the whole economy were calibrated — is preserved to first
+# order, and ONLY the saturated region changes, where a dead 0.000 becomes a real, small, strictly
+# positive light (s=15 -> 0.49, s=30 -> 0.04). k = 1/C is not claimed to be physical: a true canopy
+# extinction (k≈0.5 per unit LAI) is unavailable to us because our shadow unit is "SHADOW_A per
+# marker", not LAI, and inventing the conversion WOULD be a new constant. Matching the slope at the
+# origin invents nothing. Beer–Lambert is MORE standard than the clamp, not less.
+LIGHT_K = 1.0 / FULL_LIGHT   # [DERIVED] the tangency condition. NOT free, NOT fittable.
+
 # --- ★ iter-2: the CHEAP A4 FOLIAGE light-gatherer layer (closes the light loop). ---
 # The shed rule is a foliage-light rule; a leafless armature has nothing renewing light at the
 # lit periphery, so shedding grinds monotonically to bare (iter-1's l-tier collapse). So each
@@ -1458,9 +1496,13 @@ class Grower:
 
     def light_at(self, pos, shadow, mn):
         g = tuple(np.floor((pos - mn) / VOX).astype(int))
-        # the + term un-shades a site from its OWN deposit, so it tracks the S-scaled deposit (iter-15)
+        # the `own` term un-shades a site from its OWN deposit, so it tracks the S-scaled deposit
+        # (iter-15). It is the ZERO of the optical depth: at s == own the site is unshaded and reads C.
         own = (self.s_def if S_IN_SHADE else 1.0) * SHADOW_A
-        return max(FULL_LIGHT - shadow.get(g, 0.0) + own, 0.0)
+        tau = max(shadow.get(g, 0.0) - own, 0.0)          # optical depth above this site
+        # ★★★ iter-25: Beer-Lambert. Strictly positive at every depth — no clamp, no dead zone.
+        # Tangent to the old max(C - tau, 0) at tau = 0, so the calibrated LIT regime is unchanged.
+        return FULL_LIGHT * math.exp(-LIGHT_K * tau)
 
     def foliage_light(self, shadow, mn):
         """Light gathered by each living leaf."""
