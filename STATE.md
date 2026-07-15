@@ -3,19 +3,20 @@
 The developmental grower: `scripts/plane_grower.py`. Grow a plane from a seed; let crown, caliber and
 depth **emerge**. Deep history: `LEDGER.md` (append-only) — iterate from here, not from it.
 
-## Where we are — ★★ iter-38: POSITION B CODED. S = C·M_sub^q, NO n_tips divisor. Solve running at hand-off.
+## Where we are — ★★ iter-38: POSITION B CODED + PINNED + GATE PASSED. Bench running at hand-off.
 
 `update_n_def` now drives `S = C_NDEF·M_sub^Q_MASS` DIRECTLY (commit 4e404c8), dropping the `/n_tips`
 divisor of the iter-36 form. This cuts the fold's return arm (`d log S/d log n_tips = 0`) — the channel
 iter-36 exploded through. `N_def=S·N_DEF_REF` is now PRIMARY; `T_total=N_def·n_tips` floats. `C_NDEF`
 supersedes the retired `K_NDEF`. Q_MASS=0.625 unchanged (=2/E_M, a parsed OUTPUT).
 
-**First evidence the fold is cut:** the m tier grows with **n_tips=193** (at C=0.006, S=0.61), where the
-iter-36 divisor form collapsed it to **n_tips=1** at blow-up. Deterministic (cross-checked two processes).
+**SOLVE DONE (`tmp/iter38_solve.log`): C_NDEF = 0.008442**, clean monotone bracket → S(m)=1.02. GATE
+PASSED — `d log S/d log C=1.37`, `d log M/d log C=0.55` (both ≪10, no bifurcation; internally consistent).
+**THE FOLD IS CUT:** n_tips stayed **135–215 across every grow, never 1** (iter-36 collapsed to 1).
 
-**⚠ Solve is STILL RUNNING at hand-off** — `tmp/iter38_solve_C.py`, PID 730773 (detached), ~3 min/grow,
-log `tmp/iter38_solve.log`. It root-finds C on S(m@47)=1, then measures the conditioning gate. NOT yet
-read. A tracked waiter (`while kill -0 730773`) was launched to surface the result on exit.
+**⚠ BENCH RUNNING at hand-off** — `scripts/plane_bench.py --set C_NDEF=0.008442 --out tmp/iter38_bench.npz`
+(task `bj6z6fege`, log `tmp/iter38_bench.log`), ~20-25 min. It is the DECIDER: does S settle across tiers
+and does sapwood F_S track census upward at l? `C_NDEF` is NOT yet frozen — that waits on this bench.
 
 ## The board (only a `** RESOLVED **` line is a tell)
 
@@ -27,15 +28,16 @@ read. A tracked waiter (`while kill -0 730773`) was launched to surface the resu
 4. **HEARTWOOD 1.77→2.63×** over-fills with size — leaf-unit LOSS rate, ⛔ NOT `HEART_RATIO`. After #1.
 5. **`s` DBH floor** — DBH floored at `2·R_TIP` at any age (uniform-R_TIP floor). After #1.
 
-## NEXT — iter-39: READ THE SOLVE, gate, then BENCH. Then judge SETTLE + sapwood tracking.
+## NEXT — iter-39: READ THE BENCH (`tmp/iter38_bench.log`), then judge SETTLE + sapwood tracking.
 
-1. Read `tmp/iter38_solve.log`: the pinned **C_NDEF** and the gate `d log M/d log C` (PASS ≈2.67, REFUTED ≫10).
-2. If gate PASSES: `python3 scripts/plane_bench.py --set C_NDEF=<root> --out tmp/iter38_bench.npz` (5×{s,m,l},
-   ~20-25 min). Judge: does S SETTLE (S(s)<1, S(m)=1, S(l)>1)? Does F_S track census UPWARD at l?
-3. If PASS on both → freeze C_NDEF in `plane_grower.py` (replace the `None`) and commit.
-4. **⛔ PRE-REGISTERED STOPPING RULE (iter-37):** this is Position B's ONE shot. If C sits near a bifurcation
-   (conditioning ≫10) OR S fails to settle OR sapwood doesn't track → **refutation #6.** Do NOT open a 7th
-   loop. Hand back to Chris: make R_TIP an allometric PRIOR (census/WBE-shaped), imposed like the pipe.
+1. Read the bench (5×{s,m,l}, C=0.008442). Judge two things: does S SETTLE (S(s)<1, S(m)≈1, S(l)>1)?
+   Does F_S (sapwood) track census UPWARD at l — closing the ~2.4× board-#2 deficit, not overshooting?
+2. If PASS on both → **freeze C_NDEF=0.008442 in `plane_grower.py`** (replace the `None`) and commit.
+   Then the fold + size-law are both handled; board #1/#2/#3 resolve; move to heartwood (#4).
+3. **⛔ PRE-REGISTERED STOPPING RULE (iter-37):** this is Position B's ONE shot. The gate already passed,
+   so the live risk is SETTLE/TRACK. If S fails to settle OR sapwood doesn't track (or overshoots badly)
+   → **refutation #6.** Do NOT open a 7th loop. Hand back to Chris: make R_TIP an allometric PRIOR
+   (census/WBE-shaped), imposed like the pipe, and let the rest of the tree emerge around it.
 
 ## Rails — each cost a session; do not re-litigate
 

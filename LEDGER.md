@@ -1499,12 +1499,15 @@ constant `C_NDEF` (Position B coefficient) supersedes the retired divisor-form `
 fold's name). Q_MASS unchanged (=2/E_M=0.625, a parsed OUTPUT). Solve harness `tmp/iter38_solve_C.py`
 root-finds C on S(m@47)=1 then measures the conditioning gate. Grower otherwise untouched.
 
-**Verification (IN PROGRESS at hand-off — solve running, PID 730773, ~3 min/grow):**
-- Smoke test (8-yr m grow) + first solve grow both clean: **C=0.006 → S=0.610, M_sub=1797 kg,
-  n_tips=193** (deterministic, cross-checked identical across two processes). **n_tips=193, NOT 1** —
-  first evidence the fold is cut (iter-36's divisor form collapsed the m tier to n_tips=1 at blow-up).
-- PENDING: the pinned C, the conditioning gate (`d log M/d log C`; PASS ≈3, REFUTED ≫10), and the
-  5×{s,m,l} bench (does S SETTLE at S(s)<1/S(m)=1/S(l)>1; does sapwood F_S track census upward at l).
+**Verification — SOLVE DONE (`tmp/iter38_solve.log`), bench running at hand-off:**
+- **C_NDEF = 0.008442**, pinned by a CLEAN monotone bracket (S(m) 0.61→1.15 across C 0.006→0.0096),
+  bisection converged to S(m)=1.02. Contrast iter-36's divisor form: NO stable root existed there.
+- **GATE PASSED:** `d log S/d log C = 1.37`, `d log M_sub/d log C = 0.55` — both ≪10, no bifurcation.
+  Internally consistent (`1 + q·0.55 = 1.34 ✓`). The mass loop is very tame (M barely moves with C).
+- **THE FOLD IS CUT:** n_tips stayed **135–215 across every one of the ~11 grows, never 1** — where
+  iter-36's divisor form collapsed the m tier to n_tips=1 at blow-up. Deterministic (cross-checked).
+- PENDING: the 5×{s,m,l} bench (`--set C_NDEF=0.008442`, running) — does S SETTLE at S(s)<1/S(m)=1/
+  S(l)>1, and does sapwood F_S track census UPWARD at l? That is the size-law's core claim (board #2).
 - ⚠ PRE-REGISTERED STOPPING RULE (iter-37): this is Position B's ONE shot. If C must be tuned near a
   bifurcation (conditioning ≫10) OR S fails to settle → **refutation #6**; do NOT open a 7th loop —
   hand back to Chris to make R_TIP an allometric PRIOR (census/WBE-shaped), imposed like the pipe.
