@@ -1287,6 +1287,48 @@ each standing in for too much deferred foliage) and underloads at `s`. That poin
 NOT at any pipe constant. `N_def(t)` is the iter-15 machinery (S(t) = N_def/N_DEF_REF); iter-34
 should read `N_def` and `S` per tier out of a grow and ask why the count settles ~2.4x low at m/l.
 
+verdict: continue (Chris, 2026-07-14) — the F_S decomposition is accepted; proceed to iter-34.
+
+## 34 — THE F_S DEFICIT IS THE SIGNATURE OF A RETIRED SIZE-LAW. N_def IS OFF, NOT MIS-VALUED.
+
+**Hypothesis (STATE's iter-34, under test):** F_S settles ~2.4x low at m/l because the deferral
+economy runs `N_def(t) = MASS_CAP*M_sub/n_tips` too HIGH per tip at m/l (`S` low), so the fix
+feeds from `N_def(t)`. **Falsify by reading `N_def`, `S`, `n_tips` per tier out of ONE grow.**
+
+**Change:** NONE. No constant moved, nothing fitted. `tmp/iter34_ndef.py` grows all three tiers
+(1 seed) and dumps the deferral state the bench never records. Pure read.
+
+**Verification (measured, `tmp/iter34_ndef.py`, one grow per tier):**
+
+| tier | age | S | N_def | n_tips | F_S | m_sub kg | r_tip mm | A_sap cm2 |
+|---|---|---|---|---|---|---|---|---|
+| s | 15 | **1.0000** | **21.723** | 17 | 16 | 107.0 | **15.252** | 81.4 |
+| m | 47 | **1.0000** | **21.723** | 51 | 56 | 1404.3 | **15.252** | 242.1 |
+| l | 104 | **1.0000** | **21.723** | 266 | 273 | 14103.9 | **15.252** | 959.9 |
+
+**HYPOTHESIS FALSIFIED AT ITS PREMISE.** `S ≡ 1.0000`, `N_def ≡ N_DEF_REF`, `r_tip ≡ 15.252 mm`
+at **every** tier — bit-identical. N_def does not run high at m/l; it does not run at all. The
+iter-15/19/20 machinery is **inert**: `update_n_def()` short-circuits on `MASS_CAP is None`
+(RETIRED iter-20, line 332/1972), and iter-21's sub-linear replacement was **never coded**. STATE's
+own NEXT block cited a term (`MASS_CAP*M_sub/n_tips`) that is a no-op in the running code — the
+"verify the named constant still exists before acting on it" trap, caught by running not reading.
+
+**The real diagnosis.** The model has NO active size-dependent term feeding per-tip sapwood. `S`
+is the sole one, and it drives BOTH `R_TIP` (`r_tip = R0*DBH_CALIB*S^(1/p)`) AND the per-tip leaf
+load. Pinned at 1, `R_TIP` is uniform, so the only way the model can say "a bigger tree has more
+sapwood" is by growing more armature tips — but census says tips are only ~1.1x off at `l` while
+sapwood is ~2x off, so tips alone cannot carry it. **The 2.4x is the signature of the absent
+size-law**, not a mis-valued N_def. `m_sub` (107/1404/14104 kg) proves the numerator the law would
+feed from IS computed every year — just wired to nothing (MASS_CAP=None).
+
+**iter-33's exoneration is now CONDITIONAL.** It ruled out a UNIFORM R_TIP/c_S (the iter-10
+argument). A SIZE-DEPENDENT R_TIP — from `S>1` at m/l — is untouched, and it hits census sapwood
+just as well as the tip lever: `R_TIP` scaled ~0.87/1.49/1.40 (= sqrt(1/ratio)) satisfies the same
+iter-32 ratios that `F_S` scaled 0.72/2.48/2.17 does. They are the SAME retired term (S), read at
+its two handles. "F_S is the lever" was an artifact of measuring at fixed R_TIP — fixed only
+because S is off. The biological prior (an older armature tip stands for MORE real twigs) favors
+the R_TIP handle. Resolving the degeneracy is the next session's job, not this read's.
+
 verdict: PENDING
 
 ## Staged lessons
@@ -1296,3 +1338,7 @@ and may never edit `~/.claude/rules/`, `CLAUDE.md`, or `MEMORY.md` on its own.
 
 *(Emptied 2026-07-14 by `/distill` — iters 18–32 promoted. Raw entries, and where each one went:
 `ledger_archive/2026-07.md`.)*
+
+- iter-34: A LAW GUARDED BY `if CONST is None: return` IS A NO-OP, and STATE cited it as live for 14
+  iters. "Verify the named term still exists" means RUN it and read the value, not read the equation
+  that names it — a size-dependence measured as `≡1.0000` at every tier is a dead switch, not a fit.
