@@ -1363,6 +1363,12 @@ and may never edit `~/.claude/rules/`, `CLAUDE.md`, or `MEMORY.md` on its own.
   bifurcation or fails to settle, that is refutation #6 — do NOT open a 7th loop. Make R_TIP an allometric
   PRIOR (census/WBE-shaped, imposed exactly like the pipe) and let the rest of the tree emerge around it.
   Generalizes to the ginkgo/magnolia branches: decide per-quantity whether it is a process or a constraint.
+- iter-38 (harness/tooling): DO NOT DOUBLE-BACKGROUND. `nohup … & echo` *inside* a `run_in_background`
+  tool call makes the harness track the wrapper shell (which exits on the `echo`), not the detached
+  python — you get a bogus "completed exit 0" seconds in, and lose the real completion notification. Use
+  `run_in_background` ALONE (no `&`, no `nohup`) so the tool owns the process, or if a process is already
+  detached, block on it with a tracked `while kill -0 PID; do sleep N; done` waiter (one re-invoke on exit,
+  no per-turn polling). Tell that it happened: exit 0 with output that stops mid-first-operation.
 
 ## 35 — THE SUB-LINEAR NUMERATOR, DERIVED. `T_total = K·M_sub^q`, q=2/e_M, loop gain ≤ q < 1.
 
