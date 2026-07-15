@@ -1485,3 +1485,28 @@ retrodicts the iter-36 fold with no free parameter. No grow was run (correct: "n
 
 **verdict: continue (Chris, 2026-07-14)** — "continue, I defer to your judgment." Position B accepted;
 proceed to iter-38 = code B in `update_n_def`, pin C by closed-loop root-find, check conditioning, bench.
+
+## 38 — POSITION B, CODED. S = C·M_sub^q, no n_tips divisor. (fold cut; C-solve running at hand-off)
+
+**Hypothesis (one sentence):** driving `S = C_NDEF·M_sub^Q_MASS` DIRECTLY, dropping the `/n_tips`
+divisor, sets the fold's return-arm gain `d log S/d log n_tips` to 0 — so the m/s/l tiers will
+SETTLE (S(m)=1 by pin, S(s)<1, S(l)>1) with sapwood tracking census upward at l, instead of
+collapsing to n_tips=1; and C pins with single-digit conditioning `d log M/d log C ≈ 1/(1−q) ≈ 2.67`.
+
+**Change (coded, commit 4e404c8):** `update_n_def` now computes `self.s_def = max(C_NDEF·M_sub^Q_MASS,
+S_MIN)` with NO n_tips term; `n_def = S·N_DEF_REF` is PRIMARY, `T_total = N_def·n_tips` floats. New
+constant `C_NDEF` (Position B coefficient) supersedes the retired divisor-form `K_NDEF` (kept as the
+fold's name). Q_MASS unchanged (=2/E_M=0.625, a parsed OUTPUT). Solve harness `tmp/iter38_solve_C.py`
+root-finds C on S(m@47)=1 then measures the conditioning gate. Grower otherwise untouched.
+
+**Verification (IN PROGRESS at hand-off — solve running, PID 730773, ~3 min/grow):**
+- Smoke test (8-yr m grow) + first solve grow both clean: **C=0.006 → S=0.610, M_sub=1797 kg,
+  n_tips=193** (deterministic, cross-checked identical across two processes). **n_tips=193, NOT 1** —
+  first evidence the fold is cut (iter-36's divisor form collapsed the m tier to n_tips=1 at blow-up).
+- PENDING: the pinned C, the conditioning gate (`d log M/d log C`; PASS ≈3, REFUTED ≫10), and the
+  5×{s,m,l} bench (does S SETTLE at S(s)<1/S(m)=1/S(l)>1; does sapwood F_S track census upward at l).
+- ⚠ PRE-REGISTERED STOPPING RULE (iter-37): this is Position B's ONE shot. If C must be tuned near a
+  bifurcation (conditioning ≫10) OR S fails to settle → **refutation #6**; do NOT open a 7th loop —
+  hand back to Chris to make R_TIP an allometric PRIOR (census/WBE-shaped), imposed like the pipe.
+
+verdict: PENDING
