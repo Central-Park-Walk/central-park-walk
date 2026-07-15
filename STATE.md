@@ -3,54 +3,52 @@
 The developmental grower: `scripts/plane_grower.py`. Grow a plane from a seed; let crown, caliber and
 depth **emerge**. Deep history: `LEDGER.md` (append-only) — iterate from here, not from it.
 
-## Where we are — ★★ iter-38: POSITION B REFUTED (#6). Fold CUT (real win) — but R_TIP overshoots caliber.
+## Where we are — ★★ iter-38: POSITION B REFUTED (#6). Fold CUT (real win); sapwood deficit RE-DIAGNOSED.
 
-Position B (`S = C_NDEF·M_sub^Q_MASS`, no n_tips divisor) is coded (commit 4e404c8) and TESTED end-to-end.
-**Two clean wins:** (1) **the fold is cut** — n_tips stayed 135–215 across every grow, never 1; every tree
-finite (l: DBH 139 cm, H 23.6 m, not iter-36's 2.8 m exploded trunk). (2) C pinned cleanly, C_NDEF=0.008442,
-**gate passed** (`d log M/d log C=0.55`, no bifurcation). **But the size-law OVERSHOOTS** and the pre-
-registered "not overshooting" clause fails → refutation #6:
+Position B (`S = C_NDEF·M_sub^Q_MASS`, no n_tips divisor; commit 4e404c8) tested end-to-end (solve + 5×
+bench). **Win:** the fold is cut — n_tips 135–215, never 1; every tree finite (l: DBH 139 cm, not iter-36's
+2.8 m trunk); C pinned clean, gate passed. **Refuted (#6):** the emergent size-law OVERSHOOTS — l DBH
+1.96× census — and q is an OUTPUT so it can't be tuned out. `C_NDEF` left **`None`** (S≡1 baseline still
+ships); Position B code kept as the refutation's named home. Bench cached `tmp/iter38_bench.npz`.
 
-- **DBH at l = 1.96× census** (l trunk ~2× too thick); m→l DBH lever 1.73× census. RESOLVED overshoot.
-- sapwood frac 1.99×→0.75×→**0.23×** s→m→l. DECOMPOSED: F_S 78→174→122 vs F_H (heartwood) 0→248→**975**
-  (8:1 at l) — the fraction collapse is HEARTWOOD, not vanishing sapwood.
-- Both trace to ONE cause: S>1 at l ⇒ larger R_TIP ⇒ thicker DBH (pipe) AND larger `c_heart∝r_tip²`.
-  R_TIP emerging from mass overshoots at l and **cannot be tuned out — q is an OUTPUT.**
-- `C_NDEF` left **`None`** (inert; S≡1 baseline still ships). Position B code kept as this refutation's
-  named home (mirrors K_NDEF/MASS_CAP). Bench cached `tmp/iter38_bench.npz` (`--load` to re-report).
+**Re-diagnosis (this session, w/ Chris):** the R_TIP-prior fix I recommended is a HACK (per-species census
+lookup, un-generalizable). Decomposing the bench, the sap_frac deficit is HEARTWOOD over-fill (F_H 0→248→
+975 vs F_S 78→174→122), a defect iter-32 already saw and iters 33–38 walked past. iter-39 tests that ↓.
 
 ## The board (only a `** RESOLVED **` line is a tell)
 
 1. **★★★ THE S→SHADE→n_tips FOLD — ** RESOLVED (iter-38) **.** /n_tips divisor dropped; n_tips 135–215,
    never 1, across the full bench. Dead regardless of the size-law.
-2. **★★ SIZE-LAW: EMERGENT-S HANDLE REFUTED (#6).** S=C·M^q settles directionally but OVERSHOOTS (l DBH
-   1.96×); q un-tunable. New direction (subsumes old #3/#5): impose **R_TIP as a census/WBE allometric
-   PRIOR** — set to hit census DBH directly, like the pipe — and let mass/sapwood/heartwood emerge around it.
-3. **HEARTWOOD 0→248→975 (8:1 at l)** over-fills — amplified by any large r_tip (`c_heart∝r_tip²`).
-   Leaf-unit LOSS rate, ⛔ NOT `HEART_RATIO`. Couples to #2; an imposed R_TIP must fix this too.
+2. **★★★ SAPWOOD DEFICIT IS PROBABLY HEARTWOOD OVER-FILL, NOT A SIZE-LAW.** Decomposed: F_S 78→174→122 vs
+   F_H (heartwood, cumulative dead terminals) 0→248→**975** (8:1 at l). iter-32 already saw both halves;
+   iters 33–38 chased only sapwood (6 refutations). iter-39 pressure-tests this (see NEXT). ← now the front.
+3. **★ SIZE-LAW / R_TIP-as-PRIOR — ON HOLD.** Emergent S=C·M^q refuted (#6, overshoots l DBH 1.96×). The
+   imposed-R_TIP-prior fix is a HACK as first phrased (per-species census lookup, doesn't generalize) — do
+   NOT pursue until #2 is resolved. If #2 confirms heartwood, DBH was ~OK emergent (S≡1 gave l 1.25×).
 
-## NEXT — iter-39: CHRIS'S CALL — adopt the R_TIP-as-allometric-PRIOR direction? (canonical change)
+## NEXT — iter-39: PRESSURE-TEST — is the sapwood deficit a LOSS-RATE defect, not a size-law defect?
 
-Refutation #6 fired per iter-37's pre-registered stopping rule: **do NOT open a 7th emergent-loop.** The
-recommended direction (iter-37 + iter-38 evidence) is to make **R_TIP an imposed allometric prior** —
-R_TIP(size) set to hit census DBH directly (census/WBE-shaped, imposed exactly like the pipe), and let
-mass/sapwood/heartwood emerge AROUND it. This is a **canonical design change** (emergent-S → imposed-R_TIP);
-it needs Chris's sign-off before any code. When adopted, write an ADR position analysis FIRST (as iter-37
-did), then code + bench. ⚠ Do not re-pin C or re-open the shade loop — those are closed.
+**Hypothesis:** the sap_frac deficit is HEARTWOOD over-accumulation, driven by the shed loss-rate
+`TAU_SHED` (line 707, "the ONE free param"; F_H = cumulative shed terminals → heartwood via c_H=c_S). NOT
+R_TIP. **Test (no new code, R_TIP untouched):** keep `C_NDEF=None` (S≡1 baseline), sweep TAU_SHED DOWN
+from 0.18 at 2–3 values via `plane_bench.py --set TAU_SHED=<v>` (5×{s,m,l}); read sap_frac + F_H/F_S + DBH.
+**Confirmed if:** sap_frac rises toward census 0.50 at m/l and F_H/F_S falls toward ~1 at a PLAUSIBLE
+TAU_SHED, WITHOUT breaking crown geometry (foliage spread, DBH stay sane). **THE FORK (pre-registered):**
+because F_H is cumulative-FOREVER with c_H=c_S (both DERIVED, not knobs), sap_frac may fall with age
+*structurally* regardless of rate — so if it is INSENSITIVE to TAU_SHED (or needs a τ so low the crown
+never self-prunes), the defect is the Aye-2022 heartwood MODEL choice (does old disused pipe stay at full
+c_S bore forever?), a canonical question tied to iter-29's c_H/c_S "leak's-twin" derivation — Chris's call.
+⚠ Do NOT re-pin C, re-open the shade loop, or touch R_TIP — those are closed/held. ONE knob: TAU_SHED.
 
 ## Rails — each cost a session; do not re-litigate
 
 - ⛔ **★★★ GAIN EVERY LOOP THE TERM CLOSES, NOT THE ONE YOU FRAMED** (36/37) — "n_tips cancels" was true
   in the income IDENTITY, false in the DYNAMICS; the fold lived there. DEAD now (divisor removed).
-- ⛔ **★★★ q/K ARE OUTPUTS.** `Q_MASS=2/E_M` (parsed, not typed 3/4); WBE `M^(3/4)` is the VALIDATOR.
-  iter-38: q un-tunable is WHY emergent R_TIP can't be de-overshot → the case for an IMPOSED prior.
-- ⛔ **C_NDEF stays `None` ON PURPOSE** (refuted #6) — NOT the iter-34 "None=no-op" trap; Position B is
-  meant to be inert. The Position B code is the refutation's named home (mirrors K_NDEF/MASS_CAP).
-- ⛔ **★★ n=1 CANNOT MEASURE A RATIO** (30). `plane_bench.py` 5×{s,m,l} ≈ 16 min (wall≈slowest l ~960 s);
-  records `m_sub`/`S`. iter-38 cache `tmp/iter38_bench.npz`. Never fit a `-- noise --` line.
-- ⛔ **★★ A GATE MUST CONFIRM THE NULL BEFORE ITS SLOPE** (36) — solve pins S(m)=1 (|S−1|<0.02) THEN reads
-  conditioning. **HARNESS:** never double-background (`nohup … &` inside `run_in_background` — staged in LEDGER).
-- ⚠ **Papers on disk** (`tmp/papers/`): Shinozaki I+II, Aye 2022, Hellström 2018, WBE/Enquist. LEDGER APPEND-ONLY.
+- ⛔ **★★★ q/K & HEART_RATIO ARE OUTPUTS.** `Q_MASS=2/E_M`, `c_H=c_S` — DERIVED, not knobs (q un-tunable is
+  WHY emergent R_TIP overshoots). `C_NDEF` stays `None` ON PURPOSE (refuted, not the iter-34 no-op trap).
+- ⛔ **★★ n=1 CANNOT MEASURE A RATIO** (30) — `plane_bench.py` 5×{s,m,l} ≈ 16 min; never fit a `-- noise --`
+  line. **★★ A GATE CONFIRMS THE NULL BEFORE ITS SLOPE** (36). **HARNESS:** never double-background (LEDGER).
+- ⚠ **Papers on disk** (`tmp/papers/`): Shinozaki I+II, Aye 2022 (heartwood), Hellström 2018, WBE. APPEND-ONLY.
 
 ## Housekeeping
 

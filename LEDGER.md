@@ -1363,6 +1363,14 @@ and may never edit `~/.claude/rules/`, `CLAUDE.md`, or `MEMORY.md` on its own.
   bifurcation or fails to settle, that is refutation #6 — do NOT open a 7th loop. Make R_TIP an allometric
   PRIOR (census/WBE-shaped, imposed exactly like the pipe) and let the rest of the tree emerge around it.
   Generalizes to the ginkgo/magnolia branches: decide per-quantity whether it is a process or a constraint.
+- iter-38: GENERALIZABILITY IS A HACK-DETECTOR. When unsure whether a fix is a hack (output-as-parameter)
+  or a real mechanism, ask "does it travel to the next instance?" A per-species/per-case lookup fit to the
+  ANSWER (here R_TIP→census DBH) is the least generalizable thing there is — that non-transferability IS
+  the tell it's dialing an output. A true structural prior (the pipe model) travels with ≤1 tuned param.
+- iter-38: DECOMPOSE FIRST, THEN YOU KNOW WHICH HALF TO CHASE. iter-32 decomposed the sap_frac deficit into
+  two OPPOSITE errors (sapwood low, heartwood high); the arc then chased ONLY the sapwood half via a size-
+  law and refuted it 6× across iters 33–38, while the larger/more-divergent heartwood half sat parked as
+  "board #4, after #1". Re-derive which COMPONENT is the driver before opening loop N+1 on the other one.
 - iter-38 (harness/tooling): DO NOT DOUBLE-BACKGROUND. `nohup … & echo` *inside* a `run_in_background`
   tool call makes the harness track the wrapper shell (which exits on the `echo`), not the detached
   python — you get a bogus "completed exit 0" seconds in, and lose the real completion notification. Use
@@ -1529,4 +1537,11 @@ census DBH directly (census/WBE-shaped, imposed exactly like the area-preserving
 sapwood, heartwood emerge AROUND it. This is a canonical design change (emergent-S → imposed-R_TIP);
 it is Chris's call. The fold-cut finding stands regardless of that decision.
 
-verdict: PENDING
+verdict: accepted-refutation + REDIRECT (Chris, 2026-07-14) — "is this a hack? is it generalizable to
+other tree sculpture?" Both land: the R_TIP→census-DBH prior AS RECOMMENDED is a hack (output-as-
+parameter, the cardinal sin) and NOT generalizable (a per-species census lookup gives ginkgo/magnolia/
+sculpture nothing). Generalizability is the discriminator. Deeper: DECOMPOSED, the sapwood-fraction
+deficit is HEARTWOOD over-fill (F_H 0→248→975 vs F_S 78→174→122), which iter-32 already flagged — the
+iter-33–38 arc chased the sapwood half via a size-law and refuted 6×, while the heartwood half sat parked.
+DIRECTION: do NOT adopt the R_TIP prior yet. iter-39 = pressure-test whether the deficit is a LOSS-RATE
+(TAU_SHED) defect, not a size-law defect — with R_TIP untouched. See STATE NEXT for the pre-registration.
