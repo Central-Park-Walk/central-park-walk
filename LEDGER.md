@@ -1354,6 +1354,15 @@ and may never edit `~/.claude/rules/`, `CLAUDE.md`, or `MEMORY.md` on its own.
   PASS by measuring d log S/d log K between two already-EXPLODED points (S=94 vs 150) — it never checked
   that S≈1 was actually achieved at the "root". A residual/sensitivity estimator ships with a null
   control (rule: "a residual estimator MUST ship with a null control"); a stability one must too.
+- iter-37: AN ALLOMETRIC CONSTRAINT IS NOT A PROCESS — forcing a *law* to emerge from a within-sim feedback
+  loop fights the grain, and "emerge, don't dial" HAS AN EDGE the size-law is past. Tell: we already impose
+  the sister allometry (area-preserving pipe) as a coded invariant, yet demand its twin (size↔caliber /
+  WBE M^¾, a closed-form law) fall out of a marker-resolution shade loop — which has exploded 5×, each with
+  a fresh mechanism. That inconsistent emerge/constrain line, not any one loop, may be the real defect.
+  PRE-REGISTERED STOPPING RULE: give Position B (iter-38) ONE shot; if it too needs C tuned near a
+  bifurcation or fails to settle, that is refutation #6 — do NOT open a 7th loop. Make R_TIP an allometric
+  PRIOR (census/WBE-shaped, imposed exactly like the pipe) and let the rest of the tree emerge around it.
+  Generalizes to the ginkgo/magnolia branches: decide per-quantity whether it is a process or a constraint.
 
 ## 35 — THE SUB-LINEAR NUMERATOR, DERIVED. `T_total = K·M_sub^q`, q=2/e_M, loop gain ≤ q < 1.
 
