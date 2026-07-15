@@ -3,56 +3,58 @@
 The developmental grower: `scripts/plane_grower.py`. Grow a plane from a seed; let crown, caliber and
 depth **emerge**. Deep history: `LEDGER.md` (append-only) — iterate from here, not from it.
 
-## Where we are — ★★ iter-38: POSITION B CODED + PINNED + GATE PASSED. Bench running at hand-off.
+## Where we are — ★★ iter-38: POSITION B REFUTED (#6). Fold CUT (real win) — but R_TIP overshoots caliber.
 
-`update_n_def` now drives `S = C_NDEF·M_sub^Q_MASS` DIRECTLY (commit 4e404c8), dropping the `/n_tips`
-divisor of the iter-36 form. This cuts the fold's return arm (`d log S/d log n_tips = 0`) — the channel
-iter-36 exploded through. `N_def=S·N_DEF_REF` is now PRIMARY; `T_total=N_def·n_tips` floats. `C_NDEF`
-supersedes the retired `K_NDEF`. Q_MASS=0.625 unchanged (=2/E_M, a parsed OUTPUT).
+Position B (`S = C_NDEF·M_sub^Q_MASS`, no n_tips divisor) is coded (commit 4e404c8) and TESTED end-to-end.
+**Two clean wins:** (1) **the fold is cut** — n_tips stayed 135–215 across every grow, never 1; every tree
+finite (l: DBH 139 cm, H 23.6 m, not iter-36's 2.8 m exploded trunk). (2) C pinned cleanly, C_NDEF=0.008442,
+**gate passed** (`d log M/d log C=0.55`, no bifurcation). **But the size-law OVERSHOOTS** and the pre-
+registered "not overshooting" clause fails → refutation #6:
 
-**SOLVE DONE (`tmp/iter38_solve.log`): C_NDEF = 0.008442**, clean monotone bracket → S(m)=1.02. GATE
-PASSED — `d log S/d log C=1.37`, `d log M/d log C=0.55` (both ≪10, no bifurcation; internally consistent).
-**THE FOLD IS CUT:** n_tips stayed **135–215 across every grow, never 1** (iter-36 collapsed to 1).
+- **DBH at l = 1.96× census** (l trunk ~2× too thick); m→l DBH lever 1.73× census. RESOLVED overshoot.
+- sapwood frac 1.99×→0.75×→**0.23×** s→m→l. DECOMPOSED: F_S 78→174→122 vs F_H (heartwood) 0→248→**975**
+  (8:1 at l) — the fraction collapse is HEARTWOOD, not vanishing sapwood.
+- Both trace to ONE cause: S>1 at l ⇒ larger R_TIP ⇒ thicker DBH (pipe) AND larger `c_heart∝r_tip²`.
+  R_TIP emerging from mass overshoots at l and **cannot be tuned out — q is an OUTPUT.**
 
-**⚠ BENCH RUNNING at hand-off** — `scripts/plane_bench.py --set C_NDEF=0.008442 --out tmp/iter38_bench.npz`
-(task `bj6z6fege`, log `tmp/iter38_bench.log`), ~20-25 min. It is the DECIDER: does S settle across tiers
-and does sapwood F_S track census upward at l? `C_NDEF` is NOT yet frozen — that waits on this bench.
+`C_NDEF` left **`None`** (inert; S≡1 baseline still ships). Position B code KEPT as this refutation's named
+home (mirrors K_NDEF/MASS_CAP). Bench cached `tmp/iter38_bench.npz` (`--load` to re-report).
 
 ## The board (only a `** RESOLVED **` line is a tell)
 
-1. **★★★ THE S→SHADE→n_tips FOLD — CUT IN CODE (iter-38), VERIFICATION PENDING.** Divisor dropped;
-   n_tips=193 not 1 is the first confirmation. ⛔ Not closed until the bench shows S SETTLES.
-2. **★ SIZE-LAW STILL OFF.** With S≡1 the tree was scale-free in tips; census wants sapwood ~2× larger
-   at l (F_S 2.4× low at m/l). B routes the size signal into R_TIP via S>1 at l — verify at the bench.
-3. **★ R_TIP vs F_S degeneracy** — B IS the R_TIP handle (size-dependent R_TIP off M_sub, no n_tips loop).
-4. **HEARTWOOD 1.77→2.63×** over-fills with size — leaf-unit LOSS rate, ⛔ NOT `HEART_RATIO`. After #1.
-5. **`s` DBH floor** — DBH floored at `2·R_TIP` at any age (uniform-R_TIP floor). After #1.
+1. **★★★ THE S→SHADE→n_tips FOLD — ** RESOLVED (iter-38) **.** Dropping the /n_tips divisor cut it:
+   n_tips 135–215, never 1, across the full 5×{s,m,l} bench. The fold is dead regardless of the size-law.
+2. **★★ SIZE-LAW: EMERGENT-S HANDLE REFUTED (iter-38, #6).** Routing size into R_TIP via S=C·M^q settles
+   directionally but OVERSHOOTS (l DBH 1.96× census); q is an OUTPUT, un-tunable. New direction: impose
+   R_TIP as a census/WBE-shaped allometric PRIOR (Chris's call — see NEXT). This subsumes old #2/#3.
+3. **★ R_TIP is the handle — but IMPOSED, not emergent.** iter-38 proved emergent R_TIP overshoots; the
+   prior sets R_TIP to hit census DBH directly, like the area-preserving pipe is imposed.
+4. **HEARTWOOD 0→248→975 (8:1 at l)** over-fills — AMPLIFIED by any large r_tip (`c_heart∝r_tip²`).
+   Leaf-unit LOSS rate, ⛔ NOT `HEART_RATIO`. Couples to #3; an imposed R_TIP must fix this too.
+5. **`s` DBH 0.57× census** — under Position B the sapling trunk went thin (S<1 floors R_TIP small).
+   An imposed census-shaped R_TIP would set the small end directly. Folds into #3.
 
-## NEXT — iter-39: READ THE BENCH (`tmp/iter38_bench.log`), then judge SETTLE + sapwood tracking.
+## NEXT — iter-39: CHRIS'S CALL — adopt the R_TIP-as-allometric-PRIOR direction? (canonical change)
 
-1. Read the bench (5×{s,m,l}, C=0.008442). Judge two things: does S SETTLE (S(s)<1, S(m)≈1, S(l)>1)?
-   Does F_S (sapwood) track census UPWARD at l — closing the ~2.4× board-#2 deficit, not overshooting?
-2. If PASS on both → **freeze C_NDEF=0.008442 in `plane_grower.py`** (replace the `None`) and commit.
-   Then the fold + size-law are both handled; board #1/#2/#3 resolve; move to heartwood (#4).
-3. **⛔ PRE-REGISTERED STOPPING RULE (iter-37):** this is Position B's ONE shot. The gate already passed,
-   so the live risk is SETTLE/TRACK. If S fails to settle OR sapwood doesn't track (or overshoots badly)
-   → **refutation #6.** Do NOT open a 7th loop. Hand back to Chris: make R_TIP an allometric PRIOR
-   (census/WBE-shaped), imposed like the pipe, and let the rest of the tree emerge around it.
+Refutation #6 fired per iter-37's pre-registered stopping rule: **do NOT open a 7th emergent-loop.** The
+recommended direction (iter-37 + iter-38 evidence) is to make **R_TIP an imposed allometric prior** —
+R_TIP(size) set to hit census DBH directly (census/WBE-shaped, imposed exactly like the pipe), and let
+mass/sapwood/heartwood emerge AROUND it. This is a **canonical design change** (emergent-S → imposed-R_TIP);
+it needs Chris's sign-off before any code. When adopted, write an ADR position analysis FIRST (as iter-37
+did), then code + bench. ⚠ Do not re-pin C or re-open the shade loop — those are closed.
 
 ## Rails — each cost a session; do not re-litigate
 
-- ⛔ **★★★ GAIN EVERY LOOP THE TERM CLOSES, NOT THE ONE YOU FRAMED** (36/37). §2 gated the mass loop and
-  missed the fold by asserting "n_tips cancels" — true in the income IDENTITY, false in the DYNAMICS. B
-  cuts that loop at the source by removing the divisor; the only loop left is the ≤q<1 mass loop.
-- ⛔ **★★★ A LAW GUARDED BY `if CONST is None: return` IS A NO-OP** (34). `C_NDEF=None` now = S≡1 baseline.
-  The pin must be FROZEN into the constant (not left None) or Position B ships inert like MASS_CAP did.
+- ⛔ **★★★ GAIN EVERY LOOP THE TERM CLOSES, NOT THE ONE YOU FRAMED** (36/37) — "n_tips cancels" was true
+  in the income IDENTITY, false in the DYNAMICS; the fold lived there. DEAD now (divisor removed).
 - ⛔ **★★★ q/K ARE OUTPUTS.** `Q_MASS=2/E_M` (parsed, not typed 3/4); WBE `M^(3/4)` is the VALIDATOR.
-- ⛔ **★★ AN n=1 INSTRUMENT CANNOT MEASURE A RATIO** (30). `plane_bench.py` 5×{s,m,l} ≈ 20-25 min (records
-  `m_sub`/`S`). Baseline `tmp/iter31_bench.npz`. Never fit a `-- noise --` line.
-- ⛔ **★★ A GATE MUST CONFIRM THE NULL BEFORE READING ITS SLOPE** (36) — the iter-38 solve pins S(m)=1 FIRST
-  (|S−1|<0.02), THEN measures conditioning. A gate read between two exploded points is meaningless.
-- ⛔ **HARNESS:** don't double-background (`nohup … &` inside `run_in_background` loses the notification —
-  bit me this iter, staged in LEDGER). HEART_RATIO is not a knob; fix what feeds the bank (leaf-loss rate).
+  iter-38: q un-tunable is WHY emergent R_TIP can't be de-overshot → the case for an IMPOSED prior.
+- ⛔ **C_NDEF stays `None` ON PURPOSE** (refuted #6) — NOT the iter-34 "None=no-op" trap; Position B is
+  meant to be inert. The Position B code is the refutation's named home (mirrors K_NDEF/MASS_CAP).
+- ⛔ **★★ n=1 CANNOT MEASURE A RATIO** (30). `plane_bench.py` 5×{s,m,l} ≈ 16 min (wall≈slowest l ~960 s);
+  records `m_sub`/`S`. iter-38 cache `tmp/iter38_bench.npz`. Never fit a `-- noise --` line.
+- ⛔ **★★ A GATE MUST CONFIRM THE NULL BEFORE ITS SLOPE** (36) — solve pins S(m)=1 (|S−1|<0.02) THEN reads
+  conditioning. **HARNESS:** never double-background (`nohup … &` inside `run_in_background` — staged in LEDGER).
 - ⚠ **Papers on disk** (`tmp/papers/`): Shinozaki I+II, Aye 2022, Hellström 2018, WBE/Enquist. LEDGER APPEND-ONLY.
 
 ## Housekeeping

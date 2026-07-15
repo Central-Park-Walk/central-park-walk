@@ -1499,17 +1499,34 @@ constant `C_NDEF` (Position B coefficient) supersedes the retired divisor-form `
 fold's name). Q_MASS unchanged (=2/E_M=0.625, a parsed OUTPUT). Solve harness `tmp/iter38_solve_C.py`
 root-finds C on S(m@47)=1 then measures the conditioning gate. Grower otherwise untouched.
 
-**Verification — SOLVE DONE (`tmp/iter38_solve.log`), bench running at hand-off:**
-- **C_NDEF = 0.008442**, pinned by a CLEAN monotone bracket (S(m) 0.61→1.15 across C 0.006→0.0096),
-  bisection converged to S(m)=1.02. Contrast iter-36's divisor form: NO stable root existed there.
-- **GATE PASSED:** `d log S/d log C = 1.37`, `d log M_sub/d log C = 0.55` — both ≪10, no bifurcation.
-  Internally consistent (`1 + q·0.55 = 1.34 ✓`). The mass loop is very tame (M barely moves with C).
-- **THE FOLD IS CUT:** n_tips stayed **135–215 across every one of the ~11 grows, never 1** — where
-  iter-36's divisor form collapsed the m tier to n_tips=1 at blow-up. Deterministic (cross-checked).
-- PENDING: the 5×{s,m,l} bench (`--set C_NDEF=0.008442`, running) — does S SETTLE at S(s)<1/S(m)=1/
-  S(l)>1, and does sapwood F_S track census UPWARD at l? That is the size-law's core claim (board #2).
-- ⚠ PRE-REGISTERED STOPPING RULE (iter-37): this is Position B's ONE shot. If C must be tuned near a
-  bifurcation (conditioning ≫10) OR S fails to settle → **refutation #6**; do NOT open a 7th loop —
-  hand back to Chris to make R_TIP an allometric PRIOR (census/WBE-shaped), imposed like the pipe.
+**Verification — SOLVE + BENCH DONE. Gate PASSED, fold CUT — but the size-law OVERSHOOTS. → refutation #6.**
+
+*Solve (`tmp/iter38_solve.log`):* **C_NDEF = 0.008442**, CLEAN monotone bracket (S(m) 0.61→1.15 across
+C 0.006→0.0096), converged S(m)=1.02. **GATE PASSED:** `d log S/d log C=1.37`, `d log M/d log C=0.55`
+(both ≪10, no bifurcation; consistent `1+q·0.55=1.34 ✓`). Contrast iter-36: NO stable root existed.
+**THE FOLD IS CUT:** n_tips 135–215 across every grow, **never 1** (iter-36 collapsed to 1). REAL WIN.
+
+*Bench (`tmp/iter38_bench.npz`, 5×{s,m,l}, C=0.008442, wall 963 s):* every tree FINITE (l: DBH 139 cm,
+H 23.6 m — not iter-36's 2.8 m exploded trunk). But the settle/track prediction FAILS:
+
+| observable | s | m | l | verdict |
+|---|---|---|---|---|
+| DBH ×census | 0.57× | 1.14× | **1.96×** (RESOLVED) | l trunk ~2× too thick |
+| sapwood frac ×census | 1.99× | 0.75× | **0.23×** | fraction collapses |
+| m→l DBH lever | — | — | **1.73× census** (2.84 vs 1.65) | overshoots |
+
+**DECOMPOSED (rail: sap_frac is a smoke alarm).** The fraction collapse at l is HEARTWOOD, not sapwood:
+F_S (sapwood) 78→174→122, F_H (heartwood) 0→248→**975** (8:1 at l). Both the DBH overshoot AND the
+heartwood blow-up trace to the SAME cause — S>1 at l ⇒ larger R_TIP ⇒ thicker DBH (pipe) **and** larger
+`c_heart = HEART_RATIO·π·r_tip²`. S settles DIRECTIONALLY (S(s)<1 thins the sapling, S(l)>1 fattens the
+old tree — mechanism works, fold cut, gate clean), but R_TIP emerging from mass **overshoots caliber at
+l and cannot be tuned out — q is an OUTPUT.** Exactly the failure iter-37's stopping rule pre-registered.
+
+**⇒ REFUTATION #6 (per iter-37's pre-registered stopping rule).** Do NOT open a 7th loop. C_NDEF left
+`None` (inert; the S≡1 baseline still ships); the Position B code kept as this refutation's named home
+(mirrors K_NDEF/MASS_CAP). Recommend to Chris: make R_TIP an **allometric PRIOR** — set R_TIP to hit
+census DBH directly (census/WBE-shaped, imposed exactly like the area-preserving pipe), and let mass,
+sapwood, heartwood emerge AROUND it. This is a canonical design change (emergent-S → imposed-R_TIP);
+it is Chris's call. The fold-cut finding stands regardless of that decision.
 
 verdict: PENDING
