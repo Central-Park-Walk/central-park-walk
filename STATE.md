@@ -3,76 +3,62 @@
 The developmental grower: `scripts/plane_grower.py`. Grow a plane from a seed; let crown, caliber and
 depth **emerge**. Deep history: `LEDGER.md` (append-only) — iterate from here, not from it.
 
-## Where we are — ★★★ iter-34: THE SIZE-LAW IS SWITCHED OFF. `S ≡ 1` AT EVERY TIER — MEASURED.
+## Where we are — ★★ iter-35: THE SIZE-LAW NUMERATOR IS DERIVED. Loop gain computed, gate PASSED, WBE on disk.
 
-iter-34 read the deferral economy out of one grow per tier (`tmp/iter34_ndef.py`, no fit). Result is
-bit-identical across s/m/l:
+Design/ADR session (no grower change). Closed the open problem iter-20/21 left in `update_n_def`.
+**Result → [`docs/adr_grower_size_law_numerator.md`](docs/adr_grower_size_law_numerator.md) (PROPOSED,
+awaiting Chris's sign-off).** The form:
 
-| tier | S | N_def | r_tip | m_sub kg | A_sap cm2 |
-|---|---|---|---|---|---|
-| s | **1.0000** | 21.723 | 15.252 mm | 107 | 81 |
-| m | **1.0000** | 21.723 | 15.252 mm | 1404 | 242 |
-| l | **1.0000** | 21.723 | 15.252 mm | 14104 | 960 |
+> **`N_def = K · M_sub^q / n_tips`**, so **`T_total = N_def·n_tips = K·M_sub^q`**, with
+> **`q = 2/e_M`** — the ratio of the area-preserving pipe exponent (2) to the model's *measured*
+> mass–radius exponent `e_M`. WBE's leaf ∝ M^(3/4) is the VALIDATOR, not the typed input.
 
-STATE's iter-34 hypothesis ("N_def too high per tip at m/l") is **FALSIFIED at the premise**: N_def
-does not run high — it does not run at all. `update_n_def()` short-circuits on `MASS_CAP is None`
-(RETIRED iter-20), so `S` never leaves 1.0 and `R_TIP` is uniform. The iter-15/19/20 machinery has
-been **inert for 14 iterations**, and iter-21's sub-linear replacement was never coded. `m_sub`
-(107→14104 kg) shows the numerator the law would feed from IS computed every year, wired to nothing.
-
-⇒ **The F_S 2.4x deficit is the signature of the ABSENT size-law, not a mis-valued N_def.** `S` is the
-sole size-dependent term feeding sapwood, and it drives BOTH `R_TIP` and the per-tip load. Off, the
-model can only say "bigger ⇒ more sapwood" by growing more tips — which census forbids (tips ~1.1x off
-at `l`, sapwood ~2x off).
+- **Loop gain (the gate, computed on paper before any line):** income `∝ S·L`, n_tips cancels ⇒
+  `I ∝ M^q·ℓ̄`, self-shading makes ℓ̄ non-increasing ⇒ **whole-crown gain `g ≤ q`**. Bifurcation is
+  **at q=1** (that IS iter-20's 0.99); any q<1 is stable, conditioning `d log M/d log K = 1/(1−q)`.
+  Model's measured `e_M≈3.19` ⇒ **q≈0.63**, or WBE-ideal 0.75 — both < 1, margin ≥0.25. ✓
+- **WBE discharged:** `tmp/papers/wbe_quarterpower_arxiv1507.07820.pdf` + `.txt` on disk & READ —
+  da Vinci area-preserving (r² conserved) ∘ Greenhill/McMahon elastic similarity (`l∝r^(2/3)`) → 3/4.
+  ⚠ Paper: real trees run *steeper than 2/3* at small scale ⇒ MEASURE the model's e_M, don't type 8/3.
+- **Predicted (pre-registered):** S rises ~2.5× s→l ⇒ R_TIP ~1.5× ⇒ sapwood ~2× extra at l — closes
+  F_S **without a tip explosion** (census forbids it). HOLD: height, foliage, tip count.
 
 ## The board (n=5; only a `** RESOLVED **` line is a tell)
 
-1. **★★ THE SIZE-LAW IS OFF (`MASS_CAP=None`).** This subsumes the whole "F_S wrong-shaped" story
-   (iter-33). Restoring `S>1` at m/l lifts `R_TIP` → lifts sapwood at m/l — the shape census wants.
-2. **★ iter-33's R_TIP exoneration is CONDITIONAL** — it killed a UNIFORM R_TIP only. A SIZE-DEPENDENT
-   R_TIP (`R_TIP ~0.87/1.49/1.40`) hits census sapwood exactly as well as `F_S ~0.72/2.48/2.17` does;
-   same retired term (`S`), two handles. Biology (older tip ⇒ more real twigs) favors the R_TIP handle.
-3. **★ HEARTWOOD AREA 1.77x → 2.63x** — over-fills with size. Suspect the RATE of leaf-unit LOSS that
-   feeds it; ⛔ NOT `HEART_RATIO`. Take it after the size-law is back.
-4. **`s` broken separately** — DBH floored at `2*R_TIP` = 10.3 cm at any age (the uniform-R_TIP floor).
-- **NOT tells:** crown r_p50 (needs n~7) · height (1.01/1.03x — rail) · foliage count (90–112% spread).
+1. **★★ SIZE-LAW OFF, and now a numerator to turn it back on (ADR-A).** Next session codes it.
+2. **★ R_TIP vs F_S degeneracy** — a size-dependent R_TIP (from S>1) hits census sapwood as well as F_S
+   does; same retired term (S), two handles. ADR-A drives the R_TIP handle (biology favors it). ADR-C rej.
+3. **★ HEARTWOOD 1.77→2.63×** over-fills with size — leaf-unit LOSS rate, ⛔ NOT `HEART_RATIO`. After the size-law.
+4. **`s` broken separately** — DBH floored at `2·R_TIP`=10.3 cm at any age (the uniform-R_TIP floor).
+- **NOT tells:** crown r_p50 (n~7) · height (1.01/1.03× — rail) · foliage count (90–112%).
 
-## NEXT — iter-35: DERIVE the sub-linear N_def numerator (iter-21's open problem). DESIGN, not a fit.
+## NEXT — iter-36: CODE ADR-A (pending sign-off). One line in `update_n_def`; K by S(m)=1; gate = conditioning.
 
-**Hypothesis to earn:** a size-dependent `N_def` that is SUB-LINEAR in `m_sub` gives `S>1` at m/l,
-raising `R_TIP` and thus sapwood into census shape, WITHOUT the tip explosion census forbids.
-**This is the careful session, and the rails are loaded:** (a) ⛔ iter-20 — linear-in-mass is a
-transcritical bifurcation (loop gain ~1); the numerator MUST be sub-linear and **the whole-crown
-loop gain computed BEFORE the line is written**. (b) ⛔ **DO NOT code `M^(3/4)` as a parameter** — it
-is an OUTPUT; `b(n)=beta*(n+1)^d` (Hellström) is the VALIDATOR, never an input. (c) ⚠ WBE/Enquist is
-NOT on disk (`tmp/papers/` has Shinozaki, Aye, Hellström; Berry+Xu web) — OPEN it before coding.
-Likely warrants an ADR. Probably a `/song-prep`-shaped design session, then a code iter.
+`N_def = K·M_sub^q/n_tips`. (1) probe the model's mass–radius exponent, freeze `q=2/e_M` as a *derived*
+constant (parsed, not typed). (2) root-find K on S(m@47yr)=1 (iter-20's harness). (3) **GATE: verify
+`d log M/d log K = 1/(1−q) ≈ 3–4`; if ≫10, q is near 1 — STOP, A is wrong.** (4) bench 5×{s,m,l}, read
+F_S/F_H/R_TIP vs census. Refuted-if in ADR §5.
 
 ## Rails — each cost a session; do not re-litigate
 
-- ⛔ **★★★ A LAW GUARDED BY `if CONST is None: return` IS A NO-OP** (iter-34). Verify a named term is
-  live by RUNNING and reading its value, not by reading the equation. `MASS_CAP=None` made the size-law
-  inert for 14 iters while STATE cited it as active.
-- ⛔ **★★★ DECOMPOSE A RATIO BEFORE YOU READ ITS SHAPE** (iter-32). Two errors that cancel look like one
-  small error — DBH's 1.05x hid sapwood 0.45x and heartwood 1.77x.
-- ⛔ **★★★ A UNIFORM SCALAR CANNOT MAKE A TIER-VARYING SHAPE** (iter-10/33) — but a SIZE-DEPENDENT one
-  can, and `S` is exactly that. The iter-33 exoneration was of the UNIFORM case only (see board #2).
-- ⛔ **★★★ AN n=1 INSTRUMENT CANNOT MEASURE A RATIO** (iter-30). `plane_bench.py`: n seeds × tiers in
-  parallel (5×{s,m,l} ≈ **20 min wall**; a 1-seed 3-tier read ≈ **17 min**). Baseline cached
-  **`tmp/iter31_bench.npz`** (dbh/h/rp50/rp90/nfol/sap/F_S/F_H per seed). `--load` re-reports free;
-  `--set K=V` for a paired fit. **Never fit against a `-- noise --` line.**
-- ⛔ **★★ HEART_RATIO IS NOT A KNOB** — fix what FEEDS the bank (rate of leaf-unit loss), not c_H.
-  `F_H = 0` is a STARVATION signature, never a win.
-- ⛔ **★★ ECONOMY STRUCTURE EXONERATED** — numerator(22), denominator(26), light law(25); only SCALE
-  refit. **STATICS(21) · DROOP/vigour(28) EXONERATED** · crown-at-`m` deficit was NOISE(31).
-- ⛔ **★ COMPUTE THE LOOP GAIN BEFORE YOU CODE THE TERM** (20). `K(n)=alpha(n+1)^d` makes DBH analytic
-  in age; **b(n) is the VALIDATOR, not an input.**
-- ⚠ **NEVER cite a paper you have not OPENED.** On disk (`tmp/papers/`): Shinozaki 1964 I+II, Aye 2022,
-  Hellström 2018. Berry 2024 + Xu 2014 opened (web). **WBE/Enquist is NOT yet on disk.**
+- ⛔ **★★★ A LAW GUARDED BY `if CONST is None: return` IS A NO-OP** (iter-34). Verify a term is live by
+  RUNNING and reading its value. `MASS_CAP=None` made the size-law inert for 14 iters.
+- ⛔ **★★★ COMPUTE THE LOOP GAIN BEFORE YOU CODE THE TERM** (20/35). A feedback term (reads what income
+  built) is admissible ONLY if gain<1. Linear-in-mass = gain 1 = transcritical bifurcation. Sub-linear q<1.
+- ⛔ **★★★ q IS AN OUTPUT.** `M^(3/4)`/`(n+1)^d` are VALIDATORS, never inputs. Derive q from two measured
+  structural exponents (ADR §3); a typed exponent is the OUTPUT-as-parameter trap (5× now).
+- ⛔ **★★★ DECOMPOSE A RATIO BEFORE READING ITS SHAPE** (32); **A UNIFORM SCALAR CAN'T MAKE A TIER-VARYING
+  SHAPE but a SIZE-DEPENDENT one can** (10/33) — `S` is exactly that; iter-33 exonerated the UNIFORM case only.
+- ⛔ **★★ AN n=1 INSTRUMENT CANNOT MEASURE A RATIO** (30). `plane_bench.py`: n seeds × tiers, 5×{s,m,l}
+  ≈ **20 min**; 1-seed 3-tier ≈ **17 min**. Baseline **`tmp/iter31_bench.npz`** (`--load` free; `--set K=V`
+  paired). Never fit against a `-- noise --` line.
+- ⛔ **★★ HEART_RATIO IS NOT A KNOB** — fix what FEEDS the bank (leaf-loss rate). `F_H=0` = starvation.
+- ⛔ **★★ ECONOMY STRUCTURE EXONERATED** — numerator(22)/denominator(26)/light(25)/STATICS(21)/DROOP(28);
+  crown-at-`m` was NOISE(31). Only SCALE refit remains.
+- ⚠ **Papers on disk** (`tmp/papers/`): Shinozaki I+II, Aye 2022, Hellström 2018, **WBE/Enquist (iter-35)**.
 - ⚠ **LEDGER is APPEND-ONLY;** its entry ships in the same commit as the change.
 
 ## Housekeeping
 
-- ALPHA = 1.026e-5 PROVISIONAL — fitted on DBH@m alone (the number most corrupted by cancellation).
-  Treat ALPHA as unfitted.
+- ALPHA = 1.026e-5 PROVISIONAL — fitted on DBH@m alone (most corrupted by cancellation). Treat as unfitted.
 - Open for Chris — abandoned agent branches hold unmerged work: **ginkgo**, **magnolia**.

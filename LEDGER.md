@@ -1329,7 +1329,10 @@ its two handles. "F_S is the lever" was an artifact of measuring at fixed R_TIP 
 because S is off. The biological prior (an older armature tip stands for MORE real twigs) favors
 the R_TIP handle. Resolving the degeneracy is the next session's job, not this read's.
 
-verdict: PENDING
+verdict: accepted (Chris, 2026-07-14) — the diagnosis stands: the size-law is off, N_def is inert,
+and the 2.4x is the signature of the ABSENT law, not a mis-valued N_def. Agrees the next move is to
+**re-derive iter-21's sub-linear N_def numerator** (a design/ADR session, loop-gain rail loaded, WBE
+not yet on disk) — NOT to chase F_S as an independent lever.
 
 ## Staged lessons
 
@@ -1342,3 +1345,46 @@ and may never edit `~/.claude/rules/`, `CLAUDE.md`, or `MEMORY.md` on its own.
 - iter-34: A LAW GUARDED BY `if CONST is None: return` IS A NO-OP, and STATE cited it as live for 14
   iters. "Verify the named term still exists" means RUN it and read the value, not read the equation
   that names it — a size-dependence measured as `≡1.0000` at every tier is a dead switch, not a fit.
+
+## 35 — THE SUB-LINEAR NUMERATOR, DERIVED. `T_total = K·M_sub^q`, q=2/e_M, loop gain ≤ q < 1.
+
+**Design/ADR session (no grower change).** Closes the open problem iter-20/21 left in `update_n_def`.
+Deliverable: `docs/adr_grower_size_law_numerator.md` (multi-position, PROPOSED, awaiting sign-off).
+
+**Hypothesis (earned, not fitted):** a size-dependent `N_def` sub-linear in standing mass gives S>1
+at m/l, lifting R_TIP and thus sapwood into census shape, WITHOUT the tip explosion census forbids —
+IF and only IF the whole-crown loop gain is < 1.
+
+**The form.** `N_def = K·M_sub^q / n_tips` ⇒ `T_total = N_def·n_tips = K·M_sub^q`. `M_sub` banked from
+last year's structure (exogenous, the property V_crown lacked). **q = 2/e_M** = (area-preserving pipe
+exponent 2) / (model's measured mass–radius exponent e_M) — a ratio of two measured structural
+exponents, NOT a typed 3/4. WBE leaf∝M^(3/4) is the validator.
+
+**Loop gain — computed on paper BEFORE the line (the iter-20 rail).** Income (code L1636/1667)
+`I = ALPHA·S·L`; markers ∝ n_tips, so with T_total=K·M^q the **n_tips cancels**: `I ∝ M^q·ℓ̄`, ℓ̄ = light
+per marker, non-increasing under self-shading ⇒ **whole-crown gain g = dlogI/dlogM ≤ q**. The
+transcritical bifurcation iter-20 hit is **exactly at q=1** (its measured 0.99); any q<1 is stable with
+conditioning `dlogM/dlogK = 1/(1−q)`. iter-20's `dlogS/dlogMASS_CAP ≈ 80–130` IS that ∞ at q=1.
+
+**Why q is an OUTPUT (ADR §3).** Compose two mechanisms the model already owns: area-preserving pipe
+`T ∝ r²` (da Vinci/Shinozaki, the ratchet) and elastic similarity `M ∝ r^(8/3)` (Greenhill/McMahon
+`l∝r^(2/3)`) ⇒ `T_total ∝ M^(3/4)`. A feedback term (reads earned mass), admissible because gain q<1 —
+NOT the `(n+1)^d` age-lookup sin (that makes DBH analytic in age).
+
+**Verification (measured, no new grow — iter-31 bench × iter-34 read):**
+- `M ~ DBH^3.19`, `nfol ~ DBH^2.63` ⇒ model's own **e_M≈3.19**, so **q = 2/3.19 ≈ 0.63** — more
+  sub-linear (safer) than WBE 0.75, comfortably < 1. Current (S-inert) `nfol~M^0.82`; iter-18 ceiling 0.866.
+- **WBE discharged:** `tmp/papers/wbe_quarterpower_arxiv1507.07820.pdf`+`.txt` on disk, READ. Primary
+  text confirms area-preserving a=1/2 (L152), elastic similarity `l∝r^(2/3)` (L244–269), → 3/4 (L1440).
+  ⚠ Paper flags real trees *steeper than 2/3* at small scale ⇒ measure e_M, don't type 8/3. Enquist 2002
+  (Tree Physiology 22:1045) confirms leaf∝M^(3/4) empirically.
+- **Pre-registered:** S ~M^0.19 ⇒ rises ~2.5× s→l ⇒ R_TIP ~1.5× ⇒ sapwood ~2× extra at l (board #2
+  wanted ~1.6×). HOLD: height, foliage, tip count. Refuted-if: conditioning ≫10, or S rises w/o R_TIP.
+
+**Positions:** A (recommended, above); B (T from statics radius r_stat — undercounts the bole, kept as
+cross-check); C (fit R_TIP directly — rejected, unprotected fitted scalar); D ((n+1)^d — rejected, the
+output-as-parameter trap, kept as validator only).
+
+**Change:** docs only — new ADR + STATE + this entry. Grower untouched (code iter is next, pending sign-off).
+
+verdict: PENDING
