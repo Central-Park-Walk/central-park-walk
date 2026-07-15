@@ -1477,4 +1477,5 @@ a 2nd-level A/B/C position analysis) and updated its Status header. Positions:
 shade-dimmed light — grepped line 2145; S enters shade at 1576 and the divisor at 2037) and (ii) it
 retrodicts the iter-36 fold with no free parameter. No grow was run (correct: "no numerator yet").
 
-**verdict: PENDING**
+**verdict: continue (Chris, 2026-07-14)** — "continue, I defer to your judgment." Position B accepted;
+proceed to iter-38 = code B in `update_n_def`, pin C by closed-loop root-find, check conditioning, bench.

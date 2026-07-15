@@ -401,10 +401,25 @@ S_MIN        = 1.0 / N_DEF_REF   # = 0.046. ★ iter-20: A TIP CANNOT STAND FOR 
 PIPE_AREA_EXP = 2.0       # area-preserving pipe: T_total ∝ r_base². EXACT (conserved section).
 E_M           = 3.199     # [MEASURED] M_sub ∝ DBH^E_M, iter-31 bench × iter-34 read (3 tiers). See above.
 Q_MASS        = PIPE_AREA_EXP / E_M   # = 0.625 — the OUTPUT. q<1 ⇒ loop gain <1 (ADR §2). NOT typed.
-K_NDEF       = None       # ⛔⛔ RETIRED (iter-36). The sub-linear form is CODED and correct in MASS —
-                          # but it EXPLODES anyway, for a reason ADR §2 missed. None => the iter-17
-                          # S-inert baseline (the working model); keep the term coded so the refutation
-                          # has a name. Re-derivation is board #1; see the block below and STATE.md.
+K_NDEF       = None       # ⛔⛔ RETIRED (iter-36). The sub-linear DIVISOR form (T_total=K·M^q, N_def=
+                          # T_total/n_tips) is CODED and correct in MASS — but it EXPLODES anyway, for a
+                          # reason ADR §2 missed: the S→shade→n_tips→(÷n_tips)→S fold. None => that whole
+                          # form is inert. Superseded by C_NDEF (Position B) below; kept as the fold's name.
+#
+# ★★ iter-38 — POSITION B, CODED (ADR docs/adr_grower_size_law_numerator.md §6, ADOPTED). Drive S
+#     DIRECTLY off standing mass, with NO live n_tips divisor — this CUTS the fold's return arm
+#     (d log S/d log n_tips = 0), the channel iter-36's divisor form diverged through:
+#
+#         S = C_NDEF * M_sub^Q_MASS        N_def = S * N_DEF_REF   (PRIMARY)   T_total = N_def*n_tips (floats)
+#
+#     S still enters shade AND income (sampling-consistent, iter-15), but n_tips no longer feeds back
+#     into S, so the only loop left is the ≤q<1 MASS loop iter-36 confirmed tame (gain q·d log M/d log S).
+#     C_NDEF is pinned by the SAME closed-loop demand: grow the m tier with a given C, adjust C until it
+#     ends its anchor year at S=1 (tmp/iter38_solve_C.py). GATE (ADR §6.4): conditioning d log M/d log C
+#     ≈ 1/(1-q) ≈ 3 at the root; REFUTED if ≫10 (the mass loop is secretly near q=1). Losing a limb now
+#     genuinely loses its twigs (no unphysical n_tips redistribution). See STATE.md board #1/#3.
+C_NDEF       = None       # [PENDING PIN] Position B coefficient, S = C_NDEF·M_sub^Q_MASS. None => S≡1
+                          # baseline (the iter-17 working model). Pinned by tmp/iter38_solve_C.py, then frozen.
 #
 # ⛔⛔ iter-36 — POSITION A IS STRUCTURALLY REFUTED, AND SUB-LINEARITY-IN-MASS IS NOT THE CURE.
 #     tmp/iter36_run.log: NO stable S(m)=1 fixed point exists. S stays < 0.5 up to K≈31, then EXPLODES
@@ -2033,12 +2048,20 @@ class Grower:
         area-preserving pipe exponent 2 and the measured mass–radius exponent E_M), not a typed 3/4.
         N_def divides that by n_tips exactly as before; the sub-linearity is what makes the WHOLE-CROWN
         loop gain ≤ q < 1 (iter-19/20's linear form was q=1, a bifurcation). M_sub is still last year's
-        banked structure — exogenous. See the K_NDEF/Q_MASS block at the top of the file."""
-        if K_NDEF is None or self._n_tips <= 0 or self._m_sub <= 0.0:
+        banked structure — exogenous. See the K_NDEF/Q_MASS block at the top of the file.
+
+        ⛔⛔ iter-36 — AND THE DIVISOR FORM IS REFUTED TOO: S=K·M^q/n_tips explodes through a SECOND loop
+        the mass analysis never bounded — S→shade→n_tips↓→(÷n_tips)→S↑ (a fold, n_tips→1 absorbing state).
+
+        ★★ iter-38 — POSITION B (ADOPTED). Drive S DIRECTLY off standing mass, dropping the /n_tips
+        divisor entirely: S = C_NDEF·M_sub^Q_MASS. N_def = S·N_DEF_REF is now PRIMARY; T_total = N_def·
+        n_tips floats. This sets the fold's return-arm gain d log S/d log n_tips to 0 — the shade S casts
+        no longer bids S up — leaving only the ≤q<1 mass loop iter-36 confirmed tame. C_NDEF is pinned by
+        the closed-loop demand S(m@anchor)=1 (tmp/iter38_solve_C.py). See the C_NDEF block up top."""
+        if C_NDEF is None or self._m_sub <= 0.0:
             return                                    # anchor probe / seedling years: S stays 1
-        t_total = K_NDEF * self._m_sub ** Q_MASS      # sub-linear in standing mass ⇒ loop gain < 1
-        n_def = t_total / self._n_tips
-        self.s_def   = max(n_def / N_DEF_REF, S_MIN)
+        # Position B: no n_tips divisor. S is set by standing mass alone; the fold's return arm is cut.
+        self.s_def   = max(C_NDEF * self._m_sub ** Q_MASS, S_MIN)
         self.n_def   = self.s_def * N_DEF_REF
         self.r_tip   = R0 * DBH_CALIB * self.s_def ** (1.0 / PIPE_POWER)
         self.c_heart = HEART_RATIO * math.pi * self.r_tip ** 2
