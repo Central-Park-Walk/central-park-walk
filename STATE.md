@@ -3,52 +3,49 @@
 The developmental grower: `scripts/plane_grower.py`. Grow a plane from a seed; let crown, caliber and
 depth **emerge**. Deep history: `LEDGER.md` (append-only) — iterate from here, not from it.
 
-## Where we are — ★★ iter-36: ADR-A CODED AND REFUTED. The sub-linear numerator explodes anyway.
+## Where we are — ★★ iter-37: THE MISSED LOOP IS GATED ON PAPER. Handle chosen: cut the n_tips DIVISOR.
 
-Coded ADR Position A (`T_total = K·M_sub^q`, `q=2/E_M=0.625` a *derived* output; K by S(m@47)=1). It
-**has no stable fixed point**: S stays <0.5 up to K≈31, then explodes discontinuously (K 31.09→S 0.499
-n_tips 362; **K 31.14→S 94 n_tips 1** — 0.16% of K flips S 190×). Reverted to **`K_NDEF=None`** (the
-S-inert baseline, verified S≡1.0000); the sub-linear code stays as the refutation's named home.
+The iter-36 explosion is a **fold** whose closed-loop gain is `β = −d log n_tips/d log S`, living entirely
+in the shade→shed→n_tips-divisor channel — **no `q` in it** (that is why the sub-linear numerator couldn't
+tame it). Forward arm: `build_shadow` deposits `s ∝ S` ⇒ interior `L = C·exp(−LIGHT_K·S·τ₀)` ⇒ `shed`
+(raw light, verified) thins tips. Return arm: `S = K·M^q/(N_DEF_REF·n_tips)`. Stable iff β<1; β rises with
+S ⇒ contractive→repelling = the observed discontinuity (K 31.09→362 tips vs 31.14→1 tip, M_sub ~850 kg
+throughout). Full derivation + A/B/C decision in **`docs/adr_grower_size_law_numerator.md` §6**.
 
-**Root cause — ADR §2 gated the WRONG loop.** Blow-ups coincide with `n_tips→1`, NOT mass runaway
-(M_sub small at blow-up, ~850 kg). The divergent loop never touches mass: **S↑ → S_IN_SHADE casts more
-shade/marker → interior foliage dies → n_tips↓ → S=K·M^q/n_tips ↑ → more shade** (gain>1). "The n_tips
-cancels" (ADR §2) is true in the income *identity* but FALSE in the *dynamics*: n_tips is a function of
-S through the shade S casts. Sub-linearity-in-mass is orthogonal to this loop; iter-20's linear form
-had the identical n_tips collapse (100→65→12→7). iter-15 saw it: "S_IN_SHADE off tames it, not the loop."
+**Decision (Position B):** drive `S = C·M_sub^q` **directly, with NO live n_tips divisor**. `N_def=S·N_DEF_REF`
+becomes primary; `T_total=N_def·n_tips` floats. Cuts the return arm (β's divisor), keeps S in shade AND
+income (sampling-consistent), leaves open only the `≤q<1` mass loop iter-36 confirmed tame. Rejected: A
+(fixed-density shade — breaks sampling consistency, under-shades big crowns); C (dS/dt cap — a dam on an
+OUTPUT). This is board #3's size-dependent-R_TIP handle, arrived at from the gain.
 
 ## The board (only a `** RESOLVED **` line is a tell)
 
-1. **★★★ THE S→SHADE→n_tips LOOP (gain>1) IS THE REAL BLOCKER** — must be tamed BEFORE any numerator can
-   stand. Candidates (iter-37): (a) cast shade at a FIXED reference density, decoupling S from the shade
-   it makes; (b) drive R_TIP directly off M_sub, bypassing the n_tips divisor; (c) cap dS/dt per year.
-   ⛔ COMPUTE THIS LOOP'S GAIN ON PAPER FIRST, exactly as the mass loop was gated. Do NOT re-pin K.
+1. **★★★ THE S→SHADE→n_tips LOOP — GATED (iter-37).** Gain `G = β`; kill it by cutting the n_tips divisor
+   (Position B). ⛔ CODE PENDING (iter-38). The gate is on paper only; the tree still explodes until B ships.
 2. **★ SIZE-LAW STILL OFF.** With S≡1 the tree is scale-free in tips; census wants sapwood ~2× larger at
-   l (F_S 2.4× low at m/l). The M^q numerator is *necessary but insufficient* — #1 gates it.
-3. **★ R_TIP vs F_S degeneracy** — a size-dependent R_TIP (from S>1) hits census sapwood as well as F_S;
-   biology favors the R_TIP handle. Candidate (b) above IS this handle, and it sidesteps the n_tips loop.
+   l (F_S 2.4× low at m/l). B routes the size signal into R_TIP — the M^q numerator gated at last.
+3. **★ R_TIP vs F_S degeneracy** — B IS the R_TIP handle (size-dependent R_TIP off M_sub, no n_tips loop).
 4. **HEARTWOOD 1.77→2.63×** over-fills with size — leaf-unit LOSS rate, ⛔ NOT `HEART_RATIO`. After #1.
 5. **`s` DBH floor** — DBH floored at `2·R_TIP`=10.3 cm at any age (uniform-R_TIP floor). After #1.
 
-## NEXT — iter-37: GATE THE S→SHADE→n_tips LOOP, then pick the handle (design/ADR, no numerator yet).
+## NEXT — iter-38: CODE POSITION B in `update_n_def`, pin C, then bench.
 
-On paper: write the shade→n_tips→S gain and show which candidate (a/b/c) makes it <1. Candidate (b),
-R_TIP directly off M_sub, is the strongest lead — it deletes the n_tips divisor (the whole instability)
-AND is board #3's favored handle. If a design call, write it as a multi-position ADR. Refuted-if: the
-chosen decoupling makes a NEW loop >1 — gain every loop it closes, not just the one you framed.
+`S = C·M_sub^q` (drop the `/n_tips` divisor; `N_def=S·N_DEF_REF` primary). Pin `C` by a closed-loop
+root-find on `S(m@47)=1`, then **check conditioning `d log M/d log C = 1/(1−q) ≈ 3`** — if ≫10, stop
+(mass loop secretly near q=1). Then `plane_bench.py` 5×{s,m,l}. Refuted-if (pre-registered, ADR §6.4):
+C-conditioning ≫10 · S fails to SETTLE (n_tips no stable carrying capacity ⇒ an unframed loop >1) · S
+rises but R_TIP/sapwood don't track. HOLD: M_sub ~10³ kg at m (not 10⁴); height ≈ 1.0×.
 
 ## Rails — each cost a session; do not re-litigate
 
-- ⛔ **★★★ GAIN EVERY LOOP THE TERM CLOSES, NOT THE ONE YOU FRAMED** (36). A var in the DENOMINATOR is a
-  2nd feedback path if the numerator's var drives it too. A cancellation valid at the FIXED POINT is not
-  valid along the TRAJECTORY. A stability gate must confirm the null (S≈1 achieved) before reading slope.
-- ⛔ **★★★ A LAW GUARDED BY `if CONST is None: return` IS A NO-OP** (34). Verify a term is live by RUNNING
-  it and reading its value. `K_NDEF=None`/`MASS_CAP=None` = the size-law is INERT (the working baseline).
-- ⛔ **★★★ q/K ARE OUTPUTS.** `Q_MASS=2/E_M` derived from two measured structural exponents (parsed, not
-  typed 3/4); WBE `M^(3/4)` is the VALIDATOR. A typed exponent is the output-as-parameter trap (5×).
-- ⛔ **★★★ DECOMPOSE A RATIO BEFORE READING ITS SHAPE** (32); a UNIFORM scalar can't make a tier-varying
-  shape, a SIZE-DEPENDENT one (S) can (10/33). `sap_frac` is a smoke alarm, not a fit target — decompose.
-- ⛔ **★★ AN n=1 INSTRUMENT CANNOT MEASURE A RATIO** (30). `plane_bench.py` 5×{s,m,l} ≈ 5 min (now records
+- ⛔ **★★★ GAIN EVERY LOOP THE TERM CLOSES, NOT THE ONE YOU FRAMED** (36/37). §2 gated the mass loop and
+  missed β entirely by asserting "the n_tips cancels" — true in the income IDENTITY, false in the DYNAMICS.
+  A var in the DENOMINATOR is a 2nd feedback path if the numerator's var drives it (S drives n_tips via shade).
+- ⛔ **★★★ A LAW GUARDED BY `if CONST is None: return` IS A NO-OP** (34). `K_NDEF=None` now = S≡1 baseline
+  (verified S≡1.0000, n_tips=17). B replaces this guard with the divisor-free form.
+- ⛔ **★★★ q/K ARE OUTPUTS.** `Q_MASS=2/E_M` (parsed, not typed 3/4); WBE `M^(3/4)` is the VALIDATOR.
+- ⛔ **★★★ DECOMPOSE A RATIO BEFORE READING ITS SHAPE** (32); `sap_frac` is a smoke alarm, not a fit target.
+- ⛔ **★★ AN n=1 INSTRUMENT CANNOT MEASURE A RATIO** (30). `plane_bench.py` 5×{s,m,l} ≈ 5 min (records
   `m_sub`/`S`). Baseline `tmp/iter31_bench.npz`. Solve harness `tmp/iter36_solve_K.py`. Never fit a `-- noise --` line.
 - ⛔ **★★ HEART_RATIO IS NOT A KNOB** — fix what FEEDS the bank (leaf-loss rate). `F_H=0` = starvation.
 - ⚠ **Papers on disk** (`tmp/papers/`): Shinozaki I+II, Aye 2022, Hellström 2018, WBE/Enquist. LEDGER APPEND-ONLY.

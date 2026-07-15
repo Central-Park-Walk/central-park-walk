@@ -1433,4 +1433,39 @@ studied and left untouched the loop that diverges. iter-20's linear trace shows 
 (100→65→12→7): the instability is orthogonal to the numerator's mass-exponent. iter-15 saw it too
 ("S_IN_SHADE off tames the violence but NOT the loop").
 
+**verdict: continue (Chris, 2026-07-14)** — the refutation + root cause are accepted; proceed to iter-37,
+gate the S→SHADE→n_tips loop on paper before any numerator.
+
+## 37 — THE MISSED LOOP, GATED ON PAPER. Cut the n_tips DIVISOR, not the shade. (design/ADR, no numerator)
+
+**Target (one sentence):** the iter-36 explosion is a fold whose closed-loop gain is `β = −d log n_tips/d log S`
+living entirely in the shade→shed→n_tips-divisor channel (no `q` in it); cutting the **return arm** (the
+n_tips divisor) sets that gain to 0 while keeping S-in-shade, and leaves open only the already-tamed `q<1`
+mass loop — so B is the handle and the tree will stop collapsing to n_tips=1.
+
+**The gate (derived, `docs/adr_grower_size_law_numerator.md` §6):**
+- Forward arm S→shade→n_tips: `build_shadow` deposits `s ∝ S` ⇒ interior `τ = S·τ₀` ⇒ `L = C·exp(−LIGHT_K·S·τ₀)`
+  ⇒ `shed` (fed by **raw** `foliage_light`, verified: `S_IN_LIGHT` gain is on allocation `q_own` only, line
+  1694 vs the shed call at 2145) thins the marginally-lit tips. Return arm: `S = K·M^q/(N_DEF_REF·n_tips)`,
+  `d log S/d log n_tips = −1`. **Closed-loop gain `G = β`; stable iff β<1, diverges when β>1.**
+- **Null control (retrodiction):** β rises with S (τ∝S), so `S↦S′` is contractive then repelling — a
+  **fold**, not iter-20's transcritical. Reproduces iter-36 exactly: `K 31.09→S 0.499,n_tips 362` (β<1) vs
+  `K 31.14→S 94,n_tips 1` (β>1, single-tip absorbing state); `M_sub` ~850 kg throughout ⇒ §2's mass gate
+  held, divergence is pure β. iter-20's `100→65→12→7` is the same β, confirming it is orthogonal to q.
+
+**Change (design only — NO code to the grower this iter):** extended the numerator ADR with §6 (the gate +
+a 2nd-level A/B/C position analysis) and updated its Status header. Positions:
+- **A** cast shade at fixed density (β→0 by cutting the forward arm) — **rejected**: breaks sampling
+  consistency (a marker represents S·N_DEF_REF twigs for income+pipe but would shade as 1), under-shades big
+  crowns, resurrects board #2.
+- **B ★ADOPTED** — drive `S = C·M_sub^q` directly, **no live n_tips divisor**; `N_def=S·N_DEF_REF` becomes
+  primary, `T_total=N_def·n_tips` floats. Cuts the return arm (`d log S/d log n_tips=0`); S stays in shade
+  AND income (consistent); losing a limb genuinely loses its twigs (no unphysical redistribution). Only loop
+  left open = the `≤q<1` mass loop iter-36 already confirmed tame. This is board #3's size-dependent R_TIP.
+- **C** cap dS/dt — **rejected on principle**: a dam on an OUTPUT, leaves β>1, a cheap hack.
+
+**Verification:** paper unit — the gate is confirmed by (i) the code facts it rests on (shed reads raw
+shade-dimmed light — grepped line 2145; S enters shade at 1576 and the divisor at 2037) and (ii) it
+retrodicts the iter-36 fold with no free parameter. No grow was run (correct: "no numerator yet").
+
 **verdict: PENDING**

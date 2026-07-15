@@ -11,6 +11,10 @@ failed at through iters 15/16/19/20). Position **A** was the recommendation.
 **Date:** 2026-07-14 · **Context:** `scripts/plane_grower.py`, iter-35 design session.
 Supersedes nothing; it *closes* the open problem `MASS_CAP`/`update_n_def` was left holding at iter-20.
 
+**★ iter-37 (2026-07-14) — the missed loop is now GATED on paper; the handle is chosen. See §6.**
+The destabiliser is the **n_tips divisor** (the return arm of a fold with gain β>1). Decision: **cut
+the return arm — drive S off M_sub directly, no live n_tips divisor (§6 Position B)**. A/C rejected.
+
 ---
 
 ## 1. The question
@@ -166,3 +170,90 @@ post-hoc check on A.)
 **Refuted-if:** the closed-loop conditioning comes back ≫ 10 (A is secretly near q=1), OR S rises but
 R_TIP/sapwood do **not** track it (S is entering the wrong side), OR the tier F_S ratios move the wrong
 way. A blind `--set K=…` fit against a `-- noise --` bench line does not count as confirmation.
+
+---
+
+## 6. iter-37 — the SECOND loop §2 missed, gated, and the handle chosen
+
+§2 gated the **mass** channel (income → `M_sub`, gain `g ≤ q < 1`) and asserted *"the n_tips cancels."*
+That cancellation is real in the income **identity** (`I ∝ M^q·ℓ̄`) but false in the **dynamics**, because
+`n_tips` is itself a function of `S` through the shade `S` casts. That is a *second* loop, and its gain
+contains no `q` at all.
+
+### 6.1 The loop, from the code
+
+- **`update_n_def` (2037–2043):** `S = K·M_sub^q / (N_DEF_REF · n_tips)`, then `r_tip = R0·DBH_CALIB·S^(1/p)`.
+  `n_tips` is **in the denominator** — the *return* arm.
+- **`build_shadow` (1576):** each marker deposits `s = S · SHADOW_A · SHADOW_B^(−dl)`. So the optical depth
+  over any interior site is `τ(site) = S · τ₀(site)`, `τ₀` the S-independent *geometric* depth (how many
+  markers, how deep, sit above the site). — the *forward* arm.
+- **`light_at` (1606):** intercepted light `L = C·exp(−LIGHT_K·τ) = C·exp(−LIGHT_K·S·τ₀)`.
+- **`shed` (2145 → 1874):** fed by `foliage_light` = **raw** `light_at` (verified: the `S_IN_LIGHT` gain at
+  1694 is on the *allocation* income `q_own` only, **never** on the shed light). An axis sheds when
+  `lg/size < TAU_SHED`. So `S↑` dims every interior site and pushes the marginally-lit tips over the edge.
+
+Define the **shed elasticity** `β ≡ −d log n_tips / d log S ≥ 0` (how hard a fractional rise in `S` thins
+the crown; `β` = (density of tips packed against `TAU_SHED`) × the interior dimming `LIGHT_K·τ₀` per unit
+`log S`). Perturb `S → S·(1+ε)`:
+
+```
+forward:  Δlog n_tips = −β·ε
+return :  Δlog S′ = −Δlog n_tips = +β·ε        (the divisor, d log S/d log n_tips = −1)
+⇒  CLOSED-LOOP GAIN  G = β.
+```
+
+**Stable iff β < 1**: a 1 % rise in `S` must shed **< 1 %** of the tips. It **diverges when β > 1**: a 1 %
+rise sheds > 1 % of tips → raises `S` > 1 % → sheds more → runaway to `n_tips → 1`. `q` is nowhere in `G`.
+
+### 6.2 This retrodicts iter-36 exactly (the gate's null control)
+
+`β` is not constant: it grows with the interior depth, and `τ ∝ S`, so `β` climbs as `S` climbs. The map
+`S ↦ S′` is therefore **contractive (β<1) at low S with a stable root, then repelling (β>1) above a
+critical S — a fold / saddle-node**, not iter-20's transcritical. That IS the observed discontinuity:
+`K 31.09 → S 0.499, n_tips 362` (β<1 branch) vs `K 31.14 → S 94, n_tips 1` (β>1 branch, collapsed to the
+single-tip absorbing state where the divisor has nothing left to divide). **`M_sub` stayed ~850 kg
+throughout** — the loop never touches mass, so §2's mass gate *held*; the divergence is entirely `β`.
+iter-20's linear (q=1) form showed the identical `n_tips` collapse `100→65→12→7`, confirming `β` is
+orthogonal to the mass exponent. The gain model reproduces the existing data with no free parameter.
+
+### 6.3 Positions — you need cut only ONE arm of `G = β`
+
+**A — cut the FORWARD arm: cast shade at a fixed reference density** (drop `self.s_def` from
+`build_shadow`/`light_at`; a marker casts one reference-twig's shade at any `S`). Then `τ` is
+S-independent and `β = 0`.
+**Rejected — it breaks sampling consistency.** A marker *represents* `N_def = S·N_DEF_REF` real twigs for
+income (`S_IN_LIGHT`) and for its pipe (`r_tip ∝ S^(1/p)`), so it must also **cast** that many twigs'
+shade — the iter-15 "same term, both sides" rail. Shade-at-unit-density leaves a large crown optically far
+too sparse for its real leaf area: the interior under-shades, tips that should die in a closed canopy
+survive, and the crown stops closing at size — resurrecting board #2 (scale-free-in-tips) at large `S`.
+
+**B — cut the RETURN arm: drive `N_def` (hence `r_tip`, `S`) off `M_sub` directly, with NO live n_tips
+divisor.  ★ RECOMMENDED.** `S = C·M_sub^q` (`C` pinned by `S(m@47)=1`); `N_def = S·N_DEF_REF` becomes the
+**primary**, and the crown total `T_total = N_def·n_tips` is the *derivative* that floats with the crown.
+`r_tip = R0·DBH_CALIB·S^(1/p)` unchanged; `S` stays in **both** income and shade (sampling consistency
+preserved — the wanted crown closure still fires). Now `d log S/d log n_tips = 0`: losing interior tips no
+longer bids `S` up. The forward arm still closes the interior but **settles** instead of running away, and
+total real twigs `= N_def·n_tips` genuinely falls when the crown sheds a limb — physically correct, where
+the divisor's "surviving tips each inherit the dead one's twigs" was the unphysical redistribution
+(LEDGER iter-20). This is board #3's biologically-favoured **size-dependent R_TIP off standing mass**.
+*Gain of every loop it leaves open* (LEDGER iter-36 rail — gain them ALL, not the one you framed): the
+only remaining `S`-loop is the **mass** channel `S ∝ M^q → income → ΔM_sub → S`, gain `≤ q < 1` — exactly
+§2's gate, which iter-36 **confirmed held** (`M_sub` never ran away). No new loop > 1.
+
+**C — cap `dS/dt` per year.** Leaves `β > 1` intact and merely slows the climb to the same fold. A dam on
+a derived OUTPUT — the "simulate the process, let the appearance emerge" violation and a cheap hack
+(CLAUDE.md §0.1 / §2). **Rejected on principle, before any measurement.**
+
+### 6.4 Decision: **B.** — the n_tips divisor is deleted; `S` is a pure function of banked `M_sub`.
+
+The size signal moves fully into `r_tip` (board #3's handle), the divisor's redistribution instability is
+gone at the root, and `S`-in-shade is *kept* (consistent optics). This is a canonical form change to
+`update_n_def`; it is **iter-38's** code unit (no numerator is coded in iter-37).
+
+**Pre-registered for iter-38 (refuted-if):**
+1. **Conditioning of the C-pin** `d log M/d log C = 1/(1−q) ≈ 3` comes back ≫ 10 → the mass loop is
+   secretly near `q=1` after all; stop, do not tune C.
+2. **`S` fails to settle** — with the divisor gone, `n_tips` must reach a *stable* carrying capacity within
+   the grow. If it doesn't, a loop we didn't frame is > 1 (gain every arm again).
+3. **`S` rises with size but sapwood / R_TIP do not track** → `S` entering the wrong side.
+- **HOLD:** `M_sub` bounded (~10³ kg at m, not 10⁴ — the mass channel stays tame); height rail ≈ 1.0×.
