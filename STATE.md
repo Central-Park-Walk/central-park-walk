@@ -16,23 +16,18 @@ registered "not overshooting" clause fails → refutation #6:
   (8:1 at l) — the fraction collapse is HEARTWOOD, not vanishing sapwood.
 - Both trace to ONE cause: S>1 at l ⇒ larger R_TIP ⇒ thicker DBH (pipe) AND larger `c_heart∝r_tip²`.
   R_TIP emerging from mass overshoots at l and **cannot be tuned out — q is an OUTPUT.**
-
-`C_NDEF` left **`None`** (inert; S≡1 baseline still ships). Position B code KEPT as this refutation's named
-home (mirrors K_NDEF/MASS_CAP). Bench cached `tmp/iter38_bench.npz` (`--load` to re-report).
+- `C_NDEF` left **`None`** (inert; S≡1 baseline still ships). Position B code kept as this refutation's
+  named home (mirrors K_NDEF/MASS_CAP). Bench cached `tmp/iter38_bench.npz` (`--load` to re-report).
 
 ## The board (only a `** RESOLVED **` line is a tell)
 
-1. **★★★ THE S→SHADE→n_tips FOLD — ** RESOLVED (iter-38) **.** Dropping the /n_tips divisor cut it:
-   n_tips 135–215, never 1, across the full 5×{s,m,l} bench. The fold is dead regardless of the size-law.
-2. **★★ SIZE-LAW: EMERGENT-S HANDLE REFUTED (iter-38, #6).** Routing size into R_TIP via S=C·M^q settles
-   directionally but OVERSHOOTS (l DBH 1.96× census); q is an OUTPUT, un-tunable. New direction: impose
-   R_TIP as a census/WBE-shaped allometric PRIOR (Chris's call — see NEXT). This subsumes old #2/#3.
-3. **★ R_TIP is the handle — but IMPOSED, not emergent.** iter-38 proved emergent R_TIP overshoots; the
-   prior sets R_TIP to hit census DBH directly, like the area-preserving pipe is imposed.
-4. **HEARTWOOD 0→248→975 (8:1 at l)** over-fills — AMPLIFIED by any large r_tip (`c_heart∝r_tip²`).
-   Leaf-unit LOSS rate, ⛔ NOT `HEART_RATIO`. Couples to #3; an imposed R_TIP must fix this too.
-5. **`s` DBH 0.57× census** — under Position B the sapling trunk went thin (S<1 floors R_TIP small).
-   An imposed census-shaped R_TIP would set the small end directly. Folds into #3.
+1. **★★★ THE S→SHADE→n_tips FOLD — ** RESOLVED (iter-38) **.** /n_tips divisor dropped; n_tips 135–215,
+   never 1, across the full bench. Dead regardless of the size-law.
+2. **★★ SIZE-LAW: EMERGENT-S HANDLE REFUTED (#6).** S=C·M^q settles directionally but OVERSHOOTS (l DBH
+   1.96×); q un-tunable. New direction (subsumes old #3/#5): impose **R_TIP as a census/WBE allometric
+   PRIOR** — set to hit census DBH directly, like the pipe — and let mass/sapwood/heartwood emerge around it.
+3. **HEARTWOOD 0→248→975 (8:1 at l)** over-fills — amplified by any large r_tip (`c_heart∝r_tip²`).
+   Leaf-unit LOSS rate, ⛔ NOT `HEART_RATIO`. Couples to #2; an imposed R_TIP must fix this too.
 
 ## NEXT — iter-39: CHRIS'S CALL — adopt the R_TIP-as-allometric-PRIOR direction? (canonical change)
 
