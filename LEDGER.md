@@ -1246,6 +1246,47 @@ CONSTANT FITTED AGAINST A LEAK IS THE LEAK'S TWIN** (iter-29). The 22x gap betwe
 visible from iter-14, waiting to be read. ⛔ HEART_RATIO is still NOT a knob: route (a), the paper's
 own physics (Fig. 8 — the disused pipe is the SAME pipe), is untouched. Fix what FEEDS the bank.
 
+verdict: continue (Chris, 2026-07-14) — the two-term decomposition is accepted; proceed to iter-33.
+
+## 33 — THE SAPWOOD DEFICIT IS IN N_live (F_S), NOT c_S. THE SHAPE FALSIFIES THE SCALAR.
+
+**Hypothesis (STATE's, under test):** sapwood area `A_sap = pi*R_TIP^2 * F_S^(2/p)` has two handles —
+a UNIFORM per-unit area `c_S == pi*R_TIP^2` and a per-tier count `F_S` (the live armature-tip count,
+= N_live). iter-32 RESOLVED the sapwood-area residual as **1.32x (s) / 0.45x (m) / 0.51x (l)**. A
+uniform scalar on `c_S`/`R_TIP` moves every tier the SAME way (the iter-10 argument), so it cannot
+lift `s` while dropping m/l. ⇒ the SHAPE must live in `F_S`: too many live units at `s`, too few at
+m/l. **Falsify before touching a constant.**
+
+**Change:** NONE to the model. **No parameter moved, nothing fitted** — the falsification Chris's
+protocol asks for, and it is free: `tmp/iter33_nlive.py` re-reads the cached `tmp/iter31_bench.npz`
+(n=5 x s/m/l), inverts the pipe law per tier to get the `F_S` each needs to hit census sapwood at
+the model's own fixed `R_TIP`, and checks the shortfall against the crown's own leaf area (r_p50,
+LAI=3).
+
+**Verification.** The formula is faithful — `c_S*F_S^(2/p)` reproduces the measured `A_sap` to the
+cm2 at every tier (sanity identity passes). Then:
+
+| tier | A_sap ratio | F_S model | F_S need | need/have | leaf/unit model | leaf/unit need |
+|---|---|---|---|---|---|---|
+| s | 1.32x | 16.6±3 | 12.0 | **0.72x** | 0.7 m2 | 5.3 m2 |
+| m | 0.45x | 80.6±28 | 200.0 | **2.48x** | 3.4 m2 | 1.9 m2 |
+| l | 0.51x | 290±30 | 630.1 | **2.17x** | 3.1 m2 | 1.1 m2 |
+
+**HYPOTHESIS SUPPORTED; refutation branch CLOSED.** `need/have = (1/ratio)^(p/2)` is a fixed
+transform of the iter-32 sapwood ratios — which were all RESOLVED at n=5 — so its shape is on
+resolved ground, not seed luck. And it is decisively **not a scalar**: 0.72x at `s` vs 2.48x at `m`
+are OPPOSITE signs. A uniform `c_S`/`R_TIP` gives the same `need/have` at every tier; this doesn't;
+therefore **`c_S`/`R_TIP` is EXONERATED by the shape** (iter-10, now measured). The crown carries
+**1.4x too many** live units at `s` and **~2.2–2.5x too few** at m/l. `F_S` is not "already right" —
+the refutation branch ("F_S right ⇒ c_S wrong, R_TIP derivation back on the table") does not fire.
+
+**Mechanism (interpretive — leans on the noisier r_p50, so directional not resolved):** the model's
+leaf-area-PER-live-unit is INVERTED vs census — it overloads each armature tip at m/l (too few tips,
+each standing in for too much deferred foliage) and underloads at `s`. That points the fix at
+**`N_def(t)`**, the deferred-twig count one armature tip stands in for — what FEEDS the live count —
+NOT at any pipe constant. `N_def(t)` is the iter-15 machinery (S(t) = N_def/N_DEF_REF); iter-34
+should read `N_def` and `S` per tier out of a grow and ask why the count settles ~2.4x low at m/l.
+
 verdict: PENDING
 
 ## Staged lessons
