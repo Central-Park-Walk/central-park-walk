@@ -1345,6 +1345,15 @@ and may never edit `~/.claude/rules/`, `CLAUDE.md`, or `MEMORY.md` on its own.
 - iter-34: A LAW GUARDED BY `if CONST is None: return` IS A NO-OP, and STATE cited it as live for 14
   iters. "Verify the named term still exists" means RUN it and read the value, not read the equation
   that names it — a size-dependence measured as `≡1.0000` at every tier is a dead switch, not a fit.
+- iter-36: COMPUTE THE LOOP GAIN OF *EVERY* LOOP THE TERM CLOSES, NOT THE ONE YOU FRAMED. A quantity in
+  the DENOMINATOR is a second feedback path if the numerator's variable also drives it — here `n_tips`
+  "cancels" in the income identity but is itself a function of S (through the shade S casts), so it does
+  NOT cancel in the dynamics, and that S→shade→n_tips→S loop (gain>1) exploded a form whose mass loop
+  was correctly gained <1. A cancellation valid at a FIXED POINT is not valid along the TRAJECTORY.
+- iter-36: A CONDITIONING/STABILITY GATE MUST CONFIRM THE NULL BEFORE READING ITS SLOPE. My gate reported
+  PASS by measuring d log S/d log K between two already-EXPLODED points (S=94 vs 150) — it never checked
+  that S≈1 was actually achieved at the "root". A residual/sensitivity estimator ships with a null
+  control (rule: "a residual estimator MUST ship with a null control"); a stability one must too.
 
 ## 35 — THE SUB-LINEAR NUMERATOR, DERIVED. `T_total = K·M_sub^q`, q=2/e_M, loop gain ≤ q < 1.
 
@@ -1387,4 +1396,41 @@ output-as-parameter trap, kept as validator only).
 
 **Change:** docs only — new ADR + STATE + this entry. Grower untouched (code iter is next, pending sign-off).
 
-verdict: PENDING
+verdict: sign-off (Chris, 2026-07-14) — "continue, I defer to your judgment." Position A adopted; iter-36
+coded it. ⚠ The code iter REFUTED A (see iter-36): the loop-gain gate was computed for the mass loop only.
+
+## 36 — ADR-A CODED AND REFUTED. The sub-linear numerator fixes the MASS loop and explodes anyway.
+
+**Hypothesis (ADR Position A, signed off):** `T_total = K·M_sub^q`, `q = 2/E_M = 0.625` (derived output,
+not typed), K pinned by S(m@47)=1, gives S>1 at m/l → R_TIP ↑ → sapwood into census shape, WITHOUT a tip
+explosion — because the whole-crown loop gain is ≤ q < 1. Pre-registered kill: conditioning ≫ 10.
+
+**Change (coded, then retired to inert):** `update_n_def` now computes `T_total = K_NDEF·M_sub^Q_MASS`,
+`N_def = T_total/n_tips`. `Q_MASS = PIPE_AREA_EXP/E_M = 2.0/3.199` frozen as a *parsed* output with the
+3-tier measurement (bench DBH × iter-34 m_sub) in its comment. `plane_bench.py` now records `m_sub`/`S`.
+After refutation: **`K_NDEF = None`** (the iter-17 S-inert baseline, verified S≡1.0000, n_tips=17), the
+sub-linear code kept as the refutation's named home — mirroring `MASS_CAP = None`.
+
+**Verification (tmp/iter36_run.log — solve + gate + 5×{s,m,l} bench):** FALSIFIED.
+- **No stable S(m)=1 fixed point exists.** S stays < 0.5 up to K≈31, then EXPLODES discontinuously:
+  K 31.09 → S 0.499 (n_tips 362); **K 31.14 → S 94 (n_tips 1)** — a 0.16% step in K flips S by 190×.
+  The bisection ran out and returned the midpoint sitting ON the discontinuity; |S−1|<0.02 never fired.
+- **The gate gave a FALSE PASS.** It measured conditioning (5.8 / 7.7) between two *already-exploded*
+  points (S=94 vs S=150, both n_tips=1) — meaningless. ⚠ INSTRUMENT LESSON: a conditioning gate MUST
+  first confirm the null (S≈1 actually ACHIEVED at the root) before reading its slope. Mine didn't.
+- **Bench at the false root:** m S=15.9 (not 1), DBH 2.18×; l a 2.8 m trunk (DBH 3.95×, S=87), height
+  0.33×; sapwood frac COLLAPSED (m 0.26×, l 0.10×); foliage spread 400%; **seeds bifurcate** (m seed-a
+  DBH 60 cm fol 3124, seed-d DBH 109 cm fol 51 — some grow, some collapse to a few giant tips).
+- Fresh E_M under the live (exploded) law = 2.20 vs frozen 3.199 — allometry broke; the read is void.
+
+**ROOT CAUSE — ADR §2 gated the wrong loop. "The n_tips cancels" is false in the DYNAMICS.**
+Explosions coincide with **n_tips → 1**, not mass runaway (M_sub SMALL at blow-up, ~850 kg). The
+divergent loop never touches mass: **S ↑ → S_IN_SHADE casts more shade per marker → interior foliage
+dies → n_tips ↓ → S = K·M^q/n_tips ↑ → more shade** (gain > 1). ADR §2 cancelled n_tips in the *income
+identity* (valid: I ∝ T_total·ℓ̄) and concluded gain ≤ q < 1 — but n_tips is a FUNCTION OF S through the
+shade S casts, so it does NOT cancel in the dynamics. Sub-linearity in mass tamed the loop the ADR
+studied and left untouched the loop that diverges. iter-20's linear trace shows the SAME n_tips collapse
+(100→65→12→7): the instability is orthogonal to the numerator's mass-exponent. iter-15 saw it too
+("S_IN_SHADE off tames the violence but NOT the loop").
+
+**verdict: PENDING**

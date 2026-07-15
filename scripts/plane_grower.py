@@ -374,6 +374,64 @@ S_MIN        = 1.0 / N_DEF_REF   # = 0.046. ★ iter-20: A TIP CANNOT STAND FOR 
                           # The old 0.02 put N_def at 0.4 twigs/tip — not a small number, an incoherent
                           # one — and bound the sapling there for 16 years. Inert while MASS_CAP is
                           # None; it is the floor's DEFINITION, not a tuning knob, so it ships anyway.
+#
+# ★★ iter-36 — THE SUB-LINEAR NUMERATOR, CODED (ADR docs/adr_grower_size_law_numerator.md, Position A).
+#     T_total = K_NDEF * M_sub^Q_MASS        N_def = T_total / n_tips        S = N_def / N_DEF_REF
+#
+# The linear MASS_CAP*M_sub form was a transcritical bifurcation at q=1 (iter-20). The fix, gated on
+# paper BEFORE the line (ADR §2): make the crown's TOTAL twig count SUB-LINEAR in standing mass,
+# T_total ∝ M^q with q<1, so the whole-crown loop gain g = d log I/d log M ≤ q < 1 (income I ∝ S·L,
+# the n_tips cancels, self-shading makes light-per-marker non-increasing). Conditioning is then
+# d log M*/d log K = 1/(1-q), FINITE — where the linear form's was ∞ (iter-20's measured 80-130).
+#
+# ⛔ Q IS AN OUTPUT, NOT A PARAMETER (the trap this project has fallen into 5x). q is the RATIO of two
+#    measured structural exponents the model already owns — it is NOT the typed number 3/4:
+#      · PIPE_AREA_EXP = 2 : area-preserving pipe, T_total = (r_base/r_tip)² ∝ r_base² (da Vinci /
+#        Shinozaki 1964; the ratchet builds it). EXACT — a conserved cross-section, not a fit.
+#      · E_M : the model's OWN measured mass–radius exponent, M_sub ∝ DBH^E_M. Measured (not typed)
+#        from the iter-31 bench DBH × iter-34 m_sub read, 3 tiers, no new grow:
+#            s: DBH 0.1927 m, M_sub  107.0 kg      m: DBH 0.4548 m, M_sub  1404.3 kg
+#            l: DBH 0.8870 m, M_sub 14103.9 kg  ⇒  slope d log M/d log DBH = 3.199.
+#    ⇒ Q_MASS = 2/E_M = 0.627. WBE/Enquist ideal (elastic similarity M∝r^(8/3)) gives 2/(8/3)=0.75 —
+#    the SANITY BRACKET, not the input. Both < 1 with margin ≥0.25; the gate (conditioning ≈ 3-4),
+#    not this exponent, is what certifies stability. ⚠ WBE paper flags real trees run steeper than
+#    2/3 at small scale ⇒ we MEASURE E_M off the model, we do not type 8/3. Change either exponent and
+#    q moves with it — that is the whole point (ADR §3). Self-consistency of E_M under the live S-law
+#    is a NEXT-iter check (the bench now records m_sub); a large shift is a finding, not a blocker.
+PIPE_AREA_EXP = 2.0       # area-preserving pipe: T_total ∝ r_base². EXACT (conserved section).
+E_M           = 3.199     # [MEASURED] M_sub ∝ DBH^E_M, iter-31 bench × iter-34 read (3 tiers). See above.
+Q_MASS        = PIPE_AREA_EXP / E_M   # = 0.625 — the OUTPUT. q<1 ⇒ loop gain <1 (ADR §2). NOT typed.
+K_NDEF       = None       # ⛔⛔ RETIRED (iter-36). The sub-linear form is CODED and correct in MASS —
+                          # but it EXPLODES anyway, for a reason ADR §2 missed. None => the iter-17
+                          # S-inert baseline (the working model); keep the term coded so the refutation
+                          # has a name. Re-derivation is board #1; see the block below and STATE.md.
+#
+# ⛔⛔ iter-36 — POSITION A IS STRUCTURALLY REFUTED, AND SUB-LINEARITY-IN-MASS IS NOT THE CURE.
+#     tmp/iter36_run.log: NO stable S(m)=1 fixed point exists. S stays < 0.5 up to K≈31, then EXPLODES
+#     discontinuously — K 31.09 → S 0.499 (n_tips 362), K 31.14 → S 94 (n_tips 1). A 0.16% step in K
+#     flips S by 190×. The bench at the false "root" landed m at S=15.9 (not 1), l at a 2.8 m trunk
+#     (S=87), foliage spread 400%, seeds BIFURCATING (some explode, some don't).
+#
+# ★ THE ALGEBRA ADR §2 GOT WRONG — "THE n_tips CANCELS" IS FALSE IN THE DYNAMICS.
+#   The explosions coincide with n_tips COLLAPSING to 1, NOT with mass runaway (M_sub is SMALL at the
+#   blown-up points, ~850 kg). The real loop is not through mass at all:
+#
+#       S ↑  →  S_IN_SHADE casts MORE shade per marker  →  interior foliage dies  →  n_tips ↓
+#             →  S = K·M^q / n_tips  ↑  →  MORE shade  →  ...            (positive feedback, gain > 1)
+#
+#   ADR §2 cancelled n_tips in the INCOME identity (I ∝ T_total·ℓ̄) — valid — and concluded the
+#   whole-crown gain is ≤ q < 1. But n_tips is a FUNCTION OF S (through the shade S casts), so it does
+#   NOT cancel in the DYNAMICS: there is a SECOND loop, S→shade→n_tips→S, whose gain the q<1 mass
+#   analysis never bounded. The sub-linear numerator tamed the loop the ADR studied and left untouched
+#   the loop that actually diverges. iter-20's linear trace shows the SAME n_tips collapse (100→65→12→7)
+#   — this instability predates the sub-linear form and is orthogonal to it. (iter-15 already flagged it:
+#   "S_IN_SHADE off tames the violence but NOT the loop.")
+#
+# ⇒ iter-37: the size-law must be made robust to the n_tips/shade channel BEFORE any numerator can
+#   stand. Candidates for the re-derivation (board #1): decouple S from the shade it casts (shade at a
+#   FIXED reference density, not S-scaled); or cap dS/dt per year; or drive R_TIP directly off M_sub
+#   (bypassing the n_tips divisor entirely). COMPUTE THE GAIN OF THE S→shade→n_tips LOOP first — on
+#   paper — exactly as the mass loop was gated. Do NOT re-pin K.
 # The two sides S acts on, separable ON PURPOSE — the iter-15 refutation is a statement about WHICH
 # side breaks, and you cannot make that statement without being able to switch them independently.
 S_IN_LIGHT   = True       # a marker INTERCEPTS the light of the N_def twigs it stands for
@@ -1968,10 +2026,18 @@ class Grower:
         the n_tips division cancels: a linear positive feedback on mass, loop gain ~= 0.99, a
         bifurcation at MASS_CAP ~= 2.205, and no constant that leaves s, m and l all sane. Exogeneity
         was NECESSARY BUT NOT SUFFICIENT — M_sub is exogenous within the year and still runs away
-        across the years. The numerator must be SUB-LINEAR in mass. See the MASS_CAP block up top."""
-        if MASS_CAP is None or self._n_tips <= 0 or self._m_sub <= 0.0:
+        across the years. The numerator must be SUB-LINEAR in mass. See the MASS_CAP block up top.
+
+        ★★ iter-36 — THE SUB-LINEAR NUMERATOR, CODED (ADR Position A). The crown's TOTAL twig count
+        is now T_total = K_NDEF * M_sub^Q_MASS with Q_MASS = 2/E_M < 1 — an OUTPUT (ratio of the
+        area-preserving pipe exponent 2 and the measured mass–radius exponent E_M), not a typed 3/4.
+        N_def divides that by n_tips exactly as before; the sub-linearity is what makes the WHOLE-CROWN
+        loop gain ≤ q < 1 (iter-19/20's linear form was q=1, a bifurcation). M_sub is still last year's
+        banked structure — exogenous. See the K_NDEF/Q_MASS block at the top of the file."""
+        if K_NDEF is None or self._n_tips <= 0 or self._m_sub <= 0.0:
             return                                    # anchor probe / seedling years: S stays 1
-        n_def = MASS_CAP * self._m_sub / self._n_tips
+        t_total = K_NDEF * self._m_sub ** Q_MASS      # sub-linear in standing mass ⇒ loop gain < 1
+        n_def = t_total / self._n_tips
         self.s_def   = max(n_def / N_DEF_REF, S_MIN)
         self.n_def   = self.s_def * N_DEF_REF
         self.r_tip   = R0 * DBH_CALIB * self.s_def ** (1.0 / PIPE_POWER)

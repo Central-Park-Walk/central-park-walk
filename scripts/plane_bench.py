@@ -99,6 +99,8 @@ def _one(job):
                 rp90=float(np.percentile(r, 90)),
                 nfol=float(len(fol)),
                 sap=float(st["sap_frac"]),
+                m_sub=float(st.get("m_sub", 0.0)),   # iter-36: for the E_M = d log M/d log DBH self-check
+                S=float(st.get("S", 1.0)),           # iter-36: read S per tier (S(m) must land ~1.0)
                 FH=float(st["F_H"]), FS=float(st["F_S"]))
 
 

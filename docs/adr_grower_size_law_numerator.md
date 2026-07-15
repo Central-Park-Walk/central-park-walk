@@ -1,9 +1,13 @@
 # ADR — The sub-linear N_def numerator (the size-law that has been refuted five times)
 
-**Status:** 🟡 **PROPOSED — awaiting Chris's sign-off before the code iter.** This is a canonical
-design change (it decides the functional form of the term the model has failed at through iters
-15/16/19/20), so it is his call. The loop-gain gate below is computed **on paper, before the line is
-written** — the rail iter-20 left. Position **A** is the recommendation.
+**Status:** 🔴 **ADOPTED (Chris, 2026-07-14) → REFUTED at the code iter (iter-36).** Position A was
+signed off and coded; it has **no stable fixed point** and explodes. The loop-gain gate in §2 is
+CORRECT but INCOMPLETE — it bounds the *mass* loop (`g ≤ q < 1`) and misses a second loop the term
+closes: **S → S_IN_SHADE → n_tips → S** (the `n_tips` divisor is a function of S through the shade S
+casts, so it does NOT cancel in the dynamics as §2 assumes; gain > 1). See `LEDGER.md` iter-36 and
+`STATE.md` board #1. The M^q numerator is *necessary but insufficient*: this loop must be gained < 1
+FIRST. This is a canonical design change (it decides the functional form of the term the model has
+failed at through iters 15/16/19/20). Position **A** was the recommendation.
 **Date:** 2026-07-14 · **Context:** `scripts/plane_grower.py`, iter-35 design session.
 Supersedes nothing; it *closes* the open problem `MASS_CAP`/`update_n_def` was left holding at iter-20.
 
