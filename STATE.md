@@ -1,7 +1,7 @@
 # STATE — cpw / london-plane
 
-The developmental grower: `scripts/plane_grower.py`. Grow a plane from a seed; let crown, caliber and
-depth **emerge**. Deep history: `LEDGER.md` (append-only) — iterate from here, not from it.
+The developmental grower: `scripts/plane_grower.py` — grow a plane from a seed, let form **emerge**.
+Deep history: `LEDGER.md` (append-only) — iterate from here, not from it.
 
 ## Where we are — ★★ iter-42: THE RING-AGE HEARTWOOD TRIGGER (Track B) IS CODED, τ DERIVED (=34 yr), COMMITTED.
 
@@ -48,5 +48,5 @@ at 50% basal-area sapwood. ⚠ 2× below Björklund's ~60 yr (pine): my "wide sa
 
 ## Housekeeping
 
-- ALPHA=1.026e-5 PROVISIONAL (fitted on DBH@m alone). Open agent branches: **ginkgo**, **magnolia** (unmerged).
-- Distilled 2026-07-15 (commit 45043f1): iters 34–39 lessons → global rules; raw → `ledger_archive/2026-07.md`.
+- ALPHA=1.026e-5 PROVISIONAL (DBH@m only). Agent branches ginkgo/magnolia unmerged. Distilled 2026-07-15
+  (45043f1): iters 34–39 → global rules; raw → `ledger_archive/2026-07.md`.
