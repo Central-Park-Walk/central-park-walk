@@ -1817,4 +1817,30 @@ short-shoots into thin woody twig CHAINS the skinner can tube; or (b) export/ski
 foliage-node parent chains. Also worth a look: crown breadth/density of the woody scaffold itself, and
 whether the trunk lean holds across seeds (needs n>1). Do NOT re-tune sap/heart internals — invisible.
 
-verdict: PENDING
+verdict: ★★★ REJECTED — "we can't do a dense, fine twig cloud. we'll spend too much on the bark in-game.
+you're right that the png we got is garbage. we still don't know how to make trees." (Chris, 2026-07-16)
+  1. ⛔ THE FINE-TWIG PATH IS DEAD ON PERF. Both iter-45 candidates (promote short-shoots to woody twig
+     chains / tube the foliage chains) are KILLED: fine twigs as GEOMETRY blow the in-game bark budget.
+     Crown density must come from CARDS, never from wood. Do not re-propose twig geometry.
+  2. ★★ THE LEAFLESS RENDER WAS A BROKEN INSTRUMENT — my framing error, not just a bad tree. This
+     representation keeps its crown density in the `foliage`/card layer (leafback_skinner writes the full
+     attribute contract precisely so generate_trees_mtree.py's foliage-placement path works on it). I
+     stripped 76% of the tree and judged the habit from the naked scaffold = judging a mesh by its
+     wireframe. The F6 "habit is most legible bare" brief is true of REAL trees and FALSE of this
+     representation. A leafless render of a card-crowned tree will always look garbage and proves little.
+  3. ★★★ THE ROOT FAILURE, and it is bigger than the twigs: 44 iterations validated exactly ONE scalar
+     (DBH, 1.04× census — the healthiest number on the board) and it HID a form nobody had ever looked at.
+     No form metric, no reference comparison, ever. We simulated the process diligently and never checked
+     the appearance. "Distrust your healthiest number" / "a ratio is not a fact" bit exactly as written.
+     ⇒ We have STILL never looked at a FINISHED tree — only a bare scaffold and a pile of numbers.
+
+## Staged lessons
+
+- ★★★ A MODEL VALIDATED ONLY ON A SCALAR IS UNVALIDATED ON FORM. 44 iterations fit DBH to 1.04× census
+  while the habit was never once looked at; the first look was garbage. If the deliverable is APPEARANCE,
+  an appearance check is not a final step — it is the FIRST gate, and a scalar that cannot constrain the
+  deliverable cannot validate it. Distrust the healthiest number hardest when it is the only one you have.
+- ★★ RENDER THE THING AS IT SHIPS, OR THE INSTRUMENT IS BROKEN. A diagnostic view that removes the layer
+  carrying the deliverable's character (here: strip the cards, keep the scaffold) does not test the model —
+  it tests the diagnostic. Ask what the SHIPPED artifact looks like before explaining why the stripped one
+  looks wrong. (Kin to "blind the premise": establish WHETHER it is bad before spending a session on WHY.)
