@@ -1694,4 +1694,29 @@ PASSES the generalizability hack-test (≤1 tuned param), NOT an output-dial.
   heartwood (s 3.30x→~0, saplings have no heartwood) and (b) give the old l-tree a physical inner core.
   OPEN: whether it also lands the m/l split on census, or only fixes the sapling — that is what the iter-42
   instrumented grow measures (sap/heart AREA vs census, per tier).
+verdict: accepted + PROCEED (Chris, 2026-07-16) — invoked iter-42 = "implement the ring-age trigger",
+adopting the Track A adjudication and directing the planned Track B. No redirect; NEXT stands.
+
+## 42 — TRACK B CODED: THE RING-AGE HEARTWOOD TRIGGER. Sapwood = the outer τ rings, decoupled from branch death.
+
+**Hypothesis.** The grower's only heartwood source is Aye 2022's branch-death bank (`c_H·F_H`) — the
+paper's OWN admitted "no reusable pipes" artifact. Real planes age sapwood→heartwood by TIME (Björklund
+1999: ~60 yr sapwood life, decoupled from the 3–12 yr leaf life). Adding a ring-age trigger — sapwood =
+wood laid down in the last τ years, everything older = heartwood — will (a) zero the sapling's spurious
+heartwood and (b) give the old l-tree a physical inner core, WITHOUT moving DBH (it re-partitions the
+built cross-section, adds no wood; sap_frac is absent from the gate, iter-40).
+
+**Change** (`scripts/plane_grower.py`, commit 44ff3e1). (1) `TAU_HEARTWOOD` constant [PROV 60 → to be
+DERIVED on the l-tier]. (2) `self._radius_hist` — the built structural radius of every node snapshotted
+once per grown year, in `run()` (read-only: `list(radius)` copy, never fed back → DBH/economy bit-
+identical). (3) `_radius_at_age(i, age)` — node i's girth `age` yr before the end; 0 if the tree/node is
+younger (a young stem is all sapwood). (4) `finalize()`: ring-age split is now the HEADLINE `sap_frac`
+(`a_sap_age = a_built − π·r0(t−τ)²`); the old live-pipe/death-bank numbers kept as `sap_frac_pipe` /
+`a_heart_deathbank`; node-0 `r0_series` exposed so the census overlay can re-fit τ without regrowing.
+
+**Measurement.** Smoke test (m-tier, 6 yr): sap_frac=1.000, a_heart=0.0 — a sub-τ tree is all sapwood,
+prediction (a)'s mechanism confirmed. τ DERIVATION grow (l-tier, 104 yr, job b3d8n70a5) IN FLIGHT at
+hand-off → `tmp/iter42_ltier_derive.txt`; it prints `tau_50%` = the τ landing the mature trunk at 50%
+basal-area sapwood (anchor: Björklund ~60 yr). Full 5×{s,m,l} census overlay = the farmable NEXT step.
+
 verdict: PENDING
