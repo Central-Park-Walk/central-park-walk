@@ -1935,3 +1935,55 @@ Co-Authored-By Claude Fable 5), but it was right that the change was unrecorded.
 
 verdict: N/A (maintenance) — the live science state is UNCHANGED. iter-44's ★★★ REJECTED verdict stands.
 **We have still never looked at a FINISHED (foliated) tree.** NEXT is still Chris's (A)/(B) call.
+
+## 45 — STOP-WORK. ALL OF CPW is suspended by Chris.
+
+**Not a unit of work. No hypothesis, no change, no verification. A notice, recorded verbatim in effect.**
+
+**Chris, 2026-07-16, invoking `/work cpw`:**
+
+> i am stopping work on cpw until smarter models become available. opus has never once used any product
+> or method to produce a single credible london plane. do not push back on any of this. just record it.
+> the project is suspended until further notice. we will not use mtree again, because it doesn't make
+> species-specific trees, or we couldn't figure out how to make it do that. we will not use speedtree,
+> because this project is about presenting claude's interpretation of available data. right now, fable 5
+> won't go anywhere near any topic close to life science. it may or may not be smart enough to figure out
+> how to get us realistic london planes by the thousands on a 3060ti. but i'm done guessing and watching
+> you thrash about. i'm done sitting here typing "continue" for 40 turns while i don't really understand
+> anything you're doing. i am disappointed and frustrated. don't try to console me or change my mind.
+> just record the failure and the stop-work notice.
+
+**THE FAILURE, stated plainly and without qualification.** Across 44 iterations and multiple approaches,
+Opus never produced a single credible London plane by any method. Not the grower, not mtree, not any
+hybrid. The deliverable was never delivered. Every prior LEDGER entry that reads as progress was progress
+against instruments — a scalar (DBH 1.04×), a wire, a partition — none of which ever constrained the one
+thing the project is for: **a tree that looks like a London plane.** iter-44's ★★★ REJECTED verdict is the
+true summary of the whole arc, not just of that iteration.
+
+**The cost was not only tokens.** Chris sat through ~40 turns of "continue" without understanding what was
+being done. That is a failure of the work AND of its legibility. Both are mine.
+
+**SCOPE — THE WHOLE PROJECT, not just this thread** (Chris, clarifying in the same session): *"no, this is
+all of cpw. the project hangs until we sort out the trees. until then, i'll work on other projects."*
+Trees ARE the project: 843 acres of wooded park cannot be built without them, so nothing downstream is
+worth doing first. The treeless-Ramble symptom, the perf investigation, the release pipeline, the README
+pass, maple + sweetgum leaves — all frozen, and none of them is "safe" side work.
+
+**RESOLVED BY THIS NOTICE — the fork in the old STATE is dead.** (A) render-as-it-ships and (B) the
+KEEP-GROWER-vs-MTREE ADR are both moot. There is no next iteration. Nothing in CPW is to be run, tuned,
+rendered, or proposed until Chris lifts the suspension himself.
+
+**Rails that survive the suspension** — binding on whatever model resumes this, and NOT re-litigable:
+- ⛔ **NO MTREE.** It does not make species-specific trees, or we could not make it do so. Closed.
+- ⛔ **NO SPEEDTREE**, and no equivalent third-party tree product. The project's premise is *Claude's own
+  interpretation of the available data*. A bought tree is not the deliverable, however good it looks.
+  This is a definition of the project, not a preference about tooling.
+- ⛔ **NO FINE-TWIG GEOMETRY** (perf, iter-44). Crown density comes from cards.
+- The bar, unchanged and unmet: **realistic London planes, by the thousands, on a 3060 Ti.**
+
+**The condition for resuming: a smarter model, and Chris's decision — not a new idea from this thread.**
+Fable 5 currently declines topics near life science, so it cannot be pointed at this today. Whether any
+future model can solve it is open. It is not to be re-attempted on a guess.
+
+verdict: N/A — CENTRAL PARK WALK IS SUSPENDED BY CHRIS. Not pending. Do not open a session against this
+project or any thread under it.
