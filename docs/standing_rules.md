@@ -152,6 +152,47 @@ refutation this project has ever bought.
 sapling's DBH, stuck for six iterations, went 5.15x → 1.15x of census. That is the mechanism saying *the
 size-dependence itself is right; my numerator is not.* The idea was kept; only its input was re-sourced.
 (Full story: `lessons_refutation_discipline.md`, `lessons_null_result_instrument_fault.md`.)
+### 3b — THE OTHER HALF OF RULE 3: "LET APPEARANCE EMERGE" IS NOT "ASSUME APPEARANCE EMERGED"
+
+**iter-44. We ran the process diligently for 44 iterations and never once looked at the appearance.**
+
+Rule 3 says appearance is *downstream* of mechanism. That is a claim about **causation**, not a
+**licence to skip the check** — and this project read it as the latter for forty-four iterations. The
+grower validated exactly **ONE scalar**: trunk DBH, **1.04× census**, the healthiest number on the
+board. The first time anyone rendered the tree and looked (iter-44), the habit was garbage — sparse,
+spindly, reading far younger than 17 in DBH implies.
+
+> **A scalar that cannot constrain the deliverable cannot validate it.**
+
+DBH is one number. Crown breadth, density, fork height, the billowing rounded mass — none of it is in
+that number, and no precision on it ever would be. The whole arc of 44 iterations said **nothing**
+about the thing we were building. `lessons_decompose_the_aggregate`'s "distrust your healthiest
+number" bit **exactly as written**, and the Critic's old **metric-deference** failure mode
+(§1a) turned out to be the *project's* default, not just a sub-agent's.
+
+**Two compounding instrument faults, both ours:**
+
+- **The render was broken, not just the tree.** iter-44 rendered the plane **leafless** — on a
+  representation that keeps ~**76%** of its crown density in the **card/foliage** layer. That is
+  judging a mesh by its wireframe. The F6 brief "habit is most legible bare" is true of **real trees**
+  and **FALSE of this representation**. A diagnostic view that strips the layer carrying the
+  deliverable's character tests the *diagnostic*, not the model.
+- **We were refining what the bake discards.** sap/heart physiology is **DBH-bit-identical** ⇒ it
+  moves **zero** visible geometry, and the 3060 Ti never runs the grower at all (runtime = MultiMesh
+  lod0 → octahedral impostor, `docs/trees.md` §1). "Correct internals" and "on-screen form" are
+  **decoupled.**
+
+**⇒ The rule, sharpened (now promoted to `~/.claude/CLAUDE.md` §4's Engineer):** **"Look at the thing"
+is the FIRST gate, not the last — and you render it AS IT SHIPS.** Before a campaign of internal
+science, get one honest render of the *finished* artifact next to a reference; if you cannot, that is
+the top defect, not a nice-to-have. Name, in advance, what your metric is **blind** to — that list is
+your unvalidated surface. ⛔ Note the perf rail this landed on: **crown density comes from CARDS,
+never from wood** — fine twigs as geometry blow the in-game bark budget (Chris, iter-44). Full story:
+`lessons_validate_on_the_deliverable.md`.
+
+**As of iter-44 we have still never looked at a FINISHED tree** — only a bare scaffold and a pile of
+numbers.
+
 - Fitting a number to a thin anchor to make a shape come out right is the failure mode. When the number is not
   measured, **name the gap** (see Rule 2) rather than fitting it.
 - **This is never-ending by design.** Realism grows with our understanding of the process and with the compute

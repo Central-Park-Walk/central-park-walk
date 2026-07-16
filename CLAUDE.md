@@ -20,8 +20,10 @@ prior-art-first, simulate-the-process — load automatically from `~/.claude/CLA
 4. **[`docs/standing_rules.md`](docs/standing_rules.md)** — read the relevant section **when a rule
    is in play.** It holds the *derivations* behind the global rules: why the Critic seat was retired
    and what had to survive it, the published Fig. 7 that cost us multiple sessions of trial-and-error,
-   and the four separate times this project re-learned that a derived quantity is an **OUTPUT, not a
-   parameter.** Expect a fifth; look for it early.
+   and the **five** separate times this project re-learned that a derived quantity is an **OUTPUT, not
+   a parameter** (§3a: the fifth was *already an output* — read from the loop it drove. Expect a
+   sixth; look for it early). ⚠ **§3b — the 44-iteration lesson:** "let appearance emerge" is not
+   "assume appearance emerged". **Look at the thing FIRST, rendered AS IT SHIPS.**
 
 Then state the session's target in one sentence before writing any code.
 
