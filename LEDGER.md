@@ -1335,6 +1335,7 @@ and the 2.4x is the signature of the ABSENT law, not a mis-valued N_def. Agrees 
 not yet on disk) — NOT to chase F_S as an independent lever.
 
 ## Staged lessons
+- **HARNESS — a subagent that `run_in_background`s its long job then returns orphans that job from the PARENT harness's notifier** (the parent gets no completion event). Prevent: tell farmed subagents to run the job to completion IN-BAND and report the parsed result. Recover: launch ONE parent-tracked waiter that blocks on the PID (`tail --pid=<pid> -f /dev/null`) then emits the result — never poll. (iter-39)
 
 One line each. Raw, unpromoted. `/distill` empties this section — `/work` may only append to it,
 and may never edit `~/.claude/rules/`, `CLAUDE.md`, or `MEMORY.md` on its own.
@@ -1545,3 +1546,42 @@ deficit is HEARTWOOD over-fill (F_H 0→248→975 vs F_S 78→174→122), which 
 iter-33–38 arc chased the sapwood half via a size-law and refuted 6×, while the heartwood half sat parked.
 DIRECTION: do NOT adopt the R_TIP prior yet. iter-39 = pressure-test whether the deficit is a LOSS-RATE
 (TAU_SHED) defect, not a size-law defect — with R_TIP untouched. See STATE NEXT for the pre-registration.
+
+## 39 — PRESSURE-TEST: THE SAPWOOD DEFICIT IS AGE-STRUCTURAL, NOT A TAU_SHED LOSS-RATE. → Branch B.
+**Hypothesis (pre-registered, STATE iter-38):** the sap_frac deficit is HEARTWOOD over-fill driven by the
+shed loss-rate `TAU_SHED` (the ONE free param), NOT a size-law and NOT R_TIP. Test: keep `C_NDEF=None`
+(S≡1 baseline; every rec confirms `S=1.0`), sweep TAU_SHED DOWN from 0.18, read sap_frac + F_H/F_S + DBH,
+R_TIP untouched. Farmed to a subagent (5×{s,m,l}, `--jobs 8`, `--set TAU_SHED=`).
+
+**Runs:** τ=0.18 (`tmp/iter39_tau018.npz`) and τ=0.12 (`tmp/iter39_tau012.npz`) completed clean. τ=0.06
+DIED mid-run (~14 min in) with NO traceback and no `.npz` → external SIGKILL, not a Python exception.
+Leading hypothesis: no-prune runaway (τ=0.06 ⇒ crown never self-prunes ⇒ 104-yr l tree retains all
+terminals ⇒ OOM). UNCONFIRMED — dmesg/syslog empty/inaccessible here. Re-running 0.06 blindly will likely
+OOM again; needs a memory-bounded run (fewer jobs / one tier at a time) if the point is wanted.
+
+**Result — PAIRED BY SEED** (same 5 seeds both runs; cancels the ~80%-of-mean seed spread that made the
+raw two-means comparison unresolvable — "pair before you ratio"):
+| tier (age)   | sap_frac 0.18→0.12 | paired Δ (pts)   | ×census | F_H paired Δ | F_S paired Δ | F_H/F_S |
+|--------------|--------------------|------------------|---------|--------------|--------------|---------|
+| s (15 yr)    | 29.2 → 29.6%       | +0.40 ± 6.96 noise | 0.58×  | +0.4 noise   | +0.4 noise   | 1.83→1.80 |
+| m (47 yr)    | 20.2 → 27.2%       | **+6.92 ± 5.06 RESOLVED** | 0.40→0.54× | −10.6 noise | **+40.0 RESOLVED** | 2.58→1.55 |
+| l (104 yr)   | 16.7 → 18.0%       | +1.36 ± 3.76 **noise** | 0.33→0.36× | +23.6 noise | +56.8 noise | 2.47→2.15 |
+
+**⇒ BRANCH B (pre-registered).** The deficit DEEPENS with age (0.58→0.40→0.33× census) and τ's power to
+fix it VANISHES with age (noise→RESOLVED→**noise at the l tier, where the deficit is worst**). Where τ
+works (m), it works by RETAINING SAPWOOD (F_S Δ +40 resolved), NOT by draining heartwood (F_H Δ −10.6
+noise) — the knob never touches the heartwood pile. At l, F_H≈778 is 104 yr of irreversible accumulation;
+no shed-RATE drains it. This is structural, not a loss-rate: because F_H is cumulative-forever with
+`c_H=c_S` (both DERIVED, iter-29's "leak's-twin"), sap_frac must fall with age regardless of τ. Every
+possible τ=0.06 outcome also lands in Branch B (no rescue, or rescue only at an implausible τ that crashes
+the sim), so the verdict is robust without the third point.
+
+**⇒ THE CANONICAL QUESTION (Chris's call, per the fork).** The defect is the Aye-2022 heartwood MODEL
+choice, not any knob we own: **does old disused pipe stay at full sapwood bore (`c_H = c_S`) forever?**
+Real heartwood is embolised/occluded — it does NOT conduct, and arguably should not carry full pipe-model
+area. Options for Chris (each a distinct position, ADR-worthy): (A) keep `c_H=c_S`, accept sap_frac falls
+with age as REAL biology and re-check it against a census sapwood-vs-age curve before calling it a defect;
+(B) heartwood carries REDUCED area (`c_H = k·c_S`, k<1) — but k is then a new derived quantity needing a
+source, not a knob; (C) revisit whether terminals shed to heartwood should ever have been full-bore pipe.
+Do NOT adopt the iter-38 R_TIP prior (refuted #6, un-generalizable). R_TIP/shade/C all stay closed.
+verdict: PENDING
