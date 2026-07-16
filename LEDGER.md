@@ -1338,12 +1338,8 @@ not yet on disk) — NOT to chase F_S as an independent lever.
 
 (empty — one line per raw lesson; `/work` appends here, `/distill` promotes then empties.)
 
-- iter-40: A SCALING EXPONENT (surface-R² vs volume-R³) IS A LOAD-BEARING PREMISE — MEASURE IT, don't assume
-  it. Test the two terms against EACH OTHER (R-free: d log cost/d log income) not against a size proxy that
-  SATURATES (crown R plateaus late → R-based exponents blow up, as on the s tier). Here the "income is a
-  shell" premise was FALSE — Beer–Lambert light penetration makes income a volume-filling 3D rind (∝R^2.8),
-  so a confidently-named R²/R³ mismatch did not exist. Verifying a redirect's load-bearing assumption can
-  REFUTE the redirect; that is the verification working, not failing. (Pairs with decompose-the-aggregate.)
+*(iter-40's lesson was promoted 2026-07-16 → `lessons_test_magnitude_not_slope.md`. Raw + routing:
+`ledger_archive/2026-07.md`.)*
 
 *(Emptied 2026-07-15 by `/distill` — iters 34–39 processed. Raw entries + routing:
 `ledger_archive/2026-07.md`. PROMOTED: loop-gain "every loop / trajectory≠fixed-point" + the
@@ -1725,12 +1721,11 @@ Björklund's ~60 yr (pine) and that is expected, not a fault. OPEN (iter-43): do
 land s (15 yr → still ~0 heart) and m (47 yr) on census? — the 5×{s,m,l} overlay, the hack-test proper.
 
 ## Staged lessons
-- "Wide sapwood" (and any "wide/deep/broad X") is a WIDTH/AREA claim, not a per-YEAR claim — don't convert
-  a spatial descriptor into a temporal constant. Cost: an anchor prediction (τ≥60) refuted by the fit (34).
-- ★ Refining a quantity the BAKE discards is invisible work. Before iterating on a tree's INTERNAL
-  physiology, check what survives skin→impostor at runtime. sap/heart is DBH-bit-identical ⇒ it moves ZERO
-  visible geometry; the 3060 Ti never runs the grower (runtime = MultiMesh lod0 → octahedral impostor,
-  docs/trees.md §1). "Correct internals" and "on-screen form" are decoupled — spend on the one you can SEE.
+
+*(Emptied 2026-07-16 by `/distill` — iters 40–44 processed. Raw entries + routing:
+`ledger_archive/2026-07.md`. PROMOTED: "wide sapwood" is a WIDTH not a per-YEAR claim →
+`project_london_plane_crown_mould.md` (project-local); bake-discards-it-is-invisible → merged as
+face 3 of `lessons_validate_on_the_deliverable.md`.)*
 
 verdict: SOUND but UNVINDICATED — Chris (2026-07-16) redirected the effort to SKINNING before the iter-43
 census overlay ran. τ=34 lands the l-tier by construction; whether the SAME untuned τ=34 lands s (15 yr)
@@ -1836,11 +1831,40 @@ you're right that the png we got is garbage. we still don't know how to make tre
 
 ## Staged lessons
 
-- ★★★ A MODEL VALIDATED ONLY ON A SCALAR IS UNVALIDATED ON FORM. 44 iterations fit DBH to 1.04× census
-  while the habit was never once looked at; the first look was garbage. If the deliverable is APPEARANCE,
-  an appearance check is not a final step — it is the FIRST gate, and a scalar that cannot constrain the
-  deliverable cannot validate it. Distrust the healthiest number hardest when it is the only one you have.
-- ★★ RENDER THE THING AS IT SHIPS, OR THE INSTRUMENT IS BROKEN. A diagnostic view that removes the layer
-  carrying the deliverable's character (here: strip the cards, keep the scaffold) does not test the model —
-  it tests the diagnostic. Ask what the SHIPPED artifact looks like before explaining why the stripped one
-  looks wrong. (Kin to "blind the premise": establish WHETHER it is bad before spending a session on WHY.)
+*(Emptied 2026-07-16 by `/distill` — iters 40–44 processed. Raw entries + routing:
+`ledger_archive/2026-07.md`.)*
+
+---
+
+## DISTILL 2026-07-16 — iters 40–44 staged lessons promoted, raw archived (maintenance, not an iteration)
+
+**Not a unit of work; no grower change, no science verdict.** `/distill` ran over all three
+`## Staged lessons` blocks (iters 40, 42, 44). Routing:
+- **★★★ THE HEADLINE IS A RE-LEARN, NOT A NEW RULE.** iter-44's three lessons (scalar-can't-validate ·
+  render-as-it-ships · bake-discards-it) are **ONE insight from three angles**, and `CLAUDE.md` §4's
+  Engineer already said *"Metrics may FAIL a change, but they may never CLEAR a visible defect. Look at
+  the thing."* The rule was in Tier 0 the whole time and failed to bind because it read as a **final**
+  step. So §4 was **sharpened in place** — "**the FIRST gate, not the last, and rendered AS IT SHIPS**"
+  — rather than given a new line, and the three faces merged into one new lessons file.
+- PROMOTED → NEW `lessons_validate_on_the_deliverable.md`: the full 44-iteration story + the three
+  faces. It **absorbs** `feedback_polish_before_eval` (same rule, other end: the render must be
+  REPRESENTATIVE before you may read it) and links `lessons_critic_role_pipeline`'s **metric-deference**
+  failure mode — which is exactly what 44 iterations did.
+- PROMOTED → practices.md "Looking at things": one ★★★ line replacing the old "Polish before
+  evaluation" line. PAID FOR by deleting the "Critic's GATE survives the retired seat" line — pure
+  archaeology (it only recorded that a rule had *moved*); its live content is now carried by the new rule.
+- PROMOTED → `lessons_test_magnitude_not_slope.md`: iter-40's **exponent-is-a-load-bearing-premise** +
+  the **saturating-proxy** trap (never take an exponent against a proxy that plateaus; test the terms
+  against each other R-free). Same family as magnitude-vs-slope, so it joined that file — no Tier-0 cost.
+- PROJECT-LOCAL → `project_london_plane_crown_mould.md`: the ⛔ **fine-twig path is DEAD on perf**
+  (crown density from CARDS, never wood — do not re-propose); **do NOT re-tune sap/heart** (the bake
+  discards them); "wide sapwood" is a WIDTH claim (cost: τ≥60 anchor, refuted at τ=34); τ=34 is
+  **UNVINDICATED not wrong** (census overlay DEFERRED, not cancelled).
+- ALSO PAID: merged `feedback_do_the_research` + `feedback_source_credibility_over_judgment` into one
+  line (same rule, two angles: rank the SOURCE before the claim).
+- Raw one-liners → `ledger_archive/2026-07.md`. **Tier-0 23,924 → 24,607 B (+683**, 993 B under the
+  25 KB warn). It GREW: two deletions + one merge did not fully fund a ★★★ rule that cost 44
+  iterations. Justified, but the next distill owes Tier 0 a net reduction.
+
+verdict: N/A (maintenance) — the live science state is unchanged: iter-44's ★★★ REJECTED verdict stands.
+**We have still never looked at a FINISHED tree.** The appearance gate is now FIRST (see STATE NEXT).

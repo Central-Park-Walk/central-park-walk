@@ -10,10 +10,14 @@ prior-art-first, simulate-the-process — load automatically from `~/.claude/CLA
 `~/.claude/rules/`. They are **not repeated here**, so this file can't contradict them. Auto memory
 (the `MEMORY.md` index plus its topic files) loads on its own too; no path to chase.
 
-1. **`DESIGN.md`** — the single source of truth for what this project is supposed to be.
-2. **The active resume/plan** referenced in MEMORY.md's "Active project context", plus the memory
-   topic file for whatever you're touching.
-3. **[`docs/standing_rules.md`](docs/standing_rules.md)** — read the relevant section **when a rule
+1. **[`index_cpw.md`](../.claude/projects/-home-chris/memory/index_cpw.md)** — **THE CPW MEMORY
+   INDEX. Read it FIRST.** Every CPW memory, one line each. It is deliberately **not** in `MEMORY.md`
+   (4.4 KB × every tool call × every session, useful to one project), so `MEMORY.md` keeps only a
+   pointer — which means **nothing auto-loads it. You must open it.**
+2. **`DESIGN.md`** — the single source of truth for what this project is supposed to be.
+3. **The active resume/plan** + the memory topic file for whatever you're touching — both found via
+   the index above.
+4. **[`docs/standing_rules.md`](docs/standing_rules.md)** — read the relevant section **when a rule
    is in play.** It holds the *derivations* behind the global rules: why the Critic seat was retired
    and what had to survive it, the published Fig. 7 that cost us multiple sessions of trial-and-error,
    and the four separate times this project re-learned that a derived quantity is an **OUTPUT, not a
