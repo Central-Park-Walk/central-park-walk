@@ -1338,6 +1338,13 @@ not yet on disk) — NOT to chase F_S as an independent lever.
 
 (empty — one line per raw lesson; `/work` appends here, `/distill` promotes then empties.)
 
+- iter-40: A SCALING EXPONENT (surface-R² vs volume-R³) IS A LOAD-BEARING PREMISE — MEASURE IT, don't assume
+  it. Test the two terms against EACH OTHER (R-free: d log cost/d log income) not against a size proxy that
+  SATURATES (crown R plateaus late → R-based exponents blow up, as on the s tier). Here the "income is a
+  shell" premise was FALSE — Beer–Lambert light penetration makes income a volume-filling 3D rind (∝R^2.8),
+  so a confidently-named R²/R³ mismatch did not exist. Verifying a redirect's load-bearing assumption can
+  REFUTE the redirect; that is the verification working, not failing. (Pairs with decompose-the-aggregate.)
+
 *(Emptied 2026-07-15 by `/distill` — iters 34–39 processed. Raw entries + routing:
 `ledger_archive/2026-07.md`. PROMOTED: loop-gain "every loop / trajectory≠fixed-point" + the
 GENERALIZABILITY hack-detector → CLAUDE.md §1; stability-gate null → practices.md null line;
@@ -1549,7 +1556,30 @@ with age as REAL biology and re-check it against a census sapwood-vs-age curve b
 (B) heartwood carries REDUCED area (`c_H = k·c_S`, k<1) — but k is then a new derived quantity needing a
 source, not a knob; (C) revisit whether terminals shed to heartwood should ever have been full-bore pipe.
 Do NOT adopt the iter-38 R_TIP prior (refuted #6, un-generalizable). R_TIP/shade/C all stay closed.
-verdict: PENDING
+verdict: REDIRECT — REAL-BIOLOGY + WRONG-SUBSYSTEM (Chris, 2026-07-15). Three separable claims. (1) The
+sap_frac DECLINE is real, ~as robust as allometry gets: absolute sapwood area rises ∝DBH^1.5–2 (pipe model
+tracking leaf area) — SUBLINEAR in basal area ∝R², so the FRACTION falls; every heartwood species is a thin
+conducting shell around a dead core. KEEP sap_frac(age) declining on FIDELITY grounds, independent of the
+gate. (2) `c_H=c_S` is wrong but IMMATERIAL and NOT what generates the decline. iter-39's null is not a stuck
+search — it is a PROOF the heartwood mechanism is ONTOGENETIC, not conductance-driven: in a pipe-model trunk
+every pipe is in-use while the crown above lives (that IS the model), so a disuse/conductance knob can NEVER
+mark TRUNK pipes heartwood — the only disused pipes are in shed branches, backwards from where heartwood
+accumulates. Real heartwood = ring-age-driven programmed parenchyma senescence on a schedule ~independent of
+conduction; "embolised" is the STATE not the CAUSE. The missing knob is τ_heartwood: convert a pipe to c→0
+and DROP it from the maintenance sum once it is older than N rings from the cambium, N fitted to the
+sapwood-area allometry (Rule 3 — if fitted τ predicts an untargeted observable, it's biology, same idiom as
+iter-25's sapwood%). (3) ★ THE POINT THAT MOVES THE PROJECT: even a PERFECT heartwood model cannot rescue the
+GATE, because sap_frac is a DEAD LEVER against a COUNT-based cost. Cost = Σ sap_frac over internodes; twig
+count dominates that sum, goes as R³, and twigs are ~100% sapwood — heartwood only discounts the handful of
+thick old internodes = subtracting a rounding error from an R³ sum (flagged iter-26, confirmed iter-39). The
+real mismatch is income ∝ R² (silhouette, a SHELL) vs surviving-internode cost ∝ R³ (crown volume, a SOLID).
+Sapwood was a hunt for a discount in the WRONG PLACE. Real crowns close the gap by SELF-PRUNING the shaded
+interior so surviving productive twig count scales like the outer shell, not the volume — a LIGHT-LAW /
+SHED-GATE mechanism (iter-25 Beer–Lambert territory), NOT hydraulics. If the interior isn't dying back fast
+enough, surviving count stays ∝R³ and the gate condemns bigness regardless of the denominator's coefficient.
+That is the exponent error named ten iterations ago. ⚠ LOAD-BEARING, VERIFY BEFORE CODING: that the R³ term
+is *surviving* internode count and the shed gate is UNDER-pruning the interior — "if the R³ is entering
+somewhere else, the diagnosis moves." → iter-40 is that verification, not a fix.
 
 ## DISTILL 2026-07-15 — iters 34–39 staged lessons promoted, raw archived (maintenance, not an iteration)
 
@@ -1568,3 +1598,51 @@ block (iters 34–39). Routing:
 
 verdict: N/A (maintenance) — the live science state is unchanged: iter-39 Branch B stands, the canonical
 `c_H=c_S` heartwood question is still PENDING Chris's call (see STATE NEXT).
+
+## 40 — VERIFY-BEFORE-CODE: THE LOAD-BEARING R²-vs-R³ ASSUMPTION IS REFUTED. The diagnosis moves.
+
+**Target (one sentence, from Chris's iter-39 verdict):** before coding any shed-gate interior-pruning fix,
+verify against the ACTUAL wiring that the gate's cost is a *surviving* internode count scaling ~R³ while
+income scales ~R² — "if the R³ is entering somewhere else, the diagnosis moves." Falsifiable read:
+`d log(surviving-woody-count)/d log(income)` ≈ 1.5 if the mismatch is real; ≈ 1 if cost tracks income.
+
+**Change (INSTRUMENT ONLY — no grower change):** `scripts/iter40_scaling.py` monkeypatches `Grower.shed`
+to log, once/year, the gate's OWN two terms at the whole tree — income = Σ foliage_light (numerator
+`lg[trunk]`) and nwood = #(alive, non-foliage) (denominator `sz[trunk]`) — plus tip count and crown R,
+over one l-tree ontogeny (104 yr, same seed = a clean continuous size sweep). Final-year interior-light
+histogram over surviving woody nodes. `tmp/iter40_scaling.{npz,png}`, `tmp/iter40_l.log`.
+
+**WIRING (confirmed by code-read, zero cost):** the shed gate (`shed()` L1860) tests `light/size` **only at
+axis roots** (+ arch-distal) → it kills whole axes, NEVER an individual interior internode → a shaded
+interior internode is structurally immortal until its whole axis dies (interior under-pruned BY
+CONSTRUCTION). Its `size` denominator (L1867) is a **raw surviving-woody-internode COUNT, unweighted by
+sap_frac** → heartwood/sapwood is ABSENT from the gate. So Chris's claim (3)-conclusion holds — a heartwood
+fix cannot touch the gate — but for a stronger reason than stated: sap_frac isn't a weak lever, it's not in
+the gate at all.
+
+**VERIFICATION — THE EXPONENT IS MEASURED, AND IT REFUTES THE PREMISE:**
+- **`d log(nwood)/d log(income) = 0.85` (mature, R-free); twigs `d log(ntip)/d log(income) = 0.57`.** Over
+  most of life cost grows SLOWER than income. The gate does NOT condemn bigness. (slope-1.5 predicted; got 0.85.)
+- **income ∝ R^2.76 (ontogeny), R^2.0→2.6 (cross-tier, iter-39 nfol), NOT R².** Two independent instruments:
+  income is a THICK Beer–Lambert rind filling crown volume, not a 2D silhouette. The "income is a shell" premise
+  is FALSE — and it STEEPENS with size (2.04→2.63 s→m→l).
+- **surviving twig count ∝ R^1.56, NOT R³.** The interior IS pruned enough (whole-axis + arch-cascade
+  dieback) that productive tips scale SUB-shell. Chris conflated twig count with internode count: nwood=19140
+  vs ntip=273 (70:1 chains); the R^2.3 term is interior SCAFFOLD internodes, not twigs.
+- **Only late (yr 70–104) does nwood edge ahead of income: slope 1.35.** income/nwood ratio PEAKS ~1.07 at
+  yr81, erodes ~20% to 0.86 by yr104 — a mild late-life tightening from interior scaffold accumulation
+  (69% of surviving wood in deep shade <0.10C), NOT a catastrophic R²/R³ exponent error. See `iter40_scaling.png`
+  (blue cost hugs slope-1, sits far below the red slope-1.5).
+
+**⇒ THE DIAGNOSIS MOVES (Chris pre-registered this exit).** The redirect's claim (3) MECHANISM (income R²
+shell vs surviving-twig R³ volume) is refuted: income scales NEARLY AS STEEPLY as cost, because Beer–Lambert
+foliage fills a 3D rind (iter-25's own light law is why). There is NO active "gate condemns bigness" defect on
+the shipping S≡1 baseline — the l tree reaches full size (H 23.4m, 273 tips). Claim (3)-conclusion
+(sap_frac can't rescue the gate) still holds — but there's nothing to rescue. **DO NOT code a shed-gate
+interior-pruning fix on the refuted premise.** Claims (1) sap_frac decline = real biology and (2) τ_heartwood
+= ontogenetic FIDELITY knob both stand as fidelity work, independent of the (non-)gate problem. The one real
+signal — the ~20% late-life ratio erosion — needs the SAME defect-vs-biology adjudication as sapwood (old
+trees senesce; this may be fidelity too), NOT a code fix. Recommend to Chris: validate sap_frac(age) vs a
+census sapwood-area-vs-age curve (Position A) and treat τ_heartwood as fidelity — the sapwood "deficit" is
+looking like biology, not a defect, on TWO fronts now.
+verdict: PENDING

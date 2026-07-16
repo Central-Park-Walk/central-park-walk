@@ -3,54 +3,56 @@
 The developmental grower: `scripts/plane_grower.py`. Grow a plane from a seed; let crown, caliber and
 depth **emerge**. Deep history: `LEDGER.md` (append-only) — iterate from here, not from it.
 
-## Where we are — ★★ iter-39: BRANCH B. The sapwood deficit is AGE-STRUCTURAL, not a TAU_SHED loss-rate.
+## Where we are — ★★ iter-40: THE R²-vs-R³ GATE DIAGNOSIS IS REFUTED. The sapwood "deficit" is biology on TWO fronts.
 
-TAU_SHED swept 0.18→0.12 on the S≡1 baseline (`C_NDEF=None`, every rec `S=1.0`; R_TIP untouched). Paired
-by seed (cancels the ~80% seed spread): sap_frac responds at the MEDIUM tree (+6.9 pts, RESOLVED) but is
-**noise at the LARGE tree** (+1.4 ± 3.8) — exactly where the deficit is worst (0.33× census). The deficit
-DEEPENS with age (0.58→0.40→0.33×) and τ's power to fix it VANISHES with age. Where τ works it RETAINS
-SAPWOOD (F_S +40), never drains heartwood (F_H Δ noise). At l, F_H≈778 is 104 yr of irreversible pile — no
-shed-*rate* drains it, because F_H is cumulative-forever with `c_H=c_S`. **The knob is powerless; the
-defect is the heartwood MODEL.** (τ=0.06 run OOM'd mid-flight — crown never prunes → runaway; itself a
-Branch-B symptom. Verdict robust without it. Bench: `tmp/iter39_tau0{18,12}.npz`, report `tmp/iter39_report.txt`.)
+Chris's iter-39 REDIRECT had three claims; iter-40 verified the LOAD-BEARING one (the gate exponent) against
+the actual wiring, per his instruction "if the R³ is entering somewhere else, the diagnosis moves." It moved.
+Instrument `scripts/iter40_scaling.py` logged the shed gate's OWN two terms over one l-tree ontogeny
+(`tmp/iter40_scaling.{npz,png}`). **Cost does NOT outrun income:** `d log(nwood)/d log(income)=0.85` (twigs
+0.57) — the gate does NOT condemn bigness. **income ∝ R^2.76, NOT R²** (thick Beer–Lambert rind, not a
+silhouette; steepens with size; confirmed cross-tier R^2.0–2.6). **twigs ∝ R^1.56, NOT R³** (interior IS
+pruned; nwood 19140 vs ntip 273 = scaffold, not twigs, is the R^2.3 term). Only LATE (yr70–104) does nwood
+edge ahead (slope 1.35): income/nwood peaks ~1.07 @yr81, erodes ~20% to 0.86 @yr104 — mild, not catastrophic.
 
 ## The board (only a `** RESOLVED **` line is a tell)
 
-1. **★★★ THE S→SHADE→n_tips FOLD — ** RESOLVED (iter-38) **.** /n_tips divisor dropped; n_tips 135–215.
-2. **★★★ SAPWOOD DEFICIT — RE-CLASSED (iter-39): NOT a knob we own.** Not size-law (Position B refuted #6),
-   not loss-rate (TAU_SHED powerless at l). It is the Aye-2022 heartwood MODEL choice `c_H=c_S`. ← now a
-   CANONICAL question for Chris, not an iteration (see NEXT). Do NOT open a 7th tuning loop on it.
-3. **★ SIZE-LAW / R_TIP-as-PRIOR — DEAD.** Emergent S=C·M^q refuted (#6). Imposed R_TIP prior is a HACK
-   (per-species census lookup, un-generalizable). Not to be revisited. S≡1 baseline ships (l DBH 1.25×).
+1. **★★★ THE S→SHADE→n_tips FOLD — ** RESOLVED (iter-38) **.** /n_tips divisor dropped; n_tips 135–273.
+2. **★★★ SAPWOOD "DEFICIT" — now BIOLOGY on two fronts, NOT a gate defect.** iter-39: no knob we own fixes it.
+   iter-40: the income-R²/cost-R³ mechanism that made it a *gate* problem is REFUTED — income scales nearly as
+   steeply as cost. sap_frac is ABSENT from the shed gate (raw count, unweighted). ⇒ likely a fidelity feature
+   (thin shell on a dead core), to VALIDATE vs census, not a defect to fix. See NEXT.
+3. **★ THE GATE IS NOT CONDEMNING BIGNESS on the S≡1 baseline.** l tree reaches full size (H 23.4m, 273 tips).
+   Do NOT code a shed-gate interior-pruning fix — its premise (R²-shell income) is refuted. Size-law/R_TIP-prior
+   all DEAD/refuted (#6). S≡1 baseline ships (l DBH 1.25×).
 
-## NEXT — CHRIS'S CALL (canonical, ADR-worthy). Does old disused pipe stay at full bore `c_H=c_S` forever?
+## NEXT — CHRIS'S CALL. The sapwood decline is looking like REAL BIOLOGY. Adjudicate, don't fix.
 
-Real heartwood is embolised/occluded — it does not conduct. iter-39 proved no knob we own fixes the
-age-structural sapwood deficit; the question is whether the deficit is a DEFECT or REAL biology. Three
-distinct positions to weigh (write the ADR before coding any):
-- **(A) Keep `c_H=c_S`.** Accept sap_frac falls with age as real, and VALIDATE against a census
-  sapwood-area-vs-age curve BEFORE calling it a defect at all. (Cheapest; may dissolve the "defect".)
-- **(B) `c_H = k·c_S`, k<1** — heartwood carries reduced area. But k is a DERIVED quantity needing a
-  published source (Aye 2022 / pipe-model literature on disk), NOT a fitted knob. Output-as-parameter risk.
-- **(C) Revisit shed-to-heartwood** — should shed terminals ever have contributed full-bore pipe area?
-  Ties to iter-29's c_H/c_S "leak's-twin" derivation.
-⚠ Do NOT re-pin C, re-open shade, touch R_TIP, or adopt the R_TIP prior — all closed/refuted. First act
-of the next session is the ADR + reading the on-disk Aye-2022 heartwood section, not code.
+Two fidelity tracks, both INDEPENDENT of the (non-)gate problem — pick one, or park:
+- **(A, cheapest) Validate sap_frac(age) vs a census sapwood-area-vs-age curve.** If real planes go DBH^1.5–2
+  sublinear-in-basal-area (Chris: "robust as allometry gets"), the "deficit" dissolves into fidelity. Needs a
+  published sapwood-area allometry on disk (`tmp/papers/`), NOT a fitted knob. This likely CLOSES board #2.
+- **(B) τ_heartwood as an ONTOGENETIC fidelity knob** (Chris claim 2): convert a pipe to c→0 and drop it from
+  the maintenance sum once older than N rings from the cambium, N fit to the sapwood-area allometry. Ring-age
+  senescence, NOT conductance (iter-39 proved conductance can't reach trunk heartwood). Improves heartwood
+  fidelity; will NOT change the gate (sap_frac absent from it) — do it for the wood, not the economy.
+- The ~20% late-life ratio erosion (yr>80) needs the SAME defect-vs-biology question (old trees senesce).
+⚠ Do NOT: adopt the R_TIP prior (#6), re-open shade/C/size-law, or code a shed-gate fix. First act next
+session = Chris picks A/B/park; if A/B, read the on-disk sapwood-area allometry BEFORE coding (no fitted k).
 
 ## Rails — each cost a session; do not re-litigate
 
-- ⛔ **★★★ q/K & HEART_RATIO ARE OUTPUTS.** `Q_MASS=2/E_M`, `c_H=c_S` — DERIVED, not knobs. `C_NDEF` stays
-  `None` ON PURPOSE (refuted, not the iter-34 no-op trap). Emergent R_TIP overshoots BECAUSE q is un-tunable.
+- ⛔ **★★★ q/K & HEART_RATIO ARE OUTPUTS.** `Q_MASS=2/E_M`, `c_H=c_S` DERIVED, not knobs. `C_NDEF=None` ON
+  PURPOSE. Emergent R_TIP overshoots BECAUSE q is un-tunable. `c_H=c_S` is wrong-but-immaterial (iter-39/40).
 - ⛔ **★★★ GAIN EVERY LOOP THE TERM CLOSES** (36/37) — the fold lived in the DYNAMICS, not the identity. DEAD.
-- ⛔ **★★ n=1 CANNOT MEASURE A RATIO / PAIR BEFORE YOU RATIO** (30, re-proved iter-39) — the raw two-means
-  τ comparison was unresolvable; pairing by seed made it a tell. `plane_bench.py` 5×{s,m,l} ≈ 25 min/run.
-- ⚠ **HARNESS (iter-39):** a subagent that BACKGROUNDS its bench then exits orphans the job from the parent's
-  notifier — recover with one harness-tracked waiter on the PID, never poll. τ=0.06 OOM'd at `--jobs 8`.
-- ⚠ **Papers on disk** (`tmp/papers/`): Shinozaki I+II, Aye 2022 (heartwood), Hellström 2018, WBE. APPEND-ONLY.
+- ⛔ **★★ n=1 CANNOT MEASURE A RATIO / PAIR BEFORE YOU RATIO** (30, 39). `plane_bench.py` 5×{s,m,l} ≈ 25 min.
+- ⚠ **HARNESS (re-proved iter-40):** DO NOT nest `nohup … &` inside a `run_in_background` tool — the harness
+  tracks the wrapper shell (exits in ms after echo) → FALSE "completed" notification while the real job runs
+  detached. Recover with ONE `tail --pid=<pid>` waiter (never poll). Better: let run_in_background own the
+  python directly (no nohup/&). One l-tree grow ≈ 17 min.
+- ⚠ **Papers on disk** (`tmp/papers/`): Shinozaki I+II, Aye 2022 (heartwood), Hellström 2018, WBE. Need a
+  sapwood-AREA-vs-age/size allometry for track A — check these first, may already be in Aye/Shinozaki.
 
 ## Housekeeping
 
 - ALPHA=1.026e-5 PROVISIONAL (fitted on DBH@m alone). Open agent branches: **ginkgo**, **magnolia** (unmerged).
-- **Distilled 2026-07-15** (commit 45043f1, maintenance): staged lessons 34–39 promoted to global rules
-  (rails #44 "gain every loop" + the harness/orphan note are now Tier-0), raw → `ledger_archive/2026-07.md`.
-  No science changed; iter-39 Branch B + the `c_H=c_S` NEXT question stand.
+- Distilled 2026-07-15 (commit 45043f1): iters 34–39 lessons promoted to global rules; raw → `ledger_archive/2026-07.md`.
