@@ -1727,5 +1727,40 @@ land s (15 yr → still ~0 heart) and m (47 yr) on census? — the 5×{s,m,l} ov
 ## Staged lessons
 - "Wide sapwood" (and any "wide/deep/broad X") is a WIDTH/AREA claim, not a per-YEAR claim — don't convert
   a spatial descriptor into a temporal constant. Cost: an anchor prediction (τ≥60) refuted by the fit (34).
+- ★ Refining a quantity the BAKE discards is invisible work. Before iterating on a tree's INTERNAL
+  physiology, check what survives skin→impostor at runtime. sap/heart is DBH-bit-identical ⇒ it moves ZERO
+  visible geometry; the 3060 Ti never runs the grower (runtime = MultiMesh lod0 → octahedral impostor,
+  docs/trees.md §1). "Correct internals" and "on-screen form" are decoupled — spend on the one you can SEE.
+
+verdict: SOUND but UNVINDICATED — Chris (2026-07-16) redirected the effort to SKINNING before the iter-43
+census overlay ran. τ=34 lands the l-tier by construction; whether the SAME untuned τ=34 lands s (15 yr)
+and m (47 yr) on census is UNTESTED. The overlay is DEFERRED, not cancelled — `r0_series` is still exposed
+so it can re-fit τ per tier later without regrowing. No hack was found or hidden; the hack-TEST just wasn't run.
+
+## 43 — DECISION: skin the skeleton NOW; census overlay deferred (no code this session)
+
+**Why.** Chris asked why 42 iterations produced no tree to look at, and whether a grown-tree pipeline could
+even survive the 3060 Ti. Two findings settle it:
+  (1) BAKE-TIME vs RUN-TIME are decoupled. The grower is an OFFLINE authoring tool; the runtime draws
+      `{species}_{s,m,l}` base meshes via MultiMesh (lod0 0–80 m) then octahedral impostors (60–800 m,
+      2048² atlas baked from lod0) — docs/trees.md §1. The GPU never simulates growth; a "forest" is
+      instanced copies of a handful of baked meshes. Growing a tree well cannot break forest perf.
+  (2) The recent sap/heart iterations refine an INTERNAL quantity (living vs dead wood) that is invisible
+      on a standing tree and DBH-bit-identical ⇒ it survives the bake as nothing. We drifted into polishing
+      internals the renderer can't show, while the step that puts a tree on screen sat parked.
+
+**Investigation (this session, read-only).** The skinner + renderer ALREADY EXIST:
+  - `leafback_skinner.py`: `build_tube_mesh(g)` skins a graph `g{nodes[{pos,parent,radius}], strand}` into a
+    bark tube (Blender/bpy); `load_graph_npz(path)` builds `g` from a `pos/parent/radius/strand` .npz.
+  - `plane_grower.py::grow_tier()` already RETURNS that exact graph in memory (nodes carry pos/parent/
+    radius/strand; top-level radius/strand arrays too) — but `__main__` only PRINTS stats, never saves it.
+  - `render_skeleton.py`: Blender white-bg orthographic render of a bark skeleton (the June v1–v11 PNGs).
+The gap is a MISSING WIRE, not missing capability: the grower doesn't export its skeleton as an .npz.
+
+**Change.** None to code. Reframed the plan; recorded the decision; rewrote STATE to tee up the skin.
+
+**Verification.** Confirmed by grep/read: grower `__main__` (L2351–2373) saves no skeleton; no `np.savez`
+of pos/parent/radius/strand anywhere; grower graph dict (L2245–2252) field-matches skinner input; skinner
+`load_graph_npz` (L304–316) reads pos/parent/radius/strand; runtime tier chain lod0→impostor (trees.md §1).
 
 verdict: PENDING
