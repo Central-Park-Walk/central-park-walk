@@ -190,6 +190,19 @@ R_TIP      = DBH_CALIB * R0     # effective terminal-bud radius (= the deferred 
 #    of leaf-unit loss), not the price of a unit in it.
 HEART_RATIO = 1.0         # [DERIVED] c_H == c_S — the same pipe, now disused. See above.
 C_HEART     = HEART_RATIO * math.pi * R_TIP ** 2      # c_H: heartwood area per LOST leaf unit
+# ★ iter-42 — RING-AGE HEARTWOOD (Track B). Aye's branch-death bank alone (c_H·F_H) is the paper's
+# OWN "no reusable pipes" artifact (§Discussion): a living trunk with few dead branches gets ~0
+# heartwood, when biology says its innermost rings are already a dead core. Björklund 1999: sapwood
+# lives ~tau YEARS (decoupled from the 3-12 yr leaf life), then ages into heartwood REGARDLESS of
+# branch death. So the true sap/heart split is by RING AGE: sapwood = the wood laid down in the last
+# TAU_HEARTWOOD years (the outer rings); everything older is heartwood. This RE-PARTITIONS the
+# built cross-section the ratchet already produced -- it adds NO wood and does NOT touch DBH/economy
+# (sap_frac is absent from the gate, iter-40). tau is a DERIVATION, not a free knob: fitted ONCE so
+# the mature l-tier (104 yr, the census-representative plane) reads ~50% basal-area sapwood -- the
+# ONE robust allometric target (Platanus = WIDE sapwood, ~50%). Sanity anchor: Björklund ~60 yr
+# (pine); plane's wide sapwood => tau >= that. s (15 yr) -> ~0 heart and m (47 yr) -> >50% sap then
+# fall out as OUTPUTS, never retuned (the <=1-tuned-param hack-test).
+TAU_HEARTWOOD = 60        # [PROV -> DERIVED this session from the l-tier r0(t) history]. years.
 # ⚠ iter-15: R_TIP and C_HEART above are now only the REFERENCE (anchor) values. The live ones are
 # self.r_tip / self.c_heart, which ride on N_def(t). See the N_def block immediately below.
 
@@ -907,6 +920,11 @@ class Grower:
         # zero every year, so the old max() only ever ratcheted within one bottom-up pass), and it
         # is where a DEAD child's pipe area is frozen so its parent can keep carrying it.
         self._r_hist = []
+        # ★ iter-42: the BUILT structural radius of every node, snapshotted once per grown year, so the
+        # ring-age partition (Track B) can read r_i(t - TAU_HEARTWOOD) -- the girth TAU years before the
+        # end, i.e. the boundary between the outer sapwood rings and the aged heartwood core. Read-only
+        # bookkeeping: it never feeds back into growth, so DBH/economy stay bit-identical. See finalize().
+        self._radius_hist = []
         # ★ iter-13: the two components the ratchet now keeps SEPARATE, because they obey different
         # laws (see ratchet()). _r_sap = the ACTIVE pipe radius (Shinozaki, p = PIPE_POWER, live
         # children only); _a_dead = the DISUSED pipe AREA walled off as heartwood (p = 2, conserved).
@@ -2163,6 +2181,7 @@ class Grower:
             r_struct, seglen = self.structural_radius(children, radius)
             self._bill = self.support_bill(children, r_struct, radius, seglen)
             radius = list(r_struct)
+            self._radius_hist.append(list(radius))    # ★ iter-42: snapshot the built girth (ring-age)
             self.posture(radius, children)
             shadow, mn = self.build_shadow(children)
             nshed = self.shed(self.foliage_light(shadow, mn), children, year)
@@ -2181,6 +2200,20 @@ class Grower:
                       f"pool={vb:8.4f} m3  support_bill={bt:8.4f} m3 ({100*bt/max(vb,1e-12):5.1f}% of pool)"
                       f"  spend/alloc={100*sp/max(al,1e-12):5.1f}%  residue={100*rs/max(vb,1e-12):5.1f}% of pool")
         return self.finalize()
+
+    # ======================================================================
+    # ★ iter-42 — RING-AGE lookup: the built girth of node i, `age` years before the final grown year.
+    # ======================================================================
+    def _radius_at_age(self, i, age):
+        """Node i's structural radius `age` years before the end -- the sapwood/heartwood boundary
+        (everything inside this radius was laid down > TAU_HEARTWOOD yr ago => aged heartwood). Returns
+        0.0 if the tree (or node i) is younger than `age`: a young stem is all sapwood, no aged core."""
+        h = self._radius_hist
+        idx = len(h) - 1 - int(age)
+        if idx < 0:                          # tree younger than `age` -> no wood is that old
+            return 0.0
+        snap = h[idx]
+        return snap[i] if i < len(snap) else 0.0   # node i not yet born `age` yr ago -> no aged core
 
     # ======================================================================
     # FINALIZE -> skinner-shaped graph dict (pos/parent/radius/strand/root)
@@ -2220,9 +2253,20 @@ class Grower:
         # WIDE sapwood, so a low number here is a FAIL however good the DBH looks.
         a_sap, a_dead_0 = math.pi * self._r_sap[0] ** 2, self._a_dead[0]
         a_built = math.pi * radius[0] ** 2
-        out.update(F_S=self._f_live[0], F_H=self._f_lost[0], a_sap=a_sap, a_heart=a_dead_0,
-                   sap_frac=a_sap / max(a_built, 1e-12),
-                   sap_frac_pipe=a_sap / max(a_sap + a_dead_0, 1e-12))
+        # ★ iter-42 — RING-AGE split (Track B) is now the HEADLINE sap_frac. It RE-PARTITIONS the same
+        # built basal area a_built (DBH untouched): heartwood = the aged core inside r0(t-TAU_HEARTWOOD),
+        # sapwood = the outer TAU rings. Supersedes the branch-death bank as the sap/heart measure (Aye's
+        # no-reuse artifact, iter-41); the old live-pipe / death-bank numbers are kept for continuity.
+        a_heart_age = math.pi * self._radius_at_age(0, TAU_HEARTWOOD) ** 2
+        a_sap_age   = max(a_built - a_heart_age, 0.0)
+        out.update(F_S=self._f_live[0], F_H=self._f_lost[0],
+                   a_sap=a_sap_age, a_heart=a_heart_age,
+                   sap_frac=a_sap_age / max(a_built, 1e-12), tau_heartwood=float(TAU_HEARTWOOD),
+                   # continuity: the pre-iter-42 lenses (live-pipe sapwood, branch-death heartwood).
+                   a_sap_pipe=a_sap, a_heart_deathbank=a_dead_0,
+                   sap_frac_pipe=a_sap / max(a_sap + a_dead_0, 1e-12),
+                   # node-0 built girth per year -> lets the census overlay re-fit TAU without regrowing.
+                   r0_series=[snap[0] for snap in self._radius_hist])
         # ★ iter-15: N_def and the crown it is read from. real_tips = N_def*F_S is the tree's TOTAL
         # A4/A5 tip count — the quantity Hellström's b(n) = beta*(n+1)^d predicts, and therefore the
         # independent check on this whole mechanism (it is a validator, never an input).
@@ -2309,6 +2353,16 @@ if __name__ == "__main__":
     print(f"    trunk_r={r[0]*1000:.0f}mm  DBH={r[0]*2/0.0254:.1f}in  "
           f"r=[{r[r>0].min()*1000:.1f}..{r.max()*1000:.0f}]mm")
     print(f"    DBH vs census: {r[0]*2/TIERS[tier][1]:.2f}x   "
-          f"leaf units: F_S={g['F_S']:.0f} live / F_H={g['F_H']:.0f} lost   "
-          f"SAPWOOD={100*g['sap_frac']:.1f}% of built basal area "
-          f"({100*g['sap_frac_pipe']:.1f}% of pipe area)   [target ~50%]")
+          f"leaf units: F_S={g['F_S']:.0f} live / F_H={g['F_H']:.0f} lost")
+    print(f"    ★ RING-AGE (tau={g['tau_heartwood']:.0f} yr): SAPWOOD={100*g['sap_frac']:.1f}% of built "
+          f"basal area   [target ~50% on the mature l-tier]   "
+          f"(old lens: pipe/death-bank {100*g['sap_frac_pipe']:.1f}%)")
+    # ★ iter-42 tau DERIVATION readout: the year the trunk reached sqrt(0.5) of its final girth is the
+    # tau that lands THIS tree at exactly 50% basal-area sapwood. Fit it on the l-tier; anchor ~60 yr.
+    s0 = g["r0_series"]
+    if s0 and s0[-1] > 0:
+        target = math.sqrt(0.5) * s0[-1]
+        yr = next((k for k, rk in enumerate(s0) if rk >= target), None)
+        if yr is not None:
+            print(f"    tau-fit: trunk hits {100*math.sqrt(0.5):.1f}% of final girth at year {yr} of "
+                  f"{len(s0)}  =>  tau_50% = {len(s0) - 1 - yr} yr  (r0: {s0[0]*1000:.1f}..{s0[-1]*1000:.0f}mm)")
