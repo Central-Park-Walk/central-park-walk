@@ -1900,3 +1900,38 @@ and the invariant is *load*, not *retrieve* (raw history is exactly what the led
 
 verdict: N/A (maintenance) — the live science state is unchanged: iter-44's ★★★ REJECTED verdict stands.
 **We have still never looked at a FINISHED tree.** The appearance gate is FIRST (see STATE NEXT).
+
+---
+
+## DISTILL 2026-07-16c — NOTHING STAGED (3rd time). The STALE STATE LINE that *caused* this run. (maintenance)
+
+**Not a unit of work; no grower change, no science verdict.** `/distill` ran a third time and again found
+all three `## Staged lessons` blocks empty — 07-16 (iters 40–44) and 07-16b had processed everything.
+**Nothing was promoted, because nothing was owed promotion.** Tier-0 owes nothing either (24,065 B, 935 B
+under the 25 KB warn; the 07-16 overspend was cleared by 07-16b's −327 B).
+
+**Verified, not trusted.** A ledger's account of its own distillation is a self-report. Re-checked on disk:
+`project_london_plane_crown_mould.md` (fine-twig ⛔ + τ=34 UNVINDICATED), `lessons_validate_on_the_deliverable.md`,
+`lessons_test_magnitude_not_slope.md`, practices.md's REPRESENTATIVE line — all landed for real.
+`feedback_polish_before_eval.md` still standing is **correct, not a duplicate**: it carries an explicit
+reconciliation header (presentation end vs instrument end) and stays binding for the CPW modeling loop.
+
+**★ THE FINDING — A STATE FILE THAT LIES COSTS A WHOLE SESSION, AND IT BILLED ONE TODAY.**
+`STATE.md`'s Housekeeping block still read *"LEDGER has 2 staged lessons from iter-44 (scalar-validation;
+render-as-it-ships) awaiting `/distill`"*. Both were promoted by the 07-16 distill hours earlier. STATE is
+the entire memory of this project across a `/clear` — so the stale line **is** why a third distill was
+invoked against an empty staging area. The lesson is already in Tier 0 ("a memory that lies is worse than
+no memory"); what this adds is the *mechanism*: `/distill` empties the LEDGER but nothing makes it resolve
+STATE's pointer TO the ledger, so the two drift by construction. **Fixed in STATE, not promoted** — one
+instance is an incident, not a rule. If a 4th distill is invoked off a stale pointer, it's a hook.
+
+**★ ALSO FOUND: commit `168206d` was never ledgered.** `docs/standing_rules.md` §3b ("THE OTHER HALF OF
+RULE 3: 'let appearance emerge' is not 'assume appearance emerged'") is on disk at L155 and CLAUDE.md's
+stale "four times, expect a fifth" was fixed to five — but no LEDGER entry records it. Recorded here now.
+The Stop hook flagged this correctly; it misattributed the commit to this session (it is 02:11, authored
+Co-Authored-By Claude Fable 5), but it was right that the change was unrecorded.
+
+**Change.** `STATE.md` only: killed the false staged-lessons line, trimmed 61 → <50 lines. No code.
+
+verdict: N/A (maintenance) — the live science state is UNCHANGED. iter-44's ★★★ REJECTED verdict stands.
+**We have still never looked at a FINISHED (foliated) tree.** NEXT is still Chris's (A)/(B) call.

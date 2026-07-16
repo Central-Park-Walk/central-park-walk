@@ -15,8 +15,7 @@ Three things are now true, and #3 is the real one:
    crown in the `foliage`/card layer; I stripped 76% of the tree and judged habit off the naked scaffold.
    "Habit is most legible bare" is true of REAL trees, FALSE here. Such a render will always look garbage.
 3. ★★★ **44 iterations validated ONE scalar (DBH) and never once looked at form.** No form metric, no
-   reference comparison, ever. The healthiest number on the board hid a habit nobody had seen.
-   **We have still never looked at a FINISHED (foliated) tree.**
+   reference comparison, ever. **We have still never looked at a FINISHED (foliated) tree.**
 
 ## NEXT — Chris's call, one of two. Do NOT tweak the grower; the diagnosis is what's in question.
 
@@ -26,9 +25,8 @@ Three things are now true, and #3 is the real one:
   geometry ⇒ respects the budget. Rationale: deciding the grower's fate without ever seeing a finished tree
   = deciding on the strength of the instrument we just proved broken. Judge THAT against `reference_photos/`.
 - **(B) — the canonical fork, if he'd rather settle it now: multi-position ADR — KEEP THE GROWER vs DROP IT
-  FOR MTREE.** Mtree is an established tool already in this pipeline, already meshing the other species;
-  the grower is arguably a 44-iteration reimplementation of it (CLAUDE.md: established tools over
-  reimplementations). Prior art first. This is a canonical design change ⇒ **Chris signs off, not me.**
+  FOR MTREE.** Mtree is established, already in this pipeline, already meshing the other species; the grower
+  is arguably a 44-iteration reimplementation of it. **Chris signs off, not me.**
 
 ⚠ Whichever runs: the gate is now **FORM against reference photos**, not a scalar. A number may FAIL a
 tree; it may never CLEAR one. And do NOT re-tune sap/heart internals — invisible, the bake discards them.
@@ -56,6 +54,7 @@ tree; it may never CLEAR one. And do NOT re-tune sap/heart internals — invisib
 
 ## Housekeeping
 
-- ALPHA=1.026e-5 PROVISIONAL (DBH@m only). Agent branches ginkgo/magnolia unmerged. LEDGER has 2 staged
-  lessons from iter-44 (scalar-validation; render-as-it-ships) awaiting `/distill`.
+- ✅ **LEDGER staging is EMPTY — do NOT run `/distill`.** Iters 34–44 all promoted (07-15, 07-16, 07-16c).
+  Tier-0 24,065 B, owes nothing. The 147 KB LEDGER is raw history, NOT a problem — it is never auto-loaded.
+- ALPHA=1.026e-5 PROVISIONAL (DBH@m only). Agent branches ginkgo/magnolia unmerged.
 - Artifacts: `tmp/plane_m_skel.npz`, `tmp/skinned_plane_m.png` (woody), `tmp/skinned_plane_m_all.png` (shattered).
