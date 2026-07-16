@@ -1645,4 +1645,53 @@ signal — the ~20% late-life ratio erosion — needs the SAME defect-vs-biology
 trees senesce; this may be fidelity too), NOT a code fix. Recommend to Chris: validate sap_frac(age) vs a
 census sapwood-area-vs-age curve (Position A) and treat τ_heartwood as fidelity — the sapwood "deficit" is
 looking like biology, not a defect, on TWO fronts now.
+verdict: accepted — "continue" (Chris, 2026-07-15). The iter-40 refutation stands; Chris delegated the
+A/B/park pick back, so as Planner-Evaluator I take Track A (validate, don't fix — the cheapest, and it can
+close board #2). See iter-41.
+
+## 41 — TRACK A: THE SAPWOOD "DEFICIT" IS A DEFECT, NOT BIOLOGY — Aye's OWN no-reuse artifact, and the fix is Track B.
+
+**Target (one sentence):** if Aye 2022's fits give c_H<c_S with a sublinear-in-basal-area sap-area curve,
+the grower's deliberate c_H==c_S over-lays heartwood and the "deficit" is a FIXABLE defect; if instead
+c_H≈c_S with a matching decline, it is fidelity and board #2 closes. (Falsifiable from the paper alone —
+no grower run.)
+
+**Change (NONE to the grower — adjudication only):** read `tmp/papers/aye2022.{txt,xml}` (the on-disk
+heartwood paper the ratchet is already built on) for its sap/heart-area result and c_H/c_S; then verified
+the heartwood TRIGGER against the actual wiring (`plane_grower.py::ratchet` L1299–1383, `_kill_subtree`,
+`Node.death_c`). ⚠ The txt extraction STRIPPED every parameter symbol (the ★★ image-equation trap) — read
+the numbers/claims from the prose + xml tables, not the blanked `c_S`/`c_H` glyphs.
+
+**VERIFICATION — paper + wiring, both read:**
+- **Aye Results (txt L166):** estimated c_S is ALWAYS > c_H empirically (esp. Pinaceae) — face-value c_H<c_S.
+- **Aye Discussion (txt L189) REVERSES it:** that c_H<c_S is an ARTIFACT of their deliberately unrealistic
+  "no reusable pipes" assumption — "the sapwood pipes do not live longer than the life span of leaf buds,
+  which is an **unrealistic result**, e.g., Björklund (1999) found sapwood sometimes has a life span of
+  **60 years**, in contrast to the life span of the foliage of around 3–12 years." Reusable pipes "could
+  **even out** the values of sapwood and heartwood area per pipe" ⇒ realistic sapwood ⟹ c_H≈c_S.
+- **WIRING (code-read, zero grower cost):** heartwood is banked ONLY by `_kill_subtree` (branch/axis death
+  via the shed gate); it is "monotone by construction (a killed subtree is never resurrected)" (L1339);
+  `death_c` is an AREA scaler, not a lifespan. `grep` finds NO ring-age / sapwood-lifespan / senescence
+  term (line-1006 "senescence" is within-axis vigor decay, unrelated). Foliage abscission (FOLIAGE_LIFE=3)
+  does NOT wall off a pipe — so my first guess (leaf-life≡pipe-life) was WRONG; the trigger is branch death,
+  which IS Aye's mechanism. The wiring check killed a 3rd would-be-refuted heartwood diagnosis before code.
+- ⇒ **The grower makes EXACTLY Aye's unrealistic no-reuse assumption, at the branch level, AND has no
+  aged-living-core term** — a real trunk's heartwood is its old inner rings regardless of what stands above,
+  and the grower can never form that (heartwood comes only from shed side-branches). This is the mechanism
+  behind iter-32's measured signature: sapwood 0.45–0.51x too small, heartwood 1.77–2.63x too big (and even
+  the s-sapling 3.30x too much heartwood — a sapling should have ~none; the grower banks shed-twig pipes).
+
+**⇒ BOARD #2 VERDICT: DEFECT, with a named mechanism + published fix + a number.** NOT "close as biology."
+The fix is STATE's Track B: a RING-AGE heartwood trigger (τ_heartwood ontogenetic senescence) — wood older
+than ~τ rings from the cambium converts to heartwood, DECOUPLED from branch death. Anchor: Björklund's ~60 yr
+sapwood life (Scots pine, via Aye §Disc.); for Platanus (WIDE sapwood, ~50% of basal area — grower comment
+L1322) τ is fit to the ~50%-sapwood census target — ONE param against ONE robust allometric target, which
+PASSES the generalizability hack-test (≤1 tuned param), NOT an output-dial.
+- **c_H==c_S IS VINDICATED, do NOT tune HEART_RATIO** — the paper says reusable pipes even out c_H→c_S. The
+  fix is the TRIGGER (a new term), orthogonal to c_H. Rails hold: shed gate untouched (Track B is a ratchet
+  change), sap_frac absent from the gate (iter-40) ⇒ pure fidelity, no economy/DBH change expected.
+- **Pre-registered prediction for iter-42:** a ring-age trigger should (a) zero the sapling's spurious
+  heartwood (s 3.30x→~0, saplings have no heartwood) and (b) give the old l-tree a physical inner core.
+  OPEN: whether it also lands the m/l split on census, or only fixes the sapling — that is what the iter-42
+  instrumented grow measures (sap/heart AREA vs census, per tier).
 verdict: PENDING
