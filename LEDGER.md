@@ -1550,3 +1550,21 @@ with age as REAL biology and re-check it against a census sapwood-vs-age curve b
 source, not a knob; (C) revisit whether terminals shed to heartwood should ever have been full-bore pipe.
 Do NOT adopt the iter-38 R_TIP prior (refuted #6, un-generalizable). R_TIP/shade/C all stay closed.
 verdict: PENDING
+
+## DISTILL 2026-07-15 — iters 34–39 staged lessons promoted, raw archived (maintenance, not an iteration)
+
+**Not a unit of work; no grower change, no science verdict.** `/distill` ran over the `## Staged lessons`
+block (iters 34–39). Routing:
+- PROMOTED → CLAUDE.md §1: loop-gain "**every loop the term closes, not the one you framed**; a cancellation
+  true at the fixed point is false along the trajectory" (iter-36), and the **GENERALIZABILITY hack-detector**
+  "a real mechanism travels to the next instance with ≤1 tuned param; a per-case fit travels nowhere" (iter-38,
+  Chris-confirmed). These are now GLOBAL — STATE rail #2 (§ "The board") and rail "GAIN EVERY LOOP" reference them.
+- PROMOTED → practices.md null-control line: a **stability/conditioning gate must confirm its null before
+  reading its slope** (iter-36) — a slope between two already-diverged points is a false pass.
+- PROMOTED → `feedback_token_discipline.md`: **don't double-background / don't orphan a farmed job** (iter-38/39).
+- ARCHIVED-only (already covered globally): iter-34 dead-switch, iter-37 constraint-not-process (its R_TIP-prior
+  proposal was refuted #6, so NOT enshrined), iter-38 decompose.
+- Raw one-liners → `ledger_archive/2026-07.md`. Tier-0 23,313 → 23,877 B (+564, under the 25 KB warn).
+
+verdict: N/A (maintenance) — the live science state is unchanged: iter-39 Branch B stands, the canonical
+`c_H=c_S` heartwood question is still PENDING Chris's call (see STATE NEXT).

@@ -51,3 +51,6 @@ of the next session is the ADR + reading the on-disk Aye-2022 heartwood section,
 ## Housekeeping
 
 - ALPHA=1.026e-5 PROVISIONAL (fitted on DBH@m alone). Open agent branches: **ginkgo**, **magnolia** (unmerged).
+- **Distilled 2026-07-15** (commit 45043f1, maintenance): staged lessons 34–39 promoted to global rules
+  (rails #44 "gain every loop" + the harness/orphan note are now Tier-0), raw → `ledger_archive/2026-07.md`.
+  No science changed; iter-39 Branch B + the `c_H=c_S` NEXT question stand.
