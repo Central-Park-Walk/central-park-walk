@@ -26,12 +26,10 @@ at 50% basal-area sapwood. ⚠ 2× below Björklund's ~60 yr (pine): my "wide sa
 ## NEXT — iter-43: the census overlay (the farmable grind), the hack-test proper
 
 - **ONE change is DONE; this is the VERIFY.** Farm to a subagent (§0): `plane_bench.py` 5×{s,m,l} ≈ 25 min,
-  instrument sap/heart AREA per tier, overlay census. Pre-registered: (a) sapling heart 3.30x→~0 (15<34, so
-  ~0 by construction), (b) old l-tree has a physical core (50% by fit). **The open question:** does the
-  untuned τ=34 also land the **m** (47 yr) split on census, or only the endpoints? If m fails, the 34-vs-60
-  tension becomes structural — suspect the model's near-LINEAR radial growth (real planes may decelerate,
-  which would push τ up). The bench reads `st["sap_frac"]` = now the ring-age split; `r0_series` in the
-  output lets the overlay re-fit τ per tier without regrowing.
+  sap/heart AREA per tier vs census. Predicted: (a) sapling ~0 heart (15<34), (b) l has a core (50% by fit).
+  **The open question:** does the untuned τ=34 also land the **m** (47 yr) split? If m fails, the 34-vs-60
+  tension is structural — suspect the model's near-LINEAR radial growth (real planes may decelerate → larger
+  τ). Bench reads `st["sap_frac"]` = the ring-age split; `r0_series` lets the overlay re-fit τ per tier.
 
 ## Rails — each cost a session; do not re-litigate
 
