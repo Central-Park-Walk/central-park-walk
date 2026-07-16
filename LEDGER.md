@@ -1868,3 +1868,35 @@ you're right that the png we got is garbage. we still don't know how to make tre
 
 verdict: N/A (maintenance) — the live science state is unchanged: iter-44's ★★★ REJECTED verdict stands.
 **We have still never looked at a FINISHED tree.** The appearance gate is now FIRST (see STATE NEXT).
+
+---
+
+## DISTILL 2026-07-16b — NOTHING STAGED. The Tier-0 debt paid instead. (maintenance, not an iteration)
+
+**Not a unit of work; no grower change, no science verdict.** `/distill` ran and found **all three
+`## Staged lessons` blocks already empty** — the 2026-07-15 (iters 34–39) and 2026-07-16 (iters 40–44)
+distills had processed everything. **Nothing was promoted, because nothing was owed promotion.**
+
+The one live obligation on the board was the previous distill's own note: *"Tier-0 23,924 → 24,607 B
+(+683) … the next distill owes Tier 0 a net reduction."* Paid, and paid the safe way — with no lesson
+incoming, the only defensible cut is **genuine duplication between two Tier-0 files**, never a unique
+rule. Both cuts were violations of `rules/practices.md`'s OWN header invariant ("the ★★★/★★ headline
+rules live in CLAUDE.md §1-§4 — do NOT duplicate them here; repetition makes Claude pick arbitrarily"),
+so this is a correctness fix that happens to save bytes, not a byte-hunt that cost rules:
+- **MERGED** `practices.md` "★★ BLIND THE PREMISE" → CLAUDE.md §1 already carries *"a SIGHTED A/B is a
+  hypothesis, not an observation"* in full. practices.md keeps only what §1 lacks: the **ask WHETHER
+  before WHY** actionable + the 300B/7-of-12 story. Rule intact, stated once.
+- **MERGED** `practices.md` "★★★ A MODEL VALIDATED ONLY ON A SCALAR" → CLAUDE.md §4 already carries the
+  44-iteration/DBH-1.04× story and the FIRST-gate rule (the 2026-07-16 distill sharpened §4 in place
+  **and** added the practices line — that is what created the duplicate). practices.md keeps only its
+  unique faces: **name what the metric is BLIND to** · metric-deference · REPRESENTATIVE render ·
+  bake-discards-it. Rule intact, stated once.
+- **Tier-0 24,392 → 24,065 B (−327**, now 935 B under the 25 KB warn, up from 608). The debt is
+  **CLEARED**; the ledger owes Tier 0 nothing going into the next distill.
+
+⚠ **Note for the next distill:** the 145 KB LEDGER is NOT a Tier-0 problem — it is never auto-loaded,
+and the invariant is *load*, not *retrieve* (raw history is exactly what the ledger is for). Do not
+"fix" its size. The three empty `## Staged lessons` blocks are harmless residue, left in place.
+
+verdict: N/A (maintenance) — the live science state is unchanged: iter-44's ★★★ REJECTED verdict stands.
+**We have still never looked at a FINISHED tree.** The appearance gate is FIRST (see STATE NEXT).
