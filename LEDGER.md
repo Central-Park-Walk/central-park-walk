@@ -1715,8 +1715,17 @@ younger (a young stem is all sapwood). (4) `finalize()`: ring-age split is now t
 `a_heart_deathbank`; node-0 `r0_series` exposed so the census overlay can re-fit τ without regrowing.
 
 **Measurement.** Smoke test (m-tier, 6 yr): sap_frac=1.000, a_heart=0.0 — a sub-τ tree is all sapwood,
-prediction (a)'s mechanism confirmed. τ DERIVATION grow (l-tier, 104 yr, job b3d8n70a5) IN FLIGHT at
-hand-off → `tmp/iter42_ltier_derive.txt`; it prints `tau_50%` = the τ landing the mature trunk at 50%
-basal-area sapwood (anchor: Björklund ~60 yr). Full 5×{s,m,l} census overlay = the farmable NEXT step.
+prediction (a)'s mechanism confirmed. τ DERIVATION grow (l-tier, 104 yr, job b3d8n70a5, →
+`tmp/iter42_ltier_derive.txt`): DBH 36.2in (1.29× census, UNCHANGED — the partition moved nothing ✓);
+trunk hit √0.5 of final girth (459mm) at yr 69/104 → **τ_50% = 34 yr** ⇒ `TAU_HEARTWOOD = 34` set. At
+τ=60 the l-tier read 75.1% sapwood; at the derived τ=34 it reads 50% (by construction — the fit target).
+⚠ **My "τ ≥ 60" anchor was WRONG:** "wide sapwood" is a width/area fact (many conductive rings), not a
+years fact — a vigorous plane reaches wide sapwood in FEWER years than slow pine; τ=34 is 2× below
+Björklund's ~60 yr (pine) and that is expected, not a fault. OPEN (iter-43): does the SAME τ=34, untuned,
+land s (15 yr → still ~0 heart) and m (47 yr) on census? — the 5×{s,m,l} overlay, the hack-test proper.
+
+## Staged lessons
+- "Wide sapwood" (and any "wide/deep/broad X") is a WIDTH/AREA claim, not a per-YEAR claim — don't convert
+  a spatial descriptor into a temporal constant. Cost: an anchor prediction (τ≥60) refuted by the fit (34).
 
 verdict: PENDING

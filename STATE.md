@@ -3,50 +3,48 @@
 The developmental grower: `scripts/plane_grower.py`. Grow a plane from a seed; let crown, caliber and
 depth **emerge**. Deep history: `LEDGER.md` (append-only) — iterate from here, not from it.
 
-## Where we are — ★★ iter-42: THE RING-AGE HEARTWOOD TRIGGER (Track B) IS CODED & COMMITTED (44ff3e1). τ still being DERIVED.
+## Where we are — ★★ iter-42: THE RING-AGE HEARTWOOD TRIGGER (Track B) IS CODED, τ DERIVED (=34 yr), COMMITTED.
 
-The heartwood defect (iter-41: the grower's only heartwood was Aye's branch-death bank, its OWN no-reuse
-artifact) now has its fix. Sapwood = the wood laid down in the **last τ years** (outer rings); everything
-older ages into heartwood, DECOUPLED from branch death (Björklund 1999, ~60 yr sapwood life). It
-RE-PARTITIONS the built cross-section — adds no wood, DBH/economy bit-identical (read-only history snapshot
-+ pure lookup). Ring-age split is now the headline `sap_frac`; old lenses kept as `sap_frac_pipe` /
-`a_heart_deathbank`. Smoke test (6-yr tree): 0 heart, 100% sap ✓ (prediction a's mechanism).
+The iter-41 heartwood defect (the grower's only heartwood was Aye's branch-death bank, its OWN no-reuse
+artifact) now has its fix. Sapwood = the wood laid down in the **last τ=34 years** (outer rings);
+everything older ages into heartwood, DECOUPLED from branch death. It RE-PARTITIONS the built cross-section
+— adds no wood, **DBH bit-identical** (l-tier still 36.2in / 1.29× census, confirmed). Ring-age split is
+now the headline `sap_frac`; old lenses kept as `sap_frac_pipe` / `a_heart_deathbank`.
 
-## ⏳ IN FLIGHT AT HAND-OFF — do NOT /clear until this lands (a /clear kills the auto-resume)
-
-- **τ DERIVATION grow** (l-tier, 104 yr, ~17 min): background job `b3d8n70a5` → `tmp/iter42_ltier_derive.txt`.
-  It prints `tau_50%` = the τ that lands the mature trunk at 50% basal-area sapwood. **On resume:**
-  read that file, set `TAU_HEARTWOOD` in `plane_grower.py` to the derived integer (sanity: near ~60),
-  re-confirm the l-tier base split, commit, then hand off for the census overlay. If the grow died, just
-  rerun `python3 scripts/plane_grower.py l`.
+**τ DERIVED, not guessed:** the l-tier (104 yr) trunk hit √0.5 of final girth at yr 69/104 → τ=34 lands it
+at 50% basal-area sapwood. ⚠ 2× below Björklund's ~60 yr (pine): my "wide sapwood ⇒ τ≥60" prior was WRONG
+— "wide" is a width/area fact, not a years fact; a vigorous plane reaches wide sapwood in fewer years.
 
 ## The board (only a `** RESOLVED **` line is a tell)
 
 1. **★★★ THE S→SHADE→n_tips FOLD — ** RESOLVED (iter-38) **.** /n_tips divisor dropped; n_tips 135–273.
-2. **★★★ SAPWOOD "DEFICIT" — MECHANISM SHIPPED (iter-42), τ pending.** Ring-age trigger coded; awaiting the
-   derived τ + the per-tier census overlay to confirm it lands the split (not just the sapling).
+2. **★★★ SAPWOOD "DEFICIT" — MECHANISM SHIPPED + τ DERIVED (iter-42).** Ring-age trigger coded, τ=34 fit on
+   the l-tier. NOT yet vindicated: τ was fit to l (⇒ l=50% by construction). The real test = does the SAME
+   τ land s & m? = iter-43 overlay. Smoke: 6-yr tree reads 0 heart / 100% sap ✓ (prediction a's mechanism).
 3. **★ THE GATE IS NOT CONDEMNING BIGNESS (iter-40).** S≡1 baseline ships (l DBH 1.25×, H 23.4m, 273 tips).
 
-## NEXT — finish τ (above), THEN iter-43: the census overlay (the farmable grind)
+## NEXT — iter-43: the census overlay (the farmable grind), the hack-test proper
 
-- **Verify predictions across tiers:** instrument sap/heart AREA per tier, overlay census. Pre-registered:
-  (a) sapling heart 3.30x→~0, (b) old l-tree gets a physical core. OPEN: does τ also land the m/l split on
-  census, or only fix the sapling? `plane_bench.py` 5×{s,m,l} ≈ 25 min → **farm to a subagent (§0)**.
-- The bench reads `st["sap_frac"]` = now the ring-age split, so its verdict machinery already measures the
-  new thing. `r0_series` in the output lets the overlay re-fit τ per tier without regrowing.
+- **ONE change is DONE; this is the VERIFY.** Farm to a subagent (§0): `plane_bench.py` 5×{s,m,l} ≈ 25 min,
+  instrument sap/heart AREA per tier, overlay census. Pre-registered: (a) sapling heart 3.30x→~0 (15<34, so
+  ~0 by construction), (b) old l-tree has a physical core (50% by fit). **The open question:** does the
+  untuned τ=34 also land the **m** (47 yr) split on census, or only the endpoints? If m fails, the 34-vs-60
+  tension becomes structural — suspect the model's near-LINEAR radial growth (real planes may decelerate,
+  which would push τ up). The bench reads `st["sap_frac"]` = now the ring-age split; `r0_series` in the
+  output lets the overlay re-fit τ per tier without regrowing.
 
 ## Rails — each cost a session; do not re-litigate
 
-- ⛔ **★★★ c_H==c_S IS VINDICATED (iter-41): Aye says reusable pipes even out c_H→c_S.** Do NOT tune
-  HEART_RATIO to buy sapwood. The fix was the TRIGGER (a new term), orthogonal to c_H. `Q_MASS=2/E_M`,
-  `c_H=c_S`, `C_NDEF=None` all DERIVED/OUTPUTS. q/K & HEART_RATIO are OUTPUTS — do not tune them.
-- ⛔ **★★ RING-AGE IS A RE-PARTITION, NOT NEW WOOD.** DBH must stay bit-identical; if a change to τ moves
-  DBH, something fed back that must not. Fit τ on the **l-tier** (mature = census 50%), never the m (47 yr
-  < 60 would force τ≈20 and contradict Björklund). s/m sap_frac are OUTPUTS, never retuned (hack-test).
+- ⛔ **★★★ c_H==c_S IS VINDICATED (iter-41).** Do NOT tune HEART_RATIO to buy sapwood. The fix was the
+  ring-age TRIGGER (a new term), orthogonal to c_H. `Q_MASS=2/E_M`, `c_H=c_S`, `C_NDEF=None`, q/K, HEART_RATIO
+  all DERIVED/OUTPUTS — do not tune them.
+- ⛔ **★★ RING-AGE IS A RE-PARTITION, NOT NEW WOOD.** DBH must stay bit-identical; if a τ change moves DBH,
+  something fed back that must not. Fit τ on the **l-tier** (mature = census 50%); s/m sap_frac are OUTPUTS,
+  never retuned (the hack-test). "Wide sapwood" ≠ large τ (it's area, not years — the iter-42 correction).
 - ⛔ **★★ n=1 CANNOT MEASURE A RATIO / PAIR BEFORE YOU RATIO** (30, 39). `plane_bench.py` 5×{s,m,l} ≈ 25 min.
-- ⚠ **HARNESS:** never nest `nohup … &` in a `run_in_background` tool. Recover a detached job with ONE
-  `tail --pid=<pid>`, no poll. Papers on disk: Aye 2022 (heartwood), Björklund 1999 (sapwood ~60 yr),
-  Shinozaki I+II, Hellström 2018, WBE. ★★ txt extraction STRIPS symbol glyphs & equation images.
+- ⚠ **HARNESS:** never nest `nohup … &` in a `run_in_background` tool. Papers on disk: Aye 2022 (heartwood),
+  Björklund 1999 (sapwood ~60 yr, pine), Shinozaki I+II, Hellström 2018, WBE. ★★ txt extraction STRIPS
+  symbol glyphs & equation images — read numbers from prose/xml/`eqs.png`.
 
 ## Housekeeping
 

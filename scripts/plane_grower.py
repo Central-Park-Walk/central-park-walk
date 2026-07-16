@@ -200,9 +200,14 @@ C_HEART     = HEART_RATIO * math.pi * R_TIP ** 2      # c_H: heartwood area per 
 # (sap_frac is absent from the gate, iter-40). tau is a DERIVATION, not a free knob: fitted ONCE so
 # the mature l-tier (104 yr, the census-representative plane) reads ~50% basal-area sapwood -- the
 # ONE robust allometric target (Platanus = WIDE sapwood, ~50%). Sanity anchor: Björklund ~60 yr
-# (pine); plane's wide sapwood => tau >= that. s (15 yr) -> ~0 heart and m (47 yr) -> >50% sap then
-# fall out as OUTPUTS, never retuned (the <=1-tuned-param hack-test).
-TAU_HEARTWOOD = 60        # [PROV -> DERIVED this session from the l-tier r0(t) history]. years.
+# (pine). ⚠ THE ANCHOR WAS WRONG: "wide sapwood" is a WIDTH/AREA fact (many conductive rings), NOT a
+# YEARS fact. A vigorous plane lays down wide rings, so it reaches wide sapwood in FEWER years than slow
+# pine -- do not expect tau >= 60. The census (50% basal area) is the direct target and it wins. s (15
+# yr < tau) -> ~0 heart and m (47 yr) -> some core then fall out as OUTPUTS, never retuned (the
+# <=1-tuned-param hack-test). Whether ONE tau lands all three tiers is the iter-43 census overlay.
+TAU_HEARTWOOD = 34        # [DERIVED iter-42] l-tier (104 yr) reads 50% basal-area sapwood at tau=34: its
+                          # trunk hit sqrt(0.5) of final girth at yr 69/104 (near-linear radial growth).
+                          # 2x below Björklund's ~60 yr (pine) -- see the corrected anchor note above.
 # ⚠ iter-15: R_TIP and C_HEART above are now only the REFERENCE (anchor) values. The live ones are
 # self.r_tip / self.c_heart, which ride on N_def(t). See the N_def block immediately below.
 
