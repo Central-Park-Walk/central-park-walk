@@ -101,4 +101,5 @@ def main():
             bpy.data.objects.remove(o, do_unlink=True)
 
 
-main()
+if __name__ == "__main__":
+    main()

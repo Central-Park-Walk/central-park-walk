@@ -2350,7 +2350,11 @@ def grow_tier(tier, years=None, verbose=False, seed=SEED):
 
 if __name__ == "__main__":
     import sys
-    tier = sys.argv[1] if len(sys.argv) > 1 else "m"
+    args = sys.argv[1:]
+    save_path = None
+    if "--save" in args:
+        _i = args.index("--save"); save_path = args[_i + 1]; args = args[:_i] + args[_i + 2:]
+    tier = args[0] if args else "m"
     g = grow_tier(tier, verbose=True)
     r = np.array(g["radius"])
     print(f"\n[{tier}] wood_live={g['n_wood_live']} foliage_live={g['n_foliage_live']} "
@@ -2371,3 +2375,20 @@ if __name__ == "__main__":
         if yr is not None:
             print(f"    tau-fit: trunk hits {100*math.sqrt(0.5):.1f}% of final girth at year {yr} of "
                   f"{len(s0)}  =>  tau_50% = {len(s0) - 1 - yr} yr  (r0: {s0[0]*1000:.1f}..{s0[-1]*1000:.0f}mm)")
+
+    # ★ iter-43: skeleton export for the skinner. leafback_skinner.load_graph_npz reads pos/parent/
+    # radius/strand; alive+foliage masks ride along (harmlessly ignored by the loader) so a later
+    # FILTERED skin needs no regrow. Faithful dump of ALL nodes -> parent indices stay valid, zero
+    # reindex risk. Touches NO growth logic; DBH stays bit-identical (F6 / ring rail).
+    if save_path:
+        nodes = g["nodes"]
+        pos    = np.array([nd["pos"] for nd in nodes], dtype=float)
+        parent = np.array([nd["parent"] for nd in nodes], dtype=int)
+        np.savez(save_path,
+                 pos=pos, parent=parent,
+                 radius=np.asarray(g["radius"], float), strand=np.asarray(g["strand"], int),
+                 alive=np.asarray(g["alive"], bool), foliage=np.asarray(g["foliage"], bool),
+                 root=int(g["root"]), H=float(g["H"]))
+        n_woody = int((~np.asarray(g["foliage"], bool)).sum())
+        print(f"    ★ saved skeleton -> {save_path}  ({len(pos)} nodes, {n_woody} woody, "
+              f"{len(pos) - n_woody} foliage)")

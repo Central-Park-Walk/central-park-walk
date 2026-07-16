@@ -1763,4 +1763,58 @@ The gap is a MISSING WIRE, not missing capability: the grower doesn't export its
 of pos/parent/radius/strand anywhere; grower graph dict (L2245–2252) field-matches skinner input; skinner
 `load_graph_npz` (L304–316) reads pos/parent/radius/strand; runtime tier chain lod0→impostor (trees.md §1).
 
+verdict: GREENLIT + EXECUTED (Chris, 2026-07-16) — invoked iter-44 = "wire grower→skinner→render one
+leafless m-tier plane, look at whether the habit reads as a plane." The decision was right and the wire
+was the correct next step; iter-44 built it. See 44 for what the render actually showed.
+
+## 44 — THE WIRE IS BUILT: grower → skinner → render. First skinned m-tier plane on screen. Habit reads SPARSE.
+
+**Target (one sentence).** If the grown skeleton is already good enough to skin, then exporting its
+`pos/parent/radius/strand` to the existing `leafback_skinner` and rendering it leafless will show a
+coherent London-plane habit whose only remaining errors are invisible internals the bake discards.
+
+**Change (glue, no growth logic touched — DBH bit-identical, F6/ring rail intact).**
+  - `plane_grower.py __main__`: added `--save <path.npz>`. Faithful dump of ALL nodes' pos/parent/radius/
+    strand (+ ride-along `alive`/`foliage` masks, +root/H) via `np.savez`. ~18 lines, growth untouched.
+  - `render_skeleton.py`: guarded `main()` under `if __name__=="__main__"` so its calibrated camera/sun
+    (`setup`, `fit_cam`) are importable. No behaviour change to its CLI.
+  - NEW `render_skinned.py`: loads the .npz via `leafback_skinner.load_graph_npz`, skins with
+    `build_tube_mesh`, rotates +90° X (grower Y-up → Blender Z-up), frames + renders. Two decisions:
+      (a) LEAFLESS/bark-only rail ⇒ prune to the WOODY scaffold (`~foliage`) by default (reconnect any
+          dropped-parent to nearest kept ancestor); `--all` skins everything (debug).
+      (b) EEVEE-Next hangs under xvfb (llvmpipe, no GPU) — the 1st render was SIGTERM'd at 400s with zero
+          output. Switched to **Workbench** solid-shading (cavity+shadow): renders in 4.5s and is the RIGHT
+          tool for a form/silhouette read anyway. (EEVEE stall was the whole first-attempt failure.)
+
+**Verification (real — rendered, opened, judged the form).**
+  - Grow+export OK: `m` → 16,338 nodes (3,896 woody + 12,442 foliage), trunk DBH 17.7 in = 1.04× census
+    (unchanged — export is faithful, growth untouched). `tmp/plane_m_skel.npz`.
+  - Woody-only skin: 3,896 nodes → **47,056 bark faces**, one connected clean-tubed tree. `tmp/skinned_plane_m.png`.
+  - `--all` skin: 16,338 nodes → only **6,824 faces** and a shattered image (trunk stub + floating fragments).
+    Foliage nodes are isolated single-node "strands" (`len(poly)<2` ⇒ skipped) — NOT skinnable fine twigs.
+    This RESOLVES the confound: the woody render's sparseness is real, not an over-prune artifact.
+
+**What the render SHOWED — hypothesis HALF-CONFIRMED, HALF-REFUTED.**
+  - ✅ The WIRE works. The grower's woody skeleton skins into a coherent, connected, correctly-proportioned
+    leafless bark tree with clean welded junctions. Glue done; a grown plane is finally on screen.
+  - ❌ It does NOT yet read as a mature London plane. The woody crown is **sparse / spindly**, with a few
+    whippy near-vertical leaders up top and a pronounced trunk lean/sweep (n=1 — lean may be within
+    envelope; breadth/sparseness is not). A 40-yr plane wants a stout trunk forking into heavy scaffold
+    limbs under a dense, billowing, rounded crown. This one reads younger and airier than 17 in DBH implies.
+  - ★ HEADLINE FINDING: a leafless winter plane's signature is its **dense fine-twig cloud**, and in this
+    grower that fine structure lives ENTIRELY in the `foliage` layer — which is NOT skinnable woody geometry
+    (isolated leaf-cluster points, not twig chains). So the errors are NOT all "invisible internals": the
+    missing leafless habit is a VISIBLE, structural gap. The woody scaffold alone cannot carry the habit.
+
+**Secondary defects (TODO, not fixed this session — scope = one wire).**
+  - Workbench render bg is grey, not the briefed white (`shading.background_color` ignored in this build);
+    form still legible (light tree on dark). Cosmetic.
+  - `--all` path is expected-garbage given foliage isn't chained; kept as a debug lever, documents the WHY.
+
+**NEXT hypothesis (for iter-45).** To make the leafless habit read as a plane, the fine-twig layer must be
+present as thin WOOD. Two candidate paths (pick after Chris looks): (a) grower promotes persistent
+short-shoots into thin woody twig CHAINS the skinner can tube; or (b) export/skinner builds thin tubes from
+foliage-node parent chains. Also worth a look: crown breadth/density of the woody scaffold itself, and
+whether the trunk lean holds across seeds (needs n>1). Do NOT re-tune sap/heart internals — invisible.
+
 verdict: PENDING
