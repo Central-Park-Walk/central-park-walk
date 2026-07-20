@@ -79,6 +79,37 @@ Bricks059, Rock033, Ground054, Ground062 — all from https://ambientcg.com/
 License: CC0 1.0 (Public Domain)
 
 -----------------------------------------------------------------------------
+Habit reference photographs — Wikimedia Commons / Geograph (CC BY-SA)
+-----------------------------------------------------------------------------
+
+Locked London-plane habit plates used by scripts/tree_sculpt/habit_refs.py
+(W-40). Stored under reference_photos/london planetree/.
+
+"Platanus_xhispanica_habit.jpg" — File:Platanus xhispanica.habit.jpg
+  https://commons.wikimedia.org/wiki/File:Platanus_xhispanica.habit.jpg
+  License: CC BY-SA 3.0
+
+"london_plane_geograph_7338525.jpg" — Philip Halling
+  https://www.geograph.org.uk/photo/7338525
+  https://commons.wikimedia.org/wiki/File:London_plane_tree_-_geograph.org.uk_-_7338525.jpg
+  License: CC BY-SA 2.0
+
+"london_plane_geograph_7373536.jpg" — Bob Harvey
+  https://www.geograph.org.uk/photo/7373536
+  https://commons.wikimedia.org/wiki/File:The_London_Plane_Tree_on_the_bank_-_geograph.org.uk_-_7373536.jpg
+  License: CC BY-SA 2.0
+
+"london_plane_geograph_7923058.jpg" — Philip Halling (corpus)
+  https://www.geograph.org.uk/photo/7923058
+  License: CC BY-SA 2.0
+
+"platanus_hispanica_poznan_dendrological_2.JPG" — MOs810 (corpus)
+  https://commons.wikimedia.org/wiki/File:Platanus_hispanica,_Poznan,_Dendrological_Garden_(2).JPG
+  License: CC BY-SA 3.0
+
+CC BY-SA requires: attribution, link to license, share-alike for derivatives.
+
+-----------------------------------------------------------------------------
 Terrain Textures — Polyhaven (CC0 1.0)
 -----------------------------------------------------------------------------
 

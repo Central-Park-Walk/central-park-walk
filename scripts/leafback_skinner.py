@@ -160,7 +160,9 @@ def strand_polylines(nodes, children, strand):
                 radial_hat = np.cross(pa_hat, tmp)
                 radial_hat /= np.linalg.norm(radial_hat)
             base_pos = ppos + 0.9 * pr * radial_hat
-            pts.insert(0, (base_pos, float(nodes[s]["radius"]), -1))
+            # Emergence ring must match the parent radius so the fork reads as a
+            # filled shoulder, not a thinner child tube tip-welded onto the parent.
+            pts.insert(0, (base_pos, pr, -1))
         polys[sid] = pts
     return polys
 

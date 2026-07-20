@@ -14,6 +14,10 @@ const PHENOLOGY_INDEX := {
 	"willow": 12,  # willow: golden yellow fall, early spring
 	"magnolia": 13,  # magnolia: spring blossom, brown-gold fall
 	"cathedral_elm": 2,  # shares elm phenology
+	# Tree-sculptor stages (eval garden / dense-stand only — not park census).
+	"london_plane_sculpt_young": 9,
+	"london_plane_sculpt_mature": 9,
+	"london_plane_sculpt_veteran": 9,
 }
 # Maps archetype → base GLB model name
 const ARCHETYPE_MODEL := {
@@ -24,6 +28,10 @@ const ARCHETYPE_MODEL := {
 	"linden": "linden", "cherry": "cherry",
 	"zelkova": "elm", "dead": "dead", "willow": "willow", "magnolia": "magnolia",
 	"cathedral_elm": "cathedral_elm",
+	# Authored sculpt stages: one GLB each (no _s/_m/_l). File = archetype name.
+	"london_plane_sculpt_young": "london_plane_sculpt_young",
+	"london_plane_sculpt_mature": "london_plane_sculpt_mature",
+	"london_plane_sculpt_veteran": "london_plane_sculpt_veteran",
 }
 
 # Literary Walk / Mall: mature trees flanking the straight promenade get the
@@ -221,6 +229,10 @@ const HEIGHT_RANGES := {
 	"willow":        [10.0, 22.0],   # weeping willow — wide, medium height
 	"magnolia":      [6.0, 16.0],    # sweetbay magnolia can reach 20m
 	"cathedral_elm": [22.0, 34.0],   # mature Literary Walk elms — tall, wide vase
+	# Sculpt stages: native authored heights (eval garden stage row).
+	"london_plane_sculpt_young":   [10.0, 14.0],
+	"london_plane_sculpt_mature":  [18.0, 22.0],
+	"london_plane_sculpt_veteran": [24.0, 28.0],
 }
 
 func _init(loader) -> void:
@@ -305,8 +317,19 @@ const TIER_BOUNDS := {
 	"conifer":       [0.0, 18.0],   # no _s tier (0 in census); shares pine models
 	"zelkova":       [14.0, 22.0],  # shares elm models
 	"dead":          [0.0, 0.0],    # no tiers
+	"london_plane_sculpt_young":   [0.0, 0.0],  # untiered single GLB
+	"london_plane_sculpt_mature":  [0.0, 0.0],
+	"london_plane_sculpt_veteran": [0.0, 0.0],
 }
 const TIERS := ["s", "m", "l"]
+
+# Authored sculpt stages: one mesh file each (like dead). Used by the eval garden
+# (`garden` → --eval-plot=london_plane_sculpt) — not park census placement.
+const SCULPT_UNTIERED := {
+	"london_plane_sculpt_young": true,
+	"london_plane_sculpt_mature": true,
+	"london_plane_sculpt_veteran": true,
+}
 
 func _lod_scale(species_tier: String) -> float:
 	## Screen-size LOD multiplier: the lod0→impostor handoff distance scales with the
@@ -489,6 +512,9 @@ func _build_trees(trees: Array) -> void:
 		"willow":        Vector3(0.30, 0.50, 0.15),   # yellow-green, narrow leaves
 		"magnolia":      Vector3(0.18, 0.35, 0.12),   # dark glossy green, large leaves
 		"cathedral_elm": Vector3(0.24, 0.42, 0.15),   # same as elm
+		"london_plane_sculpt_young":   Vector3(0.24, 0.44, 0.16),
+		"london_plane_sculpt_mature":  Vector3(0.24, 0.44, 0.16),
+		"london_plane_sculpt_veteran": Vector3(0.24, 0.44, 0.16),
 	}
 	var bark_colors := {
 		"oak":           Color(0.40, 0.32, 0.24),     # dark brown, deeply furrowed
@@ -508,6 +534,9 @@ func _build_trees(trees: Array) -> void:
 		"willow":        Color(0.40, 0.35, 0.28),     # gray-brown, deeply furrowed
 		"magnolia":      Color(0.52, 0.48, 0.44),     # smooth light gray
 		"cathedral_elm": Color(0.30, 0.25, 0.18),     # same as elm
+		"london_plane_sculpt_young":   Color(0.60, 0.56, 0.48),
+		"london_plane_sculpt_mature":  Color(0.60, 0.56, 0.48),
+		"london_plane_sculpt_veteran": Color(0.60, 0.56, 0.48),
 	}
 	# --- Load 5 base GLB models, then create per-archetype colored copies ---
 	# Uses class members _species_meshes and _species_heights.
@@ -558,12 +587,13 @@ func _build_trees(trees: Array) -> void:
 	# NOTE: "deciduous" is deliberately absent — the generic catch-all data tag is
 	# remapped to london_plane (GENERIC_MODEL) before any mesh lookup, so the old
 	# deciduous GLB is never loaded and nothing falls back to it (user 2026-06-26).
-	var _base_model_names := ["maple", "birch", "pine", "elm", "oak", "cherry", "ginkgo", "honeylocust", "linden", "london_plane", "callery_pear", "dead", "willow", "magnolia", "cathedral_elm"]
+	var _base_model_names := ["maple", "birch", "pine", "elm", "oak", "cherry", "ginkgo", "honeylocust", "linden", "london_plane", "callery_pear", "dead", "willow", "magnolia", "cathedral_elm",
+		"london_plane_sculpt_young", "london_plane_sculpt_mature", "london_plane_sculpt_veteran"]
 	# Load tiered models (_s, _m, _l): age/size variants per archetype. Each is a
 	# full lod0 model that renders near, then hands off to its impostor (no mid tier).
 	for base_name in _base_model_names:
 		var tier_list: Array
-		if base_name == "dead":
+		if base_name == "dead" or SCULPT_UNTIERED.has(base_name):
 			tier_list = [""]
 		else:
 			tier_list = ["_s", "_m", "_l"]
@@ -636,7 +666,7 @@ func _build_trees(trees: Array) -> void:
 		var bstyle := 0
 		if archetype in ["birch", "cherry"]:
 			bstyle = 1
-		elif archetype in ["london_plane", "zelkova"]:
+		elif archetype in ["london_plane", "zelkova"] or SCULPT_UNTIERED.has(archetype):
 			bstyle = 2
 		elif archetype == "pine":
 			bstyle = 3
@@ -644,7 +674,7 @@ func _build_trees(trees: Array) -> void:
 			bstyle = 4
 
 		var tier_suffixes: Array
-		if archetype == "dead":
+		if archetype == "dead" or SCULPT_UNTIERED.has(archetype):
 			tier_suffixes = [""]
 		else:
 			tier_suffixes = ["_s", "_m", "_l"]  # lod0 → impostor; no mid tier
@@ -851,8 +881,8 @@ func _build_trees(trees: Array) -> void:
 
 		# Select size tier based on desired height → _s, _m, or _l model
 		var tier_suffix: String
-		if species == "dead":
-			tier_suffix = ""  # dead has no tiers
+		if species == "dead" or SCULPT_UNTIERED.has(species):
+			tier_suffix = ""  # dead / sculpt stages: one GLB, no size tiers
 		else:
 			tier_suffix = "_" + _get_tier(species, desired_h)
 		var species_tier: String = species + tier_suffix

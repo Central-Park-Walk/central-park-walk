@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink"
+     xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+     width="640" height="640" viewBox="0 0 640 640">
+  <title>habit primary traces - veteran - clean plate</title>
+  <desc>Locked veteran habit plate only. Trace heavy wood with the Bezier tool; name paths trunk, v_west, v_east, v_north, v_south, v_crown.</desc>
+  <image id="ref_plate" x="0" y="0" width="640" height="640"
+         xlink:href="../../../tmp/tree_sculpt/habit_refs/veteran_ref_plate.png"
+         preserveAspectRatio="none"/>
+  <g id="primaries" inkscape:label="primaries" inkscape:groupmode="layer">
+    <!-- Draw named paths here (Bezier tool). Path id = strand id. -->
+  </g>
+</svg>

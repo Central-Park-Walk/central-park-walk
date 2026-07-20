@@ -1,0 +1,8 @@
+#!/bin/bash
+# Open the model evaluation garden on the empty Great Lawn.
+# Default (2026-07-17): tree-sculptor London plane stages under consideration —
+# young / mature / veteran authored GLBs (london_plane_sculpt_*.glb).
+# Production london_plane s/m/l: Godot … -- --time 13 --eval-plot=london_plane
+GODOT="${GODOT:-/home/chris/godot 4/Godot_v4.6.1-stable_linux.x86_64}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+exec "$GODOT" --path "$ROOT" -- --time 13 --eval-plot=london_plane_sculpt

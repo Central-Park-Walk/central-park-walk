@@ -159,6 +159,22 @@ const SL_TIERS := [
 ]
 
 const TIER_MATCH := false          # 2026-07-04: superseded by SEASON_LOD (normal distance fade, July+January)
+# SCULPT REVIEW (2026-07-17): young / mature / veteran authored stages on the empty
+# Great Lawn. `garden` → --eval-plot=london_plane_sculpt. Takes precedence over
+# SEASON_LOD when the matched set is the sculpt stages. Production london_plane
+# s/m/l are unchanged — use --eval-plot=london_plane for those.
+const SCULPT_REVIEW := true
+const SCULPT_STAGES := [
+	# [plaque, species key, height m]
+	["young", "london_plane_sculpt_young", 12.0],
+	["mature", "london_plane_sculpt_mature", 20.0],
+	["veteran", "london_plane_sculpt_veteran", 26.0],
+]
+# Isosceles triangle (Chris 2026-07-18): young+mature on the near base, veteran (L)
+# at the far north apex. Replaces the old 22 m E–W row so crowns no longer merge.
+const SCULPT_BASE_HALF := 40.0    # |X| of young/mature from STAND_X → 80 m base
+const SCULPT_BASE_Z := 190.0      # near base (spawn Z 228)
+const SCULPT_APEX_Z := 145.0      # far corner — veteran (~45 m north of base)
 const TM_TIERS := ["lod0", "impostor"]   # one column per tier (lod0 → impostor; no mid)
 # [size suffix, forced height m]: heights land squarely in london_plane's tier
 # bounds [13, 25] → _s (<13) / _m (<25) / _l (≥25).
@@ -187,12 +203,17 @@ const TREE_SPECIES := [
 	["Callery Pear", "callery_pear"],
 	["Magnolia", "magnolia"],
 	["Dead Snag", "dead"],
+	# Tree-sculptor stages (matched by --eval-plot=london_plane_sculpt).
+	["London Plane sculpt · young", "london_plane_sculpt_young"],
+	["London Plane sculpt · mature", "london_plane_sculpt_mature"],
+	["London Plane sculpt · veteran", "london_plane_sculpt_veteran"],
 ]
 
 var _loader
 var _sel_trees: Array = []   # entries from TREE_SPECIES
 var _sel_ug: Array = []      # indices into UndergrowthScript.SPECIES
 var _stand_mode := false     # exactly one species matched
+var _sculpt_review := false  # young/mature/veteran stage row (garden → sculpt)
 var _labels: Array = []      # [text, Vector2 xz, height_m, pixel_size]
 
 
@@ -211,6 +232,12 @@ func resolve(spec: String) -> void:
 	elif s == "undergrowth" or s == "shrubs":
 		for i in UndergrowthScript.SPECIES.size():
 			_sel_ug.append(i)
+	elif s == "london_plane_sculpt" or s == "sculpt":
+		# Explicit sculpt garden: the three authored stages, nothing else.
+		for entry in TREE_SPECIES:
+			if str(entry[1]).begins_with("london_plane_sculpt_"):
+				_sel_trees.append(entry)
+		_sculpt_review = SCULPT_REVIEW and not _sel_trees.is_empty()
 	else:
 		for tok in s.split(","):
 			var t: String = tok.strip_edges()
@@ -226,9 +253,19 @@ func resolve(spec: String) -> void:
 					_sel_ug.append(i)
 			if _sel_trees.is_empty() and _sel_ug.is_empty():
 				print("EvalPlot: no species matches '%s'" % t)
-	_stand_mode = _sel_trees.size() + _sel_ug.size() == 1
-	print("EvalPlot: %d tree species, %d undergrowth species%s" % [
-		_sel_trees.size(), _sel_ug.size(), " (stand mode)" if _stand_mode else ""])
+		# Substring "london_plane_sculpt" also selects all three stages.
+		if SCULPT_REVIEW and _sel_ug.is_empty() and not _sel_trees.is_empty():
+			var all_sculpt := true
+			for entry in _sel_trees:
+				if not str(entry[1]).begins_with("london_plane_sculpt_"):
+					all_sculpt = false
+					break
+			_sculpt_review = all_sculpt
+	_stand_mode = (not _sculpt_review) and (_sel_trees.size() + _sel_ug.size() == 1)
+	print("EvalPlot: %d tree species, %d undergrowth species%s%s" % [
+		_sel_trees.size(), _sel_ug.size(),
+		" (stand mode)" if _stand_mode else "",
+		" (sculpt review)" if _sculpt_review else ""])
 
 
 # Append synthetic census records — called by park_loader BEFORE
@@ -237,6 +274,34 @@ func inject_trees(trees: Array) -> int:
 	if _sel_trees.is_empty():
 		return 0
 	var added := 0
+	if _sculpt_review:
+		# Isosceles triangle: young (SW) + mature (SE) near base; veteran (L) far N apex.
+		for stage in SCULPT_STAGES:
+			var label: String = str(stage[0])
+			var sp: String = str(stage[1])
+			var h: float = float(stage[2])
+			var sx: float = STAND_X
+			var sz: float = SCULPT_APEX_Z
+			if label == "young":
+				sx = STAND_X - SCULPT_BASE_HALF
+				sz = SCULPT_BASE_Z
+			elif label == "mature":
+				sx = STAND_X + SCULPT_BASE_HALF
+				sz = SCULPT_BASE_Z
+			# else veteran: apex at (STAND_X, SCULPT_APEX_Z)
+			trees.append(_rec(sx, sz, sp, h))
+			added += 1
+			print("EvalPlot sculpt: %s at (%.1f, %.1f) h=%.0f" % [label, sx, sz, h])
+			_labels.append(["%s · %dm" % [label, int(round(h))],
+				Vector2(sx, sz + 8.0), 3.5, 0.018])
+		_labels.append(["London Plane sculpt — young · mature · L far",
+			Vector2(STAND_X, SCULPT_BASE_Z + 16.0), 11.0, 0.028])
+		print("EvalPlot sculpt: isosceles base=%.0fm legs=%.0fm L at Z=%.0f" % [
+			SCULPT_BASE_HALF * 2.0,
+			sqrt(SCULPT_BASE_HALF * SCULPT_BASE_HALF
+				+ (SCULPT_BASE_Z - SCULPT_APEX_Z) * (SCULPT_BASE_Z - SCULPT_APEX_Z)),
+			SCULPT_APEX_Z])
+		return added
 	if _stand_mode and SEASON_LOD:
 		# One receding row per size tier (_s/_m/_l); within each row a July (summer) and
 		# a January (winter) lod0 specimen, side by side. No force_tier — the ordinary
