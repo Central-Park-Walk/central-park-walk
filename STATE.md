@@ -1,16 +1,21 @@
 # STATE — cpw (the WHOLE project)
 
-# ⛔⛔ CENTRAL PARK WALK IS SUSPENDED — Chris, 2026-07-16.
+# ✅ RESUMED — Chris, 2026-07-24. (Suspended 2026-07-16; the suspension is LIFTED.)
 
-**This is all of CPW, not just the london-plane thread. The project hangs until the trees are sorted
-out.** Chris is working on other projects until then. The suspension is indefinite and is **his to lift,
-not yours** — and lifting it requires a smarter model, not a new idea from a session.
+The condition the suspension named — **a smarter model, and Chris's decision** — is met. Both are his
+calls and both have been made. This is not a session re-opening the project on a hunch.
 
-If a session binds to `cpw` or any thread under it: read this file and `LEDGER.md ## 45`, do nothing else,
-and stop. No units of work. No proposals. No "just checking" the Ramble, the perf backlog, or the README.
+**What resumes:** the trees, and only the trees. Trees ARE the project — 843 acres of wooded park cannot
+be built without them, so nothing downstream is worth doing first. That reasoning did not expire with the
+suspension; it is still the priority order. The perf backlog, the treeless-Ramble symptom, the release
+pipeline, the README pass, maple + sweetgum leaves — all still wait behind a credible London plane.
 
-**Why the whole project and not just the tree:** trees ARE the project. 843 acres of wooded park cannot be
-built without them, so nothing downstream is worth doing first.
+**What does NOT resume:** everything in "Rails that survive" below. Those were binding then and are
+binding now; lifting the suspension re-opens no closed question.
+
+**Read before the first unit of work:** the failure record immediately below, and `LEDGER.md ## 45`.
+The 44-iteration arc is the most expensive thing this project has learned; a resume that has not read it
+will repeat it.
 
 ## The failure that stopped the project — recorded, not softened
 
@@ -34,19 +39,22 @@ of the work and of its legibility. Both are mine.
   in the card layer; the naked scaffold is a broken instrument.
 - **The bar, unchanged and unmet:** realistic London planes, **by the thousands, on a 3060 Ti.**
 
-## The condition for resuming the project
+## How it resumed — recorded so it is not re-litigated
 
-**A smarter model, and Chris's decision.** Not a new idea from a session. Fable 5 currently declines topics
-near life science, so it cannot be pointed at this today; whether any future model can solve it — realistic
-London planes by the thousands on a 3060 Ti — is open. It is not to be re-attempted on a guess.
+The condition was **a smarter model, and Chris's decision**; both are satisfied as of 2026-07-24. The
+suspension was never waiting on a new idea from a session, and it was not lifted by one.
 
-The old (A)/(B) fork — render-as-it-ships vs the KEEP-GROWER-vs-MTREE ADR — is **dead**. There is no next
-hypothesis, on this thread or any other. Nothing in CPW is to be run, tuned, rendered, or proposed.
+The old (A)/(B) fork — render-as-it-ships vs the KEEP-GROWER-vs-MTREE ADR — stays **dead**. The MTREE half
+is closed by the rails above, and there is no inherited hypothesis to pick back up. The resume starts from
+the deliverable, not from iter-44's queue: **render a finished, foliated tree as it ships, and look at it,
+FIRST** — before any scalar, wire, or partition is measured again. A metric may fail that render; no metric
+may clear it.
 
-## Frozen state, for whoever resumes
+## State at the resume point
 
 - LEDGER staging is EMPTY; Tier-0 24,065 B. **Do not run `/distill`.** The 147 KB LEDGER is raw history.
 - ALPHA=1.026e-5 PROVISIONAL (DBH@m only). Agent branches ginkgo/magnolia unmerged.
 - Artifacts: `tmp/plane_m_skel.npz`, `tmp/skinned_plane_m.png`.
-- Also frozen, and NOT to be picked up as "safe" side work: the treeless-Ramble symptom, the perf
-  investigation, the release pipeline, the README pass, maple + sweetgum leaves.
+- Still deferred behind the tree, and NOT to be picked up as "safe" side work now that the project is
+  active: the treeless-Ramble symptom, the perf investigation, the release pipeline, the README pass,
+  maple + sweetgum leaves. The un-suspension opens the trees, not the backlog.

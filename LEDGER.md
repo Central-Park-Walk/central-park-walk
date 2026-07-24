@@ -1987,3 +1987,32 @@ future model can solve it is open. It is not to be re-attempted on a guess.
 
 verdict: N/A — CENTRAL PARK WALK IS SUSPENDED BY CHRIS. Not pending. Do not open a session against this
 project or any thread under it.
+
+↪ **SUPERSEDED as a gate on 2026-07-24 — see `## 46`.** The stop-work directive above is lifted; the
+failure record and the ⛔ rails in this entry are NOT, and remain binding. Nothing above is edited.
+
+## 46 — RESUME. Chris lifts the suspension.
+
+**Not a unit of work. A notice, recorded.**
+
+**Chris, 2026-07-24:** the project is no longer suspended. The condition entry 45 set — **a smarter
+model, and his decision** — is met. Both halves are his; no session argued the suspension away, and
+this entry is not to be read as one having done so.
+
+**What entry 45 keeps, in full force:**
+- The failure record. 44 iterations, no credible London plane by any method. The deliverable was never
+  delivered, and every entry that read as progress was progress against an instrument. Unchanged.
+- ⛔ NO MTREE · ⛔ NO SPEEDTREE · ⛔ NO FINE-TWIG GEOMETRY. Binding, not re-litigable. Resuming the
+  project re-opens no closed question.
+- The bar: **realistic London planes, by the thousands, on a 3060 Ti.** Unmet.
+- The dead (A)/(B) fork stays dead. There is no inherited hypothesis to pick up.
+
+**What resumes: the trees, and only the trees.** Trees ARE the project. The treeless-Ramble symptom,
+the perf investigation, the release pipeline, the README pass, maple + sweetgum leaves stay deferred —
+the un-suspension opens the tree, not the backlog.
+
+**The entry condition for iter-45, non-negotiable:** render a finished, **foliated** tree **as it
+ships**, and LOOK at it, before any scalar is measured. Entry 45's own diagnosis is that this never
+once happened across 44 iterations. A metric may FAIL that render; no metric may CLEAR it.
+
+verdict: N/A — project ACTIVE. Next iteration is the deliverable-first render, not a tuning pass.

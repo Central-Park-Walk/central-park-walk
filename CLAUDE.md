@@ -1,12 +1,13 @@
 # CLAUDE.md — Central Park Walk
 
-> # ⛔⛔ SUSPENDED — Chris, 2026-07-16. Read `STATE.md`, then stop.
+> # ✅ ACTIVE — resumed by Chris, 2026-07-24. (Suspended 2026-07-16; lifted.)
 >
-> **The whole project hangs until the trees are sorted out.** 44 iterations produced not one credible
-> London plane by any method; trees ARE the project, so nothing downstream is worth doing first. Chris is
-> working on other projects until then. **Resuming requires a smarter model and his decision** — it is not
-> a matter of a new idea from a session. ⛔ no mtree · ⛔ no SpeedTree · ⛔ no fine-twig geometry.
-> Everything below this banner describes the project as it stood, and is dormant.
+> **Trees are still the blocker, and still the only thing open.** 44 iterations produced not one credible
+> London plane by any method, and that has not changed — trees ARE the project, so nothing downstream is
+> worth doing first. The backlog (Ramble, perf, release, README, maple + sweetgum) stays deferred.
+> ⛔ no mtree · ⛔ no SpeedTree · ⛔ no fine-twig geometry — binding, not re-opened by the resume.
+> **Start from the deliverable: render a finished, foliated tree AS IT SHIPS and look at it, first.**
+> Read `STATE.md` and `LEDGER.md ## 45` before the first unit of work.
 
 A real-time 3D walking simulation of all 843 acres of Central Park, built from public
 data (NYC LiDAR, OpenStreetMap, NYC Tree Census, building footprints) and interpreted by
