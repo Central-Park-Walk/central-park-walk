@@ -885,3 +885,15 @@
 
 ## Staged lessons
 - Habit lock bar: entire tree, alone or easy to separate from its environment — person/nursery clutter, incomplete shells, and crowns that merge into background woodland fail before any scaffold fit is judged.
+
+## 2026-08-25 — DESIGN turn: sculpt_kb / botany knowledge base (no sculpt work)
+- **Hypothesis:** Claude's tree-judging failure is protocol, not perception — fixable at our
+  level via retrieval: exemplar meshes (human sculpts that pass Chris's instant look) are
+  measurable ground truth; treeness is CATEGORICAL (binary verdict + named giveaway, no
+  scores); envelope derived from exemplars, never dialed; two gates (treeness → plane-ness).
+- **Change:** wrote `docs/sculpt_kb/DESIGN.md` (commit `f234e5c`) — specimen cards (photo +
+  mesh + skeleton stats.json + turntable + in-game captures + part↔part correspondence
+  sheets), pooled ENVELOPE/PRINCIPLES/TRANSLATION layers, first unit = ONE specimen
+  end-to-end with Chris verdicting the card FORMAT.
+- **Measurement:** none — design only, no render, no bar touched.
+- **Verdict:** PENDING — Chris sign-off on DESIGN.md (canonical change: new KB umbrella).
