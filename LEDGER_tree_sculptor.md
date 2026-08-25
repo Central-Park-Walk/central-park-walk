@@ -975,3 +975,44 @@
   fault-injection rig + Chris fault lists on real renders + Qwen-VL pull; roster Fable 5 ·
   Opus 5 · Qwen-VL).
 - **Verdict:** SIGNED OFF. Design phase closed; next session is build work.
+
+## WORK_PACKAGE `tree-sculptor-W-20260825-41` · 2026-08-25
+
+- **Thread:** `cpw/tree-sculptor`
+- **Items:** `TS-1` (instrument repair only — habit untouched)
+- **Classification:** `REPRODUCED_DEFECT`
+- **Risk:** `LOW`
+- **Approval:** `not_required` (queued at KB-0 sign-off: registration fix first)
+- **Hypothesis:** The overlay misregistered because photo and sculpt silhouette were each
+  independently bbox-cropped and contain-fitted into the same square — registered to the
+  canvas, not to the tree inside the photo (whose content bbox is the whole frame; sky
+  passes the threshold). A similarity transform derived from measured envelopes
+  (bole→bole, crown-height→crown-height; width left free) puts the cyan on the tree.
+- **Changed paths:** `scripts/tree_sculpt/ref_habit_overlay.py` (registration via
+  `segment_tree`/`measure_envelope` on both sides; despeckle = drop sub-limb components;
+  invariant tripwire fails the build if crown_h off >4% or bole pin >2%),
+  `docs/tree_sculptor.md`, `tmp/tree_sculpt/habit_refs/*`, `STATE_tree_sculptor.md`,
+  `LEDGER_tree_sculptor.md`
+- **Verification:** `python3 ref_habit_overlay.py` exit 0. Mechanical: crown_h ref/sil
+  599/600 · 452/453 · 599/599 (≤1px); bole Δ ≤2px all stages. Looked at all three overlays
+  (contact sheet): cyan trunk on photo trunk, bole on bole, speckle consolidated to
+  limb-scale strokes. Env drift: scipy had vanished since July (shape_fit dead on stock
+  python); restored via `pip3 install --user --break-system-packages scipy` (numpy→2.5.2
+  user-site; PIL interop verified). First tripwire draft wrongly failed mature on
+  horizontal spill — that spill is the MEASUREMENT (menorah arms), not misregistration;
+  check narrowed to the pinned invariants only. New baseline `spread_ratio` (sculpt/photo
+  crown width at matched height): young 1.03 · mature 1.625 (lower bound — sculpt render
+  clipped at its own 512 frame; review-rig camera too tight) · veteran 1.328.
+- **Score:** registration invariants PASS (≤1px height, ≤2px bole, all stages) +
+  deliverable looked at honest. Habit baseline through the repaired instrument:
+  spread 1.03/1.625/1.328 — mature+veteran habit remain FAILED (K6 mast, K7 menorah
+  visible, now honestly).
+- **Deliverable:** `tmp/tree_sculpt/habit_refs/{stage}_habit_overlay.png` +
+  `overlay_contact_sheet.png` + `habit_refs.json` (per-stage `registration` block)
+- **Git:** `uncommitted`
+- **Status:** `awaiting_user_verdict`
+
+## Staged lessons
+- A registration tripwire may guard only the invariants the transform pins (height, bole);
+  gating the free dimension (width) turns the instrument's own measurement into a false
+  failure — first draft did exactly that.

@@ -112,7 +112,14 @@ Authority:
   silhouette (tip length is an OUTPUT). Writes
   `{stage}_shape_fit.json` + `_shape_fit.png`.
 - Overlays: `tmp/tree_sculpt/habit_refs/{stage}_habit_overlay.png`
-  (`python3 scripts/tree_sculpt/ref_habit_overlay.py`).
+  (`python3 scripts/tree_sculpt/ref_habit_overlay.py`). **W-41: the cyan
+  silhouette is registered to the photo's measured tree envelope** — uniform
+  scale (crown height) + translation (bole→bole), derived from
+  `segment_tree`/`measure_envelope` on both sides; width stays free so spread
+  mismatch remains readable. A tripwire fails the build if crown height is off
+  >4% or the bole pin >2% of the cell. Per-stage `registration` (incl.
+  `spread_ratio`, a *lower bound* when `clipped_at_cell_edge`) lands in
+  `habit_refs.json`.
 - Form model still informs botany: `docs/london_plane_growth_architecture.md` §10.
 
 ### Chris W-31 / W-40 defects (still in play until photo-match PASS)

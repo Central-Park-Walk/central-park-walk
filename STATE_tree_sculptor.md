@@ -1,43 +1,48 @@
-# STATE — cpw / tree-sculptor · updated 2026-08-25
+# STATE — cpw / tree-sculptor · updated 2026-08-25 (W-41)
 
 **Target:** Blender sculptor → game-ready London-plane GLBs.
 
 ## Where we are
-Compile = `build_curve_bevel_bark`. Habit = `shape_fit.py`. **W-40 plates
-REJECTED by Chris (TS-1 verdict 2026-08-25):** overlays are not coupled to
-the photos. Claude looked and confirmed on the mature overlay — TWO fault
-families: **(a) REGISTRATION** — cyan silhouette spills past the photo strip
-both sides onto letterbox (composite scale/aspect; mechanical), coverage
-inverted (real crown uncovered, cyan over sky), tips = unreadable speckle;
-**(b) HABIT** — naked central mast to apex vs photo's multi-leader fork at
-~¼ height; near-horizontal "menorah" limbs + drooping streamer tips.
-⚠ **The overlay is a broken instrument:** no habit verdict may be read
-through it, either direction, until registration is fixed and overlays
-re-rendered honestly. Tip-host shell counts stay frozen (288/1920/1260).
+Compile = `build_curve_bevel_bark`. Habit = `shape_fit.py`. **W-41: overlay
+instrument REPAIRED.** Cyan silhouette is now registered to the photo's
+measured tree envelope (uniform scale on crown height + bole→bole pin,
+derived from `segment_tree`/`measure_envelope` both sides; width free so
+spread mismatch stays readable). Invariant tripwire fails the build at
+>4% height / >2% bole error; speckle consolidated (sub-limb components
+dropped). Verified: heights ≤1px, boles ≤2px, all stages; looked at all
+three overlays. Awaiting Chris verdict on the repaired instrument.
+
+**Habit through the honest instrument (new baseline `spread_ratio`,
+sculpt/photo crown width at matched height):** young **1.03** ·
+mature **1.625 (lower bound — see caveat)** · veteran **1.328**.
+K6 naked mast + K7 menorah/streamers now show honestly on mature.
+
+⚠ Caveats: (1) mature sculpt render clips at its own 512 frame — review-rig
+camera too tight; widen before trusting mature spread. (2) scipy had vanished
+from system python since July; restored to user-site (numpy 2.5.2 came with
+it). Tip-host shell counts stay frozen (288/1920/1260).
 
 ## Budget (post W-39 bare / cards / tip_hosts)
 young **62388** / **3720** / 155 · mature **126108** / **15864** / 661 ·
 veteran **141768** / **17040** / 710.
 
 ## Open work
-- `TS-1` habit · **FAILED — W-40 plates rejected.** Fix overlay registration
-  FIRST, re-render honest overlays, only then judge habit (then the mast/
-  menorah/streamer faults, if they survive an honest overlay).
-- `KB-0` sculpt_kb design · **SIGNED OFF 2026-08-25 — CANONICAL.**
-  `FAULT_LEXICON.md` live (7 entries; K6/K7 = confirmed habit faults).
-- `KB-1` exam assembly · **queued after TS-1 registration fix** — exemplar
-  meshes + fault-injection rig + Chris fault lists + Qwen-VL pull; roster
-  **Fable 5 vs Opus 5 vs Qwen-VL** (acuity-vs-attention adjudication).
+- `TS-1` habit · instrument repaired (W-41, awaiting verdict). Next: habit
+  faults themselves — K6 mast, K7 menorah/streamers, mature/veteran
+  over-spread (1.625/1.328 → ~1.0). Widen mature review camera first.
+- `KB-1` exam assembly · queued after TS-1 verdict — exemplar meshes +
+  fault-injection rig + Chris fault lists + Qwen-VL pull; roster
+  Fable 5 vs Opus 5 vs Qwen-VL.
 - `TS-7` crotches **PASS** · `TS-6` garden layout shipped (W-30)
 - `TS-9` elbows deferred · `TS-5` bark dial · `TS-3` impostors · `TS-4` species
 
 ## ★ ONE NEXT HYPOTHESIS
-> The overlay compositor misregisters silhouette vs locked ref (scale/aspect
-> of the composite). Verify the projection mechanically in shape_fit/overlay
-> code BEFORE any habit refit or new ref hunt — the instrument must stop
-> lying before any reading through it means anything.
+> With the instrument honest, the dominant mature/veteran habit fault is
+> structural: primaries fan near-horizontally from one attach band (menorah)
+> instead of forking into ascending leaders at ~¼ height — fixing fork
+> topology (not angles polish) should pull spread toward 1.0 and kill K6/K7
+> together.
 
 ## Look at
-`tmp/tree_sculpt/habit_refs/mature_habit_overlay.png` (the rejected
-instrument) · `docs/sculpt_kb/EXAM_SAMPLE.md` (the exam, made concrete) ·
-`docs/sculpt_kb/DESIGN.md` (pre-test v2).
+`tmp/tree_sculpt/habit_refs/overlay_contact_sheet.png` (all three, repaired) ·
+`tmp/tree_sculpt/habit_refs/habit_refs.json` (registration numbers).

@@ -32,8 +32,11 @@ def _content_bbox(im: Image.Image, thr: int = 32):
     return mask.getbbox()
 
 
-def _fit(im: Image.Image, size: int, thr: int = 28) -> Image.Image:
-    """Contain into square; bottom-center the subject so bole bases share a line."""
+def _fit_box(im: Image.Image, size: int, thr: int = 28):
+    """Contain into square; bottom-center the subject so bole bases share a line.
+
+    Returns (plate, paste_box) — paste_box is the photo strip in plate coords.
+    """
     rgb = im.convert("RGB")
     box = _content_bbox(rgb, thr=thr) or (0, 0, rgb.width, rgb.height)
     cropped = rgb.crop(box)
@@ -42,27 +45,111 @@ def _fit(im: Image.Image, size: int, thr: int = 28) -> Image.Image:
     x = (size - fitted.width) // 2
     y = size - 12 - fitted.height
     out.paste(fitted, (x, y))
-    return out
+    return out, (x, y, x + fitted.width, y + fitted.height)
 
 
-def _bare_silhouette(front: Image.Image, size: int) -> Image.Image:
-    """Thick-wood mask (drops tip filigree) for scaffold habit compare."""
+def _fit(im: Image.Image, size: int, thr: int = 28) -> Image.Image:
+    return _fit_box(im, size, thr)[0]
+
+
+def _thick_wood_mask(front: Image.Image) -> Image.Image:
+    """Thick-wood mask (drops tip filigree) at the render's native resolution.
+
+    The erosion severs 1px streamer connections, leaving speckle fragments that
+    are artifacts, not geometry — drop components too small to be a limb chunk
+    (large detached chunks stay: they are real spread and must remain visible).
+    """
+    import numpy as np
+    from scipy import ndimage
+
     gray = ImageOps.grayscale(front.convert("RGB"))
-    # Higher threshold + erode: keep bole/scaffold, lose wispy tip shell.
     mask = gray.point(lambda p: 255 if p > 55 else 0)
     mask = mask.filter(ImageFilter.MinFilter(3)).filter(ImageFilter.MaxFilter(3))
-    box = mask.getbbox() or (0, 0, front.width, front.height)
-    rgba = Image.new("RGBA", front.size, (0, 0, 0, 0))
-    rgba.putalpha(mask)
-    cropped = rgba.crop(box)
-    fitted = ImageOps.contain(cropped, (size - 24, size - 40))
+    arr = np.asarray(mask) > 127
+    labeled, nlab = ndimage.label(arr)
+    if nlab:
+        sizes = ndimage.sum_labels(arr, labeled, range(1, nlab + 1))
+        min_px = max(16, int(0.00015 * arr.size))  # ~40px on a 512 frame
+        keep = np.zeros(nlab + 1, dtype=bool)
+        keep[1:] = sizes >= min_px
+        arr = keep[labeled]
+    return Image.fromarray((arr * 255).astype(np.uint8), mode="L")
+
+
+def _registered_silhouette(front: Image.Image, size: int, ref_env: dict) -> tuple[Image.Image, dict]:
+    """Sculpt silhouette registered onto the photo's measured tree envelope.
+
+    Similarity transform only — uniform scale (photo crown height / sculpt crown
+    height) + translation (sculpt bole → photo bole). Width and shape stay free:
+    a habit mismatch must remain readable as cyan spill / uncovered crown, so the
+    registration may normalize height and ground point and NOTHING else.
+    """
+    import numpy as np
+
+    # shape_fit imports _crop_frac/_fit from this module; import inside the
+    # function so the two modules can share measurement code without a cycle.
+    from shape_fit import measure_envelope
+
+    mask = _thick_wood_mask(front)
+    sculpt_env = measure_envelope(np.asarray(mask) > 127)
+
+    scale = ref_env["crown_h_px"] / max(1, sculpt_env["crown_h_px"])
+    sw = max(1, int(round(mask.width * scale)))
+    sh = max(1, int(round(mask.height * scale)))
+    scaled = mask.resize((sw, sh), Image.BILINEAR)
+    # Re-binarize at the comparison scale (>=25% pixel coverage keeps a thin
+    # stroke a stroke), then close so tips read as lines, not speckle.
+    scaled = scaled.point(lambda p: 255 if p >= 64 else 0)
+    scaled = scaled.filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.MinFilter(3))
+
+    ref_bx, ref_by = ref_env["bole_xy"]
+    off_x = int(round(ref_bx - sculpt_env["bole_xy"][0] * scale))
+    off_y = int(round(ref_by - sculpt_env["bole_xy"][1] * scale))
+
     out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    x = (size - fitted.width) // 2
-    y = size - 12 - fitted.height
-    out.paste(fitted, (x, y), fitted)
-    a = out.split()[-1].filter(ImageFilter.GaussianBlur(0.5))
-    out.putalpha(a)
-    return out
+    rgba = Image.new("RGBA", scaled.size, (255, 255, 255, 0))
+    rgba.putalpha(scaled)
+    out.paste(rgba, (off_x, off_y), rgba)
+
+    final_env = measure_envelope(np.asarray(out.split()[-1]) > 0)
+    clipped = (
+        final_env["bbox"][0] <= 0
+        or final_env["bbox"][2] >= size - 1
+        or final_env["bbox"][1] <= 0
+    )
+    reg = {
+        "scale": round(scale, 4),
+        "ref_bole_xy": [int(ref_bx), int(ref_by)],
+        "ref_crown_h_px": int(ref_env["crown_h_px"]),
+        "ref_crown_w_px": int(ref_env["crown_w_px"]),
+        "sil_bole_xy": [int(final_env["bole_xy"][0]), int(final_env["bole_xy"][1])],
+        "sil_crown_h_px": int(final_env["crown_h_px"]),
+        "sil_crown_w_px": int(final_env["crown_w_px"]),
+        "sil_bbox": [int(v) for v in final_env["bbox"]],
+        # MEASUREMENT, not registration: >1 = sculpt crown wider than photo's
+        # at matched height. A lower bound when clipped at the cell edge.
+        "spread_ratio": round(final_env["crown_w_px"] / max(1, ref_env["crown_w_px"]), 3),
+        "clipped_at_cell_edge": bool(clipped),
+    }
+    return out, reg
+
+
+def _check_registration(reg: dict, size: int) -> None:
+    """Tripwire on the registration invariants ONLY (height + bole pin).
+
+    Horizontal spill is deliberately NOT checked — with bole and height pinned,
+    width mismatch is the habit measurement the overlay exists to show.
+    """
+    h_err = abs(reg["sil_crown_h_px"] - reg["ref_crown_h_px"]) / reg["ref_crown_h_px"]
+    bx_err = abs(reg["sil_bole_xy"][0] - reg["ref_bole_xy"][0]) / size
+    by_err = abs(reg["sil_bole_xy"][1] - reg["ref_bole_xy"][1]) / size
+    faults = []
+    if h_err > 0.04:
+        faults.append(f"crown height off {h_err:.1%} (>4%)")
+    if bx_err > 0.02 or by_err > 0.02:
+        faults.append(f"bole offset ({bx_err:.1%},{by_err:.1%}) (>2%)")
+    if faults:
+        raise RuntimeError("overlay registration failed: " + "; ".join(faults))
 
 
 def _overlay(ref_rgb: Image.Image, sil_rgba: Image.Image) -> Image.Image:
@@ -84,9 +171,15 @@ def build_stage(stage: str, cell: int = 640) -> dict:
     if not bare_front.is_file():
         raise FileNotFoundError(bare_front)
 
-    ref = _fit(_crop_frac(Image.open(ref_path), meta["crop_frac"]), cell)
+    import numpy as np
+
+    from shape_fit import measure_envelope, segment_tree  # lazy: avoids cycle
+
+    ref, strip = _fit_box(_crop_frac(Image.open(ref_path), meta["crop_frac"]), cell)
+    ref_env = measure_envelope(segment_tree(np.asarray(ref)))
     bare = _fit(Image.open(bare_front), cell)
-    sil = _bare_silhouette(Image.open(bare_front), cell)
+    sil, reg = _registered_silhouette(Image.open(bare_front), cell, ref_env)
+    _check_registration(reg, cell)
     over = _overlay(ref, sil)
 
     gap = 16
@@ -98,7 +191,7 @@ def build_stage(stage: str, cell: int = 640) -> dict:
     panels = [
         (ref, "locked reference"),
         (bare, "sculpt bare front"),
-        (over, "cyan = sculpt silhouette on ref"),
+        (over, "cyan = sculpt silhouette registered to ref (bole + height)"),
     ]
     x = gap
     y = title_h
@@ -118,6 +211,8 @@ def build_stage(stage: str, cell: int = 640) -> dict:
         "ref_file": meta["file"],
         "why": meta["why"],
         "crop_frac": list(meta["crop_frac"]),
+        "registration": reg,
+        "photo_strip": list(strip),
         "overlay": str(out_png.relative_to(PROJ)),
         "ref_plate": str((OUT_DIR / f"{stage}_ref_plate.png").relative_to(PROJ)),
     }
@@ -129,7 +224,14 @@ def main():
     manifest.write_text(json.dumps({"stages": results}, indent=2) + "\n")
     print("HABIT_REFS", manifest)
     for r in results:
-        print(f"  {r['stage']}: {r['overlay']}")
+        reg = r["registration"]
+        print(
+            f"  {r['stage']}: {r['overlay']} REG scale={reg['scale']} "
+            f"crown_h ref/sil={reg['ref_crown_h_px']}/{reg['sil_crown_h_px']} "
+            f"bole ref/sil={reg['ref_bole_xy']}/{reg['sil_bole_xy']} "
+            f"spread_ratio={reg['spread_ratio']}"
+            + (" CLIPPED" if reg["clipped_at_cell_edge"] else "")
+        )
 
 
 if __name__ == "__main__":
