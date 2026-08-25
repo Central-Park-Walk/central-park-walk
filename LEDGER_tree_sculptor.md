@@ -1009,7 +1009,7 @@
   visible, now honestly).
 - **Deliverable:** `tmp/tree_sculpt/habit_refs/{stage}_habit_overlay.png` +
   `overlay_contact_sheet.png` + `habit_refs.json` (per-stage `registration` block)
-- **Git:** `uncommitted`
+- **Git:** `279c924`
 - **Status:** `awaiting_user_verdict`
 
 ## Staged lessons
