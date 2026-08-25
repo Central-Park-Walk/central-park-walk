@@ -19,8 +19,11 @@ treeness then plane-ness; features may FAIL, only a glance may PASS.
 **local Qwen-VL vs frontier Claude vs Chris** — Chris = ceiling + validity
 check + exemplar curation. Null pairs catch invented differences; prose
 deleted before scoring. Step zero: pull a Qwen-VL for 8 GB (grind lane's
-Qwen3-Coder has no vision). **Awaiting Chris sign-off on amended DESIGN.**
-First KB unit once blessed: assemble the exam + VL model, NOT cards.
+Qwen3-Coder has no vision). Library expansion = serial SONNET agents,
+provenance-trustworthy sources only (open-web AI/render "photos" poison the
+key); `reference_photos/` (~550 files, 24 species) audited FIRST; candidate
+exemplars stay UNSEEN by Chris until exam day (text lists only). **Awaiting
+Chris sign-off on amended DESIGN.** First KB unit: exam + VL model, NOT cards.
 
 ## Budget (post W-39 bare / cards / tip_hosts)
 young **62388** / **3720** / 155 · mature **126108** / **15864** / 661 ·

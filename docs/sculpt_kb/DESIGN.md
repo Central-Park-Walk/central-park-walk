@@ -110,6 +110,18 @@ on identical items** — local Qwen-VL · frontier Claude · **Chris**.
   mechanical half (envelope, per-defect detectors, shape_fit targets) proceeds.
 - **Step zero:** the grind lane's Qwen3-Coder has no vision — pull a Qwen-VL variant
   quantized for 8 GB under llama.cpp multimodal, smoke-test it, before exam day.
+- **Library expansion (delegated grind):** **sonnet subagents, strictly ONE at a time**,
+  each a bounded task returning a manifest (URL · license · provenance class · metadata),
+  never "a topic". Audit `reference_photos/` FIRST — a per-species library already exists.
+  Photos only from provenance-trustworthy sources (iNaturalist research-grade, Wikimedia
+  with camera EXIF, FNA/USDA/FEIS) — ⚠ the open web is thick with AI-generated and
+  rendered "photos"; ONE mislabeled pass-side item corrupts the answer key, so provenance
+  class must be certain, not plausible. Exemplar meshes: CC0/CC-BY human sculpts (clean
+  topology → also envelope input) plus photogrammetry scans (real-tree geometry; exam
+  pass-side, poor for skeleton stats). In-app browser by default; Chris's Chrome ONLY
+  where a login gates a download, on a list he approves. **Candidate exemplars stay
+  UNSEEN by Chris until exam day** — he approves text lists (title/license/size), never
+  turntables or previews, or his exam blindness dies at the curation table.
 - **Ripening path:** captured verdicts (image + binary + giveaway, per condition) are
   stored in trainable form — the KB accumulates the dataset a future local LoRA would
   need, as a side effect of normal work.

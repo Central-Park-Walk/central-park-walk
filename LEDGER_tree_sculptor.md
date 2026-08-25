@@ -908,3 +908,16 @@
   pull a Qwen-VL (8 GB, llama.cpp mtmd) — grind lane's Qwen3-Coder has no vision.
 - **Measurement:** none — design only.
 - **Verdict:** PENDING — Chris sign-off on amended DESIGN.md.
+
+## 2026-08-25 (later still) — DESIGN amendment: delegated library expansion
+- **Hypothesis:** exam needs more keyed items; collection is grind → serial sonnet
+  subagents with manifest deliverables. Risks pinned: (1) open-web AI/render "photos"
+  poison the pass-side key → provenance-trustworthy sources only (iNat research-grade,
+  Wikimedia+EXIF, FNA/USDA/FEIS); (2) Chris must NOT see candidate exemplars during
+  curation (text lists only) or his exam blindness dies; (3) in-app browser default,
+  his Chrome only for login-gated downloads on an approved list.
+- **Change:** DESIGN.md pre-test § "Library expansion" added. Recon: `reference_photos/`
+  already holds ~550 files / ~24 species incl. london planetree — audit + provenance-check
+  it FIRST (legacy items have no recorded source).
+- **Measurement:** none — design only.
+- **Verdict:** PENDING — Chris sign-off on amended DESIGN.md.
