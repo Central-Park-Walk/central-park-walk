@@ -935,3 +935,18 @@
   is salvage either way. Claude's predictions pre-registered in the doc.
 - **Measurement:** none yet — design only.
 - **Verdict:** PENDING — Chris sign-off on v2.
+
+## 2026-08-25 — TS-1 VERDICT: W-40 plates REJECTED (Chris) — overlay is a broken instrument
+- **His findings (near-verbatim):** drawn lines not aligned with the photos, often not even
+  close; sometimes unintelligible; fill in blanks and leave areas uncovered; "do not seem
+  to have been made with regard to the photos."
+- **Claude confirmation (mature_habit_overlay.png, looked at):** (a) REGISTRATION — cyan
+  silhouette spills past the photo strip both sides onto letterbox (scale/aspect of the
+  composite); (b) COVERAGE inverted — dense real crown uncovered, cyan over sky/letterbox;
+  (c) tips rasterize to unreadable speckle; (d) habit faults visible even so: naked central
+  mast to apex vs photo's multi-leader fork at ~¼ height; menorah limbs + streamer tips.
+- **Ruling:** overlay = INSTRUMENT FAULT. No habit verdict may be read through these plates
+  (either direction) until registration is fixed and overlays re-rendered honestly.
+- **Also:** `docs/sculpt_kb/EXAM_SAMPLE.md` written — worked exam item #0 built from this
+  very overlay; Chris's findings = first fault-lexicon key. Demo only, contaminated.
+- **Verdict:** FAIL (W-40 plates). Next hypothesis → registration check, mechanical, FIRST.
