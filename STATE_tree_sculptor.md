@@ -14,16 +14,17 @@ only after Chris accepts the locks.
 KB. Stances: treeness is CATEGORICAL (binary + named giveaway, never a
 score); envelope DERIVED from exemplar meshes, never dialed; two gates —
 treeness then plane-ness; features may FAIL, only a glance may PASS.
-**Specimen-card build is GATED behind a three-subject blind pre-test**
-(Chris's call): provenance-keyed treeness exam, identical items, graded for
-**local Qwen-VL vs frontier Claude vs Chris** — Chris = ceiling + validity
-check + exemplar curation. Null pairs catch invented differences; prose
-deleted before scoring. Step zero: pull a Qwen-VL for 8 GB (grind lane's
-Qwen3-Coder has no vision). Library expansion = serial SONNET agents,
-provenance-trustworthy sources only (open-web AI/render "photos" poison the
-key); `reference_photos/` (~550 files, 24 species) audited FIRST; candidate
-exemplars stay UNSEEN by Chris until exam day (text lists only). **Awaiting
-Chris sign-off on amended DESIGN.** First KB unit: exam + VL model, NOT cards.
+**Chris FALSIFIED exam v1 pre-run** (everyone ceilings a provenance sort) →
+**pre-test v2 = DIAGNOSIS exam:** how well does each model name WHAT is bad,
+keyed to Chris's fault lists (he is KEY AUTHOR, not graded) + synthetic fault
+injection (keyed by construction). Two tiers — free-list / multiple-choice —
+whose split separates WEIGHTS vs protocol; if weights → exam parks as a
+STANDING TRIPWIRE re-sat per model generation. Fault lexicon = salvage either
+way. Claude predictions pre-registered in DESIGN.md. Step zero: pull Qwen-VL
+for 8 GB (grind lane's Qwen3-Coder has no vision). Collection: serial SONNET
+agents, provenance-trustworthy sources only; audit `reference_photos/` (~550
+files, 24 species) first; exemplars stay UNSEEN by Chris (text lists only).
+**Awaiting Chris sign-off on DESIGN v2.** First unit: exam rig, NOT cards.
 
 ## Budget (post W-39 bare / cards / tip_hosts)
 young **62388** / **3720** / 155 · mature **126108** / **15864** / 661 ·

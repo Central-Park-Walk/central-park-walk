@@ -81,33 +81,48 @@ turntable + order-colored renders. Then the CPW capture protocol for in-game sho
 procedure is a **skill, not a memory**, per the routing table — after the format survives
 one real specimen.
 
-## Pre-test — GATES the specimen-card build (added 2026-08-25)
+## Pre-test v2 — the DIAGNOSIS exam (rev 2026-08-25; Chris falsified v1 pre-run)
 
-The KB's perceptual half assumes reference material improves a judge. Test that premise
-before building (blind-the-premise): a **blind, answer-keyed treeness exam, three subjects
-on identical items** — local Qwen-VL · frontier Claude · **Chris**.
+**v1 (binary treeness vs a provenance key) is DEAD as a primary measure:** every subject —
+Chris, frontier Claude, Qwen-VL — ceilings a photo / mesh-render / missculpt-render sort
+(renders betray themselves via lighting/materials before treeness matters), and the real
+fail-side library is thin (44 iterations ≈ one failure family). Binary detection was never
+scarce: Chris does it instantly, free, with total confidence. Null pairs survive (they test
+invented differences). The measured question is now his:
+**how good is each model at naming WHAT is bad about a sculpted tree** — scored against
+**Chris's fault lists, which are ground truth.** He is KEY AUTHOR, not a graded subject.
 
-- **Key = provenance, not opinion:** we objectively know which images are real photos,
-  human-sculpted exemplar renders, or our iterations. All three subjects are gradeable
-  against it — including Chris.
-- **Chris is subject AND ceiling.** Items he fails blind are invalid items or imperceptible
-  conditions → excluded from model scoring. His blind pass doubles as exemplar curation:
-  a "known-good" sculpt he flags not-tree is ejected from the pass side.
-- **Items:** shuffled, unlabeled, per viewing condition (20 m / 40 m / impostor), few at a
-  time; ringers (real photos) + **null pairs** (same render twice — finding differences in
-  the null = instrument fault, any subject).
-- **Response format, all subjects:** instant binary tree/not-tree + ONE named giveaway.
-  No descriptions; prose is deleted before scoring. It is a treeness exam (Gate 1), not a
-  London-plane exam.
-- **Blinding:** the session that assembles the exam never takes it; the key lives in a file
-  the judge session must not read. Chris gets held-back angles/seeds; items he would
-  recognize are flagged contaminated, not pretended blind.
-- **Scoring:** accuracy per condition with binomial noise bounds — cell sizes chosen so the
-  differences we care about exceed ~2·SEM (instrument-resolution rule).
-- **Outcomes → decisions:** local ≈ ceiling → free local judge, KB unnecessary for judging.
-  Frontier ≫ local → judge stays frontier; re-run frontier WITH exemplar context to test
-  the KB thesis directly. Everyone ≪ Chris → perceptual half of the KB is dead; only the
-  mechanical half (envelope, per-defect detectors, shape_fit targets) proceeds.
+- **Key source A — Chris's blind fault lists on real renders** (44-lineage + current
+  tiers): irreplaceable; the obvious-to-him fault may be one we have never correctly NAMED.
+- **Key source B — synthetic fault injection:** break a good exemplar mesh in controlled
+  known ways (taper, branch-angle uniformization, shell inflation, card overscale, density).
+  Keyed BY CONSTRUCTION, unlimited items, zero labeling burden. Chris sights each once
+  only to confirm the fault is visible (invisible → invalid item). Limit: synthetics can
+  only contain faults we can name — source A covers the unnamed.
+- **Task, two tiers per item** (+ clean control items to measure hallucinated faults):
+  **T1 FREE-LIST** — name the faults, localized, ranked by salience.
+  **T2 MULTIPLE-CHOICE** — his real faults + plausible distractors; pick which apply.
+- **Scoring:** recall of his faults (weighted toward his #1), precision vs clean controls,
+  salience rank agreement. Matching free-list wording to the key is a language task (any
+  model can grade it); the perception under test is in *producing* the list.
+- **THE FORK (weights vs protocol), separated by the tiers:**
+  fails T1 / passes T2 → perception present, vocabulary+attention missing → scaffolding
+  (the KB fault lexicon) can rescue; the KB's perceptual half lives.
+  Fails T2 on faults obvious to Chris → **WEIGHTS.** No protocol fixes it.
+- **If weights: the exam becomes a STANDING TRIPWIRE** — re-sat by each new model
+  generation (frontier + local VL) at near-zero cost. "Technology caught up" becomes a
+  score crossing Chris's ceiling, not a vibe. Why weights is plausible (honest basis):
+  caption-style VLM training barely encodes within-category *quality* judgments, and
+  vision tokenization destroys high-frequency self-similar detail — twig-scale structure
+  dies at encoder resolution. Trees are near worst-case for current encoders.
+- **Salvage either way:** the keyed fault lists = the **FAULT LEXICON** — the highest-value
+  KB content regardless of any model's score.
+- **Blinding (unchanged):** the assembling session never sits the exam; the key lives in a
+  file judge sessions must not read.
+- **Pre-registered predictions (frontier Claude, 2026-08-25, to be graded):** all subjects
+  ceiling the v1 provenance sort. T1: Claude recovers coarse defect classes (confetti-,
+  shell-hug-family), misses/mis-ranks the habit faults loudest to Chris. Qwen-VL markedly
+  worse; ~chance on T2 beyond gross defects. Chris ceilings synthetic validation.
 - **Step zero:** the grind lane's Qwen3-Coder has no vision — pull a Qwen-VL variant
   quantized for 8 GB under llama.cpp multimodal, smoke-test it, before exam day.
 - **Library expansion (delegated grind):** **sonnet subagents, strictly ONE at a time**,
@@ -128,8 +143,11 @@ on identical items** — local Qwen-VL · frontier Claude · **Chris**.
 
 ## First unit of work (one session)
 
-Assemble the answer-keyed exam + pull the VL model (step zero). The specimen-card
-pipeline (below) runs only after the pre-test says the perceptual half is alive.
+Assemble the diagnosis exam: acquire 1–2 exemplar meshes + build the fault-injection rig +
+capture Chris's fault lists on the real fail-side renders + pull the VL model (step zero).
+The specimen-card pipeline (below) runs only after the fork says the perceptual half is
+alive; if it says WEIGHTS, the exam parks as the standing tripwire and only the mechanical
+half proceeds.
 THEN: ONE specimen, end-to-end: pick one free human-sculpted deciduous tree that passes
 Chris's instant look → run the full card pipeline → Chris verdicts the CARD FORMAT (not
 just the tree). Prove the format before scaling. Cost announce: Blender + Godot captures.

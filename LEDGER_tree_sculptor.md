@@ -921,3 +921,17 @@
   it FIRST (legacy items have no recorded source).
 - **Measurement:** none — design only.
 - **Verdict:** PENDING — Chris sign-off on amended DESIGN.md.
+
+## 2026-08-25 (v2) — Chris FALSIFIED exam v1 pre-run; redesigned as DIAGNOSIS exam
+- **Hypothesis (his, accepted):** all subjects ceiling a photo/render/missculpt provenance
+  sort — v1 measures nothing; fail-side library is thin (one failure family); binary
+  detection was never scarce (his glance is instant + free). Real question: **how good is
+  each model at naming WHAT is bad** — and his standing hypothesis is WEIGHTS, possibly
+  "wait for technology".
+- **Change:** DESIGN.md pre-test rewritten to v2: key = Chris's fault lists (he is KEY
+  AUTHOR, not graded) + synthetic fault injection (keyed by construction); two tiers
+  (free-list / multiple-choice) whose split separates weights-vs-protocol cleanly; if
+  weights → exam parks as a STANDING TRIPWIRE re-sat per model generation; fault lexicon
+  is salvage either way. Claude's predictions pre-registered in the doc.
+- **Measurement:** none yet — design only.
+- **Verdict:** PENDING — Chris sign-off on v2.
