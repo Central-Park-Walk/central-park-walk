@@ -967,3 +967,11 @@
   Fable 5 AND Opus 5 as separate blind subjects; a confirmed Fable diagnosis advantage
   re-opens model routing for judging work (his rule, `user_model_preference`).
 - **Verdict:** roster amendment recorded; adjudication belongs to the blind exam.
+
+## 2026-08-25 — KB-0 SIGNED OFF ("they're good")
+- Chris signed off DESIGN.md v2 + EXAM_SAMPLE.md + FAULT_LEXICON.md → the sculpt_kb design
+  is CANONICAL. Queue set: (1) TS-1 overlay registration fix — small, mechanical, repairs
+  the instrument the habit loop depends on; (2) KB-1 exam assembly (exemplar meshes +
+  fault-injection rig + Chris fault lists on real renders + Qwen-VL pull; roster Fable 5 ·
+  Opus 5 · Qwen-VL).
+- **Verdict:** SIGNED OFF. Design phase closed; next session is build work.
