@@ -55,6 +55,12 @@ may clear it.
 - LEDGER staging is EMPTY; Tier-0 24,065 B. **Do not run `/distill`.** The 147 KB LEDGER is raw history.
 - ALPHA=1.026e-5 PROVISIONAL (DBH@m only). Agent branches ginkgo/magnolia unmerged.
 - Artifacts: `tmp/plane_m_skel.npz`, `tmp/skinned_plane_m.png`.
+- **NEW 2026-08-25: Qwen comprehension map of the whole codebase** — `tmp/qwen_analysis/`
+  (`REPORT.md` = supervisor triage, `ARCHITECTURE.md` = map, 56 per-chunk reports). $0, local.
+  Zero confirmed bugs in the tree thread (3 claims checked, dismissed — the failure is the
+  MODEL, not the code, as iter-44 said). Its grower Questions (dead iter-15 `S_IN_LIGHT`
+  wiring? `structural_radius` loop gain?) are queued INPUT for the lineage re-derivation.
+  The re-derivation itself and the render-first look at a foliated tree remain NOT STARTED.
 - Still deferred behind the tree, and NOT to be picked up as "safe" side work now that the project is
   active: the treeless-Ramble symptom, the perf investigation, the release pipeline, the README pass,
   maple + sweetgum leaves. The un-suspension opens the trees, not the backlog.
