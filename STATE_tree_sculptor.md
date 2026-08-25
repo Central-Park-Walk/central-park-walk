@@ -10,15 +10,17 @@ Scaffold still W-39 geometry — overlays show cyan vs *new* plates; retarget
 only after Chris accepts the locks.
 
 ## What just changed (2026-08-25, design turn — no sculpt work)
-`docs/sculpt_kb/DESIGN.md` drafted + committed (`f234e5c`): botany sculpting
-knowledge base. Stances: treeness is CATEGORICAL (binary verdict + named
-giveaway, never a score); envelope DERIVED from exemplar meshes (free
-human-sculpted deciduous trees that pass Chris's instant look), never dialed;
-two gates — treeness, then plane-ness; features may FAIL, only a glance may
-PASS. Unit = specimen card (photos · mesh+skeleton · stats.json · turntable ·
-in-game captures · part↔part correspondence sheets). **Awaiting Chris
-sign-off** (canonical: new KB umbrella). First KB unit once blessed: ONE
-specimen end-to-end, Chris verdicts the card FORMAT.
+`docs/sculpt_kb/DESIGN.md` drafted, then amended same day: botany sculpting
+KB. Stances: treeness is CATEGORICAL (binary + named giveaway, never a
+score); envelope DERIVED from exemplar meshes, never dialed; two gates —
+treeness then plane-ness; features may FAIL, only a glance may PASS.
+**Specimen-card build is GATED behind a three-subject blind pre-test**
+(Chris's call): provenance-keyed treeness exam, identical items, graded for
+**local Qwen-VL vs frontier Claude vs Chris** — Chris = ceiling + validity
+check + exemplar curation. Null pairs catch invented differences; prose
+deleted before scoring. Step zero: pull a Qwen-VL for 8 GB (grind lane's
+Qwen3-Coder has no vision). **Awaiting Chris sign-off on amended DESIGN.**
+First KB unit once blessed: assemble the exam + VL model, NOT cards.
 
 ## Budget (post W-39 bare / cards / tip_hosts)
 young **62388** / **3720** / 155 · mature **126108** / **15864** / 661 ·
@@ -27,7 +29,8 @@ veteran **141768** / **17040** / 710.
 ## Open work
 - `TS-1` habit · **awaiting_user_verdict** — judge W-40 locked plates first
   (isolation bar); then whether cyan needs a shape_fit retarget on those plates
-- `KB-0` sculpt_kb DESIGN · **awaiting_user_signoff** — then one specimen card
+- `KB-0` sculpt_kb DESIGN (amended: pre-test gate) · **awaiting_user_signoff**
+  — then exam assembly + Qwen-VL pull; specimen cards only if pre-test passes
 - `TS-7` crotches · **PASS** · `TS-6` garden layout · isosceles shipped (W-30)
 - `TS-9` elbows · deferred · `TS-5` bark dial · `TS-3` impostors · `TS-4` species
 

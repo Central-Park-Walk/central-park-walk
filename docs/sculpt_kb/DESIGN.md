@@ -81,11 +81,46 @@ turntable + order-colored renders. Then the CPW capture protocol for in-game sho
 procedure is a **skill, not a memory**, per the routing table — after the format survives
 one real specimen.
 
+## Pre-test — GATES the specimen-card build (added 2026-08-25)
+
+The KB's perceptual half assumes reference material improves a judge. Test that premise
+before building (blind-the-premise): a **blind, answer-keyed treeness exam, three subjects
+on identical items** — local Qwen-VL · frontier Claude · **Chris**.
+
+- **Key = provenance, not opinion:** we objectively know which images are real photos,
+  human-sculpted exemplar renders, or our iterations. All three subjects are gradeable
+  against it — including Chris.
+- **Chris is subject AND ceiling.** Items he fails blind are invalid items or imperceptible
+  conditions → excluded from model scoring. His blind pass doubles as exemplar curation:
+  a "known-good" sculpt he flags not-tree is ejected from the pass side.
+- **Items:** shuffled, unlabeled, per viewing condition (20 m / 40 m / impostor), few at a
+  time; ringers (real photos) + **null pairs** (same render twice — finding differences in
+  the null = instrument fault, any subject).
+- **Response format, all subjects:** instant binary tree/not-tree + ONE named giveaway.
+  No descriptions; prose is deleted before scoring. It is a treeness exam (Gate 1), not a
+  London-plane exam.
+- **Blinding:** the session that assembles the exam never takes it; the key lives in a file
+  the judge session must not read. Chris gets held-back angles/seeds; items he would
+  recognize are flagged contaminated, not pretended blind.
+- **Scoring:** accuracy per condition with binomial noise bounds — cell sizes chosen so the
+  differences we care about exceed ~2·SEM (instrument-resolution rule).
+- **Outcomes → decisions:** local ≈ ceiling → free local judge, KB unnecessary for judging.
+  Frontier ≫ local → judge stays frontier; re-run frontier WITH exemplar context to test
+  the KB thesis directly. Everyone ≪ Chris → perceptual half of the KB is dead; only the
+  mechanical half (envelope, per-defect detectors, shape_fit targets) proceeds.
+- **Step zero:** the grind lane's Qwen3-Coder has no vision — pull a Qwen-VL variant
+  quantized for 8 GB under llama.cpp multimodal, smoke-test it, before exam day.
+- **Ripening path:** captured verdicts (image + binary + giveaway, per condition) are
+  stored in trainable form — the KB accumulates the dataset a future local LoRA would
+  need, as a side effect of normal work.
+
 ## First unit of work (one session)
 
-ONE specimen, end-to-end: pick one free human-sculpted deciduous tree that passes Chris's
-instant look → run the full card pipeline → Chris verdicts the CARD FORMAT (not just the
-tree). Prove the format before scaling. Cost announce: Blender headless + Godot captures.
+Assemble the answer-keyed exam + pull the VL model (step zero). The specimen-card
+pipeline (below) runs only after the pre-test says the perceptual half is alive.
+THEN: ONE specimen, end-to-end: pick one free human-sculpted deciduous tree that passes
+Chris's instant look → run the full card pipeline → Chris verdicts the CARD FORMAT (not
+just the tree). Prove the format before scaling. Cost announce: Blender + Godot captures.
 
 ## Non-goals
 

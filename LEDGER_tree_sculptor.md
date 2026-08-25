@@ -897,3 +897,14 @@
   end-to-end with Chris verdicting the card FORMAT.
 - **Measurement:** none — design only, no render, no bar touched.
 - **Verdict:** PENDING — Chris sign-off on DESIGN.md (canonical change: new KB umbrella).
+
+## 2026-08-25 (later) — DESIGN amendment: three-subject blind pre-test gates the KB
+- **Hypothesis:** the KB's perceptual half ("reference improves a judge") is unproven; a
+  provenance-keyed blind treeness exam answers it without building. Chris's addition:
+  grade **Qwen-VL vs frontier Claude vs Chris himself** on identical items — his score is
+  the human ceiling + exam validity check + exemplar curation in one pass.
+- **Change:** `docs/sculpt_kb/DESIGN.md` § "Pre-test" added; specimen-card build now
+  explicitly gated behind it. First unit of work redefined = assemble answer-keyed exam +
+  pull a Qwen-VL (8 GB, llama.cpp mtmd) — grind lane's Qwen3-Coder has no vision.
+- **Measurement:** none — design only.
+- **Verdict:** PENDING — Chris sign-off on amended DESIGN.md.
