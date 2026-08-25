@@ -2016,3 +2016,31 @@ ships**, and LOOK at it, before any scalar is measured. Entry 45's own diagnosis
 once happened across 44 iterations. A metric may FAIL that render; no metric may CLEAR it.
 
 verdict: N/A — project ACTIVE. Next iteration is the deliverable-first render, not a tuning pass.
+
+## 47 — THE DELIVERABLE-FIRST LOOK. First foliated LP rendered as it ships, and looked at.
+
+**The ## 46 entry condition, executed.** No scalar measured, no parameter touched. Rendered the
+tree-sculptor stages (`--eval-plot=london_plane_sculpt`, the shipping review rig; sculpt GLBs are
+what `tree_builder.gd` now loads for these keys) headless at noon, `--cloud-seed=7`, 6 framed
+shots + contact sheet + zoom crops: `tmp/iter45_contact.png`, `tmp/iter45_zoom.png`,
+`tmp/iter45_shots/`.
+
+**What the look found — a metric may not clear any of this:**
+- **Mid-range (20–40 m), mature stage: the closest thing to a credible London plane in 47 entries.**
+  Mottled exfoliating bark, muscular spreading scaffold, foliated crown. Reads as a plane at a glance.
+- **Distance (≥60 m): FAILS.** The veteran dissolves into pale, see-through leaf-card confetti —
+  whitish, desaturated, sky through the whole crown. Consistent across 4 shots. Sculpt stages have
+  NO impostors (TS-3 deferred), so this is the shipped far view today.
+- **Close-up: leaf shell hugs the wood.** Leaves plaster along limb surfaces (moss-like); crown
+  interior hollow and dark — a skin over naked bones. Veteran also carries blunt amputated-looking
+  limb stubs hanging below the canopy.
+- **Young: passable sapling; sparse/droopy backlit.**
+
+⚠ Headless capture — the LOD confound rule applies; the distance wash-out needs Chris's interactive
+confirm before it is treated as fully diagnosed. It is consistent enough to record as the primary
+suspect for park-scale credibility.
+
+**Verdict: PARTIAL — the first real progress on the deliverable itself.** The sculptor line (Chris's
+authored trees, not the grower) clears the mid-range bar for the mature stage; distance rendering and
+crown-interior distribution are the two defects standing between this and "credible by the thousands."
+Chris's TS-1 verdict on the W-40 plates remains his and is untouched by this entry.
