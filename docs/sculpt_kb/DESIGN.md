@@ -109,6 +109,12 @@ invented differences). The measured question is now his:
   fails T1 / passes T2 → perception present, vocabulary+attention missing → scaffolding
   (the KB fault lexicon) can rescue; the KB's perceptual half lives.
   Fails T2 on faults obvious to Chris → **WEIGHTS.** No protocol fixes it.
+- **Subject roster (2026-08-25):** sit **Fable 5 AND Opus 5 as separate subjects**
+  alongside local Qwen-VL. Live hunch to adjudicate (Chris): the Fable session caught
+  instrument + habit faults an Opus session shipped — but one sighted, contaminated item
+  is not a model difference; attention/protocol explains it equally well. The blind exam
+  separates acuity from attention. A confirmed Fable advantage on diagnosis re-opens the
+  model-routing rule for JUDGING work — Chris's rule to amend, not ours.
 - **If weights: the exam becomes a STANDING TRIPWIRE** — re-sat by each new model
   generation (frontier + local VL) at near-zero cost. "Technology caught up" becomes a
   score crossing Chris's ceiling, not a vibe. Why weights is plausible (honest basis):

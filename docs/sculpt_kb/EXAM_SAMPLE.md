@@ -30,6 +30,9 @@ K2 sometimes unintelligible ·
 K3 fill in blanks (cover where the photo has nothing) ·
 K4 leave areas uncovered (miss actual crown) ·
 K5 (summary) not made with regard to the photo.
+**Key extended by author confirmation (Chris, 2026-08-25 — "r4 and r5 are on-point"):**
+K6 naked central mast to apex; real mature plane forks into ascending leaders ~¼ height ·
+K7 near-horizontal "menorah" limbs + drooping streamer tips vs stiff ascending branching.
 
 **Sample T1 response (frontier Claude — SIGHTED, demo only):**
 R1 cyan silhouette spills beyond the photo strip on both sides, onto letterbox (scale/
@@ -41,9 +44,10 @@ the photo's stiff ascending fine branching.
 
 **Demo grading:** recall — R1→K1, R2→K3+K4, R3→K2: 4/4 named-fault families recovered
 (K5 is a summary). Rank agreement: R1 first matches Chris's lead complaint. Precision —
-R4, R5 are NOT in the key: scored as errors *unless the key author confirms them* (Chris
-to rule; if confirmed they enter the lexicon as habit-family faults). This asymmetric
-default is deliberate: a judge must earn credit only against ground truth.
+R4, R5 were NOT in the key; **the key author confirmed both (2026-08-25) → key extended
+as K6, K7 and entered into `FAULT_LEXICON.md`** — the lexicon-growth mechanic's first
+real exercise. Had he denied them, they would stand as precision errors: a judge earns
+credit only against ground truth, and ground truth grows only by his ruling.
 
 **T2 (demo) — which of these apply? (his faults + distractors):**
 A silhouette extends past the photo frame **[TRUE — K1]** ·

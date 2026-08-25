@@ -950,3 +950,20 @@
 - **Also:** `docs/sculpt_kb/EXAM_SAMPLE.md` written — worked exam item #0 built from this
   very overlay; Chris's findings = first fault-lexicon key. Demo only, contaminated.
 - **Verdict:** FAIL (W-40 plates). Next hypothesis → registration check, mechanical, FIRST.
+
+## 2026-08-25 — Key-author confirmation: R4/R5 CONFIRMED ("on-point")
+- Chris confirmed Claude's two out-of-key faults on item #0 → key extended (K6 naked
+  central mast · K7 menorah limbs + streamer tips); first exercise of the lexicon-growth
+  mechanic. `docs/sculpt_kb/FAULT_LEXICON.md` founded: 7 entries (3 instrument, 2 habit,
+  2 foliage from LEDGER 47). Note: R4/R5 were read from the DIRECT bare-sculpt panel, not
+  through the broken overlay → they stand regardless of the registration bug and are
+  TS-1's habit fix targets after the instrument is repaired.
+- **Verdict:** confirmed key extension; no sculpt work done.
+
+## 2026-08-25 — Roster addendum: "we might be seeing a difference between opus and fable"
+- Chris's live hunch: this (Fable 5) session caught what a prior (Opus) session shipped.
+  Confound named honestly: attention vs acuity — sighted, contaminated, coarse item; the
+  W-40 session may simply never have compared line to photo. DESIGN.md roster now sits
+  Fable 5 AND Opus 5 as separate blind subjects; a confirmed Fable diagnosis advantage
+  re-opens model routing for judging work (his rule, `user_model_preference`).
+- **Verdict:** roster amendment recorded; adjudication belongs to the blind exam.
