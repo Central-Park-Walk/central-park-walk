@@ -60,7 +60,14 @@ may clear it.
   Zero confirmed bugs in the tree thread (3 claims checked, dismissed — the failure is the
   MODEL, not the code, as iter-44 said). Its grower Questions (dead iter-15 `S_IN_LIGHT`
   wiring? `structural_radius` loop gain?) are queued INPUT for the lineage re-derivation.
-  The re-derivation itself and the render-first look at a foliated tree remain NOT STARTED.
+  The re-derivation itself remains NOT STARTED.
+- **✅ 2026-08-25: THE DELIVERABLE-FIRST LOOK IS DONE — `LEDGER.md ## 47`.** First foliated LP
+  rendered as it ships (sculpt stages, eval garden) and looked at. **PARTIAL:** mature stage is
+  credible at 20–40 m — the first real progress on the deliverable itself. Two defects stand:
+  (1) ≥60 m the crown dissolves into pale see-through leaf-card confetti (no sculpt impostors,
+  TS-3); (2) leaves hug the limb surfaces, crown interior hollow; veteran has amputated-looking
+  hanging stubs. Artifacts: `tmp/iter45_contact.png`, `tmp/iter45_zoom.png`. ⚠ Distance defect
+  needs Chris's interactive confirm (headless LOD confound rule).
 - Still deferred behind the tree, and NOT to be picked up as "safe" side work now that the project is
   active: the treeless-Ramble symptom, the perf investigation, the release pipeline, the README pass,
   maple + sweetgum leaves. The un-suspension opens the trees, not the backlog.
