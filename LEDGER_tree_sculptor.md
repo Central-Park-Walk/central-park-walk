@@ -1016,3 +1016,21 @@
 - A registration tripwire may guard only the invariants the transform pins (height, bole);
   gating the free dimension (width) turns the instrument's own measurement into a false
   failure — first draft did exactly that.
+
+## 2026-08-25 (advisory) — FROM-SCRATCH PRINCIPLE canonized; tooling + splat assessment · W-42
+- **Hypothesis (advisory, no build):** the next-year representation question (Blender mesh
+  vs Gaussian splats) and the "what tools should we get" question have stable answers.
+- **Change:** no code. Canon recorded — Chris: the mtree/SpeedTree ⛔ = a general principle,
+  **never buy someone else's solution to a creative problem; build from scratch; showing off
+  is the entire point.** Written into `CLAUDE.md` §Taste + banner (`01a6fec`), reconciled
+  with the old "prefer established tools" bullet. Also per Chris: **grass and sky are NOT
+  done** — index_cpw.md corrected (was "SHIPPED"/"APPROVED").
+- **Assessment delivered:** stay with mesh models ≥1 yr (splats capture, they don't author;
+  no dynamic relight under TOD/SDFGI; no species wind; no instancing for ~6.8k trees on
+  8 GB). Watch item: splat-baked mid-range LOD from our own hero mesh vs the card-confetti
+  defect, revisit ~6 mo (GDGS raster/relight maturing). Grove withdrawn (banned by
+  principle). Endorsed lane: open TLS scan of a real London plane + a from-scratch QSM
+  skeleton-fitter as sculpting armature — data in, bought answers out.
+- **Measurement:** none (advisory).
+- **Git:** `01a6fec` (CLAUDE.md), plus this record.
+- **verdict: PENDING** — Chris to confirm the principle wording + the TLS/QSM lane.
