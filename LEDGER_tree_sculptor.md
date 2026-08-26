@@ -1034,3 +1034,17 @@
 - **Measurement:** none (advisory).
 - **Git:** `01a6fec` (CLAUDE.md), plus this record.
 - **verdict: PENDING** — Chris to confirm the principle wording + the TLS/QSM lane.
+
+## 2026-08-25 — TS-1 VERDICT on the W-41 repaired overlay (Chris) + REDIRECT to TLS/QSM
+- **Chris, verbatim gist:** the overlay confuses him — "since the photo and the mesh have
+  nothing to do with each other, the cyan lines are just drawings of the model over the
+  photo." As a trace of the mesh: "could be better, but it's roughly ok." Felt this was
+  not something we needed to return to now. "i liked your idea about tls + qsm route."
+- **Reading:** instrument-as-trace = weak PASS; but the *comparison* is uninformative at
+  current divergence — an overlay difference-instrument needs the two things to be within
+  shouting distance, and sculpt vs photo are not. The instrument survives; its moment
+  doesn't. Habit work re-routes through TS-10 (real TLS scan → from-scratch QSM fitter →
+  sculpt armature), which fixes habit **by construction** instead of measuring its absence.
+  Fork-topology hypothesis (W-41) is subsumed, not refuted: the scan's skeleton IS the
+  fork topology, measured.
+- **verdict: TS-1 overlay lane PARKED (instrument kept) · TS-10 promoted to NEXT by Chris.**
