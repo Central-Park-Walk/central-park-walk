@@ -6,6 +6,8 @@
 > London plane by any method, and that has not changed — trees ARE the project, so nothing downstream is
 > worth doing first. The backlog (Ramble, perf, release, README, maple + sweetgum) stays deferred.
 > ⛔ no mtree · ⛔ no SpeedTree · ⛔ no fine-twig geometry — binding, not re-opened by the resume.
+> The first two are instances of the **from-scratch principle** (see Taste) — never buy or adopt
+> someone else's solution to a creative problem; study it, then build our own.
 > **Start from the deliverable: render a finished, foliated tree AS IT SHIPS and look at it, first.**
 > Read `STATE.md` and `LEDGER.md ## 45` before the first unit of work.
 
@@ -55,6 +57,12 @@ or the doc updates in the same commit):
   without a reference comparison is not done.
 
 ## Taste and sources (this project's, not global)
+- **★ FROM SCRATCH IS THE POINT (Chris, 2026-08-25).** Never buy someone else's solution to one
+  of this project's creative problems — no Grove, no SpeedTree, no asset packs; that is the real
+  reason behind the mtree/SpeedTree ⛔. Finding prior art and building our own equivalent is
+  encouraged; purchasing the finished answer is not. Godot itself is tolerated infrastructure,
+  not an exception — Chris would replace it too once that's cheap enough. **Showing off what was
+  made from scratch is the entire point of a game like this.**
 - **Post-processing look:** soft contrast, naturalistic saturation, haze for depth. Keep tone
   mapping **data-driven** rather than stylized by feel.
 - **Verify botany against PRIMARY sources** — FNA, USDA, FEIS, `reference_photos/`. Never against
@@ -76,8 +84,9 @@ or the doc updates in the same commit):
   Not `/tmp`, not scratchpad.
 - **Keep docs + memory clean** as part of every task: trim the index, archive long logs,
   fix broken links, de-stale on sight, no duplicates.
-- **Only distributable assets** ship; never require manual third-party downloads. Prefer
-  established tools + native engine features over reimplementations.
+- **Only distributable assets** ship; never require manual third-party downloads. Established
+  free tooling is fine as *infrastructure*; **creative solutions are built from scratch** (see
+  Taste) — the global "prefer established tools" rule yields to that principle here.
 
 ## Run it
 ```bash
