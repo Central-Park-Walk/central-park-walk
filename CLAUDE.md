@@ -92,9 +92,9 @@ or the doc updates in the same commit):
 ```bash
 GODOT="/home/chris/godot 4/Godot_v4.6.1-stable_linux.x86_64"   # note the space in the dir name; no godot4 symlink exists
 
-$GODOT --path . -- --park          # walk the park
-$GODOT --path .                    # NO flag → the model-evaluation garden (Great Lawn), not the park
-$GODOT --path . -- --eval-plot=spicebush   # one species: size-graded row + natural stand
+"$GODOT" --path . -- --park          # walk the park
+"$GODOT" --path .                    # NO flag → the model-evaluation garden (Great Lawn), not the park
+"$GODOT" --path . -- --eval-plot=spicebush   # one species: size-graded row + natural stand
 ```
 Headless captures run under `xvfb-run -a -s "-screen 0 1920x1080x24"`. After editing a
 `.glsl`/shader-include or regenerating geometry, run Godot with `--import` before capturing.
