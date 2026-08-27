@@ -90,7 +90,7 @@ or the doc updates in the same commit):
 
 ## Run it
 ```bash
-GODOT=/path/to/Godot_v4.6.1-stable_linux.x86_64   # (or the `godot4` symlink)
+GODOT="/home/chris/godot 4/Godot_v4.6.1-stable_linux.x86_64"   # note the space in the dir name; no godot4 symlink exists
 
 $GODOT --path . -- --park          # walk the park
 $GODOT --path .                    # NO flag → the model-evaluation garden (Great Lawn), not the park
