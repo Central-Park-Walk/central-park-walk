@@ -23,11 +23,8 @@
 - **status:** awaiting_user_verdict
 
 ## Staged lessons
-- Appearance gate first: sparse-card black starbursts were caught only by looking at the shipped foliated render.
-- Card overdraw, not only triangle count, bounds woodland FPS; densify by secondaries, not spray multiplication.
-- Blender undo rewrites scene custom props — keep revision counters outside the .blend undo stack.
-- Chris's GIMP sprig already IS the foliage unit — `cards_per_cluster>1` rebuilds a green ball that reads as sculpted-in foliage.
-- Junction weld must be stem_id-aware (cross-strand only). Blind `remove_doubles` at a distance ≥ tip diameter collapses tube rings into ribbons and invents a fake low tri-count.
+
+*(distilled 2026-08-27 → `ledger_archive/2026-08.md`; standing canon → `docs/trees.md` §10 + `lessons_technical.md`)*
 
 ## VERDICT on ts-2026-07-17-sculptor-v1
 - **from:** Chris
@@ -315,7 +312,8 @@
 - **Status:** `awaiting_user_verdict`
 
 ## Staged lessons
-- Absolute weld distance on thin forks pinches collars into points even when stem_id-aware; limit by local radius. Child base radius must inherit parent radius at attach — fixed tip-thin bases read as cones meeting tip-to-tip.
+
+*(distilled 2026-08-27 → `ledger_archive/2026-08.md`; standing canon → `docs/trees.md` §10 + `lessons_technical.md`)*
 
 ## VERDICT on `tree-sculptor-W-20260717-14`
 - **from:** Chris
@@ -392,10 +390,8 @@
 - **Status:** `awaiting_user_verdict`
 
 ## Staged lessons
-- Inkscape/potrace is a 2D crotch-continuity + proportion guide; it is not a 3D strand extractor.
-- Ref primary count matching sculpt means sparse ≠ missing order-1; spend on tip web.
-- W-14 radius inherit can still leave hourglass joints — crotch must stay a filled shoulder volume through the join.
 
+*(distilled 2026-08-27 → `ledger_archive/2026-08.md`; standing canon → `docs/trees.md` §10 + `lessons_technical.md`)*
 
 ## WORK_PACKAGE `tree-sculptor-W-20260718-18` · 2026-07-18
 
@@ -490,7 +486,8 @@
 - **Status:** `awaiting_user_verdict`
 
 ## Staged lessons
-- Two radius/weld/shoulder passes (W-14, W-20) failed collars while c/p already = 1.0 — crotch fill is a meshing topology problem (AC-15), not a radius parameter.
+
+*(distilled 2026-08-27 → `ledger_archive/2026-08.md`; standing canon → `docs/trees.md` §10 + `lessons_technical.md`)*
 
 ## WORK_PACKAGE `tree-sculptor-W-20260718-22` · 2026-07-18
 
@@ -530,8 +527,8 @@
 - **Status:** `awaiting_user_verdict`
 
 ## Staged lessons
-- Skin Modifier on a dense sampled graph sausage-waists every joint — not a drop-in for authored tree forks.
-- The viewport beveled Bézier *is* the bifurcating tube; re-skinning through leafback/Skin was the overcomplication.
+
+*(distilled 2026-08-27 → `ledger_archive/2026-08.md`; standing canon → `docs/trees.md` §10 + `lessons_technical.md`)*
 
 ## WORK_PACKAGE `tree-sculptor-W-20260718-24` · 2026-07-18
 
@@ -568,9 +565,8 @@
 - **Status:** `awaiting_user_verdict`
 
 ## Staged lessons
-- Curve-bevel join (overlapping viewport tubes) cleared crotches where radius/weld/shoulder could not — keep that bark path for structural wood.
-- "Leaf-back from here" means envelope-guided tip hosts on a frozen scaffold, not resurrecting the deprecated leaf-attractor generator.
 
+*(distilled 2026-08-27 → `ledger_archive/2026-08.md`; standing canon → `docs/trees.md` §10 + `lessons_technical.md`)*
 
 ## WORK_PACKAGE `tree-sculptor-W-20260718-26` · 2026-07-18
 
@@ -691,7 +687,8 @@
 - **Status:** `awaiting_user_verdict`
 
 ## Staged lessons
-- After tip-host densify is two-struck, canopy fill is card *coverage along hosts*, not more hosts.
+
+*(distilled 2026-08-27 → `ledger_archive/2026-08.md`; standing canon → `docs/trees.md` §10 + `lessons_technical.md`)*
 
 ## VERDICT on `tree-sculptor-W-20260718-31`
 - **from:** Chris
@@ -713,7 +710,8 @@
 - **Status:** `awaiting_user_verdict`
 
 ## Staged lessons
-- Good-looking foliage can still fail habit; shape PASS is photo+growth form, not card density.
+
+*(distilled 2026-08-27 → `ledger_archive/2026-08.md`; standing canon → `docs/trees.md` §10 + `lessons_technical.md`)*
 
 ## WORK_PACKAGE `tree-sculptor-W-20260718-33` · 2026-07-18
 
@@ -750,8 +748,8 @@
 - **Status:** `awaiting_user_verdict`
 
 ## Staged lessons
-- Habit PASS is photo+§10 form; card density can look good while shape still fails (W-31→W-33).
 
+*(distilled 2026-08-27 → `ledger_archive/2026-08.md`; standing canon → `docs/trees.md` §10 + `lessons_technical.md`)*
 
 ## VERDICT on `tree-sculptor-W-20260718-34`
 - **from:** Chris
@@ -773,7 +771,8 @@
 - **Status:** `awaiting_user_verdict`
 
 ## Staged lessons
-- Habit photo-match needs primary-fork identity on the overlay; tip-shell fill can look "close" in silhouette while the apparent skeleton is still wrong.
+
+*(distilled 2026-08-27 → `ledger_archive/2026-08.md`; standing canon → `docs/trees.md` §10 + `lessons_technical.md`)*
 
 ## VERDICT on `tree-sculptor-W-20260718-35`
 - **from:** Chris
@@ -795,7 +794,8 @@
 - **Status:** `awaiting_user_verdict`
 
 ## Staged lessons
-- A trunk close-up cannot be a habit lock — whole-tree shape must be visible in the plate.
+
+*(distilled 2026-08-27 → `ledger_archive/2026-08.md`; standing canon → `docs/trees.md` §10 + `lessons_technical.md`)*
 
 ## VERDICT on `tree-sculptor-W-20260718-36`
 - **from:** Chris
@@ -817,7 +817,8 @@
 - **Status:** `awaiting_user_verdict`
 
 ## Staged lessons
-- Incomplete canopy in a locked plate can still be habit authority if whole-tree shape and primary forks are readable (Chris W-36).
+
+*(distilled 2026-08-27 → `ledger_archive/2026-08.md`; standing canon → `docs/trees.md` §10 + `lessons_technical.md`)*
 
 ## VERDICT on `tree-sculptor-W-20260718-37`
 - **from:** Chris
@@ -839,7 +840,8 @@
 - **Status:** `awaiting_user_verdict`
 
 ## Staged lessons
-- After two procedural photo-match fails, primary-fork authority is Inkscape path traces on the locked plate — not another create_london_plane fan tweak.
+
+*(distilled 2026-08-27 → `ledger_archive/2026-08.md`; standing canon → `docs/trees.md` §10 + `lessons_technical.md`)*
 
 ## VERDICT on `tree-sculptor-W-20260718-38`
 - **from:** Chris
@@ -861,8 +863,8 @@
 - **Status:** `awaiting_user_verdict`
 
 ## Staged lessons
-- Automated species pipeline forbids hand-authored skeleton authority (Inkscape paths, manual Bézier edits); tip length must be an OUTPUT of a measured photo silhouette, or you are back in the Mtree parameter-grind.
 
+*(distilled 2026-08-27 → `ledger_archive/2026-08.md`; standing canon → `docs/trees.md` §10 + `lessons_technical.md`)*
 
 ## VERDICT on `tree-sculptor-W-20260718-39`
 - **from:** Chris
@@ -884,7 +886,8 @@
 - **Status:** `awaiting_user_verdict`
 
 ## Staged lessons
-- Habit lock bar: entire tree, alone or easy to separate from its environment — person/nursery clutter, incomplete shells, and crowns that merge into background woodland fail before any scaffold fit is judged.
+
+*(distilled 2026-08-27 → `ledger_archive/2026-08.md`; standing canon → `docs/trees.md` §10 + `lessons_technical.md`)*
 
 ## 2026-08-25 — DESIGN turn: sculpt_kb / botany knowledge base (no sculpt work)
 - **Hypothesis:** Claude's tree-judging failure is protocol, not perception — fixable at our
@@ -1013,9 +1016,8 @@
 - **Status:** `awaiting_user_verdict`
 
 ## Staged lessons
-- A registration tripwire may guard only the invariants the transform pins (height, bole);
-  gating the free dimension (width) turns the instrument's own measurement into a false
-  failure — first draft did exactly that.
+
+*(distilled 2026-08-27 → `ledger_archive/2026-08.md`; standing canon → `docs/trees.md` §10 + `lessons_technical.md`)*
 
 ## 2026-08-25 (advisory) — FROM-SCRATCH PRINCIPLE canonized; tooling + splat assessment · W-42
 - **Hypothesis (advisory, no build):** the next-year representation question (Blender mesh
@@ -1048,3 +1050,17 @@
   Fork-topology hypothesis (W-41) is subsumed, not refuted: the scan's skeleton IS the
   fork topology, measured.
 - **verdict: TS-1 overlay lane PARKED (instrument kept) · TS-10 promoted to NEXT by Chris.**
+
+## DISTILL 2026-08-27 — first distill of this ledger (16 staged sections, W-1…W-42)
+
+All `## Staged lessons` content promoted, merged, or archived; sections emptied in place.
+- **Promoted:** sculptor canon → `docs/trees.md` §10 — joins are topology (curve-bevel, never
+  weld/radius params) · sprig is the unit, fill is coverage-along-hosts, overdraw bounds FPS ·
+  habit gate (photo + growth-arch §10) + the plate bar · skeleton authority is measured, never
+  hand-authored · tripwire gates only pinned invariants. Two Blender traps (undo rewrites scene
+  custom props; blind `remove_doubles` fakes a low tri count) → memory `lessons_technical.md`.
+- **Deleted as wrong:** W-34's "Inkscape trace authority" — superseded by W-35's hand-authoring ban.
+- **Merged:** W-31/W-33 habit-vs-density duplicates → one line; W-35/W-36/W-37 plate-bar trio → one bar.
+- **Tier 0:** unchanged, 0 bytes — the two Tier-0-adjacent lessons were already canon
+  (`lessons_validate_on_the_deliverable.md`; CLAUDE.md §1 outputs-not-parameters).
+- **Raw + full disposition table:** `ledger_archive/2026-08.md`.

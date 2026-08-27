@@ -1050,3 +1050,35 @@ flip per-tree to pale sparse mesh trees crossing the 380-400 m band
   at 340 m+; with correct mips this now matches the LOD0 solid-crown
   read, but re-check if alpha_clamp (0.05) or the boost curve is ever
   retuned.
+
+## 10. Tree-sculptor canon (distilled 2026-08-27 from `LEDGER_tree_sculptor.md` W-1…W-42)
+
+The rules that survived the sculptor thread's first 42 work packages. Each was paid for at
+least once; several twice. Raw history: `ledger_archive/2026-08.md`.
+
+- **Wood joins are a topology problem, not a parameter.** The bark path for structural wood is
+  the curve-bevel join — overlapping beveled Béziers; the viewport tube IS the bifurcating tube.
+  Two full radius/weld/shoulder passes (W-14, W-20) failed collars while c/p was already 1.0;
+  Skin-modifier re-skinning sausage-waists every joint. A crotch must stay a filled shoulder
+  volume through the join. Do not re-open parameter fixes for crotch defects.
+- **The foliage unit is Chris's GIMP sprig — one card per cluster.** `cards_per_cluster > 1`
+  rebuilds the green-ball look the sprig exists to kill. Once tip-host densify is two-struck,
+  canopy fill means card *coverage along existing hosts*, never more hosts. "Leaf-back from
+  here" means envelope-guided tip hosts on a frozen scaffold, not the deprecated leaf-attractor
+  generator. Woodland FPS is bounded by card **overdraw**, not triangle count — densify by
+  secondaries, not spray multiplication.
+- **The habit gate is photo + growth form** (`docs/london_plane_growth_architecture.md` §10).
+  Card density and foliage look can never clear it — W-31→W-33 looked good and still failed
+  shape. An overlay is informative only when primary-fork identity is readable (silhouette
+  closeness is not skeleton correctness), and not at large mesh/photo divergence (TS-1).
+  **Habit-lock plate bar:** the entire tree, alone or cleanly separable from its environment,
+  whole-tree shape and primary forks readable. Incomplete canopy can still qualify (Chris,
+  W-36); a trunk close-up never does.
+- **Skeleton authority is measured, never hand-authored.** The automated species pipeline
+  forbids hand-authored skeleton inputs — Inkscape paths, manual Bézier edits (W-34's
+  Inkscape-authority plan is dead; W-35 superseded it). Inkscape/potrace is a 2D analysis
+  instrument for crotch continuity and proportion, not a 3D strand extractor. Tip length and
+  its kin are OUTPUTS of a measured photo silhouette, or it's the Mtree parameter-grind again.
+- **A registration tripwire may gate only what the transform pins** (height, bole). Gating the
+  free dimension (width) turns the instrument's own measurement into a false failure — the
+  first draft did exactly that.
