@@ -68,6 +68,7 @@ may clear it.
   TS-3); (2) leaves hug the limb surfaces, crown interior hollow; veteran has amputated-looking
   hanging stubs. Artifacts: `tmp/iter45_contact.png`, `tmp/iter45_zoom.png`. ⚠ Distance defect
   needs Chris's interactive confirm (headless LOD confound rule).
+- **✅ 2026-08-27: TS-10 GATE 1 PASSED — real London-plane TLS data in hand** (St Pancras/UCL, CC-BY 4.0, T99 = 6.5 M-pt presumptive armature specimen; `tmp/tree_sculpt/tls_stpancras/`). Next = TS-10(b): papers, then the from-scratch QSM fitter. See `STATE_tree_sculptor.md` + `LEDGER_tree_sculptor.md` W-43.
 - Still deferred behind the tree, and NOT to be picked up as "safe" side work now that the project is
   active: the treeless-Ramble symptom, the perf investigation, the release pipeline, the README pass,
   maple + sweetgum leaves. The un-suspension opens the trees, not the backlog.

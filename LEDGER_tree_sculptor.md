@@ -1076,3 +1076,29 @@ All `## Staged lessons` content promoted, merged, or archived; sections emptied 
 - **Measurement:** 16/16 sections verified emptied; Tier-0 audit CLEAN (+0 bytes).
 - **Git:** `d9993d6` (this repo) + memory commit in `~/.claude`.
 - **verdict: PENDING** — Chris to spot-check `docs/trees.md` §10 reads as HIS canon.
+
+## W-43 · 2026-08-27 — TS-10(a): Gate 1 PASS — open TLS ground truth of real London planes, in hand
+- **Hypothesis:** an open, usable point cloud of a real *Platanus × acerifolia* exists
+  (TS-10 Gate 1 — falsify the premise before writing any fitter).
+- **Change:** no code, no mesh. Sonnet scout surveyed open datasets; winner verified
+  first-hand on the Zenodo record: **St Pancras Old Church TLS** (Wilkes, Disney,
+  Boni Vicari — UCL; Zenodo 10.5281/zenodo.5070536, **CC-BY 4.0**). 97 individually
+  segmented trees, "predominantly London Plane (*Platanus × hispanica*)" + one Hardy
+  ash; RIEGL VZ-400, 38 scans / 19 positions, leaf-on 2017-07-18, 0.04 m voxel, binary
+  PLY xyz. Downloaded 958 MB zip → `tmp/tree_sculpt/tls_stpancras/` (1.72 GB unpacked
+  total across 97 files; only T99/T27/T36 extracted). Viewer `preview_clouds.py`
+  (numpy+PIL log-density orthographic projections) → `gate1_contact.png`.
+- **Measurement — the look first, scalars second:** T99 **6,545,385 pts**, 37.6 m
+  spread × 28.9 m tall — open-grown mature plane, trunk + primary scaffold sharp,
+  pendulous lower-skirt habit; presumptive armature specimen. T36 4.8 M pts, upright
+  street form, clean tall bole. T27 5.1 M pts, squat spreader, but extent contaminated
+  (52.6 m "tall" = outlier residue) + vertical neighbor-cut seam — cleanup-only.
+  Counts are 48–65× the 100 k usability bar. Known limit: leaf-on occludes upper-crown
+  interior wood; primary forks (the K6/K7 territory) clearly recoverable, and measured
+  wood is only needed up to the card layer (⛔ fine-twig rail untouched).
+- **Runners-up (recorded so the search is never repeated):** TreeML-Data (Munich TLS,
+  species column unverified for *Platanus*) — the only fallback worth a look if
+  St Pancras sours; Weiser 2022 + BioDiv-3DTrees ruled out (forest species, no plane).
+- **verdict: PASS.** TS-10(b) next: read TreeQSM (Raumonen et al. 2013) + AdTree
+  (Du et al. 2019) — read, don't adopt — then design the from-scratch fitter. Open
+  checks for (b): confirm T99 is not the ash; outlier strip; wood/leaf separation call.
