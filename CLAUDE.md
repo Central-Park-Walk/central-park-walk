@@ -98,6 +98,8 @@ $GODOT --path . -- --eval-plot=spicebush   # one species: size-graded row + natu
 ```
 Headless captures run under `xvfb-run -a -s "-screen 0 1920x1080x24"`. After editing a
 `.glsl`/shader-include or regenerating geometry, run Godot with `--import` before capturing.
+In-game **F12** saves screenshots to `screenshots/cpw_NNN.png` (repo root; counter
+resets per run — sort by mtime, not name).
 Useful flags: `--pos "x,z,yaw"`, `--time noon`, `--weather rain`, `--season autumn`,
 `--walk`, `--no-blades` (perf-gate the near blade band), `--particle-grass` (legacy grass).
 

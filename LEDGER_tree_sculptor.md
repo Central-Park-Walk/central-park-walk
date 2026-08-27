@@ -1116,3 +1116,19 @@ All `## Staged lessons` content promoted, merged, or archived; sections emptied 
 - **verdict: PENDING** — Chris's interactive confetti confirm (the thing the command was for):
   crowns at 40/60/100 m solid vs pale see-through. Wash-out → TS-3 promoted; solid → headless
   rig flagged for distance judgments.
+
+## 2026-08-27 — CHRIS FIELD VERDICT on the sculpt garden (interactive, his screenshots)
+- **Chris, verbatim:** "i took a couple screenshots. those aren't in the shape of trees, much
+  less london planes." Evidence: `screenshots/cpw_000..003.png` (14:21, eval garden run).
+- **What the shots show:** veteran close-up = untapered balloon-sausage limbs, parallel
+  up-curled blunt stubs (K7 menorah, extreme), no subdivision into crown, no taper — the
+  `structural_radius` question made visible. Young = bare kinked pole (K6 naked mast) +
+  sparse noodle-tangle with no tropism coherence. Two of three stages fail at basic
+  silhouette level, near/mid range, interactive.
+- **What this falsifies:** W-47's "mature credible at 20–40 m, two defects" frame. The
+  headless contact sheet flattered the forms; field observation supersedes it. Confetti
+  question mooted while the near view fails.
+- **What it confirms:** the faults are invented topology + invented radii — precisely the
+  TS-10 target. QSM on T99 must deliver measured forks AND measured taper, or TS-10 failed.
+- **verdict: FAIL (Chris) — sculpt stages not tree-shaped. TS-10 is structural necessity,
+  not polish. No change to next step: papers, then the fitter.**
