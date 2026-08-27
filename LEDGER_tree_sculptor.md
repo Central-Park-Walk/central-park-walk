@@ -1102,3 +1102,17 @@ All `## Staged lessons` content promoted, merged, or archived; sections emptied 
 - **verdict: PASS.** TS-10(b) next: read TreeQSM (Raumonen et al. 2013) + AdTree
   (Du et al. 2019) — read, don't adopt — then design the from-scratch fitter. Open
   checks for (b): confirm T99 is not the ash; outlier strip; wood/leaf separation call.
+
+## W-43b · 2026-08-27 — runbook fix: the documented Godot command did not exist
+- **Hypothesis (none — field failure):** Chris ran the documented `godot4` shorthand for the
+  confetti confirm; shell returned `Command 'godot4' not found`. The CLAUDE.md §Run-it claim
+  of a `godot4` symlink was stale — the recommendation repeated it unverified.
+- **Change:** located the real binary: `/home/chris/godot 4/Godot_v4.6.1-stable_linux.x86_64`
+  (spaced dir name — which also breaks naive `GODOT=[^ ]*` greps). CLAUDE.md §Run-it now
+  records the true quoted path and states no symlink exists. Commit `3af0b49` (unpushed;
+  rides the next session's push).
+- **Measurement:** `file` confirms the executable; `scripts/*.sh` already used the correct
+  spaced path — docs were the only liar.
+- **verdict: PENDING** — Chris's interactive confetti confirm (the thing the command was for):
+  crowns at 40/60/100 m solid vs pale see-through. Wash-out → TS-3 promoted; solid → headless
+  rig flagged for distance judgments.
