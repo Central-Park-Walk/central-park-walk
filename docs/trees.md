@@ -1056,6 +1056,9 @@ flip per-tree to pale sparse mesh trees crossing the 380-400 m band
 The rules that survived the sculptor thread's first 42 work packages. Each was paid for at
 least once; several twice. Raw history: `ledger_archive/2026-08.md`.
 
+**The measured-skeleton lane (TS-10) has a binding design doc: [`qsm_fitter.md`](qsm_fitter.md)** —
+the compiled TreeQSM/AdTree brief, the MEASURED/DERIVED radius boundary, and the fitter's gates.
+
 - **Wood joins are a topology problem, not a parameter.** The bark path for structural wood is
   the curve-bevel join — overlapping beveled Béziers; the viewport tube IS the bifurcating tube.
   Two full radius/weld/shoulder passes (W-14, W-20) failed collars while c/p was already 1.0;

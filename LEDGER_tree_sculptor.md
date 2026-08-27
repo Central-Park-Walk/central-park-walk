@@ -1132,3 +1132,32 @@ All `## Staged lessons` content promoted, merged, or archived; sections emptied 
   TS-10 target. QSM on T99 must deliver measured forks AND measured taper, or TS-10 failed.
 - **verdict: FAIL (Chris) — sculpt stages not tree-shaped. TS-10 is structural necessity,
   not polish. No change to next step: papers, then the fitter.**
+
+## W-44 · 2026-08-27 — TS-10(b): papers read, from-scratch QSM fitter DESIGNED
+- **Classification:** REPRODUCED_DEFECT (design stage — invented topology + invented radii,
+  photo-confirmed by Chris 2026-08-27).
+- **Hypothesis:** TreeQSM (Raumonen 2013) + AdTree (Du 2019) name the mechanism that recovers
+  measured forks and measured taper from a leaf-on TLS cloud, and reading them changes the
+  fitter design vs drafting blind. **Held:** they are opposite poles — TreeQSM measures radii
+  everywhere but is gap-fragile (AdTree Fig 15 shows it dropping limbs); AdTree's graph
+  skeleton bridges gaps but measures ONLY the trunk radius and derives the rest by allometry
+  (their Eq. 8 = exactly our invented-radius defect). Neither is adoptable alone; the design
+  is a hybrid with an explicit MEASURED/DERIVED boundary.
+- **Change:** no mesh. Both papers read in full (figures + appendix pseudocode; PDFs →
+  `tmp/tree_sculpt/papers/`, fetched via res.mdpi.com — www.mdpi.com Akamai-blocks curl).
+  **`docs/qsm_fitter.md` written** — binding design: geodesic level-set skeleton on a kNN
+  graph (forks = bin-component adjacency, outputs not parameters) · cylinder-LSQ radii with
+  TreeQSM sanity rails · wood/leaf by structure-tensor linearity + trunk-connected growth ·
+  measured floor Ø ≥ 0.12 m (3 voxels; TreeQSM's <3 cm warning scaled), below it DERIVED and
+  labeled · gates G0 (synthetic null before T99) / G1 (contact-sheet look) / G2 (taper + DBH).
+  One tuned ratio (paper scales ×4 for 0.04 m voxels) = the pipe-model transfer test on T36.
+  Pointer added to `docs/trees.md` §10.
+- **Open checks from W-43, resolved:** ash-check T99 **PASS** (Zenodo has no species table;
+  morphology decides — Hardy ash was ~10–15 m, T99 is 28.9 m × 37.6 m pendulous spreader).
+  Wood/leaf call = D3 (structure tensor). Outlier strip = designed (ball-count, rescaled),
+  implementation rides TS-10(c).
+- **Measurement:** none run — design unit. Score: n/a (no deliverable gate touched; the
+  sculpt FAIL stands until (c) lands a fitted armature).
+- **Deliverable:** `docs/qsm_fitter.md`.
+- **Git:** committed this session (SHA in commit `Work-Package: W-44`).
+- **Status:** done — next unit is TS-10(c) stage 1–3 (load + wood/leaf + skeleton, G0/G1).
