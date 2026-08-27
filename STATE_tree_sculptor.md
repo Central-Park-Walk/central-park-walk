@@ -1,17 +1,22 @@
-# STATE — cpw / tree-sculptor · updated 2026-08-25 (post W-42 + TS-1 verdict)
+# STATE — cpw / tree-sculptor · updated 2026-08-27 (post ledger distill)
 
 **Target:** Blender sculptor → game-ready London-plane GLBs.
 
 ## What just changed
-**TS-1 verdict (Chris):** the repaired overlay is a "roughly ok" trace of the
-mesh — but the comparison itself is uninformative while sculpt and photo
-"have nothing to do with each other." Overlay lane **PARKED** (instrument
-kept for later, when sculpt and reference are close enough to difference).
-**Chris endorsed the TLS+QSM route → `TS-10` is NEXT.**
-Also this session (W-42): **from-scratch principle** canonized in
-`CLAUDE.md` §Taste (`01a6fec`) — never buy others' solutions; grass + sky
-marked NOT done; representation call = mesh models ≥1 yr, splats deferred
-(watch: splat-baked mid LOD vs card-confetti, ~6 mo).
+**2026-08-27 (maintenance):** first `/distill` of this ledger — 17 staged
+lessons promoted to **`docs/trees.md` §10 (sculptor canon)**: joins are
+topology (curve-bevel, never weld/radius params) · sprig is the unit, fill =
+coverage-along-hosts, overdraw bounds FPS · habit gate + plate bar ·
+skeleton is measured, never hand-authored · tripwires gate only pinned
+invariants. W-34's Inkscape-authority lesson deleted as superseded. Raw →
+`ledger_archive/2026-08.md`. All pending commits pushed. Commit `d9993d6`.
+**Read §10 before the next unit of work — it replaces re-reading the ledger.**
+
+Prior (2026-08-25): TS-1 overlay lane **PARKED** on Chris's verdict
+(comparison uninformative at current divergence; instrument kept).
+**Chris endorsed the TLS+QSM route → `TS-10` is NEXT.** From-scratch
+principle canonized in `CLAUDE.md` §Taste (`01a6fec`); grass + sky NOT done;
+mesh models ≥1 yr, splats deferred (watch ~6 mo).
 
 ## Where we are
 Compile = `build_curve_bevel_bark`. Habit = `shape_fit.py`. Overlay
@@ -31,10 +36,9 @@ veteran **141768** / **17040** / 710.
   open TLS/photogrammetry point cloud of a real *Platanus × acerifolia*
   exists (open forestry datasets; prior art = TreeQSM/AdTree papers — read,
   don't adopt); (b) from-scratch QSM skeleton-fitter; (c) fitted skeleton →
-  sculpt armature. From-scratch principle applies: data and papers in,
-  bought/borrowed solutions out.
-- `TS-1` habit · PARKED with instrument intact; resume differencing only
-  once a TS-10-armatured sculpt is within shouting distance of reference.
+  sculpt armature. Data and papers in, bought/borrowed solutions out.
+- `TS-1` habit · PARKED; resume differencing once a TS-10-armatured sculpt
+  is within shouting distance of reference.
 - `KB-1` exam assembly · queued (exemplars + fault-injection + Chris fault
   lists + Qwen-VL; roster Fable 5/Opus 5/Qwen-VL).
 - `TS-7` crotches PASS · `TS-6` garden shipped · `TS-9` elbows deferred ·
@@ -47,5 +51,5 @@ veteran **141768** / **17040** / 710.
 > Gate 1 is existence: find one usable open scan before writing any fitter.
 
 ## Look at
-Nothing new — no renders this session. The parked overlay sheet stays at
-`tmp/tree_sculpt/habit_refs/overlay_contact_sheet.png` for the record.
+`docs/trees.md` §10 — the new sculptor canon; verdict PENDING is whether it
+reads as YOUR canon. No renders this session (maintenance only).

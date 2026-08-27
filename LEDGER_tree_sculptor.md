@@ -1064,3 +1064,15 @@ All `## Staged lessons` content promoted, merged, or archived; sections emptied 
 - **Tier 0:** unchanged, 0 bytes — the two Tier-0-adjacent lessons were already canon
   (`lessons_validate_on_the_deliverable.md`; CLAUDE.md §1 outputs-not-parameters).
 - **Raw + full disposition table:** `ledger_archive/2026-08.md`.
+## 2026-08-27 (maintenance) — /distill executed on THIS ledger · commit `d9993d6`
+- **Hypothesis (maintenance, no build):** the 16 staged-lessons sections (W-1…W-42, never
+  distilled) contain durable canon that a future session needs without reading 94 KB of ledger.
+- **Change:** no code, no mesh. 17 lessons → `docs/trees.md` §10 (sculptor canon: joins=topology ·
+  sprig=unit/coverage-fill/overdraw · habit gate + plate bar · measured-not-hand-authored
+  skeleton · tripwire scope) + 2 Blender traps → memory `lessons_technical.md`. W-34's
+  Inkscape-authority lesson DELETED as superseded (W-35 ban). Raw + disposition table →
+  `ledger_archive/2026-08.md`; staged sections emptied in place. Also pushed the 5 pending
+  tree-sculptor commits (`279c924…8f7d2b1`).
+- **Measurement:** 16/16 sections verified emptied; Tier-0 audit CLEAN (+0 bytes).
+- **Git:** `d9993d6` (this repo) + memory commit in `~/.claude`.
+- **verdict: PENDING** — Chris to spot-check `docs/trees.md` §10 reads as HIS canon.
